@@ -154,7 +154,7 @@ static int netdev_batadv_post_create_message(NetDev *netdev, sd_netlink_message 
 }
 
 static int netdev_batadv_post_create(NetDev *netdev, Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL;
         int r;
 
         assert(netdev);

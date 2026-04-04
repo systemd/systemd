@@ -140,7 +140,7 @@ static int request_new(
                 request_netlink_handler_t netlink_handler,
                 Request **ret) {
 
-        _cleanup_(request_unrefp) Request *req = NULL;
+        _cleanup_unref(request) Request *req = NULL;
         Request *existing;
         int r;
 
@@ -297,8 +297,8 @@ int manager_process_requests(Manager *manager) {
                         break;
 
                 /* Avoid the request and link freed by req->process() and request_detach(). */
-                _unused_ _cleanup_(request_unrefp) Request *req_unref = request_ref(req);
-                _cleanup_(link_unrefp) Link *link = link_ref(req->link);
+                _unused_ _cleanup_unref(request) Request *req_unref = request_ref(req);
+                _cleanup_unref(link) Link *link = link_ref(req->link);
 
                 assert(req->process);
                 r = req->process(req, link, req->userdata);
@@ -437,7 +437,7 @@ int remove_request_add(
                 sd_netlink_message *message,
                 remove_request_netlink_handler_t netlink_handler) {
 
-        _cleanup_(remove_request_freep) RemoveRequest *req = NULL;
+        _cleanup_free(remove_request) RemoveRequest *req = NULL;
         int r;
 
         assert(manager);
@@ -493,7 +493,7 @@ int manager_process_remove_requests(Manager *manager) {
                                 remove_request_destroy_callback,
                                 req);
                 if (r < 0) {
-                        _cleanup_(link_unrefp) Link *link = link_ref(req->link);
+                        _cleanup_unref(link) Link *link = link_ref(req->link);
 
                         log_link_warning_errno(link, r, "Failed to call netlink message: %m");
 

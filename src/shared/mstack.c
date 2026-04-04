@@ -138,7 +138,7 @@ static int mstack_load_one(MStack *mstack, const char *dir, int dir_fd, const ch
                                 .architecture = _ARCHITECTURE_INVALID,
                         };
 
-                        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                        _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
                         r = path_pick(dir, dir_fd, fname, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE, &result);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to resolve '%s' directory: %m", fname);
@@ -527,7 +527,7 @@ int mstack_open_images(
 
         assert(mstack);
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *_vl = NULL;
         if (userns_fd >= 0 && !mountfsd_link) {
                 /* User a single connection for all mounts */
                 r = mountfsd_connect(&_vl);
@@ -573,8 +573,8 @@ int mstack_open_images(
                                 if (r < 0)
                                         return r;
                         } else {
-                                _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-                                _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+                                _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
+                                _cleanup_unref(dissected_image) DissectedImage *dissected_image = NULL;
 
                                 r = loop_device_make_by_path_at(
                                                 m->what_fd,
@@ -587,7 +587,7 @@ int mstack_open_images(
                                 if (r < 0)
                                         return log_debug_errno(r, "Failed to allocate loopback device for '%s': %m", m->what);
 
-                                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+                                _cleanup_done(verity_settings) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
                                 r = dissect_loop_device_and_warn(
                                                 loop_device,
                                                 &verity,
@@ -1094,7 +1094,7 @@ int mstack_apply(
 
         assert(where);
 
-        _cleanup_(mstack_done) MStack mstack = MSTACK_INIT;
+        _cleanup_done(mstack) MStack mstack = MSTACK_INIT;
         r = mstack_load_now(&mstack, dir, dir_fd, flags);
         if (r < 0)
                 return r;
@@ -1130,7 +1130,7 @@ int mstack_load(const char *dir, int dir_fd, MStack **ret) {
          *     -EBADMSG  → Bad file suffix, inode type for layer, or unrecognized entry
          */
 
-        _cleanup_(mstack_freep) MStack *mstack = new(MStack, 1);
+        _cleanup_free(mstack) MStack *mstack = new(MStack, 1);
         if (!mstack)
                 return -ENOMEM;
 

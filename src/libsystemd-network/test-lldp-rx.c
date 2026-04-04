@@ -366,7 +366,7 @@ static void test_receive_oui_vlanid_packet(sd_event *e) {
         sd_lldp_rx *lldp_rx;
         sd_lldp_neighbor **neighbors;
         sd_json_variant *v;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *neighbor_json = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *neighbor_json = NULL;
         static const uint8_t frame[] = {
                 /* Ethernet header */
                 0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
@@ -418,7 +418,7 @@ static void test_receive_oui_vlanid_packet(sd_event *e) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
 
         test_setup_logging(LOG_DEBUG);
 

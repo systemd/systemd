@@ -63,7 +63,7 @@ TEST(rereadpt) {
 
         ASSERT_OK_ERRNO(ftruncate(fd, 100 * 1024 * 1024));
 
-        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop = NULL;
         r = loop_device_make(
                         fd,
                         O_RDWR,

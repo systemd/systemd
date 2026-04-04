@@ -73,7 +73,7 @@ static void context_merge_config(
 }
 
 static int context_read_creds(Context *c) {
-        _cleanup_(context_done) Context v = {};
+        _cleanup_done(context) Context v = {};
         int r;
 
         assert(c);
@@ -92,7 +92,7 @@ static int context_read_creds(Context *c) {
 }
 
 static int context_read_env(Context *c) {
-        _cleanup_(context_done) Context v = {};
+        _cleanup_done(context) Context v = {};
         int r;
 
         assert(c);
@@ -115,7 +115,7 @@ static int context_read_env(Context *c) {
 }
 
 static int context_read_proc_cmdline(Context *c) {
-        _cleanup_(context_done) Context v = {}, w = {};
+        _cleanup_done(context) Context v = {}, w = {};
         int r;
 
         assert(c);
@@ -297,7 +297,7 @@ static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
                 log_debug("Executing \"%s\"...", strnull(cmd));
         }
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(loadkeys)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pidref);
         if (r < 0)
                 return r;
@@ -362,7 +362,7 @@ static int font_load_and_wait(const char *vc, Context *c) {
                 log_debug("Executing \"%s\"...", strnull(cmd));
         }
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(setfont)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pidref);
         if (r < 0)
                 return r;
@@ -613,7 +613,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
 }
 
 static int run(int argc, char **argv) {
-        _cleanup_(context_done) Context c = {};
+        _cleanup_done(context) Context c = {};
         _cleanup_free_ char *vc = NULL;
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         bool utf8;

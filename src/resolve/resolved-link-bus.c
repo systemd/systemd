@@ -665,8 +665,8 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_set_free_ Set *ns = NULL;
-        _cleanup_strv_free_ char **ntas = NULL;
+        _cleanup_free(set) Set *ns = NULL;
+        _cleanup_free(strv) char **ntas = NULL;
         _cleanup_free_ char *j = NULL;
         Link *l = ASSERT_PTR(userdata);
         int r;
@@ -805,7 +805,7 @@ char* link_bus_path(const Link *link) {
 }
 
 static int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Link *link;
         unsigned c = 0;

@@ -39,8 +39,8 @@ static int show_installation_targets_client_side(const char *name) {
 }
 
 static int show_installation_targets(sd_bus *bus, const char *name) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *link;
         int r;
 
@@ -66,7 +66,7 @@ static int show_installation_targets(sd_bus *bus, const char *name) {
 }
 
 int verb_is_enabled(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         bool not_found = true, enabled = false;
         int r;
 
@@ -107,7 +107,7 @@ int verb_is_enabled(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         }
                 }
         else {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
@@ -115,7 +115,7 @@ int verb_is_enabled(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         return r;
 
                 STRV_FOREACH(name, names) {
-                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
                         const char *s;
 
                         r = bus_call_method(bus, bus_systemd_mgr, "GetUnitFileState", &error, &reply, "s", *name);

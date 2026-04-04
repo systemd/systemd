@@ -122,7 +122,7 @@ static int set_show_status(const char *value) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to systemd: %m");
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         r = bus_call_method(bus, bus_systemd_mgr, "SetShowStatus", &error, /* ret_reply= */ NULL, "s", value);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue SetShowStatus() method call: %s", bus_error_message(&error, r));
@@ -320,7 +320,7 @@ static int vl_method_mute(
 }
 
 static int vl_server(void) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *varlink_server = NULL;
         int r;
 
         /* Invocation as Varlink service */
@@ -372,7 +372,7 @@ static int run(int argc, char* argv[]) {
                 .saved_kernel = -1,
         };
 
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         r = sd_event_new(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to get default event source: %m");

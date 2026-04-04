@@ -314,7 +314,7 @@ static int device_coldplug(Unit *u) {
                  * syspath field is only serialized when systemd is sufficiently new and the device has been
                  * already processed by udevd. */
                 if (d->deserialized_sysfs) {
-                        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                        _cleanup_unref(sd_device) sd_device *dev = NULL;
 
                         if (sd_device_new_from_syspath(&dev, d->deserialized_sysfs) < 0)
                                 state = DEVICE_DEAD;
@@ -542,7 +542,7 @@ static int device_update_description(Unit *u, sd_device *dev, const char *path) 
 
 static int device_add_udev_wants(Unit *u, sd_device *dev) {
         Device *d = ASSERT_PTR(DEVICE(u));
-        _cleanup_strv_free_ char **added = NULL;
+        _cleanup_free(strv) char **added = NULL;
         const char *wants, *property;
         int r;
 
@@ -607,7 +607,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                  * We do this only if the device has been up already when we parse this, as otherwise the usual
                  * dependency logic that is run from the dead → plugged transition will trigger these deps. */
                 STRV_FOREACH(i, added) {
-                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                         if (strv_contains(d->wants_property, *i)) {
                                 Unit *v;
@@ -661,7 +661,7 @@ static void device_upgrade_mount_deps(Unit *u) {
 }
 
 static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool main, Set **units) {
-        _cleanup_(unit_freep) Unit *new_unit = NULL;
+        _cleanup_free(unit) Unit *new_unit = NULL;
         _cleanup_free_ char *e = NULL;
         const char *sysfs = NULL;
         Unit *u;
@@ -784,7 +784,7 @@ static bool device_is_ready(sd_device *dev) {
 }
 
 static int device_setup_devlink_unit_one(Manager *m, const char *devlink, Set **ready_units, Set **not_ready_units) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         Unit *u;
 
         assert(m);
@@ -811,7 +811,7 @@ static int device_setup_devlink_unit_one(Manager *m, const char *devlink, Set **
 }
 
 static int device_setup_extra_units(Manager *m, sd_device *dev, Set **ready_units, Set **not_ready_units) {
-        _cleanup_strv_free_ char **aliases = NULL;
+        _cleanup_free(strv) char **aliases = NULL;
         const char *syspath, *devname = NULL;
         Device *l;
         int r;
@@ -898,7 +898,7 @@ static int device_setup_extra_units(Manager *m, sd_device *dev, Set **ready_unit
 }
 
 static int device_setup_units(Manager *m, sd_device *dev, Set **ret_ready_units, Set **ret_not_ready_units) {
-        _cleanup_set_free_ Set *ready_units = NULL, *not_ready_units = NULL;
+        _cleanup_free(set) Set *ready_units = NULL, *not_ready_units = NULL;
         const char *syspath, *devname = NULL;
         int r;
 
@@ -989,7 +989,7 @@ static Unit *device_following(Unit *u) {
 
 static int device_following_set(Unit *u, Set **ret) {
         Device *d = ASSERT_PTR(DEVICE(u));
-        _cleanup_set_free_ Set *set = NULL;
+        _cleanup_free(set) Set *set = NULL;
         int r;
 
         assert(ret);
@@ -1027,7 +1027,7 @@ static void device_shutdown(Manager *m) {
 }
 
 static void device_enumerate(Manager *m) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         int r;
 
         assert(m);
@@ -1071,7 +1071,7 @@ static void device_enumerate(Manager *m) {
         }
 
         FOREACH_DEVICE(e, dev) {
-                _cleanup_set_free_ Set *ready_units = NULL, *not_ready_units = NULL;
+                _cleanup_free(set) Set *ready_units = NULL, *not_ready_units = NULL;
                 const char *syspath;
                 bool processed;
                 Device *d;
@@ -1194,7 +1194,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
          * change events */
         ready = device_is_ready(dev);
 
-        _cleanup_set_free_ Set *ready_units = NULL, *not_ready_units = NULL;
+        _cleanup_free(set) Set *ready_units = NULL, *not_ready_units = NULL;
         (void) device_setup_units(m, dev, &ready_units, &not_ready_units);
 
         if (action == SD_DEVICE_REMOVE) {
@@ -1255,7 +1255,7 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
          * and unset individual bits in a single call, while merging partially with previous state. */
 
         if ((found & mask) != 0) {
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                _cleanup_unref(sd_device) sd_device *dev = NULL;
 
                 /* If the device is known in the kernel and newly appeared, then we'll create a device unit for it,
                  * under the name referenced in /proc/swaps or /proc/self/mountinfo. But first, let's validate if

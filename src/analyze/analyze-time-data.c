@@ -59,7 +59,7 @@ int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
                 { "SoftRebootsCount",                         "t", NULL, offsetof(BootTimes, soft_reboots_count)            },
                 {},
         };
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         static BootTimes times;
         static bool cached = false;
         int r;
@@ -142,7 +142,7 @@ int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
 }
 
 static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *interface, const char *property, uint64_t *val) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -166,7 +166,7 @@ static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *in
 }
 
 int pretty_boot_time(sd_bus *bus, char **ret) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL, *unit_id = NULL, *text = NULL;
         usec_t activated_time = USEC_INFINITY;
         BootTimes *t;
@@ -289,8 +289,8 @@ int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out) {
                 { "Upholds",                         "as", NULL, offsetof(UnitTimes, deps[UNIT_UPHOLDS])   },
                 {},
         };
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(unit_times_free_arrayp) UnitTimes *unit_times = NULL;
         BootTimes *boot_times;
         size_t c = 0;

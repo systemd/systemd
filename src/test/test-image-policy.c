@@ -60,7 +60,7 @@ static void test_policy_string(const char *t) {
 }
 
 static void test_policy_equiv(const char *s, bool (*func)(const ImagePolicy *p)) {
-        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+        _cleanup_free(image_policy) ImagePolicy *p = NULL;
 
         assert_se(image_policy_from_string(s, /* graceful= */ false, &p) >= 0);
 
@@ -143,7 +143,7 @@ TEST(extend) {
 }
 
 static void test_policy_intersect_one(const char *a, const char *b, const char *c, bool intersect) {
-        _cleanup_(image_policy_freep) ImagePolicy *x = NULL, *y = NULL, *z = NULL, *t = NULL;
+        _cleanup_free(image_policy) ImagePolicy *x = NULL, *y = NULL, *z = NULL, *t = NULL;
 
         assert_se(image_policy_from_string(a, /* graceful= */ false, &x) >= 0);
         assert_se(image_policy_from_string(b, /* graceful= */ false, &y) >= 0);
@@ -190,7 +190,7 @@ TEST(image_policy_union) {
 }
 
 static void test_policy_ignore_designators_one(const char *a, const PartitionDesignator array[], size_t n, const char *b) {
-        _cleanup_(image_policy_freep) ImagePolicy *x = NULL, *y = NULL, *t = NULL;
+        _cleanup_free(image_policy) ImagePolicy *x = NULL, *y = NULL, *t = NULL;
 
         ASSERT_OK(image_policy_from_string(a, /* graceful= */ false, &x));
         ASSERT_OK(image_policy_from_string(b, /* graceful= */ false, &y));
@@ -217,7 +217,7 @@ TEST(image_policy_ignore_designators) {
 }
 
 TEST(partition_policy_determine_fstype) {
-        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+        _cleanup_free(image_policy) ImagePolicy *p = NULL;
         _cleanup_free_ char *fstype = NULL;
         bool encrypted;
         int r;
@@ -281,7 +281,7 @@ TEST(partition_policy_determine_fstype) {
 }
 
 TEST(image_policy_new_from_dissected) {
-        _cleanup_(image_policy_freep) ImagePolicy *policy = NULL;
+        _cleanup_free(image_policy) ImagePolicy *policy = NULL;
         DissectedImage image;
         VeritySettings verity;
         uint8_t dummy_data[4];

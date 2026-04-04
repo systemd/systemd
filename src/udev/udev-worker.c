@@ -219,7 +219,7 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
 
-        _cleanup_(udev_event_unrefp) UdevEvent *udev_event = udev_event_new(dev, worker, EVENT_UDEV_WORKER);
+        _cleanup_unref(udev_event) UdevEvent *udev_event = udev_event_new(dev, worker, EVENT_UDEV_WORKER);
         if (!udev_event)
                 return -ENOMEM;
         udev_event->trace = worker->config.trace;

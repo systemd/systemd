@@ -1024,7 +1024,7 @@ int dns_scope_make_reply_packet(
                 bool tentative,
                 DnsPacket **ret) {
 
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
         unsigned n_answer = 0, n_soa = 0;
         int r;
         bool c_or_aa;
@@ -1091,8 +1091,8 @@ static void dns_scope_verify_conflicts(DnsScope *s, DnsPacket *p) {
 }
 
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL, *soa = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *reply = NULL;
         DnsResourceKey *key = NULL;
         bool tentative = false;
         int r;
@@ -1244,7 +1244,7 @@ static int dns_scope_make_conflict_packet(
                 DnsResourceRecord *rr,
                 DnsPacket **ret) {
 
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
         int r;
 
         assert(s);
@@ -1295,9 +1295,9 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
         scope->conflict_event_source = sd_event_source_disable_unref(scope->conflict_event_source);
 
         for (;;) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-                _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+                _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+                _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
+                _cleanup_unref(dns_packet) DnsPacket *p = NULL;
 
                 rr = ordered_hashmap_steal_first_key_and_value(scope->conflict_queue, (void**) &key);
                 if (!rr)
@@ -1532,9 +1532,9 @@ static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userda
 }
 
 int dns_scope_announce(DnsScope *scope, bool goodbye) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        _cleanup_set_free_ Set *types = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
+        _cleanup_free(set) Set *types = NULL;
         DnsZoneItem *z;
         unsigned size = 0;
         char *service_type;
@@ -1616,7 +1616,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
 
         /* Since all the active services are in the zone make them discoverable now. */
         SET_FOREACH(service_type, types) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
                 rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
                                                   "_services._dns-sd._udp.local");
@@ -1709,7 +1709,7 @@ int dns_scope_add_dnssd_registered_services(DnsScope *scope) {
 }
 
 int dns_scope_remove_dnssd_registered_services(DnsScope *scope) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
         DnssdRegisteredService *service;
         int r;
 
@@ -1800,7 +1800,7 @@ bool dns_scope_is_default_route(DnsScope *scope) {
 }
 
 int dns_scope_to_json(DnsScope *scope, bool with_cache, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cache = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *cache = NULL;
         int r;
 
         assert(scope);

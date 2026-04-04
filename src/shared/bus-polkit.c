@@ -18,7 +18,7 @@
 #include "varlink-util.h"
 
 static int bus_message_check_good_user(sd_bus_message *m, uid_t good_user) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
         uid_t sender_uid;
         int r;
 
@@ -67,7 +67,7 @@ static int bus_message_new_polkit_auth_call_for_bus(
                 PolkitFlags flags,
                 sd_bus_message **ret) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *c = NULL;
         const char *sender;
         int r;
 
@@ -135,7 +135,7 @@ int bus_test_polkit(
         }
 
 #if ENABLE_POLKIT
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *request = NULL, *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *request = NULL, *reply = NULL;
         int authorized = false, challenge = false;
 
         r = bus_message_new_polkit_auth_call_for_bus(call, action, details, /* flags= */ 0, &request);
@@ -268,7 +268,7 @@ static int async_polkit_defer(sd_event_source *s, void *userdata) {
 }
 
 static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
-        _cleanup_(async_polkit_query_action_freep) AsyncPolkitQueryAction *a = NULL;
+        _cleanup_free(async_polkit_query_action) AsyncPolkitQueryAction *a = NULL;
         int authorized, challenge, r;
 
         assert(reply);
@@ -556,7 +556,7 @@ int bus_verify_polkit_async_full(
                 return r;
 
 #if ENABLE_POLKIT
-        _cleanup_(async_polkit_query_unrefp) AsyncPolkitQuery *q = NULL;
+        _cleanup_unref(async_polkit_query) AsyncPolkitQuery *q = NULL;
 
         q = async_polkit_query_ref(hashmap_get(*registry, call));
         /* This is a repeated invocation of this function, hence let's check if we've already got
@@ -586,7 +586,7 @@ int bus_verify_polkit_async_full(
         if (c > 0)
                 flags |= POLKIT_ALLOW_INTERACTIVE;
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *pk = NULL;
         r = bus_message_new_polkit_auth_call_for_bus(call, action, details, flags, &pk);
         if (r < 0)
                 return r;
@@ -675,8 +675,8 @@ static int bus_message_new_polkit_auth_call_for_varlink(
                 PolkitFlags flags,
                 sd_bus_message **ret) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *c = NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert(bus);
@@ -728,7 +728,7 @@ static int bus_message_new_polkit_auth_call_for_varlink(
 }
 
 static bool varlink_allow_interactive_authentication(sd_varlink *link) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(link);
@@ -787,13 +787,13 @@ int varlink_verify_polkit_async_full(
 #if ENABLE_POLKIT
         }
 
-        _cleanup_(async_polkit_query_unrefp) AsyncPolkitQuery *q = NULL;
+        _cleanup_unref(async_polkit_query) AsyncPolkitQuery *q = NULL;
 
         q = async_polkit_query_ref(hashmap_get(*registry, link));
         /* This is a repeated invocation of this function, hence let's check if we've already got
          * a response from polkit for this action */
         if (q) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 r = async_polkit_query_check_action(q, action, details, flags, &error);
                 if (r != 0)
                         log_debug("Found matching previous polkit authentication for '%s'.", action);
@@ -812,7 +812,7 @@ int varlink_verify_polkit_async_full(
                         return r;
         }
 
-        _cleanup_(sd_bus_unrefp) sd_bus *mybus = NULL;
+        _cleanup_unref(sd_bus) sd_bus *mybus = NULL;
         if (!bus) {
                 r = sd_bus_open_system(&mybus);
                 if (r < 0)
@@ -828,7 +828,7 @@ int varlink_verify_polkit_async_full(
         if (varlink_allow_interactive_authentication(link))
                 flags |= POLKIT_ALLOW_INTERACTIVE;
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *pk = NULL;
         r = bus_message_new_polkit_auth_call_for_varlink(bus, link, action, details, flags, &pk);
         if (r < 0)
                 return r;

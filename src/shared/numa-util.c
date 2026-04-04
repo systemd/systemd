@@ -90,7 +90,7 @@ int apply_numa_policy(const NUMAPolicy *policy) {
 }
 
 int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
-        _cleanup_(cpu_set_done) CPUSet s = {};
+        _cleanup_done(cpu_set) CPUSet s = {};
         int r;
 
         assert(policy);
@@ -109,7 +109,7 @@ int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
                 if (r < 0)
                         return r;
 
-                _cleanup_(cpu_set_done) CPUSet part = {};
+                _cleanup_done(cpu_set) CPUSet part = {};
                 r = parse_cpu_set(l, &part);
                 if (r < 0)
                         return r;

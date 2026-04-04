@@ -150,7 +150,7 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
 }
 
 static int unit_deserialize_job(Unit *u, FILE *f) {
-        _cleanup_(job_freep) Job *j = NULL;
+        _cleanup_free(job) Job *j = NULL;
         int r;
 
         assert(u);
@@ -450,7 +450,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         char *t;
         const char *prefix2;
         Unit *following;
-        _cleanup_set_free_ Set *following_set = NULL;
+        _cleanup_free(set) Set *following_set = NULL;
         CGroupMask m;
         int r;
 

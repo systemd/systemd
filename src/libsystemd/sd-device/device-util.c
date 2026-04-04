@@ -8,7 +8,7 @@
 #include "strv.h"
 
 int devname_from_devnum(mode_t mode, dev_t devnum, char **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         const char *devname;
         int r;
 
@@ -34,7 +34,7 @@ int devname_from_stat_rdev(const struct stat *st, char **ret) {
 }
 
 int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret_devname) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -85,7 +85,7 @@ static int add_string_field(
 }
 
 char** device_make_log_fields(sd_device *device) {
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_free(strv) char **strv = NULL;
         dev_t devnum;
         int ifindex;
         sd_device_action_t action;

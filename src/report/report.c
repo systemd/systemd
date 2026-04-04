@@ -284,7 +284,7 @@ finish:
 }
 
 static int call_collect(Context *context, const char *name, const char *path) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         int r;
 
         assert(context);
@@ -312,7 +312,7 @@ static int call_collect(Context *context, const char *name, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to issue %s() call: %m", method);
 
-        _cleanup_(link_info_freep) LinkInfo *li = new(LinkInfo, 1);
+        _cleanup_free(link_info) LinkInfo *li = new(LinkInfo, 1);
         if (!li)
                 return log_oom();
 
@@ -338,7 +338,7 @@ static int output_collected_list(Context *context, Table **ret) {
 
         assert(context);
 
-        _cleanup_(table_unrefp) Table *table = table_new("family", "object", "fields", "value");
+        _cleanup_unref(table) Table *table = table_new("family", "object", "fields", "value");
         if (!table)
                 return log_oom();
 
@@ -392,7 +392,7 @@ static int output_collected_describe(Context *context, Table **ret) {
 
         assert(context);
 
-        _cleanup_(table_unrefp) Table *table = table_new("family", "type", "description");
+        _cleanup_unref(table) Table *table = table_new("family", "type", "description");
         if (!table)
                 return log_oom();
 
@@ -443,7 +443,7 @@ static int facts_output_list(Context *context, Table **ret) {
 
         assert(context);
 
-        _cleanup_(table_unrefp) Table *table = table_new("family", "object", "value");
+        _cleanup_unref(table) Table *table = table_new("family", "object", "value");
         if (!table)
                 return log_oom();
 
@@ -494,7 +494,7 @@ static int facts_output_describe(Context *context, Table **ret) {
 
         assert(context);
 
-        _cleanup_(table_unrefp) Table *table = table_new("family", "description");
+        _cleanup_unref(table) Table *table = table_new("family", "description");
         if (!table)
                 return log_oom();
 
@@ -565,7 +565,7 @@ static int output_collected(Context *context) {
                 return 0;
         }
 
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         switch(context->action) {
 
         case ACTION_LIST_METRICS:
@@ -719,7 +719,7 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
         if (r < 0)
                 return r;
 
-        _cleanup_(context_done) Context context = {
+        _cleanup_done(context) Context context = {
                 .action = action,
         };
         size_t n_skipped_sources = 0;
@@ -799,7 +799,7 @@ static int verb_facts(int argc, char *argv[], uintptr_t data, void *userdata) {
         if (r < 0)
                 return r;
 
-        _cleanup_(context_done) Context context = {
+        _cleanup_done(context) Context context = {
                 .action = action,
         };
         size_t n_skipped_sources = 0;
@@ -867,7 +867,7 @@ static int verb_facts(int argc, char *argv[], uintptr_t data, void *userdata) {
 static int verb_list_sources(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
-        _cleanup_(table_unrefp) Table *table = table_new("source", "address");
+        _cleanup_unref(table) Table *table = table_new("source", "address");
         if (!table)
                 return log_oom();
 

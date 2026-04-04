@@ -44,9 +44,9 @@ int allocate_scope(
                 char **properties,
                 bool allow_pidfd) {
 
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *w = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL, *m = NULL;
         _cleanup_free_ char *description = NULL;
         const char *object;
         int r;
@@ -153,7 +153,7 @@ int allocate_scope(
 }
 
 int terminate_scope(sd_bus *bus, const char *scope) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = bus_call_method(bus, bus_systemd_mgr, "AbandonScope", &error, /* ret_reply= */ NULL, "s", scope);

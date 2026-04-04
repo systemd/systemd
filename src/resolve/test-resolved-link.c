@@ -21,7 +21,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(LinkAddress*, link_address_free);
 
 TEST(link_new) {
         Manager manager = {};
-        _cleanup_(link_freep) Link *link = NULL;
+        _cleanup_free(link) Link *link = NULL;
 
         ASSERT_OK(link_new(&manager, &link, 1));
         ASSERT_NOT_NULL(link);
@@ -33,9 +33,9 @@ TEST(link_new) {
 
 TEST(link_process_rtnl) {
         Manager manager = {};
-        _cleanup_(link_freep) Link *link = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *msg = NULL;
+        _cleanup_free(link) Link *link = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *nl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *msg = NULL;
 
         ASSERT_OK(link_new(&manager, &link, 1));
         ASSERT_NOT_NULL(link);
@@ -56,8 +56,8 @@ TEST(link_process_rtnl) {
 
 TEST(link_relevant) {
         Manager manager = {};
-        _cleanup_(link_freep) Link *link = NULL;
-        _cleanup_(link_address_freep) LinkAddress *address = NULL;
+        _cleanup_free(link) Link *link = NULL;
+        _cleanup_free(link_address) LinkAddress *address = NULL;
 
         ASSERT_OK(link_new(&manager, &link, 1));
         ASSERT_NOT_NULL(link);
@@ -106,8 +106,8 @@ TEST(link_relevant) {
 
 TEST(link_find_address) {
         Manager manager = {};
-        _cleanup_(link_freep) Link *link = NULL;
-        _cleanup_(link_address_freep) LinkAddress *v4addr = NULL, *v6addr = NULL, *ret_addr = NULL;
+        _cleanup_free(link) Link *link = NULL;
+        _cleanup_free(link_address) LinkAddress *v4addr = NULL, *v6addr = NULL, *ret_addr = NULL;
 
         union in_addr_union ipv4 = { .in.s_addr = htobe32(0xc0a84301) };
         union in_addr_union ipv6 = { .in6.s6_addr = { 0xf2, 0x34, 0x32, 0x2e, 0xb8, 0x25, 0x38, 0x35, 0x2f, 0xd7, 0xdb, 0x7b, 0x28, 0x7e, 0x60, 0xbb } };

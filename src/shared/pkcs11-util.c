@@ -59,7 +59,7 @@ DLSYM_PROTOTYPE(p11_kit_uri_new) = NULL;
 DLSYM_PROTOTYPE(p11_kit_uri_parse) = NULL;
 
 int uri_from_string(const char *p, P11KitUri **ret) {
-        _cleanup_(p11_kit_uri_freep) P11KitUri *uri = NULL;
+        _cleanup_free(p11_kit_uri) P11KitUri *uri = NULL;
         int r;
 
         assert(p);
@@ -275,7 +275,7 @@ int pkcs11_token_login(
                 char **ret_used_pin) {
 
         _cleanup_free_ char *token_uri_string = NULL, *token_uri_escaped = NULL, *id = NULL, *token_label = NULL;
-        _cleanup_(p11_kit_uri_freep) P11KitUri *token_uri = NULL;
+        _cleanup_free(p11_kit_uri) P11KitUri *token_uri = NULL;
         CK_TOKEN_INFO updated_token_info;
         int uri_result, r;
         CK_RV rv;
@@ -404,7 +404,7 @@ static int read_public_key_info(
                 EVP_PKEY **ret_pkey) {
 
         CK_ATTRIBUTE attribute = { CKA_PUBLIC_KEY_INFO, NULL_PTR, 0 };
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey = NULL;
         CK_RV rv;
 
         rv = m->C_GetAttributeValue(session, object, &attribute, 1);
@@ -441,7 +441,7 @@ int pkcs11_token_read_public_key(
                 CK_OBJECT_HANDLE object,
                 EVP_PKEY **ret_pkey) {
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey = NULL;
         CK_RV rv;
         int r;
 
@@ -535,8 +535,8 @@ int pkcs11_token_read_public_key(
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                 "Failed to get attributes of an EC public key: %s", sym_p11_kit_strerror(rv));
 
-                _cleanup_(EC_GROUP_freep) EC_GROUP *group = NULL;
-                _cleanup_(ASN1_OCTET_STRING_freep) ASN1_OCTET_STRING *os = NULL;
+                _cleanup_free(EC_GROUP) EC_GROUP *group = NULL;
+                _cleanup_free(ASN1_OCTET_STRING) ASN1_OCTET_STRING *os = NULL;
 
                 const unsigned char *ec_params_value = ec_attributes[0].pValue;
                 group = d2i_ECPKParameters(NULL, &ec_params_value, ec_attributes[0].ulValueLen);
@@ -548,7 +548,7 @@ int pkcs11_token_read_public_key(
                 if (!os)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode CKA_EC_POINT.");
 
-                _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
+                _cleanup_free(EVP_PKEY_CTX) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
                 if (!ctx)
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to create an EVP_PKEY_CTX for EC.");
 
@@ -573,19 +573,19 @@ int pkcs11_token_read_public_key(
 
                         const BIGNUM *bn_order = EC_GROUP_get0_order(group);
 
-                        _cleanup_(BN_CTX_freep) BN_CTX *bnctx = BN_CTX_new();
+                        _cleanup_free(BN_CTX) BN_CTX *bnctx = BN_CTX_new();
                         if (!bnctx)
                                 return log_oom_debug();
 
-                        _cleanup_(BN_freep) BIGNUM *bn_p = BN_new();
+                        _cleanup_free(BN) BIGNUM *bn_p = BN_new();
                         if (!bn_p)
                                 return log_oom_debug();
 
-                        _cleanup_(BN_freep) BIGNUM *bn_a = BN_new();
+                        _cleanup_free(BN) BIGNUM *bn_a = BN_new();
                         if (!bn_a)
                                 return log_oom_debug();
 
-                        _cleanup_(BN_freep) BIGNUM *bn_b = BN_new();
+                        _cleanup_free(BN) BIGNUM *bn_b = BN_new();
                         if (!bn_b)
                                 return log_oom_debug();
 
@@ -664,7 +664,7 @@ int pkcs11_token_read_x509_certificate(
                 .type = CKA_VALUE
         };
         CK_RV rv;
-        _cleanup_(X509_freep) X509 *x509 = NULL;
+        _cleanup_free(X509) X509 *x509 = NULL;
         X509_NAME *name = NULL;
         int r;
 
@@ -993,9 +993,9 @@ static int ecc_convert_to_compressed(
                                 "Failed to retrieve CKA_EC_PARAMS from a public key: %s", sym_p11_kit_strerror(rv));
         }
 
-        _cleanup_(EC_GROUP_freep) EC_GROUP *group = NULL;
-        _cleanup_(EC_POINT_freep) EC_POINT *point = NULL;
-        _cleanup_(BN_CTX_freep) BN_CTX *bnctx = NULL;
+        _cleanup_free(EC_GROUP) EC_GROUP *group = NULL;
+        _cleanup_free(EC_POINT) EC_POINT *point = NULL;
+        _cleanup_free(BN_CTX) BN_CTX *bnctx = NULL;
         _cleanup_free_ void *compressed_point = NULL;
         size_t compressed_point_size;
 
@@ -1312,7 +1312,7 @@ static int slot_process(
                 pkcs11_find_token_callback_t callback,
                 void *userdata) {
 
-        _cleanup_(p11_kit_uri_freep) P11KitUri* slot_uri = NULL, *token_uri = NULL;
+        _cleanup_free(p11_kit_uri) P11KitUri* slot_uri = NULL, *token_uri = NULL;
         _cleanup_free_ char *token_uri_string = NULL;
         CK_TOKEN_INFO token_info;
         CK_SLOT_INFO slot_info;
@@ -1392,7 +1392,7 @@ static int module_process(
                 pkcs11_find_token_callback_t callback,
                 void *userdata) {
 
-        _cleanup_(p11_kit_uri_freep) P11KitUri* module_uri = NULL;
+        _cleanup_free(p11_kit_uri) P11KitUri* module_uri = NULL;
         _cleanup_free_ char *name = NULL, *module_uri_string = NULL;
         _cleanup_free_ CK_SLOT_ID *slotids = NULL;
         CK_ULONG n_slotids = 0;
@@ -1465,7 +1465,7 @@ int pkcs11_find_token(
                 void *userdata) {
 
         _cleanup_(p11_kit_modules_finalize_and_releasep) CK_FUNCTION_LIST **modules = NULL;
-        _cleanup_(p11_kit_uri_freep) P11KitUri *search_uri = NULL;
+        _cleanup_free(p11_kit_uri) P11KitUri *search_uri = NULL;
         int r;
 
         r = dlopen_p11kit();
@@ -1521,7 +1521,7 @@ static int pkcs11_acquire_public_key_callback(
                 void *userdata) {
 
         _cleanup_(erase_and_freep) char *pin_used = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey = NULL;
         CK_OBJECT_CLASS class;
         CK_CERTIFICATE_TYPE type;
         CK_ATTRIBUTE candidate_attributes[] = {
@@ -1654,7 +1654,7 @@ static int pkcs11_acquire_public_key_callback(
                 return log_error_errno(r, "Failed to read a found public key.");
 
         {
-                _cleanup_(X509_freep) X509 *cert = NULL;
+                _cleanup_free(X509) X509 *cert = NULL;
 
                 r = pkcs11_token_read_x509_certificate(m, session, certificate, &cert);
                 if (r < 0)
@@ -1720,7 +1720,7 @@ static int list_callback(
                 void *userdata) {
 
         _cleanup_free_ char *token_uri_string = NULL, *token_label = NULL, *token_manufacturer_id = NULL, *token_model = NULL;
-        _cleanup_(p11_kit_uri_freep) P11KitUri *token_uri = NULL;
+        _cleanup_free(p11_kit_uri) P11KitUri *token_uri = NULL;
         Table *t = userdata;
         int uri_result, r;
 
@@ -1805,7 +1805,7 @@ int dlopen_p11kit(void) {
 
 int pkcs11_list_tokens(void) {
 #if HAVE_P11KIT
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         int r;
 
         t = table_new("uri", "label", "manufacturer", "model");
@@ -1838,7 +1838,7 @@ static int auto_callback(
                 P11KitUri *uri,
                 void *userdata) {
 
-        _cleanup_(p11_kit_uri_freep) P11KitUri *token_uri = NULL;
+        _cleanup_free(p11_kit_uri) P11KitUri *token_uri = NULL;
         char **t = userdata;
         int uri_result, r;
 

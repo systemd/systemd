@@ -85,7 +85,7 @@ int parse_luks2_fido2_data(
         size_t cid_size = 0, salt_size = 0;
         _cleanup_free_ char *rp = NULL;
         int r;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         sd_json_variant *w;
         Fido2EnrollFlags required = 0;
 

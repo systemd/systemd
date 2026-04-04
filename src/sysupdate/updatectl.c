@@ -110,7 +110,7 @@ static Operation* operation_new(
                 const char *target_path,
                 const char *target_id) {
 
-        _cleanup_(operation_freep) Operation *o = NULL;
+        _cleanup_free(operation) Operation *o = NULL;
 
         o = new(Operation, 1);
         if (!o)
@@ -128,9 +128,9 @@ static Operation* operation_new(
 }
 
 static int ensure_targets(sd_bus *bus, char **argv, char ***ret_targets) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **targets = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(strv) char **targets = NULL;
         int r;
 
         assert(bus);
@@ -222,8 +222,8 @@ static int parse_targets(
                 size_t *ret_n,
                 char ***ret_bus_paths,
                 char ***ret_versions) {
-        _cleanup_strv_free_ char **bus_paths = NULL;
-        _cleanup_strv_free_ char **versions = NULL;
+        _cleanup_free(strv) char **bus_paths = NULL;
+        _cleanup_free(strv) char **versions = NULL;
         size_t n = 0;
         int r;
 
@@ -284,9 +284,9 @@ static int log_bus_error(int r, const sd_bus_error *error, const char *target, c
 }
 
 static int list_targets(sd_bus *bus) {
-        _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **targets = NULL, **target_paths = NULL;
+        _cleanup_unref(table) Table *table = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(strv) char **targets = NULL, **target_paths = NULL;
         size_t n;
         int r;
 
@@ -307,7 +307,7 @@ static int list_targets(sd_bus *bus) {
         for (size_t i = 0; i < n; i++) {
                 char *version = NULL;
                 _cleanup_free_ char *path = NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
 
                 r = sd_bus_call_method(bus, bus_sysupdate_mgr->destination,
                                        target_paths[i], SYSUPDATE_TARGET_INTERFACE,
@@ -357,7 +357,7 @@ static void describe_params_done(DescribeParams *p) {
 
 static int parse_describe(sd_bus_message *reply, Version *ret) {
         char *version_json = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
         int r;
 
         assert(reply);
@@ -388,7 +388,7 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
                 {},
         };
 
-        _cleanup_(describe_params_done) DescribeParams p = {};
+        _cleanup_done(describe_params) DescribeParams p = {};
 
         r = sd_json_dispatch(json, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
@@ -412,10 +412,10 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
 }
 
 static int list_versions_finished(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
-        _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
+        _cleanup_free(operation) Operation *op = ASSERT_PTR(userdata);
         Table *table = ASSERT_PTR(op->userdata);
         const sd_bus_error *e;
-        _cleanup_(version_done) Version v = {};
+        _cleanup_done(version) Version v = {};
         _cleanup_free_ char *version_link = NULL;
         const char *color;
         int r;
@@ -453,11 +453,11 @@ static int list_versions_finished(sd_bus_message *reply, void *userdata, sd_bus_
 }
 
 static int list_versions(sd_bus *bus, const char *target_path) {
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **versions = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
+        _cleanup_unref(table) Table *table = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(strv) char **versions = NULL;
         unsigned remaining = 0;
         int r;
 
@@ -498,7 +498,7 @@ static int list_versions(sd_bus *bus, const char *target_path) {
                 return log_error_errno(r, "Failed to set up interrupt handler: %m");
 
         STRV_FOREACH(version, versions) {
-                _cleanup_(operation_freep) Operation *op = NULL;
+                _cleanup_free(operation) Operation *op = NULL;
                 op = operation_new(table, bus, &remaining, NULL, NULL);
                 if (!op)
                         return log_oom();
@@ -529,11 +529,11 @@ static int list_versions(sd_bus *bus, const char *target_path) {
 }
 
 static int describe(sd_bus *bus, const char *target_path, const char *version) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-        _cleanup_(version_done) Version v = {};
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(table) Table *table = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
+        _cleanup_done(version) Version v = {};
         sd_json_variant *entry;
         const char *color;
         int r;
@@ -663,9 +663,9 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int check_describe_finished(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
-        _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
+        _cleanup_free(operation) Operation *op = ASSERT_PTR(userdata);
         Table *table = ASSERT_PTR(op->userdata);
-        _cleanup_(version_done) Version v = {};
+        _cleanup_done(version) Version v = {};
         _cleanup_free_ char *update = NULL;
         const sd_bus_error *e;
         sd_bus_error error = {};
@@ -719,7 +719,7 @@ static int check_describe_finished(sd_bus_message *reply, void *userdata, sd_bus
 }
 
 static int check_finished(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
-        _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
+        _cleanup_free(operation) Operation *op = ASSERT_PTR(userdata);
         const sd_bus_error *e;
         const char *new_version = NULL;
         int r;
@@ -757,9 +757,9 @@ static int check_finished(sd_bus_message *reply, void *userdata, sd_bus_error *r
 
 static int verb_check(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
-        _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_strv_free_ char **targets = NULL, **target_paths = NULL;
+        _cleanup_unref(table) Table *table = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
+        _cleanup_free(strv) char **targets = NULL, **target_paths = NULL;
         size_t n;
         unsigned remaining = 0;
         int r;
@@ -791,7 +791,7 @@ static int verb_check(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(r, "Failed to set up interrupt handler: %m");
 
         for (size_t i = 0; i < n; i++) {
-                _cleanup_(operation_freep) Operation *op = NULL;
+                _cleanup_free(operation) Operation *op = NULL;
                 op = operation_new(table, bus, &remaining, target_paths[i], targets[i]);
                 if (!op)
                         return log_oom();
@@ -939,7 +939,7 @@ static int update_properties_changed(sd_bus_message *m, void *userdata, sd_bus_e
 }
 
 static int update_install_started(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
-        _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
+        _cleanup_free(operation) Operation *op = ASSERT_PTR(userdata);
         OrderedHashmap *map = ASSERT_PTR(op->userdata);
         const sd_bus_error *e;
         const char *job_path;
@@ -992,7 +992,7 @@ static int update_install_started(sd_bus_message *reply, void *userdata, sd_bus_
 }
 
 static int update_install_finished(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
+        _cleanup_free(operation) Operation *op = ASSERT_PTR(userdata);
         OrderedHashmap *map = ASSERT_PTR(op->userdata);
         uint64_t id;
         int r, status;
@@ -1023,7 +1023,7 @@ static int update_install_finished(sd_bus_message *m, void *userdata, sd_bus_err
 }
 
 static int update_acquire_finished(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
+        _cleanup_free(operation) Operation *op = ASSERT_PTR(userdata);
         OrderedHashmap *map = ASSERT_PTR(op->userdata);
         uint64_t id;
         int r, status;
@@ -1083,8 +1083,8 @@ static int update_acquire_finished(sd_bus_message *m, void *userdata, sd_bus_err
 static int update_interrupted(sd_event_source *source, void *userdata) {
         /* Since the event loop is exiting, we will never receive the JobRemoved
          * signal. So, we must free the userdata here. */
-        _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(operation) Operation *op = ASSERT_PTR(userdata);
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         OrderedHashmap *map = ASSERT_PTR(op->userdata);
         int r;
 
@@ -1109,7 +1109,7 @@ static int update_interrupted(sd_event_source *source, void *userdata) {
 }
 
 static int update_acquire_started(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
-        _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
+        _cleanup_free(operation) Operation *op = ASSERT_PTR(userdata);
         OrderedHashmap *map = ASSERT_PTR(op->userdata);
         const sd_bus_error *e;
         _cleanup_free_ char *key = NULL;
@@ -1190,10 +1190,10 @@ static int update_acquire_started(sd_bus_message *reply, void *userdata, sd_bus_
 }
 
 static int do_update(sd_bus *bus, char **targets) {
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *render_exit = NULL;
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *map = NULL;
-        _cleanup_strv_free_ char **versions = NULL, **target_paths = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *render_exit = NULL;
+        _cleanup_free(ordered_hashmap) OrderedHashmap *map = NULL;
+        _cleanup_free(strv) char **versions = NULL, **target_paths = NULL;
         size_t n;
         unsigned remaining = 0;
         void *p;
@@ -1224,7 +1224,7 @@ static int do_update(sd_bus *bus, char **targets) {
                 return log_error_errno(r, "Failed to set up interrupt handler: %m");
 
         for (size_t i = 0; i < n; i++) {
-                _cleanup_(operation_freep) Operation *op = NULL;
+                _cleanup_free(operation) Operation *op = NULL;
                 op = operation_new(map, bus, &remaining, target_paths[i], targets[i]);
                 if (!op)
                         return log_oom();
@@ -1293,7 +1293,7 @@ static int do_update(sd_bus *bus, char **targets) {
 
 static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **targets = NULL;
+        _cleanup_free(strv) char **targets = NULL;
         bool did_anything = false;
         int r;
 
@@ -1318,8 +1318,8 @@ static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) 
 }
 
 static int do_vacuum(sd_bus *bus, const char *target, const char *path) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         uint32_t count, disabled;
         int r;
 
@@ -1346,7 +1346,7 @@ static int do_vacuum(sd_bus *bus, const char *target, const char *path) {
 
 static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **targets = NULL, **target_paths = NULL;
+        _cleanup_free(strv) char **targets = NULL, **target_paths = NULL;
         size_t n;
         int r;
 
@@ -1383,10 +1383,10 @@ static void feature_done(Feature *f) {
 }
 
 static int describe_feature(sd_bus *bus, const char *feature, Feature *ret) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(feature_done) Feature f = {};
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_done(feature) Feature f = {};
         char *json;
         int r;
 
@@ -1433,10 +1433,10 @@ static int describe_feature(sd_bus *bus, const char *feature, Feature *ret) {
 }
 
 static int list_features(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **features = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(strv) char **features = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         assert(bus);
@@ -1462,7 +1462,7 @@ static int list_features(sd_bus *bus) {
                 return bus_log_parse_error(r);
 
         STRV_FOREACH(feature, features) {
-                _cleanup_(feature_done) Feature f = {};
+                _cleanup_done(feature) Feature f = {};
                 _cleanup_free_ char *name_link = NULL;
 
                 r = describe_feature(bus, *feature, &f);
@@ -1490,8 +1490,8 @@ static int list_features(sd_bus *bus) {
 
 static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
-        _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_(feature_done) Feature f = {};
+        _cleanup_unref(table) Table *table = NULL;
+        _cleanup_done(feature) Feature f = {};
         int r;
 
         if (argc == 1)
@@ -1547,7 +1547,7 @@ static int verb_enable(int argc, char *argv[], uintptr_t _data, void *userdata) 
         features = strv_skip(argv, 1);
 
         STRV_FOREACH(feature, features) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 r = sd_bus_call_method(bus,
                                        bus_sysupdate_mgr->destination,
@@ -1568,8 +1568,8 @@ static int verb_enable(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 return 0;
 
         if (enable) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
                 _cleanup_free_ char *target = NULL;
                 char *version = NULL;
 

@@ -708,10 +708,10 @@ int config_parse_dhcp_send_option(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *opt4 = NULL;
-        _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *opt6 = NULL;
-        _unused_ _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *old4 = NULL;
-        _unused_ _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *old6 = NULL;
+        _cleanup_unref(sd_dhcp_option) sd_dhcp_option *opt4 = NULL;
+        _cleanup_unref(sd_dhcp6_option) sd_dhcp6_option *opt6 = NULL;
+        _unused_ _cleanup_unref(sd_dhcp_option) sd_dhcp_option *old4 = NULL;
+        _unused_ _cleanup_unref(sd_dhcp6_option) sd_dhcp6_option *old6 = NULL;
         uint32_t uint32_data, enterprise_identifier = 0;
         _cleanup_free_ char *word = NULL, *q = NULL;
         OrderedHashmap **options = ASSERT_PTR(data);

@@ -56,7 +56,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(print, Print);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *lookup_keys = NULL, *output = NULL;
+        _cleanup_unref(table) Table *lookup_keys = NULL, *output = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-vpick", "1", &link);
@@ -237,7 +237,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to make path '%s' absolute: %m", *i);
 
-                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
                 r = path_pick(/* toplevel_path= */ NULL,
                               /* toplevel_fd= */ AT_FDCWD,
                               p,
@@ -305,7 +305,7 @@ static int run(int argc, char *argv[]) {
                         break;
 
                 case PRINT_ALL: {
-                        _cleanup_(table_unrefp) Table *t = NULL;
+                        _cleanup_unref(table) Table *t = NULL;
 
                         t = table_new_vertical();
                         if (!t)

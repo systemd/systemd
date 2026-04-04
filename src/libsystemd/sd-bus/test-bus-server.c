@@ -36,7 +36,7 @@ static int _server(struct context *c) {
         ASSERT_OK(sd_bus_start(bus));
 
         while (!quit) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
 
                 r = sd_bus_process(bus, &m);
                 if (r < 0)
@@ -79,9 +79,9 @@ static void* server(void *p) {
 }
 
 static int client(struct context *c) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_unref(sd_bus) sd_bus *bus = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
         ASSERT_OK(sd_bus_new(&bus));
         ASSERT_OK(sd_bus_set_fd(bus, c->fds[1], c->fds[1]));

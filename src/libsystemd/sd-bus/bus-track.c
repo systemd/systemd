@@ -204,7 +204,7 @@ static int name_owner_changed_install_callback(sd_bus_message *message, void *us
 }
 
 _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
-        _cleanup_(track_item_unrefp) BusTrackItem *n = NULL;
+        _cleanup_unref(track_item) BusTrackItem *n = NULL;
         BusTrackItem *i;
         const char *match;
         int r;

@@ -11,7 +11,7 @@
 #include "verb-log-control.h"
 
 int verb_log_control_common(sd_bus *bus, const char *destination, const char *verb, const char *value) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool level = endswith(verb, "log-level");
         const BusLocator bloc = {
                 .destination = destination,

@@ -24,7 +24,7 @@ static struct bind_iface_bpf *bind_iface_bpf_free(struct bind_iface_bpf *obj) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct bind_iface_bpf *, bind_iface_bpf_free);
 
 int bpf_bind_network_interface_supported(void) {
-        _cleanup_(bind_iface_bpf_freep) struct bind_iface_bpf *obj = NULL;
+        _cleanup_free(bind_iface_bpf) struct bind_iface_bpf *obj = NULL;
         static int supported = -1;
         int r;
 
@@ -50,9 +50,9 @@ int bpf_bind_network_interface_supported(void) {
 }
 
 static int bind_network_interface_install_impl(Unit *u, CGroupRuntime *crt) {
-        _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
-        _cleanup_(bind_iface_bpf_freep) struct bind_iface_bpf *obj = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_free(bpf_link) struct bpf_link *link = NULL;
+        _cleanup_free(bind_iface_bpf) struct bind_iface_bpf *obj = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         _cleanup_free_ char *cgroup_path = NULL;
         _cleanup_close_ int cgroup_fd = -EBADF;
         int r, ifindex;

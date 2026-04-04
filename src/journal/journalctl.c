@@ -333,7 +333,7 @@ static int help(void) {
 }
 
 static int vl_server(void) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *varlink_server = NULL;
         int r;
 
         r = varlink_server_new(&varlink_server, /* flags= */ 0, /* userdata= */ NULL);
@@ -1042,7 +1042,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_OUTPUT_FIELDS: {
-                        _cleanup_strv_free_ char **v = NULL;
+                        _cleanup_free(strv) char **v = NULL;
 
                         v = strv_split(optarg, ",");
                         if (!v)
@@ -1150,9 +1150,9 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_free(strv) char **args = NULL;
         int r;
 
         setlocale(LC_ALL, "");

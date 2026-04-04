@@ -326,7 +326,7 @@ static int property_get_load_error(
                 void *userdata,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error e = SD_BUS_ERROR_NULL;
         Unit *u = ASSERT_PTR(userdata);
         int r;
 
@@ -1215,7 +1215,7 @@ static int property_get_cpuset_cpus(
                 sd_bus_error *reterr_error) {
 
         Unit *u = ASSERT_PTR(userdata);
-        _cleanup_(cpu_set_done) CPUSet cpus = {};
+        _cleanup_done(cpu_set) CPUSet cpus = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
@@ -1237,7 +1237,7 @@ static int property_get_cpuset_mems(
                 sd_bus_error *reterr_error) {
 
         Unit *u = ASSERT_PTR(userdata);
-        _cleanup_(cpu_set_done) CPUSet mems = {};
+        _cleanup_done(cpu_set) CPUSet mems = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
@@ -1383,7 +1383,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                 return r;
 
         for (;;) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
                 /* libvirt / qemu uses threaded mode and cgroup.procs cannot be read at the lower levels.
                  * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads, “cgroup.procs” in a
@@ -1440,8 +1440,8 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
 }
 
 int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_set_free_ Set *pids = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(set) Set *pids = NULL;
         Unit *u = userdata;
         int r;
 
@@ -1560,8 +1560,8 @@ static int property_get_effective_limit(
 
 int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         Unit *u = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        _cleanup_set_free_ Set *pids = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
+        _cleanup_free(set) Set *pids = NULL;
         const char *path;
         int r;
 
@@ -1614,7 +1614,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
         for (;;) {
-                _cleanup_(pidref_freep) PidRef *pidref = NULL;
+                _cleanup_free(pidref) PidRef *pidref = NULL;
                 uint32_t upid;
 
                 r = sd_bus_message_read(message, "u", &upid);
@@ -1624,7 +1624,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                         break;
 
                 if (upid == 0) {
-                        _cleanup_(pidref_done) PidRef p = PIDREF_NULL;
+                        _cleanup_done(pidref) PidRef p = PIDREF_NULL;
                         r = bus_creds_get_pidref(creds, &p);
                         if (r < 0)
                                 return r;
@@ -1710,7 +1710,7 @@ int bus_unit_method_remove_subgroup(sd_bus_message *message, void *userdata, sd_
         if (!path_is_normalized(path))
                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Control group path is not normalized: %s", path);
 
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
         if (r < 0)
                 return r;
@@ -1782,7 +1782,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
 };
 
 static int send_new_signal(sd_bus *bus, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Unit *u = ASSERT_PTR(userdata);
         int r;
@@ -1881,7 +1881,7 @@ void bus_unit_send_pending_change_signal(Unit *u, bool including_new) {
 }
 
 int bus_unit_send_pending_freezer_message(Unit *u, bool canceled) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(u);
@@ -1910,7 +1910,7 @@ int bus_unit_send_pending_freezer_message(Unit *u, bool canceled) {
 }
 
 static int send_removed_signal(sd_bus *bus, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Unit *u = ASSERT_PTR(userdata);
         int r;
@@ -1961,7 +1961,7 @@ int bus_unit_queue_job_one(
                 sd_bus_message *reply,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_set_free_ Set *affected = NULL;
+        _cleanup_free(set) Set *affected = NULL;
         _cleanup_free_ char *job_path = NULL, *unit_path = NULL;
         Job *j, *a;
         int r;
@@ -2053,7 +2053,7 @@ int bus_unit_queue_job(
                 BusUnitQueueFlags flags,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(message);
@@ -2396,7 +2396,7 @@ static int bus_unit_set_transient_property(
                 return bus_set_transient_conditions(u, name, &u->asserts, false, message, flags, reterr_error);
 
         if (streq(name, "Documentation")) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
@@ -2463,7 +2463,7 @@ static int bus_unit_set_transient_property(
         }
 
         if (STR_IN_SET(name, "RequiresMountsFor", "WantsMountsFor")) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)

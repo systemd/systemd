@@ -63,7 +63,7 @@ static void test_config_parse_unsigned_one(const char *rvalue, unsigned expected
 }
 
 static void test_config_parse_strv_one(const char *rvalue, bool filter_duplicates, char **expected) {
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_free(strv) char **strv = NULL;
 
         ASSERT_OK(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", filter_duplicates, rvalue, &strv, NULL));
         ASSERT_TRUE(strv_equal(expected, strv));
@@ -431,7 +431,7 @@ TEST(config_parse_standard_file_with_dropins_full) {
                                        "E=eee", WRITE_STRING_FILE_CREATE) == 0);
 
         _cleanup_free_ char *A = NULL, *B = NULL, *C = NULL, *D = NULL, *E = NULL, *F = NULL;
-        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free(strv) char **dropins = NULL;
 
         const ConfigTableItem items[] = {
                 { NULL, "A",  config_parse_string,   0, &A},

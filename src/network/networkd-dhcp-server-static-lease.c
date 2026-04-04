@@ -43,8 +43,8 @@ static int dhcp_static_lease_new(DHCPStaticLease **ret) {
 }
 
 static int lease_new_static(Network *network, const char *filename, unsigned section_line, DHCPStaticLease **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(dhcp_static_lease_freep) DHCPStaticLease *static_lease = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_free(dhcp_static_lease) DHCPStaticLease *static_lease = NULL;
         int r;
 
         assert(network);

@@ -123,7 +123,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_filter, image_filter_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *commands = NULL;
+        _cleanup_unref(table) Table *options = NULL, *commands = NULL;
         int r;
 
         pager_open(arg_pager_flags);
@@ -193,7 +193,7 @@ static int parse_image_path_argument(const char *path, char **ret_root, char **r
         /* If we got a sysfs path (e.g. from a udev-instantiated template unit's %f specifier),
          * resolve it to the corresponding devnode. */
         if (path_startswith(p, "/sys/")) {
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                _cleanup_unref(sd_device) sd_device *dev = NULL;
                 const char *devname;
 
                 r = sd_device_new_from_syspath(&dev, p);
@@ -288,7 +288,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("root-hash", "HASH", "Specify root hash for verity"): {}
                 OPTION_LONG("usr-hash", "HASH", "Same, but for the usr partition"): {
-                        _cleanup_(iovec_done) struct iovec roothash = {};
+                        _cleanup_done(iovec) struct iovec roothash = {};
 
                         PartitionDesignator d = streq(current->long_code, "root-hash") ? PARTITION_ROOT : PARTITION_USR;
                         if (arg_verity_settings.designator >= 0 &&
@@ -315,7 +315,7 @@ static int parse_argv(int argc, char *argv[]) {
                             "prefixed by 'base64:'"): {}
                 OPTION_LONG("usr-hash-sig", "SIG", "Same, but for the usr partition"): {
                         const char *value;
-                        _cleanup_(iovec_done) struct iovec sig = {};
+                        _cleanup_done(iovec) struct iovec sig = {};
 
                         PartitionDesignator d = streq(current->long_code, "root-hash-sig") ? PARTITION_ROOT : PARTITION_USR;
                         if (arg_verity_settings.designator >= 0 &&
@@ -419,7 +419,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("image-filter", "FILTER", "Specify image dissection filter"): {
-                        _cleanup_(image_filter_freep) ImageFilter *f = NULL;
+                        _cleanup_free(image_filter) ImageFilter *f = NULL;
                         r = image_filter_parse(arg, &f);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse image filter expression: %s", arg);
@@ -834,7 +834,7 @@ static void strv_pair_print(char **l, const char *prefix) {
 }
 
 static int get_extension_scopes(DissectedImage *m, ImageClass class, char ***ret_scopes) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         const char *e, *field_name;
         char **release_data;
 
@@ -883,8 +883,8 @@ static int action_dissect(
                 LoopDevice *d,
                 int userns_fd) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         _cleanup_free_ char *bn = NULL;
         uint64_t size = UINT64_MAX;
         int r;
@@ -974,7 +974,7 @@ static int action_dissect(
 
                 for (ImageClass c = _IMAGE_CLASS_EXTENSION_FIRST; c <= _IMAGE_CLASS_EXTENSION_LAST; c++) {
                         const char *string_class = image_class_to_string(c);
-                        _cleanup_strv_free_ char **extension_scopes = NULL;
+                        _cleanup_free(strv) char **extension_scopes = NULL;
 
                         r = get_extension_scopes(m, c, &extension_scopes);
                         if (r < 0)
@@ -990,7 +990,7 @@ static int action_dissect(
 
                 putc('\n', stdout);
         } else {
-                _cleanup_strv_free_ char **sysext_scopes = NULL, **confext_scopes = NULL;
+                _cleanup_free(strv) char **sysext_scopes = NULL, **confext_scopes = NULL;
 
                 r = get_extension_scopes(m, IMAGE_SYSEXT, &sysext_scopes);
                 if (r < 0)
@@ -1109,7 +1109,7 @@ static int action_dissect(
                 if (r < 0)
                         return r;
         } else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *jt = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *jt = NULL;
 
                 r = table_to_json(t, &jt);
                 if (r < 0)
@@ -1614,8 +1614,8 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 static int action_umount(const char *path) {
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *canonical = NULL;
-        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(loop_device) LoopDevice *d = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         int r;
 
         fd = chase_and_open(path, NULL, 0, O_DIRECTORY, &canonical);
@@ -1779,7 +1779,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
 }
 
 static int action_discover(void) {
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_free(hashmap) Hashmap *images = NULL;
         int r;
 
         for (ImageClass cl = 0; cl < _IMAGE_CLASS_MAX; cl++) {
@@ -1793,7 +1793,7 @@ static int action_discover(void) {
                 return 0;
         }
 
-        _cleanup_(table_unrefp) Table *t = table_new("name", "type", "class", "ro", "path", "time", "usage");
+        _cleanup_unref(table) Table *t = table_new("name", "type", "class", "ro", "path", "time", "usage");
         if (!t)
                 return log_oom();
 
@@ -1848,7 +1848,7 @@ static int action_attach(DissectedImage *m, LoopDevice *d) {
 }
 
 static int action_detach(const char *path) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop = NULL;
         _cleanup_close_ int fd = -EBADF;
         struct stat st;
         int r;
@@ -1868,7 +1868,7 @@ static int action_detach(const char *path) {
                         return log_error_errno(r, "Failed to open '%s' as loopback block device: %m", path);
 
         } else if (S_ISREG(st.st_mode)) {
-                _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+                _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
 
                 /* If a regular file is specified, search for a loopback block device that is backed by it */
 
@@ -1887,7 +1887,7 @@ static int action_detach(const char *path) {
                 (void) sd_device_enumerator_allow_uninitialized(e);
 
                 FOREACH_DEVICE(e, d) {
-                        _cleanup_(loop_device_unrefp) LoopDevice *entry_loop = NULL;
+                        _cleanup_unref(loop_device) LoopDevice *entry_loop = NULL;
 
                         r = device_is_devtype(d, "disk");
                         if (r < 0) {
@@ -1956,8 +1956,8 @@ static int action_validate(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
-        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        _cleanup_unref(dissected_image) DissectedImage *m = NULL;
+        _cleanup_unref(loop_device) LoopDevice *d = NULL;
         _cleanup_close_ int userns_fd = -EBADF;
         int r;
 

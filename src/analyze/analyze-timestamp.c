@@ -10,7 +10,7 @@
 #include "time-util.h"
 
 static int test_timestamp_one(const char *p) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         TableCell *cell;
         usec_t usec;
         int r;

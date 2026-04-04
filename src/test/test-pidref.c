@@ -29,7 +29,7 @@ TEST(pidref_equal) {
 }
 
 TEST(pidref_set_pid) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         r = pidref_set_pid(&pidref, 1);
@@ -42,7 +42,7 @@ TEST(pidref_set_pid) {
 }
 
 TEST(pidref_set_self) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
         ASSERT_OK(pidref_set_self(&pidref));
         ASSERT_TRUE(pidref_equal(&pidref, &PIDREF_MAKE_FROM_PID(getpid_cached())));
@@ -50,7 +50,7 @@ TEST(pidref_set_self) {
 }
 
 TEST(pidref_set_pidstr) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         char buf[DECIMAL_STR_MAX(pid_t)];
 
         xsprintf(buf, PID_FMT, getpid_cached());
@@ -60,7 +60,7 @@ TEST(pidref_set_pidstr) {
 }
 
 TEST(pidref_set_pidfd) {
-        _cleanup_(pidref_done) PidRef a = PIDREF_NULL, b = PIDREF_NULL, c = PIDREF_NULL, d = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef a = PIDREF_NULL, b = PIDREF_NULL, c = PIDREF_NULL, d = PIDREF_NULL;
 
         ASSERT_OK(pidref_set_self(&a));
         if (a.fd < 0)
@@ -76,7 +76,7 @@ TEST(pidref_set_pidfd) {
 }
 
 TEST(pidref_is_self) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
         ASSERT_OK(pidref_set_self(&pidref));
         ASSERT_TRUE(pidref_is_self(&pidref));
@@ -88,7 +88,7 @@ TEST(pidref_is_self) {
 }
 
 TEST(pidref_copy) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         ASSERT_OK(pidref_copy(NULL, &pidref));
@@ -109,7 +109,7 @@ TEST(pidref_copy) {
 }
 
 TEST(pidref_dup) {
-        _cleanup_(pidref_freep) PidRef *pidref = NULL;
+        _cleanup_free(pidref) PidRef *pidref = NULL;
         int r;
 
         ASSERT_OK(pidref_dup(NULL, &pidref));
@@ -134,7 +134,7 @@ TEST(pidref_dup) {
 }
 
 TEST(pidref_new_from_pid) {
-        _cleanup_(pidref_freep) PidRef *pidref = NULL;
+        _cleanup_free(pidref) PidRef *pidref = NULL;
         int r;
 
         ASSERT_ERROR(pidref_new_from_pid(-1, &pidref), ESRCH);
@@ -156,7 +156,7 @@ TEST(pidref_new_from_pid) {
 }
 
 TEST(pidref_kill) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         siginfo_t si;
 
         ASSERT_OK_POSITIVE(pidref_safe_fork("(test-pidref-kill)", FORK_DEATHSIG_SIGKILL|FORK_FREEZE, &pidref));
@@ -167,7 +167,7 @@ TEST(pidref_kill) {
 }
 
 TEST(pidref_kill_and_sigcont) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         siginfo_t si;
 
         ASSERT_OK_POSITIVE(pidref_safe_fork("(test-pidref-kill-and-sigcont)", FORK_DEATHSIG_SIGTERM|FORK_FREEZE, &pidref));
@@ -178,7 +178,7 @@ TEST(pidref_kill_and_sigcont) {
 }
 
 TEST(pidref_sigqueue) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         siginfo_t si;
 
         ASSERT_OK_POSITIVE(pidref_safe_fork("(test-pidref-sigqueue)", FORK_DEATHSIG_SIGTERM|FORK_FREEZE, &pidref));
@@ -195,7 +195,7 @@ TEST(pidref_done_sigkill_wait) {
 }
 
 TEST(pidref_verify) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         ASSERT_ERROR(pidref_verify(NULL), ESRCH);

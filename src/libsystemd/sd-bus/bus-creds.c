@@ -147,7 +147,7 @@ sd_bus_creds* bus_creds_new(void) {
 }
 
 static int bus_creds_new_from_pidref(sd_bus_creds **ret, PidRef *pidref, uint64_t mask) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *c = NULL;
         int r;
 
         assert_return(mask <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
@@ -170,7 +170,7 @@ static int bus_creds_new_from_pidref(sd_bus_creds **ret, PidRef *pidref, uint64_
 }
 
 _public_ int sd_bus_creds_new_from_pid(sd_bus_creds **ret, pid_t pid, uint64_t mask) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert_return(pid >= 0, -EINVAL);
@@ -185,7 +185,7 @@ _public_ int sd_bus_creds_new_from_pid(sd_bus_creds **ret, pid_t pid, uint64_t m
 }
 
 _public_ int sd_bus_creds_new_from_pidfd(sd_bus_creds **ret, int pidfd, uint64_t mask) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert_return(mask <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
@@ -798,7 +798,7 @@ static int parse_caps(sd_bus_creds *c, unsigned offset, const char *p) {
 }
 
 int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid) {
-        _cleanup_(pidref_done) PidRef pidref_buf = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref_buf = PIDREF_NULL;
         uint64_t missing;
         int r;
 

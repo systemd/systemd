@@ -261,7 +261,7 @@ static int dump_extra_processes(
                 OutputFlags flags) {
 
         _cleanup_free_ pid_t *pids = NULL;
-        _cleanup_hashmap_free_ Hashmap *names = NULL;
+        _cleanup_free(hashmap) Hashmap *names = NULL;
         struct CGroupInfo *cg;
         size_t n = 0, k;
         int width, r;
@@ -337,7 +337,7 @@ int unit_show_processes(
                 OutputFlags flags,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Hashmap *cgroups = NULL;
         struct CGroupInfo *cg;
         int r;

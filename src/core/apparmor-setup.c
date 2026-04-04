@@ -17,8 +17,8 @@
 
 int mac_apparmor_setup(void) {
 #if HAVE_APPARMOR
-        _cleanup_(aa_policy_cache_unrefp) aa_policy_cache *policy_cache = NULL;
-        _cleanup_(aa_features_unrefp) aa_features *features = NULL;
+        _cleanup_unref(aa_policy_cache) aa_policy_cache *policy_cache = NULL;
+        _cleanup_unref(aa_features) aa_features *features = NULL;
         _cleanup_free_ char *current_profile = NULL, *cache_dir_path = NULL;
         int r;
 

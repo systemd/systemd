@@ -26,7 +26,7 @@ static int do_rotate(JournalFile **f, MMapCache *m, JournalFileFlags file_flags)
 }
 
 int writer_new(RemoteServer *server, Writer **ret) {
-        _cleanup_(writer_unrefp) Writer *w = NULL;
+        _cleanup_unref(writer) Writer *w = NULL;
         int r;
 
         assert(server);

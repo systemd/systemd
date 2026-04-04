@@ -82,7 +82,7 @@ bool coredump_context_is_journald(CoredumpContext *context) {
  * EOF
  */
 static int compose_open_fds(pid_t pid, char **ret) {
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         _cleanup_closedir_ DIR *proc_fd_dir = NULL;
         _cleanup_close_ int proc_fdinfo_fd = -EBADF;
         const char *fddelim = "", *path;
@@ -163,7 +163,7 @@ static int get_process_container_parent_cmdline(PidRef *pid, char** ret_cmdline)
                 return 0;
         }
 
-        _cleanup_(pidref_done) PidRef container_pid = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef container_pid = PIDREF_NULL;
         r = namespace_get_leader(pid, NAMESPACE_MOUNT, &container_pid);
         if (r < 0)
                 return r;
@@ -384,7 +384,7 @@ static int context_parse_one(CoredumpContext *context, MetadataField meta, bool 
                 /* Store this so that we can check whether the core will be forwarded to a container
                  * even when the kernel doesn't provide a pidfd. Can be dropped once baseline is
                  * >= v6.16. */
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
                 r = pidref_set_pidstr(&pidref, s);
                 if (r < 0)
                         return log_error_errno(r, "Failed to initialize pidref from pid %s: %m", s);
@@ -465,7 +465,7 @@ static int context_parse_one(CoredumpContext *context, MetadataField meta, bool 
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse pidfd \"%s\": %m", s);
 
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
                 r = pidref_set_pidfd_consume(&pidref, r);
                 if (r < 0)
                         return log_error_errno(r, "Failed to initialize pidref from pidfd \"%s\": %m", s);

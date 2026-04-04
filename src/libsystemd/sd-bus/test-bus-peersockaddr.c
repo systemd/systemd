@@ -41,7 +41,7 @@ static bool gid_list_same(const gid_t *a, size_t n, const gid_t *b, size_t m) {
 static void* server(void *p) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int listen_fd = PTR_TO_INT(p), fd = -EBADF;
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *c = NULL;
         _cleanup_free_ char *our_comm = NULL;
         sd_id128_t id;
         int r;
@@ -74,7 +74,7 @@ static void* server(void *p) {
 
         int pidfd = -EBADF;
         if (sd_bus_creds_get_pidfd_dup(c, &pidfd) >= 0) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
                 ASSERT_OK(pidref_set_pidfd_take(&pidref, pidfd));
                 ASSERT_TRUE(pidref_is_self(&pidref));
@@ -99,7 +99,7 @@ static void* server(void *p) {
         ASSERT_STREQ(description, "wuffwuff");
 
         for (;;) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 ASSERT_OK(r = sd_bus_process(bus, &m));
 
@@ -119,7 +119,7 @@ static void* server(void *p) {
 
 static void* client(void *p) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         const char *z;
 
         ASSERT_OK(sd_bus_new(&bus));

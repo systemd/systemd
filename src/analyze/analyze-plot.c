@@ -50,7 +50,7 @@ typedef struct HostInfo {
         char *architecture;
 } HostInfo;
 
-static HostInfo *free_host_info(HostInfo *hi) {
+static HostInfo *host_info_free(HostInfo *hi) {
         if (!hi)
                 return NULL;
 
@@ -64,7 +64,7 @@ static HostInfo *free_host_info(HostInfo *hi) {
         return mfree(hi);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(HostInfo *, free_host_info);
+DEFINE_TRIVIAL_CLEANUP_FUNC(HostInfo *, host_info_free);
 
 static int acquire_host_info(sd_bus *bus, HostInfo **hi) {
         static const struct bus_properties_map hostname_map[] = {
@@ -82,9 +82,9 @@ static int acquire_host_info(sd_bus *bus, HostInfo **hi) {
                 {}
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
-        _cleanup_(free_host_infop) HostInfo *host = NULL;
+        _cleanup_free(host_info) HostInfo *host = NULL;
         int r;
 
         host = new0(HostInfo, 1);
@@ -445,7 +445,7 @@ static int show_table(Table *table, const char *word) {
 }
 
 static int produce_plot_as_text(UnitTimes *times, const BootTimes *boot) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         table = table_new("name", "activated", "activating", "time", "deactivated", "deactivating");
@@ -471,7 +471,7 @@ static int produce_plot_as_text(UnitTimes *times, const BootTimes *boot) {
 }
 
 int verb_plot(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(free_host_infop) HostInfo *host = NULL;
+        _cleanup_free(host_info) HostInfo *host = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
         _cleanup_free_ char *pretty_times = NULL;

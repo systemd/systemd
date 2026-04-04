@@ -5,7 +5,7 @@
 #include "tests.h"
 
 TEST(set_steal_first) {
-        _cleanup_ordered_set_free_ OrderedSet *m = NULL;
+        _cleanup_free(ordered_set) OrderedSet *m = NULL;
         int seen[3] = {};
         char *val;
 
@@ -58,7 +58,7 @@ TEST(set_free_with_hash_ops) {
 }
 
 TEST(set_put) {
-        _cleanup_ordered_set_free_ OrderedSet *m = NULL;
+        _cleanup_free(ordered_set) OrderedSet *m = NULL;
         _cleanup_free_ char **t = NULL, *str = NULL;
 
         m = ordered_set_new(&string_hash_ops);
@@ -87,7 +87,7 @@ TEST(set_put) {
 }
 
 TEST(set_put_string_set) {
-        _cleanup_ordered_set_free_ OrderedSet *m = NULL, *q = NULL;
+        _cleanup_free(ordered_set) OrderedSet *m = NULL, *q = NULL;
         _cleanup_free_ char **final = NULL; /* "just free" because the strings are in the set */
 
         ASSERT_OK_POSITIVE(ordered_set_put_strdup(&m, "1"));

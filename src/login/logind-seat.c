@@ -38,7 +38,7 @@
 #include "user-util.h"
 
 int seat_new(Manager *m, const char *id, Seat **ret) {
-        _cleanup_(seat_freep) Seat *s = NULL;
+        _cleanup_free(seat) Seat *s = NULL;
         int r;
 
         assert(m);
@@ -275,7 +275,7 @@ static int seat_trigger_devices(Seat *s) {
 
         set_clear(s->uevents);
 
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         r = sd_device_enumerator_new(&e);
         if (r < 0)
                 return r;
@@ -331,7 +331,7 @@ static int seat_trigger_devices(Seat *s) {
 static int static_node_acl(Seat *s) {
 #if HAVE_ACL
         int r, ret = 0;
-        _cleanup_set_free_ Set *uids = NULL;
+        _cleanup_free(set) Set *uids = NULL;
 
         assert(s);
 
@@ -370,7 +370,7 @@ static int static_node_acl(Seat *s) {
                         continue;
                 }
 
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                _cleanup_unref(sd_device) sd_device *dev = NULL;
                 r = sd_device_new_from_stat_rdev(&dev, &st);
                 if (r >= 0) {
                         log_device_debug(dev, "'/run/udev/static_node-tags/uaccess/%s' points to a non-static device node, ignoring.", de->d_name);

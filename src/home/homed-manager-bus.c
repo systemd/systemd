@@ -52,7 +52,7 @@ static int property_get_auto_login(
                 return r;
 
         HASHMAP_FOREACH(h, m->homes_by_uid) {
-                _cleanup_strv_free_ char **seats = NULL;
+                _cleanup_free(strv) char **seats = NULL;
                 _cleanup_free_ char *home_path = NULL;
 
                 r = home_auto_login(h, &seats);
@@ -93,7 +93,7 @@ static int lookup_user_name(
         assert(ret);
 
         if (isempty(user_name)) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
                 uid_t uid;
 
                 /* If an empty user name is specified, then identify caller's EUID and find home by that. */
@@ -203,7 +203,7 @@ static int method_list_homes(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Home *h;
         int r;
@@ -380,7 +380,7 @@ static int check_for_conflicts(Manager *m, const char *name, sd_bus_error *error
 }
 
 static int validate_and_allocate_home(Manager *m, UserRecord *hr, Hashmap *blobs, Home **ret, sd_bus_error *error) {
-        _cleanup_(user_record_unrefp) UserRecord *signed_hr = NULL;
+        _cleanup_unref(user_record) UserRecord *signed_hr = NULL;
         bool signed_locally;
         Home *other;
         int r;
@@ -495,9 +495,9 @@ static int method_register_home(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
         Manager *m = ASSERT_PTR(userdata);
-        _cleanup_(home_freep) Home *h = NULL;
+        _cleanup_free(home) Home *h = NULL;
         int r;
 
         assert(message);
@@ -576,8 +576,8 @@ static int method_unregister_home(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static int method_create_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
+        _cleanup_free(hashmap) Hashmap *blobs = NULL;
         uint64_t flags = 0;
         Manager *m = ASSERT_PTR(userdata);
         Home *h;
@@ -655,8 +655,8 @@ static int method_authenticate_home(sd_bus_message *message, void *userdata, sd_
 }
 
 static int method_update_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
+        _cleanup_free(hashmap) Hashmap *blobs = NULL;
         uint64_t flags = 0;
         Manager *m = ASSERT_PTR(userdata);
         Home *h;
@@ -716,7 +716,7 @@ static int method_release_home(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(operation_unrefp) Operation *o = NULL;
+        _cleanup_unref(operation) Operation *o = NULL;
         bool waiting = false;
         Manager *m = ASSERT_PTR(userdata);
         Home *h;
@@ -754,7 +754,7 @@ static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus
 }
 
 static int method_deactivate_all_homes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(operation_unrefp) Operation *o = NULL;
+        _cleanup_unref(operation) Operation *o = NULL;
         bool waiting = false;
         Manager *m = ASSERT_PTR(userdata);
         Home *h;
@@ -814,7 +814,7 @@ static int method_list_signing_keys(sd_bus_message *message, void *userdata, sd_
 
         assert(message);
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
                 return r;
@@ -898,7 +898,7 @@ static int method_get_signing_key(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return log_error_errno(r, "Failed to convert public key to PEM: %m");
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
                 return r;
@@ -983,7 +983,7 @@ static int method_add_signing_key(sd_bus_message *message, void *userdata, sd_bu
         if (r == 0)
                 return 1; /* Will call us back */
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey = NULL;
         r = openssl_pubkey_from_pem(pem, /* pem_size= */ SIZE_MAX, &pkey);
         if (r == -EIO)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key invalid: %s", fn);
@@ -1069,7 +1069,7 @@ static int method_remove_signing_key(sd_bus_message *message, void *userdata, sd
         if (unlink(p) < 0)
                 return log_error_errno(errno, "Failed to remove '%s': %m", p);
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey = NULL;
         _cleanup_free_ char *fn_free = NULL;
         pkey = ASSERT_PTR(hashmap_remove2(m->public_keys, fn, (void**) &fn_free));
 

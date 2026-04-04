@@ -271,7 +271,7 @@ int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 static int method_set_idle_hint(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
         Session *s = ASSERT_PTR(userdata);
         uid_t uid;
         int r, b;
@@ -303,7 +303,7 @@ static int method_set_idle_hint(sd_bus_message *message, void *userdata, sd_bus_
 }
 
 static int method_set_locked_hint(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
         Session *s = ASSERT_PTR(userdata);
         uid_t uid;
         int r, b;
@@ -379,7 +379,7 @@ int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 static int method_take_control(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
         Session *s = ASSERT_PTR(userdata);
         int r, force;
         uid_t uid;
@@ -450,7 +450,7 @@ static int method_set_type(sd_bus_message *message, void *userdata, sd_bus_error
 }
 
 static int method_set_class(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
         Session *s = ASSERT_PTR(userdata);
         SessionClass class;
         const char *c;
@@ -563,7 +563,7 @@ static int method_set_tty(sd_bus_message *message, void *userdata, sd_bus_error 
 static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = ASSERT_PTR(userdata);
         uint32_t major, minor;
-        _cleanup_(session_device_freep) SessionDevice *sd = NULL;
+        _cleanup_free(session_device) SessionDevice *sd = NULL;
         dev_t dev;
         int r;
 
@@ -670,8 +670,8 @@ static int method_pause_device_complete(sd_bus_message *message, void *userdata,
 }
 
 static int method_set_brightness(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         const char *subsystem, *name, *seat;
         Session *s = ASSERT_PTR(userdata);
         uint32_t brightness;
@@ -770,7 +770,7 @@ char* session_bus_path(Session *s) {
 }
 
 static int session_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         sd_bus_message *message;
         Manager *m = userdata;
         Session *session;
@@ -794,7 +794,7 @@ static int session_node_enumerator(sd_bus *bus, const char *path, void *userdata
 
         message = sd_bus_get_current_message(bus);
         if (message) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
                 if (r >= 0) {
@@ -912,7 +912,7 @@ int session_send_create_reply_bus(Session *s, const sd_bus_error *error) {
         /* This is called after the session scope and the user service were successfully created, and
          * finishes where manager_create_session() left off. */
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = TAKE_PTR(s->create_message);
+        _cleanup_unref(sd_bus_message) sd_bus_message *c = TAKE_PTR(s->create_message);
         if (!c)
                 return 0;
 
@@ -952,7 +952,7 @@ int session_send_create_reply_bus(Session *s, const sd_bus_error *error) {
 }
 
 int session_send_upgrade_reply(Session *s, const sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *c = NULL;
         assert(s);
 
         if (!s->upgrade_message)

@@ -95,7 +95,7 @@ TEST(tmpdir) {
 static void test_shareable_ns(unsigned long nsflag) {
         _cleanup_close_pair_ int s[2] = EBADF_PAIR;
         bool permission_denied = false;
-        _cleanup_(pidref_done) PidRef pidref1 = PIDREF_NULL, pidref2 = PIDREF_NULL, pidref3 = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref1 = PIDREF_NULL, pidref2 = PIDREF_NULL, pidref3 = PIDREF_NULL;
         int r, n = 0;
         siginfo_t si;
 
@@ -286,7 +286,7 @@ TEST(process_is_owned_by_uid) {
         int r;
 
         /* Test our own PID */
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pid = PIDREF_NULL;
         ASSERT_OK(pidref_set_self(&pid));
         ASSERT_OK_POSITIVE(process_is_owned_by_uid(&pid, getuid()));
         pidref_done(&pid);
@@ -294,7 +294,7 @@ TEST(process_is_owned_by_uid) {
         if (getuid() != 0)
                 return (void) log_tests_skipped("lacking userns privileges");
 
-        _cleanup_(uid_range_freep) UIDRange *range = NULL;
+        _cleanup_free(uid_range) UIDRange *range = NULL;
         ASSERT_OK(uid_range_load_userns(/* path= */ NULL, UID_RANGE_USERNS_INSIDE, &range));
         if (!uid_range_contains(range, 1))
                 return (void) log_tests_skipped("UID 1 not included in userns UID delegation, skipping test");
@@ -379,32 +379,32 @@ TEST(process_is_owned_by_uid) {
 TEST(namespace_get_leader) {
         int r;
 
-        _cleanup_(pidref_done) PidRef original = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef original = PIDREF_NULL;
         ASSERT_OK(pidref_set_self(&original));
 
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pid = PIDREF_NULL;
         r = pidref_safe_fork("(child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_NEW_MOUNTNS|FORK_WAIT|FORK_LOG, &pid);
         ASSERT_OK(r);
         if (r == 0) {
 
-                _cleanup_(pidref_done) PidRef pid2 = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pid2 = PIDREF_NULL;
                 r = pidref_safe_fork("(child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT|FORK_LOG, &pid2);
                 ASSERT_OK(r);
 
                 if (r == 0) {
                         log_info("PID hierarchy: " PID_FMT " ← " PID_FMT " ← " PID_FMT, original.pid, pid.pid, pid2.pid);
 
-                        _cleanup_(pidref_done) PidRef self = PIDREF_NULL;
+                        _cleanup_done(pidref) PidRef self = PIDREF_NULL;
                         ASSERT_OK(pidref_set_self(&self));
                         ASSERT_TRUE(pidref_equal(&self, &pid2));
 
-                        _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+                        _cleanup_done(pidref) PidRef parent = PIDREF_NULL;
                         ASSERT_OK(pidref_set_parent(&parent));
                         ASSERT_TRUE(pidref_equal(&parent, &pid));
                         ASSERT_TRUE(!pidref_equal(&self, &pid));
                         ASSERT_TRUE(!pidref_equal(&self, &parent));
 
-                        _cleanup_(pidref_done) PidRef grandparent = PIDREF_NULL;
+                        _cleanup_done(pidref) PidRef grandparent = PIDREF_NULL;
                         ASSERT_OK(pidref_get_ppid_as_pidref(&parent, &grandparent));
                         ASSERT_TRUE(pidref_equal(&grandparent, &original));
                         ASSERT_TRUE(!pidref_equal(&grandparent, &self));
@@ -412,7 +412,7 @@ TEST(namespace_get_leader) {
                         ASSERT_TRUE(!pidref_equal(&grandparent, &pid2));
                         ASSERT_TRUE(!pidref_equal(&grandparent, &parent));
 
-                        _cleanup_(pidref_done) PidRef leader = PIDREF_NULL;
+                        _cleanup_done(pidref) PidRef leader = PIDREF_NULL;
                         ASSERT_OK(namespace_get_leader(&self, NAMESPACE_MOUNT, &leader));
                         ASSERT_TRUE(pidref_equal(&parent, &leader));
                         ASSERT_TRUE(pidref_equal(&pid, &leader));

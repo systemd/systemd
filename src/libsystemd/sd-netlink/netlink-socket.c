@@ -249,7 +249,7 @@ static int netlink_queue_received_message(sd_netlink *nl, sd_netlink_message *m)
                 return 0;
 
         if (sd_netlink_message_get_errno(m) < 0) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *old = NULL;
+                _cleanup_unref(sd_netlink_message) sd_netlink_message *old = NULL;
 
                 old = hashmap_remove(nl->rqueue_by_serial, UINT32_TO_PTR(serial));
                 if (old)
@@ -295,7 +295,7 @@ static int netlink_queue_partially_received_message(sd_netlink *nl, sd_netlink_m
 }
 
 static int parse_message_one(sd_netlink *nl, uint32_t group, const struct nlmsghdr *hdr, sd_netlink_message **ret) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         size_t size;
         int r;
 
@@ -383,7 +383,7 @@ int socket_read_message(sd_netlink *nl) {
         }
 
         for (struct nlmsghdr *hdr = nl->rbuffer; NLMSG_OK(hdr, len); hdr = NLMSG_NEXT(hdr, len)) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+                _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
 
                 r = parse_message_one(nl, group, hdr, &m);
                 if (r < 0)
@@ -393,7 +393,7 @@ int socket_read_message(sd_netlink *nl) {
 
                 if (hdr->nlmsg_flags & NLM_F_MULTI) {
                         if (hdr->nlmsg_type == NLMSG_DONE) {
-                                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *existing = NULL;
+                                _cleanup_unref(sd_netlink_message) sd_netlink_message *existing = NULL;
 
                                 /* finished reading multi-part message */
                                 existing = hashmap_remove(nl->rqueue_partial_by_serial, UINT32_TO_PTR(hdr->nlmsg_seq));

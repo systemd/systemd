@@ -16,7 +16,7 @@ int metrics_setup_varlink_server(
                 sd_varlink_method_t vl_method_describe_cb,
                 void *userdata) {
 
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         int r;
 
         assert(server);
@@ -95,7 +95,7 @@ int metrics_method_describe(
                 return r;
 
         for (const MetricFamily *mf = metric_family_table; mf && mf->name; mf++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = metric_family_build_json(mf, &v);
                 if (r < 0)
@@ -168,7 +168,7 @@ static int metric_build_send(MetricFamilyContext *context, const char *object, s
 }
 
 int metric_build_send_string(MetricFamilyContext *context, const char *object, const char *value, sd_json_variant *fields) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(value);
@@ -181,7 +181,7 @@ int metric_build_send_string(MetricFamilyContext *context, const char *object, c
 }
 
 int metric_build_send_unsigned(MetricFamilyContext *context, const char *object, uint64_t value, sd_json_variant *fields) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         r = sd_json_variant_new_unsigned(&v, value);

@@ -257,7 +257,7 @@ EFI_STATUS devicetree_install_from_memory(
                         MAKE_GUID_PTR(EFI_DTB_TABLE), PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
 
-void devicetree_cleanup(struct devicetree_state *state) {
+void devicetree_state_done(struct devicetree_state *state) {
         EFI_STATUS err;
 
         if (!state->pages)

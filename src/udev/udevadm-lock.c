@@ -229,7 +229,7 @@ static int lock_device(
 }
 
 int verb_lock_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_free(fdset) FDSet *fds = NULL;
         _cleanup_free_ dev_t *devnos = NULL;
         size_t n_devnos = 0;
         usec_t deadline;
@@ -290,7 +290,7 @@ int verb_lock_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         /* Ignore SIGINT and allow the forked process to receive it */
         (void) ignore_signals(SIGINT);
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
                         "(lock)",
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG,

@@ -27,7 +27,7 @@ static int manager_make_domain_array(Manager *m, sd_json_variant **ret) {
         assert(m);
         assert(ret);
 
-        _cleanup_(set_freep) Set *domains = NULL;
+        _cleanup_free(set) Set *domains = NULL;
         Link *link;
         HASHMAP_FOREACH(link, m->links_by_index) {
                 if (!link_has_local_lease_domain(link))
@@ -38,7 +38,7 @@ static int manager_make_domain_array(Manager *m, sd_json_variant **ret) {
                         return r;
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         char *s;
         SET_FOREACH(s, domains) {
                 r = sd_json_variant_append_arrayb(&array, SD_JSON_BUILD_STRING(s));
@@ -63,7 +63,7 @@ int manager_notify_hook_filters(Manager *m) {
         if (set_isempty(m->query_filter_subscriptions))
                 return 0;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         r = manager_make_domain_array(m, &array);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate JSON array with machine names: %m");
@@ -86,7 +86,7 @@ static int vl_method_query_filter(
 
         assert(link);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         r = manager_make_domain_array(m, &array);
         if (r < 0)
                 return r;
@@ -123,7 +123,7 @@ static int vl_method_resolve_record(
 
         assert(link);
 
-        _cleanup_(resolve_record_parameters_done) ResolveRecordParameters p = {};
+        _cleanup_done(resolve_record_parameters) ResolveRecordParameters p = {};
         r = sd_varlink_dispatch(link, parameters, resolve_record_parameters_dispatch_table, &p);
         if (r != 0)
                 return r;
@@ -131,7 +131,7 @@ static int vl_method_resolve_record(
         if (dns_question_isempty(p.question))
                 return sd_varlink_error_invalid_parameter_name(link, "question");
 
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         bool found_address = false, found_domain = false;
         DnsResourceKey *key;
         DNS_QUESTION_FOREACH(key, p.question) {
@@ -162,7 +162,7 @@ static int vl_method_resolve_record(
 
                         found_address = true;
 
-                        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
                         r = dns_resource_record_new_address(&rr, AF_INET, (union in_addr_union*) &address, name);
                         if (r < 0)
                                 return r;
@@ -187,7 +187,7 @@ static int vl_method_resolve_record(
                 return sd_varlink_reply(link, /* parameters= */ NULL);
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ja = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *ja = NULL;
         r = dns_answer_to_json(answer, &ja);
         if (r < 0)
                 return r;
@@ -206,7 +206,7 @@ static void on_resolve_hook_disconnect(sd_varlink_server *server, sd_varlink *li
 }
 
 int manager_varlink_init_resolve_hook(Manager *m, int fd) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         _unused_ _cleanup_close_ int fd_close = fd; /* take possession */
         int r;
 

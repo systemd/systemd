@@ -4,7 +4,7 @@
 #include "tests.h"
 
 TEST(image_filter) {
-        _cleanup_(image_filter_freep) ImageFilter *f = NULL;
+        _cleanup_free(image_filter) ImageFilter *f = NULL;
 
         ASSERT_OK(image_filter_parse(NULL, &f));
         ASSERT_NULL(f);

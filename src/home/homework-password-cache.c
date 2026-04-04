@@ -7,7 +7,7 @@
 #include "string-util.h"
 #include "user-record.h"
 
-void password_cache_free(PasswordCache *cache) {
+void password_cache_done(PasswordCache *cache) {
         if (!cache)
                 return;
 

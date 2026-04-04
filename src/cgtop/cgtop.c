@@ -894,7 +894,7 @@ static const char* counting_what(void) {
 }
 
 static int loop(const char *root) {
-        _cleanup_hashmap_free_ Hashmap *a = NULL, *b = NULL;
+        _cleanup_free(hashmap) Hashmap *a = NULL, *b = NULL;
         unsigned iteration = 0;
         usec_t last_refresh = 0;
         bool immediate_refresh = false;

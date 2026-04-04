@@ -100,7 +100,7 @@ static int smbios_query(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read DMI modalias: %m");
 
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        _cleanup_unref(sd_hwdb) sd_hwdb *hwdb = NULL;
         r = sd_hwdb_new(&hwdb);
         if (r < 0)
                 return log_error_errno(r, "Failed to open hwdb: %m");

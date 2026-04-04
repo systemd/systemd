@@ -34,9 +34,9 @@ TEST(dns_synthesize_family_and_protocol) {
 
 TEST(dns_synthesize_answer_empty) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
 
         question = dns_question_new(1);
         ASSERT_NOT_NULL(question);
@@ -55,9 +55,9 @@ TEST(dns_synthesize_answer_empty) {
 
 TEST(dns_synthesize_answer_reverse) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
 
         question = dns_question_new(1);
         ASSERT_NOT_NULL(question);
@@ -76,10 +76,10 @@ TEST(dns_synthesize_answer_reverse) {
 
 TEST(dns_synthesize_answer_localhost) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         question = dns_question_new(1);
         ASSERT_NOT_NULL(question);
@@ -100,10 +100,10 @@ TEST(dns_synthesize_answer_localhost) {
 
 TEST(dns_synthesize_answer_own_hostname) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         question = dns_question_new(1);
         ASSERT_NOT_NULL(question);
@@ -125,10 +125,10 @@ TEST(dns_synthesize_answer_own_hostname) {
 
 TEST(dns_synthesize_answer_stub) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         question = dns_question_new(1);
         ASSERT_NOT_NULL(question);
@@ -148,10 +148,10 @@ TEST(dns_synthesize_answer_stub) {
 
 TEST(dns_synthesize_answer_localhost_ptr) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         question = dns_question_new(1);
         ASSERT_NOT_NULL(question);
@@ -173,9 +173,9 @@ TEST(dns_synthesize_answer_localhost_ptr) {
 
 TEST(dns_synthesize_answer_address) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
 
         question = dns_question_new(1);
         ASSERT_NOT_NULL(question);
@@ -198,9 +198,9 @@ TEST(dns_synthesize_answer_address) {
 
 TEST(dns_synthesize_answer_address_local_hostname) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnsResourceRecord *rr = NULL;
 
         question = dns_question_new(1);
@@ -248,10 +248,10 @@ TEST(dns_synthesize_answer_address_local_hostname) {
 
 TEST(dns_synthesize_answer_address_local_dns_stub) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         question = dns_question_new(1);
         ASSERT_NOT_NULL(question);
@@ -276,10 +276,10 @@ TEST(dns_synthesize_answer_address_local_dns_stub) {
 
 TEST(dns_synthesize_answer_address_local_dns_proxy) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         question = dns_question_new(1);
         ASSERT_NOT_NULL(question);

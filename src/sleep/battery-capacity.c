@@ -182,8 +182,8 @@ static int put_battery_discharge_rate(int estimated_battery_discharge_rate, uint
 
 /* Store current capacity of each battery before suspension and timestamp */
 int fetch_batteries_capacity_by_name(Hashmap **ret) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_hashmap_free_ Hashmap *batteries_capacity_by_name = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
+        _cleanup_free(hashmap) Hashmap *batteries_capacity_by_name = NULL;
         int r;
 
         assert(ret);
@@ -247,7 +247,7 @@ int estimate_battery_discharge_rate_per_hour(
                 usec_t before_timestamp,
                 usec_t after_timestamp) {
 
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         bool trunc = true;
         int r;
 
@@ -303,7 +303,7 @@ int estimate_battery_discharge_rate_per_hour(
 
 /* Calculate the suspend interval for each battery and then return their sum */
 int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         usec_t total_suspend_interval = 0;
         int r;
 
@@ -359,7 +359,7 @@ int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret) {
 
 /* Return true if all batteries have acpi_btp support */
 int battery_trip_point_alarm_exists(void) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         bool has_battery = false;
         int r;
 

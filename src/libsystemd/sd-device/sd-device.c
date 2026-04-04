@@ -275,7 +275,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
 }
 
 static int device_new_from_syspath(sd_device **ret, const char *syspath, bool strict) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -301,7 +301,7 @@ _public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
 }
 
 int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         _cleanup_free_ char *syspath = NULL;
         const char *t;
         dev_t n;
@@ -382,7 +382,7 @@ _public_ int sd_device_new_from_ifname(sd_device **ret, const char *ifname) {
 }
 
 _public_ int sd_device_new_from_ifindex(sd_device **ret, int ifindex) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         _cleanup_free_ char *ifname = NULL;
         int r, i;
 
@@ -419,7 +419,7 @@ static int device_new_from_path_join(
                 const char *c,
                 const char *d) {
 
-        _cleanup_(sd_device_unrefp) sd_device *new_device = NULL;
+        _cleanup_unref(sd_device) sd_device *new_device = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -490,7 +490,7 @@ _public_ int sd_device_new_from_subsystem_sysname(
                 const char *subsystem,
                 const char *sysname) {
 
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         char *name;
         int r;
 
@@ -837,7 +837,7 @@ int device_read_uevent_file(sd_device *device) {
         if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device: Failed to read uevent file: %m");
 
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_free(strv) char **v = NULL;
         r = strv_split_newlines_full(&v, uevent, EXTRACT_RETAIN_ESCAPE);
         if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device: Failed to parse uevent file: %m");
@@ -999,7 +999,7 @@ static int device_enumerate_children_internal(sd_device *device, const char *sub
                 return r;
 
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
-                _cleanup_(sd_device_unrefp) sd_device *child = NULL;
+                _cleanup_unref(sd_device) sd_device *child = NULL;
                 _cleanup_free_ char *p = NULL;
 
                 if (dot_or_dot_dot(de->d_name))
@@ -1044,8 +1044,8 @@ static int device_enumerate_children_internal(sd_device *device, const char *sub
 }
 
 static int device_enumerate_children(sd_device *device) {
-        _cleanup_hashmap_free_ Hashmap *children = NULL;
-        _cleanup_set_free_ Set *stack = NULL;
+        _cleanup_free(hashmap) Hashmap *children = NULL;
+        _cleanup_free(set) Set *stack = NULL;
         int r;
 
         assert(device);
@@ -2204,7 +2204,7 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
 }
 
 static int device_sysattrs_read_all(sd_device *device) {
-        _cleanup_set_free_ Set *stack = NULL;
+        _cleanup_free(set) Set *stack = NULL;
         int r;
 
         assert(device);

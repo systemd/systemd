@@ -8,7 +8,7 @@
 #include "tmpfile-util.h"
 
 TEST(fdset_new_fill) {
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_free(fdset) FDSet *fdset = NULL;
         int fd = -EBADF, flags;
 
         log_close();
@@ -57,7 +57,7 @@ TEST(fdset_new_fill) {
 TEST(fdset_put_dup) {
         _cleanup_close_ int fd = -EBADF;
         int copyfd = -EBADF;
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_free(fdset) FDSet *fdset = NULL;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_put_dup.XXXXXX";
 
         fd = mkostemp_safe(name);
@@ -73,7 +73,7 @@ TEST(fdset_put_dup) {
 
 TEST(fdset_cloexec) {
         int fd = -EBADF;
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_free(fdset) FDSet *fdset = NULL;
         int flags = -1;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_cloexec.XXXXXX";
 
@@ -97,7 +97,7 @@ TEST(fdset_cloexec) {
 
 TEST(fdset_close_others) {
         int fd = -EBADF, copyfd = -EBADF;
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_free(fdset) FDSet *fdset = NULL;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_close_others.XXXXXX";
 
         fd = mkostemp_safe(name);
@@ -124,7 +124,7 @@ TEST(fdset_close_others) {
 
 TEST(fdset_remove) {
         _cleanup_close_ int fd = -EBADF;
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_free(fdset) FDSet *fdset = NULL;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_remove.XXXXXX";
 
         fd = mkostemp_safe(name);
@@ -141,7 +141,7 @@ TEST(fdset_remove) {
 
 TEST(fdset_iterate) {
         int fd = -EBADF;
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_free(fdset) FDSet *fdset = NULL;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_iterate.XXXXXX";
         int c = 0;
         int a;
@@ -164,7 +164,7 @@ TEST(fdset_iterate) {
 
 TEST(fdset_isempty) {
         int fd;
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_free(fdset) FDSet *fdset = NULL;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_isempty.XXXXXX";
 
         fd = mkostemp_safe(name);
@@ -180,7 +180,7 @@ TEST(fdset_isempty) {
 
 TEST(fdset_steal_first) {
         int fd;
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_free(fdset) FDSet *fdset = NULL;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_steal_first.XXXXXX";
 
         fd = mkostemp_safe(name);
@@ -198,7 +198,7 @@ TEST(fdset_steal_first) {
 
 TEST(fdset_new_array) {
         int fds[] = {10, 11, 12, 13};
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_free(fdset) FDSet *fdset = NULL;
 
         assert_se(fdset_new_array(&fdset, fds, 4) >= 0);
         assert_se(fdset_size(fdset) == 4);

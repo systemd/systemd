@@ -138,7 +138,7 @@ int acquire_bus(sd_bus **bus, bool *use_full_bus) {
 }
 
 int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char *property, char ***strv) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -682,7 +682,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'A': {
-                        _cleanup_strv_free_ char **l = NULL;
+                        _cleanup_free(strv) char **l = NULL;
                         r = strv_split_full(&l, optarg, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse debugger arguments '%s': %m", optarg);
@@ -775,7 +775,7 @@ done:
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
 
         static const Verb verbs[] = {

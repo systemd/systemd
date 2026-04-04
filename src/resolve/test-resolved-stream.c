@@ -144,7 +144,7 @@ static void *tls_dns_server(void *p) {
                 fd_tls = fd[1];
         }
 
-        _cleanup_(pidref_done) PidRef openssl_pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef openssl_pidref = PIDREF_NULL;
         r = ASSERT_OK(pidref_safe_fork_full(
                         "(test-resolved-stream-tls-openssl)",
                         (int[]) { fd_tls, fd_tls, STDOUT_FILENO },
@@ -178,9 +178,9 @@ static const char *TEST_DOMAIN = "example.com";
 static const uint64_t EVENT_TIMEOUT_USEC = 5 * 1000 * 1000;
 
 static void send_simple_question(DnsStream *stream, uint16_t type) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
 
         assert_se(dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX) >= 0);
         assert_se(question = dns_question_new(1));
@@ -207,8 +207,8 @@ static int on_stream_complete_do_nothing(DnsStream *s, int error) {
 
 static void test_dns_stream(bool tls) {
         Manager manager = {};
-         _cleanup_(dns_stream_unrefp) DnsStream *stream = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+         _cleanup_unref(dns_stream) DnsStream *stream = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         _cleanup_close_ int clientfd = -EBADF;
         int r;
 

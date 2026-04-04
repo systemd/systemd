@@ -15,7 +15,7 @@
 #include "tests.h"
 
 static void test_policy_closed(const char *cgroup_path, BPFProgram **installed_prog) {
-        _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
+        _cleanup_free(bpf_program) BPFProgram *prog = NULL;
         unsigned wrong = 0;
         int r;
 
@@ -52,7 +52,7 @@ static void test_policy_closed(const char *cgroup_path, BPFProgram **installed_p
 }
 
 static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_prog) {
-        _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
+        _cleanup_free(bpf_program) BPFProgram *prog = NULL;
         unsigned wrong = 0;
         int r;
 
@@ -129,7 +129,7 @@ static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_p
 }
 
 static void test_policy_allow_list_major(const char *pattern, const char *cgroup_path, BPFProgram **installed_prog) {
-        _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
+        _cleanup_free(bpf_program) BPFProgram *prog = NULL;
         unsigned wrong = 0;
         int r;
 
@@ -188,7 +188,7 @@ static void test_policy_allow_list_major(const char *pattern, const char *cgroup
 }
 
 static void test_policy_allow_list_major_star(char type, const char *cgroup_path, BPFProgram **installed_prog) {
-        _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
+        _cleanup_free(bpf_program) BPFProgram *prog = NULL;
         unsigned wrong = 0;
         int r;
 
@@ -219,7 +219,7 @@ static void test_policy_allow_list_major_star(char type, const char *cgroup_path
 }
 
 static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFProgram **installed_prog) {
-        _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
+        _cleanup_free(bpf_program) BPFProgram *prog = NULL;
         unsigned wrong = 0;
         int r;
 
@@ -278,7 +278,7 @@ int main(int argc, char *argv[]) {
         r = cg_get_path(cgroup, /* suffix= */ NULL, &controller_path);
         ASSERT_OK(r);
 
-        _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
+        _cleanup_free(bpf_program) BPFProgram *prog = NULL;
 
         test_policy_closed(cgroup, &prog);
         test_policy_strict(cgroup, &prog);

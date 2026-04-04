@@ -196,7 +196,7 @@ int getxattr_at_strv(int fd, const char *path, const char *name, int at_flags, c
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **l = strv_parse_nulstr(nulstr, nulstr_size);
+        _cleanup_free(strv) char **l = strv_parse_nulstr(nulstr, nulstr_size);
         if (!l)
                 return -ENOMEM;
 

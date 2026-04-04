@@ -20,7 +20,7 @@
 
 int ipe_setup(void) {
 #if ENABLE_IPE
-        _cleanup_strv_free_ char **policies = NULL;
+        _cleanup_free(strv) char **policies = NULL;
         int r;
 
         /* Very quick smoke tests first: this is in the citical, sequential boot path, and in most cases it

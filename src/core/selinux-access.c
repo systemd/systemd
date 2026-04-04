@@ -258,7 +258,7 @@ int mac_selinux_access_check_bus_internal(
                 const char *function,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
         const char *tclass, *scon, *acon;
         _cleanup_free_ char *cl = NULL;
         _cleanup_freecon_ char *fcon = NULL;

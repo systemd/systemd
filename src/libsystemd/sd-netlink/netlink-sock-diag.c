@@ -17,7 +17,7 @@ int sd_sock_diag_message_new_unix(
                 uint64_t cookie,
                 uint32_t show) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert_return(sdnl, -EINVAL);

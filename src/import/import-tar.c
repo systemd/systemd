@@ -102,7 +102,7 @@ int tar_import_new(
                 TarImportFinished on_finished,
                 void *userdata) {
 
-        _cleanup_(tar_import_unrefp) TarImport *i = NULL;
+        _cleanup_unref(tar_import) TarImport *i = NULL;
         _cleanup_free_ char *root = NULL;
         int r;
 
@@ -257,7 +257,7 @@ static int tar_import_fork_tar(TarImport *i) {
                 if (r < 0)
                         return r;
 
-                _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
+                _cleanup_unref(sd_varlink) sd_varlink *mountfsd_link = NULL;
                 r = mountfsd_connect(&mountfsd_link);
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to mountfsd: %m");

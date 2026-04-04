@@ -69,7 +69,7 @@ int sigrtmin18_handler(sd_event_source *s, const struct signalfd_siginfo *si, vo
                 break;
 
         case COMMON_SIGNAL_COMMAND_MALLOC_INFO: {
-                _cleanup_(memstream_done) MemStream m = {};
+                _cleanup_done(memstream) MemStream m = {};
                 FILE *f;
 
                 f = memstream_init(&m);

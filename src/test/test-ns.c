@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
         else
                 log_info("Not chrooted");
 
-        _cleanup_(pinned_resource_done) PinnedResource pr = PINNED_RESOURCE_NULL;
+        _cleanup_done(pinned_resource) PinnedResource pr = PINNED_RESOURCE_NULL;
 
         if (root_directory) {
                 pr.directory_fd = open(root_directory, O_PATH|O_CLOEXEC|O_DIRECTORY);

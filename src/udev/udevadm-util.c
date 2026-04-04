@@ -26,7 +26,7 @@
 #include "varlink-util.h"
 
 static int find_device_from_unit(const char *unit_name, sd_device **ret) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *unit_path = NULL, *syspath = NULL;
         int r;
@@ -99,7 +99,7 @@ int find_device(const char *id, const char *prefix, sd_device **ret) {
 }
 
 int find_device_with_action(const char *id, sd_device_action_t action, sd_device **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         int r;
 
         assert(id);
@@ -177,7 +177,7 @@ int parse_key_value_argument(const char *str, bool require_value, char **key, ch
 }
 
 static int udev_ping_via_ctrl(usec_t timeout_usec, bool ignore_connection_failure) {
-        _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
+        _cleanup_unref(udev_ctrl) UdevCtrl *uctrl = NULL;
         int r;
 
         r = udev_ctrl_new(&uctrl);
@@ -247,7 +247,7 @@ static int search_rules_file_in_conf_dirs(const char *s, const char *root, ConfF
                 if (!path)
                         return log_oom();
 
-                _cleanup_(conf_file_freep) ConfFile *c = NULL;
+                _cleanup_free(conf_file) ConfFile *c = NULL;
                 r = conf_file_new(path, root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED, &c);
                 if (r == -ERFKILL) {
                         log_warning_errno(r, "File '%s%s' is a mask, ignoring.", empty_to_root(root), skip_leading_slash(path));
@@ -281,7 +281,7 @@ static int search_rules_file(const char *s, const char *root, ConfFile ***files,
                 return r;
 
         /* If not found, or if it is a path, then chase it. */
-        _cleanup_(conf_file_freep) ConfFile *c = NULL;
+        _cleanup_free(conf_file) ConfFile *c = NULL;
         r = conf_file_new(s, root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED, &c);
         if (r == -ERFKILL) {
                 log_warning_errno(r, "File '%s%s' is a mask, ignoring.", empty_to_root(root), skip_leading_slash(s));

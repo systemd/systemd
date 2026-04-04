@@ -14,7 +14,7 @@
         })
 
 TEST(self_changes) {
-        _cleanup_(user_record_unrefp) UserRecord *curr = NULL, *new = NULL;
+        _cleanup_unref(user_record) UserRecord *curr = NULL, *new = NULL;
 
         /* not allowlisted */
         USER(&curr,

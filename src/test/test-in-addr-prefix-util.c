@@ -41,7 +41,7 @@ static void test_config_parse_in_addr_prefixes_one(int family, const union in_ad
 }
 
 static void test_config_parse_in_addr_prefixes(Set **ret) {
-        _cleanup_set_free_ Set *prefixes = NULL;
+        _cleanup_free(set) Set *prefixes = NULL;
 
         log_info("/* %s() */", __func__);
 
@@ -113,7 +113,7 @@ static void test_in_addr_prefixes_reduce(Set *prefixes) {
 }
 
 TEST(in_addr_prefixes) {
-        _cleanup_set_free_ Set *prefixes = NULL;
+        _cleanup_free(set) Set *prefixes = NULL;
 
         test_config_parse_in_addr_prefixes(&prefixes);
         test_in_addr_prefixes_reduce(prefixes);

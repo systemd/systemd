@@ -416,7 +416,7 @@ int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, const struct in6_addr **ret) {
 }
 
 int dhcp6_lease_add_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
-        _cleanup_strv_free_ char **domains = NULL;
+        _cleanup_free(strv) char **domains = NULL;
         int r;
 
         assert(lease);
@@ -448,7 +448,7 @@ static int dhcp6_lease_add_dnr(sd_dhcp6_lease *lease, const uint8_t *optval, siz
 
         assert(lease);
 
-        _cleanup_(sd_dns_resolver_done) sd_dns_resolver res = {};
+        _cleanup_done(sd_dns_resolver) sd_dns_resolver res = {};
 
         size_t offset = 0;
 
@@ -652,7 +652,7 @@ int sd_dhcp6_lease_get_sip_addrs(sd_dhcp6_lease *lease, const struct in6_addr **
 }
 
 int dhcp6_lease_add_sip_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
-        _cleanup_strv_free_ char **domains = NULL;
+        _cleanup_free(strv) char **domains = NULL;
         int r;
 
         assert(lease);
@@ -768,7 +768,7 @@ static int dhcp6_lease_insert_vendor_option(
                 size_t len,
                 uint32_t enterprise_id) {
 
-        _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *option = NULL;
+        _cleanup_unref(sd_dhcp6_option) sd_dhcp6_option *option = NULL;
 
         assert(lease);
 
@@ -895,7 +895,7 @@ static int dhcp6_lease_parse_message(
                         break;
                 }
                 case SD_DHCP6_OPTION_IA_NA: {
-                        _cleanup_(dhcp6_ia_freep) DHCP6IA *ia = NULL;
+                        _cleanup_free(dhcp6_ia) DHCP6IA *ia = NULL;
 
                         if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
                                 log_dhcp6_client(client, "Ignoring IA NA option in information requesting mode.");
@@ -919,7 +919,7 @@ static int dhcp6_lease_parse_message(
                         break;
                 }
                 case SD_DHCP6_OPTION_IA_PD: {
-                        _cleanup_(dhcp6_ia_freep) DHCP6IA *ia = NULL;
+                        _cleanup_free(dhcp6_ia) DHCP6IA *ia = NULL;
 
                         if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
                                 log_dhcp6_client(client, "Ignoring IA PD option in information requesting mode.");
@@ -1116,7 +1116,7 @@ int dhcp6_lease_new_from_message(
                 const struct in6_addr *server_address,
                 sd_dhcp6_lease **ret) {
 
-        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
+        _cleanup_unref(sd_dhcp6_lease) sd_dhcp6_lease *lease = NULL;
         int r;
 
         assert(client);

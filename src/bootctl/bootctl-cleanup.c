@@ -51,7 +51,7 @@ static int cleanup_orphaned_files(
                 const BootConfig *config,
                 const char *root) {
 
-        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
+        _cleanup_free(hashmap) Hashmap *known_files = NULL;
         _cleanup_free_ char *full = NULL, *p = NULL;
         _cleanup_close_ int dir_fd = -EBADF;
         int r;
@@ -112,7 +112,7 @@ int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+        _cleanup_done(boot_config) BootConfig config = BOOT_CONFIG_NULL;
         r = boot_config_load_and_select(&config, arg_esp_path, esp_devid, arg_xbootldr_path, xbootldr_devid);
         if (r < 0)
                 return r;

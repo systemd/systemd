@@ -51,8 +51,8 @@ void mount_points_list_free(MountPoint **head) {
 }
 
 int mount_points_list_get(FILE *f, MountPoint **head) {
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+        _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
         int r;
 
         assert(head);

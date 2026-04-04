@@ -22,10 +22,10 @@ static void dns_scope_freep(DnsScope **s) {
 
 TEST(dns_zone_put_simple) {
         Manager manager = {};
-        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_free(dns_scope) DnsScope *scope = NULL;
         DnsZone *zone = NULL;
         DnsZoneItem *item = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET));
         ASSERT_NOT_NULL(scope);
@@ -47,9 +47,9 @@ TEST(dns_zone_put_simple) {
 
 TEST(dns_zone_put_any_class_is_invalid) {
         Manager manager = {};
-        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_free(dns_scope) DnsScope *scope = NULL;
         DnsZone *zone = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
@@ -65,9 +65,9 @@ TEST(dns_zone_put_any_class_is_invalid) {
 
 TEST(dns_zone_put_any_type_is_invalid) {
         Manager manager = {};
-        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_free(dns_scope) DnsScope *scope = NULL;
         DnsZone *zone = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
@@ -87,9 +87,9 @@ TEST(dns_zone_put_any_type_is_invalid) {
 
 TEST(dns_zone_remove_rr_match) {
         Manager manager = {};
-        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_free(dns_scope) DnsScope *scope = NULL;
         DnsZone *zone = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr_in = NULL, *rr_out = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr_in = NULL, *rr_out = NULL;
 
         dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
@@ -112,9 +112,9 @@ TEST(dns_zone_remove_rr_match) {
 
 TEST(dns_zone_remove_rr_match_one) {
         Manager manager = {};
-        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_free(dns_scope) DnsScope *scope = NULL;
         DnsZone *zone = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr_in = NULL, *rr_out = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr_in = NULL, *rr_out = NULL;
 
         dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
@@ -145,9 +145,9 @@ TEST(dns_zone_remove_rr_match_one) {
 
 TEST(dns_zone_remove_rr_different_payload) {
         Manager manager = {};
-        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_free(dns_scope) DnsScope *scope = NULL;
         DnsZone *zone = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr_in = NULL, *rr_out = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr_in = NULL, *rr_out = NULL;
 
         dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
         ASSERT_NOT_NULL(scope);
@@ -174,9 +174,9 @@ TEST(dns_zone_remove_rr_different_payload) {
 
 TEST(dns_zone_remove_rrs_by_key) {
         Manager manager = {};
-        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_free(dns_scope) DnsScope *scope = NULL;
         DnsZone *zone = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr1 = NULL, *rr2 = NULL, *rr3 = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr1 = NULL, *rr2 = NULL, *rr3 = NULL;
         DnsResourceKey *key = NULL;
 
         dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
@@ -221,7 +221,7 @@ TEST(dns_zone_remove_rrs_by_key) {
  * ================================================================ */
 
 static void add_zone_rrs(DnsScope *scope) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr1 = NULL, *rr2 = NULL, *rr3 = NULL, *rr4 = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr1 = NULL, *rr2 = NULL, *rr3 = NULL, *rr4 = NULL;
 
         rr1 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(rr1);
@@ -244,9 +244,9 @@ static void add_zone_rrs(DnsScope *scope) {
 
 TEST(dns_zone_lookup_match_a) {
         Manager manager = {};
-        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *qkey = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        _cleanup_free(dns_scope) DnsScope *scope = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *qkey = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL, *soa = NULL;
         bool tentative;
 
         dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
@@ -266,9 +266,9 @@ TEST(dns_zone_lookup_match_a) {
 
 TEST(dns_zone_lookup_match_cname) {
         Manager manager = {};
-        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *qkey = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        _cleanup_free(dns_scope) DnsScope *scope = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *qkey = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL, *soa = NULL;
         bool tentative;
 
         dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
@@ -288,10 +288,10 @@ TEST(dns_zone_lookup_match_cname) {
 
 TEST(dns_zone_lookup_match_any) {
         Manager manager = {};
-        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *qkey = NULL;
+        _cleanup_free(dns_scope) DnsScope *scope = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *qkey = NULL;
         DnsResourceKey *akey = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL, *soa = NULL;
         bool tentative;
 
         dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
@@ -319,10 +319,10 @@ TEST(dns_zone_lookup_match_any) {
 
 TEST(dns_zone_lookup_match_any_apex) {
         Manager manager = {};
-        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *qkey = NULL;
+        _cleanup_free(dns_scope) DnsScope *scope = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *qkey = NULL;
         DnsResourceKey *akey = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL, *soa = NULL;
         bool tentative;
 
         dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
@@ -345,9 +345,9 @@ TEST(dns_zone_lookup_match_any_apex) {
 
 TEST(dns_zone_lookup_match_nothing) {
         Manager manager = {};
-        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *qkey = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        _cleanup_free(dns_scope) DnsScope *scope = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *qkey = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL, *soa = NULL;
         bool tentative;
 
         dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);
@@ -365,10 +365,10 @@ TEST(dns_zone_lookup_match_nothing) {
 
 TEST(dns_zone_lookup_match_nothing_with_soa) {
         Manager manager = {};
-        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *qkey = NULL;
+        _cleanup_free(dns_scope) DnsScope *scope = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *qkey = NULL;
         DnsResourceKey *akey = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL, *soa = NULL;
         bool tentative;
 
         dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET);

@@ -132,7 +132,7 @@ static int add_matches(sd_journal *j, char **matches) {
 }
 
 static int acquire_journal(sd_journal **ret, char **matches) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         int r;
 
         assert(ret);
@@ -290,7 +290,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'A': {
-                        _cleanup_strv_free_ char **l = NULL;
+                        _cleanup_free(strv) char **l = NULL;
                         r = strv_split_full(&l, optarg, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse debugger arguments '%s': %m", optarg);
@@ -831,7 +831,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         /* Print out the build-id of the 'main' ELF module, by matching the JSON key
          * with the 'exe' field. */
         if (exe && pkgmeta_json) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = sd_json_parse(pkgmeta_json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                 if (r < 0) {
@@ -898,8 +898,8 @@ static int print_entry(
 }
 
 static int verb_dump_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         size_t n_found = 0;
         bool verb_is_info;
         int r;
@@ -1149,7 +1149,7 @@ error:
 }
 
 static int verb_dump_core(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -1190,9 +1190,9 @@ static int verb_run_debug(int argc, char *argv[], uintptr_t _data, void *userdat
                 .sa_flags = SA_SIGINFO,
         };
 
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         _cleanup_free_ char *exe = NULL, *path = NULL;
-        _cleanup_strv_free_ char **debugger_call = NULL;
+        _cleanup_free(strv) char **debugger_call = NULL;
         bool unlink_path = false;
         const char *data, *fork_name;
         size_t len;
@@ -1289,7 +1289,7 @@ static int verb_run_debug(int argc, char *argv[], uintptr_t _data, void *userdat
 
         fork_name = strjoina("(", debugger_call[0], ")");
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
                         fork_name,
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_FLUSH_STDIO,
@@ -1318,9 +1318,9 @@ finish:
 
 static int check_units_active(void) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int c = 0, r;
         const char *id, *state, *substate;
 
@@ -1390,7 +1390,7 @@ static int coredumpctl_main(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         int r, units_active;
 

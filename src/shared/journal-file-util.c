@@ -499,7 +499,7 @@ int journal_file_open_reliably(
                 MMapCache *mmap_cache,
                 JournalFile **ret) {
 
-        _cleanup_(journal_file_offline_closep) JournalFile *old_file = NULL;
+        _cleanup_close(journal_file_offline) JournalFile *old_file = NULL;
         int r;
 
         r = journal_file_open(

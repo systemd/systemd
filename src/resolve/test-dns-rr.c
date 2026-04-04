@@ -8,10 +8,10 @@
 #include "tests.h"
 
 static void test_to_json_from_json(DnsResourceRecord *rr) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
         ASSERT_OK(dns_resource_record_to_json(rr, &j));
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr2 = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr2 = NULL;
         ASSERT_OK(dns_resource_record_from_json(j, &rr2));
 
         ASSERT_TRUE(dns_resource_record_equal(rr, rr2));
@@ -48,7 +48,7 @@ TEST(dns_resource_record_rdata) {
  * ================================================================ */
 
 TEST(dns_resource_key_new) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -63,8 +63,8 @@ TEST(dns_resource_key_new) {
  * ================================================================ */
 
 TEST(dns_resource_key_new_redirect_cname) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *redirected = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *redirected = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -82,8 +82,8 @@ TEST(dns_resource_key_new_redirect_cname) {
 }
 
 TEST(dns_resource_key_new_redirect_cname_no_match) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *redirected = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *redirected = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mail.example.com");
         ASSERT_NOT_NULL(key);
@@ -101,8 +101,8 @@ TEST(dns_resource_key_new_redirect_cname_no_match) {
 }
 
 TEST(dns_resource_key_new_redirect_dname) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *redirected = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *redirected = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *dname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -120,8 +120,8 @@ TEST(dns_resource_key_new_redirect_dname) {
 }
 
 TEST(dns_resource_key_new_redirect_dname_no_match) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *redirected = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *redirected = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *dname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.examples.com");
         ASSERT_NOT_NULL(key);
@@ -143,7 +143,7 @@ TEST(dns_resource_key_new_redirect_dname_no_match) {
  * ================================================================ */
 
 TEST(dns_resource_key_new_append_suffix_root) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *source = NULL, *target = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *source = NULL, *target = NULL;
 
         source = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(source);
@@ -160,7 +160,7 @@ TEST(dns_resource_key_new_append_suffix_root) {
 }
 
 TEST(dns_resource_key_new_append_suffix_not_root) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *source = NULL, *target = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *source = NULL, *target = NULL;
 
         source = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example");
         ASSERT_NOT_NULL(source);
@@ -282,7 +282,7 @@ TEST(dns_resource_key_is_dnssd_two_label_ptr) {
  * ================================================================ */
 
 TEST(dns_resource_key_equal_same_pointer) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *a = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *a = NULL;
 
         a = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -291,7 +291,7 @@ TEST(dns_resource_key_equal_same_pointer) {
 }
 
 TEST(dns_resource_key_equal_equal_name) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *a = NULL, *b = NULL;
 
         a = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -303,7 +303,7 @@ TEST(dns_resource_key_equal_equal_name) {
 }
 
 TEST(dns_resource_key_equal_case_insensitive_name) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *a = NULL, *b = NULL;
 
         a = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -315,7 +315,7 @@ TEST(dns_resource_key_equal_case_insensitive_name) {
 }
 
 TEST(dns_resource_key_equal_trailing_dot) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *a = NULL, *b = NULL;
 
         a = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -327,7 +327,7 @@ TEST(dns_resource_key_equal_trailing_dot) {
 }
 
 TEST(dns_resource_key_equal_different_names) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *a = NULL, *b = NULL;
 
         a = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -339,7 +339,7 @@ TEST(dns_resource_key_equal_different_names) {
 }
 
 TEST(dns_resource_key_equal_different_classes) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *a = NULL, *b = NULL;
 
         a = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -351,7 +351,7 @@ TEST(dns_resource_key_equal_different_classes) {
 }
 
 TEST(dns_resource_key_equal_different_types) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *a = NULL, *b = NULL;
 
         a = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -367,8 +367,8 @@ TEST(dns_resource_key_equal_different_types) {
  * ================================================================ */
 
 TEST(dns_resource_key_match_rr_simple) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -379,8 +379,8 @@ TEST(dns_resource_key_match_rr_simple) {
 }
 
 TEST(dns_resource_key_match_rr_any_class) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -391,8 +391,8 @@ TEST(dns_resource_key_match_rr_any_class) {
 }
 
 TEST(dns_resource_key_match_rr_any_type) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -403,8 +403,8 @@ TEST(dns_resource_key_match_rr_any_type) {
 }
 
 TEST(dns_resource_key_match_rr_different_type) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -415,8 +415,8 @@ TEST(dns_resource_key_match_rr_different_type) {
 }
 
 TEST(dns_resource_key_match_rr_different_name) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.other.com");
         ASSERT_NOT_NULL(key);
@@ -427,8 +427,8 @@ TEST(dns_resource_key_match_rr_different_name) {
 }
 
 TEST(dns_resource_key_match_rr_case_insensitive_name) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.EXAMPLE.com");
         ASSERT_NOT_NULL(key);
@@ -439,8 +439,8 @@ TEST(dns_resource_key_match_rr_case_insensitive_name) {
 }
 
 TEST(dns_resource_key_match_rr_escape_error) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.\\example.com");
         ASSERT_NOT_NULL(key);
@@ -451,8 +451,8 @@ TEST(dns_resource_key_match_rr_escape_error) {
 }
 
 TEST(dns_resource_key_match_rr_search_domain) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example");
         ASSERT_NOT_NULL(key);
@@ -463,8 +463,8 @@ TEST(dns_resource_key_match_rr_search_domain) {
 }
 
 TEST(dns_resource_key_match_rr_no_search_domain) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example");
         ASSERT_NOT_NULL(key);
@@ -475,8 +475,8 @@ TEST(dns_resource_key_match_rr_no_search_domain) {
 }
 
 TEST(dns_resource_key_match_rr_different_search_domain) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example");
         ASSERT_NOT_NULL(key);
@@ -491,7 +491,7 @@ TEST(dns_resource_key_match_rr_different_search_domain) {
  * ================================================================ */
 
 TEST(dns_resource_key_match_cname_or_dname_simple) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -502,7 +502,7 @@ TEST(dns_resource_key_match_cname_or_dname_simple) {
 }
 
 TEST(dns_resource_key_match_cname_or_dname_any_class) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -513,7 +513,7 @@ TEST(dns_resource_key_match_cname_or_dname_any_class) {
 }
 
 TEST(dns_resource_key_match_cname_or_dname_bad_type) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_NSEC, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -524,7 +524,7 @@ TEST(dns_resource_key_match_cname_or_dname_bad_type) {
 }
 
 TEST(dns_resource_key_match_cname_or_dname_case_insensitive_cname) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.EXAMPLE.com");
         ASSERT_NOT_NULL(key);
@@ -535,7 +535,7 @@ TEST(dns_resource_key_match_cname_or_dname_case_insensitive_cname) {
 }
 
 TEST(dns_resource_key_match_cname_or_dname_prefix_cname) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -546,7 +546,7 @@ TEST(dns_resource_key_match_cname_or_dname_prefix_cname) {
 }
 
 TEST(dns_resource_key_match_cname_or_dname_suffix_cname) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
         ASSERT_NOT_NULL(key);
@@ -557,7 +557,7 @@ TEST(dns_resource_key_match_cname_or_dname_suffix_cname) {
 }
 
 TEST(dns_resource_key_match_cname_or_dname_search_domain_cname_pass) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example");
         ASSERT_NOT_NULL(key);
@@ -568,7 +568,7 @@ TEST(dns_resource_key_match_cname_or_dname_search_domain_cname_pass) {
 }
 
 TEST(dns_resource_key_match_cname_or_dname_search_domain_cname_fail) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example");
         ASSERT_NOT_NULL(key);
@@ -579,7 +579,7 @@ TEST(dns_resource_key_match_cname_or_dname_search_domain_cname_fail) {
 }
 
 TEST(dns_resource_key_match_cname_or_dname_case_insensitive_dname) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.EXAMPLE.com");
         ASSERT_NOT_NULL(key);
@@ -590,7 +590,7 @@ TEST(dns_resource_key_match_cname_or_dname_case_insensitive_dname) {
 }
 
 TEST(dns_resource_key_match_cname_or_dname_prefix_dname) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -601,7 +601,7 @@ TEST(dns_resource_key_match_cname_or_dname_prefix_dname) {
 }
 
 TEST(dns_resource_key_match_cname_or_dname_suffix_dname) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
         ASSERT_NOT_NULL(key);
@@ -612,7 +612,7 @@ TEST(dns_resource_key_match_cname_or_dname_suffix_dname) {
 }
 
 TEST(dns_resource_key_match_cname_or_dname_search_domain_dname_pass) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example");
         ASSERT_NOT_NULL(key);
@@ -623,7 +623,7 @@ TEST(dns_resource_key_match_cname_or_dname_search_domain_dname_pass) {
 }
 
 TEST(dns_resource_key_match_cname_or_dname_search_domain_dname_fail) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *cname = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example");
         ASSERT_NOT_NULL(key);
@@ -638,7 +638,7 @@ TEST(dns_resource_key_match_cname_or_dname_search_domain_dname_fail) {
  * ================================================================ */
 
 TEST(dns_resource_key_match_soa_simple) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *soa = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *soa = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -649,7 +649,7 @@ TEST(dns_resource_key_match_soa_simple) {
 }
 
 TEST(dns_resource_key_no_match_soa_any_class) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *soa = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *soa = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -660,7 +660,7 @@ TEST(dns_resource_key_no_match_soa_any_class) {
 }
 
 TEST(dns_resource_key_no_match_soa_bad_type) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *soa = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *soa = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -671,7 +671,7 @@ TEST(dns_resource_key_no_match_soa_bad_type) {
 }
 
 TEST(dns_resource_key_match_soa_child_domain) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *soa = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *soa = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -682,7 +682,7 @@ TEST(dns_resource_key_match_soa_child_domain) {
 }
 
 TEST(dns_resource_key_no_match_soa_parent_domain) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *soa = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *soa = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
         ASSERT_NOT_NULL(key);
@@ -697,7 +697,7 @@ TEST(dns_resource_key_no_match_soa_parent_domain) {
  * ================================================================ */
 
 TEST(dns_resource_key_to_string) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
         char str[256];
 
         ASSERT_NOT_NULL(key);
@@ -712,8 +712,8 @@ TEST(dns_resource_key_to_string) {
  * ================================================================ */
 
 TEST(dns_resource_key_from_json) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *copy = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL, *copy = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -745,7 +745,7 @@ TEST(dns_resource_key_reduce_same_pointer) {
 }
 
 TEST(dns_resource_key_reduce_same_values) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *a = NULL, *b = NULL;
 
         a = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -759,7 +759,7 @@ TEST(dns_resource_key_reduce_same_values) {
 }
 
 TEST(dns_resource_key_reduce_different_values) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *a = NULL, *b = NULL;
 
         a = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
         ASSERT_NOT_NULL(a);
@@ -773,7 +773,7 @@ TEST(dns_resource_key_reduce_different_values) {
 }
 
 TEST(dns_resource_key_reduce_refcount) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *a = NULL, *b = NULL, *c = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *a = NULL, *b = NULL, *c = NULL;
 
         a = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -801,7 +801,7 @@ TEST(dns_resource_key_reduce_refcount) {
  * ================================================================ */
 
 TEST(dns_resource_record_new_address_ipv4) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         union in_addr_union addr = { .in.s_addr = htobe32(0xc0a8017f) };
 
@@ -817,7 +817,7 @@ TEST(dns_resource_record_new_address_ipv4) {
 }
 
 TEST(dns_resource_record_new_address_ipv6) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         union in_addr_union addr = {
                 .in6.s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 }
@@ -839,7 +839,7 @@ TEST(dns_resource_record_new_address_ipv6) {
  * ================================================================ */
 
 TEST(dns_resource_record_new_reverse) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         union in_addr_union addr = { .in.s_addr = htobe32(0xc0a8017f) };
 
@@ -857,7 +857,7 @@ TEST(dns_resource_record_new_reverse) {
  * ================================================================ */
 
 TEST(dns_resource_record_equal_same_pointer) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -865,7 +865,7 @@ TEST(dns_resource_record_equal_same_pointer) {
 }
 
 TEST(dns_resource_record_equal_equal_name) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -875,7 +875,7 @@ TEST(dns_resource_record_equal_equal_name) {
 }
 
 TEST(dns_resource_record_equal_case_insensitive_name) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -885,7 +885,7 @@ TEST(dns_resource_record_equal_case_insensitive_name) {
 }
 
 TEST(dns_resource_record_equal_trailing_dot) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -895,7 +895,7 @@ TEST(dns_resource_record_equal_trailing_dot) {
 }
 
 TEST(dns_resource_record_equal_different_names) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -905,7 +905,7 @@ TEST(dns_resource_record_equal_different_names) {
 }
 
 TEST(dns_resource_record_equal_different_classes) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -915,7 +915,7 @@ TEST(dns_resource_record_equal_different_classes) {
 }
 
 TEST(dns_resource_record_equal_different_types) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -929,7 +929,7 @@ TEST(dns_resource_record_equal_different_types) {
  * ================================================================ */
 
 TEST(dns_resource_record_equal_a_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -941,7 +941,7 @@ TEST(dns_resource_record_equal_a_copy) {
 }
 
 TEST(dns_resource_record_equal_a_fail) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -954,7 +954,7 @@ TEST(dns_resource_record_equal_a_fail) {
 }
 
 TEST(dns_resource_record_equal_aaaa_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -966,7 +966,7 @@ TEST(dns_resource_record_equal_aaaa_copy) {
 }
 
 TEST(dns_resource_record_equal_aaaa_fail) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -983,7 +983,7 @@ TEST(dns_resource_record_equal_aaaa_fail) {
  * ================================================================ */
 
 TEST(dns_resource_record_equal_ns_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NS, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -995,7 +995,7 @@ TEST(dns_resource_record_equal_ns_copy) {
 }
 
 TEST(dns_resource_record_equal_ns_fail) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NS, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1013,7 +1013,7 @@ TEST(dns_resource_record_equal_ns_fail) {
  * ================================================================ */
 
 TEST(dns_resource_record_equal_cname_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1027,7 +1027,7 @@ TEST(dns_resource_record_equal_cname_copy) {
 }
 
 TEST(dns_resource_record_equal_cname_fail) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1045,7 +1045,7 @@ TEST(dns_resource_record_equal_cname_fail) {
  * ================================================================ */
 
 TEST(dns_resource_record_equal_dname) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1057,7 +1057,7 @@ TEST(dns_resource_record_equal_dname) {
 }
 
 TEST(dns_resource_record_equal_dname_fail) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1075,7 +1075,7 @@ TEST(dns_resource_record_equal_dname_fail) {
  * ================================================================ */
 
 TEST(dns_resource_record_equal_soa_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1093,7 +1093,7 @@ TEST(dns_resource_record_equal_soa_copy) {
 }
 
 TEST(dns_resource_record_equal_soa_bad_mname) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1113,7 +1113,7 @@ TEST(dns_resource_record_equal_soa_bad_mname) {
 }
 
 TEST(dns_resource_record_equal_soa_bad_rname) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1133,7 +1133,7 @@ TEST(dns_resource_record_equal_soa_bad_rname) {
 }
 
 TEST(dns_resource_record_equal_soa_bad_serial) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1152,7 +1152,7 @@ TEST(dns_resource_record_equal_soa_bad_serial) {
 }
 
 TEST(dns_resource_record_equal_soa_bad_refresh) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1171,7 +1171,7 @@ TEST(dns_resource_record_equal_soa_bad_refresh) {
 }
 
 TEST(dns_resource_record_equal_soa_bad_retry) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1190,7 +1190,7 @@ TEST(dns_resource_record_equal_soa_bad_retry) {
 }
 
 TEST(dns_resource_record_equal_soa_bad_expire) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1209,7 +1209,7 @@ TEST(dns_resource_record_equal_soa_bad_expire) {
 }
 
 TEST(dns_resource_record_equal_soa_bad_minimum) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1232,7 +1232,7 @@ TEST(dns_resource_record_equal_soa_bad_minimum) {
  * ================================================================ */
 
 TEST(dns_resource_record_equal_ptr_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, "127.1.168.192.in-addr-arpa");
         ASSERT_NOT_NULL(a);
@@ -1246,7 +1246,7 @@ TEST(dns_resource_record_equal_ptr_copy) {
 }
 
 TEST(dns_resource_record_equal_ptr_fail) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, "127.1.168.192.in-addr-arpa");
         ASSERT_NOT_NULL(a);
@@ -1264,7 +1264,7 @@ TEST(dns_resource_record_equal_ptr_fail) {
  * ================================================================ */
 
 TEST(dns_resource_record_equal_hinfo_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_HINFO, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1277,7 +1277,7 @@ TEST(dns_resource_record_equal_hinfo_copy) {
 }
 
 TEST(dns_resource_record_equal_hinfo_case_insensitive) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_HINFO, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1294,7 +1294,7 @@ TEST(dns_resource_record_equal_hinfo_case_insensitive) {
 }
 
 TEST(dns_resource_record_equal_hinfo_bad_cpu) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_HINFO, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1309,7 +1309,7 @@ TEST(dns_resource_record_equal_hinfo_bad_cpu) {
 }
 
 TEST(dns_resource_record_equal_hinfo_bad_os) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_HINFO, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1328,7 +1328,7 @@ TEST(dns_resource_record_equal_hinfo_bad_os) {
  * ================================================================ */
 
 TEST(dns_resource_record_equal_mx_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1341,7 +1341,7 @@ TEST(dns_resource_record_equal_mx_copy) {
 }
 
 TEST(dns_resource_record_equal_mx_bad_priority) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1355,7 +1355,7 @@ TEST(dns_resource_record_equal_mx_bad_priority) {
 }
 
 TEST(dns_resource_record_equal_mx_bad_exchange) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1374,7 +1374,7 @@ TEST(dns_resource_record_equal_mx_bad_exchange) {
  * ================================================================ */
 
 TEST(dns_resource_record_equal_txt_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         const char *data = "the quick brown fox and so on";
         size_t len = strlen(data);
@@ -1392,7 +1392,7 @@ TEST(dns_resource_record_equal_txt_copy) {
 }
 
 TEST(dns_resource_record_equal_txt_missing) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         const char *data = "the quick brown fox and so on";
         size_t len = strlen(data);
@@ -1412,7 +1412,7 @@ TEST(dns_resource_record_equal_txt_missing) {
 }
 
 TEST(dns_resource_record_equal_txt_different_text) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         const char *data = "the quick brown fox and so on";
         size_t len = strlen(data);
@@ -1438,7 +1438,7 @@ TEST(dns_resource_record_equal_txt_different_text) {
  * ================================================================ */
 
 TEST(dns_resource_record_equal_loc_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1456,7 +1456,7 @@ TEST(dns_resource_record_equal_loc_copy) {
 }
 
 TEST(dns_resource_record_equal_loc_bad_size) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1475,7 +1475,7 @@ TEST(dns_resource_record_equal_loc_bad_size) {
 }
 
 TEST(dns_resource_record_equal_loc_bad_horiz_pre) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1494,7 +1494,7 @@ TEST(dns_resource_record_equal_loc_bad_horiz_pre) {
 }
 
 TEST(dns_resource_record_equal_loc_vert_pre) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1513,7 +1513,7 @@ TEST(dns_resource_record_equal_loc_vert_pre) {
 }
 
 TEST(dns_resource_record_equal_loc_bad_latitude) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1532,7 +1532,7 @@ TEST(dns_resource_record_equal_loc_bad_latitude) {
 }
 
 TEST(dns_resource_record_equal_loc_bad_longitude) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1551,7 +1551,7 @@ TEST(dns_resource_record_equal_loc_bad_longitude) {
 }
 
 TEST(dns_resource_record_equal_loc_bad_altitude) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_LOC, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1574,7 +1574,7 @@ TEST(dns_resource_record_equal_loc_bad_altitude) {
  * ================================================================ */
 
 TEST(dns_resource_record_equal_srv_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1589,7 +1589,7 @@ TEST(dns_resource_record_equal_srv_copy) {
 }
 
 TEST(dns_resource_record_equal_srv_bad_name) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1606,7 +1606,7 @@ TEST(dns_resource_record_equal_srv_bad_name) {
 }
 
 TEST(dns_resource_record_equal_srv_bad_priority) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1622,7 +1622,7 @@ TEST(dns_resource_record_equal_srv_bad_priority) {
 }
 
 TEST(dns_resource_record_equal_srv_bad_weight) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1638,7 +1638,7 @@ TEST(dns_resource_record_equal_srv_bad_weight) {
 }
 
 TEST(dns_resource_record_equal_srv_bad_port) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1658,7 +1658,7 @@ TEST(dns_resource_record_equal_srv_bad_port) {
  * ================================================================ */
 
 TEST(dns_resource_record_equal_naptr_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
         ASSERT_NOT_NULL(a);
@@ -1675,7 +1675,7 @@ TEST(dns_resource_record_equal_naptr_copy) {
 }
 
 TEST(dns_resource_record_equal_naptr_bad_order) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
         ASSERT_NOT_NULL(a);
@@ -1693,7 +1693,7 @@ TEST(dns_resource_record_equal_naptr_bad_order) {
 }
 
 TEST(dns_resource_record_equal_naptr_bad_preference) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
         ASSERT_NOT_NULL(a);
@@ -1711,7 +1711,7 @@ TEST(dns_resource_record_equal_naptr_bad_preference) {
 }
 
 TEST(dns_resource_record_equal_naptr_bad_flags) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
         ASSERT_NOT_NULL(a);
@@ -1730,7 +1730,7 @@ TEST(dns_resource_record_equal_naptr_bad_flags) {
 }
 
 TEST(dns_resource_record_equal_naptr_bad_services) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
         ASSERT_NOT_NULL(a);
@@ -1749,7 +1749,7 @@ TEST(dns_resource_record_equal_naptr_bad_services) {
 }
 
 TEST(dns_resource_record_equal_naptr_bad_regexp) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
         ASSERT_NOT_NULL(a);
@@ -1768,7 +1768,7 @@ TEST(dns_resource_record_equal_naptr_bad_regexp) {
 }
 
 TEST(dns_resource_record_equal_naptr_bad_replacement) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NAPTR, "4.3.2.1.5.5.5.0.0.8.1.e164.arpa");
         ASSERT_NOT_NULL(a);
@@ -1791,7 +1791,7 @@ TEST(dns_resource_record_equal_naptr_bad_replacement) {
  * ================================================================ */
 
 TEST(dns_resource_record_equal_rrsig_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1816,7 +1816,7 @@ TEST(dns_resource_record_equal_rrsig_copy) {
 }
 
 TEST(dns_resource_record_equal_rrsig_bad_type_covered) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1842,7 +1842,7 @@ TEST(dns_resource_record_equal_rrsig_bad_type_covered) {
 }
 
 TEST(dns_resource_record_equal_rrsig_bad_algorithm) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1868,7 +1868,7 @@ TEST(dns_resource_record_equal_rrsig_bad_algorithm) {
 }
 
 TEST(dns_resource_record_equal_rrsig_bad_labels) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1894,7 +1894,7 @@ TEST(dns_resource_record_equal_rrsig_bad_labels) {
 }
 
 TEST(dns_resource_record_equal_rrsig_bad_original_ttl) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1920,7 +1920,7 @@ TEST(dns_resource_record_equal_rrsig_bad_original_ttl) {
 }
 
 TEST(dns_resource_record_equal_rrsig_bad_expiration) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1946,7 +1946,7 @@ TEST(dns_resource_record_equal_rrsig_bad_expiration) {
 }
 
 TEST(dns_resource_record_equal_rrsig_bad_inception) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1972,7 +1972,7 @@ TEST(dns_resource_record_equal_rrsig_bad_inception) {
 }
 
 TEST(dns_resource_record_equal_rrsig_bad_key_tag) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -1998,7 +1998,7 @@ TEST(dns_resource_record_equal_rrsig_bad_key_tag) {
 }
 
 TEST(dns_resource_record_equal_rrsig_bad_signer) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -2025,7 +2025,7 @@ TEST(dns_resource_record_equal_rrsig_bad_signer) {
 }
 
 TEST(dns_resource_record_equal_rrsig_bad_signature) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.com");
         ASSERT_NOT_NULL(a);
@@ -2069,7 +2069,7 @@ static DnsSvcParam* add_svcb_param(DnsResourceRecord *rr, uint16_t key, const ch
 }
 
 TEST(dns_resource_record_equal_svcb_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
         ASSERT_NOT_NULL(a);
@@ -2085,7 +2085,7 @@ TEST(dns_resource_record_equal_svcb_copy) {
 }
 
 TEST(dns_resource_record_equal_svcb_bad_priority) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
         ASSERT_NOT_NULL(a);
@@ -2099,7 +2099,7 @@ TEST(dns_resource_record_equal_svcb_bad_priority) {
 }
 
 TEST(dns_resource_record_equal_svcb_bad_target_name) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
         ASSERT_NOT_NULL(a);
@@ -2114,7 +2114,7 @@ TEST(dns_resource_record_equal_svcb_bad_target_name) {
 }
 
 TEST(dns_resource_record_equal_svcb_param_missing) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
         ASSERT_NOT_NULL(a);
@@ -2133,7 +2133,7 @@ TEST(dns_resource_record_equal_svcb_param_missing) {
 }
 
 TEST(dns_resource_record_equal_svcb_param_extra) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
         ASSERT_NOT_NULL(a);
@@ -2152,7 +2152,7 @@ TEST(dns_resource_record_equal_svcb_param_extra) {
 }
 
 TEST(dns_resource_record_equal_svcb_param_different) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *b = NULL;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SVCB, "_443._wss.example.com");
         ASSERT_NOT_NULL(a);
@@ -2173,7 +2173,7 @@ TEST(dns_resource_record_equal_svcb_param_different) {
  * ================================================================ */
 
 TEST(dns_resource_record_to_string_a) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         const char *str;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
@@ -2185,7 +2185,7 @@ TEST(dns_resource_record_to_string_a) {
 }
 
 TEST(dns_resource_record_to_string_aaaa) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         const char *str;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
@@ -2199,7 +2199,7 @@ TEST(dns_resource_record_to_string_aaaa) {
 }
 
 TEST(dns_resource_record_to_string_ns) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         const char *str;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NS, "www.example.com");
@@ -2211,7 +2211,7 @@ TEST(dns_resource_record_to_string_ns) {
 }
 
 TEST(dns_resource_record_to_string_cname) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         const char *str;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
@@ -2223,7 +2223,7 @@ TEST(dns_resource_record_to_string_cname) {
 }
 
 TEST(dns_resource_record_to_string_soa) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         const char *str;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, "www.example.com");
@@ -2241,7 +2241,7 @@ TEST(dns_resource_record_to_string_soa) {
 }
 
 TEST(dns_resource_record_to_string_ptr) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         const char *str;
 
         union in_addr_union addr = { .in.s_addr = htobe32(0xc0a8017f) };
@@ -2254,7 +2254,7 @@ TEST(dns_resource_record_to_string_ptr) {
 }
 
 TEST(dns_resource_record_to_string_hinfo) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         const char *str;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_HINFO, "www.example.com");
@@ -2267,7 +2267,7 @@ TEST(dns_resource_record_to_string_hinfo) {
 }
 
 TEST(dns_resource_record_to_string_mx) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         const char *str;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "mail.example.com");
@@ -2280,7 +2280,7 @@ TEST(dns_resource_record_to_string_mx) {
 }
 
 TEST(dns_resource_record_to_string_srv) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         const char *str;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, "_ldap._tcp.example.com");
@@ -2296,7 +2296,7 @@ TEST(dns_resource_record_to_string_srv) {
 }
 
 TEST(dns_resource_record_to_string_svcb) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         DnsSvcParam *param = NULL;
         const char *str;
 
@@ -2330,7 +2330,7 @@ TEST(dns_resource_record_to_string_svcb) {
  * ================================================================ */
 
 TEST(dns_resource_record_to_wire_format) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         int r;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
@@ -2389,7 +2389,7 @@ static void prepare_rrsig(DnsResourceRecord **rr) {
 }
 
 TEST(dns_resource_record_signer) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         const char *signer = NULL;
 
         prepare_rrsig(&rr);
@@ -2399,7 +2399,7 @@ TEST(dns_resource_record_signer) {
 }
 
 TEST(dns_resource_record_is_signer) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         prepare_rrsig(&rr);
 
@@ -2409,7 +2409,7 @@ TEST(dns_resource_record_is_signer) {
 }
 
 TEST(dns_resource_record_source) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         const char *source = NULL;
 
         prepare_rrsig(&rr);
@@ -2419,7 +2419,7 @@ TEST(dns_resource_record_source) {
 }
 
 TEST(dns_resource_record_is_synthetic) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         prepare_rrsig(&rr);
 
@@ -2462,7 +2462,7 @@ TEST(dns_resource_record_clamp_ttl_in_place) {
 }
 
 TEST(dns_resource_record_clamp_ttl_copy) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL, *orig = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL, *orig = NULL;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(rr);
@@ -2481,7 +2481,7 @@ TEST(dns_resource_record_clamp_ttl_copy) {
 
 static void test_from_json(const char *text, int expected) {
         log_notice("Trying to parse as JSON RR: %s", text);
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
         ASSERT_OK(sd_json_parse(text, /* flags= */ 0, &j, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
         ASSERT_EQ(dns_resource_record_from_json(j, NULL), expected);
 }

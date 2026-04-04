@@ -23,7 +23,7 @@ bool nfproto_is_valid(int nfproto) {
 }
 
 int sd_nfnl_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int nfproto, uint16_t subsys, uint16_t msg_type, uint16_t flags) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert_return(nfnl, -EINVAL);
@@ -74,7 +74,7 @@ static int nfnl_message_get_subsys(sd_netlink_message *m, uint16_t *ret) {
 }
 
 static int nfnl_message_new_batch(sd_netlink *nfnl, sd_netlink_message **ret, uint16_t subsys, uint16_t msg_type) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert_return(nfnl, -EINVAL);
@@ -100,7 +100,7 @@ int sd_nfnl_send_batch(
                 uint32_t **ret_serials) {
 
         /* iovs refs batch_begin and batch_end, hence, free iovs first, then free batch_begin and batch_end. */
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *batch_begin = NULL, *batch_end = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *batch_begin = NULL, *batch_end = NULL;
         _cleanup_free_ struct iovec *iovs = NULL;
         _cleanup_free_ uint32_t *serials = NULL;
         uint16_t subsys;
@@ -239,7 +239,7 @@ int sd_nfnl_nft_message_new_basechain(
                 uint8_t hook,
                 int prio) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWCHAIN, NLM_F_CREATE);
@@ -284,7 +284,7 @@ int sd_nfnl_nft_message_new_table(
                 int nfproto,
                 const char *table) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWTABLE, NLM_F_CREATE | NLM_F_EXCL);
@@ -306,7 +306,7 @@ int sd_nfnl_nft_message_new_rule(
                 const char *table,
                 const char *chain) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWRULE, NLM_F_CREATE);
@@ -334,7 +334,7 @@ int sd_nfnl_nft_message_new_set(
                 uint32_t set_id,
                 uint32_t klen) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSET, NLM_F_CREATE);
@@ -369,7 +369,7 @@ int sd_nfnl_nft_message_new_setelems(
                 const char *table,
                 const char *set_name) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         if (add)

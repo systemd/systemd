@@ -36,7 +36,7 @@ int pkcs7_extract_signers(
 
 #if HAVE_OPENSSL
         const unsigned char *d = sig->iov_base;
-        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+        _cleanup_free(PKCS7) PKCS7 *p7 = NULL;
         p7 = d2i_PKCS7(/* a= */ NULL, &d, (long) sig->iov_len);
         if (!p7)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse PKCS7 DER signature data.");
@@ -63,7 +63,7 @@ int pkcs7_extract_signers(
                 if (!si)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to get signer information.");
 
-                _cleanup_(signer_done) Signer signer = {};
+                _cleanup_done(signer) Signer signer = {};
 
                 _cleanup_free_ unsigned char *p = NULL;
                 int len = i2d_X509_NAME(si->issuer_and_serial->issuer, &p);

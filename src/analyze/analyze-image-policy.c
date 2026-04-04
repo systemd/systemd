@@ -87,8 +87,8 @@ int verb_image_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         for (int i = 1; i < argc; i++) {
-                _cleanup_(table_unrefp) Table *table = NULL;
-                _cleanup_(image_policy_freep) ImagePolicy *pbuf = NULL;
+                _cleanup_unref(table) Table *table = NULL;
+                _cleanup_free(image_policy) ImagePolicy *pbuf = NULL;
                 _cleanup_free_ char *as_string = NULL, *as_string_simplified = NULL;
                 const ImagePolicy *p;
 

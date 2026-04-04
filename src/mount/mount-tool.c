@@ -666,9 +666,9 @@ static int transient_automount_set_properties(sd_bus_message *m) {
 }
 
 static int start_transient_mount(sd_bus *bus) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *mount_unit = NULL;
         int r;
 
@@ -738,9 +738,9 @@ static int start_transient_mount(sd_bus *bus) {
 }
 
 static int start_transient_automount(sd_bus *bus) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *automount_unit = NULL, *mount_unit = NULL;
         int r;
 
@@ -842,9 +842,9 @@ static int start_transient_automount(sd_bus *bus) {
 }
 
 static int find_mount_points_by_source(const char *what, char ***ret) {
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+        _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
+        _cleanup_free(strv) char **l = NULL;
         size_t n = 0;
         int r;
 
@@ -886,7 +886,7 @@ static int find_mount_points_by_source(const char *what, char ***ret) {
 }
 
 static int find_loop_device(const char *backing_file, sd_device **ret) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         int r;
 
         assert(backing_file);
@@ -932,9 +932,9 @@ static int find_loop_device(const char *backing_file, sd_device **ret) {
 }
 
 static int stop_mount(sd_bus *bus, const char *where, const char *suffix) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *mount_unit = NULL;
         int r;
 
@@ -1017,7 +1017,7 @@ static int stop_mounts(sd_bus *bus, const char *where) {
 }
 
 static int umount_by_device(sd_bus *bus, sd_device *dev) {
-        _cleanup_strv_free_ char **list = NULL;
+        _cleanup_free(strv) char **list = NULL;
         const char *v;
         int r, ret = 0;
 
@@ -1042,7 +1042,7 @@ static int umount_by_device(sd_bus *bus, sd_device *dev) {
 }
 
 static int umount_by_device_node(sd_bus *bus, const char *node) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         const char *v;
         int r;
 
@@ -1065,7 +1065,7 @@ static int umount_by_device_node(sd_bus *bus, const char *node) {
 }
 
 static int umount_loop(sd_bus *bus, const char *backing_file) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         int r;
 
         assert(backing_file);
@@ -1240,7 +1240,7 @@ static int acquire_mount_where(sd_device *d) {
 }
 
 static int acquire_mount_where_for_loop_dev(sd_device *dev) {
-        _cleanup_strv_free_ char **list = NULL;
+        _cleanup_free(strv) char **list = NULL;
         const char *node;
         int r;
 
@@ -1350,7 +1350,7 @@ static int acquire_removable(sd_device *d) {
 }
 
 static int discover_loop_backing_file(void) {
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         int r;
 
         r = find_loop_device(arg_mount_what, &d);
@@ -1402,7 +1402,7 @@ static int discover_loop_backing_file(void) {
 }
 
 static int discover_device(void) {
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         struct stat st;
         const char *v;
         int r;
@@ -1462,8 +1462,8 @@ static int list_devices(void) {
                 _COLUMN_MAX,
         };
 
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         r = sd_device_enumerator_new(&e);

@@ -7,7 +7,7 @@
 #include "tests.h"
 
 TEST(log_device_full) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
 
         (void) sd_device_new_from_subsystem_sysname(&dev, "net", "lo");
 
@@ -21,7 +21,7 @@ TEST(log_device_full) {
 }
 
 TEST(device_in_subsystem_devtype_sysname_startswith) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
@@ -79,7 +79,7 @@ TEST(device_in_subsystem_devtype_sysname_startswith) {
                 ASSERT_OK_ZERO(device_sysname_startswith(d, "00"));
         }
 
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
 
         if (sd_device_new_from_subsystem_sysname(&dev, "net", "lo") >= 0) {
                 ASSERT_OK_POSITIVE(device_in_subsystem(dev, "net"));

@@ -48,7 +48,7 @@ int message_new_full(
                 size_t header_size,
                 sd_netlink_message **ret) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         size_t size;
         int r;
 
@@ -1030,7 +1030,7 @@ int sd_netlink_message_has_flag(sd_netlink_message *m, uint16_t attr_type) {
 }
 
 int sd_netlink_message_read_strv(sd_netlink_message *m, uint16_t container_type, uint16_t attr_type, char ***ret) {
-        _cleanup_strv_free_ char **s = NULL;
+        _cleanup_free(strv) char **s = NULL;
         const NLAPolicySet *policy_set;
         const NLAPolicy *policy;
         struct rtattr *rta;

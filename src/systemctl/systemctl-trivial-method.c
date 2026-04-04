@@ -13,7 +13,7 @@
 /* A generic implementation for cases we just need to invoke a simple method call on the Manager object. */
 
 int verb_trivial_method(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method;
         sd_bus *bus;
         int r;

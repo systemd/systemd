@@ -224,7 +224,7 @@ static int print_device_chain(sd_device *device) {
 }
 
 static int print_all_attributes_in_json(sd_device *device, bool is_parent) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *w = NULL;
         _cleanup_free_ SysAttr *sysattrs = NULL;
         const char *value;
         size_t n_items = 0;
@@ -414,7 +414,7 @@ static int print_record(sd_device *device, const char *prefix) {
 }
 
 static int record_to_json(sd_device *device, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         const char *str;
         int r;
 
@@ -479,7 +479,7 @@ static int stat_device(void) {
 }
 
 static int add_match_parent(sd_device_enumerator *e, const char *s, const char *prefix) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         int r;
 
         assert(e);
@@ -583,7 +583,7 @@ static int setup_matches(sd_device_enumerator *e) {
 }
 
 static int export_devices(void) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         sd_device *d;
         int r;
 
@@ -605,7 +605,7 @@ static int export_devices(void) {
 
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d)
                 if (sd_json_format_enabled(arg_json_format_flags)) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                         r = record_to_json(d, &v);
                         if (r < 0)
@@ -782,7 +782,7 @@ static int query_device(QueryType query, sd_device* device) {
 
         case QUERY_ALL:
                 if (sd_json_format_enabled(arg_json_format_flags))  {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                         r = record_to_json(device, &v);
                         if (r < 0)
@@ -951,7 +951,7 @@ static int draw_tree(
 }
 
 static int print_tree(sd_device* below) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         const char *below_path;
         sd_device **array;
         size_t n = 0;
@@ -1300,7 +1300,7 @@ int verb_info_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         int ret = 0;
         STRV_FOREACH(p, arg_devices) {
-                _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+                _cleanup_unref(sd_device) sd_device *device = NULL;
 
                 r = find_device(*p, /* prefix= */ NULL, &device);
                 if (r < 0) {

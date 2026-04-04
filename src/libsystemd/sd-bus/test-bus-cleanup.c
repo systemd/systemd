@@ -12,14 +12,14 @@
 static bool use_system_bus = false;
 
 static void test_bus_new(void) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_unref(sd_bus) sd_bus *bus = NULL;
 
         assert_se(sd_bus_new(&bus) == 0);
         assert_se(bus->n_ref == 1);
 }
 
 static void test_bus_fork(void) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_unref(sd_bus) sd_bus *bus = NULL;
         int r;
 
         assert_se(sd_bus_new(&bus) == 0);
@@ -62,7 +62,7 @@ static int test_bus_open(void) {
 
 static void test_bus_new_method_call(void) {
         sd_bus *bus = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
         assert_se(use_system_bus ? sd_bus_open_system(&bus) >= 0 : sd_bus_open_user(&bus) >= 0);
 
@@ -76,7 +76,7 @@ static void test_bus_new_method_call(void) {
 
 static void test_bus_new_signal(void) {
         sd_bus *bus = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
         assert_se(use_system_bus ? sd_bus_open_system(&bus) >= 0 : sd_bus_open_user(&bus) >= 0);
 

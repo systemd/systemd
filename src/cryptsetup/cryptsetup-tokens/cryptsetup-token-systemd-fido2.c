@@ -158,7 +158,7 @@ _public_ int cryptsetup_token_validate(
 
         int r;
         sd_json_variant *w;
-       _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+       _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         assert(json);
 

@@ -311,7 +311,7 @@ static int bus_append_parse_permyriad(sd_bus_message *m, const char *field, cons
 }
 
 static int bus_append_parse_cpu_set(sd_bus_message *m, const char *field, const char *eq) {
-        _cleanup_(cpu_set_done) CPUSet cpuset = {};
+        _cleanup_done(cpu_set) CPUSet cpuset = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
         int r;
@@ -563,7 +563,7 @@ static int bus_append_socket_filter(sd_bus_message *m, const char *field, const 
 
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
-        _cleanup_strv_free_ char **cmdline = NULL, **ex_opts = NULL;
+        _cleanup_free(strv) char **cmdline = NULL, **ex_opts = NULL;
         _cleanup_free_ char *_path = NULL;
         ExecCommandFlags flags = 0;
         int r;
@@ -733,7 +733,7 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
 }
 
 static int bus_append_open_file(sd_bus_message *m, const char *field, const char *eq) {
-        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        _cleanup_free(open_file) OpenFile *of = NULL;
         int r;
 
         assert(m);
@@ -1408,7 +1408,7 @@ static int bus_append_cpu_affinity(sd_bus_message *m, const char *field, const c
 }
 
 static int bus_append_numa_mask(sd_bus_message *m, const char *field, const char *eq) {
-        _cleanup_(cpu_set_done) CPUSet nodes = {};
+        _cleanup_done(cpu_set) CPUSet nodes = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
         int r;
@@ -1716,7 +1716,7 @@ static int bus_append_root_hash_signature(sd_bus_message *m, const char *field, 
 }
 
 static int bus_append_root_image_options(sd_bus_message *m, const char *field, const char *eq) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         const char *p = eq;
         int r;
 
@@ -1972,7 +1972,7 @@ static int bus_append_extension_images(sd_bus_message *m, const char *field, con
 }
 
 static int bus_append_directory(sd_bus_message *m, const char *field, const char *eq) {
-        _cleanup_strv_free_ char **symlinks = NULL, **symlinks_ro = NULL, **sources = NULL, **sources_ro = NULL;
+        _cleanup_free(strv) char **symlinks = NULL, **symlinks_ro = NULL, **sources = NULL, **sources_ro = NULL;
         const char *p = eq;
         int r;
 
@@ -3047,7 +3047,7 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
 }
 
 int unit_load_state(sd_bus *bus, const char *name, char **ret) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -3090,8 +3090,8 @@ int unit_info_compare(const UnitInfo *a, const UnitInfo *b) {
 }
 
 int bus_service_manager_reload(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         int r;
 
         assert(bus);
@@ -3127,7 +3127,7 @@ UnitFreezer* unit_freezer_free(UnitFreezer *f) {
 }
 
 int unit_freezer_new(const char *name, UnitFreezer **ret) {
-        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
+        _cleanup_free(unit_freezer) UnitFreezer *f = NULL;
         int r;
 
         assert(name);
@@ -3154,7 +3154,7 @@ int unit_freezer_new(const char *name, UnitFreezer **ret) {
 }
 
 static int unit_freezer_action(UnitFreezer *f, bool freeze) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(f);

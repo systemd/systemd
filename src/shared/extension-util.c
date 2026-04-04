@@ -23,7 +23,7 @@ int extension_release_validate(
         const char *extension_release_id = NULL, *extension_release_level = NULL, *extension_architecture = NULL;
         const char *extension_level = image_class == IMAGE_CONFEXT ? "CONFEXT_LEVEL" : "SYSEXT_LEVEL";
         const char *extension_scope = image_class == IMAGE_CONFEXT ? "CONFEXT_SCOPE" : "SYSEXT_SCOPE";
-        _cleanup_strv_free_ char **id_like_l = NULL;
+        _cleanup_free(strv) char **id_like_l = NULL;
 
         assert(name);
         assert(!isempty(host_os_release_id));
@@ -35,7 +35,7 @@ int extension_release_validate(
         }
 
         if (host_extension_scope) {
-                _cleanup_strv_free_ char **scope_list = NULL;
+                _cleanup_free(strv) char **scope_list = NULL;
                 const char *scope;
                 bool valid;
 

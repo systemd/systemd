@@ -25,7 +25,7 @@
  */
 
 struct strbuf* strbuf_new(void) {
-        _cleanup_(strbuf_freep) struct strbuf *str = NULL;
+        _cleanup_free(strbuf) struct strbuf *str = NULL;
 
         str = new(struct strbuf, 1);
         if (!str)

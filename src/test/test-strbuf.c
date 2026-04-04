@@ -6,8 +6,8 @@
 #include "tests.h"
 
 TEST(strbuf) {
-        _cleanup_(strbuf_freep) struct strbuf *sb = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strbuf) struct strbuf *sb = NULL;
+        _cleanup_free(strv) char **l = NULL;
         ssize_t a, b, c, d, e, f, g, h;
 
         sb = strbuf_new();

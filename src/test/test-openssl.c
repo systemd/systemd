@@ -5,7 +5,7 @@
 
 TEST(openssl_pkey_from_pem) {
         DEFINE_HEX_PTR(key_ecc, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145726a6e4575424c73496c3972687068777976584e50686a346a426e500a44586e794a304b395579724e6764365335413532542b6f5376746b436a365a726c34685847337741515558706f426c532b7448717452714c35513d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a");
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_ecc = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey_ecc = NULL;
         assert_se(openssl_pubkey_from_pem(key_ecc, key_ecc_len, &pkey_ecc) >= 0);
 
         _cleanup_free_ void *x = NULL, *y = NULL;
@@ -21,7 +21,7 @@ TEST(openssl_pkey_from_pem) {
         assert_se(memcmp_nn(y, y_len, expected_y, expected_y_len) == 0);
 
         DEFINE_HEX_PTR(key_rsa, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d494942496a414e42676b71686b6947397730424151454641414f43415138414d49494243674b4341514541795639434950652f505852337a436f63787045300a6a575262546c3568585844436b472f584b79374b6d2f4439584942334b734f5a31436a5937375571372f674359363170697838697552756a73413464503165380a593445336c68556d374a332b6473766b626f4b64553243626d52494c2f6675627771694c4d587a41673342575278747234547545443533527a373634554650640a307a70304b68775231496230444c67772f344e67566f314146763378784b4d6478774d45683567676b73733038326332706c354a504e32587677426f744e6b4d0a5471526c745a4a35355244436170696e7153334577376675646c4e735851357746766c7432377a7637344b585165616d704c59433037584f6761304c676c536b0a79754774586b6a50542f735542544a705374615769674d5a6f714b7479563463515a58436b4a52684459614c47587673504233687a766d5671636e6b47654e540a65774944415141420a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a");
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_rsa = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey_rsa = NULL;
         assert_se(openssl_pubkey_from_pem(key_rsa, key_rsa_len, &pkey_rsa) >= 0);
 
         _cleanup_free_ void *n = NULL, *e = NULL;
@@ -39,10 +39,10 @@ TEST(rsa_pkey_n_e) {
         DEFINE_HEX_PTR(n, "e3975a2124a7c9fe57752d106314ff62f6da731632eac221f1c0255bdcf2a34eeb21e3ab89ba8759ddad3b68be99463c7f03f3d004028a35e6f7c6596aeab2558d490f1e1c38aed2ff796bda8d6d55704eefb6ac55842dd6e606bb707f66acc02f0db2aed0dabab885bd0c850f1bdc8ac4b6bc1f74858db8ca2ab57a3d4217c091e9cd78727a2e36b8126ea629e81fecc69b0bea601000a6c0b749c5be16f53f4fa9f208a581d804234eb6526ba3fee9822d58d1ab9cac2761d7f630eb7ad6054dff0856d41aea219e1adfd87256aa1532202a070f4b1044e718d1f38bbc5a4b1fcb024f04afaafda5edeacfdf0d0bdf35c359acd059e3edb5024e588458f9b5");
         uint32_t e = htobe32(0x10001);
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey = NULL;
         assert_se(rsa_pkey_from_n_e(n, n_len, &e, sizeof(e), &pkey) >= 0);
 
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(pkey, NULL);
+        _cleanup_free(EVP_PKEY_CTX) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(pkey, NULL);
         assert_se(ctx);
         assert_se(EVP_PKEY_verify_init(ctx) == 1);
 
@@ -66,10 +66,10 @@ TEST(ecc_pkey_curve_x_y) {
         DEFINE_HEX_PTR(x, "2830d2c8f65d3efbef12303b968b91692f8bd04045dcb8a9656374e4ae61d818");
         DEFINE_HEX_PTR(y, "8a80750f76729defdcc2a4bc1a91c22e60109dd6e1ffde634a650a20bab172e9");
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey = NULL;
         assert_se(ecc_pkey_from_curve_x_y(curveid, x, x_len, y, y_len, &pkey) >= 0);
 
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(pkey, NULL);
+        _cleanup_free(EVP_PKEY_CTX) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(pkey, NULL);
         assert_se(ctx);
         assert_se(EVP_PKEY_verify_init(ctx) == 1);
 
@@ -90,7 +90,7 @@ TEST(ecc_pkey_curve_x_y) {
 }
 
 TEST(invalid) {
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey = NULL;
 
         DEFINE_HEX_PTR(key, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b7b");
         assert_se(openssl_pubkey_from_pem(key, key_len, &pkey) == -EIO);
@@ -447,7 +447,7 @@ TEST(openssl_cipher) {
 }
 
 TEST(ecc_ecdh) {
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkeyA = NULL, *pkeyB = NULL, *pkeyC = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkeyA = NULL, *pkeyB = NULL, *pkeyC = NULL;
         _cleanup_free_ void *secretAB = NULL, *secretBA = NULL, *secretAC = NULL, *secretCA = NULL;
         size_t secretAB_size, secretBA_size, secretAC_size, secretCA_size;
 

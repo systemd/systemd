@@ -14,8 +14,8 @@
 #include "systemctl-util.h"
 
 int verb_kill(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *w = NULL;
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(bus_wait_for_units) BusWaitForUnits *w = NULL;
+        _cleanup_free(strv) char **names = NULL;
         const char *kill_whom;
         sd_bus *bus;
         int r, q;
@@ -46,7 +46,7 @@ int verb_kill(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (arg_kill_value_set)
                         q = bus_call_method(

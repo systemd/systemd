@@ -597,7 +597,7 @@ static CacheResult context_process_cache(Context *c) {
         }
 
         /* So the above was not conclusive, let's then at least try to reuse the token */
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
         r = sd_json_parse_file_at(/* f= */ NULL, c->cache_dir_fd, "token", /* flags= */ 0, &j, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r == -ENOENT) {
                 context_log_errno(c, LOG_DEBUG, r, "No cached token");
@@ -857,7 +857,7 @@ static int context_save_token(Context *c) {
         /* Only store half the valid time, to make sure we have ample time to use it */
         usec_t until = usec_add(c->timestamp, c->refresh_usec/2);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
         r = sd_json_buildo(
                         &j,
                         SD_JSON_BUILD_PAIR_STRING("token", c->token_string),
@@ -1407,7 +1407,7 @@ static int context_spawn_child(Context *c, int ifindex, sd_varlink **ret) {
         if (fd < 0)
                 return context_log_errno(c, LOG_ERR, fd, "Failed to find imdsd binary: %m");
 
-        _cleanup_strv_free_ char **argv = strv_new(
+        _cleanup_free(strv) char **argv = strv_new(
                         p,
                         "--vendor", strempty(arg_vendor),
                         "--token-url", strempty(arg_token_url),
@@ -1437,7 +1437,7 @@ static int context_spawn_child(Context *c, int ifindex, sd_varlink **ret) {
                 log_debug("About to fork off: %s", strnull(cmdline));
         }
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         r = sd_varlink_connect_exec(&vl, p, argv);
         if (r < 0)
                 return context_log_errno(c, LOG_ERR, r, "Failed to fork off imdsd binary for interface %i: %m", ifindex);
@@ -1477,12 +1477,12 @@ static int context_spawn_new_child(Context *c, int ifindex) {
 
         /* Spawn a child, and keep track of it */
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         r = context_spawn_child(c, ifindex, &vl);
         if (r < 0)
                 return r;
 
-        _cleanup_(child_data_freep) ChildData *cd = new(ChildData, 1);
+        _cleanup_free(child_data) ChildData *cd = new(ChildData, 1);
         if (!cd)
                 return context_log_oom(c);
 
@@ -1588,7 +1588,7 @@ static int context_spawn_children(Context *c) {
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         r = sd_rtnl_message_new_addr(c->rtnl, &req, RTM_GETADDR, /* ifindex= */ 0, AF_UNSPEC);
         if (r < 0)
                 return r;
@@ -1597,7 +1597,7 @@ static int context_spawn_children(Context *c) {
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *reply = NULL;
         r = sd_netlink_call(c->rtnl, req, 0, &reply);
         if (r < 0)
                 return r;
@@ -1769,11 +1769,11 @@ static int add_address_to_json_array(sd_json_variant **array, int family, const 
         if (in_addr_is_null(family, addr))
                 return 0;
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         if (dns_resource_record_new_address(&rr, family, addr, "_imds") < 0)
                 return log_oom();
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *rrj = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *rrj = NULL;
         r = dns_resource_record_to_json(rr, &rrj);
         if (r < 0)
                 return log_error_errno(r, "Failed to convert A RR to JSON: %m");
@@ -1796,7 +1796,7 @@ static int setup_address_rrs(void) {
                 return 0;
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *aj = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *aj = NULL;
 
         union in_addr_union u = { .in = arg_address_ipv4 };
         r = add_address_to_json_array(&aj, AF_INET, &u);
@@ -1875,7 +1875,7 @@ static int cmdline_run(void) {
 
         assert(arg_key || arg_well_known >= 0);
 
-        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        _cleanup_done(context) Context c = CONTEXT_NULL;
         c.write_stdout = true;
         context_new_request(&c);
 
@@ -2145,7 +2145,7 @@ static int vl_method_get_vendor_info(sd_varlink *link, sd_json_variant *paramete
         if (imds_configured(LOG_DEBUG) < 0)
                 return sd_varlink_error(link, "io.systemd.InstanceMetadata.NotSupported", NULL);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *wkj = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *wkj = NULL;
         for (ImdsWellKnown i = 0; i < _IMDS_WELL_KNOWN_MAX; i++) {
                 if (!arg_well_known_key[i])
                         continue;
@@ -2170,12 +2170,12 @@ static int vl_method_get_vendor_info(sd_varlink *link, sd_json_variant *paramete
 }
 
 static int vl_server(void) {
-        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        _cleanup_done(context) Context c = CONTEXT_NULL;
         int r;
 
         /* Invocation as Varlink service */
 
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *varlink_server = NULL;
         r = varlink_server_new(
                         &varlink_server,
                         SD_VARLINK_SERVER_INHERIT_USERDATA,
@@ -2653,7 +2653,7 @@ static int smbios_server_info(void) {
         if (arg_endpoint_source >= 0)
                 return 0;
 
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         r = sd_device_new_from_syspath(&d, "/sys/class/dmi/id/");
         if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) {
                 log_debug_errno(r, "Failed to open /sys/class/dmi/id/ device, ignoring: %m");

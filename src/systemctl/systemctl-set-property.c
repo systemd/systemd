@@ -15,8 +15,8 @@
 #include "unit-name.h"
 
 static int set_property_one(sd_bus *bus, const char *name, char **properties) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         int r;
 
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "SetUnitProperties");
@@ -53,7 +53,7 @@ static int set_property_one(sd_bus *bus, const char *name, char **properties) {
 
 int verb_set_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus;
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         int r;
 
         r = acquire_bus(BUS_MANAGER, &bus);

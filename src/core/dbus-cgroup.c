@@ -608,7 +608,7 @@ static int bus_cgroup_set_transient_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_(memstream_done) MemStream m = {};
+                        _cleanup_done(memstream) MemStream m = {};
                         _cleanup_free_ char *buf = NULL;
                         FILE *f;
 
@@ -683,7 +683,7 @@ static int bus_cgroup_set_transient_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_(memstream_done) MemStream m = {};
+                        _cleanup_done(memstream) MemStream m = {};
                         _cleanup_free_ char *buf = NULL;
                         FILE *f;
 
@@ -1191,7 +1191,7 @@ int bus_cgroup_set_property(
         } else if (STR_IN_SET(name, "AllowedCPUs", "StartupAllowedCPUs", "AllowedMemoryNodes", "StartupAllowedMemoryNodes")) {
                 const void *a;
                 size_t n;
-                _cleanup_(cpu_set_done) CPUSet new_set = {};
+                _cleanup_done(cpu_set) CPUSet new_set = {};
 
                 r = sd_bus_message_read_array(message, 'y', &a, &n);
                 if (r < 0)
@@ -1283,7 +1283,7 @@ int bus_cgroup_set_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_(memstream_done) MemStream m = {};
+                        _cleanup_done(memstream) MemStream m = {};
                         _cleanup_free_ char *buf = NULL;
                         FILE *f;
 
@@ -1361,7 +1361,7 @@ int bus_cgroup_set_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_(memstream_done) MemStream m = {};
+                        _cleanup_done(memstream) MemStream m = {};
                         _cleanup_free_ char *buf = NULL;
                         FILE *f;
 
@@ -1435,7 +1435,7 @@ int bus_cgroup_set_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_(memstream_done) MemStream m = {};
+                        _cleanup_done(memstream) MemStream m = {};
                         _cleanup_free_ char *buf = NULL;
                         FILE *f;
 
@@ -1521,7 +1521,7 @@ int bus_cgroup_set_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_(memstream_done) MemStream m = {};
+                        _cleanup_done(memstream) MemStream m = {};
                         _cleanup_free_ char *buf = NULL;
                         FILE *f;
 
@@ -1565,7 +1565,7 @@ int bus_cgroup_set_property(
                 return 1;
 
         } else if (STR_IN_SET(name, "IPAddressAllow", "IPAddressDeny")) {
-                _cleanup_set_free_ Set *new_prefixes = NULL;
+                _cleanup_free(set) Set *new_prefixes = NULL;
                 size_t n = 0;
 
                 r = sd_bus_message_enter_container(message, 'a', "(iayu)");
@@ -1614,7 +1614,7 @@ int bus_cgroup_set_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_(memstream_done) MemStream m = {};
+                        _cleanup_done(memstream) MemStream m = {};
                         _cleanup_free_ char *buf = NULL;
                         Set **prefixes;
                         bool *reduced;
@@ -1807,7 +1807,7 @@ int bus_cgroup_set_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_(memstream_done) MemStream m = {};
+                        _cleanup_done(memstream) MemStream m = {};
                         _cleanup_free_ char *buf = NULL;
                         FILE *f;
 
@@ -1846,7 +1846,7 @@ int bus_cgroup_set_property(
 
         if (streq(name, "RestrictNetworkInterfaces")) {
                 int is_allow_list;
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 r = sd_bus_message_enter_container(message, 'r', "bas");
                 if (r < 0)

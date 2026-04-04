@@ -10,7 +10,7 @@
 #include "wifi-util.h"
 
 int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *ret_iftype, char **ret_ssid) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL, *reply = NULL;
         _cleanup_free_ char *ssid = NULL;
         const char *family;
         uint32_t iftype;
@@ -89,7 +89,7 @@ nodata:
 }
 
 int wifi_get_station(sd_netlink *genl, int ifindex, struct ether_addr *ret_bssid) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL, *reply = NULL;
         const char *family;
         int r;
 

@@ -622,7 +622,7 @@ terminate:
 }
 
 int stdout_stream_install(Manager *m, int fd, StdoutStream **ret) {
-        _cleanup_(stdout_stream_freep) StdoutStream *stream = NULL;
+        _cleanup_free(stdout_stream) StdoutStream *stream = NULL;
         sd_id128_t id;
         int r;
 

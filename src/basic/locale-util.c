@@ -226,7 +226,7 @@ static int add_locales_for_musl(Set *locales) {
 #endif
 
 int get_locales(char ***ret) {
-        _cleanup_set_free_ Set *locales = NULL;
+        _cleanup_free(set) Set *locales = NULL;
         int r;
 
         locales = set_new(&string_hash_ops_free);
@@ -256,7 +256,7 @@ int get_locales(char ***ret) {
                         free(set_remove(locales, locale));
         }
 
-        _cleanup_strv_free_ char **l = set_to_strv(&locales);
+        _cleanup_free(strv) char **l = set_to_strv(&locales);
         if (!l)
                 return -ENOMEM;
 

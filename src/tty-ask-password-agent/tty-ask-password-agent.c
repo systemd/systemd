@@ -659,8 +659,8 @@ static void terminate_agents(Set *pids) {
 }
 
 static int ask_on_consoles(char *argv[]) {
-        _cleanup_strv_free_ char **consoles = NULL, **arguments = NULL;
-        _cleanup_set_free_ Set *pids = NULL;
+        _cleanup_free(strv) char **consoles = NULL, **arguments = NULL;
+        _cleanup_free(set) Set *pids = NULL;
         int r;
 
         assert(!arg_device);
@@ -692,7 +692,7 @@ static int ask_on_consoles(char *argv[]) {
 
         /* Start an agent on each console. */
         STRV_FOREACH(tty, consoles) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
                 r = ask_on_this_console(*tty, arguments, &pidref);
                 if (r < 0)

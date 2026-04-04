@@ -33,7 +33,7 @@
 static void inhibitor_remove_fifo(Inhibitor *i);
 
 int inhibitor_new(Manager *m, const char* id, Inhibitor **ret) {
-        _cleanup_(inhibitor_freep) Inhibitor *i = NULL;
+        _cleanup_free(inhibitor) Inhibitor *i = NULL;
         int r;
 
         assert(m);

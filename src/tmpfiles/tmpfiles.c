@@ -349,7 +349,7 @@ static int log_unresolvable_specifier(const char *filename, unsigned line) {
                  __VA_ARGS__)
 
 static int user_config_paths(char ***ret) {
-        _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
+        _cleanup_free(strv) char **config_dirs = NULL, **data_dirs = NULL;
         _cleanup_free_ char *runtime_config = NULL;
         int r;
 
@@ -454,7 +454,7 @@ static struct Item* find_glob(OrderedHashmap *h, const char *match) {
 }
 
 static int load_unix_sockets(Context *c) {
-        _cleanup_set_free_ Set *sockets = NULL;
+        _cleanup_free(set) Set *sockets = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -1242,7 +1242,7 @@ static int parse_acl_cond_exec(
                 return r;
 
         if (!S_ISDIR(st->st_mode)) {
-                _cleanup_(acl_freep) acl_t old = NULL;
+                _cleanup_free(acl) acl_t old = NULL;
 
                 old = sym_acl_get_file(path, ACL_TYPE_ACCESS);
                 if (!old)
@@ -1303,7 +1303,7 @@ static int parse_acl_cond_exec(
         } else
                 has_exec = true;
 
-        _cleanup_(acl_freep) acl_t parsed = access ? sym_acl_dup(access) : sym_acl_init(0);
+        _cleanup_free(acl) acl_t parsed = access ? sym_acl_dup(access) : sym_acl_init(0);
         if (!parsed)
                 return -errno;
 
@@ -1351,7 +1351,7 @@ static int path_set_acl(
                 bool modify) {
 
         _cleanup_(acl_free_charpp) char *t = NULL;
-        _cleanup_(acl_freep) acl_t dup = NULL;
+        _cleanup_free(acl) acl_t dup = NULL;
         int r;
 
         assert(c);
@@ -1414,7 +1414,7 @@ static int fd_set_acls(
 
         int r = 0;
 #if HAVE_ACL
-        _cleanup_(acl_freep) acl_t access_with_exec_parsed = NULL;
+        _cleanup_free(acl) acl_t access_with_exec_parsed = NULL;
         struct stat stbuf;
 
         assert(c);
@@ -2549,7 +2549,7 @@ finish:
 }
 
 static int glob_item(Context *c, Item *i, action_t action) {
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free(strv) char **paths = NULL;
         int r;
 
         assert(c);
@@ -2575,7 +2575,7 @@ static int glob_item_recursively(
                 Item *i,
                 fdaction_t action) {
 
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free(strv) char **paths = NULL;
         int r;
 
         assert(c);
@@ -4094,7 +4094,7 @@ static int parse_line(
 }
 
 static int cat_config(char **config_dirs, char **args) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         int r;
 
         r = conf_files_list_with_replacement(arg_root, config_dirs, arg_replace, &files, NULL);
@@ -4463,7 +4463,7 @@ static int read_config_files(
                 char **args,
                 bool *invalid_config) {
 
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -4550,10 +4550,10 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_array_hash_ops, char, string_
                                               ItemArray, item_array_free);
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-        _cleanup_strv_free_ char **config_dirs = NULL;
-        _cleanup_(context_done) Context c = {};
+        _cleanup_free(strv) char **config_dirs = NULL;
+        _cleanup_done(context) Context c = {};
         bool invalid_config = false;
         ItemArray *a;
         enum {

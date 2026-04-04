@@ -110,7 +110,7 @@ void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr) {
 }
 
 int dns_zone_remove_rrs_by_key(DnsZone *z, DnsResourceKey *key) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL, *soa = NULL;
         DnsResourceRecord *rr;
         bool tentative;
         int r;
@@ -182,7 +182,7 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
                         &DNS_RESOURCE_KEY_CONST(i->rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(i->rr->key)),
                         SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
         if (!t) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+                _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
                 key = dns_resource_key_new(i->rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(i->rr->key));
                 if (!key)
@@ -220,7 +220,7 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
 }
 
 int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
-        _cleanup_(dns_zone_item_freep) DnsZoneItem *i = NULL;
+        _cleanup_free(dns_zone_item) DnsZoneItem *i = NULL;
         DnsZoneItem *existing;
         int r;
 
@@ -304,7 +304,7 @@ static int dns_zone_add_authenticated_answer(DnsAnswer *a, DnsZoneItem *i, int i
 }
 
 int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **ret_answer, DnsAnswer **ret_soa, bool *ret_tentative) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL, *soa = NULL;
         unsigned n_answer = 0;
         DnsZoneItem *first;
         bool tentative = true, need_soa = false;

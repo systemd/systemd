@@ -108,9 +108,9 @@ int raw_pull_new(
                 RawPullFinished on_finished,
                 void *userdata) {
 
-        _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(raw_pull_unrefp) RawPull *p = NULL;
+        _cleanup_unref(curl_glue) CurlGlue *g = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(raw_pull) RawPull *p = NULL;
         _cleanup_free_ char *root = NULL;
         int r;
 

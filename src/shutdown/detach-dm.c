@@ -42,7 +42,7 @@ static void device_mapper_list_free(DeviceMapper **head) {
 }
 
 static int dm_list_get(DeviceMapper **head) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         int r;
 
         assert(head);

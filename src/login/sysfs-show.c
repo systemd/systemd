@@ -124,7 +124,7 @@ static int show_sysfs_one(
 }
 
 int show_sysfs(const char *seat, const char *prefix, unsigned n_columns, OutputFlags flags) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         size_t n_dev = 0, i = 0;
         sd_device **dev_list;
         int r;

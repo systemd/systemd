@@ -7,7 +7,7 @@
 #include "tests.h"
 
 TEST(strv_split_nulstr) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         const char nulstr[] = "str0\0str1\0str2\0str3\0";
 
         l = strv_split_nulstr(nulstr);
@@ -21,7 +21,7 @@ TEST(strv_split_nulstr) {
 
 #define strv_parse_nulstr_full_one(s, n, e0, e1)                        \
         ({                                                              \
-                _cleanup_strv_free_ char **v0 = NULL, **v1 = NULL;      \
+                _cleanup_free(strv) char **v0 = NULL, **v1 = NULL;      \
                                                                         \
                 assert_se(v0 = strv_parse_nulstr_full(s, n, false));    \
                 assert_se(strv_equal(v0, e0));                          \
@@ -83,7 +83,7 @@ TEST(strv_parse_nulstr_full) {
 
 static void test_strv_make_nulstr_one(char **l) {
         _cleanup_free_ char *b = NULL, *c = NULL;
-        _cleanup_strv_free_ char **q = NULL;
+        _cleanup_free(strv) char **q = NULL;
         size_t n, m;
         unsigned i = 0;
 
@@ -110,7 +110,7 @@ TEST(strv_make_nulstr) {
 }
 
 TEST(set_make_nulstr) {
-        _cleanup_set_free_ Set *set = NULL;
+        _cleanup_free(set) Set *set = NULL;
         size_t len = 0;
         int r;
 
@@ -154,7 +154,7 @@ TEST(set_make_nulstr) {
 }
 
 static void test_strv_make_nulstr_binary_one(char **l, const char *b, size_t n) {
-        _cleanup_strv_free_ char **z = NULL;
+        _cleanup_free(strv) char **z = NULL;
         _cleanup_free_ char *a = NULL;
         size_t m;
 

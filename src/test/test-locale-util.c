@@ -7,7 +7,7 @@
 #include "tests.h"
 
 TEST(get_locales) {
-        _cleanup_strv_free_ char **locales = NULL;
+        _cleanup_free(strv) char **locales = NULL;
         int r;
 
         r = get_locales(&locales);
@@ -54,7 +54,7 @@ TEST(locale_is_installed) {
 }
 
 TEST(keymaps) {
-        _cleanup_strv_free_ char **kmaps = NULL;
+        _cleanup_free(strv) char **kmaps = NULL;
         int r;
 
         assert_se(!keymap_is_valid(""));

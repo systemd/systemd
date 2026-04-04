@@ -374,7 +374,7 @@ static int swap_setup_unit(
                 int priority,
                 bool set_flags) {
 
-        _cleanup_(unit_freep) Unit *new_unit = NULL;
+        _cleanup_free(unit) Unit *new_unit = NULL;
         _cleanup_free_ char *e = NULL;
         Unit *u;
         Swap *s;
@@ -444,7 +444,7 @@ static int swap_setup_unit(
 }
 
 static void swap_process_new(Manager *m, const char *device, int prio, bool set_flags) {
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         const char *dn;
         struct stat st, st_link;
         int r;
@@ -625,7 +625,7 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
 static int swap_spawn(Swap *s, ExecCommand *c, PidRef *ret_pid) {
         _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
                         EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert(s);
@@ -1261,7 +1261,7 @@ static Unit* swap_following(Unit *u) {
 
 static int swap_following_set(Unit *u, Set **ret) {
         Swap *s = ASSERT_PTR(SWAP(u));
-        _cleanup_set_free_ Set *set = NULL;
+        _cleanup_free(set) Set *set = NULL;
         int r;
 
         assert(ret);
@@ -1463,7 +1463,7 @@ static PidRef* swap_control_pid(Unit *u) {
 
 static int swap_clean(Unit *u, ExecCleanMask mask) {
         Swap *s = ASSERT_PTR(SWAP(u));
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(mask != 0);

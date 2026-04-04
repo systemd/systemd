@@ -531,7 +531,7 @@ static int archive_entry_read_acl(
                 return 0;
         }
 
-        _cleanup_(acl_freep) acl_t a = NULL;
+        _cleanup_free(acl) acl_t a = NULL;
         a = sym_acl_init(c);
         if (!a)
                 return log_oom();
@@ -728,7 +728,7 @@ static int archive_entry_read_stat(
                 if (!n)
                         return log_oom();
 
-                _cleanup_(iovec_done) struct iovec iovec_copy = {};
+                _cleanup_done(iovec) struct iovec iovec_copy = {};
                 if (!iovec_memdup(&data, &iovec_copy))
                         return log_oom();
 
@@ -762,7 +762,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
         assert(input_fd >= 0);
         assert(tree_fd >= 0);
 
-        _cleanup_(archive_read_freep) struct archive *a = NULL;
+        _cleanup_free(archive_read) struct archive *a = NULL;
         a = sym_archive_read_new();
         if (!a)
                 return log_oom();
@@ -908,7 +908,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                         struct timespec mtime = { .tv_nsec = UTIME_OMIT };
                         unsigned fflags = 0;
 #if HAVE_ACL
-                        _cleanup_(acl_freep)
+                        _cleanup_free(acl)
 #endif
                                 acl_t acl_access = NULL, acl_default = NULL;
                         XAttr *xa = NULL;
@@ -1425,7 +1425,7 @@ static int archive_item(
 
         log_debug("Archiving '%s'...", path);
 
-        _cleanup_(archive_entry_freep) struct archive_entry *entry = NULL;
+        _cleanup_free(archive_entry) struct archive_entry *entry = NULL;
         entry = sym_archive_entry_new();
         if (!entry)
                 return log_oom();
@@ -1499,7 +1499,7 @@ static int archive_item(
                         if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(errno))
                                 return log_error_errno(errno, "Failed check if '%s' has ACLs: %m", path);
                         if (r > 0) {
-                                _cleanup_(acl_freep) acl_t acl = NULL;
+                                _cleanup_free(acl) acl_t acl = NULL;
                                 acl = sym_acl_get_file(FORMAT_PROC_FD_PATH(inode_fd), ACL_TYPE_ACCESS);
                                 if (!acl)
                                         return log_error_errno(errno, "Failed read access ACLs of '%s': %m", path);
@@ -1613,7 +1613,7 @@ int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
         assert(tree_fd >= 0);
         assert(output_fd >= 0);
 
-        _cleanup_(archive_write_freep) struct archive *a = sym_archive_write_new();
+        _cleanup_free(archive_write) struct archive *a = sym_archive_write_new();
         if (!a)
                 return log_oom();
 
@@ -1630,7 +1630,7 @@ int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to set libarchive output file: %s", sym_archive_error_string(a));
 
-        _cleanup_(make_archive_data_done) struct make_archive_data data = {
+        _cleanup_done(make_archive_data) struct make_archive_data data = {
                 .archive = a,
                 .flags = flags,
                 .hardlink_db_fd = -EBADF,

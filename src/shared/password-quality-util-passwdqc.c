@@ -28,7 +28,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(passwdqc_params_t*, sym_passwdqc_params_
 
 static int pwqc_allocate_context(passwdqc_params_t **ret) {
 
-        _cleanup_(passwdqc_params_freep) passwdqc_params_t *params = NULL;
+        _cleanup_free(passwdqc_params) passwdqc_params_t *params = NULL;
         _cleanup_free_ char *load_reason = NULL;
         int r;
 
@@ -57,7 +57,7 @@ static int pwqc_allocate_context(passwdqc_params_t **ret) {
 
 int suggest_passwords(void) {
 
-        _cleanup_(passwdqc_params_freep) passwdqc_params_t *params = NULL;
+        _cleanup_free(passwdqc_params) passwdqc_params_t *params = NULL;
         _cleanup_strv_free_erase_ char **suggestions = NULL;
         _cleanup_(erase_and_freep) char *joined = NULL;
         int r;
@@ -93,7 +93,7 @@ int check_password_quality(
                 const char *username,
                 char **ret_error) {
 
-        _cleanup_(passwdqc_params_freep) passwdqc_params_t *params = NULL;
+        _cleanup_free(passwdqc_params) passwdqc_params_t *params = NULL;
         const char *check_reason;
         int r;
 

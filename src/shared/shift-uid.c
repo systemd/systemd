@@ -74,7 +74,7 @@ static int set_acl(int fd, const char *name, acl_type_t type, acl_t acl) {
 }
 
 static int shift_acl(acl_t acl, uid_t shift, acl_t *ret) {
-        _cleanup_(acl_freep) acl_t copy = NULL;
+        _cleanup_free(acl) acl_t copy = NULL;
         acl_entry_t i;
         int r;
 
@@ -154,7 +154,7 @@ static int shift_acl(acl_t acl, uid_t shift, acl_t *ret) {
 }
 
 static int patch_acls(int fd, const char *name, const struct stat *st, uid_t shift) {
-        _cleanup_(acl_freep) acl_t acl = NULL, shifted = NULL;
+        _cleanup_free(acl) acl_t acl = NULL, shifted = NULL;
         bool changed = false;
         int r;
 
