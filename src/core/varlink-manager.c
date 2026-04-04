@@ -32,7 +32,7 @@
 #include "watchdog.h"
 
 static int manager_environment_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -51,7 +51,7 @@ static int manager_environment_build_json(sd_json_variant **ret, const char *nam
 }
 
 static int log_level_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int log_max_level = log_get_max_level();
         int r;
 
@@ -125,7 +125,7 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
 }
 
 static int transactions_with_cycle_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         const Set *ids = userdata;
         int r;
 
@@ -145,7 +145,7 @@ static int transactions_with_cycle_build_json(sd_json_variant **ret, const char 
 static int manager_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         dual_timestamp watchdog_last_ping;
-        _cleanup_strv_free_ char **taints = NULL;
+        _cleanup_free(strv) char **taints = NULL;
 
         taints = taint_strv();
         if (!taints)
@@ -193,7 +193,7 @@ static int manager_runtime_build_json(sd_json_variant **ret, const char *name, v
 }
 
 int vl_method_describe_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         Manager *manager = ASSERT_PTR(userdata);
         int r;
 
@@ -214,7 +214,7 @@ int vl_method_describe_manager(sd_varlink *link, sd_json_variant *parameters, sd
 }
 
 static void varlink_log_caller(sd_varlink *link, Manager *manager, const char *method) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert(link);
@@ -345,7 +345,7 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
         char *k;
         int ret = 0;
         HASHMAP_FOREACH_KEY(u, k, manager->units) {
-                _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
                 const char *error_id = NULL;
                 uint32_t job_id = 0; /* silence 'maybe-uninitialized' compiler warning */
                 JobType job;

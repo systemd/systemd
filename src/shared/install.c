@@ -1225,7 +1225,7 @@ static int install_info_add(
                 return 0;
         }
 
-        _cleanup_(install_info_freep) InstallInfo *new_info = new(InstallInfo, 1);
+        _cleanup_free(install_info) InstallInfo *new_info = new(InstallInfo, 1);
         if (!new_info)
                 return -ENOMEM;
 
@@ -1542,7 +1542,7 @@ static int unit_file_search(
                 SearchFlags flags) {
 
         const char *dropin_dir_name = NULL, *dropin_template_dir_name = NULL;
-        _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
+        _cleanup_free(strv) char **dirs = NULL, **files = NULL;
         _cleanup_free_ char *template = NULL;
         bool found_unit = false;
         int r, result;
@@ -2041,7 +2041,7 @@ static int install_info_symlink_wants(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(install_info_clear) InstallInfo instance = {
+        _cleanup_clear(install_info) InstallInfo instance = {
                 .install_mode = _INSTALL_MODE_INVALID,
         };
 
@@ -2355,7 +2355,7 @@ int unit_file_mask(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
         const char *config_path;
         int r;
 
@@ -2398,9 +2398,9 @@ int unit_file_unmask(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_set_free_ Set *remove_symlinks_to = NULL;
-        _cleanup_strv_free_ char **todo = NULL;
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
+        _cleanup_free(set) Set *remove_symlinks_to = NULL;
+        _cleanup_free(strv) char **todo = NULL;
         const char *config_path;
         size_t n_todo = 0;
         int r, q;
@@ -2425,7 +2425,7 @@ int unit_file_unmask(
                 /* If root_dir is set, we don't care about kernel command line or generators.
                  * But if it is not set, we need to check for interference. */
                 if (!root_dir) {
-                        _cleanup_(install_info_clear) InstallInfo info = {
+                        _cleanup_clear(install_info) InstallInfo info = {
                                 .name = *name,  /* We borrow *name temporarily… */
                                 .install_mode = _INSTALL_MODE_INVALID,
                         };
@@ -2508,8 +2508,8 @@ int unit_file_link(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *todo = NULL;
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
+        _cleanup_free(ordered_hashmap) OrderedHashmap *todo = NULL;
         const char *config_path;
         int r;
 
@@ -2615,9 +2615,9 @@ int unit_file_revert(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_set_free_ Set *remove_symlinks_to = NULL;
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_strv_free_ char **todo = NULL;
+        _cleanup_free(set) Set *remove_symlinks_to = NULL;
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
+        _cleanup_free(strv) char **todo = NULL;
         size_t n_todo = 0;
         int r, q;
 
@@ -2720,7 +2720,7 @@ int unit_file_revert(
 
         r = 0;
         STRV_FOREACH(i, todo) {
-                _cleanup_strv_free_ char **fs = NULL;
+                _cleanup_free(strv) char **fs = NULL;
                 const char *rp;
 
                 (void) get_files_in_directory(*i, &fs);
@@ -2774,8 +2774,8 @@ int unit_file_add_dependency(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
+        _cleanup_done(install_context) InstallContext ctx = { .scope = scope };
         InstallInfo *info, *target_info;
         const char *config_path;
         int r;
@@ -2844,7 +2844,7 @@ static int do_unit_file_enable(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
+        _cleanup_done(install_context) InstallContext ctx = { .scope = scope };
         InstallInfo *info;
         int r;
 
@@ -2875,7 +2875,7 @@ int unit_file_enable(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
         int r;
 
         assert(scope >= 0);
@@ -2901,7 +2901,7 @@ static int do_unit_file_disable(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
+        _cleanup_done(install_context) InstallContext ctx = { .scope = scope };
         bool has_install_info = false;
         int r;
 
@@ -2928,7 +2928,7 @@ static int do_unit_file_disable(
                 has_install_info = has_install_info || install_info_has_rules(info) || install_info_has_also(info);
         }
 
-        _cleanup_set_free_ Set *remove_symlinks_to = NULL;
+        _cleanup_free(set) Set *remove_symlinks_to = NULL;
         r = install_context_mark_for_removal(&ctx, lp, &remove_symlinks_to, config_path, changes, n_changes);
         if (r >= 0)
                 r = remove_marked_symlinks(remove_symlinks_to, config_path, lp, flags & UNIT_FILE_DRY_RUN, changes, n_changes);
@@ -2947,7 +2947,7 @@ int unit_file_disable(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
         int r;
 
         assert(scope >= 0);
@@ -2975,11 +2975,11 @@ static int normalize_linked_files(
          * but operates on real unit names. For each argument we look up the actual path
          * where the unit is found. This way linked units can be re-enabled successfully. */
 
-        _cleanup_strv_free_ char **files = NULL, **names = NULL;
+        _cleanup_free(strv) char **files = NULL, **names = NULL;
         int r;
 
         STRV_FOREACH(a, names_or_paths) {
-                _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
+                _cleanup_done(install_context) InstallContext ctx = { .scope = scope };
                 InstallInfo *i = NULL;
                 _cleanup_free_ char *n = NULL;
 
@@ -3030,8 +3030,8 @@ int unit_file_reenable(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_strv_free_ char **names = NULL, **files = NULL;
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
+        _cleanup_free(strv) char **names = NULL, **files = NULL;
         int r;
 
         assert(scope >= 0);
@@ -3066,8 +3066,8 @@ int unit_file_set_default(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
+        _cleanup_done(install_context) InstallContext ctx = { .scope = scope };
         InstallInfo *info;
         const char *new_path;
         int r;
@@ -3098,8 +3098,8 @@ int unit_file_get_default(
                 const char *root_dir,
                 char **ret) {
 
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
+        _cleanup_done(install_context) InstallContext ctx = { .scope = scope };
         InstallInfo *info;
         int r;
 
@@ -3125,7 +3125,7 @@ int unit_file_lookup_state(
                 const char *name,
                 UnitFileState *ret) {
 
-        _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
+        _cleanup_done(install_context) InstallContext ctx = { .scope = scope };
         InstallInfo *info;
         UnitFileState state;
         int r;
@@ -3223,7 +3223,7 @@ int unit_file_get_state(
                 const char *name,
                 UnitFileState *ret) {
 
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
         int r;
 
         assert(scope >= 0);
@@ -3244,7 +3244,7 @@ int unit_file_exists_full(
                 const char *name,
                 char **ret_path) {
 
-        _cleanup_(install_context_done) InstallContext c = {
+        _cleanup_done(install_context) InstallContext c = {
                 .scope = scope,
         };
         int r;
@@ -3284,7 +3284,7 @@ int unit_file_exists_full(
 }
 
 static int split_pattern_into_name_and_instances(const char *pattern, char **out_unit_name, char ***out_instances) {
-        _cleanup_strv_free_ char **instances = NULL;
+        _cleanup_free(strv) char **instances = NULL;
         _cleanup_free_ char *unit_name = NULL;
         int r;
 
@@ -3354,8 +3354,8 @@ static int presets_find_config(RuntimeScope scope, const char *root_dir, char **
 }
 
 static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePresets *presets) {
-        _cleanup_(unit_file_presets_done) UnitFilePresets ps = {};
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_done(unit_file_presets) UnitFilePresets ps = {};
+        _cleanup_free(strv) char **files = NULL;
         int r;
 
         assert(scope >= 0);
@@ -3380,7 +3380,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
 
                 for (;;) {
                         _cleanup_free_ char *line = NULL;
-                        _cleanup_(unit_file_preset_rule_done) UnitFilePresetRule rule = {};
+                        _cleanup_done(unit_file_preset_rule) UnitFilePresetRule rule = {};
                         const char *parameter;
 
                         r = read_stripped_line(f, LONG_LINE_MAX, &line);
@@ -3479,7 +3479,7 @@ static int pattern_match_multiple_instances(
 
         /* Compose a list of specified instances when unit name is a template  */
         if (unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
-                _cleanup_strv_free_ char **out_strv = NULL;
+                _cleanup_free(strv) char **out_strv = NULL;
 
                 STRV_FOREACH(iter, rule.instances) {
                         _cleanup_free_ char *name = NULL;
@@ -3554,7 +3554,7 @@ static int query_presets(const char *name, const UnitFilePresets *presets, char 
 }
 
 PresetAction unit_file_query_preset(RuntimeScope scope, const char *root_dir, const char *name, UnitFilePresets *cached) {
-        _cleanup_(unit_file_presets_done) UnitFilePresets tmp = {};
+        _cleanup_done(unit_file_presets) UnitFilePresets tmp = {};
         int r;
 
         if (!cached)
@@ -3587,7 +3587,7 @@ static int execute_preset(
         assert(config_path);
 
         if (mode != UNIT_FILE_PRESET_ENABLE_ONLY) {
-                _cleanup_set_free_ Set *remove_symlinks_to = NULL;
+                _cleanup_free(set) Set *remove_symlinks_to = NULL;
 
                 r = install_context_mark_for_removal(minus, lp, &remove_symlinks_to, config_path, changes, n_changes);
                 if (r < 0)
@@ -3626,8 +3626,8 @@ static int preset_prepare_one(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(install_context_done) InstallContext tmp = { .scope = scope };
-        _cleanup_strv_free_ char **instance_name_list = NULL;
+        _cleanup_done(install_context) InstallContext tmp = { .scope = scope };
+        _cleanup_free(strv) char **instance_name_list = NULL;
         InstallInfo *info;
         int r;
 
@@ -3679,9 +3679,9 @@ int unit_file_preset(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
+        _cleanup_done(install_context) InstallContext plus = {}, minus = {};
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
+        _cleanup_done(unit_file_presets) UnitFilePresets presets = {};
         const char *config_path;
         int r;
 
@@ -3718,9 +3718,9 @@ int unit_file_preset_all(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
+        _cleanup_done(install_context) InstallContext plus = {}, minus = {};
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
+        _cleanup_done(unit_file_presets) UnitFilePresets presets = {};
         const char *config_path = NULL;
         int r;
 
@@ -3790,8 +3790,8 @@ int unit_file_get_list(
                 char * const *patterns,
                 Hashmap **ret) {
 
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
+        _cleanup_free(hashmap) Hashmap *h = NULL;
         int r;
 
         assert(scope >= 0);
@@ -3840,7 +3840,7 @@ int unit_file_get_list(
                             !strv_contains(states, unit_file_state_to_string(state)))
                                 continue;
 
-                        _cleanup_(unit_file_list_freep) UnitFileList *f = new(UnitFileList, 1);
+                        _cleanup_free(unit_file_list) UnitFileList *f = new(UnitFileList, 1);
                         if (!f)
                                 return -ENOMEM;
 

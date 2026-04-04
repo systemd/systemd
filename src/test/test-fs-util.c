@@ -63,7 +63,7 @@ TEST(readlink_and_make_absolute) {
 }
 
 TEST(get_files_in_directory) {
-        _cleanup_strv_free_ char **l = NULL, **t = NULL;
+        _cleanup_free(strv) char **l = NULL, **t = NULL;
 
         assert_se(get_files_in_directory(arg_test_dir ?: "/tmp", &l) >= 0);
         assert_se(get_files_in_directory(".", &t) >= 0);
@@ -757,7 +757,7 @@ TEST(xopenat_lock_full) {
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_ERROR(xopenat_lock_full(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB), EAGAIN);
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = ASSERT_OK(pidref_safe_fork("(lock)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pidref));
 
         if (r == 0) {

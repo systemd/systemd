@@ -236,7 +236,7 @@ int config_parse_dns(
         }
 
         for (const char *p = rvalue;;) {
-                _cleanup_(in_addr_full_freep) struct in_addr_full *dns = NULL;
+                _cleanup_free(in_addr_full) struct in_addr_full *dns = NULL;
                 _cleanup_free_ char *w = NULL;
 
                 r = extract_first_word(&p, &w, NULL, 0);

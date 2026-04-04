@@ -50,7 +50,7 @@ typedef struct ProgressInfo {
         uint64_t bps;
 } ProgressInfo;
 
-static void progress_info_free(ProgressInfo *p) {
+static void progress_info_done(ProgressInfo *p) {
         free(p->path);
 }
 
@@ -109,7 +109,7 @@ static int progress_bytes(uint64_t nbytes, uint64_t bps, void *userdata) {
 
 static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(rm_rf_subvolume_and_freep) char *temp_path = NULL;
-        _cleanup_(progress_info_free) ProgressInfo progress = { .bps = UINT64_MAX };
+        _cleanup_done(progress_info) ProgressInfo progress = { .bps = UINT64_MAX };
         _cleanup_free_ char *l = NULL, *final_path = NULL;
         const char *path = NULL, *local = NULL, *dest = NULL;
         _cleanup_close_ int open_fd = -EBADF;

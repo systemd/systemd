@@ -738,6 +738,22 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - Make use of `_cleanup_free_` and friends. It makes your code much nicer to
   read (and shorter)!
 
+- Use the parameterized `_cleanup_free()`, `_cleanup_unref()`,
+  `_cleanup_done()`, `_cleanup_clear()`, `_cleanup_close()`, and
+  `_cleanup_destroy()` macros where the argument is a **type name** and the
+  cleanup function follows the standard naming convention (e.g.
+  `hashmap_freep`, `sd_bus_unrefp`, `pidref_done`). For example:
+
+  ```c
+  _cleanup_free(hashmap) Hashmap *h = hashmap_new(NULL);
+  _cleanup_unref(sd_bus) sd_bus *bus = NULL;
+  _cleanup_done(pidref) PidRef p = PIDREF_NULL;
+  ```
+
+  Do **not** use these macros for action-compound cleanup functions like
+  `erase_and_freep`, `rm_rf_physical_and_freep`,
+  `sd_bus_flush_close_unrefp`, etc. — use `_cleanup_()` directly for those.
+
 - Do not use `alloca()`, `strdupa()` or `strndupa()` directly. Use
   `alloca_safe()`, `strdupa_safe()` or `strndupa_safe()` instead. (The
   difference is that the latter include an assertion that the specified size is

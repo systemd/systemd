@@ -65,7 +65,7 @@ static const ImagePolicy image_policy_untrusted = {
 };
 
 static int json_dispatch_image_options(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        _cleanup_free(mount_options) MountOptions *options = NULL;
         MountOptions **p = ASSERT_PTR(userdata);
         int r;
 
@@ -104,7 +104,7 @@ static int json_dispatch_image_options(const char *name, sd_json_variant *varian
 }
 
 static int json_dispatch_image_policy(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        _cleanup_(image_policy_freep) ImagePolicy *q = NULL;
+        _cleanup_free(image_policy) ImagePolicy *q = NULL;
         ImagePolicy **p = ASSERT_PTR(userdata);
         int r;
 
@@ -271,7 +271,7 @@ static int determine_image_policy(
                 ImagePolicy *client_policy,
                 ImagePolicy **ret) {
 
-        _cleanup_(image_policy_freep) ImagePolicy *envvar_policy = NULL;
+        _cleanup_free(image_policy) ImagePolicy *envvar_policy = NULL;
         const ImagePolicy *default_policy;
         const char *envvar, *e;
         int r;
@@ -388,19 +388,19 @@ static int vl_method_mount_image(
                 {}
         };
 
-        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
-        _cleanup_(mount_image_parameters_done) MountImageParameters p = {
+        _cleanup_done(verity_settings) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+        _cleanup_done(mount_image_parameters) MountImageParameters p = {
                 .image_fd_idx = UINT_MAX,
                 .userns_fd_idx = UINT_MAX,
                 .verity_data_fd_idx = UINT_MAX,
                 .read_only = -1,
                 .growfs = -1,
         };
-        _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
-        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *aj = NULL;
+        _cleanup_unref(dissected_image) DissectedImage *di = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *aj = NULL;
         _cleanup_close_ int image_fd = -EBADF, userns_fd = -EBADF, verity_data_fd = -EBADF;
-        _cleanup_(image_policy_freep) ImagePolicy *use_policy = NULL;
+        _cleanup_free(image_policy) ImagePolicy *use_policy = NULL;
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
         _cleanup_free_ char *ps = NULL;
         bool image_is_trusted = false;
@@ -714,7 +714,7 @@ static int vl_method_mount_image(
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *nsresource_link = NULL;
         for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
                 DissectedPartition *pp = di->partitions + d;
                 int fd_idx;
@@ -745,7 +745,7 @@ static int vl_method_mount_image(
                 TAKE_FD(pp->fsmount_fd);
 
                 const char *m = partition_mountpoint_to_string(d);
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
                 if (!isempty(m)) {
                         l = strv_split_nulstr(m);
                         if (!l)
@@ -989,7 +989,7 @@ static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, c
         if (mount_fd != -EINVAL)
                 return log_debug_errno(mount_fd, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = varlink_get_peer_pidref(link, &pidref);
         if (r < 0)
                 return r;
@@ -1016,7 +1016,7 @@ static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, c
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, mount_fd_socket) < 0)
                 return log_debug_errno(errno, "Failed to create socket pair: %m");
 
-        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef child = PIDREF_NULL;
         r = namespace_fork(
                         "(sd-opentreens)",
                         "(sd-opentree)",
@@ -1216,7 +1216,7 @@ static int vl_method_mount_directory(
                 if (userns_fd >= 0) {
                         /* Load ranges without coalescing to preserve the 1:1 correspondence
                          * between inside and outside entries */
-                        _cleanup_(uid_range_freep) UIDRange *uid_range_outside = NULL, *uid_range_inside = NULL, *gid_range_outside = NULL, *gid_range_inside = NULL;
+                        _cleanup_free(uid_range) UIDRange *uid_range_outside = NULL, *uid_range_inside = NULL, *gid_range_outside = NULL, *gid_range_inside = NULL;
                         r = uid_range_load_userns_by_fd_full(userns_fd, UID_RANGE_USERNS_OUTSIDE, /* coalesce= */ false, &uid_range_outside);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to load outside UID range of provided userns: %m");
@@ -1453,7 +1453,7 @@ fail:
 static int process_connection(sd_varlink_server *server, int _fd) {
         _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possession */
         _cleanup_(sd_varlink_close_unrefp) sd_varlink *vl = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         int r;
 
         r = sd_event_new(&event);
@@ -1484,9 +1484,9 @@ static int process_connection(sd_varlink_server *server, int _fd) {
 
 static int run(int argc, char *argv[]) {
         usec_t start_time, listen_idle_usec, last_busy_usec = USEC_INFINITY;
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
-        _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
-        _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *server = NULL;
+        _cleanup_free(hashmap) Hashmap *polkit_registry = NULL;
+        _cleanup_done(pidref) PidRef parent = PIDREF_NULL;
         unsigned n_iterations = 0;
         int m, listen_fd, r;
 

@@ -11,7 +11,7 @@
 #include "tests.h"
 
 TEST(error) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL, second = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL, second = SD_BUS_ERROR_NULL;
         const sd_bus_error const_error = SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_FILE_EXISTS, "const error");
         const sd_bus_error temporarily_const_error = {
                 .name = SD_BUS_ERROR_ACCESS_DENIED,
@@ -218,7 +218,7 @@ TEST(errno_mapping_custom) {
 }
 
 TEST(sd_bus_error_set_errnof) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *str = NULL;
 
         assert_se(sd_bus_error_set_errnof(NULL, 0, NULL) == 0);

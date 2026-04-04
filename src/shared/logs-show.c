@@ -1110,7 +1110,7 @@ static int update_json_data(
                 const void *value,
                 size_t size) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         JsonData *d;
         int r;
 
@@ -1135,7 +1135,7 @@ static int update_json_data(
                 if (r < 0)
                         return log_error_errno(r, "Failed to append JSON value into array: %m");
         } else {
-                _cleanup_(json_data_freep) JsonData *e = NULL;
+                _cleanup_free(json_data) JsonData *e = NULL;
 
                 e = new0(JsonData, 1);
                 if (!e)
@@ -1205,7 +1205,7 @@ int journal_entry_to_json(
         usec_t realtime, monotonic;
         uint64_t seqnum;
         const char *corrupted_what = NULL;
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_free(hashmap) Hashmap *h = NULL;
         _cleanup_free_ sd_json_variant **array = NULL;
         size_t n = 0;
         int r;
@@ -1336,7 +1336,7 @@ static int output_json(
                 dual_timestamp *previous_display_ts, /* unused */
                 sd_id128_t *previous_boot_id) {      /* unused */
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *object = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *object = NULL;
         int r;
 
         r = journal_entry_to_json(j, flags, output_fields, &object);
@@ -1866,7 +1866,7 @@ int show_journal_by_unit(
                 bool system_unit,
                 bool *ellipsized) {
 
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         int r;
 
         assert(mode >= 0);
@@ -2026,7 +2026,7 @@ int discover_next_id(
                 bool advance_older,
                 LogId *ret) {
 
-        _cleanup_set_free_ Set *broken_ids = NULL;
+        _cleanup_free(set) Set *broken_ids = NULL;
         int r;
 
         assert(j);

@@ -164,7 +164,7 @@ static int verify_features(
                 bool *ret_has_uv,
                 bool *ret_has_always_uv) {
 
-        _cleanup_(fido_cbor_info_free_wrapper) fido_cbor_info_t *di = NULL;
+        _cleanup_free(fido_cbor_info) fido_cbor_info_t *di = NULL;
         bool found_extension = false;
         char **e, **o;
         const bool *b;
@@ -316,8 +316,8 @@ static int fido2_is_cred_in_specific_token(
         assert(cid);
         assert(cid_size);
 
-        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
-        _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
+        _cleanup_free(fido_dev) fido_dev_t *d = NULL;
+        _cleanup_free(fido_assert) fido_assert_t *a = NULL;
         bool has_up = false, has_uv = false;
         int r;
 
@@ -418,8 +418,8 @@ static int fido2_use_hmac_hash_specific_token(
                 size_t *ret_hmac_size) {
 
         _cleanup_(plymouth_end_interaction) bool plymouth_displayed = false;
-        _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
-        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
+        _cleanup_free(fido_assert) fido_assert_t *a = NULL;
+        _cleanup_free(fido_dev) fido_dev_t *d = NULL;
         _cleanup_(erase_and_freep) void *hmac_copy = NULL;
         bool has_up, has_client_pin, has_uv;
         size_t hmac_size;
@@ -751,9 +751,9 @@ int fido2_generate_hmac_hash(
                 Fido2EnrollFlags *ret_locked_with) {
 
         _cleanup_(erase_and_freep) void *secret_copy = NULL;
-        _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
-        _cleanup_(fido_cred_free_wrapper) fido_cred_t *c = NULL;
-        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
+        _cleanup_free(fido_assert) fido_assert_t *a = NULL;
+        _cleanup_free(fido_cred) fido_cred_t *c = NULL;
+        _cleanup_free(fido_dev) fido_dev_t *d = NULL;
         _cleanup_(erase_and_freep) char *used_pin = NULL;
         bool has_rk, has_client_pin, has_up, has_uv, has_always_uv;
         _cleanup_free_ char *cid_copy = NULL;
@@ -1150,7 +1150,7 @@ static int check_device_is_fido2_with_hmac_secret(
                 bool *ret_has_uv,
                 bool *ret_has_always_uv) {
 
-        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
+        _cleanup_free(fido_dev) fido_dev_t *d = NULL;
         int r;
 
         d = sym_fido_dev_new();
@@ -1176,7 +1176,7 @@ static int check_device_is_fido2_with_hmac_secret(
 
 int fido2_list_devices(void) {
 #if HAVE_LIBFIDO2
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
 
         size_t allocated = 64, found = 0;
         fido_dev_info_t *di = NULL;

@@ -95,7 +95,7 @@ static const char *integrity_algorithm_select(const void *key_file_buf) {
 }
 
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free(crypt) struct crypt_device *cd = NULL;
         crypt_status_info status;
         _cleanup_(erase_and_freep) void *key_buf = NULL;
         size_t key_buf_size = 0;
@@ -162,7 +162,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 }
 
 static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free(crypt) struct crypt_device *cd = NULL;
         int r;
 
         assert(argc == 2);

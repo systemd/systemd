@@ -174,7 +174,7 @@ static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_crash_action, crash_ac
 
 static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
         _cleanup_free_ char *base = NULL;
-        _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
+        _cleanup_free(strv) char **files = NULL, **dirs = NULL;
         int r;
 
         r = xdg_user_config_dir("/systemd", &base);
@@ -829,7 +829,7 @@ static int parse_config_file(void) {
                                 CONFIG_PARSE_WARN,
                                 /* userdata= */ NULL);
         else {
-                _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
+                _cleanup_free(strv) char **files = NULL, **dirs = NULL;
                 int r;
 
                 assert(arg_runtime_scope == RUNTIME_SCOPE_USER);
@@ -1218,7 +1218,7 @@ static int prepare_reexecute(
                 FDSet **ret_fds,
                 bool switching_root) {
 
-        _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_free(fdset) FDSet *fds = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -1651,7 +1651,7 @@ static int become_shutdown(int objective, int retval) {
         char timeout[STRLEN("--timeout=") + DECIMAL_STR_MAX(usec_t) + STRLEN("us")],
              exit_code[STRLEN("--exit-code=") + DECIMAL_STR_MAX(uint8_t)];
 
-        _cleanup_strv_free_ char **env_block = NULL;
+        _cleanup_free(strv) char **env_block = NULL;
         _cleanup_free_ char *max_log_levels = NULL;
         usec_t watchdog_timer = 0;
         int r;
@@ -2626,7 +2626,7 @@ static int do_queue_default_job(
                 Manager *m,
                 const char **ret_error_message) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *unit;
         Job *job;
         Unit *target;

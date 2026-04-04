@@ -12,8 +12,8 @@
 
 static void test_paths_one(RuntimeScope scope) {
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
-        _cleanup_(lookup_paths_done) LookupPaths lp_without_env = {};
-        _cleanup_(lookup_paths_done) LookupPaths lp_with_env = {};
+        _cleanup_done(lookup_paths) LookupPaths lp_without_env = {};
+        _cleanup_done(lookup_paths) LookupPaths lp_with_env = {};
         char *systemd_unit_path;
 
         assert_se(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp) >= 0);
@@ -39,7 +39,7 @@ TEST(paths) {
 }
 
 TEST(user_and_global_paths) {
-        _cleanup_(lookup_paths_done) LookupPaths lp_global = {}, lp_user = {};
+        _cleanup_done(lookup_paths) LookupPaths lp_global = {}, lp_user = {};
         char **u, **g;
         unsigned k = 0;
 
@@ -71,10 +71,10 @@ TEST(user_and_global_paths) {
 
 static void test_generator_binary_paths_one(RuntimeScope scope) {
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
-        _cleanup_strv_free_ char **gp_without_env = NULL;
-        _cleanup_strv_free_ char **env_gp_without_env = NULL;
-        _cleanup_strv_free_ char **gp_with_env = NULL;
-        _cleanup_strv_free_ char **env_gp_with_env = NULL;
+        _cleanup_free(strv) char **gp_without_env = NULL;
+        _cleanup_free(strv) char **env_gp_without_env = NULL;
+        _cleanup_free(strv) char **gp_with_env = NULL;
+        _cleanup_free(strv) char **env_gp_with_env = NULL;
         char *systemd_generator_path = NULL;
         char *systemd_env_generator_path = NULL;
 

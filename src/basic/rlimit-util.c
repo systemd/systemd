@@ -470,7 +470,7 @@ int pid_getrlimit(pid_t pid, int resource, struct rlimit *ret) {
         if (r < 0)
                 return -EPERM; /* propagate original permission error if we can't access the limits file */
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         l = strv_split_newlines(limits);
         if (!l)
                 return -ENOMEM;

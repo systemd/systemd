@@ -231,7 +231,7 @@ static void test_log_context(void) {
         ASSERT_EQ(log_context_num_fields(), 0U);
 
         {
-                _cleanup_(log_context_unrefp) LogContext *ctx = NULL;
+                _cleanup_unref(log_context) LogContext *ctx = NULL;
 
                 char **strv = STRV_MAKE("SIXTH=ijn", "SEVENTH=PRP");
                 ASSERT_NOT_NULL(ctx = log_context_new_strv(strv, /* owned= */ false));

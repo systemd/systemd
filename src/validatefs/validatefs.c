@@ -33,7 +33,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
+        _cleanup_unref(table) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-validatefs@.service", "8", &link);
@@ -141,13 +141,13 @@ static char* validate_fields_gpt_type_uuid_as_string(const ValidateFields *f) {
 }
 
 static int validate_fields_read(int fd, ValidateFields *ret) {
-        _cleanup_(validate_fields_done) ValidateFields f = {};
+        _cleanup_done(validate_fields) ValidateFields f = {};
         int r;
 
         assert(fd >= 0);
         assert(ret);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         r = getxattr_at_strv(fd, /* path= */ NULL, "user.validatefs.gpt_type_uuid", AT_EMPTY_PATH, &l);
         if (r < 0) {
                 if (r != -ENODATA && !ERRNO_IS_NOT_SUPPORTED(r))
@@ -299,7 +299,7 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
         if (block_fd < 0)
                 return log_error_errno(block_fd, "Failed to open block device backing '%s': %m", path);
 
-        _cleanup_(blkid_free_probep) blkid_probe b = sym_blkid_new_probe();
+        _cleanup_free(blkid_probe) blkid_probe b = sym_blkid_new_probe();
         if (!b)
                 return log_oom();
 
@@ -350,7 +350,7 @@ static int validate_gpt_metadata(int fd, const char *path, const ValidateFields 
         if (strv_isempty(f->gpt_label) && f->n_gpt_type_uuid == 0)
                 return 0;
 
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         r = block_device_new_from_fd(fd, BLOCK_DEVICE_LOOKUP_BACKING, &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to find block device backing '%s': %m", path);
@@ -418,7 +418,7 @@ static int run(int argc, char *argv[]) {
         if (!r)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "Directory '%s' is not a mount point.", resolved);
 
-        _cleanup_(validate_fields_done) ValidateFields f = {};
+        _cleanup_done(validate_fields) ValidateFields f = {};
         r = validate_fields_read(target_fd, &f);
         if (r < 0)
                 return r;

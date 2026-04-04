@@ -439,7 +439,7 @@ static int manager_read_timezone_stat(Manager *m) {
 }
 
 static int manager_setup_timezone_change(Manager *m) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *new_event = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *new_event = NULL;
         int r;
 
         assert(m);
@@ -876,7 +876,7 @@ usec_t manager_default_timeout(RuntimeScope scope) {
 }
 
 int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, Manager **ret) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         int r;
 
         assert(IN_SET(runtime_scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));
@@ -1487,7 +1487,7 @@ static unsigned manager_dispatch_stop_when_unneeded_queue(Manager *m) {
         assert(m);
 
         while ((u = LIST_POP(stop_when_unneeded_queue, m->stop_when_unneeded_queue))) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 assert(u->in_stop_when_unneeded_queue);
                 u->in_stop_when_unneeded_queue = false;
@@ -1527,7 +1527,7 @@ static unsigned manager_dispatch_start_when_upheld_queue(Manager *m) {
         assert(m);
 
         while ((u = LIST_POP(start_when_upheld_queue, m->start_when_upheld_queue))) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 Unit *culprit = NULL;
 
                 assert(u->in_start_when_upheld_queue);
@@ -1568,7 +1568,7 @@ static unsigned manager_dispatch_stop_when_bound_queue(Manager *m) {
         assert(m);
 
         while ((u = LIST_POP(stop_when_bound_queue, m->stop_when_bound_queue))) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 Unit *culprit = NULL;
 
                 assert(u->in_stop_when_bound_queue);
@@ -2238,7 +2238,7 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
 }
 
 int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, Job **ret) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(m);
@@ -2393,7 +2393,7 @@ int manager_load_unit_prepare(
                 sd_bus_error *e,
                 Unit **ret) {
 
-        _cleanup_(unit_freep) Unit *cleanup_unit = NULL;
+        _cleanup_free(unit) Unit *cleanup_unit = NULL;
         _cleanup_free_ char *nbuf = NULL;
         int r;
 
@@ -2499,7 +2499,7 @@ int manager_load_startable_unit_or_warn(
 
         /* Load a unit, make sure it loaded fully and is not masked. */
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         Unit *unit;
         int r;
 
@@ -2752,7 +2752,7 @@ static int manager_get_units_for_pidref(Manager *m, const PidRef *pidref, Unit *
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         struct ucred ucred;
         _cleanup_(fdset_free_asyncp) FDSet *fds = NULL;
         int r;
@@ -2764,7 +2764,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        _cleanup_strv_free_ char **tags = NULL;
+        _cleanup_free(strv) char **tags = NULL;
         r = notify_recv_with_fds_strv(m->notify_fd, &tags, &ucred, &pidref, &fds);
         if (r == -EAGAIN)
                 return 0;
@@ -3594,7 +3594,7 @@ int manager_override_watchdog_pretimeout_governor(Manager *m, const char *govern
 
 int manager_reload(Manager *m) {
         _unused_ _cleanup_(manager_reloading_stopp) Manager *reloading = NULL;
-        _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_free(fdset) FDSet *fds = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -3952,7 +3952,7 @@ static bool generator_path_any(char * const *paths) {
 }
 
 static int manager_run_environment_generators(Manager *m) {
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free(strv) char **paths = NULL;
         int r;
 
         assert(m);
@@ -3988,7 +3988,7 @@ static int manager_run_environment_generators(Manager *m) {
 }
 
 static int build_generator_environment(Manager *m, char ***ret) {
-        _cleanup_strv_free_ char **nl = NULL;
+        _cleanup_free(strv) char **nl = NULL;
         Virtualization v;
         ConfidentialVirtualization cv;
         int r;
@@ -4063,7 +4063,7 @@ static int build_generator_environment(Manager *m, char ***ret) {
 }
 
 static int manager_execute_generators(Manager *m, char * const *paths, bool remount_ro) {
-        _cleanup_strv_free_ char **ge = NULL;
+        _cleanup_free(strv) char **ge = NULL;
         int r;
 
         assert(m);
@@ -4105,7 +4105,7 @@ static int manager_execute_generators(Manager *m, char * const *paths, bool remo
 
 static int manager_run_generators(Manager *m) {
         ForkFlags flags = FORK_RESET_SIGNALS | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE;
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free(strv) char **paths = NULL;
         int r;
 
         assert(m);
@@ -4932,7 +4932,7 @@ static int manager_dispatch_handoff_timestamp_fd(sd_event_source *source, int fd
 
 static int manager_dispatch_pidref_transport_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL, parent_pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef child_pidref = PIDREF_NULL, parent_pidref = PIDREF_NULL;
         _cleanup_close_ int child_pidfd = -EBADF, parent_pidfd = -EBADF;
         struct ucred *ucred = NULL;
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int)) * 2) control;

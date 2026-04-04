@@ -101,7 +101,7 @@ static int dhcp4_pd_create_6rd_tunnel_name(Link *link) {
 }
 
 int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callback) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         uint8_t ipv4masklen, sixrd_prefixlen;
         struct in_addr ipv4address;
         struct in6_addr sixrd_prefix;

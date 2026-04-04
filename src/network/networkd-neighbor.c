@@ -97,8 +97,8 @@ static int neighbor_new(Neighbor **ret) {
 }
 
 static int neighbor_new_static(Network *network, const char *filename, unsigned section_line, Neighbor **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(neighbor_unrefp) Neighbor *neighbor = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_unref(neighbor) Neighbor *neighbor = NULL;
         int r;
 
         assert(network);
@@ -133,7 +133,7 @@ static int neighbor_new_static(Network *network, const char *filename, unsigned 
 }
 
 static int neighbor_dup(const Neighbor *neighbor, Neighbor **ret) {
-        _cleanup_(neighbor_unrefp) Neighbor *dest = NULL;
+        _cleanup_unref(neighbor) Neighbor *dest = NULL;
 
         assert(neighbor);
         assert(ret);
@@ -273,7 +273,7 @@ static void neighbor_forget(Link *link, Neighbor *neighbor, const char *msg) {
 }
 
 static int neighbor_configure(Neighbor *neighbor, Link *link, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(neighbor);
@@ -350,7 +350,7 @@ static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_messag
 }
 
 static int link_request_neighbor(Link *link, const Neighbor *neighbor) {
-        _cleanup_(neighbor_unrefp) Neighbor *tmp = NULL;
+        _cleanup_unref(neighbor) Neighbor *tmp = NULL;
         Neighbor *existing = NULL;
         int r;
 
@@ -454,7 +454,7 @@ static int neighbor_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Remo
 }
 
 int neighbor_remove(Neighbor *neighbor, Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(neighbor);
@@ -594,7 +594,7 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
                  * kernel sends messages about neighbors after a link is removed. So, just ignore it. */
                 return 0;
 
-        _cleanup_(neighbor_unrefp) Neighbor *tmp = NULL;
+        _cleanup_unref(neighbor) Neighbor *tmp = NULL;
         r = neighbor_new(&tmp);
         if (r < 0)
                 return log_oom();
@@ -699,7 +699,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         neighbor_detach);
 
 int network_drop_invalid_neighbors(Network *network) {
-        _cleanup_set_free_ Set *neighbors = NULL, *duplicated_neighbors = NULL;
+        _cleanup_free(set) Set *neighbors = NULL, *duplicated_neighbors = NULL;
         Neighbor *neighbor;
         int r;
 

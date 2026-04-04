@@ -230,7 +230,7 @@ static int loop_configure(
 
         static bool loop_configure_broken = false;
 
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         _cleanup_(cleanup_clear_loop_close) int loop_with_fd = -EBADF; /* This must be declared before lock_fd. */
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *node = NULL;
@@ -453,7 +453,7 @@ static int loop_device_make_internal(
                 int lock_op,
                 LoopDevice **ret) {
 
-        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        _cleanup_unref(loop_device) LoopDevice *d = NULL;
         _cleanup_close_ int reopened_fd = -EBADF, control = -EBADF;
         _cleanup_free_ char *backing_file = NULL;
         struct loop_config config;
@@ -1062,7 +1062,7 @@ int loop_device_open_from_fd(
                 int lock_op,
                 LoopDevice **ret) {
 
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         int r;
 
         r = block_device_new_from_fd(ASSERT_FD(fd), 0, &dev);
@@ -1078,7 +1078,7 @@ int loop_device_open_from_path(
                 int lock_op,
                 LoopDevice **ret) {
 
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         int r;
 
         assert(path);

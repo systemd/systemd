@@ -100,8 +100,8 @@ static int dnssd_id_from_path(const char *path, char **ret_id) {
 }
 
 static int dnssd_registered_service_load(Manager *manager, const char *path) {
-        _cleanup_(dnssd_registered_service_freep) DnssdRegisteredService *service = NULL;
-        _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
+        _cleanup_free(dnssd_registered_service) DnssdRegisteredService *service = NULL;
+        _cleanup_free(dnssd_txtdata) DnssdTxtData *txt_data = NULL;
         _cleanup_free_ char *dropin_dirname = NULL;
         int r;
 
@@ -217,7 +217,7 @@ int dnssd_render_instance_name(Manager *m, DnssdRegisteredService *s, char **ret
 }
 
 int dnssd_load(Manager *manager) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         int r;
 
         assert(manager);
@@ -550,7 +550,7 @@ int config_parse_dnssd_txt(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
+        _cleanup_free(dnssd_txtdata) DnssdTxtData *txt_data = NULL;
         DnssdRegisteredService *s = ASSERT_PTR(userdata);
         DnsTxtItem *last = NULL;
 

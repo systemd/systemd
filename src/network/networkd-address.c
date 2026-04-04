@@ -171,7 +171,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         address_detach);
 
 int address_new(Address **ret) {
-        _cleanup_(address_unrefp) Address *address = NULL;
+        _cleanup_unref(address) Address *address = NULL;
 
         address = new(Address, 1);
         if (!address)
@@ -192,8 +192,8 @@ int address_new(Address **ret) {
 }
 
 int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(address_unrefp) Address *address = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_unref(address) Address *address = NULL;
         int r;
 
         assert(network);
@@ -624,7 +624,7 @@ bool address_can_update(const Address *existing, const Address *requesting) {
 }
 
 int address_dup(const Address *src, Address **ret) {
-        _cleanup_(address_unrefp) Address *dest = NULL;
+        _cleanup_unref(address) Address *dest = NULL;
         int r;
 
         assert(src);
@@ -872,7 +872,7 @@ static int address_removed_maybe_kernel_dad(Link *link, Address *address) {
 }
 
 static int address_drop(Address *in, bool removed_by_us) {
-        _cleanup_(address_unrefp) Address *address = address_ref(ASSERT_PTR(in));
+        _cleanup_unref(address) Address *address = address_ref(ASSERT_PTR(in));
         Link *link = ASSERT_PTR(address->link);
         int r;
 
@@ -1035,7 +1035,7 @@ int link_get_address_full(
          * If the peer is NULL, then an Address object with an arbitrary peer will be returned. */
 
         if (family == AF_INET6 || (prefixlen != 0 && peer)) {
-                _cleanup_(address_unrefp) Address *tmp = NULL;
+                _cleanup_unref(address) Address *tmp = NULL;
 
                 /* In this case, we can use address_get(). */
 
@@ -1233,7 +1233,7 @@ static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Remov
 }
 
 int address_remove(Address *address, Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(address);
@@ -1270,7 +1270,7 @@ int address_remove(Address *address, Link *link) {
 }
 
 int address_remove_and_cancel(Address *address, Link *link) {
-        _cleanup_(request_unrefp) Request *req = NULL;
+        _cleanup_unref(request) Request *req = NULL;
         bool waiting = false;
 
         assert(address);
@@ -1338,7 +1338,7 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
 }
 
 int link_drop_ipv6ll_addresses(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL, *reply = NULL;
         int r;
 
         assert(link);
@@ -1364,7 +1364,7 @@ int link_drop_ipv6ll_addresses(Link *link) {
                 return r;
 
         for (sd_netlink_message *addr = reply; addr; addr = sd_netlink_message_next(addr)) {
-                _cleanup_(address_unrefp) Address *a = NULL;
+                _cleanup_unref(address) Address *a = NULL;
                 unsigned char prefixlen;
                 struct in6_addr address;
                 int ifindex;
@@ -1525,7 +1525,7 @@ int address_configure_handler_internal(sd_netlink_message *m, Link *link, Addres
 }
 
 static int address_configure(const Address *address, const struct ifa_cacheinfo *c, Link *link, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(address);
@@ -1628,7 +1628,7 @@ static int address_requeue_request(Request *req, Link *link, const Address *addr
         if (r < 0)
                 return r;
 
-        _cleanup_(address_unrefp) Address *tmp = NULL;
+        _cleanup_unref(address) Address *tmp = NULL;
         r = address_dup(address, &tmp);
         if (r < 0)
                 return r;
@@ -1706,7 +1706,7 @@ int link_request_address(
                 address_netlink_handler_t netlink_handler,
                 Request **ret) {
 
-        _cleanup_(address_unrefp) Address *tmp = NULL;
+        _cleanup_unref(address) Address *tmp = NULL;
         Address *existing = NULL;
         int r;
 
@@ -1858,7 +1858,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         }
 
-        _cleanup_(address_unrefp) Address *tmp = NULL;
+        _cleanup_unref(address) Address *tmp = NULL;
         r = address_new(&tmp);
         if (r < 0)
                 return log_oom();
@@ -2436,7 +2436,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         address_detach);
 
 int network_drop_invalid_addresses(Network *network) {
-        _cleanup_set_free_ Set *addresses = NULL, *duplicated_addresses = NULL;
+        _cleanup_free(set) Set *addresses = NULL, *duplicated_addresses = NULL;
         Address *address;
         int r;
 

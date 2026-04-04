@@ -238,7 +238,7 @@ int parse_luks2_pkcs11_data(
         size_t key_size;
         _cleanup_free_ char *uri = NULL;
         _cleanup_free_ void *key = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         sd_json_variant *w;
 
         assert(json);

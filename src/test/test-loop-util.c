@@ -58,9 +58,9 @@ static void* thread_func(void *ptr) {
         int fd = PTR_TO_FD(ptr);
 
         for (unsigned i = 0; i < arg_n_iterations; i++) {
-                _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
+                _cleanup_unref(loop_device) LoopDevice *loop = NULL;
                 _cleanup_(umount_and_rmdir_and_freep) char *mounted = NULL;
-                _cleanup_(dissected_image_unrefp) DissectedImage *dissected = NULL;
+                _cleanup_unref(dissected_image) DissectedImage *dissected = NULL;
 
                 if (now(CLOCK_MONOTONIC) >= end) {
                         log_notice("Time's up, exiting thread's loop");
@@ -182,14 +182,14 @@ static int intro(void) {
 
 TEST(loop_block) {
 #if HAVE_BLKID
-        _cleanup_(dissected_image_unrefp) DissectedImage *dissected = NULL;
+        _cleanup_unref(dissected_image) DissectedImage *dissected = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted = NULL;
         pthread_t threads[arg_n_threads];
         sd_id128_t id;
 #endif
         _cleanup_free_ char *p = NULL, *cmd = NULL;
         _cleanup_pclose_ FILE *sfdisk = NULL;
-        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop = NULL;
         _cleanup_close_ int fd = -EBADF;
 
         ASSERT_OK(tempfn_random_child("/var/tmp", "sfdisk", &p));
@@ -395,7 +395,7 @@ static int make_test_image(int *ret_fd) {
 }
 
 TEST(sector_size_regular_file) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop = NULL;
         _cleanup_close_ int fd = -EBADF;
 
         if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
@@ -432,7 +432,7 @@ TEST(sector_size_regular_file) {
 }
 
 TEST(sector_size_block_device) {
-        _cleanup_(loop_device_unrefp) LoopDevice *block_loop = NULL, *loop = NULL;
+        _cleanup_unref(loop_device) LoopDevice *block_loop = NULL, *loop = NULL;
         _cleanup_close_ int fd = -EBADF;
 
         if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
@@ -488,7 +488,7 @@ TEST(sector_size_block_device) {
 }
 
 TEST(sector_size_mismatch) {
-        _cleanup_(loop_device_unrefp) LoopDevice *block_loop = NULL, *loop = NULL;
+        _cleanup_unref(loop_device) LoopDevice *block_loop = NULL, *loop = NULL;
         _cleanup_close_ int fd = -EBADF;
 
         if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {

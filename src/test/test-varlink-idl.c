@@ -153,7 +153,7 @@ static SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_ErrorTest);
 
 static void test_parse_format_one(const sd_varlink_interface *iface) {
-        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+        _cleanup_free(sd_varlink_interface) sd_varlink_interface *parsed = NULL;
         _cleanup_free_ char *text = NULL, *text2 = NULL;
 
         assert_se(iface);
@@ -231,7 +231,7 @@ TEST(parse_format) {
 }
 
 TEST(parse) {
-        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+        _cleanup_free(sd_varlink_interface) sd_varlink_interface *parsed = NULL;
 
         /* This one has (nested) enonymous enums and structs */
         static const char text[] =
@@ -319,7 +319,7 @@ TEST(qualified_symbol_name_is_valid) {
 
 TEST(validate_json) {
 
-        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+        _cleanup_free(sd_varlink_interface) sd_varlink_interface *parsed = NULL;
 
         /* This one has (nested) enonymous enums and structs */
         static const char text[] =
@@ -333,7 +333,7 @@ TEST(validate_json) {
         assert_se(sd_varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
         test_parse_format_one(parsed);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         assert_se(sd_json_build(&v, SD_JSON_BUILD_OBJECT(
                                              SD_JSON_BUILD_PAIR_STRING("a", "x"),
@@ -349,7 +349,7 @@ TEST(validate_json) {
 }
 
 static int test_recursive_one(unsigned depth) {
-        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+        _cleanup_free(sd_varlink_interface) sd_varlink_interface *parsed = NULL;
         _cleanup_free_ char *pre = NULL, *post = NULL, *text = NULL;
         static const char header[] =
                 "interface recursive.test\n"
@@ -408,8 +408,8 @@ static SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Done);
 
 static void* server_thread(void *userdata) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *server = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
 
         assert_se(sd_varlink_server_new(&server, 0) >= 0);
         assert_se(varlink_set_info_systemd(server) >= 0);
@@ -428,7 +428,7 @@ static void* server_thread(void *userdata) {
 
 TEST(validate_method_call) {
         _cleanup_close_pair_ int fd[2] = EBADF_PAIR;
-        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *v = NULL;
         pthread_t t;
 
         assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0, fd) >= 0);
@@ -442,7 +442,7 @@ TEST(validate_method_call) {
                                                 SD_JSON_BUILD_PAIR_UNSIGNED("foo", 8),
                                                 SD_JSON_BUILD_PAIR_UNSIGNED("bar", 9))) >= 0);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *expected_reply = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *expected_reply = NULL;
         assert_se(sd_json_build(&expected_reply,
                              SD_JSON_BUILD_OBJECT(
                                              SD_JSON_BUILD_PAIR_UNSIGNED("waldo", 8*9),
@@ -564,7 +564,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(foo4, SD_VARLINK_ANY, SD_VARLINK_NULLABLE));
 
 TEST(any) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         ASSERT_OK(sd_json_buildo(&v,
                                  SD_JSON_BUILD_PAIR_STRING("foo", "bar"),
@@ -592,7 +592,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(m, SD_VARLINK_STRING, SD_VARLINK_MAP));
 
 TEST(null_array_element) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         /* Build an array with a null element - this should be rejected gracefully, not crash */
         ASSERT_OK(sd_json_buildo(&v,
@@ -607,7 +607,7 @@ TEST(null_array_element) {
 }
 
 TEST(null_map_element) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         /* Build a map with a null value - this should be rejected gracefully, not crash */
         ASSERT_OK(sd_json_buildo(&v,

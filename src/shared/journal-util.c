@@ -37,7 +37,7 @@ static int access_check_var_log_journal(sd_journal *j, bool want_other_users) {
                 return 0;
 
 #if HAVE_ACL
-        _cleanup_strv_free_ char **g = NULL;
+        _cleanup_free(strv) char **g = NULL;
         const char* dir;
 
         if (access_nofollow("/run/log/journal", F_OK) >= 0)
@@ -150,10 +150,10 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
 }
 
 int journal_open_machine(sd_journal **ret, const char *machine, int flags) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         _cleanup_close_ int machine_fd = -EBADF;
         int fd, r;
 

@@ -70,7 +70,7 @@ Settings *settings_new(void) {
 }
 
 int settings_load(FILE *f, const char *path, Settings **ret) {
-        _cleanup_(settings_freep) Settings *s = NULL;
+        _cleanup_free(settings) Settings *s = NULL;
         int r;
 
         assert(path);
@@ -219,7 +219,7 @@ bool settings_network_configured(Settings *s) {
 }
 
 int settings_allocate_properties(Settings *s) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_unref(sd_bus) sd_bus *bus = NULL;
         int r;
 
         assert(s);

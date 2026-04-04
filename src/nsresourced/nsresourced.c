@@ -11,7 +11,7 @@
 #include "nsresourced-manager.h"
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         int r;
 
         log_setup();

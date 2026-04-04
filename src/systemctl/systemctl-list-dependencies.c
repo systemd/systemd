@@ -100,7 +100,7 @@ static int list_dependencies_one(
                 char ***units,
                 unsigned branches) {
 
-        _cleanup_strv_free_ char **deps = NULL;
+        _cleanup_free(strv) char **deps = NULL;
         int r;
         bool circular = false;
 
@@ -171,7 +171,7 @@ static int list_dependencies_one(
 }
 
 int verb_list_dependencies(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_strv_free_ char **units = NULL, **done = NULL;
+        _cleanup_free(strv) char **units = NULL, **done = NULL;
         char **patterns;
         sd_bus *bus;
         int r;

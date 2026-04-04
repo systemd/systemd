@@ -10,8 +10,8 @@
 #include "tests.h"
 
 static int inhibit(sd_bus *bus, const char *what) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *who = "Test Tool", *reason = "Just because!", *mode = "block";
         int fd;
         int r;
@@ -27,8 +27,8 @@ static int inhibit(sd_bus *bus, const char *what) {
 }
 
 static void print_inhibitors(sd_bus *bus) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *what, *who, *why, *mode;
         uint32_t uid, pid;
         unsigned n = 0;
@@ -52,7 +52,7 @@ static void print_inhibitors(sd_bus *bus) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_unref(sd_bus) sd_bus *bus = NULL;
         int fd1, fd2;
         int r;
 

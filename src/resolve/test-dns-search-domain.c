@@ -26,7 +26,7 @@ static void check_domains(DnsSearchDomain *head, char * const *expected) {
 
 TEST(dns_search_domain_new_system) {
         Manager manager = {};
-        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd = NULL;
+        _cleanup_unref(dns_search_domain) DnsSearchDomain *sd = NULL;
 
         ASSERT_OK(dns_search_domain_new(&manager, &sd, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local"));
         ASSERT_NOT_NULL(sd);
@@ -56,7 +56,7 @@ TEST(dns_search_domain_new_system_limit) {
 TEST(dns_search_domain_new_link) {
         Manager manager = {};
         Link *link;
-        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd = NULL;
+        _cleanup_unref(dns_search_domain) DnsSearchDomain *sd = NULL;
 
         ASSERT_OK(link_new(&manager, &link, 1));
         ASSERT_NOT_NULL(link);
@@ -70,7 +70,7 @@ TEST(dns_search_domain_new_link) {
 
 TEST(dns_search_domain_new_link_limit) {
         Manager manager = {};
-        _cleanup_(link_freep) Link *link = NULL;
+        _cleanup_free(link) Link *link = NULL;
         DnsSearchDomain *sd;
 
         ASSERT_OK(link_new(&manager, &link, 1));
@@ -93,7 +93,7 @@ TEST(dns_search_domain_new_link_limit) {
 
 TEST(dns_search_domain_unlink_system) {
         Manager manager = {};
-        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
+        _cleanup_unref(dns_search_domain) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
 
         ASSERT_OK(dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local"));
         ASSERT_NOT_NULL(sd1);
@@ -115,7 +115,7 @@ TEST(dns_search_domain_unlink_system) {
 
 TEST(dns_search_domain_unlink_link) {
         Manager manager = {};
-        _cleanup_(link_freep) Link *link = NULL;
+        _cleanup_free(link) Link *link = NULL;
         DnsSearchDomain *sd1, *sd2, *sd3;
 
         ASSERT_OK(link_new(&manager, &link, 1));
@@ -145,7 +145,7 @@ TEST(dns_search_domain_unlink_link) {
 
 TEST(dns_search_domain_mark_all) {
         Manager manager = {};
-        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
+        _cleanup_unref(dns_search_domain) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
 
         ASSERT_OK(dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local"));
         ASSERT_NOT_NULL(sd1);
@@ -173,7 +173,7 @@ TEST(dns_search_domain_mark_all) {
 
 TEST(dns_search_domain_move_back_and_unmark) {
         Manager manager = {};
-        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
+        _cleanup_unref(dns_search_domain) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
 
         ASSERT_OK(dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local"));
         ASSERT_NOT_NULL(sd1);
@@ -204,7 +204,7 @@ TEST(dns_search_domain_move_back_and_unmark) {
 
 TEST(dns_search_domain_unlink_marked) {
         Manager manager = {};
-        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
+        _cleanup_unref(dns_search_domain) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
 
         ASSERT_OK(dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local"));
         ASSERT_NOT_NULL(sd1);
@@ -240,7 +240,7 @@ TEST(dns_search_domain_unlink_marked) {
 
 TEST(dns_search_domain_find) {
         Manager manager = {};
-        _cleanup_(dns_search_domain_unrefp) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
+        _cleanup_unref(dns_search_domain) DnsSearchDomain *sd1 = NULL, *sd2 = NULL, *sd3 = NULL;
         DnsSearchDomain *ret;
 
         ASSERT_OK(dns_search_domain_new(&manager, &sd1, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, "local"));

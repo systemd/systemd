@@ -8,7 +8,7 @@
 #include "varlink-idl-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
+        _cleanup_free(sd_varlink_interface) sd_varlink_interface *vi = NULL;
         _cleanup_free_ char *str = NULL, *dump = NULL;
         int r;
 

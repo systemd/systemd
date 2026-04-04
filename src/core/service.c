@@ -233,7 +233,7 @@ static void service_unwatch_pid_file(Service *s) {
 }
 
 static int service_set_main_pidref(Service *s, PidRef pidref_consume, const dual_timestamp *start_timestamp) {
-        _cleanup_(pidref_done) PidRef pidref = pidref_consume;
+        _cleanup_done(pidref) PidRef pidref = pidref_consume;
         int r;
 
         assert(s);
@@ -1200,7 +1200,7 @@ static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
 }
 
 static int service_load_pid_file(Service *s, bool may_warn) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *k = NULL;
         bool questionable_pid_file = false;
@@ -1280,7 +1280,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 }
 
 static void service_search_main_pid(Service *s) {
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pid = PIDREF_NULL;
         int r;
 
         assert(s);
@@ -1497,7 +1497,7 @@ static int service_collect_fds(
                 size_t *n_socket_fds,
                 size_t *n_stashed_fds) {
 
-        _cleanup_strv_free_ char **rfd_names = NULL;
+        _cleanup_free(strv) char **rfd_names = NULL;
         _cleanup_free_ int *rfds = NULL;
         size_t rn_socket_fds = 0;
         int r;
@@ -1600,7 +1600,7 @@ static int service_allocate_exec_fd_event_source(
                 int fd,
                 sd_event_source **ret_event_source) {
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *source = NULL;
         int r;
 
         assert(s);
@@ -1760,9 +1760,9 @@ static int service_spawn_internal(
                 PidRef *ret_pid) {
 
         _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(flags);
-        _cleanup_(sd_event_source_unrefp) sd_event_source *exec_fd_source = NULL;
-        _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *exec_fd_source = NULL;
+        _cleanup_free(strv) char **final_env = NULL, **our_env = NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         size_t n_env = 0;
         int r;
 
@@ -2523,7 +2523,7 @@ static int service_adverse_to_leftover_processes(Service *s) {
 }
 
 static void service_enter_start(Service *s) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         ExecCommand *c;
         usec_t timeout;
         int r;
@@ -2692,7 +2692,7 @@ fail:
 }
 
 static void service_enter_restart(Service *s, bool shortcut) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         /* shortcut: a manual start request is received, restart immediately */
@@ -2745,7 +2745,7 @@ static void service_enter_restart(Service *s, bool shortcut) {
 }
 
 static void service_enter_reload_by_notify(Service *s) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(s);
@@ -2873,7 +2873,7 @@ static bool service_get_effective_reload_credentials(Service *s) {
 }
 
 static void service_enter_refresh_credentials(Service *s) {
-        _cleanup_(pidref_done) PidRef worker = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef worker = PIDREF_NULL;
         int r;
 
         assert(s);
@@ -2980,7 +2980,7 @@ static bool service_should_reload_extensions(Service *s) {
 }
 
 static void service_enter_refresh_extensions(Service *s) {
-        _cleanup_(pidref_done) PidRef worker = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef worker = PIDREF_NULL;
         int r;
 
         assert(s);
@@ -3100,7 +3100,7 @@ static void service_run_next_control(Service *s) {
 }
 
 static void service_run_next_main(Service *s) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert(s);
@@ -3519,7 +3519,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_usec(f, "reload-begin-usec", s->reload_begin_usec);
 
         if (s->refreshed_mask > 0) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
                 _cleanup_free_ char *t = NULL;
 
                 r = service_refresh_on_reload_to_strv(s->refreshed_mask, &l);
@@ -3545,7 +3545,7 @@ int service_deserialize_exec_command(
         ExecCommand *command = NULL;
         ServiceExecCommand id = _SERVICE_EXEC_COMMAND_INVALID;
         _cleanup_free_ char *path = NULL;
-        _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_free(strv) char **argv = NULL;
         unsigned idx = 0, i;
         bool control, found = false, last = false;
         int r;
@@ -4927,7 +4927,7 @@ static int service_notify_message_parse_new_pid(
                 FDSet *fds,
                 PidRef *ret) {
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         const char *e;
         int r;
 
@@ -5033,7 +5033,7 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                                 service_enter_reload_post(s);
 
                         else if (s->state == SERVICE_RUNNING) {
-                                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                                 /* Propagate a reload explicitly for plain RELOADING=1 (semantically equivalent to
                                  * service_enter_reload_by_notify() call in below) */
@@ -5098,7 +5098,7 @@ static void service_notify_message(
         const char *e;
 
         /* Interpret MAINPID= (+ MAINPIDFDID=) / MAINPIDFD=1 */
-        _cleanup_(pidref_done) PidRef new_main_pid = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef new_main_pid = PIDREF_NULL;
 
         r = service_notify_message_parse_new_pid(u, tags, fds, &new_main_pid);
         if (r > 0 &&
@@ -5383,7 +5383,7 @@ static bool pick_up_pid_from_bus_name(Service *s) {
 
 static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
         Service *s = ASSERT_PTR(SERVICE(userdata));
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         const sd_bus_error *e;
         uint32_t pid;
         int r;
@@ -5597,7 +5597,7 @@ static const char* service_status_text(Unit *u) {
 
 static int service_clean(Unit *u, ExecCleanMask mask) {
         Service *s = ASSERT_PTR(SERVICE(u));
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         bool may_clean_fdstore = false;
         int r;
 
@@ -5683,7 +5683,7 @@ static int service_live_mount(
                 sd_bus_error *reterr_error) {
 
         Service *s = ASSERT_PTR(SERVICE(u));
-        _cleanup_(pidref_done) PidRef worker = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef worker = PIDREF_NULL;
         int r;
 
         assert(u);
@@ -6108,7 +6108,7 @@ int service_refresh_on_reload_from_string_many(const char *s, ServiceRefreshOnRe
 }
 
 int service_refresh_on_reload_to_strv(ServiceRefreshOnReload flags, char ***ret) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(flags >= 0);

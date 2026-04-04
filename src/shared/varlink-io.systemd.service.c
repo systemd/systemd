@@ -118,7 +118,7 @@ int varlink_method_get_environment(sd_varlink *link, sd_json_variant *parameters
 
         log_debug("Received io.systemd.service.GetEnvironment()");
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         STRV_FOREACH(e, environ) {
                 if (!env_assignment_is_valid(*e))
                         goto invalid;

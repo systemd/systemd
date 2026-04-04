@@ -239,7 +239,7 @@ static int acquire_imds_key(
                 return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to issue io.systemd.InstanceMetadata.Get(): %s", error_id);
         }
 
-        _cleanup_(iovec_done) struct iovec data = {};
+        _cleanup_done(iovec) struct iovec data = {};
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "data", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, 0, SD_JSON_MANDATORY },
                 {},
@@ -265,7 +265,7 @@ static int acquire_imds_key_as_string(
         assert(wk < _IMDS_WELL_KNOWN_MAX);
         assert(ret);
 
-        _cleanup_(iovec_done) struct iovec data = {};
+        _cleanup_done(iovec) struct iovec data = {};
         r = acquire_imds_key(link, wk, key, &data);
         if (r < 0)
                 return r;
@@ -317,7 +317,7 @@ static int action_summary(sd_varlink *link) {
 
         assert(link);
 
-        _cleanup_(table_unrefp) Table *table = table_new_vertical();
+        _cleanup_unref(table) Table *table = table_new_vertical();
         if (!table)
                 return log_oom();
 
@@ -504,7 +504,7 @@ static int import_credentials(const char *text) {
 
         log_debug("Detected JSON userdata");
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
         unsigned line = 0, column = 0;
         r = sd_json_parse(e, /* flags= */ 0, &j, &line, &column);
         if (r < 0) {
@@ -540,7 +540,7 @@ static int import_credentials(const char *text) {
                                 {},
                         };
 
-                        _cleanup_(credential_data_done) CredentialData d = {};
+                        _cleanup_done(credential_data) CredentialData d = {};
                         r = sd_json_dispatch(c, credential_table, SD_JSON_LOG|SD_JSON_WARNING, &d);
                         if (r < 0) {
                                 RET_GATHER(ret, r);
@@ -579,11 +579,11 @@ static int add_public_address_to_json_array(sd_json_variant **array, int family,
         if (in_addr_is_null(family, addr))
                 return 0;
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         if (dns_resource_record_new_address(&rr, family, addr, "_public") < 0)
                 return log_oom();
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *rrj = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *rrj = NULL;
         r = dns_resource_record_to_json(rr, &rrj);
         if (r < 0)
                 return log_error_errno(r, "Failed to convert A RR to JSON: %m");
@@ -603,7 +603,7 @@ static int import_imds_public_addresses(sd_varlink *link) {
 
         /* Creates local RRs (honoured by systemd-resolved) for our public addresses. */
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *aj = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *aj = NULL;
 
         union in_addr_union u = {};
         r = acquire_imds_key_as_ip_address(link, IMDS_IPV4_PUBLIC, /* key= */ NULL, AF_INET, &u);
@@ -648,7 +648,7 @@ static int import_imds_ssh_key(sd_varlink *link) {
 
         assert(link);
 
-        _cleanup_(iovec_done) struct iovec data = {};
+        _cleanup_done(iovec) struct iovec data = {};
         r = acquire_imds_key(link, IMDS_SSH_KEY, /* key= */ NULL, &data);
         if (r < 0)
                 return r;
@@ -670,7 +670,7 @@ static int import_imds_hostname(sd_varlink *link) {
 
         assert(link);
 
-        _cleanup_(iovec_done) struct iovec data = {};
+        _cleanup_done(iovec) struct iovec data = {};
         r = acquire_imds_key(link, IMDS_HOSTNAME, /* key= */ NULL, &data);
         if (r < 0)
                 return r;
@@ -694,7 +694,7 @@ static int acquire_imds_userdata(sd_varlink *link, struct iovec *ret) {
         assert(ret);
 
         /* First try our private namespace, if the concept exists, and then fall back to the singleton */
-        _cleanup_(iovec_done) struct iovec data = {};
+        _cleanup_done(iovec) struct iovec data = {};
         r = acquire_imds_key(link, IMDS_USERDATA_BASE, "/systemd-userdata", &data);
         if (r == 0)
                 r = acquire_imds_key(link, IMDS_USERDATA, /* key= */ NULL, &data);
@@ -713,7 +713,7 @@ static int acquire_imds_userdata(sd_varlink *link, struct iovec *ret) {
         r = acquire_imds_key(link, IMDS_USERDATA_BASE64, /* key= */ NULL, &data);
         if (r < 0)
                 return r;
-        _cleanup_(iovec_done) struct iovec decoded = {};
+        _cleanup_done(iovec) struct iovec decoded = {};
         if (r > 0) {
                 r = unbase64mem_full(data.iov_base, data.iov_len, /* secure= */ false, &decoded.iov_base, &decoded.iov_len);
                 if (r < 0)
@@ -734,7 +734,7 @@ static int action_get(sd_varlink *link) {
 
         assert(link);
 
-        _cleanup_(iovec_done) struct iovec data = {};
+        _cleanup_done(iovec) struct iovec data = {};
         r = acquire_imds_key(link, arg_well_known, arg_key, &data);
         if (r < 0)
                 return r;
@@ -753,7 +753,7 @@ static int action_userdata(sd_varlink *link) {
 
         assert(link);
 
-        _cleanup_(iovec_done) struct iovec data = {};
+        _cleanup_done(iovec) struct iovec data = {};
         r = acquire_imds_userdata(link, &data);
         if (r < 0)
                 return r;
@@ -809,7 +809,7 @@ static int action_import(sd_varlink *link) {
         RET_GATHER(ret, import_imds_hostname(link));
         RET_GATHER(ret, import_imds_ssh_key(link));
 
-        _cleanup_(iovec_done) struct iovec data = {};
+        _cleanup_done(iovec) struct iovec data = {};
         r = acquire_imds_userdata(link, &data);
         if (r < 0)
                 return RET_GATHER(ret, r);
@@ -849,7 +849,7 @@ static int run(int argc, char* argv[]) {
         if (r <= 0)
                 return r;
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *link = NULL;
         r = sd_varlink_connect_address(&link, "/run/systemd/io.systemd.InstanceMetadata");
         if (r < 0) {
                 if (r != -ENOENT && !ERRNO_IS_NEG_DISCONNECT(r))

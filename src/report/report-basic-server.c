@@ -13,7 +13,7 @@
 #include "varlink-util.h"
 
 static int vl_server(void) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *vs = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *vs = NULL;
         int r;
 
         r = varlink_server_new(&vs, /* flags= */ 0, /* userdata= */ NULL);
@@ -32,7 +32,7 @@ static int vl_server(void) {
 }
 
 static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
+        _cleanup_unref(table) Table *options = NULL;
         int r;
 
         r = option_parser_get_help_table(&options);

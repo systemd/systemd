@@ -23,8 +23,8 @@ static int load_user(
                 UserDBFlags flags,
                 UserRecord **ret) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *u = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_unref(user_record) UserRecord *u = NULL;
         bool have_privileged;
         int r;
 
@@ -37,7 +37,7 @@ static int load_user(
         if (FLAGS_SET(flags, USERDB_SUPPRESS_SHADOW) || !path || !(name || uid_is_valid(uid)))
                 have_privileged = false;
         else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *privileged_v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *privileged_v = NULL;
                 _cleanup_free_ char *d = NULL, *j = NULL;
 
                 /* Let's load the "privileged" section from a companion file. But only if USERDB_AVOID_SHADOW
@@ -175,8 +175,8 @@ static int load_group(
                 UserDBFlags flags,
                 GroupRecord **ret) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_unref(group_record) GroupRecord *g = NULL;
         bool have_privileged;
         int r;
 
@@ -189,7 +189,7 @@ static int load_group(
         if (FLAGS_SET(flags, USERDB_SUPPRESS_SHADOW) || !path || !(name || gid_is_valid(gid)))
                 have_privileged = false;
         else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *privileged_v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *privileged_v = NULL;
                 _cleanup_free_ char *d = NULL, *j = NULL;
 
                 r = path_extract_directory(path, &d);

@@ -185,7 +185,7 @@ int expose_port_watch_rtnl(
                 sd_netlink_message_handler_t handler,
                 void *userdata,
                 sd_netlink **ret) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         int fd, r;
 
         assert(event);

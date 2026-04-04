@@ -44,7 +44,7 @@ static int dispatch_dns_server(const char *name, sd_json_variant *variant, sd_js
                 {},
         };
         DNSServer **ret = ASSERT_PTR(userdata);
-        _cleanup_(dns_server_freep) DNSServer *s = NULL;
+        _cleanup_free(dns_server) DNSServer *s = NULL;
         int r;
 
         s = new0(DNSServer, 1);
@@ -68,12 +68,12 @@ static int dispatch_dns_server(const char *name, sd_json_variant *variant, sd_js
 
 static int dispatch_dns_server_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         OrderedSet **ret = ASSERT_PTR(userdata);
-        _cleanup_ordered_set_free_ OrderedSet *dns_servers = NULL;
+        _cleanup_free(ordered_set) OrderedSet *dns_servers = NULL;
         sd_json_variant *v;
         int r;
 
         JSON_VARIANT_ARRAY_FOREACH(v, variant) {
-                _cleanup_(dns_server_freep) DNSServer *s = NULL;
+                _cleanup_free(dns_server) DNSServer *s = NULL;
 
                 r = dispatch_dns_server(name, v, flags, &s);
                 if (r < 0)
@@ -115,7 +115,7 @@ static int dispatch_search_domain(const char *name, sd_json_variant *variant, sd
                 {},
         };
         SearchDomain **ret = ASSERT_PTR(userdata);
-        _cleanup_(search_domain_freep) SearchDomain *d = NULL;
+        _cleanup_free(search_domain) SearchDomain *d = NULL;
         int r;
 
         d = new0(SearchDomain, 1);
@@ -133,12 +133,12 @@ static int dispatch_search_domain(const char *name, sd_json_variant *variant, sd
 
 static int dispatch_search_domain_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         OrderedSet **ret = ASSERT_PTR(userdata);
-        _cleanup_ordered_set_free_ OrderedSet *search_domains = NULL;
+        _cleanup_free(ordered_set) OrderedSet *search_domains = NULL;
         sd_json_variant *v;
         int r;
 
         JSON_VARIANT_ARRAY_FOREACH(v, variant) {
-                _cleanup_(search_domain_freep) SearchDomain *d = NULL;
+                _cleanup_free(search_domain) SearchDomain *d = NULL;
 
                 r = dispatch_search_domain(name, v, flags, &d);
                 if (r < 0)
@@ -188,7 +188,7 @@ static int dispatch_dns_scope(const char *name, sd_json_variant *variant, sd_jso
         DNSScope **ret = ASSERT_PTR(userdata);
         int r;
 
-        _cleanup_(dns_scope_freep) DNSScope *s = new0(DNSScope, 1);
+        _cleanup_free(dns_scope) DNSScope *s = new0(DNSScope, 1);
         if (!s)
                 return log_oom();
 
@@ -203,12 +203,12 @@ static int dispatch_dns_scope(const char *name, sd_json_variant *variant, sd_jso
 
 static int dispatch_dns_scope_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         Set **ret = ASSERT_PTR(userdata);
-        _cleanup_set_free_ Set *dns_scopes = NULL;
+        _cleanup_free(set) Set *dns_scopes = NULL;
         sd_json_variant *v;
         int r;
 
         JSON_VARIANT_ARRAY_FOREACH(v, variant) {
-                _cleanup_(dns_scope_freep) DNSScope *s = NULL;
+                _cleanup_free(dns_scope) DNSScope *s = NULL;
 
                 r = dispatch_dns_scope(name, v, flags, &s);
                 if (r < 0)
@@ -275,7 +275,7 @@ static int dispatch_dns_configuration(const char *name, sd_json_variant *variant
 
         };
         DNSConfiguration **ret = ASSERT_PTR(userdata);
-        _cleanup_(dns_configuration_freep) DNSConfiguration *c = NULL;
+        _cleanup_free(dns_configuration) DNSConfiguration *c = NULL;
         int r;
 
         c = new0(DNSConfiguration, 1);

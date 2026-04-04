@@ -85,7 +85,7 @@ int dlopen_libacl(void) {
 }
 
 int devnode_acl(int fd, const Set *uids) {
-        _cleanup_set_free_ Set *found = NULL;
+        _cleanup_free(set) Set *found = NULL;
         bool changed = false;
         int r;
 
@@ -95,7 +95,7 @@ int devnode_acl(int fd, const Set *uids) {
         if (r < 0)
                 return r;
 
-        _cleanup_(acl_freep) acl_t acl = NULL;
+        _cleanup_free(acl) acl_t acl = NULL;
         acl = sym_acl_get_file(FORMAT_PROC_FD_PATH(fd), ACL_TYPE_ACCESS);
         if (!acl)
                 return -errno;
@@ -268,7 +268,7 @@ int add_base_acls_if_needed(acl_t *acl_p, const char *path) {
         int r;
         bool have_user_obj = false, have_group_obj = false, have_other = false;
         struct stat st;
-        _cleanup_(acl_freep) acl_t basic = NULL;
+        _cleanup_free(acl) acl_t basic = NULL;
 
         assert(acl_p);
         assert(path);
@@ -328,8 +328,8 @@ int add_base_acls_if_needed(acl_t *acl_p, const char *path) {
 }
 
 int acl_search_groups(const char *path, char ***ret_groups) {
-        _cleanup_strv_free_ char **g = NULL;
-        _cleanup_(acl_freep) acl_t acl = NULL;
+        _cleanup_free(strv) char **g = NULL;
+        _cleanup_free(acl) acl_t acl = NULL;
         bool ret = false;
         acl_entry_t entry;
         int r;
@@ -400,8 +400,8 @@ int parse_acl(
                 acl_t *ret_acl_default,
                 bool want_mask) {
 
-        _cleanup_strv_free_ char **a = NULL, **e = NULL, **d = NULL, **split = NULL;
-        _cleanup_(acl_freep) acl_t a_acl = NULL, e_acl = NULL, d_acl = NULL;
+        _cleanup_free(strv) char **a = NULL, **e = NULL, **d = NULL, **split = NULL;
+        _cleanup_free(acl) acl_t a_acl = NULL, e_acl = NULL, d_acl = NULL;
         int r;
 
         assert(text);
@@ -418,7 +418,7 @@ int parse_acl(
                 return r;
 
         STRV_FOREACH(entry, split) {
-                _cleanup_strv_free_ char **entry_split = NULL;
+                _cleanup_free(strv) char **entry_split = NULL;
                 _cleanup_free_ char *entry_join = NULL;
                 int n;
 
@@ -585,7 +585,7 @@ static int find_acl_entry(acl_t acl, acl_entry_t entry, acl_entry_t *ret) {
 }
 
 int acls_for_file(const char *path, acl_type_t type, acl_t acl, acl_t *ret) {
-        _cleanup_(acl_freep) acl_t applied = NULL;
+        _cleanup_free(acl) acl_t applied = NULL;
         acl_entry_t i;
         int r;
 
@@ -639,7 +639,7 @@ int fd_add_uid_acl_permission(
                 uid_t uid,
                 unsigned mask) {
 
-        _cleanup_(acl_freep) acl_t acl = NULL;
+        _cleanup_free(acl) acl_t acl = NULL;
         acl_permset_t permset;
         acl_entry_t entry;
         int r;
@@ -708,7 +708,7 @@ int fd_acl_make_read_only(int fd) {
         assert(fd >= 0);
 
 #if HAVE_ACL
-        _cleanup_(acl_freep) acl_t acl = NULL;
+        _cleanup_free(acl) acl_t acl = NULL;
         bool changed = false;
         acl_entry_t i;
         int r;
@@ -797,7 +797,7 @@ int fd_acl_make_writable(int fd) {
         assert(fd >= 0);
 
 #if HAVE_ACL
-        _cleanup_(acl_freep) acl_t acl = NULL;
+        _cleanup_free(acl) acl_t acl = NULL;
         acl_entry_t i;
         int r;
 

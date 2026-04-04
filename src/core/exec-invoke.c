@@ -1340,8 +1340,8 @@ static int setup_pam(
                 .appdata_ptr = &conv_data,
         };
 
-        _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
-        _cleanup_strv_free_ char **e = NULL;
+        _cleanup_destroy(barrier) Barrier barrier = BARRIER_NULL;
+        _cleanup_free(strv) char **e = NULL;
         _cleanup_free_ char *tty = NULL;
         pam_handle_t *pamh = NULL;
         sigset_t old_ss;
@@ -2038,7 +2038,7 @@ static int build_environment(
                 bool needs_sandboxing,
                 char ***ret) {
 
-        _cleanup_strv_free_ char **e = NULL;
+        _cleanup_free(strv) char **e = NULL;
         size_t n = 0;
         pid_t exec_pid;
         int r;
@@ -2263,7 +2263,7 @@ static int build_environment(
 }
 
 static int build_pass_environment(const ExecContext *c, char ***ret) {
-        _cleanup_strv_free_ char **pass_env = NULL;
+        _cleanup_free(strv) char **pass_env = NULL;
         size_t n_env = 0;
 
         assert(c);
@@ -2446,12 +2446,12 @@ static int setup_private_users(
                 if (userns_fd < 0)
                         return userns_fd;
 
-                _cleanup_(uid_range_freep) UIDRange *uid_range = NULL;
+                _cleanup_free(uid_range) UIDRange *uid_range = NULL;
                 r = uid_range_load_userns_by_fd(userns_fd, UID_RANGE_USERNS_OUTSIDE, &uid_range);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to read outside userns UID range: %m");
 
-                _cleanup_(uid_range_freep) UIDRange *gid_range = NULL;
+                _cleanup_free(uid_range) UIDRange *gid_range = NULL;
                 r = uid_range_load_userns_by_fd(userns_fd, GID_RANGE_USERNS_OUTSIDE, &gid_range);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to read outside userns GID range: %m");
@@ -2664,7 +2664,7 @@ static int can_mount_proc(void) {
 }
 
 static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         ssize_t n;
         int r, q;
@@ -3352,7 +3352,7 @@ static int compile_bind_mounts(
                 size_t *ret_n_bind_mounts,
                 char ***ret_empty_directories) {
 
-        _cleanup_strv_free_ char **empty_directories = NULL;
+        _cleanup_free(strv) char **empty_directories = NULL;
         BindMount *bind_mounts = NULL;
         size_t n, h = 0;
         int r;
@@ -3474,7 +3474,7 @@ static int compile_symlinks(
                 bool setup_os_release_symlink,
                 char ***ret_symlinks) {
 
-        _cleanup_strv_free_ char **symlinks = NULL;
+        _cleanup_free(strv) char **symlinks = NULL;
         int r;
 
         assert(context);
@@ -3739,7 +3739,7 @@ static int pin_rootfs(
         }
 
         if (context->root_image) {
-                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
 
                 r = path_pick(/* toplevel_path= */ NULL,
                               /* toplevel_fd= */ AT_FDCWD,
@@ -3780,7 +3780,7 @@ static int pin_rootfs(
         }
 
         if (context->root_directory) {
-                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
 
                 r = path_pick(/* toplevel_path= */ NULL,
                               /* toplevel_fd= */ AT_FDCWD,
@@ -3809,7 +3809,7 @@ static int pin_rootfs(
         }
 
         if (context->root_mstack) {
-                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
 
                 r = path_pick(/* toplevel_path= */ NULL,
                               /* toplevel_fd= */ AT_FDCWD,
@@ -3828,7 +3828,7 @@ static int pin_rootfs(
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "No matching entry in .v/ directory %s found.", context->root_mstack);
                 }
 
-                _cleanup_(mstack_freep) MStack *mstack = NULL;
+                _cleanup_free(mstack) MStack *mstack = NULL;
                 r = mstack_load(result.path, result.fd, &mstack);
                 if (r < 0) {
                         *reterr_path = TAKE_PTR(result.path);
@@ -3865,8 +3865,8 @@ static int apply_mount_namespace(
                 sd_varlink *mountfsd_link,
                 char **reterr_path) {
 
-        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
-        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
+        _cleanup_done(verity_settings) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+        _cleanup_free(strv) char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
                 *private_namespace_dir = NULL, *host_os_release_stage = NULL;
@@ -4373,7 +4373,7 @@ static int acquire_home(const ExecContext *c, const char **home, char **ret_buf)
 }
 
 static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p, char ***ret) {
-        _cleanup_strv_free_ char ** list = NULL;
+        _cleanup_free(strv) char ** list = NULL;
         int r;
 
         assert(c);
@@ -4427,7 +4427,7 @@ static int exec_context_cpu_affinity_from_numa(const ExecContext *c, CPUSet *ret
                 return 0;
         }
 
-        _cleanup_(cpu_set_done) CPUSet s = {};
+        _cleanup_done(cpu_set) CPUSet s = {};
         r = numa_to_cpu_set(&c->numa_policy, &s);
         if (r < 0)
                 return r;
@@ -5154,7 +5154,7 @@ int exec_invoke(
                 const CGroupContext *cgroup_context,
                 int *exit_status) {
 
-        _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL;
+        _cleanup_free(strv) char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL;
         int r;
         const char *username = NULL, *groupname = NULL;
         _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL, *own_user = NULL;
@@ -5356,7 +5356,7 @@ int exec_invoke(
         if (exec_context_get_effective_private_users(context, params) == PRIVATE_USERS_MANAGED)
                 log_debug("Running with a managed user namespace, not initializing UIDs/GIDs.");
         else if (context->dynamic_user && runtime->dynamic_creds) {
-                _cleanup_strv_free_ char **suggested_paths = NULL;
+                _cleanup_free(strv) char **suggested_paths = NULL;
 
                 /* On top of that, make sure we bypass our own NSS module nss-systemd comprehensively for any NSS
                  * checks, if DynamicUser=1 is used, as we shouldn't create a feedback loop with ourselves here. */
@@ -5621,7 +5621,7 @@ int exec_invoke(
         }
 
         if (context->cpu_affinity_from_numa || context->cpu_set.set) {
-                _cleanup_(cpu_set_done) CPUSet converted_cpu_set = {};
+                _cleanup_done(cpu_set) CPUSet converted_cpu_set = {};
                 const CPUSet *cpu_set;
 
                 if (context->cpu_affinity_from_numa) {
@@ -5788,7 +5788,7 @@ int exec_invoke(
                 }
         }
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL, *nsresource_link = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *mountfsd_link = NULL, *nsresource_link = NULL;
         if (needs_sandboxing &&
             exec_context_get_effective_private_users(context, params) == PRIVATE_USERS_MANAGED) {
 
@@ -5976,7 +5976,7 @@ int exec_invoke(
                 }
         }
 
-        _cleanup_(pinned_resource_done) PinnedResource rootfs = PINNED_RESOURCE_NULL;
+        _cleanup_done(pinned_resource) PinnedResource rootfs = PINNED_RESOURCE_NULL;
         _cleanup_free_ char *error_path = NULL;
         r = pin_rootfs(context, params, &rootfs, &error_path);
         if (r < 0) {
@@ -6616,11 +6616,11 @@ int exec_invoke(
                 strv_free_and_replace(accum_env, ee);
         }
 
-        _cleanup_strv_free_ char **replaced_argv = NULL, **argv_via_shell = NULL;
+        _cleanup_free(strv) char **replaced_argv = NULL, **argv_via_shell = NULL;
         char **final_argv = FLAGS_SET(command->flags, EXEC_COMMAND_VIA_SHELL) ? strv_skip(command->argv, 1) : command->argv;
 
         if (final_argv && !FLAGS_SET(command->flags, EXEC_COMMAND_NO_ENV_EXPAND)) {
-                _cleanup_strv_free_ char **unset_variables = NULL, **bad_variables = NULL;
+                _cleanup_free(strv) char **unset_variables = NULL, **bad_variables = NULL;
 
                 r = replace_env_argv(final_argv, accum_env, &replaced_argv, &unset_variables, &bad_variables);
                 if (r < 0) {

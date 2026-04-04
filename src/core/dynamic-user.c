@@ -712,7 +712,7 @@ int dynamic_user_lookup_name(Manager *m, const char *name, uid_t *ret) {
 }
 
 int dynamic_creds_make(Manager *m, const char *user, const char *group, DynamicCreds **ret) {
-        _cleanup_(dynamic_creds_unrefp) DynamicCreds *creds = NULL;
+        _cleanup_unref(dynamic_creds) DynamicCreds *creds = NULL;
         int r;
 
         assert(m);

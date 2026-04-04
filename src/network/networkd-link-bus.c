@@ -63,7 +63,7 @@ static int verify_managed_link(Link *l, sd_bus_error *error) {
 }
 
 int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_strv_free_ char **ntp = NULL;
+        _cleanup_free(strv) char **ntp = NULL;
         Link *l = ASSERT_PTR(userdata);
         int r;
 
@@ -164,7 +164,7 @@ int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, 
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_ordered_set_free_ OrderedSet *search_domains = NULL, *route_domains = NULL;
+        _cleanup_free(ordered_set) OrderedSet *search_domains = NULL, *route_domains = NULL;
         Link *l = ASSERT_PTR(userdata);
         int r;
 
@@ -466,8 +466,8 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_set_free_ Set *ns = NULL;
-        _cleanup_strv_free_ char **ntas = NULL;
+        _cleanup_free(set) Set *ns = NULL;
+        _cleanup_free(strv) char **ntas = NULL;
         Link *l = ASSERT_PTR(userdata);
         int r;
 
@@ -661,8 +661,8 @@ int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_
 }
 
 int bus_link_method_describe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ char *text = NULL;
         Link *link = ASSERT_PTR(userdata);
         int r;
@@ -803,7 +803,7 @@ char* link_bus_path(Link *link) {
 }
 
 int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         unsigned c = 0;
         Link *link;

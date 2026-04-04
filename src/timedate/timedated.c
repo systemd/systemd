@@ -116,7 +116,7 @@ static void context_clear(Context *c) {
 }
 
 static int context_add_ntp_service(Context *c, const char *s, const char *source) {
-        _cleanup_(unit_status_info_freep) UnitStatusInfo *unit = NULL;
+        _cleanup_free(unit_status_info) UnitStatusInfo *unit = NULL;
 
         assert(c);
         assert(s);
@@ -181,7 +181,7 @@ static int context_parse_ntp_services_from_environment(Context *c) {
 }
 
 static int context_parse_ntp_services_from_disk(Context *c) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         int r;
 
         r = conf_files_list_strv(&files, ".list", /* root= */ NULL,
@@ -417,7 +417,7 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
         }
 
         LIST_FOREACH(units, u, c->units) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *path = NULL;
 
                 LOG_CONTEXT_PUSH_UNIT(u);
@@ -484,7 +484,7 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
 }
 
 static int unit_start_or_stop(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *error, bool start) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         const char *path;
         int r;
 
@@ -943,7 +943,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
 }
 
 static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
+        _cleanup_unref(sd_bus_slot) sd_bus_slot *slot = NULL;
         sd_bus *bus = sd_bus_message_get_bus(m);
         Context *c = ASSERT_PTR(userdata);
         const UnitStatusInfo *selected = NULL;
@@ -1048,8 +1048,8 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
 }
 
 static int method_list_timezones(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(strv) char **zones = NULL;
         int r;
 
         assert(m);
@@ -1155,8 +1155,8 @@ static bool context_check_idle(void *userdata) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(context_clear) Context context = {};
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_clear(context) Context context = {};
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 

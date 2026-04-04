@@ -22,8 +22,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_close_ int fdin_close = -EBADF, fdout = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         _cleanup_(unlink_and_freep) char *name = NULL;
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_(journal_remote_server_destroy) RemoteServer s = {};
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
+        _cleanup_destroy(journal_remote_server) RemoteServer s = {};
         int fdin, r;
 
         if (outside_size_range(size, 3, 65536))

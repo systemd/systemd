@@ -159,7 +159,7 @@ int acquire_fido2_key_auto(
         /* Loads FIDO2 metadata from LUKS2 JSON token headers. */
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 sd_json_variant *w;
                 _cleanup_free_ void *salt = NULL;
                 _cleanup_free_ char *rp = NULL;

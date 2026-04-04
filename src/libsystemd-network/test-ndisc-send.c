@@ -123,7 +123,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         int c, r;
 
         assert(argc >= 0);
@@ -319,7 +319,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int send_icmp6(int fd, const struct icmp6_hdr *hdr) {
-        _cleanup_set_free_ Set *options = NULL;
+        _cleanup_free(set) Set *options = NULL;
         int r;
 
         assert(fd >= 0);

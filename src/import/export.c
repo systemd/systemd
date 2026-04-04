@@ -59,9 +59,9 @@ static void on_tar_finished(TarExport *export, int error, void *userdata) {
 }
 
 static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(tar_export_unrefp) TarExport *export = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(image_unrefp) Image *image = NULL;
+        _cleanup_unref(tar_export) TarExport *export = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
+        _cleanup_unref(image) Image *image = NULL;
         const char *path = NULL, *local = NULL;
         _cleanup_close_ int open_fd = -EBADF;
         int r, fd;
@@ -140,9 +140,9 @@ static void on_raw_finished(RawExport *export, int error, void *userdata) {
 }
 
 static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(raw_export_unrefp) RawExport *export = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(image_unrefp) Image *image = NULL;
+        _cleanup_unref(raw_export) RawExport *export = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
+        _cleanup_unref(image) Image *image = NULL;
         const char *path = NULL, *local = NULL;
         _cleanup_close_ int open_fd = -EBADF;
         int r, fd;

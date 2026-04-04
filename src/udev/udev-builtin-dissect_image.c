@@ -49,7 +49,7 @@ static int acquire_image_policy(ImagePolicy **ret) {
 }
 
 static int acquire_verity_settings(VeritySettings *ret) {
-        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+        _cleanup_done(verity_settings) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         int r;
 
         assert(ret);
@@ -137,7 +137,7 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                 return 0;
         }
 
-        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop = NULL;
         r = loop_device_open(dev, O_RDONLY, LOCK_SH, &loop);
         if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) {
                 log_device_debug(dev, "Device absent while opening block device '%s', ignoring.", devnode);
@@ -147,7 +147,7 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                 return log_device_debug_errno(dev, r, "Failed to open block device '%s: %m", devnode);
 
         const ImagePolicy *image_policy = arg_image_policy ?: &image_policy_host;
-        _cleanup_(dissected_image_unrefp) DissectedImage *image = NULL;
+        _cleanup_unref(dissected_image) DissectedImage *image = NULL;
         r = dissect_loop_device(
                         loop,
                         &arg_verity_settings,
@@ -174,7 +174,7 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                         PARTITION_USR_VERITY_SIG,
                 };
 
-                _cleanup_(image_policy_freep) ImagePolicy *image_policy_mangled = NULL;
+                _cleanup_free(image_policy) ImagePolicy *image_policy_mangled = NULL;
                 r = image_policy_ignore_designators(
                                 image_policy,
                                 ignore_designators,
@@ -221,7 +221,7 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
 
         /* Let's try to load verity data from the image now, so that we can attach it to the device via udev
          * properties */
-        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+        _cleanup_done(verity_settings) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         r = verity_settings_copy(&verity, &arg_verity_settings);
         if (r < 0)
                 return r;

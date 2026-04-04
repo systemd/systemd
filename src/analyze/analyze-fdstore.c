@@ -17,9 +17,9 @@
 #include "unit-name.h"
 
 static int dump_fdstore(sd_bus *bus, const char *arg) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         _cleanup_free_ char *unit = NULL;
         int r;
 

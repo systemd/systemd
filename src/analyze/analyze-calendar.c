@@ -13,8 +13,8 @@
 #include "time-util.h"
 
 static int test_calendar_one(usec_t n, const char *p) {
-        _cleanup_(calendar_spec_freep) CalendarSpec *spec = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free(calendar_spec) CalendarSpec *spec = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         _cleanup_free_ char *t = NULL;
         TableCell *cell;
         int r;

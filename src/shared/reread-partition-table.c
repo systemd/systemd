@@ -24,7 +24,7 @@ static int trigger_partitions(sd_device *dev, bool blkrrpart_success) {
         assert(dev);
 
         /* search for partitions */
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         r = partition_enumerator_new(dev, &e);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to initialize partition enumerator: %m");
@@ -118,7 +118,7 @@ static int process_partition(
         if (r < 0)
                 return log_device_debug_errno(d, r, "Failed to determine partition node %i for '%s': %m", nr, node);
 
-        _cleanup_(sd_device_unrefp) sd_device *partition = NULL;
+        _cleanup_unref(sd_device) sd_device *partition = NULL;
         r = sd_device_new_from_devname(&partition, subnode);
         if (r < 0) {
                 if (r != -ENODEV)
@@ -295,7 +295,7 @@ static int reread_partition_table_full(sd_device *dev, int fd, RereadPartitionTa
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to load libblkid: %m");
 
-        _cleanup_(blkid_free_probep) blkid_probe b = sym_blkid_new_probe();
+        _cleanup_free(blkid_probe) blkid_probe b = sym_blkid_new_probe();
         if (!b)
                 return log_oom_debug();
 
@@ -335,14 +335,14 @@ static int reread_partition_table_full(sd_device *dev, int fd, RereadPartitionTa
         if (n_partitions < 0)
                 return log_device_debug_errno(dev, errno_or_else(EIO), "Unable to acquire number of entries in partition table of '%s': %m", p);
 
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         r = partition_enumerator_new(dev, &e);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to enumerate kernel partition devices: %m");
 
         log_device_debug(dev, "Updating/adding kernel partition devices...");
 
-        _cleanup_(set_freep) Set *found_partnos = NULL;
+        _cleanup_free(set) Set *found_partnos = NULL;
         bool changed = false;
         int ret = 0;
         for (int i = 0; i < n_partitions; i++) {
@@ -394,7 +394,7 @@ int reread_partition_table(sd_device *dev, RereadPartitionTableFlags flags) {
 int reread_partition_table_fd(int fd, RereadPartitionTableFlags flags) {
         int r;
 
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         r = block_device_new_from_fd(fd, /* flags= */ 0, &dev);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get block device object: %m");

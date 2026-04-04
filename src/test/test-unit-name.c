@@ -289,7 +289,7 @@ TEST_RET(unit_printf, .sd_booted = true) {
                 *machine_id = NULL, *os_image_id, *os_id, *os_version_id, *os_variant_id,
                 *user, *group, *uid, *gid, *home, *shell,
                 *tmp_dir, *var_tmp_dir;
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         _cleanup_close_ int fd = -EBADF;
         Unit *u;
         int r;

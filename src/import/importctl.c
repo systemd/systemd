@@ -179,10 +179,10 @@ static int transfer_signal_handler(sd_event_source *s, const struct signalfd_sig
 }
 
 static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
-        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot_job_removed = NULL, *slot_log_message = NULL, *slot_progress_update = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_event_unrefp) sd_event* event = NULL;
+        _cleanup_unref(sd_bus_slot) sd_bus_slot *slot_job_removed = NULL, *slot_log_message = NULL, *slot_progress_update = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_event) sd_event* event = NULL;
         Context c = {};
         uint32_t id;
         int r;
@@ -262,7 +262,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
 }
 
 static int verb_import_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_free_ char *ll = NULL, *fn = NULL;
         const char *local = NULL, *path = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -341,7 +341,7 @@ static int verb_import_tar(int argc, char *argv[], uintptr_t _data, void *userda
 }
 
 static int verb_import_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_free_ char *ll = NULL, *fn = NULL;
         const char *local = NULL, *path = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -420,7 +420,7 @@ static int verb_import_raw(int argc, char *argv[], uintptr_t _data, void *userda
 }
 
 static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         const char *local = NULL, *path = NULL;
         _cleanup_free_ char *fn = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -507,7 +507,7 @@ static void determine_compression_from_filename(const char *p) {
 }
 
 static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_close_ int fd = -EBADF;
         const char *local = NULL, *path = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -566,7 +566,7 @@ static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userda
 }
 
 static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_close_ int fd = -EBADF;
         const char *local = NULL, *path = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -625,7 +625,7 @@ static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userda
 }
 
 static int verb_pull_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL, *ll = NULL;
         const char *local, *remote;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -698,7 +698,7 @@ static int verb_pull_tar(int argc, char *argv[], uintptr_t _data, void *userdata
 }
 
 static int verb_pull_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL, *ll = NULL;
         const char *local, *remote;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -771,7 +771,7 @@ static int verb_pull_raw(int argc, char *argv[], uintptr_t _data, void *userdata
 }
 
 static int verb_pull_oci(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL;
         const char *local, *remote;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -826,9 +826,9 @@ static int verb_pull_oci(int argc, char *argv[], uintptr_t _data, void *userdata
 }
 
 static int verb_list_transfers(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -930,7 +930,7 @@ static int verb_list_transfers(int argc, char *argv[], uintptr_t _data, void *us
 }
 
 static int verb_cancel_transfer(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -952,9 +952,9 @@ static int verb_cancel_transfer(int argc, char *argv[], uintptr_t _data, void *u
 }
 
 static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 

@@ -46,7 +46,7 @@ static void lookup_parameters_done(LookupParameters *p) {
 }
 
 static int add_nss_service(sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *status = NULL, *z = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *status = NULL, *z = NULL;
         sd_id128_t mid;
         int r;
 
@@ -80,8 +80,8 @@ static int add_nss_service(sd_json_variant **v) {
 }
 
 static int build_user_json(sd_varlink *link, UserRecord *ur, sd_json_variant **ret) {
-        _cleanup_(user_record_unrefp) UserRecord *stripped = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(user_record) UserRecord *stripped = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         UserRecordLoadFlags flags;
         uid_t peer_uid;
         bool trusted;
@@ -153,8 +153,8 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                 {}
         };
 
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        _cleanup_(lookup_parameters_done) LookupParameters p = {
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
+        _cleanup_done(lookup_parameters) LookupParameters p = {
                 .uid = UID_INVALID,
                 .match = USERDB_MATCH_NULL,
         };
@@ -181,7 +181,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
         else if (p.name)
                 r = userdb_by_name(p.name, &p.match, userdb_flags, &hr);
         else {
-                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+                _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
 
                 r = userdb_all(&p.match, userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
@@ -196,7 +196,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                         return r;
 
                 for (;;) {
-                        _cleanup_(user_record_unrefp) UserRecord *z = NULL;
+                        _cleanup_unref(user_record) UserRecord *z = NULL;
 
                         r = userdb_iterator_get(iterator, &p.match, &z);
                         if (r == -ESRCH)
@@ -204,7 +204,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                         if (r < 0)
                                 return r;
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                         r = build_user_json(link, z, &v);
                         if (r < 0)
                                 return r;
@@ -229,7 +229,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
             (p.name && !user_record_matches_user_name(hr, p.name)))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = build_user_json(link, hr, &v);
         if (r < 0)
                 return r;
@@ -238,8 +238,8 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
 }
 
 static int build_group_json(sd_varlink *link, GroupRecord *gr, sd_json_variant **ret) {
-        _cleanup_(group_record_unrefp) GroupRecord *stripped = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(group_record) GroupRecord *stripped = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         UserRecordLoadFlags flags;
         uid_t peer_uid;
         bool trusted;
@@ -295,8 +295,8 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 {}
         };
 
-        _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
-        _cleanup_(lookup_parameters_done) LookupParameters p = {
+        _cleanup_unref(group_record) GroupRecord *g = NULL;
+        _cleanup_done(lookup_parameters) LookupParameters p = {
                 .gid = GID_INVALID,
                 .match = USERDB_MATCH_NULL,
         };
@@ -322,7 +322,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
         else if (p.name)
                 r = groupdb_by_name(p.name, &p.match, userdb_flags, &g);
         else {
-                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+                _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
 
                 r = groupdb_all(&p.match, userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
@@ -331,7 +331,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                         return r;
 
                 for (;;) {
-                        _cleanup_(group_record_unrefp) GroupRecord *z = NULL;
+                        _cleanup_unref(group_record) GroupRecord *z = NULL;
 
                         r = groupdb_iterator_get(iterator, &p.match, &z);
                         if (r == -ESRCH)
@@ -339,7 +339,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                         if (r < 0)
                                 return r;
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                         r = build_group_json(link, z, &v);
                         if (r < 0)
                                 return r;
@@ -364,7 +364,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
             (p.name && !group_record_matches_group_name(g, p.name)))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = build_group_json(link, g, &v);
         if (r < 0)
                 return r;
@@ -386,7 +386,7 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
                 {}
         };
 
-        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
         MembershipLookupParameters p = {};
         UserDBFlags userdb_flags;
         int r;
@@ -478,8 +478,8 @@ static int process_connection(sd_varlink_server *server, int _fd) {
 
 static int run(int argc, char *argv[]) {
         usec_t start_time, listen_idle_usec, last_busy_usec = USEC_INFINITY;
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
-        _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *server = NULL;
+        _cleanup_done(pidref) PidRef parent = PIDREF_NULL;
         unsigned n_iterations = 0;
         int m, listen_fd, r;
 

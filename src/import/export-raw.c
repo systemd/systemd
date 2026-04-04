@@ -76,7 +76,7 @@ int raw_export_new(
                 RawExportFinished on_finished,
                 void *userdata) {
 
-        _cleanup_(raw_export_unrefp) RawExport *e = NULL;
+        _cleanup_unref(raw_export) RawExport *e = NULL;
         int r;
 
         assert(ret);

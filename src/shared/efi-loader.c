@@ -96,7 +96,7 @@ int efi_stub_get_device_part_uuid(sd_id128_t *ret) {
 int efi_loader_get_entries(char ***ret) {
 #if ENABLE_EFI
         _cleanup_free_ char16_t *entries = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         size_t size;
         int r;
 

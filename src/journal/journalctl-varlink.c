@@ -97,7 +97,7 @@ int action_rotate(void) {
 }
 
 int action_vacuum(void) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         Directory *d;
         int r, ret = 0;
 

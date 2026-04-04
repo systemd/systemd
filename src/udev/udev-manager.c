@@ -340,7 +340,7 @@ void notify_ready(Manager *manager) {
 
 /* reload requested, HUP signal received, rules changed, builtin changed */
 void manager_reload(Manager *manager, bool force) {
-        _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
+        _cleanup_free(udev_rules) UdevRules *rules = NULL;
         usec_t now_usec;
         int r;
 
@@ -471,7 +471,7 @@ static Event* worker_detach_event(Worker *worker) {
 }
 
 static int on_worker_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        _cleanup_(worker_freep) Worker *worker = ASSERT_PTR(userdata);
+        _cleanup_free(worker) Worker *worker = ASSERT_PTR(userdata);
         _cleanup_(event_enter_processedp) Event *event = worker_detach_event(worker);
         sd_device *dev = event ? ASSERT_PTR(event->dev) : NULL;
 
@@ -511,7 +511,7 @@ static int on_worker_exit(sd_event_source *s, const siginfo_t *si, void *userdat
 }
 
 static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_monitor, PidRef *pidref) {
-        _cleanup_(worker_freep) Worker *worker = NULL;
+        _cleanup_free(worker) Worker *worker = NULL;
         int r;
 
         assert(ret);
@@ -558,7 +558,7 @@ static int worker_spawn(Manager *manager, Event *event) {
         assert(event);
 
         /* listen for new events */
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *worker_monitor = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *worker_monitor = NULL;
         r = device_monitor_new_full(&worker_monitor, MONITOR_GROUP_NONE, -EBADF);
         if (r < 0)
                 return r;
@@ -571,14 +571,14 @@ static int worker_spawn(Manager *manager, Event *event) {
                 return log_error_errno(r, "Worker: Failed to set unicast sender: %m");
 
         pid_t manager_pid = getpid_cached();
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(udev-worker)", FORK_DEATHSIG_SIGTERM, &pidref);
         if (r < 0) {
                 event->state = EVENT_QUEUED;
                 return log_error_errno(r, "Failed to fork() worker: %m");
         }
         if (r == 0) {
-                _cleanup_(udev_worker_done) UdevWorker w = {
+                _cleanup_done(udev_worker) UdevWorker w = {
                         .monitor = TAKE_PTR(worker_monitor),
                         .properties = TAKE_PTR(manager->properties),
                         .rules = TAKE_PTR(manager->rules),
@@ -925,7 +925,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        _cleanup_(event_unrefp) Event *event = new(Event, 1);
+        _cleanup_unref(event) Event *event = new(Event, 1);
         if (!event)
                 return -ENOMEM;
 
@@ -980,7 +980,7 @@ static int manager_serialize_events(Manager *manager) {
 
         assert(manager);
 
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *storage = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *storage = NULL;
         r = device_monitor_new_full(&storage, MONITOR_GROUP_NONE, -EBADF);
         if (r < 0)
                 return log_warning_errno(r, "Failed to create new device monitor instance: %m");
@@ -1034,7 +1034,7 @@ static int manager_deserialize_events(Manager *manager, int *fd) {
         if (r == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Received invalid event storage socket (%i).", *fd);
 
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *storage = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *storage = NULL;
         r = device_monitor_new_full(&storage, MONITOR_GROUP_NONE, *fd);
         if (r < 0)
                 return log_warning_errno(r, "Failed to initialize event storage: %m");
@@ -1054,7 +1054,7 @@ static int manager_deserialize_events(Manager *manager, int *fd) {
                 if (r == 0)
                         break;
 
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                _cleanup_unref(sd_device) sd_device *dev = NULL;
                 r = sd_device_monitor_receive(storage, &dev);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to receive device from event storage, ignoring: %m");
@@ -1157,8 +1157,8 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
 
         assert(fd >= 0);
 
-        _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_done(pidref) PidRef sender = PIDREF_NULL;
+        _cleanup_free(strv) char **l = NULL;
         r = notify_recv_strv(fd, &l, /* ret_ucred= */ NULL, &sender);
         if (r == -EAGAIN)
                 return 0;
@@ -1360,7 +1360,7 @@ static int manager_setup_signal(
                 int64_t priority,
                 const char *description) {
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         int r;
 
         assert(manager);
@@ -1384,7 +1384,7 @@ static int manager_setup_signal(
 }
 
 static int manager_setup_event(Manager *manager) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         int r;
 
         assert(manager);
@@ -1429,7 +1429,7 @@ static int manager_setup_event(Manager *manager) {
 }
 
 static int manager_listen_fds(Manager *manager, int *ret_varlink_fd) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         int varlink_fd = -EBADF;
         int r;
 

@@ -153,7 +153,7 @@ static int process_resume(const HibernateInfo *info) {
 }
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
-        _cleanup_(hibernate_info_done) HibernateInfo info = {};
+        _cleanup_done(hibernate_info) HibernateInfo info = {};
         int r;
 
         arg_dest = ASSERT_PTR(dest);

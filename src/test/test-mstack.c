@@ -57,7 +57,7 @@ TEST(mstack) {
         ASSERT_OK_ERRNO(mkdirat(tfd, "robind@yyy", 0755));
         ASSERT_OK_ERRNO(mkdirat(tfd, "robind@yyy/check5", 0755));
 
-        _cleanup_(mstack_freep) MStack *mstack = NULL;
+        _cleanup_free(mstack) MStack *mstack = NULL;
         ASSERT_OK(mstack_load(t, tfd, &mstack));
 
         ASSERT_OK_ZERO(mstack_is_read_only(mstack));

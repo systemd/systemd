@@ -482,7 +482,7 @@ static int load_env_file_push(
 }
 
 int load_env_file(FILE *f, const char *fname, char ***ret) {
-        _cleanup_strv_free_ char **m = NULL;
+        _cleanup_free(strv) char **m = NULL;
         int r;
 
         assert(f || fname);
@@ -530,7 +530,7 @@ static int load_env_file_push_pairs(
 }
 
 int load_env_file_pairs(FILE *f, const char *fname, char ***ret) {
-        _cleanup_strv_free_ char **m = NULL;
+        _cleanup_free(strv) char **m = NULL;
         int r;
 
         assert(f || fname);

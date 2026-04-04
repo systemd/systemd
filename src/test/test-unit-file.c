@@ -34,9 +34,9 @@ TEST(unit_validate_alias_symlink_and_warn) {
 }
 
 TEST(unit_file_build_name_map) {
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_hashmap_free_ Hashmap *unit_ids = NULL;
-        _cleanup_hashmap_free_ Hashmap *unit_names = NULL;
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
+        _cleanup_free(hashmap) Hashmap *unit_ids = NULL;
+        _cleanup_free(hashmap) Hashmap *unit_names = NULL;
         const char *k, *dst;
         char **v, **ids;
         usec_t mtime = 0;
@@ -66,7 +66,7 @@ TEST(unit_file_build_name_map) {
 
         STRV_FOREACH(id, ids) {
                  const char *fragment, *name;
-                 _cleanup_set_free_ Set *names = NULL;
+                 _cleanup_free(set) Set *names = NULL;
                  log_info("*** %s ***", *id);
                  r = unit_file_find_fragment(unit_ids,
                                              unit_names,
@@ -99,8 +99,8 @@ static bool test_unit_file_remove_from_name_map_trail(const LookupPaths *lp, siz
 
         log_debug("/* %s(trial=%zu) */", __func__, trial);
 
-        _cleanup_hashmap_free_ Hashmap *unit_ids = NULL, *unit_names = NULL;
-        _cleanup_set_free_ Set *path_cache = NULL;
+        _cleanup_free(hashmap) Hashmap *unit_ids = NULL, *unit_names = NULL;
+        _cleanup_free(set) Set *path_cache = NULL;
         ASSERT_OK_POSITIVE(unit_file_build_name_map(lp, NULL, &unit_ids, &unit_names, &path_cache));
 
         _cleanup_free_ char *name = NULL;
@@ -133,8 +133,8 @@ static bool test_unit_file_remove_from_name_map_trail(const LookupPaths *lp, siz
         ASSERT_FALSE(hashmap_contains(unit_names, path));
         ASSERT_FALSE(set_contains(path_cache, path));
 
-        _cleanup_hashmap_free_ Hashmap *unit_ids_2 = NULL, *unit_names_2 = NULL;
-        _cleanup_set_free_ Set *path_cache_2 = NULL;
+        _cleanup_free(hashmap) Hashmap *unit_ids_2 = NULL, *unit_names_2 = NULL;
+        _cleanup_free(set) Set *path_cache_2 = NULL;
         ASSERT_OK_POSITIVE(unit_file_build_name_map(lp, NULL, &unit_ids_2, &unit_names_2, &path_cache_2));
 
         if (hashmap_size(unit_ids) != hashmap_size(unit_ids_2) ||
@@ -159,7 +159,7 @@ static bool test_unit_file_remove_from_name_map_trail(const LookupPaths *lp, siz
 TEST(unit_file_remove_from_name_map) {
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
 
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
         ASSERT_OK(lookup_paths_init(&lp, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_TEMPORARY_GENERATED, NULL));
         ASSERT_NOT_NULL((d = strdup(lp.temporary_dir)));
 

@@ -143,7 +143,7 @@ static int read_definitions(
                 return log_error_errno(r, "Failed to enumerate sysupdate.d/*%s definitions: %m", suffix);
 
         FOREACH_ARRAY(i, files, n_files) {
-                _cleanup_(transfer_freep) Transfer *t = NULL;
+                _cleanup_free(transfer) Transfer *t = NULL;
                 Transfer **appended;
                 ConfFile *e = *i;
 
@@ -176,7 +176,7 @@ static int read_definitions(
 }
 
 static int context_read_definitions(Context *c, const char* node, bool requires_enabled_transfers) {
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_free(strv) char **dirs = NULL;
         int r;
 
         assert(c);
@@ -217,7 +217,7 @@ static int context_read_definitions(Context *c, const char* node, bool requires_
                 return log_error_errno(r, "Failed to enumerate sysupdate.d/*.feature definitions: %m");
 
         FOREACH_ARRAY(i, files, n_files) {
-                _cleanup_(feature_unrefp) Feature *f = NULL;
+                _cleanup_unref(feature) Feature *f = NULL;
                 ConfFile *e = *i;
 
                 f = feature_new();
@@ -538,7 +538,7 @@ static int context_discover_update_sets(Context *c) {
 }
 
 static int context_show_table(Context *c) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         int r;
 
         assert(c);
@@ -591,9 +591,9 @@ static int context_show_version(Context *c, const char *version) {
                 have_fs_attributes = false, have_partition_attributes = false,
                 have_size = false, have_tries = false, have_no_auto = false,
                 have_read_only = false, have_growfs = false, have_sha256 = false;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-        _cleanup_(table_unrefp) Table *t = NULL;
-        _cleanup_strv_free_ char **changelog_urls = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
+        _cleanup_unref(table) Table *t = NULL;
+        _cleanup_free(strv) char **changelog_urls = NULL;
         UpdateSet *us;
         int r;
 
@@ -834,7 +834,7 @@ static int context_show_version(Context *c, const char *version) {
 
                 return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
         } else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *t_json = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *t_json = NULL;
 
                 r = table_to_json(t, &t_json);
                 if (r < 0)
@@ -909,7 +909,7 @@ static int context_vacuum(
                 else
                         log_info("Found nothing to remove.");
         } else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
 
                 r = sd_json_buildo(&json,
                                    SD_JSON_BUILD_PAIR_INTEGER("removed", count),
@@ -926,7 +926,7 @@ static int context_vacuum(
 }
 
 static int context_make_offline(Context **ret, const char *node, bool requires_enabled_transfers) {
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_free(context) Context* context = NULL;
         int r;
 
         assert(ret);
@@ -951,7 +951,7 @@ static int context_make_offline(Context **ret, const char *node, bool requires_e
 }
 
 static int context_make_online(Context **ret, const char *node) {
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_free(context) Context* context = NULL;
         int r;
 
         assert(ret);
@@ -1237,7 +1237,7 @@ static int process_image(
                 char **ret_mounted_dir,
                 LoopDevice **ret_loop_device) {
 
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         int r;
 
@@ -1278,10 +1278,10 @@ static int process_image(
 }
 
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(context_freep) Context* context = NULL;
-        _cleanup_strv_free_ char **appstream_urls = NULL;
+        _cleanup_free(context) Context* context = NULL;
+        _cleanup_free(strv) char **appstream_urls = NULL;
         const char *version;
         int r;
 
@@ -1301,8 +1301,8 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         else if (!sd_json_format_enabled(arg_json_format_flags))
                 return context_show_table(context);
         else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-                _cleanup_strv_free_ char **versions = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
+                _cleanup_free(strv) char **versions = NULL;
                 const char *current = NULL;
                 bool current_is_pending = false;
 
@@ -1346,10 +1346,10 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(context_freep) Context* context = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free(context) Context* context = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         const char *feature_id;
         Feature *f;
         int r;
@@ -1366,7 +1366,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                 return r;
 
         if (feature_id) {
-                _cleanup_strv_free_ char **transfers = NULL;
+                _cleanup_free(strv) char **transfers = NULL;
 
                 f = hashmap_get(context->features, feature_id);
                 if (!f)
@@ -1458,8 +1458,8 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
 
                 return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
         } else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-                _cleanup_strv_free_ char **features = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
+                _cleanup_free(strv) char **features = NULL;
 
                 HASHMAP_FOREACH(f, context->features) {
                         r = strv_extend(&features, f->id);
@@ -1480,9 +1480,9 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
 }
 
 static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_free(context) Context* context = NULL;
         int r;
 
         assert(argc <= 1);
@@ -1503,7 +1503,7 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
 
                 puts(context->candidate->version);
         } else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
 
                 if (context->candidate)
                         r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING("available", context->candidate->version));
@@ -1521,9 +1521,9 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
 }
 
 static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_free(context) Context* context = NULL;
         int r;
 
         assert(argc <= 1);
@@ -1549,9 +1549,9 @@ typedef enum {
 } UpdateActionFlags;
 
 static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flags) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_free(context) Context* context = NULL;
         _cleanup_free_ char *booted_version = NULL;
         UpdateSet *applied = NULL;
         const char *version;
@@ -1629,7 +1629,7 @@ static int verb_acquire(int argc, char *argv[], uintptr_t _data, void *userdata)
 }
 
 static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_free(context) Context* context = NULL;
         _cleanup_free_ char *booted_version = NULL;
         int r;
 
@@ -1703,9 +1703,9 @@ static int component_name_valid(const char *c) {
 }
 
 static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_set_free_ Set *names = NULL;
+        _cleanup_free(set) Set *names = NULL;
         bool has_default_component = false;
         int r;
 
@@ -1777,7 +1777,7 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                 STRV_FOREACH(i, z)
                         puts(*i);
         } else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
 
                 r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
                                           SD_JSON_BUILD_PAIR_STRV("components", z));

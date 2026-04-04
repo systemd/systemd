@@ -149,7 +149,7 @@ static int get_network_files_by_link(
                 char **ret_path,
                 char ***ret_dropins) {
 
-        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free(strv) char **dropins = NULL;
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -182,7 +182,7 @@ static int get_netdev_files_by_link(
                 char **ret_path,
                 char ***ret_dropins) {
 
-        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free(strv) char **dropins = NULL;
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -209,8 +209,8 @@ static int get_netdev_files_by_link(
 }
 
 static int get_link_files_by_link(const char *link, bool ignore_missing, char **ret_path, char ***ret_dropins) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        _cleanup_strv_free_ char **dropins_split = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
+        _cleanup_free(strv) char **dropins_split = NULL;
         _cleanup_free_ char *p = NULL;
         const char *path, *dropins;
         int r;
@@ -326,7 +326,7 @@ static int add_config_to_edit(
                 char * const *dropins) {
 
         _cleanup_free_ char *new_path = NULL, *dropin_path = NULL, *old_dropin = NULL;
-        _cleanup_strv_free_ char **comment_paths = NULL;
+        _cleanup_free(strv) char **comment_paths = NULL;
         int r;
 
         assert(context);
@@ -419,13 +419,13 @@ static int reload_daemons(ReloadFlags flags) {
 
 int verb_edit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         char **args = ASSERT_PTR(strv_skip(argv, 1));
-        _cleanup_(edit_file_context_done) EditFileContext context = {
+        _cleanup_done(edit_file_context) EditFileContext context = {
                 .marker_start = DROPIN_MARKER_START,
                 .marker_end = DROPIN_MARKER_END,
                 .remove_parent = !!arg_drop_in,
                 .read_from_stdin = arg_stdin,
         };
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         ReloadFlags reload = 0;
         int r;
 
@@ -442,7 +442,7 @@ int verb_edit(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return r;
 
         STRV_FOREACH(name, args) {
-                _cleanup_strv_free_ char **dropins = NULL;
+                _cleanup_free(strv) char **dropins = NULL;
                 _cleanup_free_ char *path = NULL;
                 const char *link_config;
 
@@ -524,7 +524,7 @@ static int cat_files_by_link_one(
                 bool ignore_missing,
                 bool *first) {
 
-        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free(strv) char **dropins = NULL;
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -578,7 +578,7 @@ static int cat_files_by_link_config(const char *link_config, sd_netlink **rtnl, 
 }
 
 int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         char **args = strv_skip(argv, 1);
         int r, ret = 0;
 
@@ -602,7 +602,7 @@ int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (!filename_is_valid(*name) || !ENDSWITH_SET(*name, ".network", ".netdev", ".link"))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid network config name: %s", *name);
 
-                _cleanup_strv_free_ char **dropins = NULL;
+                _cleanup_free(strv) char **dropins = NULL;
                 _cleanup_free_ char *path = NULL;
 
                 r = get_config_files_by_name(*name, /* allow_masked= */ false, &path, &dropins);

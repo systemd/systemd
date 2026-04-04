@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
                 .type = BUS_MATCH_ROOT,
         };
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         sd_bus_slot slots[19] = {};
         int r;
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
                         assert_se(bus_match_node_type_from_string(x, strlen(x)) == i);
         }
 
-        bus_match_free(&root);
+        bus_match_done(&root);
 
         test_match_scope("interface='foobar'", BUS_MATCH_GENERIC);
         test_match_scope("", BUS_MATCH_GENERIC);

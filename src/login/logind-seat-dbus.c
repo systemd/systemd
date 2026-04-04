@@ -298,7 +298,7 @@ char* seat_bus_path(Seat *s) {
 }
 
 static int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         sd_bus_message *message;
         Manager *m = userdata;
         Seat *seat;
@@ -322,7 +322,7 @@ static int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, c
 
         message = sd_bus_get_current_message(bus);
         if (message) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
                 if (r >= 0) {

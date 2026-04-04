@@ -110,8 +110,8 @@ static ino_t get_inode(int fd) {
 }
 
 static void test_bus_fds_truncated(void) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus) sd_bus *bus = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_close_ int memfd0 = -EBADF, memfd1 = -EBADF;
         _cleanup_free_ void *blob = NULL;
         _cleanup_free_ int *fds = NULL;
@@ -227,13 +227,13 @@ static void test_bus_label_escape(void) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *copy = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *copy = NULL;
         _cleanup_free_ char *h = NULL, *first = NULL, *second = NULL, *third = NULL;
         const int32_t integer_array[] = { -1, -2, 0, 1, 2 }, *return_array;
         const char *x, *x2, *y, *z, *a, *b, *c, *d, *a_signature;
         size_t sz, first_size, second_size = 0, third_size = 0;
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
-        _cleanup_(memstream_done) MemStream ms = {};
+        _cleanup_unref(sd_bus) sd_bus *bus = NULL;
+        _cleanup_done(memstream) MemStream ms = {};
         void *buffer = NULL;
         int r, boolean;
         uint64_t u64;

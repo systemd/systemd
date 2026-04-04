@@ -174,7 +174,7 @@ static int append_bearer_properties(sd_bus_message *reply) {
 }
 
 static int handle_get_managed_objects(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         r = sd_bus_message_new_method_return(msg, &reply);
@@ -287,7 +287,7 @@ static int handle_get_managed_objects(sd_bus_message *msg, void *userdata, sd_bu
 }
 
 static int handle_get_all(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         r = sd_bus_message_new_method_return(msg, &reply);
@@ -312,7 +312,7 @@ static int handle_get_all(sd_bus_message *msg, void *userdata, sd_bus_error *err
 }
 
 static int handle_simple_connect(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         /* Return the bearer path */
@@ -449,7 +449,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         int r;
 
         log_setup();

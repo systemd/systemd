@@ -313,7 +313,7 @@ static int save_external_coredump(
                 if (r < 0)
                         log_info_errno(r, "Failed to connect to system bus, skipping MemoryAvailable check: %m");
                 else {
-                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                         r = sd_bus_get_property_trivial(
                                         bus,
@@ -631,7 +631,7 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
 }
 
 int coredump_submit(const CoredumpConfig *config, CoredumpContext *context) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json_metadata = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *json_metadata = NULL;
         _cleanup_close_ int coredump_fd = -EBADF, coredump_node_fd = -EBADF;
         _cleanup_free_ char *filename = NULL, *coredump_data = NULL, *stacktrace = NULL;
         const char *module_name, *root = NULL;

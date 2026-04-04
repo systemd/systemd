@@ -67,7 +67,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
 
         /* Skip malformed elements and keep processing in case the others are good */
         JSON_VARIANT_ARRAY_FOREACH(c, cgroups) {
-                _cleanup_(managed_oom_message_destroy) ManagedOOMMessage message = {
+                _cleanup_destroy(managed_oom_message) ManagedOOMMessage message = {
                         .duration = USEC_INFINITY,
                 };
                 OomdCGroupContext *ctx;
@@ -257,7 +257,7 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
 }
 
 static int update_monitored_cgroup_contexts(Hashmap **monitored_cgroups) {
-        _cleanup_hashmap_free_ Hashmap *new_base = NULL;
+        _cleanup_free(hashmap) Hashmap *new_base = NULL;
         OomdCGroupContext *ctx;
         int r;
 
@@ -283,7 +283,7 @@ static int update_monitored_cgroup_contexts(Hashmap **monitored_cgroups) {
 }
 
 static int get_monitored_cgroup_contexts_candidates(Hashmap *monitored_cgroups, Hashmap **ret_candidates) {
-        _cleanup_hashmap_free_ Hashmap *candidates = NULL;
+        _cleanup_free(hashmap) Hashmap *candidates = NULL;
         OomdCGroupContext *ctx;
         int r;
 
@@ -308,7 +308,7 @@ static int get_monitored_cgroup_contexts_candidates(Hashmap *monitored_cgroups, 
 }
 
 static int update_monitored_cgroup_contexts_candidates(Hashmap *monitored_cgroups, Hashmap **candidates) {
-        _cleanup_hashmap_free_ Hashmap *new_candidates = NULL;
+        _cleanup_free(hashmap) Hashmap *new_candidates = NULL;
         int r;
 
         assert(monitored_cgroups);
@@ -391,7 +391,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
         /* Check amount of memory available and swap free so we don't free up swap when memory is still available. */
         if (oomd_mem_available_below(&m->system_context, 10000 - m->swap_used_limit_permyriad) &&
                         oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
-                _cleanup_hashmap_free_ Hashmap *candidates = NULL;
+                _cleanup_free(hashmap) Hashmap *candidates = NULL;
                 OomdCGroupContext *selected = NULL;
                 uint64_t threshold;
 
@@ -448,7 +448,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
         /* Don't want to use stale candidate data. Setting this will clear the candidate hashmap on return unless we
          * update the candidate data (in which case clear_candidates will be NULL). */
         _unused_ _cleanup_(clear_candidate_hashmapp) Manager *clear_candidates = userdata;
-        _cleanup_set_free_ Set *targets = NULL;
+        _cleanup_free(set) Set *targets = NULL;
         bool in_post_action_delay = false;
         Manager *m = ASSERT_PTR(userdata);
         usec_t usec_now;
@@ -585,7 +585,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
 }
 
 static int monitor_swap_contexts(Manager *m) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         int r;
 
         assert(m);
@@ -610,7 +610,7 @@ static int monitor_swap_contexts(Manager *m) {
 }
 
 static int monitor_memory_pressure_contexts(Manager *m) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         int r;
 
         assert(m);
@@ -668,7 +668,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 }
 
 int manager_new(Manager **ret) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         int r;
 
         assert(ret);
@@ -740,7 +740,7 @@ static int manager_connect_bus(Manager *m) {
 }
 
 static int manager_varlink_init(Manager *m, int fd) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         int r;
 
         assert(m);
@@ -819,7 +819,7 @@ int manager_start(
 }
 
 int manager_get_dump_string(Manager *m, char **ret) {
-        _cleanup_(memstream_done) MemStream ms = {};
+        _cleanup_done(memstream) MemStream ms = {};
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         size_t n;
         FILE *f;

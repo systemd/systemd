@@ -28,7 +28,7 @@
 
 static int logind_set_wall_message(sd_bus *bus) {
 #if ENABLE_LOGIND
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *m = NULL;
         int r;
 
@@ -65,7 +65,7 @@ int logind_reboot(enum action a) {
                 [ACTION_SLEEP]                  = "Sleep",
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         uint64_t flags = 0;
         sd_bus *bus;
         int r;
@@ -144,8 +144,8 @@ int logind_reboot(enum action a) {
 
 int logind_check_inhibitors(enum action a) {
 #if ENABLE_LOGIND
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **sessions = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(strv) char **sessions = NULL;
         const char *what, *who, *why, *mode;
         uint32_t uid, pid;
         sd_bus *bus;
@@ -185,7 +185,7 @@ int logind_check_inhibitors(enum action a) {
 
         while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
                 _cleanup_free_ char *comm = NULL, *user = NULL;
-                _cleanup_strv_free_ char **sv = NULL;
+                _cleanup_free(strv) char **sv = NULL;
 
                 if (!STR_IN_SET(mode, "block", "block-weak"))
                         continue;
@@ -269,7 +269,7 @@ int prepare_firmware_setup(void) {
                 return 0;
 
 #if ENABLE_LOGIND
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
 
@@ -294,7 +294,7 @@ int prepare_boot_loader_menu(void) {
                 return 0;
 
 #if ENABLE_LOGIND
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
 
@@ -319,7 +319,7 @@ int prepare_boot_loader_entry(void) {
                 return 0;
 
 #if ENABLE_LOGIND
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
 
@@ -340,7 +340,7 @@ int prepare_boot_loader_entry(void) {
 
 int logind_schedule_shutdown(enum action a) {
 #if ENABLE_LOGIND
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *action;
         sd_bus *bus;
         int r;
@@ -377,7 +377,7 @@ int logind_schedule_shutdown(enum action a) {
 
 int logind_cancel_shutdown(void) {
 #if ENABLE_LOGIND
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
 
@@ -400,8 +400,8 @@ int logind_cancel_shutdown(void) {
 
 int logind_show_shutdown(void) {
 #if ENABLE_LOGIND
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         sd_bus *bus;
         const char *action, *pretty_action;
         uint64_t elapse;
@@ -450,8 +450,8 @@ int logind_show_shutdown(void) {
 
 int help_boot_loader_entry(void) {
 #if ENABLE_LOGIND
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(strv) char **l = NULL;
         sd_bus *bus;
         int r;
 

@@ -260,8 +260,8 @@ static bool sender_on_local_subnet(DnsScope *s, DnsPacket *p) {
 }
 
 static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *full_answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *full_answer = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *reply = NULL;
         DnsResourceKey *key = NULL;
         DnsResourceRecord *rr;
         bool tentative = false;
@@ -290,7 +290,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         }
 
         DNS_QUESTION_FOREACH(key, p->question) {
-                _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+                _cleanup_unref(dns_answer) DnsAnswer *answer = NULL, *soa = NULL;
                 DnsAnswerItem *item;
 
                 r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
@@ -403,7 +403,7 @@ static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userda
 }
 
 static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
         Manager *m = userdata;
         DnsScope *scope;
         int r;

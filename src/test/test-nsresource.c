@@ -18,7 +18,7 @@ TEST(delegatetap) {
                 return (void) log_tests_skipped_errno(userns_fd, "User namespaces not available");
         ASSERT_OK(userns_fd);
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *link = NULL;
         r = nsresource_connect(&link);
         if (ERRNO_IS_NEG_DISCONNECT(r) || r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return (void) log_tests_skipped_errno(r, "systemd-nsresourced cannot be reached");

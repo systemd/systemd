@@ -228,7 +228,7 @@ int oci_ref_normalize(char **protocol, char **registry, char **image, char **tag
                 .default_tag = "latest",
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         if (f) {
                 unsigned line = 0, column = 0;
                 r = sd_json_parse_file(f, path, /* flags= */ 0, &v, &line, &column);

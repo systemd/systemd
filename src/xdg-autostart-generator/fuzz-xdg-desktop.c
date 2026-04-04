@@ -11,7 +11,7 @@
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/fuzz-xdg-desktop.XXXXXX";
         _cleanup_close_ int fd = -EBADF;
-        _cleanup_(xdg_autostart_service_freep) XdgAutostartService *service = NULL;
+        _cleanup_free(xdg_autostart_service) XdgAutostartService *service = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
 
         if (outside_size_range(size, 0, 65536))

@@ -27,7 +27,7 @@ static void context_clear(Context *c) {
 }
 
 static int get_startup_monotonic_time(Context *c, usec_t *ret) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(c);
@@ -108,7 +108,7 @@ static int run(int argc, char *argv[]) {
                 {}
         };
 
-        _cleanup_(context_clear) Context c = {
+        _cleanup_clear(context) Context c = {
                 .audit_fd = -EBADF,
         };
 

@@ -74,7 +74,7 @@ struct udev_list* udev_list_new(bool unique) {
 }
 
 struct udev_list_entry* udev_list_entry_add(struct udev_list *list, const char *name, const char *value) {
-        _cleanup_(udev_list_entry_freep) struct udev_list_entry *entry = NULL;
+        _cleanup_free(udev_list_entry) struct udev_list_entry *entry = NULL;
 
         assert(list);
         assert(name);

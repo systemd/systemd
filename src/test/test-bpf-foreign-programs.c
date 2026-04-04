@@ -153,7 +153,7 @@ static int pin_programs(Unit *u, CGroupContext *cc, const Test *test_suite, size
         assert_se(paths_ret);
 
         for (size_t i = 0; i < test_suite_size; i++) {
-                _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
+                _cleanup_free(bpf_program) BPFProgram *prog = NULL;
                 _cleanup_free_ char *str = NULL;
 
                 r = bpf_foreign_test_to_string(test_suite[i].attach_type, test_suite[i].bpffs_path, &str);
@@ -190,7 +190,7 @@ static int pin_programs(Unit *u, CGroupContext *cc, const Test *test_suite, size
 
 static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Test *test_suite, size_t test_suite_size) {
         _cleanup_(unlink_paths_and_freep) char **bpffs_paths = NULL;
-        _cleanup_(unit_freep) Unit *u = NULL;
+        _cleanup_free(unit) Unit *u = NULL;
         CGroupContext *cc = NULL;
         int cld_code, r;
 
@@ -270,7 +270,7 @@ static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Tes
 
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         _cleanup_free_ char *unit_dir = NULL;
         struct rlimit rl;
         int r;

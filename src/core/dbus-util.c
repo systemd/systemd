@@ -265,7 +265,7 @@ int bus_read_mount_options(
                 char **in_out_format_str,
                 const char *separator) {
 
-        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        _cleanup_free(mount_options) MountOptions *options = NULL;
         _cleanup_free_ char *format_str = NULL;
         int r;
 
@@ -337,7 +337,7 @@ int bus_property_get_activation_details(
                 sd_bus_error *reterr_error) {
 
         ActivationDetails **details = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **pairs = NULL;
+        _cleanup_free(strv) char **pairs = NULL;
         int r;
 
         assert(reply);

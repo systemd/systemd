@@ -113,7 +113,7 @@ static void test_route_tables_one(Manager *manager, const char *name, uint32_t n
 }
 
 TEST(route_tables) {
-        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_free(manager) Manager *manager = NULL;
 
         ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
         ASSERT_OK(manager_setup(manager));
@@ -151,7 +151,7 @@ TEST(route_tables) {
 }
 
 TEST(manager_enumerate) {
-        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_free(manager) Manager *manager = NULL;
 
         ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
         ASSERT_OK(manager_setup(manager));

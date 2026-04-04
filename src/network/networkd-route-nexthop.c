@@ -234,7 +234,7 @@ static int route_nexthop_copy(const RouteNextHop *src, RouteNextHop *dest) {
 }
 
 static int route_nexthop_dup(const RouteNextHop *src, RouteNextHop **ret) {
-        _cleanup_(route_nexthop_freep) RouteNextHop *dest = NULL;
+        _cleanup_free(route_nexthop) RouteNextHop *dest = NULL;
         int r;
 
         assert(src);
@@ -268,7 +268,7 @@ int route_nexthops_copy(const Route *src, const RouteNextHop *nh, Route *dest) {
                 return route_nexthop_copy(&src->nexthop, &dest->nexthop);
 
         ORDERED_SET_FOREACH(nh, src->nexthops) {
-                _cleanup_(route_nexthop_freep) RouteNextHop *nh_dup = NULL;
+                _cleanup_free(route_nexthop) RouteNextHop *nh_dup = NULL;
 
                 r = route_nexthop_dup(nh, &nh_dup);
                 if (r < 0)
@@ -371,9 +371,9 @@ int route_adjust_nexthops(Route *route, Link *link) {
         if (!multipath_routes_needs_adjust(route))
                 return false;
 
-        _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+        _cleanup_free(ordered_set) OrderedSet *nexthops = NULL;
         for (;;) {
-                _cleanup_(route_nexthop_freep) RouteNextHop *nh = NULL;
+                _cleanup_free(route_nexthop) RouteNextHop *nh = NULL;
 
                 nh = ordered_set_steal_first(route->nexthops);
                 if (!nh)
@@ -672,7 +672,7 @@ int route_nexthops_set_netlink_message(const Route *route, sd_netlink_message *m
 }
 
 static int route_parse_nexthops(Route *route, const struct rtnexthop *rtnh, size_t size) {
-        _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+        _cleanup_free(ordered_set) OrderedSet *nexthops = NULL;
         int r;
 
         assert(route);
@@ -683,7 +683,7 @@ static int route_parse_nexthops(Route *route, const struct rtnexthop *rtnh, size
                 return -EBADMSG;
 
         for (; size >= sizeof(struct rtnexthop); ) {
-                _cleanup_(route_nexthop_freep) RouteNextHop *nh = NULL;
+                _cleanup_free(route_nexthop) RouteNextHop *nh = NULL;
 
                 if (NLMSG_ALIGN(rtnh->rtnh_len) > size)
                         return -EBADMSG;
@@ -929,7 +929,7 @@ int route_section_verify_nexthops(Route *route) {
                 return log_route_section(route, "Gateway= cannot be specified with MultiPathRoute=.");
 
         if (ordered_set_size(route->nexthops) == 1) {
-                _cleanup_(route_nexthop_freep) RouteNextHop *nh = ordered_set_steal_first(route->nexthops);
+                _cleanup_free(route_nexthop) RouteNextHop *nh = ordered_set_steal_first(route->nexthops);
 
                 route_nexthop_done(&route->nexthop);
                 route->nexthop = TAKE_STRUCT(*nh);
@@ -1040,7 +1040,7 @@ int config_parse_multipath_route(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(route_nexthop_freep) RouteNextHop *nh = NULL;
+        _cleanup_free(route_nexthop) RouteNextHop *nh = NULL;
         _cleanup_free_ char *word = NULL;
         OrderedSet **nexthops = ASSERT_PTR(data);
         const char *p;

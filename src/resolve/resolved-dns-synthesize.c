@@ -65,7 +65,7 @@ static int synthesize_localhost_rr(Manager *m, const DnsResourceKey *key, DnsAns
                 return r;
 
         if (IN_SET(key->type, DNS_TYPE_A, DNS_TYPE_ANY)) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
                 rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, dns_resource_key_name(key));
                 if (!rr)
@@ -79,7 +79,7 @@ static int synthesize_localhost_rr(Manager *m, const DnsResourceKey *key, DnsAns
         }
 
         if (IN_SET(key->type, DNS_TYPE_AAAA, DNS_TYPE_ANY) && socket_ipv6_is_enabled()) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
                 rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, dns_resource_key_name(key));
                 if (!rr)
@@ -96,7 +96,7 @@ static int synthesize_localhost_rr(Manager *m, const DnsResourceKey *key, DnsAns
 }
 
 static int answer_add_ptr(DnsAnswer **answer, const char *from, const char *to, int ifindex, DnsAnswerFlags flags) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, from);
         if (!rr)
@@ -146,7 +146,7 @@ static int answer_add_addresses_rr(
                 return r;
 
         for (j = 0; j < n_addresses; j++) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
                 r = dns_resource_record_new_address(&rr, addresses[j].family, &addresses[j].address, name);
                 if (r < 0)
@@ -175,7 +175,7 @@ static int answer_add_addresses_ptr(
         assert(name);
 
         for (j = 0; j < n_addresses; j++) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
                 if (af != AF_UNSPEC) {
 
@@ -357,7 +357,7 @@ static int synthesize_dns_stub_rr(
                 in_addr_t addr,
                 DnsAnswer **answer) {
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         int r;
 
         assert(m);
@@ -469,7 +469,7 @@ int dns_synthesize_answer(
                 int ifindex,
                 DnsAnswer **ret) {
 
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnsResourceKey *key;
         bool found = false, nxdomain = false;
         int r;
