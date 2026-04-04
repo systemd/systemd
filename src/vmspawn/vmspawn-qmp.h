@@ -61,10 +61,29 @@ typedef struct QmpNetworkInfo {
 
 /* Virtiofs device info for QMP-based chardev + device setup */
 typedef struct QmpVirtiofsInfo {
-        const char *id;              /* chardev and device id (e.g. "rootdir", "mnt0") */
-        const char *socket_path;     /* virtiofsd listen socket path */
-        const char *tag;             /* virtiofs mount tag visible to guest */
+        char *id;              /* owned: chardev and device id (e.g. "rootdir", "mnt0") */
+        char *socket_path;     /* owned: virtiofsd listen socket path */
+        char *tag;             /* owned: virtiofs mount tag visible to guest */
 } QmpVirtiofsInfo;
+
+static inline void qmp_virtiofs_info_done(QmpVirtiofsInfo *info) {
+        assert(info);
+        info->id = mfree(info->id);
+        info->socket_path = mfree(info->socket_path);
+        info->tag = mfree(info->tag);
+}
+
+typedef struct QmpVirtiofsInfos {
+        QmpVirtiofsInfo *entries;
+        size_t n;
+} QmpVirtiofsInfos;
+
+static inline void qmp_virtiofs_infos_done(QmpVirtiofsInfos *infos) {
+        assert(infos);
+        FOREACH_ARRAY(e, infos->entries, infos->n)
+                qmp_virtiofs_info_done(e);
+        infos->entries = mfree(infos->entries);
+}
 
 /* QMP handshake, feature detection, device setup, and VM start */
 int vmspawn_qmp_init(QmpClient **ret, int qmp_fd, sd_event *event,
