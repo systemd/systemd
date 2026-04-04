@@ -52,6 +52,7 @@
 #include "machine-bind-user.h"
 #include "machine-credential.h"
 #include "main-func.h"
+#include "memfd-util.h"
 #include "mkdir.h"
 #include "namespace-util.h"
 #include "netif-util.h"
@@ -3377,18 +3378,23 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         qmp_fds[1] = safe_close(qmp_fds[1]);
         tap_fd = safe_close(tap_fd);
 
-        /* Build drive info for QMP-based setup */
+        /* Build drive info for QMP-based setup. vmspawn opens all image files and
+         * passes fds to QEMU via add-fd — QEMU never needs filesystem access. */
         _cleanup_(qmp_drive_infos_done) QmpDriveInfos qmp_drives = {};
-        /* Owns the ephemeral overlay path; borrowed by QmpDriveInfo.snapshot_file below */
-        _cleanup_(unlink_and_freep) char *snapshot_path = NULL;
 
         qmp_drives.drives = new0(QmpDriveInfo, 1 + arg_extra_drives.n_drives);
         if (!qmp_drives.drives)
                 return log_oom();
 
         if (arg_image) {
+                int open_flags = (arg_ephemeral ? O_RDONLY : O_RDWR) | O_CLOEXEC | O_NOCTTY;
+
+                _cleanup_close_ int image_fd = open(arg_image, open_flags);
+                if (image_fd < 0)
+                        return log_error_errno(errno, "Failed to open '%s': %m", arg_image);
+
                 struct stat st;
-                if (stat(arg_image, &st) < 0)
+                if (fstat(image_fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", arg_image);
 
                 _cleanup_free_ char *image_fn = NULL;
@@ -3406,25 +3412,38 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 d->node_name = strdup("vmspawn");
                 if (!d->node_name)
                         return log_oom();
+                d->fd = TAKE_FD(image_fd);
+                d->overlay_fd = -EBADF;
                 d->is_block_device = S_ISBLK(st.st_mode);
                 d->discard = arg_discard_disk;
                 d->boot = true;
 
-                /* For ephemeral mode, prepare a temp file path for the qcow2 overlay.
-                 * QEMU's blockdev-snapshot-sync will create and format the file. */
+                /* For ephemeral mode, create an anonymous overlay file. QEMU will format it
+                 * as qcow2 via blockdev-create, so no filesystem path is needed. */
                 if (arg_ephemeral) {
-                        r = tempfn_random_child(runtime_dir, "ephemeral", &snapshot_path);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to generate ephemeral snapshot path: %m");
-                        d->snapshot_file = snapshot_path;
+                        _cleanup_close_ int overlay_fd = open(runtime_dir, O_TMPFILE | O_RDWR | O_CLOEXEC, 0600);
+                        if (overlay_fd < 0) {
+                                if (!ERRNO_IS_NOT_SUPPORTED(errno))
+                                        return log_error_errno(errno, "Failed to create ephemeral overlay in '%s': %m", runtime_dir);
+
+                                /* Fallback to memfd if O_TMPFILE is not supported */
+                                overlay_fd = memfd_new("vmspawn-overlay");
+                                if (overlay_fd < 0)
+                                        return log_error_errno(overlay_fd, "Failed to create ephemeral overlay via memfd: %m");
+                        }
+                        d->overlay_fd = TAKE_FD(overlay_fd);
                 }
         }
 
         /* Extra drives: validated and configured via QMP */
         size_t extra_idx = 0;
         FOREACH_ARRAY(drive, arg_extra_drives.drives, arg_extra_drives.n_drives) {
+                _cleanup_close_ int drive_fd = open(drive->path, O_RDWR | O_CLOEXEC | O_NOCTTY);
+                if (drive_fd < 0)
+                        return log_error_errno(errno, "Failed to open '%s': %m", drive->path);
+
                 struct stat drive_st;
-                if (stat(drive->path, &drive_st) < 0)
+                if (fstat(drive_fd, &drive_st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", drive->path);
                 if (!S_ISREG(drive_st.st_mode) && !S_ISBLK(drive_st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s'.", drive->path);
@@ -3447,6 +3466,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 d->path = drive->path;
                 d->format = image_format_to_string(drive->format);
+                d->fd = TAKE_FD(drive_fd);
+                d->overlay_fd = -EBADF;
                 d->is_block_device = S_ISBLK(drive_st.st_mode);
 
                 if (asprintf(&d->node_name, "vmspawn_extra_%zu", extra_idx++) < 0)
