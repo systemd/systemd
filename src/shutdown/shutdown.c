@@ -226,7 +226,7 @@ int sync_with_progress(int fd) {
         unsigned long long dirty = ULLONG_MAX;
         _cleanup_free_ char *path = NULL;
         const char *what;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         /* Due to the possibility of the sync operation hanging, we fork a child process and monitor

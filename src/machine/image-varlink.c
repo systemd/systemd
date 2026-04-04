@@ -295,7 +295,7 @@ int vl_method_set_pool_limit(sd_varlink *link, sd_json_variant *parameters, sd_v
 }
 
 static int clean_pool_list_one_image(sd_varlink *link, const char *name, uint64_t usage_exclusive, bool more) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(link);

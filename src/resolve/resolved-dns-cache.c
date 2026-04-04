@@ -190,7 +190,7 @@ static void dns_cache_make_space(DnsCache *c, unsigned add) {
          * case the cache will be emptied completely otherwise. */
 
         for (;;) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+                _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
                 DnsCacheItem *i;
 
                 if (prioq_isempty(c->by_expiry))
@@ -240,7 +240,7 @@ void dns_cache_prune(DnsCache *c) {
                 if (i->shared_owner)
                         dns_cache_item_unlink_and_free(c, i);
                 else {
-                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+                        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
                         /* Take an extra reference to the key so that it
                          * doesn't go away in the middle of the remove call */
@@ -301,7 +301,7 @@ static int dns_cache_link_item(DnsCache *c, DnsCacheItem *i) {
 
         first = hashmap_get(c->by_key, i->key);
         if (first) {
-                _unused_ _cleanup_(dns_resource_key_unrefp) DnsResourceKey *k = NULL;
+                _unused_ _cleanup_unref(dns_resource_key) DnsResourceKey *k = NULL;
 
                 /* Keep a reference to the original key, while we manipulate the list. */
                 k = dns_resource_key_ref(first->key);
@@ -511,7 +511,7 @@ static int dns_cache_put_positive(
 
         dns_cache_make_space(c, 1);
 
-        _cleanup_(dns_cache_item_freep) DnsCacheItem *i = new(DnsCacheItem, 1);
+        _cleanup_free(dns_cache_item) DnsCacheItem *i = new(DnsCacheItem, 1);
         if (!i)
                 return -ENOMEM;
 
@@ -583,7 +583,7 @@ static int dns_cache_put_negative(
                 int owner_family,
                 const union in_addr_union *owner_address) {
 
-        _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
+        _cleanup_free(dns_cache_item) DnsCacheItem *i = NULL;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         int r;
 
@@ -986,7 +986,7 @@ static int answer_add_clamp_ttl(
                 usec_t until,
                 usec_t current) {
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *patched = NULL, *patched_rrsig = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *patched = NULL, *patched_rrsig = NULL;
         int r;
 
         assert(answer);
@@ -1039,8 +1039,8 @@ int dns_cache_lookup(
                 uint64_t *ret_query_flags,
                 DnssecResult *ret_dnssec_result) {
 
-        _cleanup_(dns_packet_unrefp) DnsPacket *full_packet = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *full_packet = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         unsigned n = 0;
         int r;
@@ -1437,7 +1437,7 @@ void dns_cache_dump(DnsCache *cache, FILE *f) {
 }
 
 int dns_cache_dump_to_json(DnsCache *cache, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *c = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *c = NULL;
         DnsCacheItem *i;
         int r;
 
@@ -1445,17 +1445,17 @@ int dns_cache_dump_to_json(DnsCache *cache, sd_json_variant **ret) {
         assert(ret);
 
         HASHMAP_FOREACH(i, cache->by_key) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *d = NULL, *k = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *d = NULL, *k = NULL;
 
                 r = dns_resource_key_to_json(i->key, &k);
                 if (r < 0)
                         return r;
 
                 if (i->rr) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *l = NULL;
 
                         LIST_FOREACH(by_key, j, i) {
-                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *rj = NULL;
+                                _cleanup_unref(sd_json_variant) sd_json_variant *rj = NULL;
 
                                 assert(j->rr);
 

@@ -434,8 +434,8 @@ const char* in_addr_full_to_string(struct in_addr_full *a) {
 }
 
 int netns_get_nsid(int netnsfd, uint32_t *ret) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         _cleanup_close_ int _netns_fd = -EBADF;
         int r;
 
@@ -507,7 +507,7 @@ int af_unix_get_qlen(int fd, uint32_t *ret) {
         if (!S_ISSOCK(st.st_mode))
                 return -ENOTSOCK;
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *nl = NULL;
         r = sd_sock_diag_socket_open(&nl);
         if (r < 0)
                 return r;
@@ -517,12 +517,12 @@ int af_unix_get_qlen(int fd, uint32_t *ret) {
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL;
         r = sd_sock_diag_message_new_unix(nl, &message, st.st_ino, cookie, UDIAG_SHOW_RQLEN);
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *reply = NULL;
         r = sd_netlink_call(nl, message, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;

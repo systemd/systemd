@@ -148,7 +148,7 @@ _public_ int sd_device_monitor_get_timeout(sd_device_monitor *m, uint64_t *ret) 
 }
 
 int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, int fd) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *m = NULL;
         _cleanup_close_ int sock = -EBADF;
         int r;
 
@@ -320,8 +320,8 @@ _public_ int sd_device_monitor_stop(sd_device_monitor *m) {
 }
 
 static int device_monitor_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        _unused_ _cleanup_(log_context_unrefp) LogContext *c = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
+        _unused_ _cleanup_unref(log_context) LogContext *c = NULL;
         sd_device_monitor *m = ASSERT_PTR(userdata);
 
         if (sd_device_monitor_receive(m, &device) <= 0)
@@ -551,7 +551,7 @@ static bool check_sender_uid(sd_device_monitor *m, uid_t uid) {
 }
 
 _public_ int sd_device_monitor_receive(sd_device_monitor *m, sd_device **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         _cleanup_free_ uint8_t *buf_alloc = NULL;
         union {
                 monitor_netlink_header *nlh;

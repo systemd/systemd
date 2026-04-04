@@ -120,7 +120,7 @@ static int property_get_cpu_affinity(
                 sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_(cpu_set_done) CPUSet s = {};
+        _cleanup_done(cpu_set) CPUSet s = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
@@ -190,7 +190,7 @@ static int property_get_syscall_filter(
                 sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(bus);
@@ -225,7 +225,7 @@ static int property_get_syscall_log(
                 sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(bus);
@@ -260,7 +260,7 @@ static int property_get_syscall_archs(
                 sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(bus);
@@ -338,7 +338,7 @@ static int property_get_address_families(
                 sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(bus);
@@ -1508,7 +1508,7 @@ static int append_exec_command(sd_bus_message *reply, ExecCommand *c) {
 }
 
 static int append_exec_ex_command(sd_bus_message *reply, ExecCommand *c) {
-        _cleanup_strv_free_ char **ex_opts = NULL;
+        _cleanup_free(strv) char **ex_opts = NULL;
         int r;
 
         assert(reply);
@@ -1666,7 +1666,7 @@ int bus_set_transient_exec_command(
                 return r;
 
         while ((r = sd_bus_message_enter_container(message, 'r', ex_prop ? "sasas" : "sasb")) > 0) {
-                _cleanup_strv_free_ char **argv = NULL;
+                _cleanup_free(strv) char **argv = NULL;
                 const char *path;
                 ExecCommandFlags command_flags;
 
@@ -1679,7 +1679,7 @@ int bus_set_transient_exec_command(
                         return r;
 
                 if (ex_prop) {
-                        _cleanup_strv_free_ char **ex_opts = NULL;
+                        _cleanup_free(strv) char **ex_opts = NULL;
 
                         r = sd_bus_message_read_strv(message, &ex_opts);
                         if (r < 0)
@@ -1724,7 +1724,7 @@ int bus_set_transient_exec_command(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_(exec_command_freep) ExecCommand *c = NULL;
+                        _cleanup_free(exec_command) ExecCommand *c = NULL;
 
                         c = new(ExecCommand, 1);
                         if (!c)
@@ -1752,7 +1752,7 @@ int bus_set_transient_exec_command(
                 return r;
 
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                _cleanup_(memstream_done) MemStream m = {};
+                _cleanup_done(memstream) MemStream m = {};
                 _cleanup_free_ char *buf = NULL;
                 FILE *f;
 
@@ -1887,7 +1887,7 @@ int bus_exec_context_set_transient_property(
                 return bus_set_transient_path(u, name, &c->root_mstack, message, flags, reterr_error);
 
         if (streq(name, "RootImageOptions")) {
-                _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+                _cleanup_free(mount_options) MountOptions *options = NULL;
                 _cleanup_free_ char *format_str = NULL;
 
                 r = bus_read_mount_options(message, reterr_error, &options, &format_str, " ");
@@ -1940,7 +1940,7 @@ int bus_exec_context_set_transient_property(
                                 if (!encoded)
                                         return -ENOMEM;
 
-                                _cleanup_(iovec_done) struct iovec p = {};
+                                _cleanup_done(iovec) struct iovec p = {};
                                 if (!iovec_memdup(&roothash_decoded, &p))
                                         return -ENOMEM;
 
@@ -1979,7 +1979,7 @@ int bus_exec_context_set_transient_property(
                                 if (len < 0)
                                         return -ENOMEM;
 
-                                _cleanup_(iovec_done) struct iovec p = {};
+                                _cleanup_done(iovec) struct iovec p = {};
                                 if (!iovec_memdup(&roothash_sig_decoded, &p))
                                         return -ENOMEM;
 
@@ -2021,7 +2021,7 @@ int bus_exec_context_set_transient_property(
                 return bus_set_transient_unsigned(u, name, &c->log_ratelimit.burst, message, flags, reterr_error);
 
         if (streq(name, "LogFilterPatterns")) {
-                /* Use _cleanup_free_, not _cleanup_strv_free_, as we don't want the content of the strv
+                /* Use _cleanup_free_, not _cleanup_free(strv), as we don't want the content of the strv
                  * to be freed. */
                 _cleanup_free_ char **allow_list = NULL, **deny_list = NULL;
                 const char *pattern;
@@ -2032,7 +2032,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(bs)", &is_allowlist, &pattern)) > 0) {
-                        _cleanup_(pcre2_code_freep) pcre2_code *compiled_pattern = NULL;
+                        _cleanup_free(pcre2_code) pcre2_code *compiled_pattern = NULL;
 
                         if (isempty(pattern))
                                 continue;
@@ -2435,7 +2435,7 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "RestrictFileSystems")) {
                 int allow_list;
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 r = sd_bus_message_enter_container(message, 'r', "bas");
                 if (r < 0)
@@ -2503,7 +2503,7 @@ int bus_exec_context_set_transient_property(
                 return bus_set_transient_path(u, name, &c->ipc_namespace_path, message, flags, reterr_error);
 
         if (streq(name, "SupplementaryGroups")) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
@@ -2839,7 +2839,7 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "SystemCallFilter")) {
                 int allow_list;
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 r = sd_bus_message_enter_container(message, 'r', "bas");
                 if (r < 0)
@@ -2923,7 +2923,7 @@ int bus_exec_context_set_transient_property(
 
         } else if (streq(name, "SystemCallLog")) {
                 int allow_list;
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 r = sd_bus_message_enter_container(message, 'r', "bas");
                 if (r < 0)
@@ -2984,7 +2984,7 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (streq(name, "SystemCallArchitectures")) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
@@ -3011,7 +3011,7 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (streq(name, "RestrictAddressFamilies")) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
                 int allow_list;
 
                 r = sd_bus_message_enter_container(message, 'r', "bas");
@@ -3076,7 +3076,7 @@ int bus_exec_context_set_transient_property(
         }
 #endif
         if (STR_IN_SET(name, "CPUAffinity", "NUMAMask")) {
-                _cleanup_(cpu_set_done) CPUSet set = {};
+                _cleanup_done(cpu_set) CPUSet set = {};
                 const void *a;
                 size_t n;
 
@@ -3450,7 +3450,7 @@ int bus_exec_context_set_transient_property(
 
         } else if (streq(name, "Environment")) {
 
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
@@ -3484,7 +3484,7 @@ int bus_exec_context_set_transient_property(
 
         } else if (streq(name, "UnsetEnvironment")) {
 
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
@@ -3550,9 +3550,9 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (streq(name, "EnvironmentFiles")) {
-                _cleanup_(memstream_done) MemStream m = {};
+                _cleanup_done(memstream) MemStream m = {};
                 _cleanup_free_ char *joined = NULL;
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
                 FILE *f;
 
                 r = sd_bus_message_enter_container(message, 'a', "(sb)");
@@ -3636,7 +3636,7 @@ int bus_exec_context_set_transient_property(
 
         } else if (streq(name, "PassEnvironment")) {
 
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
@@ -3670,7 +3670,7 @@ int bus_exec_context_set_transient_property(
         } else if (STR_IN_SET(name, "ReadWriteDirectories", "ReadOnlyDirectories", "InaccessibleDirectories",
                               "ReadWritePaths", "ReadOnlyPaths", "InaccessiblePaths", "ExecPaths", "NoExecPaths",
                               "ExtensionDirectories")) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
                 char ***dirs;
 
                 r = sd_bus_message_read_strv(message, &l);
@@ -3724,7 +3724,7 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (streq(name, "ExecSearchPath")) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
@@ -3753,7 +3753,7 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (STR_IN_SET(name, "RuntimeDirectory", "StateDirectory", "CacheDirectory", "LogsDirectory", "ConfigurationDirectory")) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
@@ -4062,7 +4062,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 for (;;) {
-                        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+                        _cleanup_free(mount_options) MountOptions *options = NULL;
                         _cleanup_free_ char *source_escaped = NULL, *destination_escaped = NULL;
                         char *source, *destination;
                         int permissive;
@@ -4165,7 +4165,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 for (;;) {
-                        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+                        _cleanup_free(mount_options) MountOptions *options = NULL;
                         _cleanup_free_ char *source_escaped = NULL;
                         char *source;
                         int permissive;
@@ -4318,7 +4318,7 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (STR_IN_SET(name, "RootImagePolicy", "MountImagePolicy", "ExtensionImagePolicy")) {
-                _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+                _cleanup_free(image_policy) ImagePolicy *p = NULL;
                 const char *s;
 
                 r = sd_bus_message_read(message, "s", &s);

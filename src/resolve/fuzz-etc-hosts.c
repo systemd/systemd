@@ -6,7 +6,7 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_(etc_hosts_clear) EtcHosts h = {};
+        _cleanup_clear(etc_hosts) EtcHosts h = {};
 
         fuzz_setup_logging();
 

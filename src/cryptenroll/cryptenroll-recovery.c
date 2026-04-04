@@ -15,7 +15,7 @@ int enroll_recovery(
                 struct crypt_device *cd,
                 const struct iovec *volume_key) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_(erase_and_freep) char *password = NULL;
         _cleanup_free_ char *keyslot_as_string = NULL;
         int keyslot, r, q;

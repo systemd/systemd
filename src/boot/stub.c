@@ -122,7 +122,7 @@ static EFI_STATUS combine_initrds(
                 n += initrd_size;
         }
 
-        _cleanup_pages_ Pages pages = xmalloc_initrd_pages(n);
+        _cleanup_done(pages) Pages pages = xmalloc_initrd_pages(n);
         uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
 
         FOREACH_ARRAY(i, initrds, n_initrds) {
@@ -317,7 +317,7 @@ static EFI_STATUS load_addons_from_dir(
                 size_t *n_items,
                 size_t *n_allocated) {
 
-        _cleanup_file_close_ EFI_FILE *extra_dir = NULL;
+        _cleanup_(file_closep) EFI_FILE *extra_dir = NULL;
         _cleanup_free_ EFI_FILE_INFO *dirent = NULL;
         size_t dirent_size = 0;
         EFI_STATUS err;
@@ -570,8 +570,8 @@ static EFI_STATUS load_addons(
                 NamedAddon **ucode_addons,                  /* Ditto */
                 size_t *n_ucode_addons) {
 
-        _cleanup_strv_free_ char16_t **items = NULL;
-        _cleanup_file_close_ EFI_FILE *root = NULL;
+        _cleanup_free(strv) char16_t **items = NULL;
+        _cleanup_(file_closep) EFI_FILE *root = NULL;
         size_t n_items = 0, n_allocated = 0;
         EFI_STATUS err;
 
@@ -744,7 +744,7 @@ static void refresh_random_seed(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         if (FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED))
                 return;
 
-        _cleanup_file_close_ EFI_FILE *esp_dir = NULL;
+        _cleanup_(file_closep) EFI_FILE *esp_dir = NULL;
         err = partition_open(MAKE_GUID_PTR(ESP), loaded_image->DeviceHandle, NULL, &esp_dir);
         if (err != EFI_SUCCESS) /* Non-fatal on failure, so that we still boot without it. */
                 return;
@@ -825,7 +825,7 @@ static void cmdline_append_and_measure_smbios(char16_t **cmdline, int *parameter
                 *cmdline = xasprintf("%ls %ls", tmp, extra16);
 }
 
-static void initrds_free(struct iovec (*initrds)[_INITRD_MAX]) {
+static void initrds_done(struct iovec (*initrds)[_INITRD_MAX]) {
         assert(initrds);
 
         /* Free the dynamic initrds, but leave the non-dynamic ones around */
@@ -1246,9 +1246,9 @@ static void measure_profile(unsigned profile, int *parameters_measured) {
 
 static EFI_STATUS run(EFI_HANDLE image) {
         int sections_measured = -1, parameters_measured = -1, sysext_measured = -1, confext_measured = -1;
-        _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
+        _cleanup_done(devicetree_state) struct devicetree_state dt_state = {};
         _cleanup_free_ char16_t *cmdline = NULL, *cmdline_addons = NULL;
-        _cleanup_(initrds_free) struct iovec initrds[_INITRD_MAX] = {};
+        _cleanup_done(initrds) struct iovec initrds[_INITRD_MAX] = {};
         PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_free_ char *uname = NULL;
@@ -1337,7 +1337,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         export_pcr_variables(sections_measured, parameters_measured, sysext_measured, confext_measured);
 
         /* Combine the initrds into one */
-        _cleanup_pages_ Pages initrd_pages = {};
+        _cleanup_done(pages) Pages initrd_pages = {};
         struct iovec final_initrd = {};
         if (n_all_initrds > 1) {
                 /* If there is more then 1 initrd we need to combine them */
@@ -1348,7 +1348,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 final_initrd.iov_base = PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr);
 
                 /* Given these might be large let's free them explicitly before we pass control to Linux */
-                initrds_free(&initrds);
+                initrds_done(&initrds);
         } else if (n_all_initrds == 1)
                 final_initrd = all_initrds[0];
 

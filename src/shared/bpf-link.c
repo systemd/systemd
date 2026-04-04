@@ -5,7 +5,7 @@
 #include "serialize.h"
 
 bool bpf_can_link_program(struct bpf_program *prog) {
-        _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
+        _cleanup_free(bpf_link) struct bpf_link *link = NULL;
 
         assert(prog);
 

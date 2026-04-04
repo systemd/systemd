@@ -21,7 +21,7 @@ static int parse_newlink_message(
                   char **ret_name,
                   char ***ret_altnames) {
 
-        _cleanup_strv_free_ char **altnames = NULL;
+        _cleanup_free(strv) char **altnames = NULL;
         int r, ifindex;
 
         assert(message);
@@ -64,7 +64,7 @@ int rtnl_resolve_ifname_full(
                   char **ret_name,
                   char ***ret_altnames) {
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *our_rtnl = NULL;
         int r;
 
         assert(name);
@@ -84,7 +84,7 @@ int rtnl_resolve_ifname_full(
 
         /* First, use IFLA_IFNAME */
         if (FLAGS_SET(flags, RESOLVE_IFNAME_MAIN) && ifname_valid(name)) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+                _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL, *reply = NULL;
 
                 r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, 0);
                 if (r < 0)
@@ -104,7 +104,7 @@ int rtnl_resolve_ifname_full(
         /* Next, try IFLA_ALT_IFNAME */
         if (FLAGS_SET(flags, RESOLVE_IFNAME_ALTERNATIVE) &&
             ifname_valid_full(name, IFNAME_VALID_ALTERNATIVE)) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+                _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL, *reply = NULL;
 
                 r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, 0);
                 if (r < 0)
@@ -147,7 +147,7 @@ int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name) {
 }
 
 static int set_link_name(sd_netlink *rtnl, int ifindex, const char *name) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL;
         int r;
 
         assert(rtnl);
@@ -168,7 +168,7 @@ static int set_link_name(sd_netlink *rtnl, int ifindex, const char *name) {
 }
 
 int rtnl_rename_link(sd_netlink **rtnl, const char *orig_name, const char *new_name) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *our_rtnl = NULL;
         int r, ifindex;
 
         assert(orig_name);
@@ -199,7 +199,7 @@ int rtnl_rename_link(sd_netlink **rtnl, const char *orig_name, const char *new_n
 }
 
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* const *alternative_names) {
-        _cleanup_strv_free_ char **original_altnames = NULL, **new_altnames = NULL;
+        _cleanup_free(strv) char **original_altnames = NULL, **new_altnames = NULL;
         bool altname_deleted = false;
         int r;
 
@@ -211,7 +211,7 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* c
         if (name && !ifname_valid(name))
                 return -EINVAL;
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *our_rtnl = NULL;
         if (!rtnl)
                 rtnl = &our_rtnl;
 
@@ -308,7 +308,7 @@ int rtnl_set_link_properties(
             gso_max_segments == 0)
                 return 0;
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *our_rtnl = NULL;
         if (!rtnl)
                 rtnl = &our_rtnl;
         if (!*rtnl) {
@@ -317,7 +317,7 @@ int rtnl_set_link_properties(
                         return r;
         }
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL;
         r = sd_rtnl_message_new_link(*rtnl, &message, RTM_SETLINK, ifindex);
         if (r < 0)
                 return r;
@@ -391,7 +391,7 @@ static int rtnl_update_link_alternative_names(
         if (strv_isempty(alternative_names))
                 return 0;
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *our_rtnl = NULL;
         if (!rtnl)
                 rtnl = &our_rtnl;
         if (!*rtnl) {
@@ -400,7 +400,7 @@ static int rtnl_update_link_alternative_names(
                         return r;
         }
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL;
         r = sd_rtnl_message_new_link(*rtnl, &message, nlmsg_type, ifindex);
         if (r < 0)
                 return r;
@@ -445,7 +445,7 @@ int rtnl_set_link_alternative_names_by_ifname(
         if (strv_isempty(alternative_names))
                 return 0;
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *our_rtnl = NULL;
         if (!rtnl)
                 rtnl = &our_rtnl;
         if (!*rtnl) {
@@ -454,7 +454,7 @@ int rtnl_set_link_alternative_names_by_ifname(
                         return r;
         }
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL;
         r = sd_rtnl_message_new_link(*rtnl, &message, RTM_NEWLINKPROP, 0);
         if (r < 0)
                 return r;
@@ -493,11 +493,11 @@ int rtnl_get_link_info_full(
                 struct hw_addr_data *ret_hw_addr,
                 struct hw_addr_data *ret_permanent_hw_addr) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *our_rtnl = NULL;
         struct hw_addr_data addr = HW_ADDR_NULL, perm_addr = HW_ADDR_NULL;
         _cleanup_free_ char *name = NULL, *kind = NULL;
-        _cleanup_strv_free_ char **altnames = NULL;
+        _cleanup_free(strv) char **altnames = NULL;
         unsigned short iftype;
         unsigned flags;
         int r;

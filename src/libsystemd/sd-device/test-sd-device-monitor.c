@@ -18,7 +18,7 @@
 #include "time-util.h"
 
 static void prepare_loopback(sd_device **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
 
         ASSERT_OK(sd_device_new_from_syspath(&dev, "/sys/class/net/lo"));
         ASSERT_OK(device_add_property(dev, "ACTION", "add"));
@@ -29,7 +29,7 @@ static void prepare_loopback(sd_device **ret) {
 }
 
 static int prepare_sda(sd_device **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         int r;
 
         r = sd_device_new_from_subsystem_sysname(&dev, "block", "sda");
@@ -53,7 +53,7 @@ static int monitor_handler(sd_device_monitor *m, sd_device *d, void *userdata) {
 }
 
 static void prepare_monitor(sd_device_monitor **ret_server, sd_device_monitor **ret_client, union sockaddr_union *ret_address) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
 
         ASSERT_OK(device_monitor_new_full(&monitor_server, MONITOR_GROUP_NONE, -EBADF));
         ASSERT_OK(sd_device_monitor_set_description(monitor_server, "sender"));
@@ -101,7 +101,7 @@ static void send_by_enumerator(
 }
 
 TEST(sd_device_monitor_is_running) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *m = NULL;
 
         ASSERT_OK_ZERO(sd_device_monitor_is_running(NULL));
 
@@ -114,9 +114,9 @@ TEST(sd_device_monitor_is_running) {
 }
 
 TEST(sd_device_monitor_start_stop) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         union sockaddr_union sa;
         const char *syspath;
 
@@ -151,8 +151,8 @@ TEST(sd_device_monitor_start_stop) {
 }
 
 TEST(refuse_invalid_device) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *loopback = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        _cleanup_unref(sd_device) sd_device *loopback = NULL;
         union sockaddr_union sa;
         const char *syspath;
 
@@ -170,7 +170,7 @@ TEST(refuse_invalid_device) {
 }
 
 static void test_send_receive_one(sd_device *device, bool subsystem_filter, bool tag_filter, bool use_bpf) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         const char *syspath, *subsystem, *devtype = NULL;
         union sockaddr_union sa;
 
@@ -200,7 +200,7 @@ static void test_send_receive_one(sd_device *device, bool subsystem_filter, bool
 }
 
 TEST(sd_device_monitor_send_receive) {
-        _cleanup_(sd_device_unrefp) sd_device *loopback = NULL, *sda = NULL;
+        _cleanup_unref(sd_device) sd_device *loopback = NULL, *sda = NULL;
         int r;
 
         prepare_loopback(&loopback);
@@ -226,9 +226,9 @@ TEST(sd_device_monitor_send_receive) {
 }
 
 TEST(sd_device_monitor_filter_add_match_subsystem_devtype) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         const char *syspath, *subsystem;
         union sockaddr_union sa;
 
@@ -252,9 +252,9 @@ TEST(sd_device_monitor_filter_add_match_subsystem_devtype) {
 }
 
 TEST(sd_device_monitor_filter_add_match_tag) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         union sockaddr_union sa;
         const char *syspath;
 
@@ -276,9 +276,9 @@ TEST(sd_device_monitor_filter_add_match_tag) {
 }
 
 TEST(sd_device_monitor_filter_add_match_sysattr) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         static const char *sysattr = "ifindex";
         const char *syspath, *sysattr_value;
         union sockaddr_union sa;
@@ -303,9 +303,9 @@ TEST(sd_device_monitor_filter_add_match_sysattr) {
 }
 
 TEST(sd_device_monitor_add_match_parent) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         const char *syspath, *parent_syspath;
         union sockaddr_union sa;
         sd_device *parent;
@@ -337,8 +337,8 @@ TEST(sd_device_monitor_add_match_parent) {
 }
 
 TEST(sd_device_monitor_filter_remove) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         union sockaddr_union sa;
         const char *syspath;
 
@@ -361,8 +361,8 @@ TEST(sd_device_monitor_filter_remove) {
 }
 
 TEST(sd_device_monitor_receive) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         union sockaddr_union sa;
         const char *syspath;
         int fd, r;
@@ -393,7 +393,7 @@ TEST(sd_device_monitor_receive) {
                 break;
         }
 
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         ASSERT_OK_POSITIVE(sd_device_monitor_receive(monitor_client, &dev));
 
         const char *s;

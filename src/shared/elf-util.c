@@ -401,7 +401,7 @@ static int parse_metadata(const char *name, sd_json_variant *id_json, Elf *elf, 
                      note_offset < data->d_size &&
                      (note_offset = sym_gelf_getnote(data, note_offset, &note_header, &name_offset, &desc_offset)) > 0;) {
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *w = NULL;
                         const char *payload = (const char *)data->d_buf + desc_offset;
 
                         if (note_header.n_namesz == 0 || note_header.n_descsz == 0)
@@ -488,7 +488,7 @@ static int parse_metadata(const char *name, sd_json_variant *id_json, Elf *elf, 
 
 /* Get the build-id out of an ELF object or a dwarf core module. */
 static int parse_buildid(Dwfl_Module *mod, Elf *elf, const char *name, StackContext *c, sd_json_variant **ret_id_json) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *id_json = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *id_json = NULL;
         const unsigned char *id;
         GElf_Addr id_vaddr;
         ssize_t id_len;
@@ -524,7 +524,7 @@ static int parse_buildid(Dwfl_Module *mod, Elf *elf, const char *name, StackCont
 }
 
 static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, Dwarf_Addr start, void *arg) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *id_json = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *id_json = NULL;
         StackContext *c = ASSERT_PTR(arg);
         size_t n_program_headers;
         GElf_Addr bias;
@@ -628,9 +628,9 @@ static int parse_core(
                 .find_debuginfo = sym_dwfl_standard_find_debuginfo,
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL, *dlopen_metadata = NULL;
-        _cleanup_set_free_ Set *modules = NULL;
-        _cleanup_(stack_context_done) StackContext c = {
+        _cleanup_unref(sd_json_variant) sd_json_variant *package_metadata = NULL, *dlopen_metadata = NULL;
+        _cleanup_free(set) Set *modules = NULL;
+        _cleanup_done(stack_context) StackContext c = {
                 .package_metadata = &package_metadata,
                 .dlopen_metadata = ret_dlopen_metadata ? &dlopen_metadata : NULL,
                 .modules = &modules,
@@ -701,9 +701,9 @@ static int parse_elf(
                 char **ret,
                 sd_json_variant **ret_package_metadata,
                 sd_json_variant **ret_dlopen_metadata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL, *dlopen_metadata = NULL, *elf_metadata = NULL;
-        _cleanup_set_free_ Set *modules = NULL;
-        _cleanup_(stack_context_done) StackContext c = {
+        _cleanup_unref(sd_json_variant) sd_json_variant *package_metadata = NULL, *dlopen_metadata = NULL, *elf_metadata = NULL;
+        _cleanup_free(set) Set *modules = NULL;
+        _cleanup_done(stack_context) StackContext c = {
                 .package_metadata = &package_metadata,
                 .dlopen_metadata = ret_dlopen_metadata ? &dlopen_metadata : NULL,
                 .modules = &modules,
@@ -741,7 +741,7 @@ static int parse_elf(
 
                 elf_type = "coredump";
         } else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *id_json = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *id_json = NULL;
                 const char *e = executable ?: "(unnamed)";
                 bool interpreter_found = false;
 
@@ -818,7 +818,7 @@ int parse_elf_object(
                                  return_pipe[2] = EBADF_PAIR,
                                  package_metadata_pipe[2] = EBADF_PAIR,
                                  dlopen_metadata_pipe[2] = EBADF_PAIR;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL, *dlopen_metadata = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *package_metadata = NULL, *dlopen_metadata = NULL;
         _cleanup_free_ char *buf = NULL;
         int r;
 

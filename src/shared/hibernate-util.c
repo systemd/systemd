@@ -249,7 +249,7 @@ static int swap_entry_get_resume_config(SwapEntry *swap) {
 }
 
 static int read_swap_entries(SwapEntries *ret) {
-        _cleanup_(swap_entries_done) SwapEntries entries = {};
+        _cleanup_done(swap_entries) SwapEntries entries = {};
         _cleanup_fclose_ FILE *f = NULL;
 
         assert(ret);
@@ -262,7 +262,7 @@ static int read_swap_entries(SwapEntries *ret) {
         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
 
         for (unsigned i = 1;; i++) {
-                _cleanup_(swap_entry_done) SwapEntry swap = {};
+                _cleanup_done(swap_entry) SwapEntry swap = {};
                 _cleanup_free_ char *type = NULL;
                 int k;
 
@@ -333,7 +333,7 @@ static int read_swap_entries(SwapEntries *ret) {
  *
  *  Negative value in the case of error */
 int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_t *ret_size, uint64_t *ret_used) {
-        _cleanup_(swap_entries_done) SwapEntries entries = {};
+        _cleanup_done(swap_entries) SwapEntries entries = {};
         SwapEntry *entry = NULL;
         uint64_t resume_config_offset;
         dev_t resume_config_devno;

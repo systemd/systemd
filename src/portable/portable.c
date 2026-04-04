@@ -194,8 +194,8 @@ static int receive_portable_metadata(
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files) {
 
-        _cleanup_(portable_metadata_unrefp) PortableMetadata* os_release = NULL;
-        _cleanup_(hashmap_freep) Hashmap *unit_files = NULL;
+        _cleanup_unref(portable_metadata) PortableMetadata* os_release = NULL;
+        _cleanup_free(hashmap) Hashmap *unit_files = NULL;
         int r;
 
         assert(socket_fd >= 0);
@@ -208,7 +208,7 @@ static int receive_portable_metadata(
                 return -ENOMEM;
 
         for (;;) {
-                _cleanup_(portable_metadata_unrefp) PortableMetadata *add = NULL;
+                _cleanup_unref(portable_metadata) PortableMetadata *add = NULL;
                 _cleanup_close_ int fd = -EBADF;
                 /* We use NAME_MAX space for the SELinux label here. The kernel currently enforces no limit,
                  * but according to suggestions from the SELinux people this will change and it will probably
@@ -280,9 +280,9 @@ static int extract_now(
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files) {
 
-        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
-        _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_(lookup_paths_done) LookupPaths paths = {};
+        _cleanup_free(hashmap) Hashmap *unit_files = NULL;
+        _cleanup_unref(portable_metadata) PortableMetadata *os_release = NULL;
+        _cleanup_done(lookup_paths) LookupPaths paths = {};
         _cleanup_close_ int os_release_fd = -EBADF;
         _cleanup_free_ char *os_release_path = NULL;
         const char *os_release_id;
@@ -374,8 +374,8 @@ static int extract_now(
                         return r;
 
                 FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to read directory: %m")) {
-                        _cleanup_(portable_metadata_unrefp) PortableMetadata *m = NULL;
-                        _cleanup_freecon_ char *con = NULL;
+                        _cleanup_unref(portable_metadata) PortableMetadata *m = NULL;
+                        _cleanup_(freeconp) char *con = NULL;
                         _cleanup_close_ int fd = -EBADF;
                         struct stat st;
 
@@ -467,9 +467,9 @@ static int portable_extract_by_path(
                 ImagePolicy **ret_pinned_image_policy,
                 sd_bus_error *error) {
 
-        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
-        _cleanup_(portable_metadata_unrefp) PortableMetadata* os_release = NULL;
-        _cleanup_(image_policy_freep) ImagePolicy *pinned_image_policy = NULL;
+        _cleanup_free(hashmap) Hashmap *unit_files = NULL;
+        _cleanup_unref(portable_metadata) PortableMetadata* os_release = NULL;
+        _cleanup_free(image_policy) ImagePolicy *pinned_image_policy = NULL;
         int r;
 
         assert(path);
@@ -573,7 +573,7 @@ static int portable_extract_by_path(
                                 return r;
                 }
         } else {
-                _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+                _cleanup_unref(dissected_image) DissectedImage *m = NULL;
                 _cleanup_(rmdir_and_freep) char *tmpdir = NULL;
                 _cleanup_close_pair_ int seq[2] = EBADF_PAIR, errno_pipe_fd[2] = EBADF_PAIR;
                 _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
@@ -594,7 +594,7 @@ static int portable_extract_by_path(
                 else
                         flags |= DISSECT_IMAGE_VALIDATE_OS;
 
-                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+                _cleanup_done(verity_settings) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
                 r = verity_settings_load(
                                 &verity,
                                 path,
@@ -637,7 +637,7 @@ static int portable_extract_by_path(
                         if (r < 0)
                                 return r;
                 } else {
-                        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+                        _cleanup_unref(loop_device) LoopDevice *d = NULL;
 
                         r = loop_device_make_by_path_at(
                                         rfd,
@@ -806,13 +806,13 @@ static int extract_image_and_extensions(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *id = NULL, *id_like = NULL, *version_id = NULL, *sysext_level = NULL, *confext_level = NULL;
-        _cleanup_(image_policy_freep) ImagePolicy *pinned_root_image_policy = NULL, *pinned_ext_image_policy = NULL;
-        _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
-        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
-        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
-        _cleanup_strv_free_ char **valid_prefixes = NULL;
-        _cleanup_(image_unrefp) Image *image = NULL;
+        _cleanup_free(image_policy) ImagePolicy *pinned_root_image_policy = NULL, *pinned_ext_image_policy = NULL;
+        _cleanup_unref(portable_metadata) PortableMetadata *os_release = NULL;
+        _cleanup_free(ordered_hashmap) OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
+        _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
+        _cleanup_free(hashmap) Hashmap *unit_files = NULL;
+        _cleanup_free(strv) char **valid_prefixes = NULL;
+        _cleanup_unref(image) Image *image = NULL;
         Image *ext;
         int r;
 
@@ -855,8 +855,8 @@ static int extract_image_and_extensions(
                 }
 
                 STRV_FOREACH(p, extension_image_paths) {
-                        _cleanup_(pick_result_done) PickResult ext_result = PICK_RESULT_NULL;
-                        _cleanup_(image_unrefp) Image *new = NULL;
+                        _cleanup_done(pick_result) PickResult ext_result = PICK_RESULT_NULL;
+                        _cleanup_unref(image) Image *new = NULL;
                         const char *path = *p;
 
                         if (path_is_absolute(*p)) {
@@ -956,10 +956,10 @@ static int extract_image_and_extensions(
         }
 
         ORDERED_HASHMAP_FOREACH(ext, extension_images) {
-                _cleanup_(portable_metadata_unrefp) PortableMetadata *extension_release_meta = NULL;
-                _cleanup_(image_policy_freep) ImagePolicy *policy = NULL;
-                _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL;
-                _cleanup_strv_free_ char **extension_release = NULL;
+                _cleanup_unref(portable_metadata) PortableMetadata *extension_release_meta = NULL;
+                _cleanup_free(image_policy) ImagePolicy *policy = NULL;
+                _cleanup_free(hashmap) Hashmap *extra_unit_files = NULL;
+                _cleanup_free(strv) char **extension_release = NULL;
                 const char *e;
 
                 r = portable_extract_by_path(
@@ -983,7 +983,7 @@ static int extract_image_and_extensions(
                 if (!pinned_ext_image_policy && policy)
                         pinned_ext_image_policy = TAKE_PTR(policy);
                 else if (policy) {
-                        _cleanup_(image_policy_freep) ImagePolicy *intersected_policy = NULL;
+                        _cleanup_free(image_policy) ImagePolicy *intersected_policy = NULL;
 
                         /* There is a single policy for all extension images, so we need a union */
                         r = image_policy_union(pinned_ext_image_policy, policy, &intersected_policy);
@@ -1061,11 +1061,11 @@ int portable_extract(
                 char ***ret_valid_prefixes,
                 sd_bus_error *error) {
 
-        _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
-        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
-        _cleanup_strv_free_ char **valid_prefixes = NULL;
-        _cleanup_(image_unrefp) Image *image = NULL;
+        _cleanup_unref(portable_metadata) PortableMetadata *os_release = NULL;
+        _cleanup_free(ordered_hashmap) OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
+        _cleanup_free(hashmap) Hashmap *unit_files = NULL;
+        _cleanup_free(strv) char **valid_prefixes = NULL;
+        _cleanup_unref(image) Image *image = NULL;
         int r;
 
         assert(name_or_path);
@@ -1156,7 +1156,7 @@ static int unit_file_is_active(
 
         /* Otherwise we need to enumerate. But let's build the most restricted query we can */
         if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
                 const char *at, *prefix, *joined;
 
                 r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "ListUnitsByPatterns");
@@ -1368,7 +1368,7 @@ static int append_release_log_fields(
                  [IMAGE_SYSEXT] = { "SYSEXT_IMAGE_ID", "SYSEXT_ID", NULL },
                  [IMAGE_CONFEXT] = { "CONFEXT_IMAGE_ID", "CONFEXT_ID", NULL },
         };
-        _cleanup_strv_free_ char **fields = NULL;
+        _cleanup_free(strv) char **fields = NULL;
         const char *id = NULL, *version = NULL;
         int r;
 
@@ -1850,7 +1850,7 @@ static int install_image(
                         if (fstat(fd, &st) < 0)
                                 return log_debug_errno(errno, "Failed to stat '%s': %m", image_path);
 
-                        _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
+                        _cleanup_unref(sd_varlink) sd_varlink *mountfsd_link = NULL;
                         r = mountfsd_connect(&mountfsd_link);
                         if (r < 0)
                                 return r;
@@ -1962,7 +1962,7 @@ static void log_portable_verb(
                 PortableFlags flags) {
 
         _cleanup_free_ char *root_base_name = NULL, *extensions_joined = NULL;
-        _cleanup_strv_free_ char **extension_base_names = NULL;
+        _cleanup_free(strv) char **extension_base_names = NULL;
         Image *ext;
         int r;
 
@@ -2040,13 +2040,13 @@ int portable_attach(
                 size_t *n_changes,
                 sd_bus_error *error) {
 
-        _cleanup_(image_policy_freep) ImagePolicy *pinned_root_image_policy = NULL, *pinned_ext_image_policy = NULL;
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
-        _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
-        _cleanup_(lookup_paths_done) LookupPaths paths = {};
-        _cleanup_strv_free_ char **valid_prefixes = NULL;
-        _cleanup_(image_unrefp) Image *image = NULL;
+        _cleanup_free(image_policy) ImagePolicy *pinned_root_image_policy = NULL, *pinned_ext_image_policy = NULL;
+        _cleanup_free(ordered_hashmap) OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
+        _cleanup_unref(portable_metadata) PortableMetadata *os_release = NULL;
+        _cleanup_free(hashmap) Hashmap *unit_files = NULL;
+        _cleanup_done(lookup_paths) LookupPaths paths = {};
+        _cleanup_free(strv) char **valid_prefixes = NULL;
+        _cleanup_unref(image) Image *image = NULL;
         PortableMetadata *item;
         int r;
 
@@ -2168,7 +2168,7 @@ int portable_attach(
 }
 
 static bool marker_matches_images(const char *marker, const char *name_or_path, char **extension_image_paths, bool match_all) {
-        _cleanup_strv_free_ char **root_and_extensions = NULL;
+        _cleanup_free(strv) char **root_and_extensions = NULL;
         int r;
 
         assert(marker);
@@ -2194,7 +2194,7 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
         while (!isempty(marker))
                 STRV_FOREACH(image_name_or_path, root_and_extensions) {
                         _cleanup_free_ char *image = NULL, *base_image = NULL, *base_image_name_or_path = NULL;
-                        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                        _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
 
                         r = extract_first_word(&marker, &image, ":", EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                         if (r < 0)
@@ -2307,8 +2307,8 @@ int portable_detach(
                 size_t *n_changes,
                 sd_bus_error *error) {
 
-        _cleanup_(lookup_paths_done) LookupPaths paths = {};
-        _cleanup_set_free_ Set *unit_files = NULL, *markers = NULL;
+        _cleanup_done(lookup_paths) LookupPaths paths = {};
+        _cleanup_free(set) Set *unit_files = NULL, *markers = NULL;
         _cleanup_free_ char *extensions = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         const char *where, *item;
@@ -2494,9 +2494,9 @@ static int portable_get_state_internal(
                 PortableState *ret,
                 sd_bus_error *error) {
 
-        _cleanup_(lookup_paths_done) LookupPaths paths = {};
+        _cleanup_done(lookup_paths) LookupPaths paths = {};
         bool found_enabled = false, found_running = false;
-        _cleanup_set_free_ Set *unit_files = NULL;
+        _cleanup_free(set) Set *unit_files = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         const char *where;
         int r;
@@ -2605,7 +2605,7 @@ int portable_get_state(
 }
 
 int portable_get_profiles(RuntimeScope scope, char ***ret) {
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_free(strv) char **dirs = NULL;
         int r;
 
         assert(ret);

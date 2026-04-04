@@ -1405,7 +1405,7 @@ static int client_initialize_io_events(
         assert(client->event);
         assert(io_callback);
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         r = sd_event_add_io(client->event, &s, client->fd, EPOLLIN, io_callback, client);
         if (r < 0)
                 return r;
@@ -1680,7 +1680,7 @@ static int client_parse_message(
                 size_t len,
                 sd_dhcp_lease **ret) {
 
-        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        _cleanup_unref(sd_dhcp_lease) sd_dhcp_lease *lease = NULL;
         int r;
 
         assert(client);
@@ -1724,7 +1724,7 @@ static int client_parse_message(
 }
 
 static int client_handle_offer_or_rapid_ack(sd_dhcp_client *client, DHCPMessage *message, size_t len, const triple_timestamp *timestamp) {
-        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        _cleanup_unref(sd_dhcp_lease) sd_dhcp_lease *lease = NULL;
         int r;
 
         assert(client);
@@ -1822,7 +1822,7 @@ static bool lease_equal(const sd_dhcp_lease *a, const sd_dhcp_lease *b) {
 }
 
 static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *message, size_t len, const triple_timestamp *timestamp) {
-        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        _cleanup_unref(sd_dhcp_lease) sd_dhcp_lease *lease = NULL;
         int r;
 
         assert(client);
@@ -2555,7 +2555,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
 
         assert_return(ret, -EINVAL);
 
-        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = new(sd_dhcp_client, 1);
+        _cleanup_unref(sd_dhcp_client) sd_dhcp_client *client = new(sd_dhcp_client, 1);
         if (!client)
                 return -ENOMEM;
 

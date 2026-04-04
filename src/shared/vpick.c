@@ -221,7 +221,7 @@ static int pin_choice(
                 return 0;
         }
 
-        _cleanup_(pick_result_done) PickResult result = {
+        _cleanup_done(pick_result) PickResult result = {
                 .fd = TAKE_FD(inode_fd),
                 .st = st,
                 .architecture = filter->architecture,
@@ -381,7 +381,7 @@ static int make_choice(
                 return log_debug_errno(r, "Failed to read directory '%s/%s': %m",
                                        empty_to_root(toplevel_path), skip_leading_slash(inode_path));
 
-        _cleanup_(pick_result_done) PickResult best = PICK_RESULT_NULL;
+        _cleanup_done(pick_result) PickResult best = PICK_RESULT_NULL;
 
         FOREACH_ARRAY(entry, de->entries, de->n_entries) {
                 unsigned found_tries_done = UINT_MAX, found_tries_left = UINT_MAX;
@@ -455,7 +455,7 @@ static int make_choice(
                 if (!p)
                         return log_oom_debug();
 
-                _cleanup_(pick_result_done) PickResult found = PICK_RESULT_NULL;
+                _cleanup_done(pick_result) PickResult found = PICK_RESULT_NULL;
                 r = pin_choice(toplevel_path,
                                toplevel_fd,
                                p,
@@ -658,7 +658,7 @@ int path_pick(const char *toplevel_path,
               PickFlags flags,
               PickResult *ret) {
 
-        _cleanup_(pick_result_done) PickResult best = PICK_RESULT_NULL;
+        _cleanup_done(pick_result) PickResult best = PICK_RESULT_NULL;
         int r;
 
         assert(toplevel_fd >= 0 || IN_SET(toplevel_fd, AT_FDCWD, XAT_FDROOT));
@@ -668,7 +668,7 @@ int path_pick(const char *toplevel_path,
 
         /* Iterate through all filters and pick the best result */
         for (size_t i = 0; i < n_filters; i++) {
-                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
 
                 r = path_pick_one(toplevel_path, toplevel_fd, path, &filters[i], flags, &result);
                 if (r < 0)
@@ -707,7 +707,7 @@ int path_pick_update_warn(
                 PickFlags flags,
                 PickResult *ret_result) {
 
-        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+        _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
         int r;
 
         assert(path);

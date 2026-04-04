@@ -342,7 +342,7 @@ int ask_string_full(
                 if (c == '\t') {
                         /* Tab */
 
-                        _cleanup_strv_free_ char **completions = NULL;
+                        _cleanup_free(strv) char **completions = NULL;
                         if (get_completions) {
                                 r = get_completions(string, &completions, userdata);
                                 if (r < 0)
@@ -370,7 +370,7 @@ int ask_string_full(
                                  * the one). */
                                 fputc('\n', stdout);
 
-                                _cleanup_strv_free_ char **filtered = strv_filter_prefix(completions, string);
+                                _cleanup_free(strv) char **filtered = strv_filter_prefix(completions, string);
                                 if (!filtered)
                                         return -ENOMEM;
 
@@ -1155,7 +1155,7 @@ int resolve_dev_console(char **ret) {
 }
 
 int get_kernel_consoles(char ***ret) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         _cleanup_free_ char *line = NULL;
         int r;
 

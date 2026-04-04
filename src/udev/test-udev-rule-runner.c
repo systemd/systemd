@@ -27,7 +27,7 @@
 #include "version.h"
 
 static int device_new_from_synthetic_event(sd_device **ret, const char *syspath, const char *action) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         sd_device_action_t a;
         int r;
 
@@ -85,9 +85,9 @@ static int fake_filesystems(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
-        _cleanup_(udev_event_unrefp) UdevEvent *event = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_free(udev_rules) UdevRules *rules = NULL;
+        _cleanup_unref(udev_event) UdevEvent *event = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         const char *devpath, *devname, *action;
         int r;
 

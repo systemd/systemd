@@ -86,7 +86,7 @@ static int on_deferred_start_worker(sd_event_source *s, uint64_t usec, void *use
 }
 
 int manager_new(Manager **ret) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         int r;
 
         m = new(Manager, 1);
@@ -169,7 +169,7 @@ static int start_one_worker(Manager *m) {
 
         fixed = set_size(m->workers_fixed) < NSRESOURCE_WORKERS_MIN;
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         "(sd-worker)",
                         /* stdio_fds= */ NULL,
@@ -341,7 +341,7 @@ static void manager_release_userns_fds(Manager *m, uint64_t inode) {
 }
 
 static void manager_release_userns_by_inode(Manager *m, uint64_t inode) {
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+        _cleanup_free(userns_info) UserNamespaceInfo *userns_info = NULL;
         _cleanup_close_ int lock_fd = -EBADF;
         int r;
 
@@ -475,7 +475,7 @@ static int manager_make_listen_socket(Manager *m) {
 }
 
 static int manager_scan_listen_fds(Manager *m, Set **fdstore_inodes) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         int n, r;
 
         assert(m);
@@ -609,7 +609,7 @@ static int manager_setup_bpf(Manager *m) {
 #endif
 
 int manager_startup(Manager *m) {
-        _cleanup_set_free_ Set *fdstore_inodes = NULL, *registry_inodes = NULL;
+        _cleanup_free(set) Set *fdstore_inodes = NULL, *registry_inodes = NULL;
         void *p;
         int r;
 

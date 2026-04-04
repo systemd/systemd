@@ -185,7 +185,7 @@ static int env_append(char **e, char ***k, char **a) {
 }
 
 char** _strv_env_merge(char **first, ...) {
-        _cleanup_strv_free_ char **merged = NULL;
+        _cleanup_free(strv) char **merged = NULL;
         char **k;
         va_list ap;
 
@@ -272,7 +272,7 @@ static bool env_entry_has_name(const char *entry, const char *name) {
 
 char** strv_env_delete(char **x, size_t n_lists, ...) {
         size_t n, i = 0;
-        _cleanup_strv_free_ char **t = NULL;
+        _cleanup_free(strv) char **t = NULL;
         va_list ap;
 
         /* Deletes every entry from x that is mentioned in the other
@@ -578,7 +578,7 @@ char* strv_env_pairs_get(char **l, const char *name) {
 }
 
 int strv_env_get_merged(char **l, char ***ret) {
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_free(strv) char **v = NULL;
         size_t n = 0;
         int r;
 
@@ -705,7 +705,7 @@ int replace_env_full(
                 ALTERNATE_VALUE,
         } state = WORD;
 
-        _cleanup_strv_free_ char **unset_variables = NULL, **bad_variables = NULL;
+        _cleanup_free(strv) char **unset_variables = NULL, **bad_variables = NULL;
         const char *e, *word = format, *test_value = NULL; /* test_value is initialized to appease gcc */
         _cleanup_free_ char *s = NULL;
         char ***pu, ***pb;
@@ -806,7 +806,7 @@ int replace_env_full(
 
                         nest--;
                         if (nest == 0) {
-                                _cleanup_strv_free_ char **u = NULL, **b = NULL;
+                                _cleanup_free(strv) char **u = NULL, **b = NULL;
                                 _cleanup_free_ char *v = NULL;
                                 char *t = NULL;
 
@@ -896,7 +896,7 @@ int replace_env_argv(
                 char ***ret_unset_variables,
                 char ***ret_bad_variables) {
 
-        _cleanup_strv_free_ char **n = NULL, **unset_variables = NULL, **bad_variables = NULL;
+        _cleanup_free(strv) char **n = NULL, **unset_variables = NULL, **bad_variables = NULL;
         size_t k = 0, l;
         int r;
 
@@ -914,7 +914,7 @@ int replace_env_argv(
 
                 /* If $FOO appears as single word, replace it by the split up variable */
                 if (word[0] == '$' && !IN_SET(word[1], '{', '$')) {
-                        _cleanup_strv_free_ char **m = NULL;
+                        _cleanup_free(strv) char **m = NULL;
                         const char *name = word + 1;
                         char *e, **w;
                         size_t q;
@@ -951,7 +951,7 @@ int replace_env_argv(
                         continue;
                 }
 
-                _cleanup_strv_free_ char **u = NULL, **b = NULL;
+                _cleanup_free(strv) char **u = NULL, **b = NULL;
 
                 /* If ${FOO} appears as part of a word, replace it by the variable as-is */
                 r = replace_env_full(
@@ -1074,7 +1074,7 @@ int setenv_systemd_log_level(void) {
 }
 
 int getenv_path_list(const char *name, char ***ret_paths) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         const char *e;
         int r;
 

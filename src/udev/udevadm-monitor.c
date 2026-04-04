@@ -61,7 +61,7 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
 }
 
 static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_monitor **ret) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor = NULL;
         const char *subsystem, *devtype, *tag;
         int r;
 
@@ -188,8 +188,8 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int verb_monitor_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *kernel_monitor = NULL, *udev_monitor = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *kernel_monitor = NULL, *udev_monitor = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         int r;
 
         r = parse_argv(argc, argv);

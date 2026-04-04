@@ -85,7 +85,7 @@ static void smbios_info_done(SmbiosInfo *info) {
 }
 
 static EFI_STATUS populate_board_chids(EFI_GUID ret_chids[static CHID_TYPES_MAX]) {
-        _cleanup_(smbios_info_done) SmbiosInfo info = {};
+        _cleanup_done(smbios_info) SmbiosInfo info = {};
 
         if (!ret_chids)
                 return EFI_INVALID_PARAMETER;

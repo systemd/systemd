@@ -25,8 +25,8 @@ int main(int argc, char *argv[]) {
 
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         CGroupContext *cc = NULL;
-        _cleanup_(bpf_program_freep) BPFProgram *p = NULL;
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(bpf_program) BPFProgram *p = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         Unit *u;
         char log_buf[65535];
         struct rlimit rl;

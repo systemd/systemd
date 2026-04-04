@@ -64,7 +64,7 @@ int facts_method_describe(
                 return r;
 
         for (const FactFamily *ff = fact_family_table; ff && ff->name; ff++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = fact_family_build_json(ff, &v);
                 if (r < 0)
@@ -127,7 +127,7 @@ static int fact_build_send(FactFamilyContext *context, const char *object, sd_js
 }
 
 int fact_build_send_string(FactFamilyContext *context, const char *object, const char *value) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(value);
@@ -140,7 +140,7 @@ int fact_build_send_string(FactFamilyContext *context, const char *object, const
 }
 
 int fact_build_send_unsigned(FactFamilyContext *context, const char *object, uint64_t value) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         r = sd_json_variant_new_unsigned(&v, value);

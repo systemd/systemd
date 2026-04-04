@@ -33,8 +33,8 @@ struct udev_hwdb {
  * Returns: a hwdb context.
  **/
 _public_ struct udev_hwdb* udev_hwdb_new(struct udev *udev) {
-        _cleanup_(udev_list_freep) struct udev_list *list = NULL;
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb_internal = NULL;
+        _cleanup_free(udev_list) struct udev_list *list = NULL;
+        _cleanup_unref(sd_hwdb) sd_hwdb *hwdb_internal = NULL;
         struct udev_hwdb *hwdb;
         int r;
 

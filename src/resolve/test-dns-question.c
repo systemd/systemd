@@ -12,8 +12,8 @@
  * ================================================================ */
 
 TEST(dns_question_add) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
 
@@ -42,8 +42,8 @@ TEST(dns_question_add) {
  * ================================================================ */
 
 TEST(dns_question_new_address) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key4 = NULL, *key6 = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key4 = NULL, *key6 = NULL;
 
         ASSERT_NOT_NULL(key4 = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
         ASSERT_NOT_NULL(key6 = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com"));
@@ -64,8 +64,8 @@ TEST(dns_question_new_address) {
 
 #if HAVE_LIBIDN2
 TEST(dns_question_new_address_convert_idna) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.\xF0\x9F\x98\xB1.com", 1));
         ASSERT_NOT_NULL(question);
@@ -82,8 +82,8 @@ TEST(dns_question_new_address_convert_idna) {
  * ================================================================ */
 
 TEST(dns_question_new_reverse) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         union in_addr_union addr = { .in.s_addr = htobe32(0xc0a8017f) };
 
@@ -101,8 +101,8 @@ TEST(dns_question_new_reverse) {
  * ================================================================ */
 
 TEST(dns_question_new_service) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         /* no domain */
         ASSERT_ERROR(dns_question_new_service(
@@ -261,7 +261,7 @@ TEST(dns_question_new_service) {
  * ================================================================ */
 
 TEST(dns_question_matches_rr) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
         DnsResourceKey *key;
         DnsResourceRecord *rr;
 
@@ -293,8 +293,8 @@ TEST(dns_question_matches_rr) {
  * ================================================================ */
 
 TEST(dns_question_matches_cname_or_dname) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *keya = NULL, *keyc = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *keya = NULL, *keyc = NULL;
         DnsResourceRecord *rr;
 
         ASSERT_NOT_NULL(question = dns_question_new(1));
@@ -334,8 +334,8 @@ TEST(dns_question_matches_cname_or_dname) {
  * ================================================================ */
 
 TEST(dns_question_is_valid_for_query) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         /* NULL question */
         ASSERT_OK_ZERO(dns_question_is_valid_for_query(question));
@@ -391,7 +391,7 @@ TEST(dns_question_is_valid_for_query) {
  * ================================================================ */
 
 TEST(dns_question_is_equal) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *a = NULL, *b = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *a = NULL, *b = NULL;
         DnsResourceKey *key;
 
         /* NULL */
@@ -478,8 +478,8 @@ TEST(dns_question_is_equal) {
  * ================================================================ */
 
 TEST(dns_question_cname_redirect) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL, *expected = NULL, *ret = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL, *expected = NULL, *ret = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         DnsResourceKey *key;
 
         /* prepare cname record */
@@ -577,8 +577,8 @@ TEST(dns_question_cname_redirect) {
  * ================================================================ */
 
 TEST(dns_question_dump) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(memstream_done) MemStream ms = {};
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_done(memstream) MemStream ms = {};
         _cleanup_free_ char *buf = NULL;
         FILE *f;
 
@@ -586,7 +586,7 @@ TEST(dns_question_dump) {
 
         uint16_t type;
         FOREACH_ARGUMENT(type, DNS_TYPE_A, DNS_TYPE_AAAA, DNS_TYPE_TXT) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+                _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
                 ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, type, "www.example.com"));
                 ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
@@ -608,7 +608,7 @@ TEST(dns_question_dump) {
  * ================================================================ */
 
 TEST(dns_question_first_name) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
         DnsResourceKey *key;
 
         /* NULL */
@@ -638,7 +638,7 @@ TEST(dns_question_first_name) {
  * ================================================================ */
 
 TEST(dns_question_merge_empty_first) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *a = NULL, *b = NULL, *ret = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *a = NULL, *b = NULL, *ret = NULL;
         DnsResourceKey *key;
 
         ASSERT_NOT_NULL(a = dns_question_new(0));

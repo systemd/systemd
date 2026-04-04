@@ -469,7 +469,7 @@ int exec_spawn(
                 PidRef *ret) {
 
         _cleanup_free_ char *subcgroup_path = NULL, *max_log_levels = NULL;
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_free(fdset) FDSet *fdset = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -561,7 +561,7 @@ int exec_spawn(
         char serialization_fd_number[DECIMAL_STR_MAX(int)];
         xsprintf(serialization_fd_number, "%i", fileno(f));
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         dual_timestamp start_timestamp;
 
         /* Restore the original ambient capability set the manager was started with to pass it to
@@ -892,14 +892,14 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index) {
 }
 
 static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***ret) {
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_free(strv) char **v = NULL;
         int r;
 
         assert(c);
         assert(ret);
 
         STRV_FOREACH(i, c->environment_files) {
-                _cleanup_strv_free_ char **paths = NULL;
+                _cleanup_free(strv) char **paths = NULL;
                 bool ignore = false;
                 char *fn = *i;
 
@@ -926,7 +926,7 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                 assert(!strv_isempty(paths));
 
                 STRV_FOREACH(path, paths) {
-                        _cleanup_strv_free_ char **p = NULL;
+                        _cleanup_free(strv) char **p = NULL;
 
                         r = load_env_file(NULL, *path, &p);
                         if (r < 0) {
@@ -1728,7 +1728,7 @@ int exec_context_get_clean_directories(
                 ExecCleanMask mask,
                 char ***ret) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(c);
@@ -1905,7 +1905,7 @@ bool exec_context_get_set_login_environment(const ExecContext *c) {
 }
 
 char** exec_context_get_syscall_filter(const ExecContext *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
 
         assert(c);
 
@@ -1950,7 +1950,7 @@ char** exec_context_get_syscall_filter(const ExecContext *c) {
 }
 
 char** exec_context_get_syscall_archs(const ExecContext *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
 
         assert(c);
 
@@ -1974,7 +1974,7 @@ char** exec_context_get_syscall_archs(const ExecContext *c) {
 }
 
 char** exec_context_get_syscall_log(const ExecContext *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
 
         assert(c);
 
@@ -2001,7 +2001,7 @@ char** exec_context_get_syscall_log(const ExecContext *c) {
 }
 
 char** exec_context_get_address_families(const ExecContext *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         void *af;
 
         assert(c);
@@ -2367,7 +2367,7 @@ static int exec_shared_runtime_add(
                 int ipcns_storage_socket[2],
                 ExecSharedRuntime **ret) {
 
-        _cleanup_(exec_shared_runtime_freep) ExecSharedRuntime *rt = NULL;
+        _cleanup_free(exec_shared_runtime) ExecSharedRuntime *rt = NULL;
         int r;
 
         assert(m);
@@ -2585,7 +2585,7 @@ int exec_shared_runtime_serialize(const Manager *m, FILE *f, FDSet *fds) {
 }
 
 int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds) {
-        _cleanup_(exec_shared_runtime_freep) ExecSharedRuntime *rt_create = NULL;
+        _cleanup_free(exec_shared_runtime) ExecSharedRuntime *rt_create = NULL;
         ExecSharedRuntime *rt = NULL;
         int r;
 
@@ -2814,7 +2814,7 @@ int exec_runtime_make(
                 ExecRuntime **ret) {
         _cleanup_close_pair_ int ephemeral_storage_socket[2] = EBADF_PAIR;
         _cleanup_free_ char *ephemeral = NULL;
-        _cleanup_(exec_runtime_freep) ExecRuntime *rt = NULL;
+        _cleanup_free(exec_runtime) ExecRuntime *rt = NULL;
         int r;
 
         assert(unit);
@@ -2970,7 +2970,7 @@ static ExecDirectoryItem *exec_directory_find(ExecDirectory *d, const char *path
 }
 
 int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink, ExecDirectoryFlags flags) {
-        _cleanup_strv_free_ char **s = NULL;
+        _cleanup_free(strv) char **s = NULL;
         _cleanup_free_ char *p = NULL;
         ExecDirectoryItem *existing;
         int r;

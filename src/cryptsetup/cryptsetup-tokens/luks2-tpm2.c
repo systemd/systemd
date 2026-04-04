@@ -34,7 +34,7 @@ int acquire_luks2_key(
                 TPM2Flags flags,
                 struct iovec *ret_decrypted_key) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *signature_json = NULL;
         _cleanup_free_ char *auto_device = NULL;
         _cleanup_(erase_and_freep) char *b64_salted_pin = NULL;
         int r;
@@ -74,7 +74,7 @@ int acquire_luks2_key(
                         return log_error_errno(r, "Failed to load PCR signature: %m");
         }
 
-        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
+        _cleanup_done(tpm2_pcrlock_policy) Tpm2PCRLockPolicy pcrlock_policy = {};
         if (FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK)) {
                 r = tpm2_pcrlock_policy_load(pcrlock_path, &pcrlock_policy);
                 if (r < 0)
@@ -89,7 +89,7 @@ int acquire_luks2_key(
                 }
         }
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *tpm2_context = NULL;
         r = tpm2_context_new_or_warn(device, &tpm2_context);
         if (r < 0)
                 return r;

@@ -12,7 +12,7 @@
 static int json_transform_one(sd_bus_message *m, sd_json_variant **ret);
 
 static int json_transform_array_or_struct(sd_bus_message *m, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         int r;
 
         assert(m);
@@ -29,7 +29,7 @@ static int json_transform_array_or_struct(sd_bus_message *m, sd_json_variant **r
                 if (r > 0)
                         break;
 
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 r = json_transform_one(m, &v);
                 if (r < 0)
                         return r;
@@ -44,7 +44,7 @@ static int json_transform_array_or_struct(sd_bus_message *m, sd_json_variant **r
 }
 
 static int json_transform_variant(sd_bus_message *m, const char *contents, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *value = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *value = NULL;
         int r;
 
         assert(m);
@@ -243,7 +243,7 @@ static int json_transform_one(sd_bus_message *m, sd_json_variant **ret) {
         case SD_BUS_TYPE_ARRAY:
         case SD_BUS_TYPE_VARIANT:
         case SD_BUS_TYPE_STRUCT: {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = sd_bus_message_enter_container(m, type, contents);
                 if (r < 0)
@@ -274,7 +274,7 @@ static int json_transform_one(sd_bus_message *m, sd_json_variant **ret) {
 }
 
 static int json_transform_message(sd_bus_message *m, const char *type, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(m);
@@ -306,7 +306,7 @@ _public_ int sd_bus_message_dump_json(sd_bus_message *m, uint64_t flags, sd_json
         if (!type)
                 return -EINVAL;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         if (FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY))
                 r = json_transform_variant(m, type, &v);
         else

@@ -164,7 +164,7 @@ static int timer_add_one_calendar_spec(
                 const char *str,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
+        _cleanup_free(calendar_spec) CalendarSpec *c = NULL;
         int r;
 
         r = calendar_spec_from_string(str, &c);

@@ -12,7 +12,7 @@ static sd_bus *arg_bus = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_bus, sd_bus_unrefp);
 
 static void test_transient_settings_one(UnitType type, const char* const* lines) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         int r;
 
         if (!arg_bus)

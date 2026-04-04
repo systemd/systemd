@@ -281,7 +281,7 @@ int dlopen_tpm2(void) {
 
 #if HAVE_TPM2
 
-void Esys_Freep(void *p) {
+void Esys_freep(void *p) {
         assert(p);
 
         if (*(void**) p)
@@ -320,7 +320,7 @@ static int tpm2_get_capability(
                 uint32_t count,
                 TPMU_CAPABILITIES *ret_capability_data) {
 
-        _cleanup_(Esys_Freep) TPMS_CAPABILITY_DATA *capabilities = NULL;
+        _cleanup_free(Esys) TPMS_CAPABILITY_DATA *capabilities = NULL;
         TPMI_YES_NO more;
         TSS2_RC rc;
 
@@ -860,7 +860,7 @@ static const TPMT_SYM_DEF SESSION_TEMPLATE_SYM_AES_128_CFB = {
 };
 
 int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *context = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *context = NULL;
         TSS2_RC rc;
         int r;
 
@@ -1056,7 +1056,7 @@ Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle) {
         if (!handle)
                 return NULL;
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *context = handle->tpm2_context;
+        _cleanup_unref(tpm2_context) Tpm2Context *context = handle->tpm2_context;
         if (context)
                 tpm2_handle_cleanup(context->esys_context, handle->esys_handle, handle->flush);
 
@@ -1064,7 +1064,7 @@ Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle) {
 }
 
 int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle) {
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *handle = NULL;
 
         assert(ret_handle);
 
@@ -1176,7 +1176,7 @@ int tpm2_index_to_handle(
                 }
         }
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *handle = NULL;
         r = tpm2_handle_new(c, &handle);
         if (r < 0)
                 return r;
@@ -1272,7 +1272,7 @@ static int tpm2_persist_handle(
         }
 
         for (TPMI_DH_PERSISTENT requested = first; requested <= last; requested++) {
-                _cleanup_(tpm2_handle_freep) Tpm2Handle *persistent_handle = NULL;
+                _cleanup_free(tpm2_handle) Tpm2Handle *persistent_handle = NULL;
                 r = tpm2_handle_new(c, &persistent_handle);
                 if (r < 0)
                         return r;
@@ -1332,7 +1332,7 @@ static int tpm2_credit_random(Tpm2Context *c) {
         t = now(CLOCK_MONOTONIC);
 
         for (rps = random_pool_size(); rps > 0;) {
-                _cleanup_(Esys_Freep) TPM2B_DIGEST *buffer = NULL;
+                _cleanup_free(Esys) TPM2B_DIGEST *buffer = NULL;
 
                 rc = sym_Esys_GetRandom(
                                 c->esys_context,
@@ -1583,7 +1583,7 @@ int tpm2_get_or_create_srk(
         if (r < 0)
                 return log_debug_errno(r, "Could not get best SRK template: %m");
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *transient_handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *transient_handle = NULL;
         r = tpm2_create_primary(
                         c,
                         session,
@@ -2266,7 +2266,7 @@ static int tpm2_get_policy_digest(
 
         log_debug("Acquiring policy digest.");
 
-        _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
+        _cleanup_free(Esys) TPM2B_DIGEST *policy_digest = NULL;
         rc = sym_Esys_PolicyGetDigest(
                         c->esys_context,
                         session->esys_handle,
@@ -2305,12 +2305,12 @@ int tpm2_create_primary(
 
         ts = now(CLOCK_MONOTONIC);
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *handle = NULL;
         r = tpm2_handle_new(c, &handle);
         if (r < 0)
                 return r;
 
-        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_free(Esys) TPM2B_PUBLIC *public = NULL;
         rc = sym_Esys_CreatePrimary(
                         c->esys_context,
                         ESYS_TR_RH_OWNER,
@@ -2382,8 +2382,8 @@ int tpm2_create(Tpm2Context *c,
         else
                 tpm2b_sensitive = (TPM2B_SENSITIVE_CREATE) {};
 
-        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
-        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
+        _cleanup_free(Esys) TPM2B_PUBLIC *public = NULL;
+        _cleanup_free(Esys) TPM2B_PRIVATE *private = NULL;
         rc = sym_Esys_Create(
                         c->esys_context,
                         parent->esys_handle,
@@ -2433,7 +2433,7 @@ int tpm2_load(
 
         log_debug("Loading object into TPM.");
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *handle = NULL;
         r = tpm2_handle_new(c, &handle);
         if (r < 0)
                 return r;
@@ -2477,7 +2477,7 @@ static int tpm2_load_external(
 
         log_debug("Loading external key into TPM.");
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *handle = NULL;
         r = tpm2_handle_new(c, &handle);
         if (r < 0)
                 return r;
@@ -2699,8 +2699,8 @@ int tpm2_pcr_read(
 
         TPML_PCR_SELECTION remaining = *pcr_selection;
         while (!tpm2_tpml_pcr_selection_is_empty(&remaining)) {
-                _cleanup_(Esys_Freep) TPML_PCR_SELECTION *current_read = NULL;
-                _cleanup_(Esys_Freep) TPML_DIGEST *current_values = NULL;
+                _cleanup_free(Esys) TPML_PCR_SELECTION *current_read = NULL;
+                _cleanup_free(Esys) TPML_DIGEST *current_values = NULL;
 
                 tpm2_log_debug_tpml_pcr_selection(&remaining, "Reading PCR selection");
 
@@ -3084,7 +3084,7 @@ int tpm2_get_good_pcr_banks_strv(
 
 #if HAVE_OPENSSL
         _cleanup_free_ TPMI_ALG_HASH *algs = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int n_algs;
 
         assert(c);
@@ -3325,7 +3325,7 @@ int tpm2_make_encryption_session(
         /* Start a salted, unbound HMAC session with a well-known key (e.g. primary key) as tpmKey, which
          * means that the random salt will be encrypted with the well-known key. That way, only the TPM can
          * recover the salt, which is then used for key derivation. */
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *session = NULL;
         r = tpm2_handle_new(c, &session);
         if (r < 0)
                 return r;
@@ -3379,7 +3379,7 @@ int tpm2_make_policy_session(
 
         log_debug("Starting policy session.");
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *session = NULL;
         r = tpm2_handle_new(c, &session);
         if (r < 0)
                 return r;
@@ -3582,7 +3582,7 @@ int tpm2_get_name(
                 const Tpm2Handle *handle,
                 TPM2B_NAME **ret_name) {
 
-        _cleanup_(Esys_Freep) TPM2B_NAME *name = NULL;
+        _cleanup_free(Esys) TPM2B_NAME *name = NULL;
         TSS2_RC rc;
 
         assert(c);
@@ -3784,7 +3784,7 @@ int tpm2_policy_signed_hmac_sha256(
         log_debug("Submitting PolicySigned policy for HMAC-SHA256.");
 
         /* Acquire the nonce from the TPM that we shall sign */
-        _cleanup_(Esys_Freep) TPM2B_NONCE *nonce = NULL;
+        _cleanup_free(Esys) TPM2B_NONCE *nonce = NULL;
         rc = sym_Esys_TRSess_GetNonceTPM(
                         c->esys_context,
                         session->esys_handle,
@@ -4218,21 +4218,21 @@ static int tpm2_policy_authorize(
 
         log_debug("Adding PCR signature policy.");
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *pubkey_handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *pubkey_handle = NULL;
         r = tpm2_load_external(c, NULL, public, NULL, &pubkey_handle);
         if (r < 0)
                 return r;
 
         /* Acquire the "name" of what we just loaded */
-        _cleanup_(Esys_Freep) TPM2B_NAME *pubkey_name = NULL;
+        _cleanup_free(Esys) TPM2B_NAME *pubkey_name = NULL;
         r = tpm2_get_name(c, pubkey_handle, &pubkey_name);
         if (r < 0)
                 return r;
 
         /* If we have a signature, proceed with verifying the PCR digest */
         const TPMT_TK_VERIFIED *check_ticket;
-        _cleanup_(Esys_Freep) TPMT_TK_VERIFIED *check_ticket_buffer = NULL;
-        _cleanup_(Esys_Freep) TPM2B_DIGEST *approved_policy = NULL;
+        _cleanup_free(Esys) TPMT_TK_VERIFIED *check_ticket_buffer = NULL;
+        _cleanup_free(Esys) TPM2B_DIGEST *approved_policy = NULL;
         if (signature_json) {
                 r = tpm2_policy_pcr(
                                 c,
@@ -4414,7 +4414,7 @@ static int tpm2_build_sealing_policy(
         }
 
         if (pcrlock_policy) {
-                _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+                _cleanup_free(tpm2_handle) Tpm2Handle *nv_handle = NULL;
 
                 r = tpm2_policy_super_pcr(
                                 c,
@@ -4655,7 +4655,7 @@ int tpm2_tpm2b_public_to_fingerprint(
         assert(ret_fingerprint);
         assert(ret_fingerprint_size);
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey = NULL;
         r = tpm2_tpm2b_public_to_openssl_pkey(public, &pkey);
         if (r < 0)
                 return r;
@@ -4674,7 +4674,7 @@ int tpm2_tpm2b_public_from_pem(const void *pem, size_t pem_size, TPM2B_PUBLIC *r
         assert(pem);
         assert(ret);
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey = NULL;
         r = openssl_pubkey_from_pem(pem, pem_size, &pkey);
         if (r < 0)
                 return r;
@@ -4844,7 +4844,7 @@ int tpm2_serialize(
         assert(handle);
         assert(ret);
 
-        _cleanup_(Esys_Freep) unsigned char *serialized = NULL;
+        _cleanup_free(Esys) unsigned char *serialized = NULL;
         size_t size = 0;
         rc = sym_Esys_TR_Serialize(c->esys_context, handle->esys_handle, &serialized, &size);
         if (rc != TSS2_RC_SUCCESS)
@@ -4879,7 +4879,7 @@ int tpm2_deserialize(
                 return 0;
         }
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *handle = NULL;
         r = tpm2_handle_new(c, &handle);
         if (r < 0)
                 return r;
@@ -5244,7 +5244,7 @@ static int tpm2_calculate_seal_rsa_seed(
 
         log_debug("Calculating encrypted seed for RSA sealed object.");
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *parent_pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *parent_pkey = NULL;
         r = tpm2_tpm2b_public_to_openssl_pkey(parent, &parent_pkey);
         if (r < 0)
                 return log_debug_errno(r, "Could not convert TPM2B_PUBLIC to OpenSSL PKEY: %m");
@@ -5306,7 +5306,7 @@ static int tpm2_calculate_seal_ecc_seed(
 
         log_debug("Calculating encrypted seed for ECC sealed object.");
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *parent_pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *parent_pkey = NULL;
         r = tpm2_tpm2b_public_to_openssl_pkey(parent, &parent_pkey);
         if (r < 0)
                 return log_debug_errno(r, "Could not convert TPM2B_PUBLIC to OpenSSL PKEY: %m");
@@ -5320,7 +5320,7 @@ static int tpm2_calculate_seal_ecc_seed(
         if (r < 0)
                 return r;
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey = NULL;
         r = ecc_pkey_new(curve_id, &pkey);
         if (r < 0)
                 return r;
@@ -5502,7 +5502,7 @@ int tpm2_calculate_seal(
         if (r < 0)
                 return r;
 
-        _cleanup_(iovec_done) struct iovec blob = {};
+        _cleanup_done(iovec) struct iovec blob = {};
         r = tpm2_marshal_blob(&public, &private, &seed, &blob.iov_base, &blob.iov_len);
         if (r < 0)
                 return log_debug_errno(r, "Could not create sealed blob: %m");
@@ -5512,7 +5512,7 @@ int tpm2_calculate_seal(
         if (r < 0)
                 return r;
 
-        _cleanup_(iovec_done) struct iovec serialized_parent = {};
+        _cleanup_done(iovec) struct iovec serialized_parent = {};
         r = tpm2_calculate_serialize(
                         parent_handle,
                         &parent_name,
@@ -5605,9 +5605,9 @@ int tpm2_seal(Tpm2Context *c,
 
         (void) tpm2_credit_random(c);
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *primary_handle = NULL;
         if (ret_srk) {
-                _cleanup_(Esys_Freep) TPM2B_PUBLIC *primary_public = NULL;
+                _cleanup_free(Esys) TPM2B_PUBLIC *primary_public = NULL;
 
                 if (IN_SET(seal_key_handle, 0, TPM2_SRK_HANDLE)) {
                         r = tpm2_get_or_create_srk(
@@ -5682,7 +5682,7 @@ int tpm2_seal(Tpm2Context *c,
                         return r;
         }
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *encryption_session = NULL;
         r = tpm2_make_encryption_session(c, primary_handle, /* bind_key= */ NULL, &encryption_session);
         if (r < 0)
                 return r;
@@ -5718,8 +5718,8 @@ int tpm2_seal(Tpm2Context *c,
 
                 log_debug("Creating HMAC key on TPM for shard %zu.", shard);
 
-                _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
-                _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
+                _cleanup_free(Esys) TPM2B_PUBLIC *public = NULL;
+                _cleanup_free(Esys) TPM2B_PRIVATE *private = NULL;
                 r = tpm2_create(c, primary_handle, encryption_session, &hmac_template, &hmac_sensitive, &public, &private);
                 if (r < 0)
                         return r;
@@ -5819,7 +5819,7 @@ int tpm2_unseal(Tpm2Context *c,
                         return r;
         }
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *primary_handle = NULL;
         r = tpm2_deserialize(c, srk, &primary_handle);
         if (r < 0)
                 return r;
@@ -5847,7 +5847,7 @@ int tpm2_unseal(Tpm2Context *c,
         }
 
         TPM2B_PUBLIC pubkey_tpm2b;
-        _cleanup_(iovec_done) struct iovec fp = {};
+        _cleanup_done(iovec) struct iovec fp = {};
         if (iovec_is_set(pubkey)) {
                 r = tpm2_tpm2b_public_from_pem(pubkey->iov_base, pubkey->iov_len, &pubkey_tpm2b);
                 if (r < 0)
@@ -5895,7 +5895,7 @@ int tpm2_unseal(Tpm2Context *c,
                          * you back a different key, the session initiation will fail. In the SRK model, the
                          * tpmKey is verified. In the non-srk model, with pin, the bindKey provides
                          * protections. */
-                        _cleanup_(tpm2_handle_freep) Tpm2Handle *hmac_key = NULL;
+                        _cleanup_free(tpm2_handle) Tpm2Handle *hmac_key = NULL;
                         r = tpm2_load(c, primary_handle, NULL, &public, &private, &hmac_key);
                         if (r < 0)
                                 return r;
@@ -5908,13 +5908,13 @@ int tpm2_unseal(Tpm2Context *c,
                         if (r < 0)
                                 return r;
 
-                        _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
+                        _cleanup_free(tpm2_handle) Tpm2Handle *encryption_session = NULL;
                         r = tpm2_make_encryption_session(c, primary_handle, hmac_key, &encryption_session);
                         if (r < 0)
                                 return r;
 
-                        _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
-                        _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
+                        _cleanup_free(tpm2_handle) Tpm2Handle *policy_session = NULL;
+                        _cleanup_free(Esys) TPM2B_DIGEST *policy_digest = NULL;
                         r = tpm2_make_policy_session(
                                         c,
                                         primary_handle,
@@ -6017,7 +6017,7 @@ int tpm2_define_policy_nv_index(
                 Tpm2Handle **ret_nv_handle,
                 TPM2B_NV_PUBLIC *ret_nv_public) {
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *new_handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *new_handle = NULL;
         TSS2_RC rc;
         int r;
 
@@ -6183,7 +6183,7 @@ static int tpm2_define_nvpcr_nv_index(
                 TPMI_ALG_HASH algorithm,
                 Tpm2Handle **ret_nv_handle) {
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *new_handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *new_handle = NULL;
         TSS2_RC rc;
         int r;
 
@@ -6253,7 +6253,7 @@ static int tpm2_define_nvpcr_nv_index(
 
                 log_debug("Successfully acquired handle to existing NV index 0x%" PRIx32 ".", nv_index);
 
-                _cleanup_(Esys_Freep) TPM2B_NV_PUBLIC *nv_public_real = NULL;
+                _cleanup_free(Esys) TPM2B_NV_PUBLIC *nv_public_real = NULL;
                 rc = sym_Esys_NV_ReadPublic(
                                 c->esys_context,
                                 /* nvIndex= */ new_handle->esys_handle,
@@ -6351,7 +6351,7 @@ int tpm2_read_nv_index(
         assert(nv_index);
         assert(nv_handle);
 
-        _cleanup_(Esys_Freep) TPM2B_NV_PUBLIC *nv_public = NULL;
+        _cleanup_free(Esys) TPM2B_NV_PUBLIC *nv_public = NULL;
         rc = sym_Esys_NV_ReadPublic(
                         c->esys_context,
                         /* nvIndex= */ nv_handle->esys_handle,
@@ -6366,7 +6366,7 @@ int tpm2_read_nv_index(
 
         log_debug("Read public info for nvindex 0x%x, value size is %zu", nv_index, (size_t) nv_public->nvPublic.dataSize);
 
-        _cleanup_(Esys_Freep) TPM2B_MAX_NV_BUFFER *value = NULL;
+        _cleanup_free(Esys) TPM2B_MAX_NV_BUFFER *value = NULL;
         rc = sym_Esys_NV_Read(
                         c->esys_context,
                         /* authHandle= */ nv_handle->esys_handle,
@@ -6437,13 +6437,13 @@ int tpm2_seal_data(
 
         memcpy_safe(hmac_sensitive.data.buffer, data->iov_base, data->iov_len);
 
-        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
-        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
+        _cleanup_free(Esys) TPM2B_PUBLIC *public = NULL;
+        _cleanup_free(Esys) TPM2B_PRIVATE *private = NULL;
         r = tpm2_create(c, primary_handle, encryption_session, &hmac_template, &hmac_sensitive, &public, &private);
         if (r < 0)
                 return r;
 
-        _cleanup_(iovec_done) struct iovec public_blob = {}, private_blob = {};
+        _cleanup_done(iovec) struct iovec public_blob = {}, private_blob = {};
 
         r = tpm2_marshal_private(private, &private_blob.iov_base, &private_blob.iov_len);
         if (r < 0)
@@ -6488,7 +6488,7 @@ int tpm2_unseal_data(
         if (r < 0)
                 return r;
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *what = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *what = NULL;
         r = tpm2_load(c, primary_handle, NULL, &public, &private, &what);
         if (r < 0)
                 return r;
@@ -6508,7 +6508,7 @@ int tpm2_unseal_data(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to unseal data: %s", sym_Tss2_RC_Decode(rc));
 
-        _cleanup_(iovec_done) struct iovec d = {
+        _cleanup_done(iovec) struct iovec d = {
                 .iov_base = memdup(unsealed->buffer, unsealed->size),
                 .iov_len = unsealed->size,
         };
@@ -6522,7 +6522,7 @@ int tpm2_unseal_data(
 
 int tpm2_list_devices(bool legend, bool quiet) {
 #if HAVE_TPM2
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
@@ -6772,7 +6772,7 @@ static int tpm2_userspace_log(
                 Tpm2UserspaceEventType event_type,
                 const char *description) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *array = NULL;
         _cleanup_free_ char *f = NULL;
         sd_id128_t boot_id;
         int r;
@@ -6986,7 +6986,7 @@ static int nvpcr_data_load(const char *name, NvPCRData *ret) {
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = sd_json_parse_file(
                         f,
                         path,
@@ -7004,7 +7004,7 @@ static int nvpcr_data_load(const char *name, NvPCRData *ret) {
                 {},
         };
 
-        _cleanup_(nvpcr_data_done) NvPCRData p = {
+        _cleanup_done(nvpcr_data) NvPCRData p = {
                 .algorithm = TPM2_ALG_SHA256,
         };
         r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
@@ -7021,7 +7021,7 @@ static int nvpcr_data_load(const char *name, NvPCRData *ret) {
 int tpm2_nvpcr_get_index(const char *name, uint32_t *ret) {
         int r;
 
-        _cleanup_(nvpcr_data_done) NvPCRData p = {};
+        _cleanup_done(nvpcr_data) NvPCRData p = {};
         r = nvpcr_data_load(name, &p);
         if (r < 0)
                 return r;
@@ -7050,7 +7050,7 @@ int tpm2_nvpcr_extend_bytes(
         assert(iovec_is_valid(data));
         assert(iovec_is_valid(secret));
 
-        _cleanup_(nvpcr_data_done) NvPCRData p = {};
+        _cleanup_done(nvpcr_data) NvPCRData p = {};
         r = nvpcr_data_load(name, &p);
         if (r < 0)
                 return r;
@@ -7075,7 +7075,7 @@ int tpm2_nvpcr_extend_bytes(
         const EVP_MD *implementation;
         assert_se(implementation = EVP_get_digestbyname(an));
 
-        _cleanup_(iovec_done) struct iovec digest = {
+        _cleanup_done(iovec) struct iovec digest = {
                 .iov_len = EVP_MD_size(implementation),
         };
 
@@ -7092,7 +7092,7 @@ int tpm2_nvpcr_extend_bytes(
         } else if (EVP_Digest(data->iov_base, data->iov_len, digest.iov_base, NULL, implementation, NULL) != 1)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data to measure.");
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *nv_handle = NULL;
         r = tpm2_index_to_handle(
                         c,
                         p.nv_index,
@@ -7161,7 +7161,7 @@ static int tpm2_nvpcr_write_anchor_secret(
         if (!joined)
                 return log_oom();
 
-        _cleanup_(iovec_done) struct iovec existing = {};
+        _cleanup_done(iovec) struct iovec existing = {};
         r = read_full_file_full(
                         dfd,
                         fname,
@@ -7296,7 +7296,7 @@ static int tpm2_nvpcr_acquire_anchor_secret_from_credential(struct iovec *ret_cr
                 return log_error_errno(r, "Failed to enumerate system credentials: %m");
 
         FOREACH_ARRAY(i, de->entries, de->n_entries) {
-                _cleanup_(iovec_done) struct iovec credential = {};
+                _cleanup_done(iovec) struct iovec credential = {};
                 struct dirent *d = *i;
 
                 if (!startswith_no_case(d->d_name, "nvpcr-anchor.")) /* VFAT is case-insensitive, hence don't be too strict here */
@@ -7394,7 +7394,7 @@ int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary) {
 
         bool copy_to_var = true, copy_to_boot = true;
 
-        _cleanup_(iovec_done) struct iovec credential = {};
+        _cleanup_done(iovec) struct iovec credential = {};
         _cleanup_(iovec_done_erase) struct iovec secret = {};
         if (st.st_size == 0) { /* No initialized yet? */
 
@@ -7522,7 +7522,7 @@ static int tpm2_context_can_nvindex(Tpm2Context *c) {
                 return 1;
         }
 
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         r = sd_device_new_from_devname(&d, c->tcti_param);
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire udev entry for device '%s': %m", c->tcti_param);
@@ -7563,7 +7563,7 @@ int tpm2_nvpcr_initialize(
         if (r == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 device does not support NvPCRs, not initializing.");
 
-        _cleanup_(nvpcr_data_done) NvPCRData p = {};
+        _cleanup_done(nvpcr_data) NvPCRData p = {};
         r = nvpcr_data_load(name, &p);
         if (r < 0)
                 return r;
@@ -7618,7 +7618,7 @@ int tpm2_nvpcr_initialize(
         if (!HMAC(implementation, anchor_secret->iov_base, anchor_secret->iov_len, hmac_buffer, hmac_buffer_size, buf.buffer, NULL))
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to calculate HMAC of data to measure.");
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *nv_handle = NULL;
         r = tpm2_define_nvpcr_nv_index(
                         c,
                         session,
@@ -7680,7 +7680,7 @@ int tpm2_nvpcr_initialize(
          * (i.e. initrds) in a more sensible fashion, clearly separated from on-the-fly generated ones. Note
          * that we only do all this measurement stuff if we are booted as UKI, and hence when PCR 11 is
          * available, but PCR 9 is not predictable. */
-        _cleanup_strv_free_ char **banks = NULL;
+        _cleanup_free(strv) char **banks = NULL;
         r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << TPM2_PCR_KERNEL_INITRD, &banks);
         if (r < 0)
                 return log_error_errno(r, "Could not verify PCR banks: %m");
@@ -7722,7 +7722,7 @@ int tpm2_nvpcr_read(
         if (!tpm2_nvpcr_name_is_valid(name))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Attempt to read from NvPCR with invalid name, refusing: %s", name);
 
-        _cleanup_(nvpcr_data_done) NvPCRData p = {};
+        _cleanup_done(nvpcr_data) NvPCRData p = {};
         r = nvpcr_data_load(name, &p);
         if (r < 0)
                 return r;
@@ -7742,7 +7742,7 @@ int tpm2_nvpcr_read(
                 return 0;
         }
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *nv_handle = NULL;
         r = tpm2_index_to_handle(
                         c,
                         p.nv_index,
@@ -7892,14 +7892,14 @@ int tpm2_pcr_prediction_to_json(
                 uint16_t algorithm,
                 sd_json_variant **ret) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *aj = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *aj = NULL;
         int r;
 
         assert(prediction);
         assert(ret);
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *vj = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *vj = NULL;
                 Tpm2PCRPredictionResult *banks;
 
                 if (!BIT_SET(prediction->pcrs, pcr))
@@ -8294,7 +8294,7 @@ int tpm2_pcrlock_policy_from_json(
                 {}
         };
 
-        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy policy = {};
+        _cleanup_done(tpm2_pcrlock_policy) Tpm2PCRLockPolicy policy = {};
         int r;
 
         assert(v);
@@ -8328,7 +8328,7 @@ int tpm2_pcrlock_policy_load(
         if (r < 0)
                 return log_error_errno(r, "Failed to load TPM2 pcrlock policy file: %m");
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = sd_json_parse_file(
                         f,
                         discovered_path,
@@ -8358,7 +8358,7 @@ static int pcrlock_policy_load_credential(
 
         ascii_strlower(c); /* Lowercase, to match what we did at encryption time */
 
-        _cleanup_(iovec_done) struct iovec decoded = {};
+        _cleanup_done(iovec) struct iovec decoded = {};
         r = decrypt_credential_and_warn(
                         c,
                         now(CLOCK_REALTIME),
@@ -8374,7 +8374,7 @@ static int pcrlock_policy_load_credential(
         if (memchr(decoded.iov_base, 0, decoded.iov_len))
                 return log_error_errno(r, "Credential '%s' contains embedded NUL byte, refusing.", name);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = sd_json_parse(decoded.iov_base,
                        /* flags= */ 0,
                        &v,
@@ -8425,7 +8425,7 @@ int tpm2_pcrlock_policy_from_credentials(
                 return log_error_errno(r, "Failed to enumerate system credentials: %m");
 
         FOREACH_ARRAY(i, de->entries, de->n_entries) {
-                _cleanup_(iovec_done) struct iovec data = {};
+                _cleanup_done(iovec) struct iovec data = {};
                 struct dirent *d = *i;
 
                 if (!startswith_no_case(d->d_name, "pcrlock.")) /* VFAT is case-insensitive, hence don't be too strict here */
@@ -8446,7 +8446,7 @@ int tpm2_pcrlock_policy_from_credentials(
                         continue;
                 }
 
-                _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy loaded_policy = {};
+                _cleanup_done(tpm2_pcrlock_policy) Tpm2PCRLockPolicy loaded_policy = {};
                 r = pcrlock_policy_load_credential(
                                 d->d_name,
                                 &data,
@@ -8590,13 +8590,13 @@ char* tpm2_pcr_mask_to_string(uint32_t mask) {
 }
 
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *a = NULL;
         int r;
 
         assert(ret);
 
         for (size_t i = 0; i < TPM2_PCRS_MAX; i++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *e = NULL;
 
                 if ((pcr_mask & (UINT32_C(1) << i)) == 0)
                         continue;
@@ -8665,10 +8665,10 @@ static int tpm2_make_shard_array(
                 return encode_iovec(ret, data[0].iov_base, data[0].iov_len);
 
         /* Multiple items? Then generate an array of encoded strings */
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
 
         FOREACH_ARRAY(d, data, n_data) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *item = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *item = NULL;
 
                 r = encode_iovec(&item, d->iov_base, d->iov_len);
                 if (r < 0)
@@ -8700,7 +8700,7 @@ int tpm2_make_luks2_json(
                 TPM2Flags flags,
                 sd_json_variant **ret) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *hmj = NULL, *pkmj = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *hmj = NULL, *pkmj = NULL;
         _cleanup_free_ char *keyslot_as_string = NULL;
         int r;
 
@@ -8721,12 +8721,12 @@ int tpm2_make_luks2_json(
                         return r;
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *phj = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *phj = NULL;
         r = tpm2_make_shard_array(policy_hash, n_policy_hash, sd_json_variant_new_hex, &phj);
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *bj = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *bj = NULL;
         r = tpm2_make_shard_array(blobs, n_blobs, sd_json_variant_new_base64, &bj);
         if (r < 0)
                 return r;
@@ -8834,7 +8834,7 @@ int tpm2_parse_luks2_json(
                 struct iovec *ret_pcrlock_nv,
                 TPM2Flags *ret_flags) {
 
-        _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+        _cleanup_done(iovec) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
         uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
         uint16_t primary_alg = 0;
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
@@ -9346,7 +9346,7 @@ int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *mask) {
 }
 
 int tpm2_load_pcr_signature(const char *path, sd_json_variant **ret) {
-        _cleanup_strv_free_ char **search = NULL;
+        _cleanup_free(strv) char **search = NULL;
         _cleanup_free_ char *discovered_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;

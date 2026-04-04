@@ -893,7 +893,7 @@ void transaction_add_propagate_reload_jobs(
         assert(unit);
 
         UNIT_FOREACH_DEPENDENCY_SAFE(dep, unit, UNIT_ATOM_PROPAGATES_RELOAD_TO) {
-                _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                 nt = job_type_collapse(JOB_TRY_RELOAD, dep);
                 if (nt == JOB_NOP)
@@ -1035,7 +1035,7 @@ int transaction_add_job_and_dependencies(
         if (!is_new || FLAGS_SET(flags, TRANSACTION_IGNORE_REQUIREMENTS) || type == JOB_NOP)
                 return 0;
 
-        _cleanup_set_free_ Set *following = NULL;
+        _cleanup_free(set) Set *following = NULL;
         Unit *dep;
 
         /* If we are following some other unit, make sure we add all dependencies of everybody following. */
@@ -1212,7 +1212,7 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
         assert(m);
 
         HASHMAP_FOREACH_KEY(u, k, m->units) {
-                _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                 /* Ignore aliases. */
                 if (u->id != k)
@@ -1241,7 +1241,7 @@ int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
         assert(u);
 
         UNIT_FOREACH_DEPENDENCY_SAFE(trigger, u, UNIT_ATOM_TRIGGERED_BY) {
-                _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                 /* No need to stop inactive jobs. */
                 if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(trigger)) && !trigger->job)

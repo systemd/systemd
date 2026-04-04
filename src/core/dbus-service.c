@@ -111,7 +111,7 @@ static int property_get_refresh_on_reload(
                 sd_bus_error *reterr_error) {
 
         Service *s = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(bus);
@@ -201,7 +201,7 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        _cleanup_free(mount_options) MountOptions *options = NULL;
         const char *src, *dest;
         int read_only, make_file_or_directory;
 
@@ -258,7 +258,7 @@ int bus_service_method_mount_image(sd_bus_message *message, void *userdata, sd_b
 }
 
 int bus_service_method_dump_file_descriptor_store(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Service *s = ASSERT_PTR(userdata);
         int r;
 
@@ -741,7 +741,7 @@ static int bus_service_set_transient_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(sst)", &path, &fdname, &offlags)) > 0) {
-                        _cleanup_(open_file_freep) OpenFile *of = NULL;
+                        _cleanup_free(open_file) OpenFile *of = NULL;
                         _cleanup_free_ char *ofs = NULL;
 
                         of = new(OpenFile, 1);

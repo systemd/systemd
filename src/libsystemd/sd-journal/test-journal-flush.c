@@ -100,11 +100,11 @@ static int open_archive_file(sd_journal **ret) {
 }
 
 static void test_journal_flush_one(int argc, char *argv[]) {
-        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_unref(mmap_cache) MMapCache *m = NULL;
         _cleanup_free_ char *fn = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *dn = NULL;
         _cleanup_(journal_file_offline_closep) JournalFile *new_journal = NULL;
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         unsigned n, limit;
         int r;
 

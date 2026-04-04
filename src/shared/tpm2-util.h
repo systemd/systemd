@@ -81,7 +81,7 @@ typedef struct Tpm2Handle {
 #define _tpm2_handle(c, h) { .tpm2_context = (c), .esys_handle = (h), }
 static const Tpm2Handle TPM2_HANDLE_NONE = _tpm2_handle(NULL, ESYS_TR_NONE);
 
-void Esys_Freep(void *p);
+void Esys_freep(void *p);
 
 int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle);
 Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle);

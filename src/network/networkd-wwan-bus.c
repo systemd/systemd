@@ -451,7 +451,7 @@ static int bearer_initialize(Bearer *b) {
 }
 
 static int bearer_new_and_initialize(Modem *modem, const char *path) {
-        _cleanup_(bearer_freep) Bearer *b = NULL;
+        _cleanup_free(bearer) Bearer *b = NULL;
         int r;
 
         assert(modem);
@@ -517,7 +517,7 @@ static int bus_call_method_async_props(
                 void *userdata,
                 Link *link) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         Network *network = ASSERT_PTR(ASSERT_PTR(link)->network);
         int r;
 
@@ -709,7 +709,7 @@ static int reset_timer(Manager *m, sd_event *e, sd_event_source **s) {
 }
 
 static int setup_periodic_timer(Manager *m, sd_event *event) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         int r;
 
         assert(event);
@@ -835,7 +835,7 @@ static int modem_map_bearers(
                 void *userdata) {
 
         Modem *modem = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free(strv) char **paths = NULL;
         int r;
 
         r = sd_bus_message_read_strv(m, &paths);
@@ -1222,7 +1222,7 @@ int manager_match_mm_signals(Manager *manager) {
 
 static int list_names_handler(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         Manager *manager = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         int r;
 
         assert(manager);
@@ -1244,7 +1244,7 @@ static int list_names_handler(sd_bus_message *message, void *userdata, sd_bus_er
 }
 
 int manager_notify_mm_bus_connected(Manager *m) {
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         int r;
 
         /*

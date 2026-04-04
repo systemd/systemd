@@ -29,7 +29,7 @@ char* format_timestamp_maybe_utc(char *buf, size_t l, usec_t t) {
 }
 
 int acquire_journal(sd_journal **ret) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         int r;
 
         assert(ret);
@@ -134,7 +134,7 @@ int get_possible_units(
                 char * const *patterns,
                 Set **ret) {
 
-        _cleanup_set_free_ Set *found = NULL;
+        _cleanup_free(set) Set *found = NULL;
         int r;
 
         assert(j);
@@ -213,7 +213,7 @@ int acquire_unit(sd_journal *j, const char *option_name, const char **ret_unit, 
                 return log_error_errno(r, "Failed to mangle unit name '%s': %m", units[0]);
 
         if (string_is_glob(u)) {
-                _cleanup_set_free_ Set *s = NULL;
+                _cleanup_free(set) Set *s = NULL;
 
                 r = get_possible_units(j, type == LOG_SYSTEM_UNIT_INVOCATION_ID ? SYSTEM_UNITS : USER_UNITS,
                                        STRV_MAKE(u), &s);

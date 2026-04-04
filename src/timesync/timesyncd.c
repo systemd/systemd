@@ -123,7 +123,7 @@ static int load_clock_timestamp(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
 

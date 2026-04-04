@@ -15,7 +15,7 @@ STATIC_DESTRUCTOR_REGISTER(runtime_dir, rm_rf_physical_and_freep);
         "ExecStart 0 sh \"sh\" \"-e\" \"-x\" \"-c\" \"systemctl --state=failed --no-legend --no-pager >/failed ; systemctl daemon-reload ; echo OK >/testok\""
 
 static void test_deserialize_exec_command_one(Manager *m, const char *key, const char *line, int expected) {
-        _cleanup_(unit_freep) Unit *u = NULL;
+        _cleanup_free(unit) Unit *u = NULL;
         int r;
 
         ASSERT_OK(unit_new_for_name(m, sizeof(Service), "test.service", &u));
@@ -29,7 +29,7 @@ static void test_deserialize_exec_command_one(Manager *m, const char *key, const
 }
 
 TEST(deserialize_exec_command) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         int r;
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);

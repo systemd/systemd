@@ -34,7 +34,7 @@ static int search_policy_hash(
                 return -ENOENT;
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 int keyslot;
                 sd_json_variant *w;
 
@@ -66,7 +66,7 @@ static int search_policy_hash(
                                 size_t j = 0;
 
                                 JSON_VARIANT_ARRAY_FOREACH(i, w) {
-                                        _cleanup_(iovec_done) struct iovec thash = {};
+                                        _cleanup_done(iovec) struct iovec thash = {};
 
                                         r = sd_json_variant_unhex(i, &thash.iov_base, &thash.iov_len);
                                         if (r < 0)
@@ -85,7 +85,7 @@ static int search_policy_hash(
                         }
 
                 } else if (n_policy_hash == 1) {
-                        _cleanup_(iovec_done) struct iovec thash = {};
+                        _cleanup_done(iovec) struct iovec thash = {};
 
                         r = sd_json_variant_unhex(w, &thash.iov_base, &thash.iov_len);
                         if (r < 0)
@@ -114,7 +114,7 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
                 flags |= TPM2_FLAGS_USE_PIN;
         else {
                 for (size_t i = 5;; i--) {
-                        _cleanup_strv_free_erase_ char **pin = NULL, **pin2 = NULL;
+                        _cleanup_(strv_free_erasep) char **pin = NULL, **pin2 = NULL;
 
                         if (i <= 0)
                                 return log_error_errno(
@@ -190,7 +190,7 @@ int load_volume_key_tpm2(
         int token = 0; /* first token to look at */
 
         for (;;) {
-                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                _cleanup_done(iovec) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
                 struct iovec *blobs = NULL, *policy_hash = NULL;
                 size_t n_blobs = 0, n_policy_hash = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
@@ -304,9 +304,9 @@ int enroll_tpm2(struct crypt_device *cd,
                 int *ret_slot_to_wipe) {
 
 #if HAVE_TPM2
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *signature_json = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *signature_json = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-        _cleanup_(iovec_done) struct iovec srk = {}, pubkey = {};
+        _cleanup_done(iovec) struct iovec srk = {}, pubkey = {};
         _cleanup_(iovec_done_erase) struct iovec secret = {};
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
@@ -381,7 +381,7 @@ int enroll_tpm2(struct crypt_device *cd,
 
         bool any_pcr_value_specified = tpm2_pcr_values_has_any_values(hash_pcr_values, n_hash_pcr_values);
 
-        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
+        _cleanup_done(tpm2_pcrlock_policy) Tpm2PCRLockPolicy pcrlock_policy = {};
         if (pcrlock_path) {
                 r = tpm2_pcrlock_policy_load(pcrlock_path, &pcrlock_policy);
                 if (r < 0)
@@ -393,7 +393,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 flags |= TPM2_FLAGS_USE_PCRLOCK;
         }
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *tpm2_context = NULL;
         TPM2B_PUBLIC device_key_public = {};
         if (device_key) {
                 r = tpm2_load_public_key_file(device_key, &device_key_public);

@@ -66,7 +66,7 @@ static int on_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si, voi
 }
 
 int manager_new(Manager **ret) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         int r;
 
         m = new(Manager, 1);
@@ -132,7 +132,7 @@ static int start_one_worker(Manager *m) {
 
         fixed = set_size(m->workers_fixed) < MOUNTFS_WORKERS_MIN;
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         "(sd-worker)",
                         /* stdio_fds= */ NULL,

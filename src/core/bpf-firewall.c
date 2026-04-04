@@ -191,7 +191,7 @@ static int bpf_firewall_compile_bpf(
                 BPF_MOV64_IMM(BPF_REG_0, 0),
         };
 
-        _cleanup_(bpf_program_freep) BPFProgram *p = NULL;
+        _cleanup_free(bpf_program) BPFProgram *p = NULL;
         int accounting_map_fd, r;
         bool access_enabled;
         CGroupRuntime *crt;
@@ -606,7 +606,7 @@ static int load_bpf_progs_from_fs_to_set(Unit *u, char **filter_paths, Set **set
         set_clear(*set);
 
         STRV_FOREACH(bpf_fs_path, filter_paths) {
-                _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
+                _cleanup_free(bpf_program) BPFProgram *prog = NULL;
                 int r;
 
                 r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, NULL, &prog);
@@ -678,7 +678,7 @@ static int attach_custom_bpf_progs(Unit *u, const char *path, int attach_type, S
 }
 
 int bpf_firewall_install(Unit *u) {
-        _cleanup_(bpf_program_freep) BPFProgram *ip_bpf_ingress_uninstall = NULL, *ip_bpf_egress_uninstall = NULL;
+        _cleanup_free(bpf_program) BPFProgram *ip_bpf_ingress_uninstall = NULL, *ip_bpf_egress_uninstall = NULL;
         _cleanup_free_ char *path = NULL;
         CGroupContext *cc;
         CGroupRuntime *crt;

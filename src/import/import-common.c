@@ -353,7 +353,7 @@ static int interrupt_signal_handler(sd_event_source *s, const struct signalfd_si
 }
 
 int import_allocate_event_with_signals(sd_event **ret) {
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         int r;
 
         assert(ret);

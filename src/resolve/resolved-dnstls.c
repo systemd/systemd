@@ -64,8 +64,8 @@ static int dnstls_flush_write_buffer(DnsStream *stream) {
 }
 
 int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
-        _cleanup_(BIO_freep) BIO *rb = NULL, *wb = NULL;
-        _cleanup_(SSL_freep) SSL *s = NULL;
+        _cleanup_free(BIO) BIO *rb = NULL, *wb = NULL;
+        _cleanup_free(SSL) SSL *s = NULL;
         int error, r;
 
         assert(stream);

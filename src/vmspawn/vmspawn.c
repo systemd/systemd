@@ -797,7 +797,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FIRMWARE:
                         if (streq(optarg, "list")) {
-                                _cleanup_strv_free_ char **l = NULL;
+                                _cleanup_free(strv) char **l = NULL;
 
                                 r = list_ovmf_config(&l);
                                 if (r < 0)
@@ -838,7 +838,7 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         if (streq(optarg, "list")) {
-                                _cleanup_strv_free_ char **l = NULL;
+                                _cleanup_free(strv) char **l = NULL;
 
                                 r = list_ovmf_firmware_features(&l);
                                 if (r < 0)
@@ -852,7 +852,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return 0;
                         }
 
-                        _cleanup_strv_free_ char **features = strv_split(optarg, ",");
+                        _cleanup_free(strv) char **features = strv_split(optarg, ",");
                         if (!features)
                                 return log_oom();
 
@@ -1135,7 +1135,7 @@ static int read_vsock_notify(NotifyConnectionData *d, int fd) {
         assert(d->full < sizeof(d->buffer));
         d->buffer[d->full] = 0;
 
-        _cleanup_strv_free_ char **tags = strv_split(d->buffer, "\n\r");
+        _cleanup_free(strv) char **tags = strv_split(d->buffer, "\n\r");
         if (!tags)
                 return log_oom();
 
@@ -1232,7 +1232,7 @@ static int vmspawn_dispatch_vsock_connections(sd_event_source *source, int fd, u
         };
 
         /* add a new floating task to read from the connection */
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         r = sd_event_add_io(event, &s, conn_fd, EPOLLIN, vmspawn_dispatch_notify_fd, d);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate notify connection event source: %m");
@@ -1326,7 +1326,7 @@ static int bus_open_in_machine(sd_bus **ret, unsigned cid, unsigned port, const 
 
 static int shutdown_vm_graceful(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         ShutdownInfo *shutdown_info = ASSERT_PTR(userdata);
         SSHInfo *ssh_info = ASSERT_PTR(shutdown_info->ssh_info);
         int r;
@@ -1586,7 +1586,7 @@ static int start_tpm(
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_free(strv) char **argv = NULL;
         argv = strv_new(sd_socket_activate, "--listen", listen_address, swtpm, "socket", "--tpm2", "--tpmstate");
         if (!argv)
                 return log_oom();
@@ -1642,7 +1642,7 @@ static int start_systemd_journal_remote(
         if (r < 0)
                 return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
 
-        _cleanup_strv_free_ char **argv = strv_new(
+        _cleanup_free(strv) char **argv = strv_new(
                         sd_socket_activate,
                         "--listen", listen_address,
                         sd_journal_remote,
@@ -1663,7 +1663,7 @@ static int start_systemd_journal_remote(
 
 static int discover_root(char **ret) {
         int r;
-        _cleanup_(dissected_image_unrefp) DissectedImage *image = NULL;
+        _cleanup_unref(dissected_image) DissectedImage *image = NULL;
         _cleanup_free_ char *root = NULL;
 
         assert(ret);
@@ -1771,7 +1771,7 @@ static int start_virtiofsd(
                 return log_oom();
 
         /* QEMU doesn't support submounts so don't announce them */
-        _cleanup_strv_free_ char **argv = strv_new(
+        _cleanup_free(strv) char **argv = strv_new(
                         virtiofsd,
                         "--shared-dir", source_uid == FOREIGN_UID_MIN ? "/run/systemd/mount-rootfs" : directory,
                         "--xattr",
@@ -1909,7 +1909,7 @@ static int bind_user_setup(
                 if (r < 0)
                         return r;
 
-                _cleanup_(runtime_mount_done) RuntimeMount mount = {
+                _cleanup_done(runtime_mount) RuntimeMount mount = {
                         .source = strdup(user_record_home_directory(bind_user->host_user)),
                         .source_uid = bind_user->host_user->uid,
                         .target = strdup(user_record_home_directory(bind_user->payload_user)),
@@ -1948,7 +1948,7 @@ static int kernel_cmdline_maybe_append_root(void) {
 }
 
 static int discover_boot_entry(const char *root, char **ret_linux, char ***ret_initrds) {
-        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+        _cleanup_done(boot_config) BootConfig config = BOOT_CONFIG_NULL;
         _cleanup_free_ char *esp_path = NULL, *xbootldr_path = NULL;
         int r;
 
@@ -2000,7 +2000,7 @@ static int discover_boot_entry(const char *root, char **ret_linux, char ***ret_i
         log_debug("Discovered boot entry %s (%s)", boot_entry->id, boot_entry_type_description_to_string(boot_entry->type));
 
         _cleanup_free_ char *linux_kernel = NULL;
-        _cleanup_strv_free_ char **initrds = NULL;
+        _cleanup_free(strv) char **initrds = NULL;
         if (boot_entry->type == BOOT_ENTRY_TYPE2) { /* UKI */
                 linux_kernel = path_join(boot_entry->root, boot_entry->kernel);
                 if (!linux_kernel)
@@ -2072,7 +2072,7 @@ static int merge_initrds(char **ret) {
 
 static int generate_ssh_keypair(const char *key_path, const char *key_type) {
         _cleanup_free_ char *ssh_keygen = NULL;
-        _cleanup_strv_free_ char **cmdline = NULL;
+        _cleanup_free(strv) char **cmdline = NULL;
         int r;
 
         assert(key_path);
@@ -2216,13 +2216,13 @@ static int disk_serial(const char *filename, size_t max_len, char **ret) {
 }
 
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
-        _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
+        _cleanup_free(ovmf_config) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL, *kernel = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *ssh_private_key_path = NULL, *ssh_public_key_path = NULL;
         _cleanup_(rm_rf_subvolume_and_freep) char *snapshot_directory = NULL;
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         _cleanup_close_ int notify_sock_fd = -EBADF;
-        _cleanup_strv_free_ char **cmdline = NULL;
+        _cleanup_free(strv) char **cmdline = NULL;
         _cleanup_free_ int *pass_fds = NULL;
         sd_event_source **children = NULL;
         size_t n_children = 0, n_pass_fds = 0;
@@ -2248,7 +2248,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Scope allocation happens on the user bus if we are unpriv, otherwise system bus. */
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
-        _cleanup_(sd_bus_unrefp) sd_bus *runtime_bus = NULL;
+        _cleanup_unref(sd_bus) sd_bus *runtime_bus = NULL;
         if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
                 runtime_bus = sd_bus_ref(system_bus);
         else {
@@ -2284,7 +2284,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         log_debug("Using OVMF firmware %s Secure Boot support.", ovmf_config->supports_sb ? "with" : "without");
 
-        _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *bind_user_context = NULL;
+        _cleanup_free(machine_bind_user_context) MachineBindUserContext *bind_user_context = NULL;
         r = machine_bind_user_prepare(
                         /* directory= */ NULL,
                         arg_bind_user,
@@ -2468,7 +2468,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (asprintf(&userns_name, "vmspawn-" PID_FMT "-%s", getpid_cached(), arg_machine) < 0)
                                 return log_oom();
 
-                        _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL;
+                        _cleanup_unref(sd_varlink) sd_varlink *nsresource_link = NULL;
                         r = nsresource_connect(&nsresource_link);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to connect to nsresourced: %m");
@@ -2965,7 +2965,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         r = sd_event_new(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to get default event loop: %m");
@@ -3016,7 +3016,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
 
-                _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+                _cleanup_unref(sd_event_source) sd_event_source *source = NULL;
                 r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
                 if (r < 0)
                         return r;
@@ -3171,7 +3171,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
 
-                _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+                _cleanup_unref(sd_event_source) sd_event_source *source = NULL;
                 r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
                 if (r < 0)
                         return r;
@@ -3292,7 +3292,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         log_debug_errno(r, "Failed to start tpm, ignoring: %m");
                 }
 
-                _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+                _cleanup_unref(sd_event_source) sd_event_source *source = NULL;
                 r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
                 if (r < 0)
                         return r;
@@ -3375,7 +3375,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
 
-                _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+                _cleanup_unref(sd_event_source) sd_event_source *source = NULL;
                 r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
                 if (r < 0)
                         return r;
@@ -3517,7 +3517,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug("Executing: %s", joined);
         }
 
-        _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef child_pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         qemu_binary,
                         /* stdio_fds= */ NULL,
@@ -3649,7 +3649,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * of the TTY from now on. */
         polkit_agent_close();
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *notify_event_source = NULL;
 
         if (system_bus) {
                 r = sd_bus_attach_event(system_bus, event, 0);
@@ -3696,8 +3696,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to watch qemu process: %m");
 
-        _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
-        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
+        _cleanup_close(osc_context) sd_id128_t osc_context_id = SD_ID128_NULL;
+        _cleanup_free(pty_forward) PTYForward *forward = NULL;
         if (master >= 0) {
                 r = pty_forward_new(event, master, ptyfwd_flags, &forward);
                 if (r < 0)
@@ -3757,7 +3757,7 @@ static int determine_names(void) {
 
         if (!arg_directory && !arg_image) {
                 if (arg_machine) {
-                        _cleanup_(image_unrefp) Image *i = NULL;
+                        _cleanup_unref(image) Image *i = NULL;
 
                         /* Use both user and system images in user mode, use only system images in system mode. */
                         r = image_find(arg_runtime_scope == RUNTIME_SCOPE_USER ? _RUNTIME_SCOPE_INVALID : arg_runtime_scope,
@@ -3838,7 +3838,7 @@ static int verify_arguments(void) {
 
 static int run(int argc, char *argv[]) {
         int r, kvm_device_fd = -EBADF, vhost_device_fd = -EBADF;
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
 
         log_setup();
 
@@ -3853,8 +3853,8 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_firmware_describe) {
-                _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+                _cleanup_free(ovmf_config) OvmfConfig *ovmf_config = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
 
                 r = find_ovmf_config(arg_firmware_features_include, arg_firmware_features_exclude, &ovmf_config, &json);
                 if (r < 0)

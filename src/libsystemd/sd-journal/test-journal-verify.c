@@ -40,7 +40,7 @@ static void bit_toggle(const char *fn, uint64_t p) {
 }
 
 static int raw_verify(const char *fn, const char *verification_key) {
-        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_unref(mmap_cache) MMapCache *m = NULL;
         JournalFile *f;
         int r;
 
@@ -68,7 +68,7 @@ static int raw_verify(const char *fn, const char *verification_key) {
 }
 
 static int run_test(const char *verification_key, ssize_t max_iterations) {
-        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_unref(mmap_cache) MMapCache *m = NULL;
         char t[] = "/var/tmp/journal-XXXXXX";
         struct stat st;
         JournalFile *f;

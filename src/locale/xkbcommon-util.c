@@ -45,8 +45,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct xkb_context *, sym_xkb_context_un
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct xkb_keymap *, sym_xkb_keymap_unref, xkb_keymap_unrefp, NULL);
 
 int verify_xkb_rmlvo(const char *model, const char *layout, const char *variant, const char *options) {
-        _cleanup_(xkb_context_unrefp) struct xkb_context *ctx = NULL;
-        _cleanup_(xkb_keymap_unrefp) struct xkb_keymap *km = NULL;
+        _cleanup_unref(xkb_context) struct xkb_context *ctx = NULL;
+        _cleanup_unref(xkb_keymap) struct xkb_keymap *km = NULL;
         const struct xkb_rule_names rmlvo = {
                 .model          = model,
                 .layout         = layout,

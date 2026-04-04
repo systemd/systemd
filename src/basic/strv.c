@@ -160,7 +160,7 @@ void strv_free_many(char ***strvs, size_t n) {
 }
 
 char** strv_copy_n(char * const *l, size_t n) {
-        _cleanup_strv_free_ char **result = NULL;
+        _cleanup_free(strv) char **result = NULL;
         char **k;
 
         result = new(char*, MIN(strv_length(l), n) + 1);
@@ -211,7 +211,7 @@ size_t strv_length(char * const *l) {
 }
 
 char** strv_new_ap(const char *x, va_list ap) {
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_free(strv) char **a = NULL;
         size_t n = 0, i = 0;
         va_list aq;
 
@@ -303,7 +303,7 @@ rollback:
 }
 
 int strv_extend_strv_consume(char ***a, char **b, bool filter_duplicates) {
-        _cleanup_strv_free_ char **b_consume = b;
+        _cleanup_free(strv) char **b_consume = b;
         size_t p, q, i;
 
         assert(a);
@@ -379,7 +379,7 @@ int strv_extend_strv_biconcat(char ***a, const char *prefix, const char* const *
 }
 
 int strv_split_newlines_full(char ***ret, const char *s, ExtractFlags flags) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         size_t n;
         int r;
 
@@ -412,7 +412,7 @@ char** strv_split_newlines(const char *s) {
 }
 
 int strv_split_full(char ***t, const char *s, const char *separators, ExtractFlags flags) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         size_t n = 0;
         int r;
 
@@ -478,7 +478,7 @@ int strv_split_and_extend(char ***t, const char *s, const char *separators, bool
 }
 
 int strv_split_colon_pairs(char ***t, const char *s) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         size_t n = 0;
         int r;
 
@@ -1155,7 +1155,7 @@ static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const c
                 assert_se(hashmap_update(h, key, l) >= 0);
         } else {
                 /* No list for this key exists yet, create one */
-                _cleanup_strv_free_ char **l2 = NULL;
+                _cleanup_free(strv) char **l2 = NULL;
                 _cleanup_free_ char *t = NULL;
 
                 t = strdup(key);
@@ -1206,7 +1206,7 @@ int string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const c
 }
 
 int strv_rebreak_lines(char **l, size_t width, char ***ret) {
-        _cleanup_strv_free_ char **broken = NULL;
+        _cleanup_free(strv) char **broken = NULL;
         int r;
 
         assert(ret);
@@ -1300,7 +1300,7 @@ char** strv_filter_prefix(char * const *l, const char *prefix) {
         if (isempty(prefix))
                 return strv_copy(l);
 
-        _cleanup_strv_free_ char **f = NULL;
+        _cleanup_free(strv) char **f = NULL;
         size_t sz = 0;
 
         STRV_FOREACH(i, l) {

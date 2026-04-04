@@ -11,7 +11,7 @@
 #include "strv.h"
 
 int portable_profile_dirs(RuntimeScope scope, char ***ret) {
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_free(strv) char **dirs = NULL;
         int r;
 
         assert(ret);
@@ -67,7 +67,7 @@ int portable_profile_dirs(RuntimeScope scope, char ***ret) {
 }
 
 int find_portable_profile(RuntimeScope scope, const char *name, const char *unit, char **ret_path) {
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_free(strv) char **dirs = NULL;
         const char *dot;
         int r;
 

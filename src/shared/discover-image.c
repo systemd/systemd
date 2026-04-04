@@ -170,7 +170,7 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(image_hash_ops, char, string_hash_func, st
                                       Image, image_unref);
 
 static char** image_settings_path(Image *image, RuntimeScope scope) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         _cleanup_free_ char *fn = NULL;
         size_t i = 0;
         int r;
@@ -262,7 +262,7 @@ static int image_new(
                 uint64_t inode,
                 Image **ret) {
 
-        _cleanup_(image_unrefp) Image *i = NULL;
+        _cleanup_unref(image) Image *i = NULL;
 
         assert(t >= 0);
         assert(t < _IMAGE_TYPE_MAX);
@@ -506,7 +506,7 @@ static int image_make(
                                 pretty = pretty_buffer;
                         }
 
-                        _cleanup_(mstack_freep) MStack *mstack = NULL;
+                        _cleanup_free(mstack) MStack *mstack = NULL;
                         r = mstack_load(path, fd, &mstack);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to load mstack '%s', ignoring: %m", path);
@@ -742,7 +742,7 @@ static int pick_image_search_path(
         }
 
         if (scope < 0) {
-                _cleanup_strv_free_ char **a = NULL, **b = NULL;
+                _cleanup_free(strv) char **a = NULL, **b = NULL;
 
                 r = pick_image_search_path(RUNTIME_SCOPE_USER, class, root, &a);
                 if (r < 0)
@@ -778,7 +778,7 @@ static int pick_image_search_path(
                 if (!ns)
                         break;
 
-                _cleanup_strv_free_ char **search = strv_split_nulstr(ns);
+                _cleanup_free(strv) char **search = strv_split_nulstr(ns);
                 if (!search)
                         return -ENOMEM;
 
@@ -796,7 +796,7 @@ static int pick_image_search_path(
                         SD_PATH_USER_LIBRARY_PRIVATE,
                 };
 
-                _cleanup_strv_free_ char **search = NULL;
+                _cleanup_free(strv) char **search = NULL;
                 FOREACH_ELEMENT(d, dirs) {
                         _cleanup_free_ char *p = NULL;
 
@@ -824,7 +824,7 @@ static int pick_image_search_path(
 }
 
 static char** make_possible_filenames(ImageClass class, const char *image_name) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
 
         assert(image_name);
 
@@ -871,7 +871,7 @@ int image_find(RuntimeScope scope,
         if (!image_name_is_valid(name))
                 return -ENOENT;
 
-        _cleanup_strv_free_ char **names = make_possible_filenames(class, name);
+        _cleanup_free(strv) char **names = make_possible_filenames(class, name);
         if (!names)
                 return -ENOMEM;
 
@@ -882,7 +882,7 @@ int image_find(RuntimeScope scope,
                         return log_debug_errno(errno, "Failed to open root directory '%s': %m", root);
         }
 
-        _cleanup_strv_free_ char **search = NULL;
+        _cleanup_free(strv) char **search = NULL;
         r = pick_image_search_path(scope, class, root, &search);
         if (r < 0)
                 return r;
@@ -954,7 +954,7 @@ int image_find(RuntimeScope scope,
                                         .suffix = suffix,
                                 };
 
-                                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                                _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
                                 r = path_pick(root,
                                               rfd,
                                               fname_path, /* This has to be the unresolved entry with the .v suffix */
@@ -1088,7 +1088,7 @@ int image_discover(
                         return log_debug_errno(errno, "Failed to open root directory '%s': %m", root);
         }
 
-        _cleanup_strv_free_ char **search = NULL;
+        _cleanup_free(strv) char **search = NULL;
         r = pick_image_search_path(scope, class, root, &search);
         if (r < 0)
                 return r;
@@ -1105,7 +1105,7 @@ int image_discover(
 
                 FOREACH_DIRENT_ALL(de, d, return -errno) {
                         _cleanup_free_ char *pretty = NULL, *fname_path = NULL, *chased_path = NULL, *resolved_file = NULL;
-                        _cleanup_(image_unrefp) Image *image = NULL;
+                        _cleanup_unref(image) Image *image = NULL;
                         const char *fname = de->d_name;
                         _cleanup_close_ int fd = -EBADF;
 
@@ -1175,7 +1175,7 @@ int image_discover(
                                                 .suffix = suffix,
                                         };
 
-                                        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                                        _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
                                         r = path_pick(root,
                                                       rfd,
                                                       fname_path, /* This has to be the unresolved entry with the .v suffix */
@@ -1259,7 +1259,7 @@ int image_discover(
         }
 
         if (scope == RUNTIME_SCOPE_SYSTEM && class == IMAGE_MACHINE && !hashmap_contains(*images, ".host")) {
-                _cleanup_(image_unrefp) Image *image = NULL;
+                _cleanup_unref(image) Image *image = NULL;
 
                 r = image_make(IMAGE_MACHINE,
                                ".host",
@@ -1394,7 +1394,7 @@ static int unprivileged_remove(Image *i) {
 
 int image_remove(Image *i, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
-        _cleanup_strv_free_ char **settings = NULL;
+        _cleanup_free(strv) char **settings = NULL;
         int r;
 
         assert(i);
@@ -1500,7 +1500,7 @@ static int rename_auxiliary_file(const char *path, const char *new_name, const c
 int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT, name_lock = LOCK_FILE_INIT;
         _cleanup_free_ char *new_path = NULL, *nn = NULL;
-        _cleanup_strv_free_ char **settings = NULL;
+        _cleanup_free(strv) char **settings = NULL;
         unsigned file_attr = 0;
         int r;
 
@@ -1693,7 +1693,7 @@ static int unprivileged_clone(Image *i, const char *new_path) {
         if (userns_fd < 0)
                 return log_debug_errno(userns_fd, "Failed to allocate transient user namespace: %m");
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *link = NULL;
         r = mountfsd_connect(&link);
         if (r < 0)
                 return r;
@@ -1739,7 +1739,7 @@ static int unprivileged_clone(Image *i, const char *new_path) {
 
 int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile name_lock = LOCK_FILE_INIT;
-        _cleanup_strv_free_ char **settings = NULL;
+        _cleanup_free(strv) char **settings = NULL;
         int r;
 
         assert(i);
@@ -2229,7 +2229,7 @@ int image_read_metadata(Image *i, const char *root, const ImagePolicy *image_pol
 
         case IMAGE_SUBVOLUME:
         case IMAGE_DIRECTORY: {
-                _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **sysext_release = NULL, **confext_release = NULL;
+                _cleanup_free(strv) char **machine_info = NULL, **os_release = NULL, **sysext_release = NULL, **confext_release = NULL;
                 _cleanup_free_ char *hostname = NULL, *path = NULL;
                 sd_id128_t machine_id = SD_ID128_NULL;
 
@@ -2290,9 +2290,9 @@ int image_read_metadata(Image *i, const char *root, const ImagePolicy *image_pol
 
         case IMAGE_RAW:
         case IMAGE_BLOCK: {
-                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
-                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+                _cleanup_done(verity_settings) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+                _cleanup_unref(loop_device) LoopDevice *d = NULL;
+                _cleanup_unref(dissected_image) DissectedImage *m = NULL;
                 DissectImageFlags flags =
                         DISSECT_IMAGE_GENERIC_ROOT |
                         DISSECT_IMAGE_REQUIRE_ROOT |
@@ -2429,7 +2429,7 @@ bool image_in_search_path(
         assert(class < _IMAGE_CLASS_MAX);
         assert(image);
 
-        _cleanup_strv_free_ char **search = NULL;
+        _cleanup_free(strv) char **search = NULL;
         r = pick_image_search_path(scope, class, root, &search);
         if (r < 0)
                 return r;

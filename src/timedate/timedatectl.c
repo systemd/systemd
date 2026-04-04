@@ -56,7 +56,7 @@ typedef struct StatusInfo {
 } StatusInfo;
 
 static int print_status_info(const StatusInfo *i) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         char a[LINE_MAX];
         TableCell *cell;
         struct tm tm;
@@ -194,8 +194,8 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 {}
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -233,7 +233,7 @@ static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
 VERB(verb_set_time, "set-time", "TIME", 2, 2, 0, "Set system time");
 static int verb_set_time(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         usec_t t;
         int r;
@@ -259,7 +259,7 @@ static int verb_set_time(int argc, char *argv[], uintptr_t _data, void *userdata
 
 VERB(verb_set_timezone, "set-timezone", "ZONE", 2, 2, 0, "Set system time zone");
 static int verb_set_timezone(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r;
 
@@ -274,11 +274,11 @@ static int verb_set_timezone(int argc, char *argv[], uintptr_t _data, void *user
 
 VERB_NOARG(verb_list_timezones, "list-timezones", "Show known time zones");
 static int verb_list_timezones(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_free(strv) char **zones = NULL;
 
         r = bus_call_method(bus, bus_timedate, "ListTimezones", &error, &reply, NULL);
         if (r < 0)
@@ -297,7 +297,7 @@ static int verb_list_timezones(int argc, char *argv[], uintptr_t _data, void *us
 
 VERB(verb_set_local_rtc, "set-local-rtc", "BOOL", 2, 2, 0, "Control whether RTC is in local time");
 static int verb_set_local_rtc(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r, b;
 
@@ -329,8 +329,8 @@ static int verb_set_local_rtc(int argc, char *argv[], uintptr_t _data, void *use
 
 VERB(verb_set_ntp, "set-ntp", "BOOL", 2, 2, 0, "Enable or disable network time synchronization");
 static int verb_set_ntp(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int b, r;
 
@@ -395,7 +395,7 @@ REENABLE_WARNING;
 
 static int print_ntp_status_info(NTPStatusInfo *i) {
         usec_t delay, t14, t23, offset, root_distance;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         bool offset_sign;
         TableCell *cell;
         int r;
@@ -635,9 +635,9 @@ static int show_timesync_status_once(sd_bus *bus) {
                 { "Frequency",            "x",                  NULL,               offsetof(NTPStatusInfo, freq)              },
                 {}
         };
-        _cleanup_(ntp_status_info_clear) NTPStatusInfo info = {};
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_clear(ntp_status_info) NTPStatusInfo info = {};
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         int r;
 
         assert(bus);
@@ -687,7 +687,7 @@ VERB_GROUP("systemd-timesyncd Commands");
 
 VERB_NOARG(verb_timesync_status, "timesync-status", "Show status of systemd-timesyncd");
 static int verb_timesync_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -739,7 +739,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
 
         case SD_BUS_TYPE_STRUCT:
                 if (streq(name, "NTPMessage")) {
-                        _cleanup_(ntp_status_info_clear) NTPStatusInfo i = {};
+                        _cleanup_clear(ntp_status_info) NTPStatusInfo i = {};
 
                         r = map_ntp_message(NULL, NULL, m, NULL, &i);
                         if (r < 0)
@@ -792,7 +792,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
 
 VERB_NOARG(verb_show_timesync, "show-timesync", "Show properties of systemd-timesyncd");
 static int verb_show_timesync(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -816,8 +816,8 @@ static int verb_show_timesync(int argc, char *argv[], uintptr_t _data, void *use
 }
 
 static int parse_ifindex_bus(sd_bus *bus, const char *str) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int32_t i;
         int r;
 
@@ -843,8 +843,8 @@ static int parse_ifindex_bus(sd_bus *bus, const char *str) {
 VERB(verb_ntp_servers, "ntp-servers", "INTERFACE SERVER…", 3, VERB_ANY, 0,
      "Set the interface specific NTP servers");
 static int verb_ntp_servers(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *req = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int ifindex, r;
 
@@ -875,7 +875,7 @@ static int verb_ntp_servers(int argc, char *argv[], uintptr_t _data, void *userd
 
 VERB(verb_revert, "revert", "INTERFACE", 2, 2, 0, "Revert the interface specific NTP servers");
 static int verb_revert(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int ifindex, r;
 
@@ -894,7 +894,7 @@ static int verb_revert(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *verbs = NULL, *verbs2 = NULL, *options = NULL;
+        _cleanup_unref(table) Table *verbs = NULL, *verbs2 = NULL, *options = NULL;
         int r;
 
         r = terminal_urlify_man("timedatectl", "1", &link);

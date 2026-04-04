@@ -223,7 +223,7 @@ static sd_bus* bus_free(sd_bus *b) {
         prioq_free(b->reply_callbacks_prioq);
 
         assert(b->match_callbacks.type == BUS_MATCH_ROOT);
-        bus_match_free(&b->match_callbacks);
+        bus_match_done(&b->match_callbacks);
 
         set_free(b->vtable_methods);
         set_free(b->vtable_properties);
@@ -305,7 +305,7 @@ _public_ int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
 }
 
 _public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const *argv) {
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_free(strv) char **a = NULL;
         int r;
 
         assert_return(bus, -EINVAL);
@@ -480,7 +480,7 @@ _public_ int sd_bus_get_connected_signal(sd_bus *bus) {
 }
 
 static int synthesize_connected_signal(sd_bus *bus) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         int r;
 
         assert(bus);
@@ -595,7 +595,7 @@ fail:
 }
 
 static int bus_send_hello(sd_bus *bus) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         int r;
 
         assert(bus);
@@ -1248,7 +1248,7 @@ _public_ int sd_bus_start(sd_bus *bus) {
 
 _public_ int sd_bus_open_with_description(sd_bus **ret, const char *description) {
         const char *e;
-        _cleanup_(bus_freep) sd_bus *b = NULL;
+        _cleanup_free(bus) sd_bus *b = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -1318,7 +1318,7 @@ int bus_set_address_system(sd_bus *b) {
 }
 
 _public_ int sd_bus_open_system_with_description(sd_bus **ret, const char *description) {
-        _cleanup_(bus_freep) sd_bus *b = NULL;
+        _cleanup_free(bus) sd_bus *b = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -1392,7 +1392,7 @@ int bus_set_address_user(sd_bus *b) {
 }
 
 _public_ int sd_bus_open_user_with_description(sd_bus **ret, const char *description) {
-        _cleanup_(bus_freep) sd_bus *b = NULL;
+        _cleanup_free(bus) sd_bus *b = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -1527,7 +1527,7 @@ interpret_port_as_machine_old_syntax:
 }
 
 _public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
-        _cleanup_(bus_freep) sd_bus *b = NULL;
+        _cleanup_free(bus) sd_bus *b = NULL;
         int r;
 
         assert_return(host, -EINVAL);
@@ -1690,7 +1690,7 @@ static int machine_spec_is_current_identity(const char *user_and_machine) {
 }
 
 _public_ int sd_bus_open_system_machine(sd_bus **ret, const char *user_and_machine) {
-        _cleanup_(bus_freep) sd_bus *b = NULL;
+        _cleanup_free(bus) sd_bus *b = NULL;
         int r;
 
         assert_return(user_and_machine, -EINVAL);
@@ -1725,7 +1725,7 @@ _public_ int sd_bus_open_system_machine(sd_bus **ret, const char *user_and_machi
 }
 
 _public_ int sd_bus_open_user_machine(sd_bus **ret, const char *user_and_machine) {
-        _cleanup_(bus_freep) sd_bus *b = NULL;
+        _cleanup_free(bus) sd_bus *b = NULL;
         int r;
 
         assert_return(user_and_machine, -EINVAL);
@@ -2139,7 +2139,7 @@ static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
 }
 
 _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *ret_cookie) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = sd_bus_message_ref(_m);
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = sd_bus_message_ref(_m);
         int r;
 
         assert_return(m, -EINVAL);
@@ -2287,8 +2287,8 @@ _public_ int sd_bus_call_async(
                 void *userdata,
                 uint64_t usec) {
 
-        _unused_ _cleanup_(sd_bus_message_unrefp) sd_bus_message *m_unref = sd_bus_message_ref(m);
-        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *s = NULL;
+        _unused_ _cleanup_unref(sd_bus_message) sd_bus_message *m_unref = sd_bus_message_ref(m);
+        _cleanup_unref(sd_bus_slot) sd_bus_slot *s = NULL;
         int r;
 
         assert_return(m, -EINVAL);
@@ -2388,7 +2388,7 @@ _public_ int sd_bus_call(
                 sd_bus_error *reterr_error,
                 sd_bus_message **ret_reply) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = sd_bus_message_ref(_m);
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = sd_bus_message_ref(_m);
         usec_t timeout;
         uint64_t cookie;
         size_t i;
@@ -2434,7 +2434,7 @@ _public_ int sd_bus_call(
                 usec_t left;
 
                 while (i < bus->rqueue_size) {
-                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *incoming = NULL;
+                        _cleanup_unref(sd_bus_message) sd_bus_message *incoming = NULL;
 
                         incoming = sd_bus_message_ref(bus->rqueue[i]);
 
@@ -2653,8 +2653,8 @@ _public_ int sd_bus_get_timeout(sd_bus *bus, uint64_t *ret) {
 }
 
 static int process_timeout(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message* m = NULL;
         BusReplyCallback *c;
         sd_bus_slot *slot;
         bool is_hello;
@@ -2743,8 +2743,8 @@ static int process_hello(sd_bus *bus, sd_bus_message *m) {
 }
 
 static int process_reply(sd_bus *bus, sd_bus_message *m) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *synthetic_reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *synthetic_reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
         BusReplyCallback *c;
         sd_bus_slot *slot;
         bool is_hello;
@@ -2826,7 +2826,7 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
 }
 
 static int process_filter(sd_bus *bus, sd_bus_message *m) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -2891,7 +2891,7 @@ static int process_match(sd_bus *bus, sd_bus_message *m) {
 }
 
 static int process_builtin(sd_bus *bus, sd_bus_message *m) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(bus);
@@ -2969,7 +2969,7 @@ static int process_fd_check(sd_bus *bus, sd_bus_message *m) {
 }
 
 static int process_message(sd_bus *bus, sd_bus_message *m) {
-        _unused_ _cleanup_(log_context_unrefp) LogContext *c = NULL;
+        _unused_ _cleanup_unref(log_context) LogContext *c = NULL;
         int r;
 
         assert(bus);
@@ -3025,7 +3025,7 @@ static int dispatch_track(sd_bus *bus) {
 }
 
 static int process_running(sd_bus *bus, sd_bus_message **ret) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         int r;
 
         assert(bus);
@@ -3115,8 +3115,8 @@ static int bus_exit_now(sd_bus *bus, sd_event *event) {
 }
 
 static int process_closing_reply_callback(sd_bus *bus, BusReplyCallback *c) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL, error_buffer = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL, error_buffer = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         sd_bus_slot *slot;
         int r;
 
@@ -3169,8 +3169,8 @@ static int process_closing_reply_callback(sd_bus *bus, BusReplyCallback *c) {
 }
 
 static int process_closing(sd_bus *bus, sd_bus_message **ret) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         BusReplyCallback *c;
         int r;
 
@@ -3548,7 +3548,7 @@ int bus_add_match_full(
 
         BusMatchComponent *components = NULL;
         size_t n_components = 0;
-        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *s = NULL;
+        _cleanup_unref(sd_bus_slot) sd_bus_slot *s = NULL;
         int r;
 
         assert_return(bus, -EINVAL);
@@ -4032,7 +4032,7 @@ _public_ int sd_bus_path_decode(const char *path, const char *prefix, char **ret
 }
 
 _public_ int sd_bus_path_encode_many(char **ret, const char *path_template, ...) {
-        _cleanup_strv_free_ char **labels = NULL;
+        _cleanup_free(strv) char **labels = NULL;
         char *path, *path_pos, **label_pos;
         const char *sep, *template_pos;
         size_t path_length;
@@ -4095,7 +4095,7 @@ _public_ int sd_bus_path_encode_many(char **ret, const char *path_template, ...)
 }
 
 _public_ int sd_bus_path_decode_many(const char *path, const char *path_template, ...) {
-        _cleanup_strv_free_ char **labels = NULL;
+        _cleanup_free(strv) char **labels = NULL;
         const char *template_pos, *path_pos;
         char **label_pos;
         va_list list;

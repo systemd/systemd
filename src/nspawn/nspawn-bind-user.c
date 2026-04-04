@@ -133,8 +133,8 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
                 return log_error_errno(r, "Failed to create /run/host/userdb: %m");
 
         FOREACH_ARRAY(d, c->data, c->n_data) {
-                _cleanup_(group_record_unrefp) GroupRecord *stripped_group = NULL, *shadow_group = NULL;
-                _cleanup_(user_record_unrefp) UserRecord *stripped_user = NULL, *shadow_user = NULL;
+                _cleanup_unref(group_record) GroupRecord *stripped_group = NULL, *shadow_group = NULL;
+                _cleanup_unref(user_record) UserRecord *stripped_user = NULL, *shadow_user = NULL;
 
                 /* First, write shadow (i.e. privileged) data for group record */
                 r = group_record_clone(d->payload_group, shadow_flags, &shadow_group);

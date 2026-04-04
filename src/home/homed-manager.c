@@ -224,7 +224,7 @@ static int sigusr1_handler(sd_event_source *s, const struct signalfd_siginfo *si
 }
 
 int manager_new(Manager **ret) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         int r;
 
         assert(ret);
@@ -384,8 +384,8 @@ static int manager_add_home_by_record(
                 int dir_fd,
                 const char *fname) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
         int r, is_signed;
         struct stat st;
         Home *h;
@@ -710,7 +710,7 @@ static int manager_add_home_by_image(
                 UserStorage storage,
                 uid_t start_uid) {
 
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
         uid_t uid;
         Home *h;
         int r;
@@ -1126,8 +1126,8 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
         assert(s);
 
         _cleanup_(fdset_free_asyncp) FDSet *passed_fds = NULL;
-        _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_done(pidref) PidRef sender = PIDREF_NULL;
+        _cleanup_free(strv) char **l = NULL;
         r = notify_recv_with_fds_strv(fd, &l, /* ret_ucred= */ NULL, &sender, &passed_fds);
         if (r == -EAGAIN)
                 return 0;
@@ -1287,7 +1287,7 @@ static int manager_watch_devices(Manager *m) {
 }
 
 static int manager_enumerate_devices(Manager *m) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         int r;
 
         assert(m);
@@ -1347,7 +1347,7 @@ static int manager_load_key_pair(Manager *m) {
 }
 
 static int manager_generate_key_pair(Manager *m) {
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
+        _cleanup_free(EVP_PKEY_CTX) EVP_PKEY_CTX *ctx = NULL;
         _cleanup_(unlink_and_freep) char *temp_public = NULL, *temp_private = NULL;
         _cleanup_fclose_ FILE *fpublic = NULL, *fprivate = NULL;
         int r;
@@ -1462,7 +1462,7 @@ int manager_sign_user_record(Manager *m, UserRecord *u, UserRecord **ret, sd_bus
 DEFINE_HASH_OPS_FULL(public_key_hash_ops, char, string_hash_func, string_compare_func, free, EVP_PKEY, EVP_PKEY_free);
 
 static int manager_load_public_key_one(Manager *m, const char *path) {
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *fn = NULL;
         struct stat st;
@@ -1510,7 +1510,7 @@ static int manager_load_public_key_one(Manager *m, const char *path) {
 }
 
 static int manager_load_public_keys(Manager *m) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         int r;
 
         assert(m);
@@ -1612,7 +1612,7 @@ void manager_revalidate_image(Manager *m, Home *h) {
                         }
 
                         if (r == USER_TEST_ABSENT) {
-                                _cleanup_(operation_unrefp) Operation *o = NULL;
+                                _cleanup_unref(operation) Operation *o = NULL;
 
                                 log_notice("Backing image disappeared while home directory %s was mounted, unmounting it forcibly.", h->user_name);
                                 /* Wowza, the thing is mounted, but the device is gone? Act on it. */
@@ -1957,7 +1957,7 @@ static int manager_rebalance_apply(Manager *m) {
         assert(m);
 
         HASHMAP_FOREACH(h, m->homes_by_uid) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (!h->rebalance_pending)
                         continue;
@@ -1981,7 +1981,7 @@ static void manager_rebalance_reply_messages(Manager *m) {
         assert(m);
 
         for (;;) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *msg =
+                _cleanup_unref(sd_bus_message) sd_bus_message *msg =
                         set_steal_first(m->rebalance_pending_method_calls);
 
                 if (!msg)

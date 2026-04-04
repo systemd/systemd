@@ -514,7 +514,7 @@ TEST(read_full_file_socket) {
         /* Bind the *client* socket to some randomized name, to verify that this works correctly. */
         ASSERT_OK(asprintf(&clientname, "@%" PRIx64 "/test-bindname", random_u64()));
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = ASSERT_OK(pidref_safe_fork("(server)", FORK_DEATHSIG_SIGTERM|FORK_LOG, &pidref));
         if (r == 0) {
                 union sockaddr_union peer = {};
@@ -700,7 +700,7 @@ TEST(write_data_file_atomic_at) {
         struct iovec a = IOVEC_MAKE_STRING("hallo");
         ASSERT_OK(write_data_file_atomic_at(AT_FDCWD, "/tmp/wdfa", &a, /* flags= */ 0));
 
-        _cleanup_(iovec_done) struct iovec ra = {};
+        _cleanup_done(iovec) struct iovec ra = {};
         ASSERT_OK(read_full_file("/tmp/wdfa", (char**) &ra.iov_base, &ra.iov_len));
         ASSERT_EQ(iovec_memcmp(&a, &ra), 0);
         ASSERT_OK_ERRNO(unlink("/tmp/wdfa"));

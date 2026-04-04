@@ -24,7 +24,7 @@ void runtime_mount_context_done(RuntimeMountContext *ctx) {
 }
 
 int runtime_mount_parse(RuntimeMountContext *ctx, const char *s, bool read_only) {
-        _cleanup_(runtime_mount_done) RuntimeMount mount = {
+        _cleanup_done(runtime_mount) RuntimeMount mount = {
                 .read_only = read_only,
                 .source_uid = UID_INVALID,
                 .target_uid = UID_INVALID,

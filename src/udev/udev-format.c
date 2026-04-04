@@ -488,7 +488,7 @@ int udev_check_format(const char *value, size_t *offset, const char **hint) {
 }
 
 int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, bool read_value) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         _cleanup_free_ char *temp = NULL;
         char *subsys, *sysname, *attr;
         const char *val;

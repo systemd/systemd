@@ -95,8 +95,8 @@ static const char* preset_action_to_color(PresetAction action, bool underline) {
 }
 
 static int output_unit_file_list(const UnitFileList *units, unsigned c) {
-        _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
+        _cleanup_unref(table) Table *table = NULL;
+        _cleanup_done(unit_file_presets) UnitFilePresets presets = {};
         int r;
 
         table = table_new("unit file", "state", "preset");
@@ -174,8 +174,8 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
 }
 
 int verb_list_unit_files(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(hashmap) Hashmap *h = NULL;
         _cleanup_free_ UnitFileList *units = NULL;
         unsigned c = 0;
         int r;
@@ -203,8 +203,8 @@ int verb_list_unit_files(int argc, char *argv[], uintptr_t _data, void *userdata
 
                 assert(c <= n_units);
         } else {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 const char *path, *state;
                 bool fallback = false;
                 sd_bus *bus;
@@ -222,7 +222,7 @@ int verb_list_unit_files(int argc, char *argv[], uintptr_t _data, void *userdata
                         return bus_log_create_error(r);
 
                 if (arg_with_dependencies) {
-                        _cleanup_strv_free_ char **names_with_deps = NULL;
+                        _cleanup_free(strv) char **names_with_deps = NULL;
 
                         r = append_unit_dependencies(bus, strv_skip(argv, 1), &names_with_deps);
                         if (r < 0)

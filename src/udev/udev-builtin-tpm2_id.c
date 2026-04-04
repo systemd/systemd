@@ -18,7 +18,7 @@ static int builtin_tpm2_id(UdevEvent *event, int argc, char *argv[]) {
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get device node for device: %m");
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *c = NULL;
         r = tpm2_context_new(dn, &c);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to open device node '%s': %m", dn);

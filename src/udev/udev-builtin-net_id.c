@@ -128,7 +128,7 @@ static int get_first_syspath_component(sd_device *dev, const char *prefix, char 
 }
 
 static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, char **ret_suffix) {
-        _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
+        _cleanup_unref(sd_device) sd_device *physfn_pcidev = NULL;
         const char *syspath, *name;
         int r;
 
@@ -481,7 +481,7 @@ static int pci_get_hotplug_slot_from_address(
 }
 
 static int pci_get_hotplug_slot(sd_device *dev, uint32_t *ret) {
-        _cleanup_(sd_device_unrefp) sd_device *pci = NULL;
+        _cleanup_unref(sd_device) sd_device *pci = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         int r;
 
@@ -802,7 +802,7 @@ static int names_platform(UdevEvent *event, const char *prefix) {
 
 static int names_devicetree_alias_prefix(UdevEvent *event, const char *prefix, const char *alias_prefix) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        _cleanup_(sd_device_unrefp) sd_device *aliases_dev = NULL, *ofnode_dev = NULL, *devicetree_dev = NULL;
+        _cleanup_unref(sd_device) sd_device *aliases_dev = NULL, *ofnode_dev = NULL, *devicetree_dev = NULL;
         const char *ofnode_path, *ofnode_syspath, *devicetree_syspath;
         int r;
 
@@ -940,7 +940,7 @@ static int names_devicetree(UdevEvent *event, const char *prefix) {
 
 static int names_pci(UdevEvent *event, const char *prefix) {
         sd_device *parent, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
+        _cleanup_unref(sd_device) sd_device *physfn_pcidev = NULL;
         _cleanup_free_ char *virtfn_suffix = NULL;
 
         assert(prefix);

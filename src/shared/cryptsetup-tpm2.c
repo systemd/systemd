@@ -21,7 +21,7 @@ static int get_pin(
                 AskPasswordFlags askpw_flags,
                 char **ret_pin_str) {
         _cleanup_(erase_and_freep) char *pin_str = NULL;
-        _cleanup_strv_free_erase_ char **pin = NULL;
+        _cleanup_(strv_free_erasep) char **pin = NULL;
         int r;
 
         assert(ret_pin_str);
@@ -90,8 +90,8 @@ int acquire_tpm2_key(
                 struct iovec *ret_decrypted_key) {
 
 #if HAVE_LIBCRYPTSETUP && HAVE_TPM2
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
-        _cleanup_(iovec_done) struct iovec loaded_blob = {};
+        _cleanup_unref(sd_json_variant) sd_json_variant *signature_json = NULL;
+        _cleanup_done(iovec) struct iovec loaded_blob = {};
         _cleanup_free_ char *auto_device = NULL;
         int r;
 
@@ -134,7 +134,7 @@ int acquire_tpm2_key(
                         return log_error_errno(r, "Failed to load pcr signature: %m");
         }
 
-        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
+        _cleanup_done(tpm2_pcrlock_policy) Tpm2PCRLockPolicy pcrlock_policy = {};
 
         if (FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK)) {
                 r = tpm2_pcrlock_policy_load(pcrlock_path, &pcrlock_policy);
@@ -150,7 +150,7 @@ int acquire_tpm2_key(
                 }
         }
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *tpm2_context = NULL;
         r = tpm2_context_new_or_warn(device, &tpm2_context);
         if (r < 0)
                 return r;
@@ -284,8 +284,8 @@ int find_tpm2_auto_data(
         assert(ret_token);
 
         for (token = start_token; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_done(iovec) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 struct iovec *blobs = NULL, *policy_hash = NULL;
                 size_t n_blobs = 0, n_policy_hash = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;

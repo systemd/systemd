@@ -97,7 +97,7 @@ static int icmp6_packet_verify(ICMP6Packet *p) {
 }
 
 int icmp6_packet_receive(int fd, ICMP6Packet **ret) {
-        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *p = NULL;
+        _cleanup_unref(icmp6_packet) ICMP6Packet *p = NULL;
         ssize_t len;
         int r;
 

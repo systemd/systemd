@@ -452,7 +452,7 @@ static int link_configure_fill_message(
 }
 
 static int link_configure(Link *link, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(link);
@@ -1100,7 +1100,7 @@ static int link_up_or_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
 }
 
 static int link_up_or_down(Link *link, bool up, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(link);
@@ -1314,7 +1314,7 @@ static int link_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 }
 
 int link_up_or_down_now(Link *link, bool up) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -1400,7 +1400,7 @@ static int link_up_or_down_now_varlink_handler(sd_netlink *rtnl, sd_netlink_mess
 }
 
 int link_up_or_down_now_by_varlink(Link *link, bool up, sd_varlink *vlink) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);
@@ -1417,7 +1417,7 @@ int link_up_or_down_now_by_varlink(Link *link, bool up, sd_varlink *vlink) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not set link flags: %m");
 
-        _cleanup_(set_link_varlink_context_freep) SetLinkVarlinkContext *ctx = new(SetLinkVarlinkContext, 1);
+        _cleanup_free(set_link_varlink_context) SetLinkVarlinkContext *ctx = new(SetLinkVarlinkContext, 1);
         if (!ctx)
                 return log_oom();
 
@@ -1471,7 +1471,7 @@ static int link_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
 }
 
 int link_remove(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);

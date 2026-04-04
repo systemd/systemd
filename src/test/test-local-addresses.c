@@ -187,8 +187,8 @@ static void check_local_outbounds(sd_netlink *rtnl, int ifindex, int request_ifi
 }
 
 TEST(local_addresses_with_dummy) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL, *reply = NULL;
         union in_addr_union u;
         int r, ifindex;
 

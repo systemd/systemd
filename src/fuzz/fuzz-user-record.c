@@ -9,8 +9,8 @@
 #include "sd-json.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(user_record) UserRecord *ur = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ char *str = NULL;
         unsigned line = 0;
         int r;
@@ -32,7 +32,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         r = user_record_load(ur, v, USER_RECORD_LOAD_FULL|USER_RECORD_PERMISSIVE);
         if (r >= 0) {
                 /* We have a valid record, so let's exercise a couple more functions */
-                _cleanup_(user_record_unrefp) UserRecord *cloned = NULL;
+                _cleanup_unref(user_record) UserRecord *cloned = NULL;
                 (void) user_record_clone(ur, USER_RECORD_LOAD_FULL, &cloned);
 
                 (void) user_record_test_blocked(ur);

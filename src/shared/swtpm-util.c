@@ -28,7 +28,7 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find 'swtpm_setup' binary: %m");
 
-        _cleanup_strv_free_ char **args = strv_new(
+        _cleanup_free(strv) char **args = strv_new(
                         swtpm_setup,
                          "--tpm2",
                          "--print-profiles");
@@ -44,7 +44,7 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
                 log_debug("About to spawn: %s", strnull(cmdline));
         }
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         "(swtpm-lprof)",
                         (int[]) { -EBADF, mfd, STDERR_FILENO },
@@ -82,7 +82,7 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read memory fd: %m");
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
         const char *best_profile = NULL;
         if (isempty(text))
                 log_notice("No list of supported profiles could be acquired from swtpm, assuming the implementation is too old to know the concept of profiles.");

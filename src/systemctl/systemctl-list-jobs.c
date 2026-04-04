@@ -18,8 +18,8 @@
 #include "systemctl-util.h"
 
 static int output_waiting_jobs(sd_bus *bus, Table *table, uint32_t id, const char *method, const char *prefix) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         const char *name, *type;
         uint32_t other_id;
         int r;
@@ -65,7 +65,7 @@ struct job_info {
 };
 
 static int output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned n, bool skipped) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         const char *on, *off;
         int r;
 
@@ -134,8 +134,8 @@ static bool output_show_job(struct job_info *job, char **patterns) {
 }
 
 int verb_list_jobs(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_free_ struct job_info *jobs = NULL;
         const char *name, *type, *state;
         bool skipped = false;

@@ -40,7 +40,7 @@ TEST(path_pick) {
         _cleanup_free_ char *pp = NULL;
         pp = ASSERT_NOT_NULL(path_join(p, "foo.v"));
 
-        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+        _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
 
         PickFilter filter = {
                 .architecture = _ARCHITECTURE_INVALID,
@@ -206,7 +206,7 @@ TEST(pick_filter_image_any) {
         ASSERT_OK(write_string_file_at(sub_dfd, "test_12", "version 12", WRITE_STRING_FILE_CREATE));
 
         _cleanup_free_ char *pp = ASSERT_NOT_NULL(path_join(p, "test.v"));
-        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+        _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
 
         /* Test pick_filter_image_any: should pick the highest version, which is the directory test_5 */
         ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, pp, pick_filter_image_any, ELEMENTSOF(pick_filter_image_any), PICK_ARCHITECTURE, &result));
@@ -291,7 +291,7 @@ TEST(path_pick_resolve) {
         ASSERT_OK(symlinkat("../target_file.raw", sub_dfd, "resolve_2.raw"));
 
         _cleanup_free_ char *pp = ASSERT_NOT_NULL(path_join(p, "resolve.v"));
-        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+        _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
 
         /* Test without PICK_RESOLVE - should return the symlink path */
         ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, pp, pick_filter_image_any, ELEMENTSOF(pick_filter_image_any), PICK_ARCHITECTURE, &result));

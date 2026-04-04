@@ -305,7 +305,7 @@ TEST(basic) {
 }
 
 TEST(sd_event_now) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         uint64_t event_now;
 
         ASSERT_OK(sd_event_new(&e));
@@ -630,8 +630,8 @@ static int ratelimit_expired(sd_event_source *s, void *userdata) {
 
 TEST(ratelimit) {
         _cleanup_close_pair_ int p[2] = EBADF_PAIR;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         uint64_t interval;
         unsigned count, burst;
 
@@ -706,7 +706,7 @@ TEST(ratelimit) {
 }
 
 TEST(simple_timeout) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         usec_t f, t, some_time;
 
         some_time = random_u64_range(2 * USEC_PER_SEC);
@@ -741,8 +741,8 @@ static int inotify_self_destroy_handler(sd_event_source *s, const struct inotify
 }
 
 TEST(inotify_self_destroy) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         char path[] = "/tmp/inotifyXXXXXX";
         _cleanup_close_ int fd = -EBADF;
 
@@ -777,8 +777,8 @@ static int inotify_process_buffered_data_handler(sd_event_source *s, const struc
 
 TEST(inotify_process_buffered_data) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL, *q = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *a = NULL, *b = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *a = NULL, *b = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         _cleanup_free_ char *z = NULL;
 
         /* For issue #23826 */
@@ -816,8 +816,8 @@ static int inotify_handler_issue_38265(sd_event_source *s, const struct inotify_
 
 TEST(inotify_issue_38265) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *a = NULL, *b = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *a = NULL, *b = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         _cleanup_free_ char *p = NULL;
 
         /* For issue #38265. */
@@ -844,7 +844,7 @@ TEST(inotify_issue_38265) {
 }
 
 TEST(fork) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         int r;
 
         ASSERT_OK(sd_event_default(&e));
@@ -863,8 +863,8 @@ TEST(fork) {
 }
 
 TEST(sd_event_source_set_io_fd) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         _cleanup_close_pair_ int pfd_a[2] = EBADF_PAIR, pfd_b[2] = EBADF_PAIR;
 
         ASSERT_OK(sd_event_default(&e));
@@ -891,8 +891,8 @@ static int hup_callback(sd_event_source *s, int fd, uint32_t revents, void *user
 
 TEST(leave_ratelimit) {
         bool expect_ratelimit = false, manually_left_ratelimit = false;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         unsigned c = 0;
         int r;
@@ -964,7 +964,7 @@ static int defer_adds_post_handler(sd_event_source *s, void *userdata) {
 }
 
 TEST(defer_add_post) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         bool dispatched_post = false;
 
         ASSERT_OK(sd_event_default(&e));
@@ -997,7 +997,7 @@ static int child_handler_wnowait(sd_event_source *s, const siginfo_t *si, void *
 }
 
 TEST(child_wnowait) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
 
         ASSERT_OK(sd_event_default(&e));
 
@@ -1010,7 +1010,7 @@ TEST(child_wnowait) {
                 _exit(42);
 
         /* Add a child source with WNOWAIT flag */
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         int counter = 0;
         ASSERT_OK(sd_event_add_child(e, &s, pid, WEXITED|WNOWAIT, child_handler_wnowait, &counter));
         ASSERT_OK(sd_event_source_set_enabled(s, SD_EVENT_ON));
@@ -1028,7 +1028,7 @@ TEST(child_wnowait) {
 }
 
 TEST(child_pidfd_wnowait) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
 
         ASSERT_OK(sd_event_default(&e));
 
@@ -1044,7 +1044,7 @@ TEST(child_pidfd_wnowait) {
         ASSERT_OK_ERRNO(pidfd = pidfd_open(pid, 0));
 
         /* Add a child source with WNOWAIT flag */
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         int counter = 0;
         ASSERT_OK(sd_event_add_child_pidfd(e, &s, pidfd, WEXITED|WNOWAIT, child_handler_wnowait, &counter));
         ASSERT_OK(sd_event_source_set_enabled(s, SD_EVENT_ON));
@@ -1091,19 +1091,19 @@ static int exit_on_idle_exit_handler(sd_event_source *s, void *userdata) {
 }
 
 TEST(exit_on_idle) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
         ASSERT_OK_POSITIVE(sd_event_get_exit_on_idle(e));
 
         /* Create a recurring defer event source. */
-        _cleanup_(sd_event_source_unrefp) sd_event_source *d = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *d = NULL;
         unsigned dc = 0;
         ASSERT_OK(sd_event_add_defer(e, &d, exit_on_idle_defer_handler, &dc));
         ASSERT_OK(sd_event_source_set_enabled(d, SD_EVENT_ON));
 
         /* This post event source should not keep the event loop running after the defer source is disabled. */
-        _cleanup_(sd_event_source_unrefp) sd_event_source *p = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *p = NULL;
         unsigned pc = 0;
         ASSERT_OK(sd_event_add_post(e, &p, exit_on_idle_post_handler, &pc));
         ASSERT_OK(sd_event_source_set_enabled(p, SD_EVENT_ON));
@@ -1119,7 +1119,7 @@ TEST(exit_on_idle) {
 }
 
 TEST(exit_on_idle_no_sources) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
@@ -1140,7 +1140,7 @@ static int defer_fair_handler(sd_event_source *s, void *userdata) {
 }
 
 TEST(defer_fair_scheduling) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         sd_event_source *sources[5] = {};
         unsigned counters[5] = {};
 
@@ -1164,8 +1164,8 @@ TEST(defer_fair_scheduling) {
 }
 
 TEST(child_autoreap_ebusy) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
 
         /* Test that sd_event_add_child() fails with EBUSY when kernel autoreaping is enabled

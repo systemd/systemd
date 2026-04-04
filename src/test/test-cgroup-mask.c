@@ -22,7 +22,7 @@ static void log_cgroup_mask(CGroupMask got, CGroupMask expected) {
 
 TEST_RET(cgroup_mask, .sd_booted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         Unit *son, *daughter, *parent, *root, *grandchild, *parent_deep, *nomem_parent, *nomem_leaf;
         int r;
 

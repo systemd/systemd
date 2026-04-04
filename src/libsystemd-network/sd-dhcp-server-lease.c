@@ -66,7 +66,7 @@ int dhcp_server_put_lease(sd_dhcp_server *server, sd_dhcp_server_lease *lease, b
 }
 
 int dhcp_server_set_lease(sd_dhcp_server *server, be32_t address, DHCPRequest *req, usec_t expiration) {
-        _cleanup_(sd_dhcp_server_lease_unrefp) sd_dhcp_server_lease *lease = NULL;
+        _cleanup_unref(sd_dhcp_server_lease) sd_dhcp_server_lease *lease = NULL;
         int r;
 
         assert(server);
@@ -185,7 +185,7 @@ int sd_dhcp_server_set_static_lease(
                 size_t client_id_size,
                 const char *hostname) {
 
-        _cleanup_(sd_dhcp_server_lease_unrefp) sd_dhcp_server_lease *lease = NULL;
+        _cleanup_unref(sd_dhcp_server_lease) sd_dhcp_server_lease *lease = NULL;
         sd_dhcp_client_id client_id;
         int r;
 
@@ -252,7 +252,7 @@ static int dhcp_server_lease_append_json(sd_dhcp_server_lease *lease, sd_json_va
 }
 
 int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         sd_dhcp_server_lease *lease;
         usec_t now_b, now_r;
         int r;
@@ -269,7 +269,7 @@ int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, sd_json_variant
                 return r;
 
         HASHMAP_FOREACH(lease, server->bound_leases_by_client_id) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
 
                 r = dhcp_server_lease_append_json(lease, &w);
                 if (r < 0)
@@ -293,7 +293,7 @@ int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, sd_json_variant
 }
 
 int dhcp_server_static_leases_append_json(sd_dhcp_server *server, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         sd_dhcp_server_lease *lease;
         int r;
 
@@ -301,7 +301,7 @@ int dhcp_server_static_leases_append_json(sd_dhcp_server *server, sd_json_varian
         assert(v);
 
         HASHMAP_FOREACH(lease, server->static_leases_by_client_id) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
 
                 r = dhcp_server_lease_append_json(lease, &w);
                 if (r < 0)
@@ -316,7 +316,7 @@ int dhcp_server_static_leases_append_json(sd_dhcp_server *server, sd_json_varian
 }
 
 int dhcp_server_save_leases(sd_dhcp_server *server) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         sd_id128_t boot_id;
         int r;
 
@@ -378,7 +378,7 @@ int dhcp_server_save_leases(sd_dhcp_server *server) {
 
 static int json_dispatch_chaddr(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         uint8_t* address = ASSERT_PTR(userdata);
-        _cleanup_(iovec_done) struct iovec iov = {};
+        _cleanup_done(iovec) struct iovec iov = {};
         int r;
 
         r = json_dispatch_byte_array_iovec(name, variant, flags, &iov);
@@ -415,7 +415,7 @@ static int json_dispatch_dhcp_lease(sd_dhcp_server *server, sd_json_variant *v, 
                 {}
         };
 
-        _cleanup_(sd_dhcp_server_lease_unrefp) sd_dhcp_server_lease *lease = NULL;
+        _cleanup_unref(sd_dhcp_server_lease) sd_dhcp_server_lease *lease = NULL;
         usec_t now_b;
         int r;
 
@@ -479,7 +479,7 @@ static void saved_info_done(SavedInfo *info) {
 }
 
 static int load_leases_file(int dir_fd, const char *path, SavedInfo *ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
@@ -509,7 +509,7 @@ static int load_leases_file(int dir_fd, const char *path, SavedInfo *ret) {
 }
 
 int dhcp_server_load_leases(sd_dhcp_server *server) {
-        _cleanup_(saved_info_done) SavedInfo info = {};
+        _cleanup_done(saved_info) SavedInfo info = {};
         sd_id128_t boot_id;
         size_t n, m;
         int r;
@@ -549,7 +549,7 @@ int dhcp_server_leases_file_get_server_address(
                 struct in_addr *ret_address,
                 uint8_t *ret_prefixlen) {
 
-        _cleanup_(saved_info_done) SavedInfo info = {};
+        _cleanup_done(saved_info) SavedInfo info = {};
         int r;
 
         if (!ret_address && !ret_prefixlen)

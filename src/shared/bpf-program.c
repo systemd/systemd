@@ -60,7 +60,7 @@ int bpf_program_supported(void) {
          * - BPF_PROG_TYPE_CGROUP_SOCK_ADDR, supported since kernel v4.17 (4fbac77d2d092b475dda9eea66da674369665427).
          * As our baseline on the kernel is v5.4, it is enough to check if one BPF program can be created and loaded. */
 
-        _cleanup_(bpf_program_freep) BPFProgram *program = NULL;
+        _cleanup_free(bpf_program) BPFProgram *program = NULL;
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, /* prog_name= */ NULL, &program);
         if (r < 0)
                 return cached = log_debug_errno(r, "Can't allocate CGROUP SKB BPF program, assuming BPF is not supported: %m");
@@ -149,7 +149,7 @@ static int bpf_program_get_info_by_fd(int prog_fd, struct bpf_prog_info *info, u
 }
 
 int bpf_program_new(uint32_t prog_type, const char *prog_name, BPFProgram **ret) {
-        _cleanup_(bpf_program_freep) BPFProgram *p = NULL;
+        _cleanup_free(bpf_program) BPFProgram *p = NULL;
         _cleanup_free_ char *name = NULL;
 
         if (prog_name) {
@@ -177,7 +177,7 @@ int bpf_program_new(uint32_t prog_type, const char *prog_name, BPFProgram **ret)
 }
 
 int bpf_program_new_from_bpffs_path(const char *path, BPFProgram **ret) {
-        _cleanup_(bpf_program_freep) BPFProgram *p = NULL;
+        _cleanup_free(bpf_program) BPFProgram *p = NULL;
         struct bpf_prog_info info = {};
         int r;
 
@@ -502,7 +502,7 @@ int bpf_program_serialize_attachment_set(FILE *f, FDSet *fds, const char *key, S
 
 int bpf_program_deserialize_attachment(const char *v, FDSet *fds, BPFProgram **bpfp) {
         _cleanup_free_ char *sfd = NULL, *sat = NULL, *unescaped = NULL;
-        _cleanup_(bpf_program_freep) BPFProgram *p = NULL;
+        _cleanup_free(bpf_program) BPFProgram *p = NULL;
         _cleanup_close_ int fd = -EBADF;
         ssize_t l;
         int ifd, at, r;

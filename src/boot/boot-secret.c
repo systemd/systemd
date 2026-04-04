@@ -216,7 +216,7 @@ static EFI_STATUS acquire_secret_mixin(
          * it doesn't we'll initialize it */
 
         bool writable;
-        _cleanup_file_close_ EFI_FILE *handle = NULL;
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
         err = root_dir->Open(
                         root_dir,
                         &handle,
@@ -338,7 +338,7 @@ EFI_STATUS prepare_boot_secret(
         if (!loaded_image->DeviceHandle)
                 return EFI_SUCCESS;
 
-        _cleanup_file_close_ EFI_FILE *root = NULL;
+        _cleanup_(file_closep) EFI_FILE *root = NULL;
         err = open_volume(loaded_image->DeviceHandle, &root);
         if (err != EFI_SUCCESS)
                 return err;

@@ -155,7 +155,7 @@ finalize:
 }
 
 int locale_context_build_env(const LocaleContext *c, char ***ret_set, char ***ret_unset) {
-        _cleanup_strv_free_ char **set = NULL, **unset = NULL;
+        _cleanup_free(strv) char **set = NULL, **unset = NULL;
         int r;
 
         assert(c);
@@ -187,7 +187,7 @@ int locale_context_build_env(const LocaleContext *c, char ***ret_set, char ***re
 }
 
 int locale_context_save(LocaleContext *c, char ***ret_set, char ***ret_unset) {
-        _cleanup_strv_free_ char **set = NULL, **unset = NULL;
+        _cleanup_free(strv) char **set = NULL, **unset = NULL;
         int r;
 
         assert(c);
@@ -264,8 +264,8 @@ bool locale_context_equal(const LocaleContext *c, char *l[_VARIABLE_LC_MAX]) {
 }
 
 int locale_setup(char ***environment) {
-        _cleanup_(locale_context_clear) LocaleContext c = {};
-        _cleanup_strv_free_ char **add = NULL;
+        _cleanup_clear(locale_context) LocaleContext c = {};
+        _cleanup_free(strv) char **add = NULL;
         int r;
 
         assert(environment);

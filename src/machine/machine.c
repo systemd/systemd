@@ -47,7 +47,7 @@
 #include "user-util.h"
 
 int machine_new(MachineClass class, const char *name, Machine **ret) {
-        _cleanup_(machine_freep) Machine *m = NULL;
+        _cleanup_free(machine) Machine *m = NULL;
 
         assert(class < _MACHINE_CLASS_MAX);
         assert(ret);
@@ -419,8 +419,8 @@ static int machine_start_scope(
                 sd_bus_message *more_properties,
                 sd_bus_error *error) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error e = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *escaped = NULL, *unit = NULL;
         const char *description;
         int r;
@@ -692,7 +692,7 @@ int machine_stop(Machine *m) {
 
         if (m->unit && !m->subgroup) {
                 /* If the machine runs as its own unit, then we'll terminate that */
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 char *job = NULL;
 
                 r = manager_stop_unit(m->manager, m->unit, &error, &job);
@@ -762,7 +762,7 @@ bool machine_may_gc(Machine *m, bool drop_not_started) {
                 return false;
 
         if (m->scope_job) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 r = manager_job_is_active(m->manager, m->scope_job, &error);
                 if (r < 0)
@@ -772,7 +772,7 @@ bool machine_may_gc(Machine *m, bool drop_not_started) {
         }
 
         if (m->unit && !m->subgroup) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 r = manager_unit_is_active(m->manager, m->unit, &error);
                 if (r < 0)
@@ -945,7 +945,7 @@ int machine_start_shell(
                 char **env,
                 sd_bus_error *error) {
         _cleanup_close_ int pty_fd = -EBADF;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *tm = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *tm = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
         const char *p, *utmp_id, *unit, *description;
         sd_bus *container_bus = NULL;
@@ -1102,7 +1102,7 @@ int machine_start_shell(
 }
 
 char** machine_default_shell_args(const char *user) {
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_free(strv) char **args = NULL;
         int r;
 
         assert(user);
@@ -1263,7 +1263,7 @@ void machine_release_unit(Machine *m) {
         assert(m->manager);
 
         if (m->referenced) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 int r;
 
                 r = manager_unref_unit(m->manager, m->unit, &error);
@@ -1530,7 +1530,7 @@ int machine_open_root_directory(Machine *machine) {
 
         case MACHINE_CONTAINER: {
                 _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF;
-                _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef child = PIDREF_NULL;
                 _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR, fd_pass_socket[2] = EBADF_PAIR;
 
                 r = pidref_namespace_open(&machine->leader,

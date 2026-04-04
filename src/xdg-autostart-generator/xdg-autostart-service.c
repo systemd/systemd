@@ -240,7 +240,7 @@ static int xdg_config_parse_strv(
         }
 
         size_t n = 0;
-        _cleanup_strv_free_ char **sv = NULL;
+        _cleanup_free(strv) char **sv = NULL;
 
         if (!GREEDY_REALLOC0(sv, 1))
                 return log_oom();
@@ -307,7 +307,7 @@ static int xdg_config_item_table_lookup(
 }
 
 XdgAutostartService *xdg_autostart_service_parse_desktop(const char *path) {
-        _cleanup_(xdg_autostart_service_freep) XdgAutostartService *service = NULL;
+        _cleanup_free(xdg_autostart_service) XdgAutostartService *service = NULL;
         int r;
 
         service = new0(XdgAutostartService, 1);
@@ -369,7 +369,7 @@ int xdg_autostart_format_exec_start(
                 const char *exec,
                 char **ret_exec_start) {
 
-        _cleanup_strv_free_ char **exec_split = NULL;
+        _cleanup_free(strv) char **exec_split = NULL;
         char *res;
         size_t n, i;
         bool first_arg;
@@ -521,7 +521,7 @@ int xdg_autostart_service_generate_unit(
 
         _cleanup_free_ char *path_escaped = NULL, *exec_start = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **only_show_in = NULL, **not_show_in = NULL;
+        _cleanup_free(strv) char **only_show_in = NULL, **not_show_in = NULL;
         int r;
 
         assert(service);

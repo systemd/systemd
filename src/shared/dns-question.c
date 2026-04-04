@@ -244,7 +244,7 @@ int dns_question_is_equal(DnsQuestion *a, DnsQuestion *b) {
 }
 
 int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, DnsQuestion **ret) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *n = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *n = NULL;
         DnsResourceKey *key;
         bool same = true;
         int r;
@@ -296,7 +296,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
 
         /* Create a new question, and patch in the new name */
         DNS_QUESTION_FOREACH(key, q) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *k = NULL;
+                _cleanup_unref(dns_resource_key) DnsResourceKey *k = NULL;
 
                 k = dns_resource_key_new_redirect(key, cname);
                 if (!k)
@@ -324,7 +324,7 @@ const char* dns_question_first_name(DnsQuestion *q) {
 }
 
 int dns_question_new_address(DnsQuestion **ret, int family, const char *name, bool convert_idna) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *q = NULL;
         _cleanup_free_ char *buf = NULL;
         int r;
 
@@ -358,7 +358,7 @@ int dns_question_new_address(DnsQuestion **ret, int family, const char *name, bo
                 return -ENOMEM;
 
         if (family != AF_INET6) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+                _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
                 key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, name);
                 if (!key)
@@ -370,7 +370,7 @@ int dns_question_new_address(DnsQuestion **ret, int family, const char *name, bo
         }
 
         if (family != AF_INET) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+                _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
                 key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, name);
                 if (!key)
@@ -387,8 +387,8 @@ int dns_question_new_address(DnsQuestion **ret, int family, const char *name, bo
 }
 
 int dns_question_new_reverse(DnsQuestion **ret, int family, const union in_addr_union *a) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *q = NULL;
         _cleanup_free_ char *reverse = NULL;
         int r;
 
@@ -422,8 +422,8 @@ int dns_question_new_reverse(DnsQuestion **ret, int family, const union in_addr_
 }
 
 int dns_question_new_service_pointer(DnsQuestion **ret, const char *type, const char *domain, bool convert_idna) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *q = NULL;
         _cleanup_free_ char *buf = NULL, *joined = NULL;
         const char *name;
         int r;
@@ -476,8 +476,8 @@ int dns_question_new_service(
                 bool with_txt,
                 bool convert_idna) {
 
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *q = NULL;
         _cleanup_free_ char *buf = NULL, *joined = NULL;
         const char *name;
         int r;
@@ -570,7 +570,7 @@ void dns_question_dump(DnsQuestion *question, FILE *f) {
 }
 
 int dns_question_merge(DnsQuestion *a, DnsQuestion *b, DnsQuestion **ret) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *k = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *k = NULL;
         int r;
 
         assert(ret);
@@ -608,14 +608,14 @@ int dns_json_dispatch_question(const char *name, sd_json_variant *variant, sd_js
         if (!sd_json_variant_is_array(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
 
-        _cleanup_(dns_question_unrefp) DnsQuestion *nq = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *nq = NULL;
         nq = dns_question_new(sd_json_variant_elements(variant));
         if (!nq)
                 return json_log_oom(variant, flags);
 
         sd_json_variant *i;
         JSON_VARIANT_ARRAY_FOREACH(i, variant) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+                _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
                 static const sd_json_dispatch_field dispatch_table[] = {
                         { "key", SD_JSON_VARIANT_OBJECT, dns_json_dispatch_resource_key, 0, SD_JSON_MANDATORY },

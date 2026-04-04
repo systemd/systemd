@@ -5,7 +5,7 @@
 #include "tests.h"
 
 TEST(ask_password) {
-        _cleanup_strv_free_ char **ret = NULL;
+        _cleanup_free(strv) char **ret = NULL;
         int r;
 
         static const AskPasswordRequest req = {

@@ -36,8 +36,8 @@ static void prefix_random(const char *name, char **ret) {
  }
 
 static void test_rr_lookup(sd_bus *bus, const char *name, uint16_t type, const char *result) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *m = NULL;
         int r;
 
@@ -64,8 +64,8 @@ static void test_rr_lookup(sd_bus *bus, const char *name, uint16_t type, const c
 }
 
 static void test_hostname_lookup(sd_bus *bus, const char *name, int family, const char *result) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *m = NULL;
         const char *af;
         int r;

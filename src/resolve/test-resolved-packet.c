@@ -11,10 +11,10 @@
 
 TEST(dns_packet_new) {
         size_t i;
-         _cleanup_(dns_packet_unrefp) DnsPacket *p2 = NULL;
+         _cleanup_unref(dns_packet) DnsPacket *p2 = NULL;
 
         for (i = 0; i <= DNS_PACKET_SIZE_MAX; i++) {
-                _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+                _cleanup_unref(dns_packet) DnsPacket *p = NULL;
 
                 assert_se(dns_packet_new(&p, DNS_PROTOCOL_DNS, i, DNS_PACKET_SIZE_MAX) == 0);
 
@@ -29,7 +29,7 @@ TEST(dns_packet_new) {
 }
 
 TEST(naptr) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
 
         static const char twilio_reply[] =
                 "Sq+BgAABAAkAAAABBnR3aWxpbwNjb20AACMAAcAMACMAAQAABwgAMgAUAAoBUwdTSVArRDJUAARf"
@@ -189,7 +189,7 @@ TEST(naptr) {
 
         assert_se(dns_packet_extract(p) >= 0);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *a = NULL;
         _cleanup_free_ char *joined = NULL;
         DnsResourceRecord *rr;
         DNS_ANSWER_FOREACH(rr, p->answer) {
@@ -200,7 +200,7 @@ TEST(naptr) {
 
                 assert_se(strextend(&joined, s, "\n"));
 
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 assert_se(dns_resource_record_to_json(rr, &v) >= 0);
 
                 assert_se(sd_json_variant_append_array(&a, v) >= 0);
@@ -208,7 +208,7 @@ TEST(naptr) {
 
         assert(streq(joined, twilio_reply_string));
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parsed = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *parsed = NULL;
         assert_se(sd_json_parse(twilio_reply_json, /* flags= */ 0, &parsed, /* reterr_line= */ NULL, /* ret_column= */ NULL) >= 0);
 
         assert_se(sd_json_variant_equal(parsed, a));

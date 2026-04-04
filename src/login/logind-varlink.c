@@ -38,7 +38,7 @@ static int manager_varlink_get_session_by_peer(
         /* Determines the session of the peer. If the peer is not part of a session, but consult_display is
          * true, then will return the display session of the peer's owning user */
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = varlink_get_peer_pidref(link, &pidref);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire peer PID: %m");
@@ -103,7 +103,7 @@ int session_send_create_reply_varlink(Session *s, const sd_bus_error *error) {
         /* This is called after the session scope and the user service were successfully created, and
          * finishes where manager_create_session() left off. */
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = TAKE_PTR(s->create_link);
+        _cleanup_unref(sd_varlink) sd_varlink *vl = TAKE_PTR(s->create_link);
         if (!vl)
                 return 0;
 
@@ -176,7 +176,7 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
                 {}
         };
 
-        _cleanup_(create_session_parameters_done) CreateSessionParameters p = {
+        _cleanup_done(create_session_parameters) CreateSessionParameters p = {
                 .uid = UID_INVALID,
                 .pid = PIDREF_NULL,
                 .class = _SESSION_CLASS_INVALID,
@@ -337,7 +337,7 @@ static int vl_method_release_session(sd_varlink *link, sd_json_variant *paramete
 }
 
 int manager_varlink_init(Manager *m, int fd) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         _unused_ _cleanup_close_ int fd_close = fd;
         int r;
 

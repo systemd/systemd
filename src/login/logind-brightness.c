@@ -86,7 +86,7 @@ static void brightness_writer_reply(BrightnessWriter *w, int error) {
         assert(w);
 
         for (;;) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 m = set_steal_first(w->current_messages);
                 if (!m)
@@ -201,7 +201,7 @@ int manager_write_brightness(
                 uint32_t brightness,
                 sd_bus_message *message) {
 
-        _cleanup_(brightness_writer_freep) BrightnessWriter *w = NULL;
+        _cleanup_free(brightness_writer) BrightnessWriter *w = NULL;
         BrightnessWriter *existing;
         const char *path;
         int r;

@@ -181,7 +181,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **args =
+        _cleanup_free(strv) char **args =
                 strv_new(swtpm,
                          "chardev",
                          "--vtpm-proxy",

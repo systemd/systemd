@@ -189,7 +189,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(job_hash_ops,
                                               Job, job_free);
 
 static int job_new(JobType type, Target *t, sd_bus_message *msg, JobComplete complete_cb, Job **ret) {
-        _cleanup_(job_freep) Job *j = NULL;
+        _cleanup_free(job) Job *j = NULL;
         int r;
 
         assert(t);
@@ -230,7 +230,7 @@ static bool job_requires_busy(Job *j) {
 
 static int job_parse_child_output(int _fd, sd_json_variant **ret) {
         _cleanup_close_ int fd = ASSERT_FD(_fd); /* Take ownership of the passed fd */
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         struct stat st;
         int r;
 
@@ -256,7 +256,7 @@ static int job_parse_child_output(int _fd, sd_json_variant **ret) {
 }
 
 static void job_on_ready(Job *j) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *msg = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *msg = NULL;
         int r;
 
         assert(j);
@@ -331,8 +331,8 @@ static void job_on_version(Job *j, const char *version) {
 
 static int job_on_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
         Job *j = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
         Manager *manager = j->manager;
         int r;
 
@@ -677,7 +677,7 @@ static int job_node_enumerator(
                 char ***nodes,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Job *j;
         unsigned k = 0;
@@ -734,7 +734,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_hash_ops,
                                               Target, target_free);
 
 static int target_new(Manager *m, TargetClass class, const char *name, const char *path, Target **ret) {
-        _cleanup_(target_freep) Target *t = NULL;
+        _cleanup_free(target) Target *t = NULL;
 
         assert(m);
         assert(ret);
@@ -772,7 +772,7 @@ static int sysupdate_run_simple(sd_json_variant **ret, Target *t, ...) {
         _cleanup_close_pair_ int pipe[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ char *target_arg = NULL;
         int r;
 
@@ -798,7 +798,7 @@ static int sysupdate_run_simple(sd_json_variant **ret, Target *t, ...) {
                 /* Child */
                 va_list ap;
                 char *arg;
-                _cleanup_strv_free_ char **args = NULL;
+                _cleanup_free(strv) char **args = NULL;
 
                 if (strv_extend(&args, "systemd-sysupdate") < 0) {
                         log_oom();
@@ -873,8 +873,8 @@ static int target_method_list_finish(
                 sd_bus_error *error) {
 
         sd_json_variant *v;
-        _cleanup_strv_free_ char **versions = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free(strv) char **versions = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(json);
@@ -900,7 +900,7 @@ static int target_method_list_finish(
 
 static int target_method_list(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
-        _cleanup_(job_freep) Job *j = NULL;
+        _cleanup_free(job) Job *j = NULL;
         uint64_t flags;
         int r;
 
@@ -966,7 +966,7 @@ static int target_method_describe_finish(
 
 static int target_method_describe(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
-        _cleanup_(job_freep) Job *j = NULL;
+        _cleanup_free(job) Job *j = NULL;
         const char *version;
         uint64_t flags;
         int r;
@@ -1045,7 +1045,7 @@ static int target_method_check_new_finish(
 
 static int target_method_check_new(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
-        _cleanup_(job_freep) Job *j = NULL;
+        _cleanup_free(job) Job *j = NULL;
         int r;
 
         assert(msg);
@@ -1108,7 +1108,7 @@ static int target_method_acquire_detach(sd_bus_message *msg, const Job *j) {
 
 static int target_method_acquire(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
-        _cleanup_(job_freep) Job *j = NULL;
+        _cleanup_free(job) Job *j = NULL;
         const char *version, *action;
         uint64_t flags;
         int r;
@@ -1196,7 +1196,7 @@ static int target_method_install_detach(sd_bus_message *msg, const Job *j) {
 
 static int target_method_install(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
-        _cleanup_(job_freep) Job *j = NULL;
+        _cleanup_free(job) Job *j = NULL;
         const char *version, *action;
         uint64_t flags;
         int r;
@@ -1288,7 +1288,7 @@ static int target_method_vacuum_finish(
 
 static int target_method_vacuum(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
-        _cleanup_(job_freep) Job *j = NULL;
+        _cleanup_free(job) Job *j = NULL;
         int r;
 
         assert(msg);
@@ -1324,7 +1324,7 @@ static int target_method_vacuum(sd_bus_message *msg, void *userdata, sd_bus_erro
 
 static int target_method_get_version(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         sd_json_variant *version_json;
         int r;
 
@@ -1348,7 +1348,7 @@ static int target_method_get_version(sd_bus_message *msg, void *userdata, sd_bus
 }
 
 static int target_get_appstream(Target *t, char ***ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         sd_json_variant *appstream_url_json;
         int r;
 
@@ -1369,8 +1369,8 @@ static int target_get_appstream(Target *t, char ***ret) {
 
 static int target_method_get_appstream(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **appstream_urls = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(strv) char **appstream_urls = NULL;
         int r;
 
         r = target_get_appstream(t, &appstream_urls);
@@ -1389,9 +1389,9 @@ static int target_method_get_appstream(sd_bus_message *msg, void *userdata, sd_b
 }
 
 static int target_method_list_features(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-        _cleanup_strv_free_ char **features = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
+        _cleanup_free(strv) char **features = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Target *t = ASSERT_PTR(userdata);
         sd_json_variant *v;
         uint64_t flags;
@@ -1442,7 +1442,7 @@ static bool feature_name_is_valid(const char *name) {
 
 static int target_method_describe_feature(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
-        _cleanup_(job_freep) Job *j = NULL;
+        _cleanup_free(job) Job *j = NULL;
         const char *feature;
         uint64_t flags;
         int r;
@@ -1550,8 +1550,8 @@ static int target_method_set_feature_enabled(sd_bus_message *msg, void *userdata
 }
 
 static int target_list_components(Target *t, char ***ret_components, bool *ret_have_default) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-        _cleanup_strv_free_ char **components = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
+        _cleanup_free(strv) char **components = NULL;
         sd_json_variant *v;
         bool have_default;
         int r;
@@ -1638,7 +1638,7 @@ static int target_node_enumerator(
                 char ***nodes,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Target *t;
         unsigned k = 0;
@@ -1771,7 +1771,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         assert(fd >= 0);
 
-        _cleanup_(pidref_done) PidRef sender_pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef sender_pidref = PIDREF_NULL;
         _cleanup_free_ char *buf = NULL;
         r = notify_recv(fd, &buf, /* ret_ucred= */ NULL, &sender_pidref);
         if (r == -EAGAIN)
@@ -1817,7 +1817,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 }
 
 static int manager_new(Manager **ret) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         int r;
 
         assert(ret);
@@ -1867,7 +1867,7 @@ static int manager_new(Manager **ret) {
 }
 
 static int manager_enumerate_image_class(Manager *m, TargetClass class) {
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_free(hashmap) Hashmap *images = NULL;
         Image *image;
         int r;
 
@@ -1876,7 +1876,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
                 return r;
 
         HASHMAP_FOREACH(image, images) {
-                _cleanup_(target_freep) Target *t = NULL;
+                _cleanup_free(target) Target *t = NULL;
                 bool have = false;
 
                 if (image_is_host(image))
@@ -1905,7 +1905,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
 }
 
 static int manager_enumerate_components(Manager *m) {
-        _cleanup_strv_free_ char **components = NULL;
+        _cleanup_free(strv) char **components = NULL;
         bool have_default;
         int r;
 
@@ -1914,7 +1914,7 @@ static int manager_enumerate_components(Manager *m) {
                 return r;
 
         if (have_default) {
-                _cleanup_(target_freep) Target *t = NULL;
+                _cleanup_free(target) Target *t = NULL;
 
                 r = target_new(m, TARGET_HOST, "host", "sysupdate.d", &t);
                 if (r < 0)
@@ -1928,7 +1928,7 @@ static int manager_enumerate_components(Manager *m) {
 
         STRV_FOREACH(component, components) {
                 _cleanup_free_ char *path = NULL;
-                _cleanup_(target_freep) Target *t = NULL;
+                _cleanup_free(target) Target *t = NULL;
 
                 path = strjoin("sysupdate.", *component, ".d");
                 if (!path)
@@ -1982,7 +1982,7 @@ static int manager_ensure_targets(Manager *m) {
 }
 
 static int method_list_targets(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Target *t;
         int r;
@@ -2024,7 +2024,7 @@ static int method_list_targets(sd_bus_message *msg, void *userdata, sd_bus_error
 }
 
 static int method_list_jobs(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Job *j;
         int r;
@@ -2057,8 +2057,8 @@ static int method_list_jobs(sd_bus_message *msg, void *userdata, sd_bus_error *e
 }
 
 static int method_list_appstream(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_strv_free_ char **urls = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free(strv) char **urls = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Target *t;
         int r;
@@ -2179,7 +2179,7 @@ static int manager_run(Manager *m) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         int r;
 
         log_setup();

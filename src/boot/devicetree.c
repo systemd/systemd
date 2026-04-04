@@ -63,7 +63,7 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, size_t len) {
 }
 
 EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir, char16_t *name) {
-        _cleanup_file_close_ EFI_FILE *handle = NULL;
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
         _cleanup_free_ EFI_FILE_INFO *info = NULL;
         size_t len;
         EFI_STATUS err;
@@ -257,7 +257,7 @@ EFI_STATUS devicetree_install_from_memory(
                         MAKE_GUID_PTR(EFI_DTB_TABLE), PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
 
-void devicetree_cleanup(struct devicetree_state *state) {
+void devicetree_state_done(struct devicetree_state *state) {
         EFI_STATUS err;
 
         if (!state->pages)

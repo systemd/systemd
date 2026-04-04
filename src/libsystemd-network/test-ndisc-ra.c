@@ -246,9 +246,9 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 }
 
 TEST(ra) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *recv_router_advertisement = NULL;
-        _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *recv_router_advertisement = NULL;
+        _cleanup_unref(sd_radv) sd_radv *ra = NULL;
 
         assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);
 

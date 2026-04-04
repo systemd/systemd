@@ -15,7 +15,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         UnitType t;
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         Unit *u;
         const char *name;
         long offset;
@@ -75,7 +75,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                         u,
                         NULL);
 
-        _cleanup_(memstream_done) MemStream ms = {};
+        _cleanup_done(memstream) MemStream ms = {};
         FILE *g;
 
         assert_se(g = memstream_init(&ms));

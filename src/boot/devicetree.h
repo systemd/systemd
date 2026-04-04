@@ -36,4 +36,4 @@ EFI_STATUS devicetree_match_by_compatible(const void *uki_dtb, size_t uki_dtb_le
 EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir, char16_t *name);
 EFI_STATUS devicetree_install_from_memory(
                 struct devicetree_state *state, const void *dtb_buffer, size_t dtb_length);
-void devicetree_cleanup(struct devicetree_state *state);
+void devicetree_state_done(struct devicetree_state *state);

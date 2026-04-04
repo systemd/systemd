@@ -199,7 +199,7 @@ int manager_serialize(
 }
 
 static int manager_collect_serialized_unit_names(FILE *f, Set **ret) {
-        _cleanup_set_free_ Set *serialized_units = NULL;
+        _cleanup_free(set) Set *serialized_units = NULL;
         off_t offset;
         int r;
 
@@ -313,7 +313,7 @@ static int manager_deserialize_units(
                 FILE *f,
                 FDSet *fds) {
 
-        _cleanup_set_free_ Set *serialized_units = NULL;
+        _cleanup_free(set) Set *serialized_units = NULL;
         int r;
 
         r = manager_collect_serialized_unit_names(f, &serialized_units);

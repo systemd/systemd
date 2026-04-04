@@ -82,7 +82,7 @@ static int normalize_names(char **names) {
 
 int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
         const char *verb = ASSERT_PTR(argv[0]);
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         int carries_install_info = -1;
         bool ignore_carries_install_info = arg_quiet || arg_no_warn;
         sd_bus *bus = NULL;
@@ -106,15 +106,15 @@ int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
                 return r;
 
         if (install_client_side() == INSTALL_CLIENT_SIDE_NO) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL, *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 bool expect_carries_install_info = false;
                 bool send_runtime = true, send_force = true, send_preset_mode = false;
                 const char *method, *warn_trigger_operation = NULL;
                 bool warn_trigger_ignore_masked = true; /* suppress "used uninitialized" warning */
 
                 if (STR_IN_SET(verb, "mask", "unmask")) {
-                        _cleanup_(lookup_paths_done) LookupPaths lp = {};
+                        _cleanup_done(lookup_paths) LookupPaths lp = {};
 
                         r = lookup_paths_init_or_warn(&lp, arg_runtime_scope, 0, arg_root);
                         if (r < 0)
@@ -318,7 +318,7 @@ int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
         }
 
         if (arg_now) {
-                _cleanup_strv_free_ char **new_args = NULL;
+                _cleanup_free(strv) char **new_args = NULL;
                 const char *start_verb;
                 bool accept_path, prohibit_templates, dead_ok = false;
 

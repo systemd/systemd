@@ -179,10 +179,10 @@ static int acquire_bus(sd_bus **bus) {
 }
 
 static int verb_list_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         r = acquire_bus(&bus);
@@ -265,7 +265,7 @@ static int acquire_existing_password(
                 bool emphasize_current_password,
                 AskPasswordFlags flags) {
 
-        _cleanup_strv_free_erase_ char **password = NULL;
+        _cleanup_(strv_free_erasep) char **password = NULL;
         _cleanup_(erase_and_freep) char *envpw = NULL;
         _cleanup_free_ char *question = NULL;
         int r;
@@ -329,7 +329,7 @@ static int acquire_recovery_key(
                 UserRecord *hr,
                 AskPasswordFlags flags) {
 
-        _cleanup_strv_free_erase_ char **recovery_key = NULL;
+        _cleanup_(strv_free_erasep) char **recovery_key = NULL;
         _cleanup_(erase_and_freep) char *envpw = NULL;
         _cleanup_free_ char *question = NULL;
         int r;
@@ -390,7 +390,7 @@ static int acquire_token_pin(
                 UserRecord *hr,
                 AskPasswordFlags flags) {
 
-        _cleanup_strv_free_erase_ char **pin = NULL;
+        _cleanup_(strv_free_erasep) char **pin = NULL;
         _cleanup_(erase_and_freep) char *envpin = NULL;
         _cleanup_free_ char *question = NULL;
         int r;
@@ -588,7 +588,7 @@ static int handle_generic_user_record_error(
 }
 
 static int acquire_passed_secrets(const char *user_name, UserRecord **ret) {
-        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        _cleanup_unref(user_record) UserRecord *secret = NULL;
         int r;
 
         assert(ret);
@@ -636,15 +636,15 @@ static int verb_activate_home(int argc, char *argv[], uintptr_t _data, void *use
                 return r;
 
         STRV_FOREACH(i, strv_skip(argv, 1)) {
-                _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+                _cleanup_unref(user_record) UserRecord *secret = NULL;
 
                 r = acquire_passed_secrets(*i, &secret);
                 if (r < 0)
                         return r;
 
                 for (;;) {
-                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                         r = bus_message_new_method_call(bus, &m, bus_mgr, "ActivateHome");
                         if (r < 0)
@@ -684,8 +684,8 @@ static int verb_deactivate_home(int argc, char *argv[], uintptr_t _data, void *u
                 return r;
 
         STRV_FOREACH(i, strv_skip(argv, 1)) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_mgr, "DeactivateHome");
                 if (r < 0)
@@ -719,7 +719,7 @@ static void dump_home_record(UserRecord *hr) {
         if (!sd_json_format_enabled(arg_json_format_flags))
                 user_record_show(hr, true);
         else {
-                _cleanup_(user_record_unrefp) UserRecord *stripped = NULL;
+                _cleanup_unref(user_record) UserRecord *stripped = NULL;
 
                 if (arg_export_format == EXPORT_FORMAT_STRIPPED)
                         r = user_record_clone(hr, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &stripped);
@@ -737,10 +737,10 @@ static void dump_home_record(UserRecord *hr) {
 }
 
 static int inspect_home(sd_bus *bus, const char *name) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
         const char *json;
         int incomplete;
         uid_t uid;
@@ -800,7 +800,7 @@ static int verb_inspect_homes(int argc, char *argv[], uintptr_t _data, void *use
 }
 
 static int authenticate_home(sd_bus *bus, const char *name) {
-        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        _cleanup_unref(user_record) UserRecord *secret = NULL;
         int r;
 
         r = acquire_passed_secrets(name, &secret);
@@ -808,8 +808,8 @@ static int authenticate_home(sd_bus *bus, const char *name) {
                 return r;
 
         for (;;) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_mgr, "AuthenticateHome");
                 if (r < 0)
@@ -913,7 +913,7 @@ update_password:
 }
 
 static int apply_identity_changes(sd_json_variant **_v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(_v);
@@ -929,7 +929,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
                 return log_error_errno(r, "Failed to merge identities: %m");
 
         if (arg_identity_extra_this_machine || arg_identity_extra_other_machines || !strv_isempty(arg_identity_filter)) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *per_machine = NULL, *mmid = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *per_machine = NULL, *mmid = NULL;
                 sd_id128_t mid;
 
                 r = sd_id128_get_machine(&mid);
@@ -942,7 +942,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
 
                 per_machine = sd_json_variant_ref(sd_json_variant_by_key(v, "perMachine"));
                 if (per_machine) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *npm = NULL, *positive = NULL, *negative = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *npm = NULL, *positive = NULL, *negative = NULL;
                         _cleanup_free_ sd_json_variant **array = NULL;
                         sd_json_variant *z;
                         size_t i = 0;
@@ -995,7 +995,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
                                 return log_error_errno(r, "Failed to merge in perMachine fields: %m");
 
                         if (arg_identity_filter_rlimits || arg_identity_extra_rlimits) {
-                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *rlv = NULL;
+                                _cleanup_unref(sd_json_variant) sd_json_variant *rlv = NULL;
 
                                 rlv = sd_json_variant_ref(sd_json_variant_by_key(positive, "resourceLimits"));
 
@@ -1041,7 +1041,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
                         sd_json_variant_unref(per_machine);
                         per_machine = TAKE_PTR(npm);
                 } else {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *positive = sd_json_variant_ref(arg_identity_extra_this_machine),
+                        _cleanup_unref(sd_json_variant) sd_json_variant *positive = sd_json_variant_ref(arg_identity_extra_this_machine),
                                 *negative = sd_json_variant_ref(arg_identity_extra_other_machines);
 
                         if (arg_identity_extra_rlimits) {
@@ -1077,7 +1077,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
         }
 
         if (arg_identity_extra_privileged || arg_identity_filter) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *privileged = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *privileged = NULL;
 
                 privileged = sd_json_variant_ref(sd_json_variant_by_key(v, "privileged"));
 
@@ -1101,7 +1101,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
         }
 
         if (arg_identity_filter_rlimits) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *rlv = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *rlv = NULL;
 
                 rlv = sd_json_variant_ref(sd_json_variant_by_key(v, "resourceLimits"));
 
@@ -1145,8 +1145,8 @@ static int add_disposition(sd_json_variant **v) {
 }
 
 static int acquire_new_home_record(sd_json_variant *input, UserRecord **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
         int r;
 
         assert(ret);
@@ -1258,7 +1258,7 @@ static int acquire_new_password(
                 (void) suggest_passwords();
 
         for (;;) {
-                _cleanup_strv_free_erase_ char **first = NULL, **second = NULL;
+                _cleanup_(strv_free_erasep) char **first = NULL, **second = NULL;
                 _cleanup_free_ char *question = NULL;
 
                 if (--i == 0)
@@ -1324,7 +1324,7 @@ static int acquire_new_password(
 
 static int acquire_merged_blob_dir(UserRecord *hr, bool existing, Hashmap **ret) {
         _cleanup_free_ char *sys_blob_path = NULL;
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_free(hashmap) Hashmap *blobs = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         const char *src_blob_path, *filename;
         void *fd_ptr;
@@ -1446,8 +1446,8 @@ static int bus_message_append_blobs(sd_bus_message *m, Hashmap *blobs) {
 
 static int create_home_common(sd_json_variant *input, bool show_enforce_password_policy_hint) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
+        _cleanup_free(hashmap) Hashmap *blobs = NULL;
         int r;
 
         r = acquire_new_home_record(input, &hr);
@@ -1486,7 +1486,7 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
         }
 
         if (hr->enforce_password_policy == 0) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 /* If password quality enforcement is disabled, let's at least warn client side */
 
@@ -1507,8 +1507,8 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (;;) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
                 _cleanup_(erase_and_freep) char *formatted = NULL;
 
                 r = sd_json_variant_format(hr->json, /* flags= */ 0, &formatted);
@@ -1607,7 +1607,7 @@ static int verb_adopt_home(int argc, char *argv[], uintptr_t _data, void *userda
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         STRV_FOREACH(i, strv_skip(argv, 1)) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
                 r = bus_message_new_method_call(bus, &m, bus_mgr, "AdoptHome");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -1616,7 +1616,7 @@ static int verb_adopt_home(int argc, char *argv[], uintptr_t _data, void *userda
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to adopt home: %s", bus_error_message(&error, r));
@@ -1641,7 +1641,7 @@ static int register_home_common(sd_bus *bus, sd_json_variant *v) {
                 bus = _bus;
         }
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         r = bus_message_new_method_call(bus, &m, bus_mgr, "RegisterHome");
         if (r < 0)
                 return bus_log_create_error(r);
@@ -1655,7 +1655,7 @@ static int register_home_common(sd_bus *bus, sd_json_variant *v) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to register home: %s", bus_error_message(&error, r));
@@ -1669,7 +1669,7 @@ static int register_home_one(sd_bus *bus, FILE *f, const char *path) {
         assert(bus);
         assert(path);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         unsigned line = 0, column = 0;
         r = sd_json_parse_file(f, path, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
@@ -1721,7 +1721,7 @@ static int verb_unregister_home(int argc, char *argv[], uintptr_t _data, void *u
 
         int ret = 0;
         STRV_FOREACH(i, strv_skip(argv, 1)) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
                 r = bus_message_new_method_call(bus, &m, bus_mgr, "UnregisterHome");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -1730,7 +1730,7 @@ static int verb_unregister_home(int argc, char *argv[], uintptr_t _data, void *u
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                 if (r < 0)
                         RET_GATHER(ret, log_error_errno(r, "Failed to unregister home: %s", bus_error_message(&error, r)));
@@ -1750,8 +1750,8 @@ static int verb_remove_home(int argc, char *argv[], uintptr_t _data, void *userd
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         STRV_FOREACH(i, strv_skip(argv, 1)) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_mgr, "RemoveHome");
                 if (r < 0)
@@ -1777,8 +1777,8 @@ static int acquire_updated_home_record(
                 const char *username,
                 UserRecord **ret) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
         int r;
 
         assert(ret);
@@ -1811,8 +1811,8 @@ static int acquire_updated_home_record(
                 }
 
         } else {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
                 int incomplete;
                 const char *text;
 
@@ -1915,9 +1915,9 @@ static int home_record_reset_human_interaction_permission(UserRecord *hr) {
 
 static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL, *secret = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL, *secret = NULL;
         _cleanup_free_ char *buffer = NULL;
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_free(hashmap) Hashmap *blobs = NULL;
         const char *username;
         uint64_t flags = 0;
         int r;
@@ -1974,8 +1974,8 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
                 flags |= SD_HOMED_UPDATE_OFFLINE;
 
         for (;;) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
                 _cleanup_free_ char *formatted = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_mgr, "UpdateHomeEx");
@@ -2023,8 +2023,8 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
 
         /* Also sync down disk size to underlying LUKS/fscrypt/quota */
         while (and_resize) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_mgr, "ResizeHome");
                 if (r < 0)
@@ -2059,8 +2059,8 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
 
         /* Also sync down passwords to underlying LUKS/fscrypt */
         while (and_change_password) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_mgr, "ChangePasswordHome");
                 if (r < 0)
@@ -2091,7 +2091,7 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
 }
 
 static int verb_passwd_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(user_record_unrefp) UserRecord *old_secret = NULL, *new_secret = NULL;
+        _cleanup_unref(user_record) UserRecord *old_secret = NULL, *new_secret = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *buffer = NULL;
         const char *username;
@@ -2137,8 +2137,8 @@ static int verb_passwd_home(int argc, char *argv[], uintptr_t _data, void *userd
                 return r;
 
         for (;;) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_mgr, "ChangePasswordHome");
                 if (r < 0)
@@ -2209,7 +2209,7 @@ static int parse_disk_size(const char *t, uint64_t *ret) {
 
 static int verb_resize_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        _cleanup_unref(user_record) UserRecord *secret = NULL;
         uint64_t ds = UINT64_MAX;
         int r;
 
@@ -2242,8 +2242,8 @@ static int verb_resize_home(int argc, char *argv[], uintptr_t _data, void *userd
                 return r;
 
         for (;;) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_mgr, "ResizeHome");
                 if (r < 0)
@@ -2278,8 +2278,8 @@ static int verb_lock_home(int argc, char *argv[], uintptr_t _data, void *userdat
                 return r;
 
         STRV_FOREACH(i, strv_skip(argv, 1)) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_mgr, "LockHome");
                 if (r < 0)
@@ -2309,15 +2309,15 @@ static int verb_unlock_home(int argc, char *argv[], uintptr_t _data, void *userd
                 return r;
 
         STRV_FOREACH(i, strv_skip(argv, 1)) {
-                _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+                _cleanup_unref(user_record) UserRecord *secret = NULL;
 
                 r = acquire_passed_secrets(*i, &secret);
                 if (r < 0)
                         return r;
 
                 for (;;) {
-                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                         r = bus_message_new_method_call(bus, &m, bus_mgr, "UnlockHome");
                         if (r < 0)
@@ -2349,12 +2349,12 @@ static int verb_unlock_home(int argc, char *argv[], uintptr_t _data, void *userd
 }
 
 static int verb_with_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        _cleanup_unref(user_record) UserRecord *secret = NULL;
         _cleanup_close_ int acquired_fd = -EBADF;
-        _cleanup_strv_free_ char **cmdline  = NULL;
+        _cleanup_free(strv) char **cmdline  = NULL;
         const char *home;
         int r, ret;
 
@@ -2429,7 +2429,7 @@ static int verb_with_home(int argc, char *argv[], uintptr_t _data, void *userdat
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
                         "(with)",
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REOPEN_LOG,
@@ -2472,8 +2472,8 @@ static int verb_with_home(int argc, char *argv[], uintptr_t _data, void *userdat
 }
 
 static int verb_lock_all_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -2493,8 +2493,8 @@ static int verb_lock_all_homes(int argc, char *argv[], uintptr_t _data, void *us
 }
 
 static int verb_deactivate_all_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -2514,8 +2514,8 @@ static int verb_deactivate_all_homes(int argc, char *argv[], uintptr_t _data, vo
 }
 
 static int verb_rebalance(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -2576,7 +2576,7 @@ static int create_or_register_from_credentials(void) {
                         continue;
                 }
 
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *identity = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *identity = NULL;
                 unsigned line = 0, column = 0;
                 r = sd_json_parse_file_at(
                                 /* f= */ NULL,
@@ -2624,7 +2624,7 @@ static int create_or_register_from_credentials(void) {
 }
 
 static int has_regular_user(void) {
-        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
         UserDBMatch match = USERDB_MATCH_NULL;
         int r;
 
@@ -2644,8 +2644,8 @@ static int has_regular_user(void) {
 }
 
 static int acquire_group_list(char ***ret) {
-        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        _cleanup_strv_free_ char **groups = NULL;
+        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
+        _cleanup_free(strv) char **groups = NULL;
         UserDBMatch match = USERDB_MATCH_NULL;
         int r;
 
@@ -2662,7 +2662,7 @@ static int acquire_group_list(char ***ret) {
                 return log_debug_errno(r, "Failed to enumerate groups, ignoring: %m");
         else
                 for (;;) {
-                        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                        _cleanup_unref(group_record) GroupRecord *gr = NULL;
 
                         r = groupdb_iterator_get(iterator, &match, &gr);
                         if (r == -ESRCH)
@@ -2671,7 +2671,7 @@ static int acquire_group_list(char ***ret) {
                                 return log_debug_errno(r, "Failed to acquire next group: %m");
 
                         if (group_record_disposition(gr) == USER_REGULAR) {
-                                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                                _cleanup_unref(user_record) UserRecord *ur = NULL;
 
                                 /* Filter groups here that belong to a specific user, and are named like them */
 
@@ -2707,7 +2707,7 @@ static int group_completion_callback(const char *key, char ***ret_list, void *us
                         log_debug_errno(r, "Failed to enumerate available groups, ignoring: %m");
         }
 
-        _cleanup_strv_free_ char **l = strv_copy(*available);
+        _cleanup_free(strv) char **l = strv_copy(*available);
         if (!l)
                 return -ENOMEM;
 
@@ -2732,7 +2732,7 @@ static int prompt_groups(const char *username, char ***ret_groups) {
 
         putchar('\n');
 
-        _cleanup_strv_free_ char **available = NULL, **groups = NULL;
+        _cleanup_free(strv) char **available = NULL, **groups = NULL;
         for (;;) {
                 strv_sort_uniq(groups);
 
@@ -2958,7 +2958,7 @@ static int create_interactively(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set enforcePasswordPolicy field: %m");
 
-        _cleanup_strv_free_ char **groups = NULL;
+        _cleanup_free(strv) char **groups = NULL;
         r = prompt_groups(username, &groups);
         if (r < 0)
                 return r;
@@ -3071,8 +3071,8 @@ static int _drop_from_identity(char **fields) {
 }
 
 static int parse_ssh_authorized_keys(sd_json_variant **identity, const char *field, const char *arg) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_strv_free_ char **l = NULL, **add = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_free(strv) char **l = NULL, **add = NULL;
         int r;
 
         assert(identity);
@@ -3503,7 +3503,7 @@ static int parse_rlimit_field(sd_json_variant **identity, const char *field, con
                 return 0;
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jcur = NULL, *jmax = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *jcur = NULL, *jmax = NULL;
         struct rlimit rl;
 
         r = rlimit_parse(limit, eq + 1, &rl);
@@ -3622,8 +3622,8 @@ static int parse_weight_field(sd_json_variant **identity, const char *field, con
 }
 
 static int parse_environment_field(sd_json_variant **identity, const char *field, const char *arg) {
-        _cleanup_strv_free_ char **l = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ne = NULL;
+        _cleanup_free(strv) char **l = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *ne = NULL;
         int r;
 
         assert(identity);
@@ -3704,7 +3704,7 @@ static int parse_group_field(
 
         for (const char *p = arg;;) {
                 _cleanup_free_ char *word = NULL;
-                _cleanup_strv_free_ char **list = NULL;
+                _cleanup_free(strv) char **list = NULL;
 
                 r = extract_first_word(&p, &word, ",", /* flags= */ 0);
                 if (r < 0)
@@ -3715,7 +3715,7 @@ static int parse_group_field(
                 if (!valid_user_group_name(word, /* flags= */ 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid group name %s.", word);
 
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo =
+                _cleanup_unref(sd_json_variant) sd_json_variant *mo =
                         sd_json_variant_ref(sd_json_variant_by_key(*identity, field));
 
                 r = sd_json_variant_strv(mo, &list);
@@ -3745,7 +3745,7 @@ static int parse_capability_set_field(
                 const char *field,
                 const char *arg) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(identity);
@@ -4100,7 +4100,7 @@ static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        _cleanup_strv_free_ char **arg_languages = NULL;
+        _cleanup_free(strv) char **arg_languages = NULL;
 
         enum {
                 ARG_VERSION = 0x100,
@@ -5104,9 +5104,9 @@ static bool is_fallback_shell(const char *p) {
 }
 
 static int fallback_shell(int argc, char *argv[]) {
-        _cleanup_(user_record_unrefp) UserRecord *secret = NULL, *hr = NULL;
+        _cleanup_unref(user_record) UserRecord *secret = NULL, *hr = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         _cleanup_free_ char *argv0 = NULL;
         const char *json, *hd, *shell;
         int r, incomplete;
@@ -5128,9 +5128,9 @@ static int fallback_shell(int argc, char *argv[]) {
                 return r;
 
         for (unsigned n_tries = 0;; n_tries++) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 if (n_tries >= 5)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
@@ -5167,7 +5167,7 @@ static int fallback_shell(int argc, char *argv[]) {
                 }
 
                 for (;;) {
-                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                         r = bus_message_new_method_call(bus, &m, bus_mgr, "ActivateHomeIfReferenced");
                         if (r < 0)
@@ -5205,7 +5205,7 @@ static int fallback_shell(int argc, char *argv[]) {
         if (incomplete > 0) {
                 /* We are still in an "incomplete" session here. Now upgrade it to a full one. This will make logind
                  * start the user@.service instance for us. */
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.login1",
@@ -5286,13 +5286,13 @@ static int verb_list_signing_keys(int argc, char *argv[], uintptr_t _data, void 
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         r = bus_call_method(bus, bus_mgr, "ListSigningKeys", &error, &reply, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list signing keys: %s", bus_error_message(&error, r));
 
-        _cleanup_(table_unrefp) Table *table = table_new("name", "key");
+        _cleanup_unref(table) Table *table = table_new("name", "key");
         if (!table)
                 return log_oom();
 
@@ -5314,7 +5314,7 @@ static int verb_list_signing_keys(int argc, char *argv[], uintptr_t _data, void 
                         /* Let's decode the PEM key to DER (so that we lose prefix/suffix), then truncate it
                          * for display reasons. */
 
-                        _cleanup_(EVP_PKEY_freep) EVP_PKEY *key = NULL;
+                        _cleanup_free(EVP_PKEY) EVP_PKEY *key = NULL;
                         r = openssl_pubkey_from_pem(pem, SIZE_MAX, &key);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse PEM: %m");
@@ -5375,8 +5375,8 @@ static int verb_get_signing_key(int argc, char *argv[], uintptr_t _data, void *u
         char **keys = argc >= 2 ? strv_skip(argv, 1) : STRV_MAKE("local.public");
         int ret = 0;
         STRV_FOREACH(k, keys) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
                 r = bus_call_method(bus, bus_mgr, "GetSigningKey", &error, &reply, "s", *k);
                 if (r < 0) {
                         RET_GATHER(ret, log_error_errno(r, "Failed to get signing key '%s': %s", *k, bus_error_message(&error, r)));
@@ -5412,7 +5412,7 @@ static int add_signing_key_one(sd_bus *bus, const char *fn, FILE *key) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read key '%s': %m", fn);
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         r = bus_call_method(bus, bus_mgr, "AddSigningKey", &error, /* ret_reply= */ NULL, "sst", fn, pem, UINT64_C(0));
         if (r < 0)
                 return log_error_errno(r, "Failed to add signing key '%s': %s", fn, bus_error_message(&error, r));
@@ -5519,7 +5519,7 @@ static int remove_signing_key_one(sd_bus *bus, const char *fn) {
         assert_se(bus);
         assert_se(fn);
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         r = bus_call_method(bus, bus_mgr, "RemoveSigningKey", &error, /* ret_reply= */ NULL, "st", fn, UINT64_C(0));
         if (r < 0)
                 return log_error_errno(r, "Failed to remove signing key '%s': %s", fn, bus_error_message(&error, r));

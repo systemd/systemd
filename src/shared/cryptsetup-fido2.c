@@ -34,7 +34,7 @@ int acquire_fido2_key(
 
 #if HAVE_LIBCRYPTSETUP && HAVE_LIBFIDO2
         _cleanup_(erase_and_freep) char *envpw = NULL;
-        _cleanup_strv_free_erase_ char **pins = NULL;
+        _cleanup_(strv_free_erasep) char **pins = NULL;
         _cleanup_(iovec_done_erase) struct iovec loaded_salt = {};
         bool device_exists = false;
         struct iovec salt;
@@ -159,7 +159,7 @@ int acquire_fido2_key_auto(
         /* Loads FIDO2 metadata from LUKS2 JSON token headers. */
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 sd_json_variant *w;
                 _cleanup_free_ void *salt = NULL;
                 _cleanup_free_ char *rp = NULL;

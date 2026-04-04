@@ -40,8 +40,8 @@ struct udev_enumerate {
  * Returns: an enumeration context.
  **/
 _public_ struct udev_enumerate* udev_enumerate_new(struct udev *udev) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_(udev_list_freep) struct udev_list *list = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
+        _cleanup_free(udev_list) struct udev_list *list = NULL;
         struct udev_enumerate *udev_enumerate;
         int r;
 
@@ -398,7 +398,7 @@ _public_ int udev_enumerate_add_match_sysname(struct udev_enumerate *udev_enumer
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char *syspath) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         int r;
 
         assert_return(udev_enumerate, -EINVAL);

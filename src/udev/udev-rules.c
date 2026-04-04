@@ -530,7 +530,7 @@ static int rule_resolve_user(UdevRuleLine *rule_line, const char *name, uid_t *r
                 return 0;
         }
 
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        _cleanup_unref(user_record) UserRecord *ur = NULL;
         r = userdb_by_name(name, /* match= */ NULL,
                            USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                            &ur);
@@ -571,7 +571,7 @@ static int rule_resolve_group(UdevRuleLine *rule_line, const char *name, gid_t *
                 return 0;
         }
 
-        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+        _cleanup_unref(group_record) GroupRecord *gr = NULL;
         r = groupdb_by_name(name, /* match= */ NULL,
                             USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                             &gr);
@@ -622,7 +622,7 @@ static int rule_line_add_token(
                 bool is_case_insensitive,
                 const char *token_str) {
 
-        _cleanup_(udev_rule_token_freep) UdevRuleToken *token = NULL;
+        _cleanup_free(udev_rule_token) UdevRuleToken *token = NULL;
         UdevRuleMatchType match_type = _MATCH_TYPE_INVALID;
         UdevRuleSubstituteType subst_type = _SUBST_TYPE_INVALID;
 
@@ -1439,7 +1439,7 @@ static void sort_tokens(UdevRuleLine *rule_line) {
 }
 
 static int rule_add_line(UdevRuleFile *rule_file, const char *line, unsigned line_nr, bool extra_checks) {
-        _cleanup_(udev_rule_line_freep) UdevRuleLine *rule_line = NULL;
+        _cleanup_free(udev_rule_line) UdevRuleLine *rule_line = NULL;
         char *p;
         int r;
 
@@ -1679,7 +1679,7 @@ static void udev_check_rule_line(UdevRuleLine *line) {
 }
 
 int udev_rules_parse_file(UdevRules *rules, const ConfFile *c, bool extra_checks, UdevRuleFile **ret) {
-        _cleanup_(udev_rule_file_freep) UdevRuleFile *rule_file = NULL;
+        _cleanup_free(udev_rule_file) UdevRuleFile *rule_file = NULL;
         _cleanup_free_ char *name = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -1820,8 +1820,8 @@ UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing) {
 }
 
 int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing, char * const *extra) {
-        _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
-        _cleanup_strv_free_ char **directories = NULL;
+        _cleanup_free(udev_rules) UdevRules *rules = NULL;
+        _cleanup_free(strv) char **directories = NULL;
         int r;
 
         rules = udev_rules_new(resolve_name_timing);
@@ -1861,7 +1861,7 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
 }
 
 bool udev_rules_should_reload(UdevRules *rules) {
-        _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
+        _cleanup_free(hashmap) Hashmap *stats_by_path = NULL;
         int r;
 
         if (!rules)
@@ -2458,7 +2458,7 @@ static int udev_rule_apply_token_to_event(
                 assert_not_reached();
         }
         case TK_M_IMPORT_PROGRAM: {
-                _cleanup_strv_free_ char **lines = NULL;
+                _cleanup_free(strv) char **lines = NULL;
                 char buf[UDEV_LINE_SIZE], result[UDEV_LINE_SIZE];
                 bool truncated;
 
@@ -2630,7 +2630,7 @@ static int udev_rule_apply_token_to_event(
 
                 log_event_info(event, token, "Dumping current state:");
 
-                _cleanup_(memstream_done) MemStream m = {};
+                _cleanup_done(memstream) MemStream m = {};
                 FILE *f = memstream_init(&m);
                 if (!f)
                         return log_oom();
@@ -2708,7 +2708,7 @@ static int udev_rule_apply_token_to_event(
                 if (!apply_format_value(event, token, owner, sizeof(owner), "user name"))
                         return true;
 
-                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                _cleanup_unref(user_record) UserRecord *ur = NULL;
                 r = userdb_by_name(owner, /* match= */ NULL,
                                    USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                                    &ur);
@@ -2741,7 +2741,7 @@ static int udev_rule_apply_token_to_event(
                 if (!apply_format_value(event, token, group, sizeof(group), "group name"))
                         return true;
 
-                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                _cleanup_unref(group_record) GroupRecord *gr = NULL;
                 r = groupdb_by_name(group, /* match= */ NULL,
                                     USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                                     &gr);
@@ -3292,7 +3292,7 @@ int udev_rules_apply_to_event(UdevRules *rules, UdevEvent *event) {
 }
 
 static int udev_rule_line_apply_static_dev_perms(UdevRuleLine *rule_line) {
-        _cleanup_strv_free_ char **tags = NULL;
+        _cleanup_free(strv) char **tags = NULL;
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         mode_t mode = MODE_INVALID;

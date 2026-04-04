@@ -1179,7 +1179,7 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
-                _cleanup_strv_free_ char **added = NULL;
+                _cleanup_free(strv) char **added = NULL;
 
                 log_trace("Operating on architecture: %s", seccomp_arch_to_string(arch));
 

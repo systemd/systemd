@@ -73,7 +73,7 @@ static int get_gateway_description(
                 union in_addr_union *gateway,
                 char **ret) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL, *reply = NULL;
         int r;
 
         assert(rtnl);
@@ -176,7 +176,7 @@ static int get_gateway_description(
 
 int dump_gateways(sd_netlink *rtnl, sd_hwdb *hwdb, Table *table, int ifindex) {
         _cleanup_free_ struct local_address *local_addrs = NULL;
-        _cleanup_strv_free_ char **buf = NULL;
+        _cleanup_free(strv) char **buf = NULL;
         int r, n;
 
         assert(rtnl);
@@ -215,7 +215,7 @@ int dump_addresses(
                 int ifindex) {
 
         _cleanup_free_ struct local_address *local_addrs = NULL;
-        _cleanup_strv_free_ char **buf = NULL;
+        _cleanup_free(strv) char **buf = NULL;
         struct in_addr dhcp4_address = {};
         int r, n;
 

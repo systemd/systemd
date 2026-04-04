@@ -320,7 +320,7 @@ int cat_files_full(const ConfFile *file, ConfFile * const *dropins, size_t n_dro
 }
 
 static int cat_file_by_path(const char *p, bool *newline, CatFlags flags) {
-        _cleanup_(conf_file_freep) ConfFile *c = NULL;
+        _cleanup_free(conf_file) ConfFile *c = NULL;
         int r;
 
         assert(p);
@@ -433,7 +433,7 @@ static int guess_type(const char **name, char ***ret_prefixes, bool *ret_is_coll
 }
 
 int conf_files_cat(const char *root, const char *name, CatFlags flags) {
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_free(strv) char **dirs = NULL;
         char **prefixes = NULL; /* explicit initialization to appease gcc */
         bool is_collection;
         const char *extension;
@@ -464,7 +464,7 @@ int conf_files_cat(const char *root, const char *name, CatFlags flags) {
         }
 
         /* First locate the main config file, if any */
-        _cleanup_(conf_file_freep) ConfFile *c = NULL;
+        _cleanup_free(conf_file) ConfFile *c = NULL;
         if (!is_collection) {
                 STRV_FOREACH(prefix, prefixes) {
                         _cleanup_free_ char *p = path_join(*prefix, name);

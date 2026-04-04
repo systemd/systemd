@@ -127,7 +127,7 @@ int event_reset_time_relative(
 }
 
 int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handler_t callback, void *userdata) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -189,7 +189,7 @@ int event_add_child_pidref(
         if (copy_fd < 0)
                 return -errno;
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         r = sd_event_add_child_pidfd(e, &s, copy_fd, options, callback, userdata);
         if (r < 0)
                 return r;
@@ -312,7 +312,7 @@ int event_forward_signals(
                 return -ENOMEM;
 
         FOREACH_ARRAY(sig, signals, n_signals) {
-                _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+                _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
                 r = sd_event_add_signal(e, &s, *sig | SD_EVENT_SIGNAL_PROCMASK, event_forward_signal_callback, child);
                 if (r < 0)
                         return r;

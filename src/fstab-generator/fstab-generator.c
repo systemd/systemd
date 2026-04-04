@@ -331,7 +331,7 @@ static int write_dependency(
                 const char *filter,
                 const char* const *unit_settings) {
 
-        _cleanup_strv_free_ char **unit_names = NULL;
+        _cleanup_free(strv) char **unit_names = NULL;
         _cleanup_free_ char *units = NULL;
         int r;
 
@@ -389,7 +389,7 @@ static int write_mounts_for(
                 const char *filter,
                 const char *unit_setting) {
 
-        _cleanup_strv_free_ char **paths = NULL, **paths_escaped = NULL;
+        _cleanup_free(strv) char **paths = NULL, **paths_escaped = NULL;
         int r;
 
         assert(f);
@@ -493,7 +493,7 @@ static int add_mount(
 
         _cleanup_free_ char *name = NULL, *automount_name = NULL, *filtered = NULL, *where_escaped = NULL,
                 *opts_root_filtered = NULL;
-        _cleanup_strv_free_ char **wanted_by = NULL, **required_by = NULL;
+        _cleanup_free(strv) char **wanted_by = NULL, **required_by = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -768,7 +768,7 @@ static int add_mount(
 
 static int do_daemon_reload(void) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r, k;
 
         log_debug("Calling org.freedesktop.systemd1.Manager.Reload()...");
@@ -1025,8 +1025,8 @@ static int parse_fstab_one(
 }
 
 static int parse_fstab(bool prefix_sysroot) {
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+        _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
         const char *fstab;
         int r, ret = 0;
 
@@ -1439,8 +1439,8 @@ static int add_mounts_from_creds(bool prefix_sysroot) {
         if (!f)
                 return log_oom();
 
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+        _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
 
         r = libmount_parse_full(cred, f, MNT_ITER_FORWARD, &table, &iter);
         if (r < 0)

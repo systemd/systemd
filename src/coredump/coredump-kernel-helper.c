@@ -14,7 +14,7 @@
 #include "signal-util.h"
 
 int coredump_kernel_helper(int argc, char *argv[]) {
-        _cleanup_(coredump_context_done) CoredumpContext context = COREDUMP_CONTEXT_NULL;
+        _cleanup_done(coredump_context) CoredumpContext context = COREDUMP_CONTEXT_NULL;
         int r;
 
         /* When we're invoked by the kernel, stdout/stderr are closed which is dangerous because the fds

@@ -14,7 +14,7 @@ ssize_t sendmsg(int __fd, const struct msghdr *__message, int flags) {
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        _cleanup_unref(sd_dhcp_server) sd_dhcp_server *server = NULL;
         struct in_addr address = {.s_addr = htobe32(UINT32_C(10) << 24 | UINT32_C(1))};
         union in_addr_union relay_address;
         _cleanup_free_ uint8_t *message = NULL;

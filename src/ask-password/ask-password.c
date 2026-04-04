@@ -40,7 +40,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_message, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
+        _cleanup_unref(table) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-ask-password", "1", &link);
@@ -299,7 +299,7 @@ static int vl_method_ask(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 SET_FLAG(arg_flags, ASK_PASSWORD_SILENT, p.echo_mode == ECHO_OFF);
         }
 
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
         r = ask_password_auto(&req, arg_flags, &l);
         if (r == -EUNATCH)
                 return sd_varlink_error(link, "io.systemd.AskPassword.NoPasswordAvailable", NULL);
@@ -312,7 +312,7 @@ static int vl_method_ask(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *vl = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *vl = NULL;
         r = sd_json_variant_new_array_strv(&vl, l);
         if (r < 0)
                 return r;
@@ -323,8 +323,8 @@ static int vl_method_ask(sd_varlink *link, sd_json_variant *parameters, sd_varli
 }
 
 static int vl_server(void) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
-        _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *varlink_server = NULL;
+        _cleanup_free(hashmap) Hashmap *polkit_registry = NULL;
         int r;
 
         r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_INHERIT_USERDATA, /* userdata= */ &polkit_registry);
@@ -347,7 +347,7 @@ static int vl_server(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
         usec_t timeout;
         int r;
 

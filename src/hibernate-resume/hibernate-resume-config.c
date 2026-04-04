@@ -86,7 +86,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 static int get_kernel_hibernate_location(KernelHibernateLocation **ret) {
-        _cleanup_(kernel_hibernate_location_freep) KernelHibernateLocation *k = NULL;
+        _cleanup_free(kernel_hibernate_location) KernelHibernateLocation *k = NULL;
         int r;
 
         assert(ret);
@@ -156,8 +156,8 @@ int get_efi_hibernate_location(EFIHibernateLocation **ret) {
                 {},
         };
 
-        _cleanup_(efi_hibernate_location_freep) EFIHibernateLocation *e = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free(efi_hibernate_location) EFIHibernateLocation *e = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ char *location_str = NULL;
         int r;
 
@@ -239,7 +239,7 @@ void compare_hibernate_location_and_warn(const HibernateInfo *info) {
 }
 
 int acquire_hibernate_info(HibernateInfo *ret) {
-        _cleanup_(hibernate_info_done) HibernateInfo i = {};
+        _cleanup_done(hibernate_info) HibernateInfo i = {};
         int r;
 
         r = get_kernel_hibernate_location(&i.cmdline);

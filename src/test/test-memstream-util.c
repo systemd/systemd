@@ -4,13 +4,13 @@
 #include "tests.h"
 
 TEST(memstream_done) {
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
 
         ASSERT_NOT_NULL(memstream_init(&m));
 }
 
 TEST(memstream_empty) {
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         _cleanup_free_ char *buf = NULL;
         size_t sz;
 
@@ -21,7 +21,7 @@ TEST(memstream_empty) {
 }
 
 TEST(memstream) {
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         _cleanup_free_ char *buf = NULL;
         size_t sz;
         FILE *f;
@@ -44,7 +44,7 @@ TEST(memstream) {
 }
 
 TEST(memstream_dump) {
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         FILE *f;
 
         ASSERT_NOT_NULL(f = memstream_init(&m));

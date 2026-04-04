@@ -114,7 +114,7 @@ TEST(load_os_release_pairs) {
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_OS_RELEASE", tmpfile, 1));
 
-        _cleanup_strv_free_ char **pairs = NULL;
+        _cleanup_free(strv) char **pairs = NULL;
         ASSERT_EQ(load_os_release_pairs(NULL, &pairs), 0);
         assert_se(strv_equal(pairs, STRV_MAKE("ID", "the-id",
                                               "NAME", "the-name")));

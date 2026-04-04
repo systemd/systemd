@@ -19,7 +19,7 @@ int fdisk_new_context_at(
                 uint32_t sector_size,
                 struct fdisk_context **ret) {
 
-        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_unref(fdisk_context) struct fdisk_context *c = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
