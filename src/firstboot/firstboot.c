@@ -237,7 +237,7 @@ static int locale_is_ok(const char *name, void *userdata) {
 }
 
 static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_strv_free_ char **locales = NULL;
+        _cleanup_free(strv) char **locales = NULL;
         bool acquired_from_creds = false;
         int r;
 
@@ -404,7 +404,7 @@ static int keymap_is_ok(const char* name, void *userdata) {
 }
 
 static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_strv_free_ char **kmaps = NULL;
+        _cleanup_free(strv) char **kmaps = NULL;
         int r;
 
         assert(rfd >= 0);
@@ -469,7 +469,7 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
 static int process_keymap(int rfd, sd_varlink **mute_console_link) {
         _cleanup_close_ int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
-        _cleanup_strv_free_ char **keymap = NULL;
+        _cleanup_free(strv) char **keymap = NULL;
         int r;
 
         assert(rfd >= 0);
@@ -513,7 +513,7 @@ static int process_keymap(int rfd, sd_varlink **mute_console_link) {
         VCContext vc = {
                 .keymap = arg_keymap,
         };
-        _cleanup_(x11_context_clear) X11Context xc = {};
+        _cleanup_clear(x11_context) X11Context xc = {};
 
         r = vconsole_convert_to_x11(&vc, /* verify= */ NULL, &xc);
         if (r < 0)
@@ -536,7 +536,7 @@ static int timezone_is_ok(const char *name, void *userdata) {
 }
 
 static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_free(strv) char **zones = NULL;
         int r;
 
         assert(rfd >= 0);
@@ -1651,9 +1651,9 @@ static int reload_system_manager(sd_bus **bus) {
 }
 
 static int reload_vconsole(sd_bus **bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *w = NULL;
         const char *object;
         int r;
 
@@ -1686,7 +1686,7 @@ static int reload_vconsole(sd_bus **bus) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_close_ int rfd = -EBADF;
         int r;

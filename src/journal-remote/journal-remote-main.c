@@ -173,7 +173,7 @@ static int spawn_curl(const char *url) {
 
 static int spawn_getter(const char *getter) {
         int r;
-        _cleanup_strv_free_ char **words = NULL;
+        _cleanup_free(strv) char **words = NULL;
 
         assert(getter);
         r = strv_split_full(&words, getter, WHITESPACE, EXTRACT_UNQUOTE);
@@ -233,7 +233,7 @@ static int request_meta(void **connection_cls, int fd, char *hostname) {
                 return log_warning_errno(r, "Failed to get writer for source %s: %m",
                                          hostname);
 
-        _cleanup_(source_freep) RemoteSource *source = source_new(fd, true, hostname, writer);
+        _cleanup_free(source) RemoteSource *source = source_new(fd, true, hostname, writer);
         if (!source)
                 return log_oom();
 
@@ -479,7 +479,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                 MHD_USE_EPOLL |
                 MHD_USE_ITC;
 
-        _cleanup_(MHDDaemonWrapper_freep) MHDDaemonWrapper *d = NULL;
+        _cleanup_free(MHDDaemonWrapper) MHDDaemonWrapper *d = NULL;
         const union MHD_DaemonInfo *info;
         int r, epoll_fd;
 
@@ -1144,7 +1144,7 @@ static int load_certificates(char **key, char **cert, char **trust) {
 }
 
 static int run(int argc, char **argv) {
-        _cleanup_(journal_remote_server_destroy) RemoteServer s = {};
+        _cleanup_destroy(journal_remote_server) RemoteServer s = {};
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         _cleanup_(erase_and_freep) char *key = NULL;
         _cleanup_free_ char *cert = NULL, *trust = NULL;

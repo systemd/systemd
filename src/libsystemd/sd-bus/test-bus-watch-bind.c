@@ -93,7 +93,7 @@ static void* thread_server(void *p) {
 
         for (;;) {
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-                _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+                _cleanup_unref(sd_event) sd_event *event = NULL;
                 sd_id128_t id;
                 int bus_fd, code;
 
@@ -133,7 +133,7 @@ static void* thread_server(void *p) {
 }
 
 static void* thread_client1(void *p) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *path = p, *t;
 
@@ -162,7 +162,7 @@ static int client2_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret
 
 static void* thread_client2(void *p) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         const char *path = p, *t;
 
         log_debug("Initializing client2");

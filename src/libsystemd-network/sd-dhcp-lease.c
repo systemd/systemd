@@ -648,7 +648,7 @@ static int lease_parse_dnr(const uint8_t *option, size_t len, sd_dns_resolver **
         assert(dnr);
         assert(n_dnr);
 
-        _cleanup_(sd_dns_resolver_done) sd_dns_resolver res = {};
+        _cleanup_done(sd_dns_resolver) sd_dns_resolver res = {};
 
         size_t offset = 0;
         while (offset < len) {
@@ -1141,7 +1141,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
 
 /* Parses compressed domain names. */
 int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***domains) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         size_t pos = 0, cnt = 0;
         int r;
 
@@ -1461,7 +1461,7 @@ static char **private_options_free(char **options) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, private_options_free);
 
 int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
-        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        _cleanup_unref(sd_dhcp_lease) sd_dhcp_lease *lease = NULL;
         _cleanup_free_ char
                 *address = NULL,
                 *router = NULL,
@@ -1485,7 +1485,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 *lifetime = NULL,
                 *t1 = NULL,
                 *t2 = NULL;
-        _cleanup_(private_options_freep) char **options = NULL;
+        _cleanup_free(private_options) char **options = NULL;
 
         int r, i;
 
@@ -1666,7 +1666,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         }
 
         if (domains) {
-                _cleanup_strv_free_ char **a = NULL;
+                _cleanup_free(strv) char **a = NULL;
                 a = strv_split(domains, " ");
                 if (!a)
                         return -ENOMEM;

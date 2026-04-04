@@ -34,7 +34,7 @@ int dhcp_client_get_state(sd_dhcp_client *client);
  * client from the callback doesn't destroy the object we are working
  * on */
 #define DHCP_CLIENT_DONT_DESTROY(client) \
-        _cleanup_(sd_dhcp_client_unrefp) _unused_ sd_dhcp_client *_dont_destroy_##client = sd_dhcp_client_ref(client)
+        _cleanup_unref(sd_dhcp_client) _unused_ sd_dhcp_client *_dont_destroy_##client = sd_dhcp_client_ref(client)
 
 #define log_dhcp_client_errno(client, error, fmt, ...)          \
         log_interface_prefix_full_errno(                        \

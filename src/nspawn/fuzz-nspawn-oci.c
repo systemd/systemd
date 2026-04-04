@@ -6,7 +6,7 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_(settings_freep) Settings *s = NULL;
+        _cleanup_free(settings) Settings *s = NULL;
 
         if (outside_size_range(size, 0, 65536))
                 return 0;

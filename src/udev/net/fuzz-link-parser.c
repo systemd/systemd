@@ -6,7 +6,7 @@
 #include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(link_config_ctx_freep) LinkConfigContext *ctx = NULL;
+        _cleanup_free(link_config_ctx) LinkConfigContext *ctx = NULL;
         _cleanup_(unlink_tempfilep) char filename[] = "/tmp/fuzz-link-config.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
 

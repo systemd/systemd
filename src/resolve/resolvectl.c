@@ -123,7 +123,7 @@ static const char* const status_mode_json_field_table[_STATUS_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(status_mode_json_field, StatusMode);
 
 static int acquire_bus(sd_bus **ret) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_unref(sd_bus) sd_bus *bus = NULL;
         int r;
 
         assert(ret);
@@ -139,8 +139,8 @@ static int acquire_bus(sd_bus **ret) {
 }
 
 int ifname_mangle_full(const char *s, bool drop_protocol_specifier) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_strv_free_ char **found = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_free(strv) char **found = NULL;
         int r;
 
         assert(s);
@@ -272,8 +272,8 @@ static int resolve_host_error(const char *name, int r, const sd_bus_error *error
 }
 
 static int resolve_host(sd_bus *bus, const char *name) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *canonical = NULL;
         unsigned c = 0;
         uint64_t flags;
@@ -371,8 +371,8 @@ static int resolve_host(sd_bus *bus, const char *name) {
 }
 
 static int resolve_address(sd_bus *bus, int family, const union in_addr_union *address, int ifindex) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *pretty = NULL;
         uint64_t flags;
         unsigned c = 0;
@@ -468,7 +468,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
 }
 
 static int output_rr_packet(const void *d, size_t l, int ifindex) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         int r;
 
         assert(d || l == 0);
@@ -478,7 +478,7 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
                 return log_error_errno(r, "Failed to parse RR: %m");
 
         if (sd_json_format_enabled(arg_json_format_flags)) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
                 r = dns_resource_record_to_json(rr, &j);
                 if (r < 0)
                         return log_error_errno(r, "Failed to convert RR to JSON: %m");
@@ -559,8 +559,8 @@ static bool single_label_nonsynthetic(const char *name) {
 }
 
 static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_t type, bool warn_missing) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *idnafied = NULL;
         bool needs_authentication = false;
         unsigned n = 0;
@@ -820,8 +820,8 @@ static int verb_query(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
 static int resolve_service(sd_bus *bus, const char *name, const char *type, const char *domain) {
         const char *canonical_name, *canonical_type, *canonical_domain;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *req = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         size_t indent, sz;
         uint64_t flags;
         const char *p;
@@ -1164,9 +1164,9 @@ static int verb_tlsa(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int verb_show_statistics(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         sd_json_variant *reply = NULL;
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         int r;
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
@@ -1326,7 +1326,7 @@ static int verb_show_statistics(int argc, char *argv[], uintptr_t _data, void *u
 
 static int verb_reset_statistics(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_json_variant *reply = NULL;
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         int r;
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
@@ -1351,7 +1351,7 @@ static int verb_reset_statistics(int argc, char *argv[], uintptr_t _data, void *
 
 static int verb_flush_caches(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = acquire_bus(&bus);
@@ -1367,7 +1367,7 @@ static int verb_flush_caches(int argc, char *argv[], uintptr_t _data, void *user
 
 static int verb_reset_server_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = acquire_bus(&bus);
@@ -1480,7 +1480,7 @@ static int strv_extend_extended_bool(char ***strv, const char *name, const char 
 }
 
 static int status_json_filter_fields(sd_json_variant **configuration, StatusMode mode) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         sd_json_variant *w;
         const char *field;
         int r;
@@ -1510,8 +1510,8 @@ static int status_json_filter_fields(sd_json_variant **configuration, StatusMode
 }
 
 static int status_json_filter_links(sd_json_variant **configuration, char **links) {
-        _cleanup_set_free_ Set *links_by_index = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free(set) Set *links_by_index = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         sd_json_variant *w;
         int r;
 
@@ -1554,8 +1554,8 @@ static int status_json_filter_links(sd_json_variant **configuration, char **link
 }
 
 static int varlink_dump_dns_configuration(sd_json_variant **ret) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *reply = NULL;
         sd_json_variant *v;
         int r;
 
@@ -1612,7 +1612,7 @@ static int format_dns_servers(DNSConfiguration *configuration, OrderedSet *serve
 
         assert(ret);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         DNSServer *s;
         ORDERED_SET_FOREACH(s, servers) {
                 _cleanup_free_ char *str = NULL;
@@ -1635,7 +1635,7 @@ static int format_search_domains(DNSConfiguration *configuration, OrderedSet *do
 
         assert(ret);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         SearchDomain *d;
         ORDERED_SET_FOREACH(d, domains) {
                 if (!(configuration->ifindex > 0 || configuration->delegate) && d->ifindex > 0)
@@ -1660,7 +1660,7 @@ static int format_search_domains(DNSConfiguration *configuration, OrderedSet *do
 }
 
 static int format_protocol_status(DNSConfiguration *configuration, char ***ret) {
-        _cleanup_strv_free_ char **s = NULL;
+        _cleanup_free(strv) char **s = NULL;
         int r;
 
         assert(configuration);
@@ -1736,7 +1736,7 @@ static int format_scopes_string(DNSConfiguration *configuration, char **ret) {
 }
 
 static int print_configuration(DNSConfiguration *configuration, StatusMode mode, bool *empty_line) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         assert(configuration);
@@ -1745,7 +1745,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
 
         bool global = !(configuration->ifindex > 0 || configuration->delegate);
         if (mode == STATUS_DNS) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
                 r = format_dns_servers(configuration, configuration->dns_servers, &l);
                 if (r < 0)
                         return r;
@@ -1753,7 +1753,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
                 return status_print_strv(configuration, l);
 
         } else if (mode == STATUS_DOMAIN) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
                 r = format_search_domains(configuration, configuration->search_domains, &l);
                 if (r < 0)
                         return r;
@@ -1816,7 +1816,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
         }
 
         if (!configuration->delegate) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
                 r = format_protocol_status(configuration, &l);
                 if (r < 0)
                         return r;
@@ -1849,7 +1849,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
                         return table_log_add_error(r);
         }
 
-        _cleanup_strv_free_ char **dns_servers = NULL;
+        _cleanup_free(strv) char **dns_servers = NULL;
         r = format_dns_servers(configuration, configuration->dns_servers, &dns_servers);
         if (r < 0)
                 return r;
@@ -1859,7 +1859,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
                 return r;
 
         if (global) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
                 r = format_dns_servers(configuration, configuration->fallback_dns_servers, &l);
                 if (r < 0)
                         return r;
@@ -1869,7 +1869,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
                         return r;
         }
 
-        _cleanup_strv_free_ char **search_domains = NULL;
+        _cleanup_free(strv) char **search_domains = NULL;
         r = format_search_domains(configuration, configuration->search_domains, &search_domains);
         if (r < 0)
                 return r;
@@ -1900,7 +1900,7 @@ static int status_full(StatusMode mode, char **links) {
         bool empty_line = false;
         int r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = varlink_dump_dns_configuration(&v);
         if (r < 0)
                 return r;
@@ -1917,11 +1917,11 @@ static int status_full(StatusMode mode, char **links) {
                 return sd_json_variant_dump(v, arg_json_format_flags, /* f= */ NULL, /* prefix= */ NULL);
         }
 
-        _cleanup_(dns_configuration_freep) DNSConfiguration *global_config = NULL;
-        _cleanup_ordered_set_free_ OrderedSet *link_configs = NULL, *delegate_configs = NULL;
+        _cleanup_free(dns_configuration) DNSConfiguration *global_config = NULL;
+        _cleanup_free(ordered_set) OrderedSet *link_configs = NULL, *delegate_configs = NULL;
         sd_json_variant *w;
         JSON_VARIANT_ARRAY_FOREACH(w, v) {
-                _cleanup_(dns_configuration_freep) DNSConfiguration *c = NULL;
+                _cleanup_free(dns_configuration) DNSConfiguration *c = NULL;
                 r = dns_configuration_from_json(w, &c);
                 if (r < 0)
                         return r;
@@ -1986,7 +1986,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
 }
 
 static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_error *error, bool extended) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *req = NULL;
         int r;
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
@@ -2060,7 +2060,7 @@ static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_e
 
 static int verb_dns(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = acquire_bus(&bus);
@@ -2098,7 +2098,7 @@ static int verb_dns(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *req = NULL;
         int r;
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
@@ -2145,7 +2145,7 @@ static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd
 
 static int verb_domain(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = acquire_bus(&bus);
@@ -2184,7 +2184,7 @@ static int verb_domain(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
 static int verb_default_route(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r, b;
 
         r = acquire_bus(&bus);
@@ -2228,7 +2228,7 @@ static int verb_default_route(int argc, char *argv[], uintptr_t _data, void *use
 
 static int verb_llmnr(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *global_llmnr_support_str = NULL;
         ResolveSupport global_llmnr_support, llmnr_support;
         int r;
@@ -2286,7 +2286,7 @@ static int verb_llmnr(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
 static int verb_mdns(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *global_mdns_support_str = NULL;
         ResolveSupport global_mdns_support, mdns_support;
         int r;
@@ -2350,7 +2350,7 @@ static int verb_mdns(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
 static int verb_dns_over_tls(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = acquire_bus(&bus);
@@ -2396,7 +2396,7 @@ static int verb_dns_over_tls(int argc, char *argv[], uintptr_t _data, void *user
 
 static int verb_dnssec(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = acquire_bus(&bus);
@@ -2435,7 +2435,7 @@ static int verb_dnssec(int argc, char *argv[], uintptr_t _data, void *userdata) 
 }
 
 static int call_nta(sd_bus *bus, char **nta, const BusLocator *locator,  sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *req = NULL;
         int r;
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
@@ -2457,7 +2457,7 @@ static int call_nta(sd_bus *bus, char **nta, const BusLocator *locator,  sd_bus_
 
 static int verb_nta(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         char **args;
         bool clear;
         int r;
@@ -2515,7 +2515,7 @@ static int verb_nta(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
 static int verb_revert_link(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = acquire_bus(&bus);
@@ -2570,7 +2570,7 @@ static int print_question(char prefix, const char *color, sd_json_variant *quest
         assert(color);
 
         JSON_VARIANT_ARRAY_FOREACH(q, question) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+                _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
                 char buf[DNS_RESOURCE_KEY_STRING_MAX];
 
                 r = dns_resource_key_from_json(q, &key);
@@ -2595,7 +2595,7 @@ static int print_answer(sd_json_variant *answer) {
         int r;
 
         JSON_VARIANT_ARRAY_FOREACH(a, answer) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
                 _cleanup_free_ void *d = NULL;
                 sd_json_variant *jraw;
                 const char *s;
@@ -2667,7 +2667,7 @@ static void monitor_query_dump(sd_json_variant *v) {
                 {}
         };
 
-        _cleanup_(monitor_query_params_done) MonitorQueryParams p = {
+        _cleanup_done(monitor_query_params) MonitorQueryParams p = {
                 .rcode = -1,
                 .ede_code = -1,
         };
@@ -2747,8 +2747,8 @@ static int monitor_reply(
 }
 
 static int verb_monitor(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         int r, c;
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
@@ -2812,7 +2812,7 @@ static int dump_cache_item(sd_json_variant *item) {
                 {},
         };
 
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *k = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *k = NULL;
         int r, c = 0;
 
         r = sd_json_dispatch(item, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &item_info);
@@ -2829,7 +2829,7 @@ static int dump_cache_item(sd_json_variant *item) {
                 sd_json_variant *i;
 
                 JSON_VARIANT_ARRAY_FOREACH(i, item_info.rrs) {
-                        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
                         _cleanup_free_ void *data = NULL;
                         sd_json_variant *raw;
                         size_t size;
@@ -2922,7 +2922,7 @@ static int dump_cache_scope(sd_json_variant *scope) {
 
 static int verb_show_cache(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_json_variant *reply = NULL, *d = NULL;
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         int r;
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
@@ -2964,7 +2964,7 @@ static int verb_show_cache(int argc, char *argv[], uintptr_t _data, void *userda
 }
 
 static int dump_server_state(sd_json_variant *server) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         TableCell *cell;
 
         struct server_state {
@@ -3098,7 +3098,7 @@ static int dump_server_state(sd_json_variant *server) {
 
 static int verb_show_server_state(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_json_variant *reply = NULL, *d = NULL;
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         int r;
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);

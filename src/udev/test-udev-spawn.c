@@ -16,8 +16,8 @@
 #define BUF_SIZE 1024
 
 static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result_buf, size_t buf_size) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        _cleanup_(udev_event_unrefp) UdevEvent *event = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
+        _cleanup_unref(udev_event) UdevEvent *event = NULL;
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_PIDFD", yes_no(with_pidfd), 1));
 
@@ -29,7 +29,7 @@ static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result
 }
 
 static void test_event_spawn_cat(bool with_pidfd, size_t buf_size) {
-        _cleanup_strv_free_ char **lines = NULL;
+        _cleanup_free(strv) char **lines = NULL;
         _cleanup_free_ char *cmd = NULL;
         char result_buf[BUF_SIZE];
 
@@ -51,7 +51,7 @@ static void test_event_spawn_cat(bool with_pidfd, size_t buf_size) {
 }
 
 static void test_event_spawn_self(const char *self, const char *arg, bool with_pidfd) {
-        _cleanup_strv_free_ char **lines = NULL;
+        _cleanup_free(strv) char **lines = NULL;
         _cleanup_free_ char *cmd = NULL;
         char result_buf[BUF_SIZE];
 

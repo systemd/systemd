@@ -57,7 +57,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(inhibitor_hash_ops, char, string_h
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(button_hash_ops, char, string_hash_func, string_compare_func, Button, button_free);
 
 static int manager_new(Manager **ret) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         int r;
 
         assert(ret);
@@ -181,7 +181,7 @@ static Manager* manager_free(Manager *m) {
 }
 
 static int manager_enumerate_devices(Manager *m) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         int r;
 
         assert(m);
@@ -209,7 +209,7 @@ static int manager_enumerate_devices(Manager *m) {
 }
 
 static int manager_enumerate_buttons(Manager *m) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         int r;
 
         assert(m);
@@ -362,7 +362,7 @@ static int manager_enumerate_users(Manager *m) {
 }
 
 static int parse_fdname(const char *fdname, char **ret_session_id, dev_t *ret_devno) {
-        _cleanup_strv_free_ char **parts = NULL;
+        _cleanup_free(strv) char **parts = NULL;
         _cleanup_free_ char *id = NULL;
         int r;
 
@@ -443,7 +443,7 @@ static int deliver_session_device_fd(Session *s, const char *fdname, int fd, dev
 
 static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int fd_consume) {
         _cleanup_close_ int fd = ASSERT_FD(fd_consume);
-        _cleanup_(pidref_done) PidRef leader_fdstore = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef leader_fdstore = PIDREF_NULL;
         int r;
 
         assert(s);
@@ -574,7 +574,7 @@ static int manager_enumerate_sessions(Manager *m) {
 }
 
 static int manager_enumerate_fds(Manager *m, int *ret_varlink_fd) {
-        _cleanup_strv_free_ char **fdnames = NULL;
+        _cleanup_free(strv) char **fdnames = NULL;
         int varlink_fd = -EBADF, n, r = 0;
 
         assert(m);
@@ -1343,7 +1343,7 @@ static int manager_run(Manager *m) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
 

@@ -315,7 +315,7 @@ static int ndisc_nexthop_find_id(NextHop *nexthop, Link *link) {
 }
 
 static int ndisc_nexthop_new(const Route *route, Link *link, NextHop **ret) {
-        _cleanup_(nexthop_unrefp) NextHop *nexthop = NULL;
+        _cleanup_unref(nexthop) NextHop *nexthop = NULL;
         int r;
 
         assert(route);
@@ -418,7 +418,7 @@ static int ndisc_request_nexthop(NextHop *nexthop, Link *link) {
 }
 
 static int ndisc_set_route_nexthop(Route *route, Link *link, bool request) {
-        _cleanup_(nexthop_unrefp) NextHop *nexthop = NULL;
+        _cleanup_unref(nexthop) NextHop *nexthop = NULL;
         int r;
 
         assert(route);
@@ -764,7 +764,7 @@ int ndisc_reconfigure_address(Address *address, Link *link) {
 }
 
 static int ndisc_redirect_route_new(sd_ndisc_redirect *rd, Route **ret) {
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_unref(route) Route *route = NULL;
         struct in6_addr gateway, destination;
         int r;
 
@@ -801,7 +801,7 @@ static int ndisc_redirect_route_new(sd_ndisc_redirect *rd, Route **ret) {
 }
 
 static int ndisc_remove_redirect_route(Link *link, sd_ndisc_redirect *rd) {
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_unref(route) Route *route = NULL;
         int r;
 
         assert(link);
@@ -876,7 +876,7 @@ static int ndisc_redirect_equal(sd_ndisc_redirect *x, sd_ndisc_redirect *y) {
 }
 
 static int ndisc_redirect_drop_conflict(Link *link, sd_ndisc_redirect *rd) {
-        _cleanup_(sd_ndisc_redirect_unrefp) sd_ndisc_redirect *existing = NULL;
+        _cleanup_unref(sd_ndisc_redirect) sd_ndisc_redirect *existing = NULL;
         int r;
 
         assert(link);
@@ -1000,7 +1000,7 @@ static int ndisc_redirect_handler(Link *link, sd_ndisc_redirect *rd) {
         sd_ndisc_redirect_ref(rd);
 
         /* Finally, request the corresponding route. */
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_unref(route) Route *route = NULL;
         r = ndisc_redirect_route_new(rd, &route);
         if (r < 0)
                 return r;
@@ -1070,7 +1070,7 @@ static int ndisc_update_redirect_sender(Link *link, const struct in6_addr *origi
 }
 
 static int ndisc_router_drop_default(Link *link, sd_ndisc_router *rt) {
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_unref(route) Route *route = NULL;
         struct in6_addr gateway;
         int r;
 
@@ -1096,7 +1096,7 @@ static int ndisc_router_drop_default(Link *link, sd_ndisc_router *rt) {
 
         Route *route_gw;
         HASHMAP_FOREACH(route_gw, link->network->routes_by_section) {
-                _cleanup_(route_unrefp) Route *tmp = NULL;
+                _cleanup_unref(route) Route *tmp = NULL;
 
                 if (route_gw->source != NETWORK_CONFIG_SOURCE_NDISC)
                         continue;
@@ -1151,7 +1151,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
         if (link->network->ndisc_use_gateway) {
-                _cleanup_(route_unrefp) Route *route = NULL;
+                _cleanup_unref(route) Route *route = NULL;
 
                 r = route_new(&route);
                 if (r < 0)
@@ -1170,7 +1170,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
         Route *route_gw;
         HASHMAP_FOREACH(route_gw, link->network->routes_by_section) {
-                _cleanup_(route_unrefp) Route *route = NULL;
+                _cleanup_unref(route) Route *route = NULL;
 
                 if (route_gw->source != NETWORK_CONFIG_SOURCE_NDISC)
                         continue;
@@ -1203,7 +1203,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 sd_ndisc_router_unref);
 
 static int ndisc_update_router_address(Link *link, const struct in6_addr *original_address, const struct in6_addr *current_address) {
-        _cleanup_(sd_ndisc_router_unrefp) sd_ndisc_router *rt = NULL;
+        _cleanup_unref(sd_ndisc_router) sd_ndisc_router *rt = NULL;
         int r;
 
         assert(link);
@@ -1528,7 +1528,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         if (lifetime_preferred_usec > lifetime_valid_usec)
                 return 0;
 
-        _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
+        _cleanup_free(hashmap) Hashmap *tokens_by_address = NULL;
         r = ndisc_generate_addresses(link, &prefix, prefixlen, &tokens_by_address);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to generate SLAAC addresses: %m");
@@ -1536,7 +1536,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         IPv6Token *token;
         struct in6_addr *a;
         HASHMAP_FOREACH_KEY(token, a, tokens_by_address) {
-                _cleanup_(address_unrefp) Address *address = NULL;
+                _cleanup_unref(address) Address *address = NULL;
 
                 r = address_new(&address);
                 if (r < 0)
@@ -1564,7 +1564,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 }
 
 static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_unref(route) Route *route = NULL;
         uint8_t prefixlen, preference;
         usec_t lifetime_usec;
         struct in6_addr prefix;
@@ -1688,7 +1688,7 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt, bool zer
 }
 
 static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt, bool zero_lifetime) {
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_unref(route) Route *route = NULL;
         uint8_t preference, prefixlen;
         struct in6_addr gateway, dst;
         usec_t lifetime_usec;
@@ -1984,7 +1984,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 ndisc_captive_portal_free);
 
 static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt, bool zero_lifetime) {
-        _cleanup_(ndisc_captive_portal_freep) NDiscCaptivePortal *new_entry = NULL;
+        _cleanup_free(ndisc_captive_portal) NDiscCaptivePortal *new_entry = NULL;
         _cleanup_free_ char *captive_portal = NULL;
         const char *uri;
         usec_t lifetime_usec;
@@ -2222,7 +2222,7 @@ static int sd_dns_resolver_copy(const sd_dns_resolver *a, sd_dns_resolver *b) {
         assert(a);
         assert(b);
 
-        _cleanup_(sd_dns_resolver_done) sd_dns_resolver c = {
+        _cleanup_done(sd_dns_resolver) sd_dns_resolver c = {
                 .priority = a->priority,
                 .transports = a->transports,
                 .port = a->port,
@@ -2263,7 +2263,7 @@ static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt, b
         struct in6_addr router;
         usec_t lifetime_usec;
         sd_dns_resolver *res;
-        _cleanup_(ndisc_dnr_freep) NDiscDNR *new_entry = NULL;
+        _cleanup_free(ndisc_dnr) NDiscDNR *new_entry = NULL;
 
         if (!link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_NDISC))
                 return 0;
@@ -2758,7 +2758,7 @@ static int ndisc_neighbor_handle_non_router_message(Link *link, sd_ndisc_neighbo
         r = ndisc_drop_redirect(link, &address);
 
         /* Also remove the default gateway via the host, but keep the configurations based on the RA options. */
-        _cleanup_(sd_ndisc_router_unrefp) sd_ndisc_router *rt = hashmap_remove(link->ndisc_routers_by_sender, &address);
+        _cleanup_unref(sd_ndisc_router) sd_ndisc_router *rt = hashmap_remove(link->ndisc_routers_by_sender, &address);
         if (rt)
                 RET_GATHER(r, ndisc_router_drop_default(link, rt));
 

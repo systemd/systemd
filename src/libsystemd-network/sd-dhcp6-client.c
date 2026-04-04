@@ -31,7 +31,7 @@
 #include "web-util.h"
 
 #define DHCP6_CLIENT_DONT_DESTROY(client) \
-        _cleanup_(sd_dhcp6_client_unrefp) _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
+        _cleanup_unref(sd_dhcp6_client) _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
 
 static int client_start_transaction(sd_dhcp6_client *client, DHCP6State state);
 
@@ -1149,7 +1149,7 @@ static int client_process_information(
                 const triple_timestamp *timestamp,
                 const struct in6_addr *server_address) {
 
-        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
+        _cleanup_unref(sd_dhcp6_lease) sd_dhcp6_lease *lease = NULL;
         int r;
 
         assert(client);
@@ -1183,7 +1183,7 @@ static int client_process_reply(
                 const triple_timestamp *timestamp,
                 const struct in6_addr *server_address) {
 
-        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
+        _cleanup_unref(sd_dhcp6_lease) sd_dhcp6_lease *lease = NULL;
         int r;
 
         assert(client);
@@ -1225,7 +1225,7 @@ static int client_process_advertise_or_rapid_commit_reply(
                 const triple_timestamp *timestamp,
                 const struct in6_addr *server_address) {
 
-        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
+        _cleanup_unref(sd_dhcp6_lease) sd_dhcp6_lease *lease = NULL;
         uint8_t pref_advertise, pref_lease = 0;
         int r;
 
@@ -1569,7 +1569,7 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_client, sd_dhcp6_client, dhcp6_client_free);
 
 int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
-        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
+        _cleanup_unref(sd_dhcp6_client) sd_dhcp6_client *client = NULL;
 
         assert_return(ret, -EINVAL);
 

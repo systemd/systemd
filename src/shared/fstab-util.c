@@ -39,8 +39,8 @@ bool fstab_enabled_full(int enabled) {
 
 int fstab_has_fstype(const char *fstype) {
 #if HAVE_LIBMOUNT
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+        _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
         int r;
 
         assert(fstype);
@@ -119,8 +119,8 @@ static int fstab_is_same_node(const char *what_fstab, const char *path) {
 
 int fstab_has_mount_point_prefix_strv(char * const *prefixes) {
 #if HAVE_LIBMOUNT
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+        _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
         int r;
 
         assert(!strv_isempty(prefixes));
@@ -161,8 +161,8 @@ int fstab_has_mount_point_prefix_strv(char * const *prefixes) {
 
 int fstab_is_mount_point_full(const char *where, const char *path) {
 #if HAVE_LIBMOUNT
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+        _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
         int r;
 
         assert(where || path);
@@ -208,7 +208,7 @@ int fstab_filter_options(
                 char ***ret_values,
                 char **ret_filtered) {
 
-        _cleanup_strv_free_ char **values = NULL;
+        _cleanup_free(strv) char **values = NULL;
         _cleanup_free_ char *value = NULL, *filtered = NULL;
         const char *namefound = NULL;
         int r;
@@ -230,7 +230,7 @@ int fstab_filter_options(
          * Returns negative on error, true if any matching options were found, false otherwise. */
 
         if (ret_value || ret_values || ret_filtered) {
-                _cleanup_strv_free_ char **opts_split = NULL;
+                _cleanup_free(strv) char **opts_split = NULL;
                 _cleanup_free_ char **filtered_strv = NULL; /* strings are owned by 'opts_split' */
 
                 /* For backwards compatibility, we need to pass-through escape characters.

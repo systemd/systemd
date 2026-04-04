@@ -214,7 +214,7 @@ static int manager_connect_udev(Manager *m) {
 }
 
 static int manager_listen_fds(Manager *m, int *ret_rtnl_fd, int *ret_varlink_fd, int *ret_varlink_metrics_fd, int *ret_resolve_hook_fd) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         int n, rtnl_fd = -EBADF, varlink_fd = -EBADF, varlink_metrics_fd = -EBADF, resolve_hook_fd = -EBADF;
 
         assert(m);
@@ -675,7 +675,7 @@ static int persistent_storage_open(void) {
 }
 
 int manager_new(Manager **ret, bool test_mode) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
 
         m = new(Manager, 1);
         if (!m)
@@ -879,7 +879,7 @@ int manager_enumerate_internal(
                 sd_netlink_message *req,
                 int (*process)(sd_netlink *, sd_netlink_message *, Manager *)) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *reply = NULL;
         int r;
 
         assert(m);
@@ -904,7 +904,7 @@ int manager_enumerate_internal(
 }
 
 static int manager_enumerate_links(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -932,7 +932,7 @@ static int manager_enumerate_links(Manager *m) {
 }
 
 static int manager_enumerate_qdisc(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -961,7 +961,7 @@ static int manager_enumerate_tclass(Manager *m) {
 }
 
 static int manager_enumerate_addresses(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -975,7 +975,7 @@ static int manager_enumerate_addresses(Manager *m) {
 }
 
 static int manager_enumerate_neighbors(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -989,7 +989,7 @@ static int manager_enumerate_neighbors(Manager *m) {
 }
 
 static int manager_enumerate_routes(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -1006,7 +1006,7 @@ static int manager_enumerate_routes(Manager *m) {
 }
 
 static int manager_enumerate_rules(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -1023,7 +1023,7 @@ static int manager_enumerate_rules(Manager *m) {
 }
 
 static int manager_enumerate_nexthop(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -1040,7 +1040,7 @@ static int manager_enumerate_nexthop(Manager *m) {
 }
 
 static int manager_enumerate_nl80211_wiphy(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -1054,7 +1054,7 @@ static int manager_enumerate_nl80211_wiphy(Manager *m) {
 }
 
 static int manager_enumerate_nl80211_config(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -1075,7 +1075,7 @@ static int manager_enumerate_nl80211_mlme(Manager *m) {
         assert(m->genl);
 
         HASHMAP_FOREACH(link, m->links_by_index) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+                _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
 
                 if (link->wlan_iftype != NL80211_IFTYPE_STATION)
                         continue;

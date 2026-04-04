@@ -91,7 +91,7 @@ static int journal_ratelimit_group_new(
                 usec_t ts,
                 JournalRateLimitGroup **ret) {
 
-        _cleanup_(journal_ratelimit_group_freep) JournalRateLimitGroup *g = NULL;
+        _cleanup_free(journal_ratelimit_group) JournalRateLimitGroup *g = NULL;
         int r;
 
         assert(groups_by_id);

@@ -6,7 +6,7 @@
 #include "tests.h"
 
 TEST(audit_loginuid_from_pid) {
-        _cleanup_(pidref_done) PidRef self = PIDREF_NULL, pid1 = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef self = PIDREF_NULL, pid1 = PIDREF_NULL;
         int r;
 
         ASSERT_OK(pidref_set_self(&self));

@@ -21,7 +21,7 @@
 TEST(conf_files_list) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL, *t2 = NULL;
         _cleanup_close_ int tfd = -EBADF, tfd2 = -EBADF;
-        _cleanup_strv_free_ char **result = NULL;
+        _cleanup_free(strv) char **result = NULL;
         const char *search1, *search2, *search3, *search1_a, *search1_b, *search1_c, *search2_aa, *search2_mm;
 
         ASSERT_OK(tfd = mkdtemp_open("/tmp/test-conf-files-XXXXXX", O_PATH, &t));

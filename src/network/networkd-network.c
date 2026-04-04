@@ -105,7 +105,7 @@ static int network_resolve_stacked_netdevs(Network *network) {
         assert(network);
 
         HASHMAP_FOREACH_KEY(kind, name, network->stacked_netdev_names) {
-                _cleanup_(netdev_unrefp) NetDev *netdev = NULL;
+                _cleanup_unref(netdev) NetDev *netdev = NULL;
 
                 if (network_resolve_netdev_one(network, name, PTR_TO_INT(kind), &netdev) <= 0)
                         continue;
@@ -322,7 +322,7 @@ int network_verify(Network *network) {
 
 int network_load_one(Manager *manager, OrderedHashmap **networks, const char *filename) {
         _cleanup_free_ char *fname = NULL, *name = NULL;
-        _cleanup_(network_unrefp) Network *network = NULL;
+        _cleanup_unref(network) Network *network = NULL;
         const char *dropin_dirname;
         char *d;
         int r;
@@ -616,7 +616,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 }
 
 int network_load(Manager *manager, OrderedHashmap **ret) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         OrderedHashmap *networks = NULL;
         int r;
 
@@ -657,7 +657,7 @@ static bool network_netdev_equal(Network *a, Network *b) {
 }
 
 int network_reload(Manager *manager) {
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *new_networks = NULL;
+        _cleanup_free(ordered_hashmap) OrderedHashmap *new_networks = NULL;
         Network *n, *old;
         int r;
 

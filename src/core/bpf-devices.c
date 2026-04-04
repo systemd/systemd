@@ -164,7 +164,7 @@ int bpf_devices_cgroup_init(
                             offsetof(struct bpf_cgroup_dev_ctx, minor)),
         };
 
-        _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
+        _cleanup_free(bpf_program) BPFProgram *prog = NULL;
         int r;
 
         assert(ret);

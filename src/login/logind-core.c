@@ -188,7 +188,7 @@ int manager_add_user_by_name(
                 const char *name,
                 User **ret_user) {
 
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        _cleanup_unref(user_record) UserRecord *ur = NULL;
         int r;
 
         assert(m);
@@ -209,7 +209,7 @@ int manager_add_user_by_uid(
                 uid_t uid,
                 User **ret_user) {
 
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        _cleanup_unref(user_record) UserRecord *ur = NULL;
         int r;
 
         assert(m);
@@ -573,7 +573,7 @@ static int vt_is_busy(unsigned vtnr) {
 }
 
 int manager_spawn_autovt(Manager *m, unsigned vtnr) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         char name[sizeof("autovt@tty.service") + DECIMAL_STR_MAX(unsigned)];
         int r;
 
@@ -625,7 +625,7 @@ static bool manager_is_docked(Manager *m) {
 }
 
 static int manager_count_external_displays(Manager *m) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         int r, n = 0;
 
         r = sd_device_enumerator_new(&e);

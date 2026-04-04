@@ -337,8 +337,8 @@ TEST(umount_recursive) {
         FOREACH_ELEMENT(t, test_table) {
                 r = ASSERT_OK(pidref_safe_fork("(umount-rec)", FORK_COMMON_FLAGS, NULL));
                 if (r == 0) { /* child */
-                        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-                        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+                        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+                        _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
                         _cleanup_free_ char *k = NULL;
 

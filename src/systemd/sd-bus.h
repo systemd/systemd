@@ -359,6 +359,7 @@ int sd_bus_creds_get_description(sd_bus_creds *c, const char **ret);
 #define SD_BUS_ERROR_NULL SD_BUS_ERROR_MAKE_CONST(NULL, NULL)
 
 void sd_bus_error_free(sd_bus_error *e);
+#define sd_bus_error_done sd_bus_error_free
 int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message);
 int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...)  _sd_printf_(3, 4);
 int sd_bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_list ap) _sd_printf_(3,0);

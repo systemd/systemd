@@ -9,6 +9,7 @@
 #include <systemd/sd-bus.h>
 
 #define _cleanup_(f) __attribute__((cleanup(f)))
+#define _cleanup_unref(x) _cleanup_(x ## _unrefp)
 
 typedef struct object {
   char *name;
@@ -87,7 +88,7 @@ static const sd_bus_vtable vtable[] = {
 };
 
 int main(int argc, char **argv) {
-  _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+  _cleanup_unref(sd_bus_flush_close) sd_bus *bus = NULL;
   int r;
 
   sd_bus_default(&bus);

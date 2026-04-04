@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
 
         const char *table = argv[3], *set = argv[4];
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *nfnl = NULL;
         ASSERT_OK(sd_nfnl_socket_open(&nfnl));
 
         bool add;

@@ -157,7 +157,7 @@ int kmod_setup(void) {
         if (have_effective_cap(CAP_SYS_MODULE) <= 0)
                 return 0;
 
-        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        _cleanup_unref(kmod) struct kmod_ctx *ctx = NULL;
         FOREACH_ELEMENT(kmod, kmod_table) {
                 if (kmod->path && access(kmod->path, F_OK) >= 0)
                         continue;

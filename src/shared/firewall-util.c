@@ -333,7 +333,7 @@ static int sd_nfnl_message_new_masq_rule(
                 int family,
                 const char *chain) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         /* -t nat -A POSTROUTING -p protocol -s source/pflen -o out_interface -d destination/pflen -j MASQUERADE */
@@ -385,7 +385,7 @@ static int sd_nfnl_message_new_dnat_rule_pre(
                 int family,
                 const char *chain) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         enum nft_registers proto_reg;
         uint32_t local = RTN_LOCAL;
         int r;
@@ -452,7 +452,7 @@ static int sd_nfnl_message_new_dnat_rule_out(
                 const char *chain) {
 
         static const uint32_t zero = 0, one = 1;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         enum nft_registers proto_reg;
         int r;
 
@@ -552,7 +552,7 @@ static int nft_new_set(
                 uint32_t type,
                 uint32_t klen) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(nfnl);
@@ -590,7 +590,7 @@ static int nft_new_map(
                 uint32_t dtype,
                 uint32_t dlen) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(nfnl);
@@ -625,7 +625,7 @@ static int nft_add_element(
                 const void *data,
                 uint32_t dlen) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(nfnl);
@@ -682,7 +682,7 @@ static int nft_del_element(
                 const void *data,
                 uint32_t dlen) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(nfnl);
@@ -893,7 +893,7 @@ int nft_set_element_modify_iprange(
                 const union in_addr_union *source,
                 unsigned source_prefixlen) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(nfnl);
@@ -931,7 +931,7 @@ int nft_set_element_modify_ip(
                 const char *set,
                 const union in_addr_union *source) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(nfnl);
@@ -971,7 +971,7 @@ int nft_set_element_modify_any(
                 const void *element,
                 size_t element_size) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(nfnl);
@@ -1224,7 +1224,7 @@ int nft_set_add(NFTSetContext *s, NFTSetSource source, int nfproto, const char *
 
 int nft_set_context_dup(const NFTSetContext *src, NFTSetContext *dst) {
         int r;
-        _cleanup_(nft_set_context_clear) NFTSetContext d = (NFTSetContext) {};
+        _cleanup_clear(nft_set_context) NFTSetContext d = (NFTSetContext) {};
 
         assert(src);
         assert(dst);

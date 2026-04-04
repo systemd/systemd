@@ -196,13 +196,13 @@ static int acquire_user_record(pam_handle_t *pamh, UserRecord **ret_record) {
         if (!field)
                 return pam_log_oom(pamh);
 
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        _cleanup_unref(user_record) UserRecord *ur = NULL;
         const char *json = NULL;
         r = pam_get_data(pamh, field, (const void**) &json);
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get PAM user record data: @PAMERR@");
         if (r == PAM_SUCCESS && json) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 /* Parse cached record */
                 r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
@@ -657,7 +657,7 @@ static int apply_user_record_settings(
                 bool debug,
                 uint64_t default_capability_bounding_set,
                 uint64_t default_capability_ambient_set) {
-        _cleanup_strv_free_ char **langs = NULL;
+        _cleanup_free(strv) char **langs = NULL;
         int r;
 
         assert(pamh);
@@ -839,7 +839,7 @@ static int create_session_message(
                 bool avoid_pidfd,
                 sd_bus_message **ret) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_close_ int pidfd = -EBADF;
         int r;
 
@@ -1109,8 +1109,8 @@ static int register_session(
                          "memory_max=%s tasks_max=%s cpu_weight=%s io_weight=%s runtime_max_sec=%s",
                          strna(c->memory_max), strna(c->tasks_max), strna(c->cpu_weight), strna(c->io_weight), strna(c->runtime_max_sec));
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL; /* the following variables point into this message, hence pin it for longer */
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL; /* similar */
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL; /* the following variables point into this message, hence pin it for longer */
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL; /* similar */
         const char *id = NULL, *object_path = NULL, *runtime_path = NULL, *real_seat = NULL;
         uint32_t original_uid = UID_INVALID, real_vtnr = 0;
 
@@ -1129,7 +1129,7 @@ static int register_session(
                         if (r < 0)
                                 return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to set relative timeout on Varlink socket: %m");
 
-                        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
                         r = pidref_set_self(&pidref);
                         if (r < 0)
                                 return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to acquire PID reference on ourselves: %m");
@@ -1214,7 +1214,7 @@ static int register_session(
                 if (r != PAM_SUCCESS)
                         return r;
 
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
                 r = create_session_message(
                                 bus,
                                 pamh,
@@ -1225,7 +1225,7 @@ static int register_session(
                 if (r < 0)
                         return pam_bus_log_create_error(pamh, r);
 
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
                 if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
                         sd_bus_error_free(&error);
@@ -1772,12 +1772,12 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         pam_debug_syslog(pamh, debug, "pam-systemd: initializing...");
 
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        _cleanup_unref(user_record) UserRecord *ur = NULL;
         r = acquire_user_record(pamh, &ur);
         if (r != PAM_SUCCESS)
                 return r;
 
-        _cleanup_(session_context_done) SessionContext c = {};
+        _cleanup_done(session_context) SessionContext c = {};
         r = pam_get_item_many(
                         pamh,
                         PAM_SERVICE,  &c.service,
@@ -1868,14 +1868,14 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         id = pam_getenv(pamh, "XDG_SESSION_ID");
         if (id) {
-                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
                 bool done = false;
 
                 r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Login");
                 if (r < 0)
                         pam_debug_syslog_errno(pamh, debug, r, "Failed to connect to logind via Varlink, falling back to D-Bus: %m");
                 else {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *vreply = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *vreply = NULL;
                         const char *error_id = NULL;
                         r = sd_varlink_callbo(
                                         vl,
@@ -1894,7 +1894,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 }
 
                 if (!done) {
-                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                         _cleanup_(pam_bus_data_disconnectp) PamBusData *d = NULL;
                         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 

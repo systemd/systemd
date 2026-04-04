@@ -170,7 +170,7 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_free_ struct local_address *addresses = NULL;
         Machine *m = ASSERT_PTR(userdata);
         int r;
@@ -219,7 +219,7 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
 }
 
 int bus_machine_method_get_ssh_info(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Machine *m = ASSERT_PTR(userdata);
         int r;
 
@@ -240,7 +240,7 @@ int bus_machine_method_get_ssh_info(sd_bus_message *message, void *userdata, sd_
 }
 
 int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Machine *m = ASSERT_PTR(userdata);
         int r;
 
@@ -258,7 +258,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
 }
 
 int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
         _cleanup_close_ int master = -EBADF;
         Machine *m = ASSERT_PTR(userdata);
@@ -302,7 +302,7 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
 }
 
 int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
         _cleanup_close_ int master = -EBADF;
         Machine *m = ASSERT_PTR(userdata);
@@ -351,10 +351,10 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
 }
 
 int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
         _cleanup_close_ int master = -EBADF;
-        _cleanup_strv_free_ char **env = NULL, **args_wire = NULL, **args = NULL;
+        _cleanup_free(strv) char **env = NULL, **args_wire = NULL, **args = NULL;
         Machine *m = ASSERT_PTR(userdata);
         const char *user, *path;
         int r;
@@ -687,8 +687,8 @@ static int machine_object_find(sd_bus *bus, const char *path, const char *interf
         assert(found);
 
         if (streq(path, "/org/freedesktop/machine1/machine/self")) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
+                _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
 
                 message = sd_bus_get_current_message(bus);
@@ -740,7 +740,7 @@ char* machine_bus_path(Machine *m) {
 }
 
 static int machine_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Machine *machine = NULL;
         Manager *m = userdata;
         int r;
@@ -891,7 +891,7 @@ int machine_send_signal(Machine *m, const char *signal_name) {
 }
 
 int machine_send_create_reply(Machine *m, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *c = NULL;
         _cleanup_free_ char *p = NULL;
 
         assert(m);

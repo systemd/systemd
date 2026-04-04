@@ -72,24 +72,24 @@ extern DLSYM_PROTOTYPE(fido_init);
 extern DLSYM_PROTOTYPE(fido_set_log_handler);
 extern DLSYM_PROTOTYPE(fido_strerr);
 
-static inline void fido_cbor_info_free_wrapper(fido_cbor_info_t **p) {
+static inline void fido_cbor_info_freep(fido_cbor_info_t **p) {
         if (*p)
                 sym_fido_cbor_info_free(p);
 }
 
-static inline void fido_assert_free_wrapper(fido_assert_t **p) {
+static inline void fido_assert_freep(fido_assert_t **p) {
         if (*p)
                 sym_fido_assert_free(p);
 }
 
-static inline void fido_dev_free_wrapper(fido_dev_t **p) {
+static inline void fido_dev_freep(fido_dev_t **p) {
         if (*p) {
                 sym_fido_dev_close(*p);
                 sym_fido_dev_free(p);
         }
 }
 
-static inline void fido_cred_free_wrapper(fido_cred_t **p) {
+static inline void fido_cred_freep(fido_cred_t **p) {
         if (*p)
                 sym_fido_cred_free(p);
 }

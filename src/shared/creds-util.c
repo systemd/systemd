@@ -727,7 +727,7 @@ static int sha256_hash_host_and_tpm2_key(
                 const struct iovec *tpm2_key,
                 uint8_t ret[static SHA256_DIGEST_LENGTH]) {
 
-        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *md = NULL;
+        _cleanup_free(EVP_MD_CTX) EVP_MD_CTX *md = NULL;
         unsigned l;
 
         assert(iovec_is_valid(host_key));
@@ -824,9 +824,9 @@ int encrypt_credential_and_warn(
                 CredentialFlags flags,
                 struct iovec *ret) {
 
-        _cleanup_(iovec_done) struct iovec tpm2_blob = {}, tpm2_policy_hash = {}, iv = {}, pubkey = {};
+        _cleanup_done(iovec) struct iovec tpm2_blob = {}, tpm2_policy_hash = {}, iv = {}, pubkey = {};
         _cleanup_(iovec_done_erase) struct iovec tpm2_key = {}, output = {}, host_key = {};
-        _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
+        _cleanup_free(EVP_CIPHER_CTX) EVP_CIPHER_CTX *context = NULL;
         _cleanup_free_ struct metadata_credential_header *m = NULL;
 #if HAVE_TPM2
         uint16_t tpm2_pcr_bank = 0, tpm2_primary_alg = 0;
@@ -924,7 +924,7 @@ int encrypt_credential_and_warn(
                 if (!iovec_is_set(&pubkey))
                         tpm2_pubkey_pcr_mask = 0;
 
-                _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+                _cleanup_unref(tpm2_context) Tpm2Context *tpm2_context = NULL;
                 r = tpm2_context_new_or_warn(tpm2_device, &tpm2_context);
                 if (r < 0)
                         return r;
@@ -1202,8 +1202,8 @@ int decrypt_credential_and_warn(
                 struct iovec *ret) {
 
         _cleanup_(iovec_done_erase) struct iovec host_key = {}, plaintext = {}, tpm2_key = {};
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
-        _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *signature_json = NULL;
+        _cleanup_free(EVP_CIPHER_CTX) EVP_CIPHER_CTX *context = NULL;
         struct encrypted_credential_header *h;
         struct metadata_credential_header *m;
         uint8_t md[SHA256_DIGEST_LENGTH];
@@ -1364,7 +1364,7 @@ int decrypt_credential_and_warn(
                                     le32toh(z->size));
                 }
 
-                _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+                _cleanup_unref(tpm2_context) Tpm2Context *tpm2_context = NULL;
                 r = tpm2_context_new(tpm2_device, &tpm2_context);
                 if (r < 0)
                         return r;
@@ -1572,7 +1572,7 @@ int decrypt_credential_and_warn(const char *validate_name, usec_t validate_times
 #endif
 
 int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         int r;
 
         assert(input && iovec_is_valid(input));
@@ -1588,7 +1588,7 @@ int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after,
                 return log_error_errno(r, "Failed to enable sensitive Varlink input: %m");
 
         /* Create the input data blob object separately, so that we can mark it as sensitive */
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jinput = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *jinput = NULL;
         r = sd_json_build(&jinput, JSON_BUILD_IOVEC_BASE64(input));
         if (r < 0)
                 return log_error_errno(r, "Failed to create input object: %m");
@@ -1632,7 +1632,7 @@ int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after,
 }
 
 int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         int r;
 
         assert(input && iovec_is_valid(input));
@@ -1648,7 +1648,7 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
 
         /* Create the input data blob object separately, so that we can mark it as sensitive (it's supposed
          * to be encrypted, but who knows maybe it uses the NULL cypher). */
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jinput = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *jinput = NULL;
         r = sd_json_build(&jinput, JSON_BUILD_IOVEC_BASE64(input));
         if (r < 0)
                 return log_error_errno(r, "Failed to create input object: %m");

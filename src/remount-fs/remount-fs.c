@@ -49,7 +49,7 @@ static int do_remount(const char *path, bool force_rw, Hashmap **pids) {
 
         log_debug("Remounting %s...", path);
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
                         force_rw ? "(remount-rw)" : "(remount)",
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG,
@@ -72,9 +72,9 @@ static int do_remount(const char *path, bool force_rw, Hashmap **pids) {
 }
 
 static int remount_by_fstab(Hashmap **ret_pids) {
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
-        _cleanup_hashmap_free_ Hashmap *pids = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+        _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
+        _cleanup_free(hashmap) Hashmap *pids = NULL;
         bool has_root = false;
         int r;
 
@@ -119,7 +119,7 @@ static int remount_by_fstab(Hashmap **ret_pids) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_hashmap_free_ Hashmap *pids = NULL;
+        _cleanup_free(hashmap) Hashmap *pids = NULL;
         int r;
 
         log_setup();

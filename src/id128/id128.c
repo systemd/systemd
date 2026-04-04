@@ -137,7 +137,7 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
 
 VERB(verb_show, "show", "[NAME|UUID]", VERB_ANY, VERB_ANY, 0, "Print one or more UUIDs");
 static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         argv = strv_skip(argv, 1);
@@ -192,7 +192,7 @@ static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
+        _cleanup_unref(table) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-id128", "1", &link);

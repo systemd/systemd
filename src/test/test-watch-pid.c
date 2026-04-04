@@ -11,7 +11,7 @@
 
 TEST(watch_pid) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         Unit *a, *b, *c, *u;
 
         _cleanup_free_ char *unit_dir = NULL;

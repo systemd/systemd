@@ -14,7 +14,7 @@
 #include "tests.h"
 
 static void test_pool(struct in_addr *address, unsigned size, int ret) {
-        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        _cleanup_unref(sd_dhcp_server) sd_dhcp_server *server = NULL;
 
         ASSERT_OK(sd_dhcp_server_new(&server, 1));
 
@@ -25,8 +25,8 @@ static void test_pool(struct in_addr *address, unsigned size, int ret) {
 }
 
 static int test_basic(bool bind_to_interface) {
-        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_dhcp_server) sd_dhcp_server *server = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         struct in_addr address_lo = {
                 .s_addr = htobe32(INADDR_LOOPBACK),
         };
@@ -81,7 +81,7 @@ static int test_basic(bool bind_to_interface) {
 }
 
 static void test_message_handler(void) {
-        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        _cleanup_unref(sd_dhcp_server) sd_dhcp_server *server = NULL;
         struct {
                 struct {
                         DHCP_MESSAGE_HEADER_DEFINITION;
@@ -331,7 +331,7 @@ static void test_client_id_hash(void) {
 }
 
 static void test_static_lease(void) {
-        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        _cleanup_unref(sd_dhcp_server) sd_dhcp_server *server = NULL;
 
         log_debug("/* %s */", __func__);
 
@@ -412,7 +412,7 @@ static void test_static_lease(void) {
 }
 
 static void test_domain_name(void) {
-        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        _cleanup_unref(sd_dhcp_server) sd_dhcp_server *server = NULL;
 
         log_debug("/* %s */", __func__);
 

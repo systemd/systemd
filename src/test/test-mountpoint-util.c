@@ -53,7 +53,7 @@ TEST(mount_propagation_flag) {
 
 TEST(mnt_id) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_free(hashmap) Hashmap *h = NULL;
         char *p;
         void *k;
         int r;

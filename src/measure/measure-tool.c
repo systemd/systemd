@@ -132,7 +132,7 @@ static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static char *normalize_phase(const char *s) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
 
         /* Let's normalize phase expressions. We split the series of colon-separated words up, then remove
          * all empty ones, and glue them back together again. In other words we remove duplicate ":", as well
@@ -430,7 +430,7 @@ static void evp_md_ctx_free_all(EVP_MD_CTX **md[]) {
 }
 
 static int pcr_state_extend(PcrState *pcr_state, const void *data, size_t sz) {
-        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *mc = NULL;
+        _cleanup_free(EVP_MD_CTX) EVP_MD_CTX *mc = NULL;
         unsigned value_size;
 
         assert(pcr_state);
@@ -588,7 +588,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
 }
 
 static int measure_phase(PcrState *pcr_states, size_t n, const char *phase) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(pcr_states);
@@ -710,7 +710,7 @@ static void pcr_states_restore(PcrState *pcr_states, size_t n) {
 }
 
 static int verb_calculate(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
         int r;
 
@@ -766,7 +766,7 @@ static int verb_calculate(int argc, char *argv[], uintptr_t _data, void *userdat
 
                                 printf("%i:%s=%s\n", TPM2_PCR_KERNEL_BOOT, pcr_states[i].bank, hd);
                         } else {
-                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+                                _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
 
                                 array = sd_json_variant_ref(sd_json_variant_by_key(w, pcr_states[i].bank));
 
@@ -800,11 +800,11 @@ static int verb_calculate(int argc, char *argv[], uintptr_t _data, void *userdat
 }
 
 static int build_policy_digest(bool sign) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
-        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *privkey = NULL, *pubkey = NULL;
-        _cleanup_(X509_freep) X509 *certificate = NULL;
+        _cleanup_free(openssl_ask_password_ui) OpenSSLAskPasswordUI *ui = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *privkey = NULL, *pubkey = NULL;
+        _cleanup_free(X509) X509 *certificate = NULL;
         size_t n;
         int r;
 
@@ -952,12 +952,12 @@ static int build_policy_digest(bool sign) {
                                         return r;
                         }
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *a = NULL;
                         r = tpm2_make_pcr_json_array(UINT64_C(1) << TPM2_PCR_KERNEL_BOOT, &a);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON PCR mask array: %m");
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *bv = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *bv = NULL;
                         r = sd_json_buildo(&bv,
                                            SD_JSON_BUILD_PAIR_VARIANT("pcrs", a),                                                   /* PCR mask */
                                            SD_JSON_BUILD_PAIR_CONDITION(pubkey_fp_size > 0, "pkfp", SD_JSON_BUILD_HEX(pubkey_fp, pubkey_fp_size)), /* SHA256 fingerprint of public key (DER) used for the signature */
@@ -966,7 +966,7 @@ static int build_policy_digest(bool sign) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON object: %m");
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *av = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *av = NULL;
                         av = sd_json_variant_ref(sd_json_variant_by_key(v, p->bank));
 
                         r = sd_json_variant_append_array_nodup(&av, bv);
@@ -1064,7 +1064,7 @@ static int validate_stub(void) {
 }
 
 static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         r = validate_stub();
@@ -1116,7 +1116,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         printf("%" PRIu32 ":%s=%s\n", (uint32_t) TPM2_PCR_KERNEL_BOOT, b, f);
 
                 } else {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *bv = NULL, *a = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *bv = NULL, *a = NULL;
 
                         r = sd_json_buildo(
                                         &bv,

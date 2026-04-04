@@ -99,7 +99,7 @@ static int wlan_create_handler(sd_netlink *genl, sd_netlink_message *m, NetDev *
 }
 
 static int wlan_create(NetDev *netdev) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(netdev);

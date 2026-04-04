@@ -22,7 +22,7 @@ static void test_one_address(sd_bus *b,
 }
 
 TEST(bus_set_address_system_remote) {
-        _cleanup_(sd_bus_unrefp) sd_bus *b = NULL;
+        _cleanup_unref(sd_bus) sd_bus *b = NULL;
 
         assert_se(sd_bus_new(&b) >= 0);
         if (!strv_isempty(saved_argv + 1)) {

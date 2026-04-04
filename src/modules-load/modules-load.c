@@ -142,7 +142,7 @@ static int apply_conf_file(ConfFile *c, OrderedSet **module_set) {
 }
 
 static int do_direct_probe(OrderedSet *module_set) {
-        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        _cleanup_unref(kmod) struct kmod_ctx *ctx = NULL;
         char *module;
         int ret = 0, r;
 
@@ -194,7 +194,7 @@ static int dequeue_module_to_load(int sock, char *buffer, size_t buffer_len) {
 }
 
 static int run_prober(int sock) {
-        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        _cleanup_unref(kmod) struct kmod_ctx *ctx = NULL;
         char buffer[MODULE_NAME_MAX_LEN + 1];
         int ret = 0, r;
 
@@ -388,7 +388,7 @@ static int run(int argc, char *argv[]) {
          * variable and the modules reordered at will by the user that is debugging it.
          * In that case, the probing order would be the same in which the modules
          * appear inside the modules-load.d files (this wouldn't be true with a Set). */
-        _cleanup_ordered_set_free_ OrderedSet *module_set = NULL;
+        _cleanup_free(ordered_set) OrderedSet *module_set = NULL;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         _cleanup_free_ pthread_t *threads = NULL;
         size_t n_threads = 0;

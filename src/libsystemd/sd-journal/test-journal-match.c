@@ -9,7 +9,7 @@
 #include "tests.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         _cleanup_free_ char *t;
 
         test_setup_logging(LOG_DEBUG);

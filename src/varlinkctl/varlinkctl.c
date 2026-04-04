@@ -318,7 +318,7 @@ static int varlink_connect_auto(sd_varlink **ret, const char *where) {
         assert(ret);
         assert(where);
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
 
         if (STARTSWITH_SET(where, "/", "./")) { /* If the string starts with a slash or dot slash we use it as a file system path */
                 _cleanup_close_ int fd = -EBADF;
@@ -378,7 +378,7 @@ static void get_info_data_done(GetInfoData *d) {
 }
 
 static int verb_info(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         const char *url;
         int r;
 
@@ -405,7 +405,7 @@ static int verb_info(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         { "interfaces", SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,         offsetof(GetInfoData, interfaces), SD_JSON_MANDATORY },
                         {}
                 };
-                _cleanup_(get_info_data_done) GetInfoData data = {};
+                _cleanup_done(get_info_data) GetInfoData data = {};
 
                 r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &data);
                 if (r < 0)
@@ -419,7 +419,7 @@ static int verb_info(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
                         return 0;
                 } else {
-                        _cleanup_(table_unrefp) Table *t = NULL;
+                        _cleanup_unref(table) Table *t = NULL;
 
                         t = table_new_vertical();
                         if (!t)
@@ -471,8 +471,8 @@ typedef struct GetInterfaceDescriptionData {
 } GetInterfaceDescriptionData;
 
 static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        _cleanup_strv_free_ char **auto_interfaces = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
+        _cleanup_free(strv) char **auto_interfaces = NULL;
         char **interfaces;
         const char *url;
         bool list_methods;
@@ -519,7 +519,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
         if (!list_methods && strv_length(interfaces) > 1)
                 arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
 
-        _cleanup_strv_free_ char **methods = NULL;
+        _cleanup_free(strv) char **methods = NULL;
 
         STRV_FOREACH(i, interfaces) {
                 sd_json_variant *reply = NULL;
@@ -536,7 +536,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
                                 { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
                                 {}
                         };
-                        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
+                        _cleanup_free(sd_varlink_interface) sd_varlink_interface *vi = NULL;
                         const char *description = NULL;
                         unsigned line = 0, column = 0;
 
@@ -586,7 +586,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
                 if (!sd_json_format_enabled(arg_json_format_flags))
                         strv_print(methods);
                 else {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
 
                         r = sd_json_build(&j, SD_JSON_BUILD_STRV(methods));
                         if (r < 0)
@@ -698,9 +698,9 @@ static int exec_with_listen_fds(char **exec_cmdline, int *fds, size_t n_fds) {
 }
 
 static int varlink_call_and_upgrade(const char *url, const char *method, sd_json_variant *parameters, char **exec_cmdline) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(socket_forward_freep) SocketForward *sf = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
+        _cleanup_free(socket_forward) SocketForward *sf = NULL;
         _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
         const char *error_id = NULL;
         int r;
@@ -796,8 +796,8 @@ static int varlink_call_and_upgrade(const char *url, const char *method, sd_json
 }
 
 static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *jp = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         const char *url, *method, *parameter, *source;
         char **exec_cmdline;
         int r;
@@ -1069,7 +1069,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int verb_validate_idl(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
+        _cleanup_free(sd_varlink_interface) sd_varlink_interface *vi = NULL;
         _cleanup_free_ char *text = NULL;
         const char *fname;
         unsigned line = 1, column = 1;
@@ -1127,7 +1127,7 @@ static int verb_list_registry(int argc, char *argv[], uintptr_t _data, void *use
         if (r < 0)
                 return log_error_errno(r, "Failed to determine registry path: %m");
 
-        _cleanup_(table_unrefp) Table *table = table_new("interface", "entrypoint");
+        _cleanup_unref(table) Table *table = table_new("interface", "entrypoint");
         if (!table)
                 return log_oom();
 

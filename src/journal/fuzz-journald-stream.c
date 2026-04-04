@@ -13,7 +13,7 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_close_pair_ int stream_fds[2] = EBADF_PAIR;
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         StdoutStream *stream;
         int v, fd0;
 

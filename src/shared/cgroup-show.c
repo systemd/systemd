@@ -382,7 +382,7 @@ int show_cgroup_get_unit_path_and_warn(
                 const char *unit,
                 char **ret) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
         int r;
 

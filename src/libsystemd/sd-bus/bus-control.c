@@ -77,7 +77,7 @@ _public_ int sd_bus_request_name(
                 const char *name,
                 uint64_t flags) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         uint32_t ret, param = 0;
         int r;
 
@@ -238,7 +238,7 @@ _public_ int sd_bus_release_name(
                 sd_bus *bus,
                 const char *name) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         uint32_t ret;
         int r;
 
@@ -359,8 +359,8 @@ _public_ int sd_bus_release_name_async(
 }
 
 _public_ int sd_bus_list_names(sd_bus *bus, char ***ret_acquired, char ***ret_activatable) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **x = NULL, **y = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(strv) char **x = NULL, **y = NULL;
         int r;
 
         assert_return(bus, -EINVAL);
@@ -426,8 +426,8 @@ _public_ int sd_bus_get_name_creds(
                 uint64_t mask,
                 sd_bus_creds **ret) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_unique = NULL, *reply = NULL;
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply_unique = NULL, *reply = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *c = NULL;
         const char *unique;
         int r;
 
@@ -482,8 +482,8 @@ _public_ int sd_bus_get_name_creds(
 
         if (mask != 0) {
                 bool need_pid, need_uid, need_gids, need_selinux, need_separate_calls, need_pidfd, need_augment;
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
                 c = bus_creds_new();
                 if (!c)
@@ -837,8 +837,8 @@ not_found:
 }
 
 _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *c = NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         bool do_label, do_groups, do_sockaddr_peer, do_pidfd;
         int r;
 
@@ -968,7 +968,7 @@ int bus_add_match_internal(
                 uint64_t timeout_usec,
                 uint64_t *ret_counter) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
         const char *e;
         int r;
 
@@ -1017,7 +1017,7 @@ int bus_add_match_internal_async(
                 void *userdata,
                 uint64_t timeout_usec) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         const char *e;
         int r;
 
@@ -1081,7 +1081,7 @@ int bus_remove_match_internal(
 }
 
 _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *ret) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL, *m = NULL;
         const char *mid;
         int r;
 

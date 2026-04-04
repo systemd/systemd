@@ -15,7 +15,7 @@
 #include "unit-def.h"
 
 static int check_unit_generic(int code, const UnitActiveState good_states[], size_t nb_states, char **args) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         UnitActiveState active_state;
         sd_bus *bus;
         bool not_found = true, ok = false;
@@ -83,7 +83,7 @@ int verb_is_failed(int argc, char *argv[], uintptr_t _data, void *userdata) {
         /* If no unit is provided, we check SystemState property of the manager, i.e. whether there're failed
          * units. */
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *state = NULL;
         sd_bus *bus;
 

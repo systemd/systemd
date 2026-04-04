@@ -136,7 +136,7 @@ static int determine_default_node(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
                                        "File system /var/ is on not backed by a (single) whole block device.");
 
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         r = sd_device_new_from_devnum(&dev, 'b', devno);
         if (r < 0)
                 return log_error_errno(r, "Unable to access backing block device for /var/: %m");
@@ -151,7 +151,7 @@ static int determine_default_node(void) {
         if (!startswith(dm_uuid, "CRYPT-LUKS2-"))
                 return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Block device backing /var/ is not a LUKS2 device.");
 
-        _cleanup_(sd_device_unrefp) sd_device *origin = NULL;
+        _cleanup_unref(sd_device) sd_device *origin = NULL;
         r = block_device_get_originating(dev, &origin, /* recursive= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to get originating device of LUKS2 device backing /var/: %m");
@@ -778,7 +778,7 @@ static int prepare_luks(
                 struct crypt_device **ret_cd,
                 struct iovec *ret_volume_key) {
 
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free(crypt) struct crypt_device *cd = NULL;
         int r;
 
         assert(ret_cd);
@@ -846,7 +846,7 @@ static int prepare_luks(
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free(crypt) struct crypt_device *cd = NULL;
         _cleanup_(iovec_done_erase) struct iovec vk = {};
         int slot, slot_to_wipe, r;
 

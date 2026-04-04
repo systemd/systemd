@@ -51,9 +51,9 @@ static int client_run(int ifindex, const struct in_addr *pa, const struct ether_
 }
 
 static int test_acd(const char *ifname, const char *address) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL, *reply = NULL;
         union in_addr_union pa;
         struct ether_addr ha;
         int ifindex;

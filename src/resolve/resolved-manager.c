@@ -251,7 +251,7 @@ static int manager_process_route(sd_netlink *rtnl, sd_netlink_message *mm, void 
 }
 
 static int manager_rtnl_listen(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL, *reply = NULL;
         int r;
 
         assert(m);
@@ -553,7 +553,7 @@ static int manager_watch_hostname(Manager *m) {
 }
 
 static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        _cleanup_(memstream_done) MemStream ms = {};
+        _cleanup_done(memstream) MemStream ms = {};
         Manager *m = ASSERT_PTR(userdata);
         Link *l;
         FILE *f;
@@ -715,7 +715,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 }
 
 int manager_new(Manager **ret) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         int r;
 
         assert(ret);
@@ -937,7 +937,7 @@ Manager* manager_free(Manager *m) {
 }
 
 int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
         CMSG_BUFFER_TYPE(CMSG_SPACE(MAXSIZE(struct in_pktinfo, struct in6_pktinfo))
                          + CMSG_SPACE(int) /* ttl/hoplimit */
                          + EXTRA_CMSG_SPACE /* kernel appears to require extra buffer space */) control;
@@ -1247,14 +1247,14 @@ static int manager_ipv6_send(
 }
 
 static int dns_question_to_json(DnsQuestion *q, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *l = NULL;
         DnsResourceKey *key;
         int r;
 
         assert(ret);
 
         DNS_QUESTION_FOREACH(key, q) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = dns_resource_key_to_json(key, &v);
                 if (r < 0)
@@ -1270,8 +1270,8 @@ static int dns_question_to_json(DnsQuestion *q, sd_json_variant **ret) {
 }
 
 int manager_monitor_send(Manager *m, DnsQuery *q) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jquestion = NULL, *jcollected_questions = NULL, *janswer = NULL;
-        _cleanup_(dns_question_unrefp) DnsQuestion *merged = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *jquestion = NULL, *jcollected_questions = NULL, *janswer = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *merged = NULL;
         DnsAnswerItem *rri;
         int r;
 
@@ -1286,7 +1286,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
                 return log_error_errno(r, "Failed to merge UTF8/IDNA questions: %m");
 
         if (q->question_bypass) {
-                _cleanup_(dns_question_unrefp) DnsQuestion *merged2 = NULL;
+                _cleanup_unref(dns_question) DnsQuestion *merged2 = NULL;
 
                 r = dns_question_merge(merged, q->question_bypass->question, &merged2);
                 if (r < 0)
@@ -1307,7 +1307,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
                 return log_error_errno(r, "Failed to convert question to JSON: %m");
 
         DNS_ANSWER_FOREACH_ITEM(rri, q->answer) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = dns_resource_record_to_json(rri->rr, &v);
                 if (r < 0)
@@ -2076,7 +2076,7 @@ static int dns_configuration_json_append(
                 ResolvConfMode resolv_conf_mode,
                 sd_json_variant **configuration) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *dns_servers_json = NULL,
+        _cleanup_unref(sd_json_variant) sd_json_variant *dns_servers_json = NULL,
                                                           *fallback_dns_servers_json = NULL,
                                                           *search_domains_json = NULL,
                                                           *current_dns_server_json = NULL,
@@ -2093,7 +2093,7 @@ static int dns_configuration_json_append(
         }
 
         SET_FOREACH(scope, dns_scopes) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = dns_scope_to_json(scope, /* with_cache= */ false, &v);
                 if (r < 0)
@@ -2105,7 +2105,7 @@ static int dns_configuration_json_append(
         }
 
         LIST_FOREACH(servers, s, dns_servers) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = dns_server_dump_configuration_to_json(s, &v);
                 if (r < 0)
@@ -2117,7 +2117,7 @@ static int dns_configuration_json_append(
         }
 
         LIST_FOREACH(domains, d, search_domains) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = dns_search_domain_dump_to_json(d, &v);
                 if (r < 0)
@@ -2129,7 +2129,7 @@ static int dns_configuration_json_append(
         }
 
         LIST_FOREACH(servers, s, fallback_dns_servers) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = dns_server_dump_configuration_to_json(s, &v);
                 if (r < 0)
@@ -2163,7 +2163,7 @@ static int dns_configuration_json_append(
 }
 
 static int global_dns_configuration_json_append(Manager *m, sd_json_variant **configuration) {
-        _cleanup_set_free_ Set *scopes = NULL;
+        _cleanup_free(set) Set *scopes = NULL;
         int r;
 
         assert(m);
@@ -2194,7 +2194,7 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
 }
 
 static int link_dns_configuration_json_append(Link *l, sd_json_variant **configuration) {
-        _cleanup_set_free_ Set *scopes = NULL;
+        _cleanup_free(set) Set *scopes = NULL;
         int r;
 
         assert(l);
@@ -2251,7 +2251,7 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
 }
 
 static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_variant **configuration) {
-        _cleanup_set_free_ Set *scopes = NULL;
+        _cleanup_free(set) Set *scopes = NULL;
         int r;
 
         assert(d);
@@ -2282,7 +2282,7 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
 }
 
 int manager_dump_dns_configuration_json(Manager *m, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *configuration = NULL;
         Link *l;
         DnsDelegate *d;
         int r;
@@ -2313,7 +2313,7 @@ int manager_dump_dns_configuration_json(Manager *m, sd_json_variant **ret) {
 }
 
 int manager_send_dns_configuration_changed(Manager *m, Link *l, bool reset) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *configuration = NULL;
         int r;
 
         assert(m);

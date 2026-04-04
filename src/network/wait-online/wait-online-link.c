@@ -42,7 +42,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 Link, link_free);
 
 static int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
-        _cleanup_(link_freep) Link *l = NULL;
+        _cleanup_free(link) Link *l = NULL;
         _cleanup_free_ char *n = NULL;
         int r;
 
@@ -126,7 +126,7 @@ static int link_update_name(Link *l, sd_netlink_message *m) {
 }
 
 static int link_update_altnames(Link *l, sd_netlink_message *m) {
-        _cleanup_strv_free_ char **altnames = NULL;
+        _cleanup_free(strv) char **altnames = NULL;
         int r;
 
         assert(l);

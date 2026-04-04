@@ -50,7 +50,7 @@ static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 
 #if ENABLE_EFI
 static int determine_auto_swap(sd_device *device) {
-        _cleanup_(sd_device_unrefp) sd_device *origin = NULL;
+        _cleanup_unref(sd_device) sd_device *origin = NULL;
         const char *part_designator;
         int r;
 
@@ -81,10 +81,10 @@ static int write_efi_hibernate_location(const HibernationDevice *hibernation_dev
         int log_level = required ? LOG_ERR : LOG_DEBUG;
 
 #if ENABLE_EFI
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ char *formatted = NULL, *id = NULL, *image_id = NULL,
                        *version_id = NULL, *image_version = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         const char *uuid_str;
         sd_id128_t uuid;
         struct utsname uts = {};
@@ -201,8 +201,8 @@ static int write_mode(const char *path, char * const *modes) {
 }
 
 static int lock_all_homes(void) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -276,7 +276,7 @@ static int execute(
 
         /* Configure hibernation settings if we are supposed to hibernate */
         if (SLEEP_OPERATION_IS_HIBERNATION(operation)) {
-                _cleanup_(hibernation_device_done) HibernationDevice hibernation_device = {};
+                _cleanup_done(hibernation_device) HibernationDevice hibernation_device = {};
                 bool resume_set;
 
                 r = find_suitable_hibernation_device(&hibernation_device);
@@ -405,7 +405,7 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
         hibernate_timestamp = usec_add(now(CLOCK_BOOTTIME), sleep_config->hibernate_delay_usec);
 
         while (battery_is_discharging_and_low() == 0) {
-                _cleanup_hashmap_free_ Hashmap *last_capacity = NULL, *current_capacity = NULL;
+                _cleanup_free(hashmap) Hashmap *last_capacity = NULL, *current_capacity = NULL;
                 _cleanup_close_ int tfd = -EBADF;
                 struct itimerspec ts = {};
                 usec_t suspend_interval;
@@ -687,8 +687,8 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(unit_freezer_freep) UnitFreezer *user_slice_freezer = NULL;
-        _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
+        _cleanup_free(unit_freezer) UnitFreezer *user_slice_freezer = NULL;
+        _cleanup_free(sleep_config) SleepConfig *sleep_config = NULL;
         int r;
 
         log_setup();

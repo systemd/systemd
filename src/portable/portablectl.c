@@ -166,7 +166,7 @@ static int extract_prefix(const char *path, char **ret) {
 }
 
 static int determine_matches(const char *image, char **l, bool allow_any, char ***ret) {
-        _cleanup_strv_free_ char **k = NULL;
+        _cleanup_free(strv) char **k = NULL;
         int r;
 
         /* Determine the matches to apply. If the list is empty we derive the match from the image name. If the list
@@ -250,8 +250,8 @@ static int maybe_reload(sd_bus **bus) {
 }
 
 static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd_bus_message **reply) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         uint64_t flags = arg_force ? PORTABLE_FORCE_EXTENSION : 0;
         const char *method;
         int r;
@@ -291,9 +291,9 @@ static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd
 }
 
 static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **matches = NULL;
+        _cleanup_free(strv) char **matches = NULL;
         _cleanup_free_ char *image = NULL;
         bool nl = false, header = false;
         const char *path;
@@ -551,9 +551,9 @@ static int print_changes(sd_bus_message *m) {
 }
 
 static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(strv) char **names = NULL;
         const uint64_t flags = UNIT_FILE_PORTABLE | (arg_runtime ? UNIT_FILE_RUNTIME : 0);
         int r;
 
@@ -597,8 +597,8 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
 }
 
 static int maybe_start_stop_restart(sd_bus *bus, const char *path, const char *method, BusWaitForJobs *wait) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *name = NULL;
         const char *job = NULL;
         int r;
@@ -643,7 +643,7 @@ static int maybe_start_stop_restart(sd_bus *bus, const char *path, const char *m
 }
 
 static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *wait = NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *wait = NULL;
         int r;
 
         if (!arg_enable && !arg_now)
@@ -691,7 +691,7 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
 }
 
 static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *wait = NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *wait = NULL;
         int r;
 
         if (!arg_enable && !arg_now)
@@ -773,8 +773,8 @@ static int maybe_clean_units(sd_bus *bus, char **units) {
                 return 0;
 
         STRV_FOREACH(name, units) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "CleanUnit");
                 if (r < 0)
@@ -801,9 +801,9 @@ static int maybe_clean_units(sd_bus *bus, char **units) {
 }
 
 static int maybe_stop_disable_clean(sd_bus *bus, char *image, char *argv[]) {
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *wait = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **matches = NULL, **units = NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *wait = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(strv) char **matches = NULL, **units = NULL;
         int r;
 
         if (!arg_enable && !arg_now && !arg_clean)
@@ -882,10 +882,10 @@ static int maybe_stop_disable_clean(sd_bus *bus, char *image, char *argv[]) {
 }
 
 static int attach_reattach_image(int argc, char *argv[], const char *method) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **matches = NULL;
+        _cleanup_free(strv) char **matches = NULL;
         _cleanup_free_ char *image = NULL;
         int r;
 
@@ -963,8 +963,8 @@ static int verb_reattach_image(int argc, char *argv[], uintptr_t _data, void *us
 }
 
 static int verb_detach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *image = NULL;
         const char *method;
@@ -1017,10 +1017,10 @@ static int verb_detach_image(int argc, char *argv[], uintptr_t _data, void *user
 }
 
 static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         r = acquire_bus(&bus);
@@ -1101,8 +1101,8 @@ static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *user
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (i = 1; i < argc; i++) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "RemoveImage");
                 if (r < 0)
@@ -1122,7 +1122,7 @@ static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *user
 }
 
 static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int b = true, r;
 
@@ -1146,7 +1146,7 @@ static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *u
 }
 
 static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         uint64_t limit;
         int r;
@@ -1179,8 +1179,8 @@ static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdat
 }
 
 static int verb_is_image_attached(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *image = NULL;
         const char *state, *method;
@@ -1229,9 +1229,9 @@ static int verb_is_image_attached(int argc, char *argv[], uintptr_t _data, void 
 }
 
 static int dump_profiles(void) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         r = acquire_bus(&bus);

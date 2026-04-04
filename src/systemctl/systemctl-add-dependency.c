@@ -18,7 +18,7 @@
 #include "unit-name.h"
 
 int verb_add_dependency(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         _cleanup_free_ char *target = NULL;
         const char *verb = argv[0];
         UnitDependency dep;
@@ -55,8 +55,8 @@ int verb_add_dependency(int argc, char *argv[], uintptr_t _data, void *userdata)
                 if (r < 0)
                         return r;
         } else {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL, *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
 
                 r = acquire_bus(BUS_MANAGER, &bus);

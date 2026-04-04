@@ -26,9 +26,9 @@ static int match_startup_finished(sd_bus_message *m, void *userdata, sd_bus_erro
 }
 
 int verb_is_system_running(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot_startup_finished = NULL;
-        _cleanup_(sd_event_unrefp) sd_event* event = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_slot) sd_bus_slot *slot_startup_finished = NULL;
+        _cleanup_unref(sd_event) sd_event* event = NULL;
         _cleanup_free_ char *state = NULL;
         sd_bus *bus;
         int r;

@@ -93,7 +93,7 @@ static int init_writer_hashmap(RemoteServer *s) {
 }
 
 int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer) {
-        _cleanup_(writer_unrefp) Writer *w = NULL;
+        _cleanup_unref(writer) Writer *w = NULL;
         const void *key;
         int r;
 

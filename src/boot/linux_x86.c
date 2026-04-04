@@ -158,7 +158,7 @@ EFI_STATUS linux_exec_efi_handover(
          * memory sections. While normally all PE headers should be taken into account, this case only
          * involves x86 Linux bzImage kernel images, for which unallocated areas are only part of the last
          * header, so parsing SizeOfImage and zeroeing the buffer past the image size is enough. */
-        _cleanup_pages_ Pages linux_relocated = {};
+        _cleanup_done(pages) Pages linux_relocated = {};
         const void *linux_buffer;
         if (POINTER_TO_PHYSICAL_ADDRESS(kernel->iov_base) + kernel->iov_len > UINT32_MAX || kernel_size_in_memory > kernel->iov_len) {
                 linux_relocated = xmalloc_pages(
@@ -173,7 +173,7 @@ EFI_STATUS linux_exec_efi_handover(
         } else
                 linux_buffer = kernel->iov_base;
 
-        _cleanup_pages_ Pages initrd_relocated = {};
+        _cleanup_done(pages) Pages initrd_relocated = {};
         const void *initrd_buffer;
         if (!can_4g && POINTER_TO_PHYSICAL_ADDRESS(initrd->iov_base) + initrd->iov_len > UINT32_MAX) {
                 initrd_relocated = xmalloc_pages(
@@ -185,7 +185,7 @@ EFI_STATUS linux_exec_efi_handover(
         } else
                 initrd_buffer = initrd->iov_base;
 
-        _cleanup_pages_ Pages boot_params_page = xmalloc_pages(
+        _cleanup_done(pages) Pages boot_params_page = xmalloc_pages(
                         can_4g ? AllocateAnyPages : AllocateMaxAddress,
                         EfiLoaderData,
                         EFI_SIZE_TO_PAGES(sizeof(BootParams)),
@@ -210,7 +210,7 @@ EFI_STATUS linux_exec_efi_handover(
         if (boot_params->hdr.setup_sects == 0)
                 boot_params->hdr.setup_sects = 4;
 
-        _cleanup_pages_ Pages cmdline_pages = {};
+        _cleanup_done(pages) Pages cmdline_pages = {};
         if (cmdline) {
                 size_t len = MIN(strlen16(cmdline), image_params->hdr.cmdline_size);
 

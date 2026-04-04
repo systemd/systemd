@@ -75,7 +75,7 @@ enum nss_status userdb_getpwnam(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
         int r;
 
         assert(pwd);
@@ -108,7 +108,7 @@ enum nss_status userdb_getpwuid(
                 size_t buflen,
                 int *errnop) {
 
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
         int r;
 
         assert(pwd);
@@ -184,7 +184,7 @@ enum nss_status userdb_getspnam(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
         int r;
 
         assert(spwd);
@@ -283,8 +283,8 @@ enum nss_status userdb_getgrnam(
                 size_t buflen,
                 int *errnop) {
 
-        _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
-        _cleanup_strv_free_ char **members = NULL;
+        _cleanup_unref(group_record) GroupRecord *g = NULL;
+        _cleanup_free(strv) char **members = NULL;
         int r;
 
         assert(gr);
@@ -349,8 +349,8 @@ enum nss_status userdb_getgrgid(
                 size_t buflen,
                 int *errnop) {
 
-        _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
-        _cleanup_strv_free_ char **members = NULL;
+        _cleanup_unref(group_record) GroupRecord *g = NULL;
+        _cleanup_free(strv) char **members = NULL;
         bool from_nss;
         int r;
 
@@ -499,7 +499,7 @@ enum nss_status userdb_getsgnam(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_(group_record_unrefp) GroupRecord *hr = NULL;
+        _cleanup_unref(group_record) GroupRecord *hr = NULL;
         int r;
 
         assert(sgrp);

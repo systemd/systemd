@@ -48,7 +48,7 @@ extern DLSYM_PROTOTYPE(blkid_safe_string);
 
 int dlopen_libblkid(void);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(blkid_probe, sym_blkid_free_probe, blkid_free_probep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(blkid_probe, sym_blkid_free_probe, blkid_probe_freep, NULL);
 
 int blkid_partition_get_uuid_id128(blkid_partition p, sd_id128_t *ret);
 

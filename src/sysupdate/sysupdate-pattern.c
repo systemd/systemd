@@ -208,7 +208,7 @@ static int pattern_split(
 }
 
 int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
-        _cleanup_(instance_metadata_destroy) InstanceMetadata found = INSTANCE_METADATA_NULL;
+        _cleanup_destroy(instance_metadata) InstanceMetadata found = INSTANCE_METADATA_NULL;
         _cleanup_(pattern_element_free_allp) PatternElement *elements = NULL;
         const char *p;
         int r;
@@ -447,7 +447,7 @@ retry:
 }
 
 int pattern_match_many(char **patterns, const char *s, InstanceMetadata *ret) {
-        _cleanup_(instance_metadata_destroy) InstanceMetadata found = INSTANCE_METADATA_NULL;
+        _cleanup_destroy(instance_metadata) InstanceMetadata found = INSTANCE_METADATA_NULL;
         int r;
 
         STRV_FOREACH(p, patterns) {

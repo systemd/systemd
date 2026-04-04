@@ -29,8 +29,8 @@ static char* checked_strdup(const char *str) {
 
 TEST(dns_query_new_single_question) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
 
         ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
         ASSERT_NOT_NULL(question);
@@ -41,8 +41,8 @@ TEST(dns_query_new_single_question) {
 
 TEST(dns_query_new_multi_question_same_domain) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
         DnsResourceKey *key = NULL;
 
         question = dns_question_new(2);
@@ -64,8 +64,8 @@ TEST(dns_query_new_multi_question_same_domain) {
 
 TEST(dns_query_new_multi_question_different_domain) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
         DnsResourceKey *key = NULL;
 
         question = dns_question_new(2);
@@ -88,8 +88,8 @@ TEST(dns_query_new_multi_question_different_domain) {
 #if HAVE_LIBIDN2
 TEST(dns_query_new_same_utf8_and_idna) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *q_utf8 = NULL, *q_idna = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *q_utf8 = NULL, *q_idna = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
 
         ASSERT_OK(dns_question_new_address(&q_utf8, AF_INET, "www.\xF0\x9F\x98\xB1.com", false));
         ASSERT_NOT_NULL(q_utf8);
@@ -103,8 +103,8 @@ TEST(dns_query_new_same_utf8_and_idna) {
 
 TEST(dns_query_new_different_utf8_and_idna) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *q_utf8 = NULL, *q_idna = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *q_utf8 = NULL, *q_idna = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
 
         ASSERT_OK(dns_question_new_address(&q_utf8, AF_INET, "www.\xF0\x9F\x98\xB1.com", false));
         ASSERT_NOT_NULL(q_utf8);
@@ -119,9 +119,9 @@ TEST(dns_query_new_different_utf8_and_idna) {
 
 TEST(dns_query_new_bypass_ok) {
         Manager manager = {};
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
 
         ASSERT_OK(dns_packet_new_query(&packet, DNS_PROTOCOL_DNS, 0, false));
         ASSERT_NOT_NULL(packet);
@@ -139,9 +139,9 @@ TEST(dns_query_new_bypass_ok) {
 
 TEST(dns_query_new_bypass_conflict) {
         Manager manager = {};
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL, *extra_q = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL, *extra_q = NULL;
 
         ASSERT_OK(dns_packet_new_query(&packet, DNS_PROTOCOL_DNS, 0, false));
         ASSERT_NOT_NULL(packet);
@@ -193,8 +193,8 @@ TEST(dns_query_new_too_many_questions) {
 
 TEST(dns_query_make_auxiliary) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *qn1 = NULL, *qn2 = NULL, *qn3 = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q1 = NULL, *q2 = NULL, *q3 = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *qn1 = NULL, *qn2 = NULL, *qn3 = NULL;
+        _cleanup_free(dns_query) DnsQuery *q1 = NULL, *q2 = NULL, *q3 = NULL;
 
         ASSERT_OK(dns_question_new_address(&qn1, AF_INET, "www.example.com", false));
         ASSERT_NOT_NULL(qn1);
@@ -228,8 +228,8 @@ TEST(dns_query_make_auxiliary) {
 
 TEST(dns_query_process_cname_one_null) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
 
         ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
         ASSERT_NOT_NULL(question);
@@ -242,8 +242,8 @@ TEST(dns_query_process_cname_one_null) {
 
 TEST(dns_query_process_cname_one_success_exact_match) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
@@ -272,8 +272,8 @@ TEST(dns_query_process_cname_one_success_exact_match) {
 
 TEST(dns_query_process_cname_one_success_no_match) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
@@ -302,8 +302,8 @@ TEST(dns_query_process_cname_one_success_no_match) {
 
 TEST(dns_query_process_cname_one_success_match_cname) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
         DnsResourceRecord *rr = NULL;
         DnsResourceKey *key = NULL;
 
@@ -354,8 +354,8 @@ TEST(dns_query_process_cname_one_success_match_cname) {
 
 TEST(dns_query_process_cname_one_success_flags) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
@@ -391,8 +391,8 @@ TEST(dns_query_process_cname_one_success_flags) {
 
 TEST(dns_query_process_cname_one_success_match_dname) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
         DnsResourceRecord *rr = NULL;
         DnsResourceKey *key = NULL;
 
@@ -437,8 +437,8 @@ TEST(dns_query_process_cname_one_success_match_dname) {
 #if HAVE_LIBIDN2
 TEST(dns_query_process_cname_one_success_match_dname_utf8_same) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *q_utf8 = NULL, *q_idna = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *q_utf8 = NULL, *q_idna = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
         DnsResourceRecord *rr = NULL;
         DnsResourceKey *key = NULL;
 
@@ -490,8 +490,8 @@ TEST(dns_query_process_cname_one_success_match_dname_utf8_same) {
 
 TEST(dns_query_process_cname_one_success_match_dname_utf8_different) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *q_utf8 = NULL, *q_idna = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *q_utf8 = NULL, *q_idna = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
         DnsResourceRecord *rr = NULL;
         DnsResourceKey *key = NULL;
 
@@ -548,8 +548,8 @@ TEST(dns_query_process_cname_one_success_match_dname_utf8_different) {
 
 TEST(dns_query_process_cname_many_success_match_multiple_cname) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
         DnsResourceRecord *rr = NULL;
         DnsResourceKey *key = NULL;
 
@@ -635,8 +635,8 @@ TEST(dns_query_process_cname_many_success_match_multiple_cname) {
 
 TEST(dns_query_string_question_utf8) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
 
         ASSERT_OK(dns_question_new_address(&question, AF_INET, "utf8.example.com", false));
         ASSERT_NOT_NULL(question);
@@ -650,8 +650,8 @@ TEST(dns_query_string_question_utf8) {
 
 TEST(dns_query_string_question_idna) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
 
         ASSERT_OK(dns_question_new_address(&question, AF_INET, "idna.example.com", false));
         ASSERT_NOT_NULL(question);
@@ -665,8 +665,8 @@ TEST(dns_query_string_question_idna) {
 
 TEST(dns_query_string_question_bypass) {
         Manager manager = {};
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket * packet = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
+        _cleanup_unref(dns_packet) DnsPacket * packet = NULL;
 
         ASSERT_OK(dns_packet_new_query(&packet, DNS_PROTOCOL_DNS, 0, false));
         ASSERT_NOT_NULL(packet);
@@ -683,8 +683,8 @@ TEST(dns_query_string_question_bypass) {
 
 TEST(dns_query_string_request_address) {
         Manager manager = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
 
         ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
         ASSERT_NOT_NULL(question);
@@ -822,9 +822,9 @@ static void go_env_setup(GoEnvironment *env, GoConfig *cfg) {
 
 static void exercise_dns_query_go(GoConfig *cfg, void (*check_query)(DnsQuery *query)) {
         _cleanup_(go_env_teardown) GoEnvironment env = {};
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = NULL;
 
         go_env_setup(&env, cfg);
 

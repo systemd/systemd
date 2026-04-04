@@ -2480,7 +2480,7 @@ fail:
 
 /* Enable coalesced change posting in a timer on the provided sd_event instance */
 int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *timer = NULL;
         int r;
 
         assert(f);

@@ -962,7 +962,7 @@ int config_parse_exec(
 
                 ignore = FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE);
 
-                _cleanup_strv_free_ char **args = NULL;
+                _cleanup_free(strv) char **args = NULL;
                 _cleanup_free_ char *path = NULL;
 
                 if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)) {
@@ -1577,7 +1577,7 @@ int config_parse_numa_mask(
         assert(rvalue);
 
         if (streq(rvalue, "all")) {
-                _cleanup_(cpu_set_done) CPUSet c = {};
+                _cleanup_done(cpu_set) CPUSet c = {};
 
                 r = numa_mask_add_all(&c);
                 if (r < 0)
@@ -1645,8 +1645,8 @@ int config_parse_root_image_options(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(mount_options) MountOptions *options = NULL;
+        _cleanup_free(strv) char **l = NULL;
         ExecContext *c = ASSERT_PTR(data);
         const Unit *u = userdata;
         int r;
@@ -1740,7 +1740,7 @@ int config_parse_exec_root_hash(
         }
 
         /* We have a roothash to decode, eg: RootHash=012345789abcdef */
-        _cleanup_(iovec_done) struct iovec roothash_decoded = {};
+        _cleanup_done(iovec) struct iovec roothash_decoded = {};
         r = unhexmem(rvalue, &roothash_decoded.iov_base, &roothash_decoded.iov_len);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to decode RootHash=, ignoring: %s", rvalue);
@@ -1805,7 +1805,7 @@ int config_parse_exec_root_hash_sig(
         }
 
         /* We have a roothash signature to decode, eg: RootHashSignature=base64:012345789abcdef */
-        _cleanup_(iovec_done) struct iovec roothash_sig_decoded = {};
+        _cleanup_done(iovec) struct iovec roothash_sig_decoded = {};
         r = unbase64mem(value, &roothash_sig_decoded.iov_base, &roothash_sig_decoded.iov_len);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to decode RootHashSignature=, ignoring: %s", rvalue);
@@ -2040,7 +2040,7 @@ int config_parse_timer(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
+        _cleanup_free(calendar_spec) CalendarSpec *c = NULL;
         _cleanup_free_ char *k = NULL;
         const Unit *u = userdata;
         Timer *t = ASSERT_PTR(data);
@@ -2214,7 +2214,7 @@ int config_parse_socket_service(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *p = NULL;
         Socket *s = ASSERT_PTR(data);
         Unit *x;
@@ -2779,7 +2779,7 @@ int config_parse_pass_environ(
                 return 0;
         }
 
-        _cleanup_strv_free_ char **n = NULL;
+        _cleanup_free(strv) char **n = NULL;
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
@@ -2848,7 +2848,7 @@ int config_parse_unset_environ(
                 return 0;
         }
 
-        _cleanup_strv_free_ char **n = NULL;
+        _cleanup_free(strv) char **n = NULL;
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
@@ -3691,7 +3691,7 @@ int config_parse_unit_slice(
                 void *userdata) {
 
         Unit *u = ASSERT_PTR(userdata), *slice;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *k = NULL;
         int r;
 
@@ -5242,7 +5242,7 @@ int config_parse_mount_images(
         }
 
         for (const char *p = rvalue;;) {
-                _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+                _cleanup_free(mount_options) MountOptions *options = NULL;
                 _cleanup_free_ char *first = NULL, *second = NULL, *tuple = NULL;
                 _cleanup_free_ char *sresolved = NULL, *dresolved = NULL;
                 const char *q = NULL;
@@ -5393,7 +5393,7 @@ int config_parse_extension_images(
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *source = NULL, *tuple = NULL, *sresolved = NULL;
-                _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+                _cleanup_free(mount_options) MountOptions *options = NULL;
                 bool permissive = false;
                 const char *q = NULL;
                 char *s = NULL;
@@ -6120,7 +6120,7 @@ int unit_load_fragment(Unit *u) {
                 return log_error_errno(r, "Failed to rebuild name map: %m");
 
         const char *fragment;
-        _cleanup_set_free_ Set *names = NULL;
+        _cleanup_free(set) Set *names = NULL;
         r = unit_file_find_fragment(u->manager->unit_id_map,
                                     u->manager->unit_name_map,
                                     u->id,
@@ -6622,7 +6622,7 @@ int config_parse_open_file(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        _cleanup_free(open_file) OpenFile *of = NULL;
         OpenFile **head = ASSERT_PTR(data);
         int r;
 

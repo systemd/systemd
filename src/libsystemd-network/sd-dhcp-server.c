@@ -154,7 +154,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server, sd_dhcp_server, dhcp_server_free);
 
 int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
-        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        _cleanup_unref(sd_dhcp_server) sd_dhcp_server *server = NULL;
 
         assert_return(ret, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
@@ -1089,7 +1089,7 @@ static bool address_available(sd_dhcp_server *server, be32_t address) {
 #define HASH_KEY SD_ID128_MAKE(0d,1d,fe,bd,f1,24,bd,b3,47,f1,dd,6e,73,21,93,30)
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, size_t length, const triple_timestamp *timestamp) {
-        _cleanup_(dhcp_request_freep) DHCPRequest *req = NULL;
+        _cleanup_free(dhcp_request) DHCPRequest *req = NULL;
         _cleanup_free_ char *error_message = NULL;
         sd_dhcp_server_lease *existing_lease, *static_lease;
         int type, r;

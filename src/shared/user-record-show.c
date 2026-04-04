@@ -80,7 +80,7 @@ static void show_tmpfs_limit(const char *tmpfs, const TmpfsLimit *limit, uint32_
 }
 
 void user_record_show(UserRecord *hr, bool show_full_group_info) {
-        _cleanup_strv_free_ char **langs = NULL;
+        _cleanup_free(strv) char **langs = NULL;
         const char *hd, *ip, *shell;
         UserStorage storage;
         usec_t t;
@@ -222,7 +222,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 printf("         UID: " UID_FMT "\n", hr->uid);
         if (gid_is_valid(user_record_gid(hr))) {
                 if (show_full_group_info) {
-                        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                        _cleanup_unref(group_record) GroupRecord *gr = NULL;
 
                         r = groupdb_by_gid(user_record_gid(hr), /* match= */ NULL, /* flags= */ 0, &gr);
                         if (r < 0) {
@@ -236,7 +236,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 printf("         GID: " GID_FMT "\n", (gid_t) hr->uid);
 
         if (show_full_group_info) {
-                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+                _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
 
                 r = membershipdb_by_user(hr->user_name, 0, &iterator);
                 if (r < 0) {
@@ -683,7 +683,7 @@ void group_record_show(GroupRecord *gr, bool show_full_user_info) {
                 printf("        UUID: " SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(gr->uuid));
 
         if (show_full_user_info) {
-                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+                _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
 
                 r = membershipdb_by_group(gr->group_name, 0, &iterator);
                 if (r < 0) {

@@ -149,7 +149,7 @@ static sd_ipv4acd *ipv4acd_free(sd_ipv4acd *acd) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_ipv4acd, sd_ipv4acd, ipv4acd_free);
 
 int sd_ipv4acd_new(sd_ipv4acd **ret) {
-        _cleanup_(sd_ipv4acd_unrefp) sd_ipv4acd *acd = NULL;
+        _cleanup_unref(sd_ipv4acd) sd_ipv4acd *acd = NULL;
 
         assert_return(ret, -EINVAL);
 

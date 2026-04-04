@@ -202,7 +202,7 @@ static int dns_query_candidate_add_transaction(
 }
 
 static int dns_query_candidate_go(DnsQueryCandidate *c) {
-        _unused_ _cleanup_(dns_query_candidate_unrefp) DnsQueryCandidate *keep_c = NULL;
+        _unused_ _cleanup_unref(dns_query_candidate) DnsQueryCandidate *keep_c = NULL;
         DnsTransaction *t;
         int r;
         unsigned n = 0;
@@ -312,7 +312,7 @@ static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
 
         /* Create one transaction per question key */
         DNS_QUESTION_FOREACH(key, question) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *new_key = NULL;
+                _cleanup_unref(dns_resource_key) DnsResourceKey *new_key = NULL;
                 DnsResourceKey *qkey;
 
                 if (c->search_domain) {
@@ -590,7 +590,7 @@ static int manager_validate_and_mangle_question(Manager *manager, DnsQuestion **
         assert(result == REFUSE_PARTIAL);
 
         /* Mangle the question suppressing bad entries, leaving good entries */
-        _cleanup_(dns_question_unrefp) DnsQuestion *new_question = dns_question_new(dns_question_size(*question));
+        _cleanup_unref(dns_question) DnsQuestion *new_question = dns_question_new(dns_question_size(*question));
         if (!new_question)
                 return -ENOMEM;
 
@@ -617,7 +617,7 @@ int dns_query_new(
                 int ifindex,
                 uint64_t flags) {
 
-        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = NULL;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         DnsResourceKey *key;
         int r;
@@ -625,12 +625,12 @@ int dns_query_new(
         assert(m);
 
         /* Check for records that is refused and refuse query for the records if matched in configuration */
-        _unused_ _cleanup_(dns_question_unrefp) DnsQuestion *filtered_question_utf8 = NULL;
+        _unused_ _cleanup_unref(dns_question) DnsQuestion *filtered_question_utf8 = NULL;
         r = manager_validate_and_mangle_question(m, &question_utf8, &filtered_question_utf8);
         if (r < 0)
                 return r;
 
-        _unused_ _cleanup_(dns_question_unrefp) DnsQuestion *filtered_question_idna = NULL;
+        _unused_ _cleanup_unref(dns_question) DnsQuestion *filtered_question_idna = NULL;
         r = manager_validate_and_mangle_question(m, &question_idna, &filtered_question_idna);
         if (r < 0)
                 return r;
@@ -793,7 +793,7 @@ static int on_query_timeout(sd_event_source *s, usec_t usec, void *userdata) {
 }
 
 static int dns_query_add_candidate(DnsQuery *q, DnsScope *s) {
-        _cleanup_(dns_query_candidate_unrefp) DnsQueryCandidate *c = NULL;
+        _cleanup_unref(dns_query_candidate) DnsQueryCandidate *c = NULL;
         int r;
 
         assert(q);
@@ -822,7 +822,7 @@ static int dns_query_add_candidate(DnsQuery *q, DnsScope *s) {
 }
 
 static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         int r;
 
         assert(q);
@@ -882,7 +882,7 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
 }
 
 static int dns_query_try_etc_hosts(DnsQuery *q) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         int r;
 
         assert(q);
@@ -919,7 +919,7 @@ static int dns_query_try_static_records(DnsQuery *q) {
         if (FLAGS_SET(q->flags, SD_RESOLVED_NO_SYNTHESIZE))
                 return 0;
 
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         r = manager_static_records_lookup(
                         q->manager,
                         q->question_bypass ? q->question_bypass->question : q->question_utf8,
@@ -1280,7 +1280,7 @@ void dns_query_ready(DnsQuery *q) {
 }
 
 static int dns_query_collect_question(DnsQuery *q, DnsQuestion *question) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *merged = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *merged = NULL;
         int r;
 
         assert(q);
@@ -1300,7 +1300,7 @@ static int dns_query_collect_question(DnsQuery *q, DnsQuestion *question) {
 }
 
 static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *nq_idna = NULL, *nq_utf8 = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *nq_idna = NULL, *nq_utf8 = NULL;
         int r, k;
 
         assert(q);
@@ -1373,7 +1373,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
 }
 
 int dns_query_process_cname_one(DnsQuery *q) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *cname = NULL;
         DnsQuestion *question;
         DnsResourceRecord *rr;
         bool full_match = true;

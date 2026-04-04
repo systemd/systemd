@@ -71,8 +71,8 @@ static int fake_pressure_callback(sd_event_source *s, void *userdata) {
 }
 
 TEST(fake_pressure) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL, *ef = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *es = NULL, *ef = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         _cleanup_free_ char *j = NULL, *k = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         _cleanup_close_ int fifo_fd = -EBADF, socket_fd = -EBADF;
@@ -190,13 +190,13 @@ static int real_pressure_child_callback(sd_event_source *s, const siginfo_t *si,
 }
 
 TEST(real_pressure) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL, *cs = NULL;
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *es = NULL, *cs = NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *w = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         _cleanup_free_ char *scope = NULL;
         const char *object;
         int r;
@@ -228,7 +228,7 @@ TEST(real_pressure) {
 
         assert_se(pipe2(pipe_fd, O_CLOEXEC) >= 0);
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(eat-memory)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM, &pidref);
         assert_se(r >= 0);
         if (r == 0) {

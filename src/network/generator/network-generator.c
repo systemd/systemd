@@ -218,7 +218,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 Network, network_free);
 
 static int network_new(Context *context, const char *name, Network **ret) {
-        _cleanup_(network_freep) Network *network = NULL;
+        _cleanup_free(network) Network *network = NULL;
         _cleanup_free_ char *ifname = NULL;
         int r;
 
@@ -291,7 +291,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 NetDev, netdev_free);
 
 static int netdev_new(Context *context, const char *_kind, const char *_ifname, NetDev **ret) {
-        _cleanup_(netdev_freep) NetDev *netdev = NULL;
+        _cleanup_free(netdev) NetDev *netdev = NULL;
         _cleanup_free_ char *kind = NULL, *ifname = NULL;
         int r;
 
@@ -379,7 +379,7 @@ static int link_new(
                 const struct hw_addr_data *mac,
                 Link **ret) {
 
-        _cleanup_(link_freep) Link *link = NULL;
+        _cleanup_free(link) Link *link = NULL;
         _cleanup_free_ char *ifname = NULL, *filename = NULL;
         int r;
 
@@ -1225,7 +1225,7 @@ static int parse_cmdline_ifname(Context *context, const char *key, const char *v
 }
 
 static int parse_cmdline_ifname_policy(Context *context, const char *key, const char *value) {
-        _cleanup_strv_free_ char **policies = NULL, **alt_policies = NULL;
+        _cleanup_free(strv) char **policies = NULL, **alt_policies = NULL;
         struct hw_addr_data mac = HW_ADDR_NULL;
         Link *link;
         int r;
@@ -1570,7 +1570,7 @@ void link_dump(Link *link, FILE *f) {
 }
 
 int network_format(Network *network, char **ret) {
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         FILE *f;
 
         assert(network);
@@ -1586,7 +1586,7 @@ int network_format(Network *network, char **ret) {
 }
 
 int netdev_format(NetDev *netdev, char **ret) {
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         FILE *f;
 
         assert(netdev);
@@ -1602,7 +1602,7 @@ int netdev_format(NetDev *netdev, char **ret) {
 }
 
 int link_format(Link *link, char **ret) {
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         FILE *f;
 
         assert(link);

@@ -28,7 +28,7 @@ static int n_done = 0;
 static int block_write_fd = -EBADF;
 
 static int method_something(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ret = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *ret = NULL;
         sd_json_variant *a, *b;
         int64_t x, y;
         int r;
@@ -53,7 +53,7 @@ static int method_something(sd_varlink *link, sd_json_variant *parameters, sd_va
 }
 
 static int method_something_more(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ret = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *ret = NULL;
         int r;
 
         struct Something {
@@ -73,7 +73,7 @@ static int method_something_more(sd_varlink *link, sd_json_variant *parameters, 
                 return r;
 
         for (int i = 0; i < 5; i++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
 
                 r = sd_json_build(&w, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_INTEGER("sum", s.x + (s.y * i))));
                 if (r < 0)
@@ -100,7 +100,7 @@ static void test_fd(int fd, const void *buf, size_t n) {
 }
 
 static int method_passfd(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ret = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *ret = NULL;
         sd_json_variant *a;
         int r;
 
@@ -200,7 +200,7 @@ static int overload_reply(sd_varlink *link, sd_json_variant *parameters, const c
 
 static void flood_test(const char *address) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *c = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         _cleanup_free_ sd_varlink **connections = NULL;
         size_t k;
         char x = 'x';
@@ -247,8 +247,8 @@ static void flood_test(const char *address) {
 
 static void *thread(void *arg) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *c = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *i = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *wrong = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *i = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *wrong = NULL;
         sd_json_variant *o = NULL, *k = NULL, *j = NULL;
         const char *error_id, *e;
         int x = 0;
@@ -336,12 +336,12 @@ static int block_fd_handler(sd_event_source *s, int fd, uint32_t revents, void *
 }
 
 TEST(chat) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *block_event = NULL;
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *block_event = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *c = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         _cleanup_close_pair_ int block_fds[2] = EBADF_PAIR;
         pthread_t t;
         const char *sp;
@@ -413,10 +413,10 @@ static int reply_invalid(sd_varlink *link, sd_json_variant *parameters, const ch
 }
 
 TEST(invalid_parameter) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         ASSERT_OK(sd_event_default(&e));
 
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         ASSERT_OK(sd_varlink_server_new(&s, 0));
 
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
@@ -427,7 +427,7 @@ TEST(invalid_parameter) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
         ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
         ASSERT_OK(sd_varlink_attach_event(c, e, 0));
@@ -454,10 +454,10 @@ static int reply_sentinel_error(sd_varlink *link, sd_json_variant *parameters, c
 }
 
 TEST(sentinel_error) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         ASSERT_OK(sd_event_default(&e));
 
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         ASSERT_OK(sd_varlink_server_new(&s, 0));
 
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
@@ -468,7 +468,7 @@ TEST(sentinel_error) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
         ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
         ASSERT_OK(sd_varlink_attach_event(c, e, 0));
@@ -494,10 +494,10 @@ static int reply_sentinel_empty(sd_varlink *link, sd_json_variant *parameters, c
 }
 
 TEST(sentinel_empty) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         ASSERT_OK(sd_event_default(&e));
 
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         ASSERT_OK(sd_varlink_server_new(&s, 0));
 
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
@@ -508,7 +508,7 @@ TEST(sentinel_empty) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
         ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
         ASSERT_OK(sd_varlink_attach_event(c, e, 0));
@@ -534,10 +534,10 @@ static int reply_sentinel_explicit(sd_varlink *link, sd_json_variant *parameters
 }
 
 TEST(sentinel_with_explicit_reply) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         ASSERT_OK(sd_event_default(&e));
 
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         ASSERT_OK(sd_varlink_server_new(&s, 0));
 
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
@@ -548,7 +548,7 @@ TEST(sentinel_with_explicit_reply) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
         ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
         ASSERT_OK(sd_varlink_attach_event(c, e, 0));
@@ -582,10 +582,10 @@ static int reply_oneway_sentinel_pong(sd_varlink *link, sd_json_variant *paramet
 }
 
 TEST(sentinel_oneway) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         ASSERT_OK(sd_event_default(&e));
 
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         ASSERT_OK(sd_varlink_server_new(&s, 0));
 
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
@@ -597,7 +597,7 @@ TEST(sentinel_oneway) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
         ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
         ASSERT_OK(sd_varlink_attach_event(c, e, 0));
@@ -667,10 +667,10 @@ static int reply_sentinel_fd(sd_varlink *link, sd_json_variant *parameters, cons
 }
 
 TEST(sentinel_with_fds) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         ASSERT_OK(sd_event_default(&e));
 
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT));
 
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
@@ -681,7 +681,7 @@ TEST(sentinel_with_fds) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
         ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
         ASSERT_OK(sd_varlink_set_allow_fd_passing_input(c, true));
         ASSERT_OK(sd_varlink_set_allow_fd_passing_output(c, true));
@@ -724,10 +724,10 @@ static int reply_notify_then_error(sd_varlink *link, sd_json_variant *parameters
 }
 
 TEST(notify_then_error) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         ASSERT_OK(sd_event_default(&e));
 
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         ASSERT_OK(sd_varlink_server_new(&s, 0));
 
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
@@ -738,7 +738,7 @@ TEST(notify_then_error) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
         ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
         ASSERT_OK(sd_varlink_attach_event(c, e, 0));

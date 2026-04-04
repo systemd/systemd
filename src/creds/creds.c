@@ -185,7 +185,7 @@ not_found:
 }
 
 static int is_tmpfs_with_noswap(dev_t devno) {
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
         int r;
 
         r = dlopen_libmount();
@@ -306,7 +306,7 @@ static int add_credentials_to_table(Table *t, bool encrypted) {
 }
 
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         int r, q;
 
         t = table_new("name", "secure", "size", "path");
@@ -429,7 +429,7 @@ static int write_blob(FILE *f, const void *data, size_t size) {
         if (arg_transcode == TRANSCODE_OFF &&
             sd_json_format_enabled(arg_json_format_flags)) {
                 _cleanup_(erase_and_freep) char *suffixed = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = make_cstring(data, size, MAKE_CSTRING_REFUSE_TRAILING_NUL, &suffixed);
                 if (r < 0)
@@ -1306,13 +1306,13 @@ static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
-        _cleanup_(method_encrypt_parameters_done) MethodEncryptParameters p = {
+        _cleanup_done(method_encrypt_parameters) MethodEncryptParameters p = {
                 .timestamp = UINT64_MAX,
                 .not_after = UINT64_MAX,
                 .scope = _CREDENTIAL_SCOPE_INVALID,
                 .uid = UID_INVALID,
         };
-        _cleanup_(iovec_done) struct iovec output = {};
+        _cleanup_done(iovec) struct iovec output = {};
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
         CredentialFlags cflags = 0;
         bool timestamp_fresh;
@@ -1379,7 +1379,7 @@ static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *reply = NULL;
 
         r = sd_json_buildo(&reply, JSON_BUILD_PAIR_IOVEC_BASE64("blob", &output));
         if (r < 0)
@@ -1418,7 +1418,7 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
-        _cleanup_(method_decrypt_parameters_done) MethodDecryptParameters p = {
+        _cleanup_done(method_decrypt_parameters) MethodDecryptParameters p = {
                 .timestamp = UINT64_MAX,
                 .scope = _CREDENTIAL_SCOPE_INVALID,
                 .uid = UID_INVALID,
@@ -1504,7 +1504,7 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                 return r;
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *reply = NULL;
 
         r = sd_json_buildo(&reply, JSON_BUILD_PAIR_IOVEC_BASE64("data", &output));
         if (r < 0)
@@ -1516,8 +1516,8 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
 }
 
 static int vl_server(void) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
-        _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *varlink_server = NULL;
+        _cleanup_free(hashmap) Hashmap *polkit_registry = NULL;
         int r;
 
         /* Invocation as Varlink service */

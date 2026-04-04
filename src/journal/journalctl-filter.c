@@ -80,7 +80,7 @@ int journal_add_unit_matches(
                 uid_t uid,
                 char * const *user_units) {
 
-        _cleanup_strv_free_ char **patterns = NULL;
+        _cleanup_free(strv) char **patterns = NULL;
         bool added = false;
         int r;
 
@@ -112,7 +112,7 @@ int journal_add_unit_matches(
         }
 
         if (!strv_isempty(patterns)) {
-                _cleanup_set_free_ Set *units = NULL;
+                _cleanup_free(set) Set *units = NULL;
 
                 r = get_possible_units(j, SYSTEM_UNITS_FULL, patterns, &units);
                 if (r < 0)
@@ -155,7 +155,7 @@ int journal_add_unit_matches(
         }
 
         if (!strv_isempty(patterns)) {
-                _cleanup_set_free_ Set *units = NULL;
+                _cleanup_free(set) Set *units = NULL;
 
                 r = get_possible_units(j, USER_UNITS_FULL, patterns, &units);
                 if (r < 0)
@@ -218,7 +218,7 @@ static int add_syslog_identifier(sd_journal *j) {
 }
 
 static int add_exclude_identifier(sd_journal *j) {
-        _cleanup_set_free_ Set *excludes = NULL;
+        _cleanup_free(set) Set *excludes = NULL;
         int r;
 
         assert(j);
@@ -299,7 +299,7 @@ static int add_matches_for_executable(sd_journal *j, const char *path) {
 }
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         int r;
 
         assert(j);

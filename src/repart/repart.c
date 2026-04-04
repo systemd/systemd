@@ -911,7 +911,7 @@ static Context* context_new(
                 bool dry_run,
                 sd_id128_t seed) {
 
-        _cleanup_strv_free_ char **d = NULL;
+        _cleanup_free(strv) char **d = NULL;
         if (!strv_isempty(definitions)) {
                 d = strv_copy(definitions);
                 if (!d)
@@ -3248,8 +3248,8 @@ static int verify_regular_or_block(int fd) {
 
 static int context_copy_from_one(Context *context, const char *src) {
         _cleanup_close_ int fd = -EBADF;
-        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
-        _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
+        _cleanup_unref(fdisk_context) struct fdisk_context *c = NULL;
+        _cleanup_unref(fdisk_table) struct fdisk_table *t = NULL;
         Partition *last = NULL;
         unsigned long secsz, grainsz;
         size_t n_partitions;
@@ -3285,7 +3285,7 @@ static int context_copy_from_one(Context *context, const char *src) {
 
         n_partitions = fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++) {
-                _cleanup_(partition_freep) Partition *np = NULL;
+                _cleanup_free(partition) Partition *np = NULL;
                 _cleanup_free_ char *label_copy = NULL;
                 struct fdisk_partition *p;
                 const char *label;
@@ -3447,7 +3447,7 @@ static int supplement_find_target(const Context *context, const Partition *suppl
 }
 
 static int context_read_definitions(Context *context) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         Partition *last = LIST_FIND_TAIL(partitions, context->partitions);
         const char *const *dirs;
         int r;
@@ -3468,7 +3468,7 @@ static int context_read_definitions(Context *context) {
                 return log_error_errno(r, "Failed to enumerate *.conf files: %m");
 
         STRV_FOREACH(f, files) {
-                _cleanup_(partition_freep) Partition *p = NULL;
+                _cleanup_free(partition) Partition *p = NULL;
 
                 p = partition_new(context);
                 if (!p)
@@ -3668,8 +3668,8 @@ static int context_load_fallback_metrics(Context *context) {
 }
 
 static int context_load_partition_table(Context *context) {
-        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
-        _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
+        _cleanup_unref(fdisk_context) struct fdisk_context *c = NULL;
+        _cleanup_unref(fdisk_table) struct fdisk_table *t = NULL;
         uint64_t left_boundary = UINT64_MAX, first_lba, last_lba, nsectors;
         _cleanup_free_ char *disk_uuid_string = NULL;
         bool from_scratch = false;
@@ -3955,7 +3955,7 @@ static int context_load_partition_table(Context *context) {
 
                 /* If we have no matching definition, create a new one. */
                 if (!found) {
-                        _cleanup_(partition_freep) Partition *np = NULL;
+                        _cleanup_free(partition) Partition *np = NULL;
 
                         np = partition_new(context);
                         if (!np)
@@ -4158,7 +4158,7 @@ static int volume_label(const Partition *p, char **ret) {
 }
 
 static int context_dump_partitions(Context *context) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         uint64_t sum_padding = 0, sum_size = 0;
         int r;
         const size_t roothash_col = 14, dropin_files_col = 15, split_path_col = 16;
@@ -4600,7 +4600,7 @@ static bool context_changed(const Context *context) {
 
 static int context_wipe_range(Context *context, uint64_t offset, uint64_t size) {
 #if HAVE_BLKID
-        _cleanup_(blkid_free_probep) blkid_probe probe = NULL;
+        _cleanup_free(blkid_probe) blkid_probe probe = NULL;
         int r;
 
         assert(context);
@@ -5024,8 +5024,8 @@ static int partition_target_prepare(
                 bool need_path,
                 PartitionTarget **ret) {
 
-        _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
-        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        _cleanup_free(partition_target) PartitionTarget *t = NULL;
+        _cleanup_unref(loop_device) LoopDevice *d = NULL;
         int whole_fd, r;
 
         assert(context);
@@ -5246,7 +5246,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         return log_oom();
         }
 
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free(sym_crypt) struct crypt_device *cd = NULL;
         r = sym_crypt_init(&cd, offline ? hp : node);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", hp);
@@ -5307,7 +5307,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume key has zero size and 'fixate-volume-key' is used");
 
-                _cleanup_(iovec_done) struct iovec vk = {
+                _cleanup_done(iovec) struct iovec vk = {
                         .iov_base = malloc(r),
                         .iov_len = r,
                 };
@@ -5356,9 +5356,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
 #if HAVE_TPM2
-                _cleanup_(iovec_done) struct iovec pubkey = {}, srk = {};
+                _cleanup_done(iovec) struct iovec pubkey = {}, srk = {};
                 _cleanup_(iovec_done_erase) struct iovec secret = {};
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 ssize_t base64_encoded_size;
                 int keyslot;
                 TPM2Flags flags = 0;
@@ -5389,7 +5389,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
                 }
 
-                _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
+                _cleanup_done(tpm2_pcrlock_policy) Tpm2PCRLockPolicy pcrlock_policy = {};
                 if (arg_tpm2_pcrlock) {
                         r = tpm2_pcrlock_policy_load(arg_tpm2_pcrlock, &pcrlock_policy);
                         if (r < 0)
@@ -5398,7 +5398,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         flags |= TPM2_FLAGS_USE_PCRLOCK;
                 }
 
-                _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+                _cleanup_unref(tpm2_context) Tpm2Context *tpm2_context = NULL;
                 TPM2B_PUBLIC device_key_public = {};
                 if (arg_tpm2_device_key) {
                         r = tpm2_load_public_key_file(arg_tpm2_device_key, &device_key_public);
@@ -5677,8 +5677,8 @@ static int partition_format_verity_hash(
 
 #if HAVE_LIBCRYPTSETUP
         Partition *dp;
-        _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free(partition_target) PartitionTarget *t = NULL;
+        _cleanup_free(sym_crypt) struct crypt_device *cd = NULL;
         _cleanup_free_ char *hint = NULL;
         int r;
 
@@ -5754,7 +5754,7 @@ static int partition_format_verity_hash(
         if (r < 0)
                 return log_error_errno(r, "Failed to determine verity root hash size of partition %s: %m", strna(hint));
 
-        _cleanup_(iovec_done) struct iovec rh = {
+        _cleanup_done(iovec) struct iovec rh = {
                 .iov_base = malloc(r),
                 .iov_len = r,
         };
@@ -5791,8 +5791,8 @@ static int sign_verity_roothash(
                 struct iovec *ret_signature) {
 
 #if HAVE_OPENSSL
-        _cleanup_(BIO_freep) BIO *rb = NULL;
-        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+        _cleanup_free(BIO) BIO *rb = NULL;
+        _cleanup_free(PKCS7) PKCS7 *p7 = NULL;
         _cleanup_free_ char *hex = NULL;
         _cleanup_free_ uint8_t *sig = NULL;
         int sigsz;
@@ -5856,7 +5856,7 @@ static int iovec_roothash_from_uuid_pair(
 }
 
 static const VeritySettings *lookup_verity_settings_by_uuid_pair(sd_id128_t data_uuid, sd_id128_t hash_uuid) {
-        _cleanup_(iovec_done) struct iovec roothash = {};
+        _cleanup_done(iovec) struct iovec roothash = {};
         int r;
 
         r = iovec_roothash_from_uuid_pair(data_uuid, hash_uuid, &roothash);
@@ -5871,7 +5871,7 @@ static const VeritySettings *lookup_verity_settings_by_uuid_pair(sd_id128_t data
 }
 
 static int partition_format_verity_sig(Context *context, Partition *p) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ char *text = NULL, *hint = NULL;
         const VeritySettings *verity_settings;
         Partition *hp, *rp;
@@ -5925,7 +5925,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
         assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
-        _cleanup_(iovec_done) struct iovec sig_free = {};
+        _cleanup_done(iovec) struct iovec sig_free = {};
         const struct iovec *roothash, *sig;
         if (verity_settings) {
                 sig = &verity_settings->root_hash_sig;
@@ -6031,7 +6031,7 @@ static int context_copy_blocks(Context *context) {
         /* Copy in file systems on the block level */
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
+                _cleanup_free(partition_target) PartitionTarget *t = NULL;
 
                 if (p->dropped)
                         continue;
@@ -6187,7 +6187,7 @@ static int make_copy_files_denylist(
                 const char *target,
                 Hashmap **ret) {
 
-        _cleanup_hashmap_free_ Hashmap *denylist = NULL;
+        _cleanup_free(hashmap) Hashmap *denylist = NULL;
         _cleanup_free_ char **override_exclude_src = NULL, **override_exclude_tgt = NULL;
         int r;
 
@@ -6327,7 +6327,7 @@ static int add_subvolume_path(const char *path, BtrfsSubvolFlags flags, Hashmap 
 }
 
 static int make_subvolumes_hashmap(const Partition *p, Hashmap **ret) {
-        _cleanup_hashmap_free_ Hashmap *hashmap = NULL;
+        _cleanup_free(hashmap) Hashmap *hashmap = NULL;
         Subvolume *subvolume;
         int r;
 
@@ -6370,7 +6370,7 @@ static int make_subvolumes_by_source_inode_hashmap(
                 const char *target,
                 Hashmap **ret) {
 
-        _cleanup_hashmap_free_ Hashmap *hashmap = NULL;
+        _cleanup_free(hashmap) Hashmap *hashmap = NULL;
         Subvolume *subvolume;
         int r;
 
@@ -6450,7 +6450,7 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
 }
 
 static int do_copy_files(Context *context, Partition *p, const char *root) {
-        _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
+        _cleanup_free(hashmap) Hashmap *subvolumes = NULL;
         int r;
 
         assert(p);
@@ -6499,8 +6499,8 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
         }
 
         FOREACH_ARRAY(line, copy_files, n_copy_files) {
-                _cleanup_hashmap_free_ Hashmap *denylist = NULL;
-                _cleanup_hashmap_free_ Hashmap *subvolumes_by_source_inode = NULL;
+                _cleanup_free(hashmap) Hashmap *denylist = NULL;
+                _cleanup_free(hashmap) Hashmap *subvolumes_by_source_inode = NULL;
                 _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
                 usec_t ts = parse_source_date_epoch();
 
@@ -6625,7 +6625,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 }
 
 static int do_make_directories(Partition *p, const char *root) {
-        _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
+        _cleanup_free(hashmap) Hashmap *subvolumes = NULL;
         _cleanup_free_ char **override_dirs = NULL;
         int r;
 
@@ -6724,7 +6724,7 @@ static int partition_acquire_sibling_labels(const Partition *p, char ***ret) {
         assert(p);
         assert(ret);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         if (p->new_label) {
                 l = strv_new(p->new_label);
                 if (!l)
@@ -6751,7 +6751,7 @@ static int partition_acquire_sibling_uuids(const Partition *p, char ***ret) {
         assert(p);
         assert(ret);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         l = strv_new(SD_ID128_TO_UUID_STRING(p->type.uuid));
         if (!l)
                 return log_oom();
@@ -6790,7 +6790,7 @@ static int do_make_validatefs_xattrs(const Partition *p, const char *root) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open root inode '%s': %m", root);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         r = partition_acquire_sibling_labels(p, &l);
         if (r < 0)
                 return r;
@@ -6988,7 +6988,7 @@ static int append_btrfs_inode_flags(char ***l, OrderedHashmap *subvolumes) {
 }
 
 static int finalize_extra_mkfs_options(const Partition *p, const char *root, char ***ret) {
-        _cleanup_strv_free_ char **sv = NULL;
+        _cleanup_free(strv) char **sv = NULL;
         int r;
 
         assert(p);
@@ -7036,8 +7036,8 @@ static int context_mkfs(Context *context) {
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
-                _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
-                _cleanup_strv_free_ char **extra_mkfs_options = NULL;
+                _cleanup_free(partition_target) PartitionTarget *t = NULL;
+                _cleanup_free(strv) char **extra_mkfs_options = NULL;
 
                 if (p->dropped)
                         continue;
@@ -7504,8 +7504,8 @@ static int context_mangle_partitions(Context *context) {
                                         return log_error_errno(r, "Failed to update partition: %m");
                         }
                 } else {
-                        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *q = NULL;
-                        _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
+                        _cleanup_unref(fdisk_partition) struct fdisk_partition *q = NULL;
+                        _cleanup_unref(fdisk_parttype) struct fdisk_parttype *t = NULL;
 
                         assert(!p->new_partition);
                         assert(p->offset % context->sector_size == 0);
@@ -8073,7 +8073,7 @@ static int context_find_esp_offset(Context *context, uint64_t *ret) {
 }
 
 static int context_write_partition_table(Context *context) {
-        _cleanup_(fdisk_unref_tablep) struct fdisk_table *original_table = NULL;
+        _cleanup_unref(fdisk_table) struct fdisk_table *original_table = NULL;
         int capable, r;
 
         assert(context);
@@ -8285,7 +8285,7 @@ static int resolve_copy_blocks_auto_candidate(
                 sd_id128_t *ret_uuid) {
 
 #if HAVE_BLKID
-        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        _cleanup_free(blkid_probe) blkid_probe b = NULL;
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         const char *pttype;
@@ -8410,7 +8410,7 @@ static int resolve_copy_blocks_auto_candidate_harder(
                 dev_t *ret_found_devno,
                 sd_id128_t *ret_uuid) {
 
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL, *nd = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL, *nd = NULL;
         int r;
 
         /* A wrapper around resolve_copy_blocks_auto_candidate(), but looks for verity/verity-sig associated
@@ -9135,8 +9135,8 @@ static int context_minimize(Context *context) {
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(unlink_and_freep) char *temp = NULL;
-                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                _cleanup_strv_free_ char **extra_mkfs_options = NULL;
+                _cleanup_unref(loop_device) LoopDevice *d = NULL;
+                _cleanup_free(strv) char **extra_mkfs_options = NULL;
                 _cleanup_close_ int fd = -EBADF;
                 _cleanup_free_ char *hint = NULL;
                 sd_id128_t fs_uuid;
@@ -9505,10 +9505,10 @@ static int parse_partition_types(const char *p, GptPartitionType **partitions, s
 }
 
 static int parse_join_signature(const char *p, Set **verity_settings_map) {
-        _cleanup_(verity_settings_freep) VeritySettings *verity_settings = NULL;
+        _cleanup_free(verity_settings) VeritySettings *verity_settings = NULL;
         _cleanup_free_ char *root_hash = NULL;
         const char *signature;
-        _cleanup_(iovec_done) struct iovec content = {};
+        _cleanup_done(iovec) struct iovec content = {};
         int r;
 
         assert(p);
@@ -10624,7 +10624,7 @@ static int find_root(Context *context) {
 }
 
 static int resize_pt(int fd, uint64_t sector_size) {
-        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_unref(fdisk_context) struct fdisk_context *c = NULL;
         int r;
 
         /* After resizing the backing file we need to resize the partition table itself too, so that it takes
@@ -10999,7 +10999,7 @@ static int vl_method_run(
 
         assert(link);
 
-        _cleanup_(run_parameters_done) RunParameters p = {
+        _cleanup_done(run_parameters) RunParameters p = {
                 .empty = _EMPTY_MODE_INVALID,
                 .dry_run = true,
         };
@@ -11011,7 +11011,7 @@ static int vl_method_run(
         if (!p.node && !p.dry_run)
                 return sd_varlink_error_invalid_parameter_name(link, "dryRun");
 
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_free(context) Context* context = NULL;
         context = context_new(
                         p.definitions,
                         p.empty,
@@ -11137,7 +11137,7 @@ static int vl_method_run(
 }
 
 static int vl_server(void) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *varlink_server = NULL;
         int r;
 
         /* Invocation as Varlink service */
@@ -11168,9 +11168,9 @@ static int vl_server(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_free(context) Context* context = NULL;
         bool node_is_our_loop = false;
         int r;
 

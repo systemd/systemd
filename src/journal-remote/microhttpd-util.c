@@ -35,7 +35,7 @@ int mhd_respond_internal(
 
         assert(connection);
 
-        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response
+        _cleanup_free(MHD_response) struct MHD_Response *response
                 = MHD_create_response_from_buffer(size, (char*) buffer, mode);
         if (!response)
                 return MHD_NO;

@@ -865,7 +865,7 @@ static int context_write_data_machine_info(Context *c) {
                 [PROP_DEPLOYMENT] = "DEPLOYMENT",
                 [PROP_LOCATION] = "LOCATION",
         };
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(c);
@@ -1581,7 +1581,7 @@ static int method_set_location(sd_bus_message *m, void *userdata, sd_bus_error *
 }
 
 static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Context *c = ASSERT_PTR(userdata);
         int interactive, r;
         sd_id128_t uuid;
@@ -1717,9 +1717,9 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL,
                 *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL,
                 *firmware_vendor = NULL, *chassis_asset_tag = NULL, *sku = NULL, *hardware_version = NULL;
-        _cleanup_strv_free_ char **os_release_pairs = NULL, **machine_info_pairs = NULL;
+        _cleanup_free(strv) char **os_release_pairs = NULL, **machine_info_pairs = NULL;
         usec_t firmware_date = USEC_INFINITY, eol = USEC_INFINITY;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         sd_id128_t machine_id, boot_id, product_uuid = SD_ID128_NULL;
         unsigned local_cid = VMADDR_CID_ANY;
         struct utsname u;
@@ -1829,7 +1829,7 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
 }
 
 static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         Context *c = ASSERT_PTR(userdata);
         _cleanup_free_ char *text = NULL;
         bool privileged;
@@ -2016,7 +2016,7 @@ static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_
          * the product ID which we'll check explicitly. */
         privileged = r > 0;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = build_describe_response(c, privileged, &v);
         if (r < 0)
                 return r;
@@ -2078,7 +2078,7 @@ static bool context_check_idle(void *userdata) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(context_destroy) Context context = {
+        _cleanup_destroy(context) Context context = {
                 .hostname_source = _HOSTNAME_INVALID, /* appropriate value will be set later */
         };
         int r;

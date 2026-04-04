@@ -237,7 +237,7 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
                                    netdev_kind_to_string(netdev->kind), filename);
 
         if (t->user_name) {
-                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                _cleanup_unref(user_record) UserRecord *ur = NULL;
 
                 r = userdb_by_name(t->user_name, /* match = */ NULL,
                                    USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC,
@@ -258,7 +258,7 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
         }
 
         if (t->group_name) {
-                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                _cleanup_unref(group_record) GroupRecord *gr = NULL;
 
                 r = groupdb_by_name(t->group_name, /* match = */ NULL,
                                     USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC,

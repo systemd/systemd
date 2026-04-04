@@ -259,8 +259,8 @@ static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **
                 {}
         };
 
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free(userns_info) UserNamespaceInfo *userns_info = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_close_ int registry_fd = -EBADF;
         int r;
 
@@ -394,7 +394,7 @@ int userns_registry_inode_exists(int dir_fd, uint64_t inode) {
 }
 
 int userns_registry_load_by_start_uid(int dir_fd, uid_t start, UserNamespaceInfo **ret) {
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+        _cleanup_free(userns_info) UserNamespaceInfo *userns_info = NULL;
         _cleanup_close_ int registry_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         int r;
@@ -427,7 +427,7 @@ int userns_registry_load_by_start_uid(int dir_fd, uid_t start, UserNamespaceInfo
 }
 
 int userns_registry_load_by_start_gid(int dir_fd, gid_t start, UserNamespaceInfo **ret) {
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+        _cleanup_free(userns_info) UserNamespaceInfo *userns_info = NULL;
         _cleanup_close_ int registry_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         int r;
@@ -460,7 +460,7 @@ int userns_registry_load_by_start_gid(int dir_fd, gid_t start, UserNamespaceInfo
 }
 
 int userns_registry_load_by_userns_inode(int dir_fd, uint64_t inode, UserNamespaceInfo **ret) {
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+        _cleanup_free(userns_info) UserNamespaceInfo *userns_info = NULL;
         _cleanup_close_ int registry_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         int r;
@@ -493,7 +493,7 @@ int userns_registry_load_by_userns_inode(int dir_fd, uint64_t inode, UserNamespa
 }
 
 int userns_registry_load_by_name(int dir_fd, const char *name, UserNamespaceInfo **ret) {
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+        _cleanup_free(userns_info) UserNamespaceInfo *userns_info = NULL;
         _cleanup_close_ int registry_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         int r;
@@ -547,7 +547,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                 dir_fd = registry_fd;
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cgroup_array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *cgroup_array = NULL;
         FOREACH_ARRAY(cg, info->cgroups, info->n_cgroups) {
                 r = sd_json_variant_append_arrayb(
                                 &cgroup_array,
@@ -556,7 +556,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                         return r;
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *delegates_array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *delegates_array = NULL;
         FOREACH_ARRAY(delegate, info->delegates, info->n_delegates) {
                 r = sd_json_variant_append_arraybo(
                                 &delegates_array,
@@ -568,7 +568,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                         return r;
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *def = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *def = NULL;
         r = sd_json_buildo(
                         &def,
                         SD_JSON_BUILD_PAIR_UNSIGNED("owner", info->owner),
@@ -659,7 +659,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
 
         /* Store delegation files */
         FOREACH_ARRAY(delegate, info->delegates, info->n_delegates) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *delegate_def = NULL, *ancestor_array = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *delegate_def = NULL, *ancestor_array = NULL;
                 _cleanup_free_ char *delegate_buf = NULL, *delegate_uid_fn = NULL, *delegate_gid_fn = NULL;
 
                 if (asprintf(&delegate_uid_fn, "u" UID_FMT ".delegate", delegate->start_uid) < 0) {
@@ -670,7 +670,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                 /* Check if this delegation already exists. If so, this is a recursive
                  * subdelegation: we need to preserve the chain of previous owners so that
                  * ownership can be restored when the current owner goes away. */
-                _cleanup_(delegated_userns_info_done) DelegatedUserNamespaceInfo existing = DELEGATED_USER_NAMESPACE_INFO_NULL;
+                _cleanup_done(delegated_userns_info) DelegatedUserNamespaceInfo existing = DELEGATED_USER_NAMESPACE_INFO_NULL;
 
                 r = userns_registry_load_delegation_by_uid(dir_fd, delegate->start_uid, &existing);
                 if (r >= 0) {
@@ -836,7 +836,7 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
         FOREACH_ARRAY(delegate, info->delegates, info->n_delegates) {
                 /* Check if this delegation has ancestor user namespaces. If so, restore ownership to
                  * the last ancestor instead of removing the delegation file entirely. */
-                _cleanup_(delegated_userns_info_done) DelegatedUserNamespaceInfo existing = DELEGATED_USER_NAMESPACE_INFO_NULL;
+                _cleanup_done(delegated_userns_info) DelegatedUserNamespaceInfo existing = DELEGATED_USER_NAMESPACE_INFO_NULL;
 
                 r = userns_registry_load_delegation_by_uid(dir_fd, delegate->start_uid, &existing);
                 if (r < 0) {
@@ -852,7 +852,7 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
                         return log_oom_debug();
 
                 if (existing.n_ancestor_userns > 0) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *delegate_def = NULL, *ancestor_array = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *delegate_def = NULL, *ancestor_array = NULL;
                         _cleanup_free_ char *delegate_buf = NULL;
 
                         /* Pop the last ancestor userns inode to become the new owner */
@@ -1029,7 +1029,7 @@ static int userns_destroy_netif(sd_netlink **rtnl, const char *name) {
                         return log_debug_errno(r, "Failed to connect to netlink: %m");
         }
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         r = sd_rtnl_message_new_link(*rtnl, &m, RTM_DELLINK, /* ifindex= */ 0);
         if (r < 0)
                 return r;
@@ -1048,7 +1048,7 @@ static int userns_destroy_netif(sd_netlink **rtnl, const char *name) {
 }
 
 int userns_info_remove_netifs(UserNamespaceInfo *userns) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         int ret = 0;
 
         assert(userns);
@@ -1174,7 +1174,7 @@ static int userns_registry_load_delegation(int dir_fd, const char *filename, Del
                 {}
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_close_ int registry_fd = -EBADF;
         int r;
 
@@ -1190,7 +1190,7 @@ static int userns_registry_load_delegation(int dir_fd, const char *filename, Del
         if (r < 0)
                 return r;
 
-        _cleanup_(delegated_userns_info_done) DelegatedUserNamespaceInfo data = DELEGATED_USER_NAMESPACE_INFO_NULL;
+        _cleanup_done(delegated_userns_info) DelegatedUserNamespaceInfo data = DELEGATED_USER_NAMESPACE_INFO_NULL;
 
         r = sd_json_dispatch(v, dispatch_table, /* flags= */ 0, &data);
         if (r < 0)
@@ -1217,7 +1217,7 @@ int userns_registry_load_delegation_by_uid(int dir_fd, uid_t start, DelegatedUse
         if (asprintf(&fn, "u" UID_FMT ".delegate", start) < 0)
                 return -ENOMEM;
 
-        _cleanup_(delegated_userns_info_done) DelegatedUserNamespaceInfo data = DELEGATED_USER_NAMESPACE_INFO_NULL;
+        _cleanup_done(delegated_userns_info) DelegatedUserNamespaceInfo data = DELEGATED_USER_NAMESPACE_INFO_NULL;
         r = userns_registry_load_delegation(dir_fd, fn, &data);
         if (r < 0)
                 return r;
@@ -1241,7 +1241,7 @@ int userns_registry_load_delegation_by_gid(int dir_fd, gid_t start, DelegatedUse
         if (asprintf(&fn, "g" UID_FMT ".delegate", start) < 0)
                 return -ENOMEM;
 
-        _cleanup_(delegated_userns_info_done) DelegatedUserNamespaceInfo data = DELEGATED_USER_NAMESPACE_INFO_NULL;
+        _cleanup_done(delegated_userns_info) DelegatedUserNamespaceInfo data = DELEGATED_USER_NAMESPACE_INFO_NULL;
         r = userns_registry_load_delegation(dir_fd, fn, &data);
         if (r < 0)
                 return r;

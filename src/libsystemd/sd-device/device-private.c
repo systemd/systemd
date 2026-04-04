@@ -458,7 +458,7 @@ static int device_verify(sd_device *device) {
 }
 
 int device_new_from_strv(sd_device **ret, char **strv) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         const char *major = NULL, *minor = NULL;
         int r;
 
@@ -491,7 +491,7 @@ int device_new_from_strv(sd_device **ret, char **strv) {
 }
 
 int device_new_from_nulstr(sd_device **ret, char *nulstr, size_t len) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         const char *major = NULL, *minor = NULL;
         int r;
 
@@ -637,7 +637,7 @@ int device_get_devlink_priority(sd_device *device, int *ret) {
 }
 
 int device_clone_with_db(sd_device *device, sd_device **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *dest = NULL;
+        _cleanup_unref(sd_device) sd_device *dest = NULL;
         const char *key, *val;
         int r;
 
@@ -715,7 +715,7 @@ int device_cleanup_tags(sd_device *device, sd_device *original) {
 
         assert(device);
 
-        _cleanup_set_free_ Set *saved = TAKE_PTR(device->all_tags);
+        _cleanup_free(set) Set *saved = TAKE_PTR(device->all_tags);
         device->current_tags = set_free(device->current_tags);
         device->property_tags_outdated = true;
         device->tags_generation++;

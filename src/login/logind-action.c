@@ -156,7 +156,7 @@ static const HandleAction sleep_actions[] = {
 };
 
 int handle_action_get_enabled_sleep_actions(HandleActionSleepMask mask, char ***ret) {
-        _cleanup_strv_free_ char **actions = NULL;
+        _cleanup_free(strv) char **actions = NULL;
         int r;
 
         assert(ret);
@@ -214,7 +214,7 @@ static int handle_action_execute(
                 [HANDLE_FACTORY_RESET]          = "Performing factory reset...",
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         InhibitWhat inhibit_operation;
         Inhibitor *offending = NULL;
         int r;
@@ -452,7 +452,7 @@ int config_parse_handle_action_sleep(
                 void *userdata) {
 
         HandleActionSleepMask *mask = ASSERT_PTR(data);
-        _cleanup_strv_free_ char **actions = NULL;
+        _cleanup_free(strv) char **actions = NULL;
 
         assert(filename);
         assert(lvalue);

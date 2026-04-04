@@ -129,7 +129,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 nexthop_detach);
 
 int nexthop_new(NextHop **ret) {
-        _cleanup_(nexthop_unrefp) NextHop *nexthop = NULL;
+        _cleanup_unref(nexthop) NextHop *nexthop = NULL;
 
         nexthop = new(NextHop, 1);
         if (!nexthop)
@@ -146,8 +146,8 @@ int nexthop_new(NextHop **ret) {
 }
 
 static int nexthop_new_static(Network *network, const char *filename, unsigned section_line, NextHop **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(nexthop_unrefp) NextHop *nexthop = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_unref(nexthop) NextHop *nexthop = NULL;
         int r;
 
         assert(network);
@@ -250,7 +250,7 @@ static int nexthop_compare_full(const NextHop *a, const NextHop *b) {
 }
 
 static int nexthop_dup(const NextHop *src, NextHop **ret) {
-        _cleanup_(nexthop_unrefp) NextHop *dest = NULL;
+        _cleanup_unref(nexthop) NextHop *dest = NULL;
         struct nexthop_grp *nhg;
         int r;
 
@@ -411,7 +411,7 @@ static int nexthop_get_request(Link *link, const NextHop *in, Request **ret) {
 }
 
 static int nexthop_add_new(Manager *manager, uint32_t id, NextHop **ret) {
-        _cleanup_(nexthop_unrefp) NextHop *nexthop = NULL;
+        _cleanup_unref(nexthop) NextHop *nexthop = NULL;
         int r;
 
         assert(manager);
@@ -514,7 +514,7 @@ static void nexthop_forget_dependents(NextHop *nexthop, Manager *manager) {
          * Let's forget them. */
 
         for (;;) {
-                _cleanup_(route_unrefp) Route *route = set_steal_first(nexthop->routes);
+                _cleanup_unref(route) Route *route = set_steal_first(nexthop->routes);
                 if (!route)
                         break;
 
@@ -571,7 +571,7 @@ static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Remov
 }
 
 int nexthop_remove(NextHop *nexthop, Manager *manager) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         Link *link = NULL;
         int r;
 
@@ -604,7 +604,7 @@ int nexthop_remove(NextHop *nexthop, Manager *manager) {
 }
 
 int nexthop_remove_and_cancel(NextHop *nexthop, Manager *manager) {
-        _cleanup_(request_unrefp) Request *req = NULL;
+        _cleanup_unref(request) Request *req = NULL;
         bool waiting = false;
 
         assert(nexthop);
@@ -631,7 +631,7 @@ int nexthop_remove_and_cancel(NextHop *nexthop, Manager *manager) {
 }
 
 static int nexthop_configure(NextHop *nexthop, Link *link, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(nexthop);
@@ -830,7 +830,7 @@ int link_request_nexthop(
                 unsigned *message_counter,
                 nexthop_netlink_handler_t netlink_handler) {
 
-        _cleanup_(nexthop_unrefp) NextHop *tmp = NULL;
+        _cleanup_unref(nexthop) NextHop *tmp = NULL;
         NextHop *existing = NULL;
         int r;
 
@@ -1040,7 +1040,7 @@ void link_forget_nexthops(Link *link) {
 }
 
 static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_free(hashmap) Hashmap *h = NULL;
         _cleanup_free_ struct nexthop_grp *group = NULL;
         size_t size = 0, n_group;
         int r;
@@ -1292,8 +1292,8 @@ static int nexthop_section_verify(NextHop *nh) {
 }
 
 int network_drop_invalid_nexthops(Network *network) {
-        _cleanup_hashmap_free_ Hashmap *nexthops = NULL;
-        _cleanup_set_free_ Set *duplicated_nexthops = NULL;
+        _cleanup_free(hashmap) Hashmap *nexthops = NULL;
+        _cleanup_free(set) Set *duplicated_nexthops = NULL;
         NextHop *nh;
         int r;
 

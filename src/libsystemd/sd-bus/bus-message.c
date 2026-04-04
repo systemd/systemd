@@ -414,7 +414,7 @@ int bus_message_from_malloc(
                 const char *label,
                 sd_bus_message **ret) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         size_t sz;
         int r;
 
@@ -494,7 +494,7 @@ _public_ int sd_bus_message_new_signal_to(
                 const char *interface,
                 const char *member) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *t = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *t = NULL;
         int r;
 
         assert_return(bus, -ENOTCONN);
@@ -552,7 +552,7 @@ _public_ int sd_bus_message_new_method_call(
                 const char *interface,
                 const char *member) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *t = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *t = NULL;
         int r;
 
         assert_return(bus, -ENOTCONN);
@@ -598,7 +598,7 @@ static int message_new_reply(
                 uint8_t type,
                 sd_bus_message **ret) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *t = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *t = NULL;
         uint64_t cookie;
         int r;
 
@@ -655,7 +655,7 @@ _public_ int sd_bus_message_new_method_error(
                 sd_bus_message **ret,
                 const sd_bus_error *e) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *t = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *t = NULL;
         int r;
 
         assert_return(sd_bus_error_is_set(e), -EINVAL);
@@ -688,7 +688,7 @@ _public_ int sd_bus_message_new_method_errorf(
                 const char *format,
                 ...) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         va_list ap;
 
         assert_return(name, -EINVAL);
@@ -707,7 +707,7 @@ _public_ int sd_bus_message_new_method_errno(
                 int error,
                 const sd_bus_error *e) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error berror = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error berror = SD_BUS_ERROR_NULL;
 
         if (sd_bus_error_is_set(e))
                 return sd_bus_message_new_method_error(call, ret, e);
@@ -724,7 +724,7 @@ _public_ int sd_bus_message_new_method_errnof(
                 const char *format,
                 ...) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error berror = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error berror = SD_BUS_ERROR_NULL;
         va_list ap;
 
         va_start(ap, format);
@@ -758,7 +758,7 @@ int bus_message_new_synthetic_error(
                 const sd_bus_error *e,
                 sd_bus_message **m) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *t = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *t = NULL;
         int r;
 
         assert(bus);
@@ -4362,7 +4362,7 @@ _public_ int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
 }
 
 _public_ int sd_bus_message_read_strv(sd_bus_message *m, char ***ret) {
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_free(strv) char **strv = NULL;
         int r;
 
         assert_return(m, -EINVAL);
@@ -4595,7 +4595,7 @@ _public_ sd_bus* sd_bus_message_get_bus(sd_bus_message *m) {
 }
 
 int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *n = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *n = NULL;
         usec_t timeout;
         int r;
 
@@ -4720,7 +4720,7 @@ _public_ int sd_bus_message_sensitive(sd_bus_message *m) {
 }
 
 char** bus_message_make_log_fields(sd_bus_message *m) {
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_free(strv) char **strv = NULL;
 
         assert(m);
 

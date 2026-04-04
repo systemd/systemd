@@ -160,7 +160,7 @@ int bus_introspect_implementations(
         if (impl != main_impl)
                 bus_introspect_implementation(&intro, impl);
 
-        _cleanup_ordered_set_free_ OrderedSet *nodes = NULL;
+        _cleanup_free(ordered_set) OrderedSet *nodes = NULL;
 
         for (size_t i = 0; impl->children && impl->children[i]; i++) {
                 r = ordered_set_put_strdup(&nodes, impl->children[i]->path);

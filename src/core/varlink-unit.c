@@ -27,7 +27,7 @@
         SD_JSON_BUILD_PAIR_CONDITION(value > EMERGENCY_ACTION_NONE, name, SD_JSON_BUILD_STRING(emergency_action_to_string(value)))
 
 static int unit_dependencies_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         Unit *u = ASSERT_PTR(userdata);
         UnitDependency d;
         int r;
@@ -52,7 +52,7 @@ static int unit_dependencies_build_json(sd_json_variant **ret, const char *name,
 }
 
 static int unit_mounts_for_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         Hashmap **mounts_for = userdata;
         UnitMountDependencyType d;
         const char *p;
@@ -82,7 +82,7 @@ static int unit_mounts_for_build_json(sd_json_variant **ret, const char *name, v
 }
 
 static int unit_conditions_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         bool do_asserts = streq(name, "Asserts");
         Condition *list = userdata;
         int r;
@@ -204,7 +204,7 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
 }
 
 static int can_clean_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         Unit *u = ASSERT_PTR(userdata);
         ExecCleanMask mask;
         int r;
@@ -235,7 +235,7 @@ static int can_clean_build_json(sd_json_variant **ret, const char *name, void *u
 }
 
 static int markers_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         unsigned *markers = ASSERT_PTR(userdata);
         int r;
 
@@ -252,9 +252,9 @@ static int markers_build_json(sd_json_variant **ret, const char *name, void *use
 }
 
 static int activation_details_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         const ActivationDetails *activation_details = userdata;
-        _cleanup_strv_free_ char **pairs = NULL;
+        _cleanup_free(strv) char **pairs = NULL;
         int r;
 
         assert(ret);
@@ -337,7 +337,7 @@ static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit)
 }
 
 static int lookup_unit_by_pidref(sd_varlink *link, Manager *manager, PidRef *pidref, Unit **ret_unit) {
-        _cleanup_(pidref_done) PidRef peer = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef peer = PIDREF_NULL;
         Unit *unit;
         int r;
 
@@ -491,7 +491,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-         _cleanup_(unit_lookup_parameters_done) UnitLookupParameters p = {
+         _cleanup_done(unit_lookup_parameters) UnitLookupParameters p = {
                  .pidref = PIDREF_NULL,
         };
         Unit *unit;

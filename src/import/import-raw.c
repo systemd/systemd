@@ -90,7 +90,7 @@ int raw_import_new(
                 RawImportFinished on_finished,
                 void *userdata) {
 
-        _cleanup_(raw_import_unrefp) RawImport *i = NULL;
+        _cleanup_unref(raw_import) RawImport *i = NULL;
         _cleanup_free_ char *root = NULL;
         int r;
 

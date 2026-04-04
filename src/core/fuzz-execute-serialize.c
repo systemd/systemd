@@ -30,8 +30,8 @@
 
 static void exec_fuzz_one(FILE *f, FDSet *fdset) {
         _cleanup_(exec_params_deep_clear) ExecParameters params = EXEC_PARAMETERS_INIT(/* flags= */ 0);
-        _cleanup_(exec_context_done) ExecContext exec_context = {};
-        _cleanup_(cgroup_context_done) CGroupContext cgroup_context = {};
+        _cleanup_done(exec_context) ExecContext exec_context = {};
+        _cleanup_done(cgroup_context) CGroupContext cgroup_context = {};
         DynamicCreds dynamic_creds = {};
         ExecCommand command = {};
         ExecSharedRuntime shared = {
@@ -79,7 +79,7 @@ static void exec_fuzz_one(FILE *f, FDSet *fdset) {
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_free(fdset) FDSet *fdset = NULL;
 
         if (outside_size_range(size, 0, 128 * 1024))
                 return 0;

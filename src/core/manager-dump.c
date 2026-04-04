@@ -31,7 +31,7 @@ void manager_dump_jobs(Manager *m, FILE *f, char **patterns, const char *prefix)
 }
 
 int manager_get_dump_jobs_string(Manager *m, char **patterns, const char *prefix, char **ret) {
-        _cleanup_(memstream_done) MemStream ms = {};
+        _cleanup_done(memstream) MemStream ms = {};
         FILE *f;
 
         assert(m);
@@ -102,7 +102,7 @@ void manager_dump(Manager *m, FILE *f, char **patterns, const char *prefix) {
 }
 
 int manager_get_dump_string(Manager *m, char **patterns, char **ret) {
-        _cleanup_(memstream_done) MemStream ms = {};
+        _cleanup_done(memstream) MemStream ms = {};
         FILE *f;
 
         assert(m);

@@ -82,7 +82,7 @@ static void uid_range_coalesce(UIDRange *range) {
 }
 
 int uid_range_add_internal(UIDRange **range, uid_t start, uid_t nr, bool coalesce) {
-        _cleanup_(uid_range_freep) UIDRange *range_new = NULL;
+        _cleanup_free(uid_range) UIDRange *range_new = NULL;
         UIDRange *p;
 
         assert(range);
@@ -236,7 +236,7 @@ bool uid_range_is_empty(const UIDRange *range) {
 }
 
 int uid_range_load_userns_full(const char *path, UIDRangeUsernsMode mode, bool coalesce, UIDRange **ret) {
-        _cleanup_(uid_range_freep) UIDRange *range = NULL;
+        _cleanup_free(uid_range) UIDRange *range = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -416,7 +416,7 @@ int uid_range_copy(const UIDRange *range, UIDRange **ret) {
                 return 0;
         }
 
-        _cleanup_(uid_range_freep) UIDRange *copy = new0(UIDRange, 1);
+        _cleanup_free(uid_range) UIDRange *copy = new0(UIDRange, 1);
         if (!copy)
                 return -ENOMEM;
 
@@ -542,14 +542,14 @@ int uid_range_translate_userns_fd(int userns_fd, UIDRangeUsernsMode mode, uid_t 
         assert(userns_fd >= 0);
         assert(IN_SET(mode, UID_RANGE_USERNS_OUTSIDE, GID_RANGE_USERNS_OUTSIDE));
 
-        _cleanup_(uid_range_freep) UIDRange *outside_range = NULL;
+        _cleanup_free(uid_range) UIDRange *outside_range = NULL;
         r = uid_range_load_userns_by_fd_full(userns_fd, mode, /* coalesce= */ false, &outside_range);
         if (r < 0)
                 return r;
 
         mode = mode == UID_RANGE_USERNS_OUTSIDE ? UID_RANGE_USERNS_INSIDE : GID_RANGE_USERNS_INSIDE;
 
-        _cleanup_(uid_range_freep) UIDRange *inside_range = NULL;
+        _cleanup_free(uid_range) UIDRange *inside_range = NULL;
         r = uid_range_load_userns_by_fd_full(userns_fd, mode, /* coalesce= */ false, &inside_range);
         if (r < 0)
                 return r;

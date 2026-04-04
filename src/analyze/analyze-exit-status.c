@@ -8,7 +8,7 @@
 #include "strv.h"
 
 int verb_exit_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         table = table_new("name", "status", "class");

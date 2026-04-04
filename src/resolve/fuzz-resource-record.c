@@ -9,9 +9,9 @@
 #include "string-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL, *copy = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL, *copy = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_done(memstream) MemStream m = {};
         FILE *f;
 
         if (outside_size_range(size, 0, DNS_PACKET_SIZE_MAX))

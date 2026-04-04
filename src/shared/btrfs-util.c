@@ -1933,7 +1933,7 @@ static int btrfs_read_chunk_tree_fd(int fd, BtrfsChunkTree *ret) {
                 .key.max_transid = UINT64_MAX,
         };
 
-        _cleanup_(btrfs_chunk_tree_done) BtrfsChunkTree tree = {};
+        _cleanup_done(btrfs_chunk_tree) BtrfsChunkTree tree = {};
 
         assert(fd >= 0);
         assert(ret);
@@ -1951,7 +1951,7 @@ static int btrfs_read_chunk_tree_fd(int fd, BtrfsChunkTree *ret) {
                         break;
 
                 FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, search_args) {
-                        _cleanup_(btrfs_chunk_freep) BtrfsChunk *chunk = NULL;
+                        _cleanup_free(btrfs_chunk) BtrfsChunk *chunk = NULL;
 
                         btrfs_ioctl_search_args_set(&search_args, &sh);
 
@@ -2062,7 +2062,7 @@ int btrfs_get_file_physical_offset_fd(int fd, uint64_t *ret) {
                 .key.max_transid = UINT64_MAX,
         };
 
-        _cleanup_(btrfs_chunk_tree_done) BtrfsChunkTree tree = {};
+        _cleanup_done(btrfs_chunk_tree) BtrfsChunkTree tree = {};
         uint64_t subvol_id;
         struct stat st;
         int r;

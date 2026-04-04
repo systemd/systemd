@@ -14,7 +14,7 @@
  */
 
 static int run(int argc, char *argv[]) {
-        _cleanup_strv_free_ char **only_show_in = NULL, **not_show_in = NULL, **desktops = NULL;
+        _cleanup_free(strv) char **only_show_in = NULL, **not_show_in = NULL, **desktops = NULL;
         const char *xdg_current_desktop;
 
         if (argc != 3)

@@ -20,7 +20,7 @@
 #include "time-util.h"
 
 int action_print_header(void) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         int r;
 
         assert(arg_action == ACTION_PRINT_HEADER);
@@ -34,7 +34,7 @@ int action_print_header(void) {
 }
 
 int action_verify(void) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         int r;
 
         assert(arg_action == ACTION_VERIFY);
@@ -87,7 +87,7 @@ int action_verify(void) {
 }
 
 int action_disk_usage(void) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         uint64_t bytes = 0;
         int r;
 
@@ -106,7 +106,7 @@ int action_disk_usage(void) {
 }
 
 static int show_log_ids(const LogId *ids, size_t n_ids, const char *name) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         assert(ids);
@@ -159,7 +159,7 @@ static int show_log_ids(const LogId *ids, size_t n_ids, const char *name) {
 }
 
 int action_list_boots(void) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         _cleanup_free_ LogId *ids = NULL;
         size_t n_ids;
         int r;
@@ -185,7 +185,7 @@ int action_list_boots(void) {
 }
 
 int action_list_fields(void) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         int r, n_shown = 0;
 
         assert(arg_action == ACTION_LIST_FIELDS);
@@ -227,7 +227,7 @@ int action_list_fields(void) {
 }
 
 int action_list_field_names(void) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         int r;
 
         assert(arg_action == ACTION_LIST_FIELD_NAMES);
@@ -244,7 +244,7 @@ int action_list_field_names(void) {
 }
 
 int action_list_invocations(void) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         _cleanup_free_ LogId *ids = NULL;
         size_t n_ids;
         LogIdType type;
@@ -281,7 +281,7 @@ int action_list_invocations(void) {
 }
 
 int action_list_namespaces(void) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         sd_id128_t machine;
         int r;
 

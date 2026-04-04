@@ -690,7 +690,7 @@ int dhcp6_option_parse_ia(
                 const uint8_t *option_data,
                 DHCP6IA **ret) {
 
-        _cleanup_(dhcp6_ia_freep) DHCP6IA *ia = NULL;
+        _cleanup_free(dhcp6_ia) DHCP6IA *ia = NULL;
         usec_t lt_t1, lt_t2;
         size_t header_len;
         int r;
@@ -850,7 +850,7 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, size_t optlen, char **r
 }
 
 int dhcp6_option_parse_domainname_list(const uint8_t *optval, size_t optlen, char ***ret) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         int r;
 
         assert(optval || optlen == 0);

@@ -71,7 +71,7 @@ static int genl_family_new_unsupported(
                 const char *family_name,
                 const NLAPolicySet *policy_set) {
 
-        _cleanup_(genl_family_freep) GenericNetlinkFamily *f = NULL;
+        _cleanup_free(genl_family) GenericNetlinkFamily *f = NULL;
         int r;
 
         assert(nl);
@@ -109,7 +109,7 @@ static int genl_family_new(
                 sd_netlink_message *message,
                 const GenericNetlinkFamily **ret) {
 
-        _cleanup_(genl_family_freep) GenericNetlinkFamily *f = NULL;
+        _cleanup_free(genl_family) GenericNetlinkFamily *f = NULL;
         const char *family_name;
         uint8_t cmd;
         int r;
@@ -233,7 +233,7 @@ static int genl_message_new(
                 uint8_t cmd,
                 sd_netlink_message **ret) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         const NLAPolicySet *policy_set;
         int r;
 
@@ -266,7 +266,7 @@ static int genl_family_get_by_name_internal(
                 const char *name,
                 const GenericNetlinkFamily **ret) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL, *reply = NULL;
         const NLAPolicySet *policy_set;
         int r;
 

@@ -7,6 +7,7 @@
 #include <systemd/sd-event.h>
 
 #define _cleanup_(f) __attribute__((cleanup(f)))
+#define _cleanup_unref(x) _cleanup_(x ## _unrefp)
 
 static int inotify_handler(sd_event_source *source,
                            const struct inotify_event *event,
@@ -34,8 +35,8 @@ static int inotify_handler(sd_event_source *source,
 }
 
 int main(int argc, char **argv) {
-  _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-  _cleanup_(sd_event_source_unrefp) sd_event_source *source1 = NULL, *source2 = NULL;
+  _cleanup_unref(sd_event) sd_event *event = NULL;
+  _cleanup_unref(sd_event_source) sd_event_source *source1 = NULL, *source2 = NULL;
 
   const char *path1 = argc > 1 ? argv[1] : "/tmp";
   const char *path2 = argc > 2 ? argv[2] : NULL;

@@ -160,7 +160,7 @@ struct Table {
 };
 
 Table* table_new_raw(size_t n_columns) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
 
         assert(n_columns > 0);
 
@@ -180,7 +180,7 @@ Table* table_new_raw(size_t n_columns) {
 }
 
 Table* table_new_internal(const char *first_header, ...) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         size_t n_columns = 1;
         va_list ap;
         int r;
@@ -217,7 +217,7 @@ Table* table_new_internal(const char *first_header, ...) {
 }
 
 Table* table_new_vertical(void) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         TableCell *cell;
 
         t = table_new_raw(2);
@@ -484,7 +484,7 @@ int table_add_cell_full(
                 unsigned align_percent,
                 unsigned ellipsize_percent) {
 
-        _cleanup_(table_data_unrefp) TableData *d = NULL;
+        _cleanup_unref(table_data) TableData *d = NULL;
         bool uppercase;
         TableData *p;
 
@@ -1575,7 +1575,7 @@ static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
 }
 
 static char* format_strv_width(char **strv, size_t column_width) {
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         FILE *f;
 
         f = memstream_init(&m);
@@ -2657,7 +2657,7 @@ int table_print_or_warn(Table *t) {
 }
 
 int table_format(Table *t, char **ret) {
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         FILE *f;
         int r;
 
@@ -3151,7 +3151,7 @@ int table_to_json(Table *t, sd_json_variant **ret) {
 }
 
 int table_print_json(Table *t, FILE *f, sd_json_format_flags_t flags) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(t);

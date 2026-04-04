@@ -7,10 +7,10 @@
 
 #include "shared-forward.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_context*, fdisk_unref_context, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_partition*, fdisk_unref_partition, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_parttype*, fdisk_unref_parttype, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_table*, fdisk_unref_table, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct fdisk_context*, fdisk_unref_context, fdisk_context_unrefp, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct fdisk_partition*, fdisk_unref_partition, fdisk_partition_unrefp, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct fdisk_parttype*, fdisk_unref_parttype, fdisk_parttype_unrefp, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct fdisk_table*, fdisk_unref_table, fdisk_table_unrefp, NULL);
 
 int fdisk_new_context_at(int dir_fd, const char *path, bool read_only, uint32_t sector_size, struct fdisk_context **ret);
 

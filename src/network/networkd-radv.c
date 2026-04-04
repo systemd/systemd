@@ -63,8 +63,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 Prefix, prefix_free);
 
 static int prefix_new_static(Network *network, const char *filename, unsigned section_line, Prefix **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(prefix_freep) Prefix *prefix = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_free(prefix) Prefix *prefix = NULL;
         int r;
 
         assert(network);
@@ -127,8 +127,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 RoutePrefix, route_prefix_free);
 
 static int route_prefix_new_static(Network *network, const char *filename, unsigned section_line, RoutePrefix **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(route_prefix_freep) RoutePrefix *prefix = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_free(route_prefix) RoutePrefix *prefix = NULL;
         int r;
 
         assert(network);
@@ -188,8 +188,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 Prefix64, prefix64_free);
 
 static int prefix64_new_static(Network *network, const char *filename, unsigned section_line, Prefix64 **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(prefix64_freep) Prefix64 *prefix = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_free(prefix64) Prefix64 *prefix = NULL;
         int r;
 
         assert(network);
@@ -244,7 +244,7 @@ int link_request_radv_addresses(Link *link) {
                 if (p->prefix.prefixlen > 64)
                         continue;
 
-                _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
+                _cleanup_free(hashmap) Hashmap *tokens_by_address = NULL;
                 r = radv_generate_addresses(link, p->tokens, &p->prefix.address, p->prefix.prefixlen, &tokens_by_address);
                 if (r < 0)
                         return r;
@@ -252,7 +252,7 @@ int link_request_radv_addresses(Link *link) {
                 IPv6Token *token;
                 struct in6_addr *a;
                 HASHMAP_FOREACH_KEY(token, a, tokens_by_address) {
-                        _cleanup_(address_unrefp) Address *address = NULL;
+                        _cleanup_unref(address) Address *address = NULL;
 
                         r = address_new(&address);
                         if (r < 0)

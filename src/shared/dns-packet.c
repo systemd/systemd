@@ -1863,8 +1863,8 @@ int dns_packet_read_rr(
         assert(p);
 
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
         size_t offset;
         uint16_t rdlength;
         bool cache_flush;
@@ -2444,7 +2444,7 @@ static bool opt_is_good(DnsResourceRecord *rr, bool *rfc6975) {
 }
 
 static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
         unsigned n;
         int r;
 
@@ -2454,7 +2454,7 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                 if (!question)
                         return -ENOMEM;
 
-                _cleanup_set_free_ Set *keys = NULL; /* references to keys are kept by Question */
+                _cleanup_free(set) Set *keys = NULL; /* references to keys are kept by Question */
 
                 keys = set_new(&dns_resource_key_hash_ops);
                 if (!keys)
@@ -2466,7 +2466,7 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                         return r;
 
                 for (unsigned i = 0; i < n; i++) {
-                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+                        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
                         bool qu;
 
                         r = dns_packet_read_key(p, &key, &qu, NULL);
@@ -2495,9 +2495,9 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
 }
 
 static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         unsigned n;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *previous = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *previous = NULL;
         bool bad_opt = false;
         int r;
 
@@ -2510,7 +2510,7 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                 return -ENOMEM;
 
         for (unsigned i = 0; i < n; i++) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
                 bool cache_flush = false;
                 size_t start;
 
@@ -2647,8 +2647,8 @@ int dns_packet_extract(DnsPacket *p) {
         if (p->extracted)
                 return 0;
 
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         _unused_ _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
         int r;
 

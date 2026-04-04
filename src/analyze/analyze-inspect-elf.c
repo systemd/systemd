@@ -17,8 +17,8 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
         int r;
 
         STRV_FOREACH(filename, filenames) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL;
-                _cleanup_(table_unrefp) Table *t = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *package_metadata = NULL;
+                _cleanup_unref(table) Table *t = NULL;
                 _cleanup_free_ char *abspath = NULL, *stacktrace = NULL;
                 _cleanup_close_ int fd = -EBADF;
                 bool coredump = false;
