@@ -297,6 +297,7 @@ int _option_parser_get_help_table(
                  * "=" is shown only when a long option is defined: -l --long=ARG, --long=ARG, -s ARG.
                  */
                 bool need_eq = option_takes_arg(opt) && opt->long_code;
+                bool need_quote = opt->metavar && strchr(opt->metavar, ' ');
                 _cleanup_free_ char *s = strjoin(
                                 "  ",
                                 sc,
@@ -305,7 +306,9 @@ int _option_parser_get_help_table(
                                 strempty(opt->long_code),
                                 option_arg_optional(opt) ? "[" : "",
                                 need_eq ? "=" : "",
+                                need_quote ? "'" : "",
                                 strempty(opt->metavar),
+                                need_quote ? "'" : "",
                                 option_arg_optional(opt) ? "]" : "");
                 if (!s)
                         return log_oom();
