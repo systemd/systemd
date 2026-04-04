@@ -88,11 +88,13 @@ static inline void virtiofs_infos_done(VirtiofsInfos *infos) {
         infos->n = 0;
 }
 
-/* QMP handshake, feature detection, device setup, and VM start */
+/* QMP handshake, feature detection, device setup, and VM start.
+ * vmgenid is optional: pass SD_ID128_NULL to skip vmgenid device creation. */
 int vmspawn_varlink_init(VmspawnVarlinkBridge **ret, int qmp_fd, sd_event *event,
                       const DriveInfo *drives, size_t n_drives,
                       const NetworkInfo *network,
-                      const VirtiofsInfo *virtiofs, size_t n_virtiofs);
+                      const VirtiofsInfo *virtiofs, size_t n_virtiofs,
+                      sd_id128_t vmgenid);
 
 /* Varlink server for VM control on top of an established bridge connection */
 int vmspawn_varlink_setup(VmspawnVarlinkContext **ret, VmspawnVarlinkBridge *bridge,

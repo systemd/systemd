@@ -588,6 +588,27 @@ static int qmp_setup_rng(QmpClient *qmp) {
         return 0;
 }
 
+static int qmp_setup_vmgenid(QmpClient *qmp, sd_id128_t vmgenid) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
+        _cleanup_free_ char *error_class = NULL;
+        int r;
+
+        r = sd_json_buildo(
+                        &args,
+                        SD_JSON_BUILD_PAIR_STRING("driver", "vmgenid"),
+                        SD_JSON_BUILD_PAIR_STRING("id", "vmgenid0"),
+                        SD_JSON_BUILD_PAIR_STRING("guid", SD_ID128_TO_UUID_STRING(vmgenid)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build vmgenid device_add JSON: %m");
+
+        r = qmp_client_call(qmp, "device_add", args, /* ret_result= */ NULL, &error_class);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add vmgenid device via QMP: %s", strna(error_class));
+
+        log_debug("Added vmgenid device via QMP");
+        return 0;
+}
+
 static int qmp_setup_balloon(QmpClient *qmp) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
         _cleanup_free_ char *error_class = NULL;
@@ -663,7 +684,8 @@ int vmspawn_varlink_init(
                 size_t n_drives,
                 const NetworkInfo *network,
                 const VirtiofsInfo *virtiofs,
-                size_t n_virtiofs) {
+                size_t n_virtiofs,
+                sd_id128_t vmgenid) {
 
         _cleanup_(vmspawn_varlink_bridge_freep) VmspawnVarlinkBridge *bridge = NULL;
         _cleanup_close_ int fd = TAKE_FD(qmp_fd);
@@ -717,6 +739,13 @@ int vmspawn_varlink_init(
         r = qmp_setup_balloon(qmp);
         if (r < 0)
                 return r;
+
+        /* Add vmgenid device via QMP (if supported and UUID provided) */
+        if (!sd_id128_is_null(vmgenid)) {
+                r = qmp_setup_vmgenid(qmp, vmgenid);
+                if (r < 0)
+                        return r;
+        }
 
         _cleanup_free_ char *cont_error = NULL;
         r = qmp_client_call(qmp, "cont", /* arguments= */ NULL, /* ret_result= */ NULL, &cont_error);
