@@ -2898,24 +2898,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        bool need_scsi_controller =
-                IN_SET(arg_image_disk_type, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM) && arg_image;
-        if (!need_scsi_controller)
-                FOREACH_ARRAY(drive, arg_extra_drives.drives, arg_extra_drives.n_drives) {
-                        DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
-                        if (IN_SET(dt, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM)) {
-                                need_scsi_controller = true;
-                                break;
-                        }
-                }
-
-        if (need_scsi_controller) {
-                r = qemu_config_section(config_file, "device", "vmspawn_scsi",
-                                        "driver", "virtio-scsi-pci");
-                if (r < 0)
-                        return r;
-        }
-
         if (arg_image) {
                 assert(!arg_directory);
 
