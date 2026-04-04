@@ -77,6 +77,13 @@ int qmp_client_fdset_new(QmpClient *client, int fd, QmpFdset *ret);
 /* Add another fd to an existing fdset (for multi-access-mode support). */
 int qmp_client_fdset_add_fd(QmpClient *client, QmpFdset *fdset, int fd);
 
+/* Wait for a QMP job to conclude by watching JOB_STATUS_CHANGE events on the blocking
+ * socket. After the job concludes, queries its error status via query-jobs and dismisses it.
+ * Only valid during the blocking phase (before qmp_client_start_async).
+ * Returns 0 on success, -EIO on job error (message in ret_error), negative errno on
+ * transport failure. */
+int qmp_client_job_wait(QmpClient *client, const char *job_id, char **ret_error);
+
 /* Send a QMP command asynchronously. The callback is invoked exactly once from the sd-event loop when
  * the matching response arrives or the connection drops (-ECONNRESET). Returns 0 if the command was
  * sent and registered (callback will be invoked later), negative errno on failure (callback NOT invoked). */
