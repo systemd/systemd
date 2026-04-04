@@ -105,15 +105,20 @@ static inline void vsock_info_done(VsockInfo *info) {
         info->fd = safe_close(info->fd);
 }
 
-/* QMP handshake, feature detection, device setup, and VM start.
- * vmgenid is optional: pass SD_ID128_NULL to skip vmgenid device creation.
- * vsock is optional: pass NULL to skip VSOCK device creation. */
-int vmspawn_varlink_init(VmspawnVarlinkBridge **ret, int qmp_fd, sd_event *event,
-                      const DriveInfo *drives, size_t n_drives,
-                      const NetworkInfo *network,
-                      const VirtiofsInfo *virtiofs, size_t n_virtiofs,
-                      sd_id128_t vmgenid,
-                      VsockInfo *vsock);
+/* Phase 1: Connect to VMM backend. Connect to VMM backend. Returns an opaque bridge ready for device setup. */
+int vmspawn_varlink_init(VmspawnVarlinkBridge **ret, int qmp_fd, sd_event *event);
+
+/* Phase 2: Device setup — call any subset in any order before vmspawn_varlink_start(). */
+int vmspawn_varlink_setup_drives(VmspawnVarlinkBridge *bridge, const DriveInfos *drives);
+int vmspawn_varlink_setup_network(VmspawnVarlinkBridge *bridge, NetworkInfo *network);
+int vmspawn_varlink_setup_virtiofs(VmspawnVarlinkBridge *bridge, const VirtiofsInfos *virtiofs);
+int vmspawn_varlink_setup_rng(VmspawnVarlinkBridge *bridge);
+int vmspawn_varlink_setup_balloon(VmspawnVarlinkBridge *bridge);
+int vmspawn_varlink_setup_vmgenid(VmspawnVarlinkBridge *bridge, sd_id128_t vmgenid);
+int vmspawn_varlink_setup_vsock(VmspawnVarlinkBridge *bridge, VsockInfo *vsock);
+
+/* Phase 3: Resume vCPUs and switch async event processing. */
+int vmspawn_varlink_start(VmspawnVarlinkBridge *bridge);
 
 /* Varlink server for VM control on top of an established bridge connection */
 int vmspawn_varlink_setup(VmspawnVarlinkContext **ret, VmspawnVarlinkBridge *bridge,

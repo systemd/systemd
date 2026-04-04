@@ -424,13 +424,15 @@ static int qmp_setup_one_drive(QmpClient *qmp, const DriveInfo *drive, bool io_u
         return 0;
 }
 
-static int qmp_setup_network(QmpClient *qmp, const NetworkInfo *network) {
+int vmspawn_varlink_setup_network(VmspawnVarlinkBridge *bridge, NetworkInfo *network) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *netdev_args = NULL, *device_args = NULL;
         _cleanup_free_ char *error_class = NULL;
         bool tap_by_fd;
         int r;
 
-        assert(qmp);
+        assert(bridge);
+
+        QmpClient *qmp = bridge->qmp;
         assert(network);
         assert(network->type);
 
@@ -453,6 +455,7 @@ static int qmp_setup_network(QmpClient *qmp, const NetworkInfo *network) {
                         return log_error_errno(r, "Failed to pass TAP fd to QEMU via getfd: %s", strna(error_class));
 
                 error_class = mfree(error_class);
+                network->fd = safe_close(network->fd);
         }
 
         /* netdev_add: create the network backend */
@@ -496,7 +499,7 @@ static int qmp_setup_network(QmpClient *qmp, const NetworkInfo *network) {
         return 0;
 }
 
-static int qmp_setup_one_virtiofs(QmpClient *qmp, const VirtiofsInfo *vfs) {
+static int vmspawn_varlink_setup_one_virtiofs(QmpClient *qmp, const VirtiofsInfo *vfs) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *chardev_args = NULL, *device_args = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *addr = NULL, *backend_data = NULL, *backend = NULL;
         _cleanup_free_ char *error_class = NULL;
@@ -565,11 +568,16 @@ static int qmp_setup_one_virtiofs(QmpClient *qmp, const VirtiofsInfo *vfs) {
         return 0;
 }
 
-static int qmp_setup_virtiofs(QmpClient *qmp, const VirtiofsInfo *virtiofs, size_t n_virtiofs) {
+int vmspawn_varlink_setup_virtiofs(VmspawnVarlinkBridge *bridge, const VirtiofsInfos *virtiofs) {
         int r;
 
-        for (size_t i = 0; i < n_virtiofs; i++) {
-                r = qmp_setup_one_virtiofs(qmp, &virtiofs[i]);
+        assert(bridge);
+
+        QmpClient *qmp = bridge->qmp;
+        assert(virtiofs);
+
+        for (size_t i = 0; i < virtiofs->n; i++) {
+                r = vmspawn_varlink_setup_one_virtiofs(qmp, &virtiofs->entries[i]);
                 if (r < 0)
                         return r;
         }
@@ -577,10 +585,14 @@ static int qmp_setup_virtiofs(QmpClient *qmp, const VirtiofsInfo *virtiofs, size
         return 0;
 }
 
-static int qmp_setup_rng(QmpClient *qmp) {
+int vmspawn_varlink_setup_rng(VmspawnVarlinkBridge *bridge) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *object_args = NULL, *device_args = NULL;
         _cleanup_free_ char *error_class = NULL;
         int r;
+
+        assert(bridge);
+
+        QmpClient *qmp = bridge->qmp;
 
         /* object-add: create rng-random backend */
         r = sd_json_buildo(
@@ -613,10 +625,14 @@ static int qmp_setup_rng(QmpClient *qmp) {
         return 0;
 }
 
-static int qmp_setup_vmgenid(QmpClient *qmp, sd_id128_t vmgenid) {
+int vmspawn_varlink_setup_vmgenid(VmspawnVarlinkBridge *bridge, sd_id128_t vmgenid) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
         _cleanup_free_ char *error_class = NULL;
         int r;
+
+        assert(bridge);
+
+        QmpClient *qmp = bridge->qmp;
 
         r = sd_json_buildo(
                         &args,
@@ -634,10 +650,14 @@ static int qmp_setup_vmgenid(QmpClient *qmp, sd_id128_t vmgenid) {
         return 0;
 }
 
-static int qmp_setup_balloon(QmpClient *qmp) {
+int vmspawn_varlink_setup_balloon(VmspawnVarlinkBridge *bridge) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
         _cleanup_free_ char *error_class = NULL;
         int r;
+
+        assert(bridge);
+
+        QmpClient *qmp = bridge->qmp;
 
         r = sd_json_buildo(
                         &args,
@@ -655,12 +675,14 @@ static int qmp_setup_balloon(QmpClient *qmp) {
         return 0;
 }
 
-static int qmp_setup_vsock(QmpClient *qmp, VsockInfo *vsock) {
+int vmspawn_varlink_setup_vsock(VmspawnVarlinkBridge *bridge, VsockInfo *vsock) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *getfd_args = NULL, *device_args = NULL;
         _cleanup_free_ char *error_class = NULL;
         int r;
 
-        assert(qmp);
+        assert(bridge);
+
+        QmpClient *qmp = bridge->qmp;
         assert(vsock);
         assert(vsock->fd >= 0);
 
@@ -697,9 +719,9 @@ static int qmp_setup_vsock(QmpClient *qmp, VsockInfo *vsock) {
         return 0;
 }
 
-static bool drives_need_scsi_controller(const DriveInfo *drives, size_t n_drives) {
-        for (size_t i = 0; i < n_drives; i++)
-                if (STR_IN_SET(drives[i].disk_driver, "scsi-hd", "scsi-cd"))
+static bool drives_need_scsi_controller(const DriveInfos *drives) {
+        FOREACH_ARRAY(d, drives->drives, drives->n)
+                if (STR_IN_SET(d->disk_driver, "scsi-hd", "scsi-cd"))
                         return true;
 
         return false;
@@ -725,17 +747,27 @@ static int qmp_setup_scsi_controller(QmpClient *qmp) {
         return 0;
 }
 
-static int qmp_setup_drives(QmpClient *qmp, const DriveInfo *drives, size_t n_drives, bool io_uring) {
+int vmspawn_varlink_setup_drives(VmspawnVarlinkBridge *bridge, const DriveInfos *drives) {
         int r;
 
-        if (drives_need_scsi_controller(drives, n_drives)) {
+        assert(bridge);
+
+        QmpClient *qmp = bridge->qmp;
+        assert(drives);
+
+        QemuFeatures features = {};
+        r = qmp_detect_features(qmp, &features);
+        if (r < 0)
+                log_warning_errno(r, "Failed to detect QEMU features, continuing with defaults: %m");
+
+        if (drives_need_scsi_controller(drives)) {
                 r = qmp_setup_scsi_controller(qmp);
                 if (r < 0)
                         return r;
         }
 
-        for (size_t i = 0; i < n_drives; i++) {
-                r = qmp_setup_one_drive(qmp, &drives[i], io_uring);
+        for (size_t i = 0; i < drives->n; i++) {
+                r = qmp_setup_one_drive(qmp, &drives->drives[i], features.io_uring);
                 if (r < 0)
                         return r;
         }
@@ -743,18 +775,7 @@ static int qmp_setup_drives(QmpClient *qmp, const DriveInfo *drives, size_t n_dr
         return 0;
 }
 
-int vmspawn_varlink_init(
-                VmspawnVarlinkBridge **ret,
-                int qmp_fd,
-                sd_event *event,
-                const DriveInfo *drives,
-                size_t n_drives,
-                const NetworkInfo *network,
-                const VirtiofsInfo *virtiofs,
-                size_t n_virtiofs,
-                sd_id128_t vmgenid,
-                VsockInfo *vsock) {
-
+int vmspawn_varlink_init(VmspawnVarlinkBridge **ret, int qmp_fd, sd_event *event) {
         _cleanup_(vmspawn_varlink_bridge_freep) VmspawnVarlinkBridge *bridge = NULL;
         _cleanup_close_ int fd = TAKE_FD(qmp_fd);
         int r;
@@ -763,7 +784,6 @@ int vmspawn_varlink_init(
         assert_return(fd >= 0, -EBADF);
         assert_return(event, -EINVAL);
 
-        /* Blocking QMP handshake */
         bridge = new(VmspawnVarlinkBridge, 1);
         if (!bridge)
                 return log_oom();
@@ -774,65 +794,24 @@ int vmspawn_varlink_init(
         if (r < 0)
                 return log_error_errno(r, "Failed to perform QMP handshake: %m");
 
-        QmpClient *qmp = bridge->qmp;
+        *ret = TAKE_PTR(bridge);
+        return 0;
+}
 
-        QemuFeatures features = {};
-        r = qmp_detect_features(qmp, &features);
+int vmspawn_varlink_start(VmspawnVarlinkBridge *bridge) {
+        _cleanup_free_ char *error_class = NULL;
+        int r;
+
+        assert_return(bridge, -EINVAL);
+
+        r = qmp_client_call(bridge->qmp, "cont", /* arguments= */ NULL, /* ret_result= */ NULL, &error_class);
         if (r < 0)
-                log_warning_errno(r, "Failed to detect QEMU features, continuing with defaults: %m");
+                return log_error_errno(r, "Failed to resume QEMU execution: %s", strna(error_class));
 
-        /* Add drives via QMP commands */
-        r = qmp_setup_drives(qmp, drives, n_drives, features.io_uring);
-        if (r < 0)
-                return r;
-
-        /* Add network via QMP commands (if not already configured on the command line) */
-        if (network) {
-                r = qmp_setup_network(qmp, network);
-                if (r < 0)
-                        return r;
-        }
-
-        /* Add virtiofs chardevs and devices via QMP */
-        r = qmp_setup_virtiofs(qmp, virtiofs, n_virtiofs);
-        if (r < 0)
-                return r;
-
-        /* Add RNG device via QMP */
-        r = qmp_setup_rng(qmp);
-        if (r < 0)
-                return r;
-
-        /* Add balloon device via QMP */
-        r = qmp_setup_balloon(qmp);
-        if (r < 0)
-                return r;
-
-        /* Add vmgenid device via QMP (if supported and UUID provided) */
-        if (!sd_id128_is_null(vmgenid)) {
-                r = qmp_setup_vmgenid(qmp, vmgenid);
-                if (r < 0)
-                        return r;
-        }
-
-        /* Add VSOCK device via QMP (if requested) */
-        if (vsock) {
-                r = qmp_setup_vsock(qmp, vsock);
-                if (r < 0)
-                        return r;
-        }
-
-        _cleanup_free_ char *cont_error = NULL;
-        r = qmp_client_call(qmp, "cont", /* arguments= */ NULL, /* ret_result= */ NULL, &cont_error);
-        if (r < 0)
-                return log_error_errno(r, "Failed to resume QEMU execution: %s", strna(cont_error));
-
-        /* Switch QMP client to async mode for event processing during the event loop */
         r = qmp_client_start_async(bridge->qmp);
         if (r < 0)
                 return log_error_errno(r, "Failed to switch QMP client to async mode: %m");
 
-        *ret = TAKE_PTR(bridge);
         return 0;
 }
 

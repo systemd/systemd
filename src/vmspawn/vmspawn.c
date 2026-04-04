@@ -3462,14 +3462,49 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        /* QMP handshake, feature detection, device setup, and VM start */
+        /* Connect to VMM backend */
         _cleanup_(vmspawn_varlink_bridge_freep) VmspawnVarlinkBridge *bridge = NULL;
-        r = vmspawn_varlink_init(&bridge, TAKE_FD(bridge_fds[0]), event, drives.drives, drives.n,
-                              network.type ? &network : NULL,
-                              virtiofs.entries, virtiofs.n,
-                              vmgenid,
-                              vsock.fd >= 0 ? &vsock : NULL);
-        network.fd = safe_close(network.fd);
+        r = vmspawn_varlink_init(&bridge, TAKE_FD(bridge_fds[0]), event);
+        if (r < 0)
+                return r;
+
+        /* Device setup — all before resuming vCPUs */
+        r = vmspawn_varlink_setup_drives(bridge, &drives);
+        if (r < 0)
+                return r;
+
+        if (network.type) {
+                r = vmspawn_varlink_setup_network(bridge, &network);
+                if (r < 0)
+                        return r;
+        }
+
+        r = vmspawn_varlink_setup_virtiofs(bridge, &virtiofs);
+        if (r < 0)
+                return r;
+
+        r = vmspawn_varlink_setup_rng(bridge);
+        if (r < 0)
+                return r;
+
+        r = vmspawn_varlink_setup_balloon(bridge);
+        if (r < 0)
+                return r;
+
+        if (!sd_id128_is_null(vmgenid)) {
+                r = vmspawn_varlink_setup_vmgenid(bridge, vmgenid);
+                if (r < 0)
+                        return r;
+        }
+
+        if (vsock.fd >= 0) {
+                r = vmspawn_varlink_setup_vsock(bridge, &vsock);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Resume vCPUs and switch to async event processing */
+        r = vmspawn_varlink_start(bridge);
         if (r < 0)
                 return r;
 
