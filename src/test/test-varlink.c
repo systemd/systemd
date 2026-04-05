@@ -762,10 +762,6 @@ static int method_upgrade(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r < 0)
                 return r;
 
-        /* For a socketpair connection, both fds point to the same socket — avoid double-close */
-        if (input_fd == output_fd)
-                output_fd = -EBADF;
-
         /* After upgrade, do raw I/O: read a line, reverse it, write it back */
         char buf[64] = {};
         ssize_t n;
@@ -777,8 +773,7 @@ static int method_upgrade(sd_varlink *link, sd_json_variant *parameters, sd_varl
         for (ssize_t i = 0; i < n / 2; i++)
                 SWAP_TWO(buf[i], buf[n - 1 - i]);
 
-        int write_fd = output_fd >= 0 ? output_fd : input_fd;
-        ASSERT_OK_ERRNO(write(write_fd, buf, n));
+        ASSERT_OK_ERRNO(write(output_fd, buf, n));
 
         return 0;
 }
@@ -807,15 +802,11 @@ static void *upgrade_thread(void *arg) {
         ASSERT_NULL(error_id);
         ASSERT_GE(input_fd, 0);
         ASSERT_GE(output_fd, 0);
-
-        /* For a socketpair connection, both fds point to the same socket — avoid double-close */
-        if (input_fd == output_fd)
-                output_fd = -EBADF;
+        ASSERT_NE(input_fd, output_fd); /* library dups for bidirectional sockets */
 
         /* Send a test string, expect reversed reply */
         static const char msg[] = "Hello!";
-        int write_fd = output_fd >= 0 ? output_fd : input_fd;
-        ASSERT_OK_ERRNO(write(write_fd, msg, strlen(msg)));
+        ASSERT_OK_ERRNO(write(output_fd, msg, strlen(msg)));
 
         char buf[64] = {};
         ssize_t n;
