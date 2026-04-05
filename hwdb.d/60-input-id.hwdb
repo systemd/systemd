@@ -67,6 +67,11 @@ id-input:modalias:input:b0003v07C0p1125*
  ID_INPUT_MOUSE=
  ID_INPUT_JOYSTICK=1
 
+# Cooler Master ARGB GEN-2 controller
+id-input:modalias:input:b0003v2516p01C9*
+ ID_INPUT=0
+ ID_INPUT_MOUSE=0
+
 # GOLD WARRIOR SIM PhoenixRC 10411R
 id-input:modalias:input:b0003v1781p0898*
  ID_INPUT_ACCELEROMETER=
