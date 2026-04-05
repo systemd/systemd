@@ -3517,12 +3517,20 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug("Executing: %s", joined);
         }
 
+        _cleanup_close_ int child_pty = -EBADF;
+        if (master >= 0) {
+                child_pty = pty_open_peer(master, O_RDWR|O_NOCTTY);
+                if (child_pty < 0)
+                        return log_error_errno(child_pty, "Failed to open PTY slave: %m");
+        }
+
         _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         qemu_binary,
-                        /* stdio_fds= */ NULL,
+                        child_pty >= 0 ? (const int[]) { child_pty, child_pty, child_pty } : NULL,
                         pass_fds, n_pass_fds,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE|
+                        (child_pty >= 0 ? FORK_REARRANGE_STDIO : 0),
                         &child_pidref);
         if (r < 0)
                 return r;
@@ -3539,6 +3547,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         /* Close relevant fds we passed to qemu in the parent. We don't need them anymore. */
+        child_pty = safe_close(child_pty);
         child_vsock_fd = safe_close(child_vsock_fd);
         tap_fd = safe_close(tap_fd);
 
