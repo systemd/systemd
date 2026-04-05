@@ -426,12 +426,12 @@ static int probe_gpt_boot_disk_needs_loop(UdevEvent *event, int fd) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         int r;
 
-        /* Probe the GPT sector size. For CD-ROMs booted via El Torito, the GPT may use a different
-         * sector size than the device (e.g. 512-byte GPT on a 2048-byte CD-ROM). If there's a mismatch,
-         * check if this is the boot disk by comparing GPT partition UUIDs with the ESP/XBOOTLDR UUID
-         * exported by the boot loader. If it matches, set a property so that udev rules can set up a
-         * loop device with the correct sector size — the kernel can't parse the partition table itself
-         * in this case.
+        /* Probe the GPT sector size. For devices booted via El Torito, the GPT may use a different
+         * sector size than the device (e.g. a 512-byte GPT on a device with 2048-byte blocks). If
+         * there's a mismatch, check if this is the boot disk by comparing GPT partition UUIDs with the
+         * ESP/XBOOTLDR UUID exported by the boot loader. If it matches, set a property so that udev
+         * rules can set up a loop device with the correct sector size — the kernel can't parse the
+         * partition table itself in this case.
          *
          * Even if the sector sizes match, if the device does not support partition scanning (e.g. some
          * CD-ROM drives), the kernel still can't parse the partition table. In that case, if the disk
