@@ -151,6 +151,8 @@ static bool firmware_data_matches_machine(const FirmwareData *fwd, const char *a
                 if (!streq((*t)->architecture, arch))
                         continue;
 
+                /* The machine types in the firmware descriptions are glob patterns such as "pc-q35-*",
+                 * so we use substring matching to check if our machine type is covered. */
                 STRV_FOREACH(m, (*t)->machines)
                         if (strstr(*m, machine))
                                 return true;
