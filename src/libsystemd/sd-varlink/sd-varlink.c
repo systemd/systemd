@@ -2417,29 +2417,27 @@ static int varlink_handle_upgrade_fds(sd_varlink *v, int *ret_input_fd, int *ret
                         return varlink_log_errno(v, r, "Failed to set output fd to blocking mode: %m");
         }
 
-        /* Hand out the fds to the caller. When the caller doesn't want one direction, shut it
-         * down: but avoid closing the underlying fd if the other direction still needs it
-         * (i.e. when input_fd == output_fd). */
-        bool same_fd = v->input_fd == v->output_fd;
+        /* For bidirectional sockets (input_fd == output_fd), dup the fd so that callers
+         * always get two independent fds they can close separately. */
+        if (v->input_fd == v->output_fd) {
+                v->output_fd = fcntl(v->input_fd, F_DUPFD_CLOEXEC, 3);
+                if (v->output_fd < 0)
+                        return varlink_log_errno(v, errno, "Failed to dup upgraded connection fd: %m");
+        }
 
+        /* Hand out requested fds, shut down unwanted directions. */
         if (ret_input_fd)
                 *ret_input_fd = TAKE_FD(v->input_fd);
         else {
                 (void) shutdown(v->input_fd, SHUT_RD);
-                if (same_fd && ret_output_fd)
-                        TAKE_FD(v->input_fd); /* don't close yet, output branch needs it */
-                else
-                        v->input_fd = safe_close(v->input_fd);
+                v->input_fd = safe_close(v->input_fd);
         }
 
         if (ret_output_fd)
                 *ret_output_fd = TAKE_FD(v->output_fd);
         else {
                 (void) shutdown(v->output_fd, SHUT_WR);
-                if (same_fd && ret_input_fd)
-                        TAKE_FD(v->output_fd);
-                else
-                        v->output_fd = safe_close(v->output_fd);
+                v->output_fd = safe_close(v->output_fd);
         }
 
         return 0;
