@@ -18,20 +18,16 @@
 #include "strv.h"
 #include "swtpm-util.h"
 
-int manufacture_swtpm(const char *state_dir, const char *secret) {
+static int swtpm_find_best_profile(const char *swtpm_setup, char **ret) {
         int r;
 
-        assert(state_dir);
-
-        _cleanup_free_ char *swtpm_setup = NULL;
-        r = find_executable("swtpm_setup", &swtpm_setup);
-        if (r < 0)
-                return log_error_errno(r, "Failed to find 'swtpm_setup' binary: %m");
+        assert(swtpm_setup);
+        assert(ret);
 
         _cleanup_strv_free_ char **args = strv_new(
                         swtpm_setup,
-                         "--tpm2",
-                         "--print-profiles");
+                        "--tpm2",
+                        "--print-profiles");
         if (!args)
                 return log_oom();
 
@@ -83,43 +79,71 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
                 return log_error_errno(r, "Failed to read memory fd: %m");
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
-        const char *best_profile = NULL;
-        if (isempty(text))
-                log_notice("No list of supported profiles could be acquired from swtpm, assuming the implementation is too old to know the concept of profiles.");
-        else {
-                r = sd_json_parse(text, SD_JSON_PARSE_MUST_BE_OBJECT, &j, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse swtpm's --print-profiles output: %m");
-
-                sd_json_variant *v = sd_json_variant_by_key(j, "builtin");
-                if (v) {
-                        if (!sd_json_variant_is_array(v))
-                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'builtin' field is not an array: %m");
-
-                        sd_json_variant *i;
-                        JSON_VARIANT_ARRAY_FOREACH(i, v) {
-                                if (!sd_json_variant_is_object(i))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Profile object is not a JSON object.");
-
-                                sd_json_variant *n = sd_json_variant_by_key(i, "Name");
-                                if (!n) {
-                                        log_debug("Object in profiles array does not have a 'Name', skipping.");
-                                        continue;
-                                }
-
-                                if (!sd_json_variant_is_string(n))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Profile's 'Name' field is not a string.");
-
-                                const char *s = sd_json_variant_string(n);
-
-                                /* Pick the best of the default-v1, default-v2, … profiles */
-                                if (!startswith(s, "default-v"))
-                                        continue;
-                                if (!best_profile || strverscmp_improved(s, best_profile) > 0)
-                                        best_profile = s;
-                        }
-                }
+        r = sd_json_parse(text, SD_JSON_PARSE_MUST_BE_OBJECT, &j, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        if (r < 0) {
+                log_notice("Failed to parse swtpm's --print-profiles output as JSON, assuming the implementation is too old to know the concept of profiles.");
+                *ret = NULL;
+                return 0;
         }
+
+        sd_json_variant *v = sd_json_variant_by_key(j, "builtin");
+        if (!v) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(v))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'builtin' field is not an array.");
+
+        const char *best_profile = NULL;
+        sd_json_variant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, v) {
+                if (!sd_json_variant_is_object(i))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Profile object is not a JSON object.");
+
+                sd_json_variant *n = sd_json_variant_by_key(i, "Name");
+                if (!n) {
+                        log_debug("Object in profiles array does not have a 'Name', skipping.");
+                        continue;
+                }
+
+                if (!sd_json_variant_is_string(n))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Profile's 'Name' field is not a string.");
+
+                const char *s = sd_json_variant_string(n);
+
+                /* Pick the best of the default-v1, default-v2, … profiles */
+                if (!startswith(s, "default-v"))
+                        continue;
+                if (!best_profile || strverscmp_improved(s, best_profile) > 0)
+                        best_profile = s;
+        }
+
+        _cleanup_free_ char *copy = NULL;
+        if (best_profile) {
+                copy = strdup(best_profile);
+                if (!copy)
+                        return log_oom();
+        }
+
+        *ret = TAKE_PTR(copy);
+        return 0;
+}
+
+int manufacture_swtpm(const char *state_dir, const char *secret) {
+        int r;
+
+        assert(state_dir);
+
+        _cleanup_free_ char *swtpm_setup = NULL;
+        r = find_executable("swtpm_setup", &swtpm_setup);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find 'swtpm_setup' binary: %m");
+
+        _cleanup_free_ char *best_profile = NULL;
+        r = swtpm_find_best_profile(swtpm_setup, &best_profile);
+        if (r < 0)
+                return r;
 
         /* Create custom swtpm config files so that swtpm_localca uses our state directory instead of
          * the system-wide /var/lib/swtpm-localca/ which may not be writable. */
@@ -172,8 +196,8 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write swtpm_setup.conf: %m");
 
-        strv_free(args);
-        args = strv_new(swtpm_setup,
+        _cleanup_strv_free_ char **args = strv_new(
+                        swtpm_setup,
                         "--tpm-state", state_dir,
                         "--tpm2",
                         "--pcr-banks", "sha256",
