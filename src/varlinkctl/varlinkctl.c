@@ -724,15 +724,6 @@ static int varlink_call_and_upgrade(const char *url, const char *method, sd_json
         if (!isempty(error_id))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADE), "Upgrade via %s() failed with error: %s", method, error_id);
 
-        /* For bidirectional sockets input_fd == output_fd. Dup immediately so that _cleanup_close_
-         * on both variables can never double-close the same fd. Note that on fcntl() failure
-         * output_fd is overwritten with -1, so only input_fd holds the real fd at cleanup time. */
-        if (input_fd == output_fd) {
-                output_fd = fcntl(input_fd, F_DUPFD_CLOEXEC, 3);
-                if (output_fd < 0)
-                        return log_error_errno(errno, "Failed to dup upgraded connection fd: %m");
-        }
-
         if (!strv_isempty(exec_cmdline)) {
                 /* --exec mode: place the upgraded connection on stdin/stdout so that the child
                  * process can just read/write naturally. */
@@ -1262,8 +1253,8 @@ static int varlink_server_add_interface_from_method(sd_varlink_server *s, const 
 
 static int method_serve_upgrade(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         char **exec_cmdline = ASSERT_PTR(userdata);
-        _cleanup_close_ int input_fd = -EBADF, _output_fd = -EBADF;
-        int output_fd, r;
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        int r;
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PROTOCOL, NULL);
@@ -1271,9 +1262,6 @@ static int method_serve_upgrade(sd_varlink *link, sd_json_variant *parameters, s
         r = sd_varlink_reply_and_upgrade(link, /* parameters= */ NULL, &input_fd, &output_fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to upgrade connection: %m");
-
-        if (output_fd != input_fd)
-                _output_fd = output_fd;
 
         /* Copy exec_cmdline before forking: pidref_safe_fork() calls rename_process() which
          * overwrites the argv area that exec_cmdline points into. */
