@@ -1095,20 +1095,23 @@ static void test_seccomp_suppress_sync_child(void) {
         _cleanup_close_ int fd = -EBADF;
 
         ASSERT_OK(tempfn_random("/tmp/seccomp_suppress_sync", NULL, &path));
-        ASSERT_OK_ERRNO(fd = open(path, O_RDWR | O_CREAT | O_SYNC | O_CLOEXEC, 0666));
-        fd = safe_close(fd);
+        fd = open(path, O_RDWR | O_CREAT | O_SYNC | O_CLOEXEC, 0666);
+        /* We might be running in an environment where sync() is already suppressed. */
+        if (fd >= 0) {
+                ASSERT_ERROR_ERRNO(fdatasync(-1), EBADF);
+                ASSERT_ERROR_ERRNO(fsync(-1), EBADF);
+                ASSERT_ERROR_ERRNO(syncfs(-1), EBADF);
 
-        ASSERT_ERROR_ERRNO(fdatasync(-1), EBADF);
-        ASSERT_ERROR_ERRNO(fsync(-1), EBADF);
-        ASSERT_ERROR_ERRNO(syncfs(-1), EBADF);
-
-        ASSERT_ERROR_ERRNO(fdatasync(INT_MAX), EBADF);
-        ASSERT_ERROR_ERRNO(fsync(INT_MAX), EBADF);
-        ASSERT_ERROR_ERRNO(syncfs(INT_MAX), EBADF);
+                ASSERT_ERROR_ERRNO(fdatasync(INT_MAX), EBADF);
+                ASSERT_ERROR_ERRNO(fsync(INT_MAX), EBADF);
+                ASSERT_ERROR_ERRNO(syncfs(INT_MAX), EBADF);
+        } else if (errno != EINVAL)
+                ASSERT_OK_ERRNO(fd);
 
         ASSERT_OK(seccomp_suppress_sync());
 
-        ASSERT_ERROR_ERRNO(fd = open(path, O_RDWR | O_CREAT | O_SYNC | O_CLOEXEC, 0666), EINVAL);
+        fd = safe_close(fd);
+        fd = ASSERT_ERROR_ERRNO(open(path, O_RDWR | O_CREAT | O_SYNC | O_CLOEXEC, 0666), EINVAL);
 
         ASSERT_OK_ERRNO(fdatasync(INT_MAX));
         ASSERT_OK_ERRNO(fsync(INT_MAX));
