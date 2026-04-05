@@ -216,6 +216,9 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
         if (best_profile && strv_extendf(&args, "--profile-name=%s", best_profile) < 0)
                 return log_oom();
 
+        if (!DEBUG_LOGGING && strv_extend_many(&args, "--logfile", "/dev/null") < 0)
+                return log_oom();
+
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *cmdline = quote_command_line(args, SHELL_ESCAPE_EMPTY);
                 log_debug("About to spawn: %s", strnull(cmdline));
