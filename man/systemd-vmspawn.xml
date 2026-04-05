@@ -358,7 +358,7 @@
           <listitem><para>Takes a comma-delimited list of firmware feature strings. This option may be
           specified multiple times, in which case the feature lists are combined. When specified, only
           firmware definitions that have all the required features will be considered during automatic
-          firmware discovery. Features prefixed with <literal>!</literal> are excluded: firmware that has
+          firmware discovery. Features prefixed with <literal>~</literal> are excluded: firmware that has
           such a feature will be skipped. If a feature appears in both the included and excluded lists,
           inclusion takes priority. By default, firmware with the <literal>enrolled-keys</literal>
           feature is excluded. If an empty string is passed, both the included and excluded feature lists
@@ -384,7 +384,7 @@
           <listitem><para>Configure whether to search for firmware which supports Secure Boot. Takes a
           boolean or <literal>auto</literal>. Setting this to yes is equivalent to
           <option>--firmware-features=secure-boot</option> and setting this to no is equivalent to
-          <option>--firmware-features=!secure-boot</option>. Setting this to <literal>auto</literal>
+          <option>--firmware-features=~secure-boot</option>. Setting this to <literal>auto</literal>
           removes <literal>secure-boot</literal> from both the included and excluded feature lists.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>

@@ -857,7 +857,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                         STRV_FOREACH(feature, features) {
-                                const char *e = startswith(*feature, "!");
+                                const char *e = startswith(*feature, "~");
                                 r = set_put_strdup(e ? &arg_firmware_features_exclude : &arg_firmware_features_include, e ?: *feature);
                                 if (r < 0)
                                         return log_oom();
