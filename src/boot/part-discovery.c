@@ -320,21 +320,23 @@ EFI_STATUS partition_open(const EFI_GUID *type, EFI_HANDLE *device, EFI_HANDLE *
         return EFI_SUCCESS;
 }
 
-static char16_t* disk_get_part_uuid_cdrom(const EFI_DEVICE_PATH *dp) {
+static char16_t* disk_get_part_uuid_eltorito(const EFI_DEVICE_PATH *dp) {
         EFI_STATUS err;
 
         assert(dp);
 
-        /* When booting from a CD-ROM via El Torito, the device path contains a CDROM node instead of
-         * a HARDDRIVE node. The CDROM node doesn't carry a partition UUID, so we need to read the GPT
-         * from the underlying disk to find it. */
+        /* When booting via El Torito, the device path contains a CDROM node instead of a HARDDRIVE
+         * node (UEFI specification §10.3.5.2). The CDROM node doesn't carry a partition UUID, so we
+         * need to read the GPT from the underlying disk to find it. Per §13.3.2, El Torito partition
+         * discovery applies to any block device, not just optical media (e.g. an ISO image dd'd to a
+         * USB stick). */
 
         const CDROM_DEVICE_PATH *cdrom = NULL;
         for (const EFI_DEVICE_PATH *node = dp; !device_path_is_end(node); node = device_path_next_node(node))
                 if (node->Type == MEDIA_DEVICE_PATH && node->SubType == MEDIA_CDROM_DP)
                         cdrom = (const CDROM_DEVICE_PATH *) node;
         if (!cdrom) {
-                log_debug("No CDROM device path node found.");
+                log_debug("No El Torito device path node found.");
                 return NULL;
         }
 
@@ -345,7 +347,7 @@ static char16_t* disk_get_part_uuid_cdrom(const EFI_DEVICE_PATH *dp) {
         EFI_HANDLE disk_handle;
         err = BS->LocateDevicePath(MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), &remaining, &disk_handle);
         if (err != EFI_SUCCESS) {
-                log_debug_status(err, "Failed to locate disk device for CDROM: %m");
+                log_debug_status(err, "Failed to locate disk device for El Torito boot: %m");
                 return NULL;
         }
 
@@ -354,13 +356,13 @@ static char16_t* disk_get_part_uuid_cdrom(const EFI_DEVICE_PATH *dp) {
         EFI_BLOCK_IO_PROTOCOL *block_io;
         err = BS->HandleProtocol(disk_handle, MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), (void **) &block_io);
         if (err != EFI_SUCCESS) {
-                log_debug_status(err, "Failed to get block I/O protocol for CDROM disk: %m");
+                log_debug_status(err, "Failed to get block I/O protocol for El Torito disk: %m");
                 return NULL;
         }
 
         if (block_io->Media->LogicalPartition || !block_io->Media->MediaPresent ||
             block_io->Media->LastBlock <= 1) {
-                log_debug("CDROM disk has unsuitable media (partition=%ls, present=%ls, lastblock=%" PRIu64 ").",
+                log_debug("El Torito disk has unsuitable media (partition=%ls, present=%ls, lastblock=%" PRIu64 ").",
                           yes_no(block_io->Media->LogicalPartition),
                           yes_no(block_io->Media->MediaPresent),
                           (uint64_t) block_io->Media->LastBlock);
@@ -369,24 +371,24 @@ static char16_t* disk_get_part_uuid_cdrom(const EFI_DEVICE_PATH *dp) {
 
         uint32_t iso9660_block_size = block_io->Media->BlockSize;
         if (iso9660_block_size < 512 || iso9660_block_size > 4096 || !ISPOWEROF2(iso9660_block_size)) {
-                log_debug("Unexpected CDROM block size %" PRIu32 ", skipping.", iso9660_block_size);
+                log_debug("Unexpected El Torito block size %" PRIu32 ", skipping.", iso9660_block_size);
                 return NULL;
         }
 
         EFI_DISK_IO_PROTOCOL *disk_io;
         err = BS->HandleProtocol(disk_handle, MAKE_GUID_PTR(EFI_DISK_IO_PROTOCOL), (void **) &disk_io);
         if (err != EFI_SUCCESS) {
-                log_debug_status(err, "Failed to get disk I/O protocol for CDROM disk: %m");
+                log_debug_status(err, "Failed to get disk I/O protocol for El Torito disk: %m");
                 return NULL;
         }
 
         uint32_t media_id = block_io->Media->MediaId;
 
         /* Probe for the GPT header at multiple possible sector sizes (512, 1024, 2048, 4096).
-         * The GPT header is at LBA 1, i.e. byte offset == sector_size. On CD-ROMs, the GPT
+         * The GPT header is at LBA 1, i.e. byte offset == sector_size. On El Torito media, the GPT
          * may use a different sector size than the media's block size (e.g. 512-byte GPT sectors
-         * on 2048-byte CD-ROM blocks), so we try all possibilities. If the primary GPT header is
-         * corrupt but contains a valid backup LBA, fall back to the backup header. */
+         * on 2048-byte blocks), so we try all possibilities. If the primary GPT header is corrupt
+         * but contains a valid backup LBA, fall back to the backup header. */
         uint32_t gpt_sector_size = 0;
         GptHeader gpt;
         _cleanup_free_ void *entries = NULL;
@@ -413,18 +415,18 @@ static char16_t* disk_get_part_uuid_cdrom(const EFI_DEVICE_PATH *dp) {
         }
 
         if (gpt_sector_size == 0) {
-                log_debug("No valid GPT found on CDROM at any sector size.");
+                log_debug("No valid GPT found on El Torito disk at any sector size.");
                 return NULL;
         }
 
-        log_debug("Found GPT on CDROM with sector size %" PRIu32 ", %" PRIu32 " partition entries.",
+        log_debug("Found GPT on El Torito disk with sector size %" PRIu32 ", %" PRIu32 " partition entries.",
                   gpt_sector_size, gpt.NumberOfPartitionEntries);
 
-        /* Find the partition whose byte offset matches the CDROM's PartitionStart.
-         * CDROM PartitionStart is in media iso9660_block_size units, GPT StartingLBA is in gpt_sector_size units. */
+        /* Find the partition whose byte offset matches the El Torito PartitionStart.
+         * El Torito PartitionStart is in media iso9660_block_size units, GPT StartingLBA is in gpt_sector_size units. */
         uint64_t cdrom_start;
         if (!MUL_SAFE(&cdrom_start, cdrom->PartitionStart, iso9660_block_size)) {
-                log_debug("CDROM start offset overflow.");
+                log_debug("El Torito start offset overflow.");
                 return NULL;
         }
 
@@ -441,7 +443,7 @@ static char16_t* disk_get_part_uuid_cdrom(const EFI_DEVICE_PATH *dp) {
                         return xasprintf(GUID_FORMAT_STR, GUID_FORMAT_VAL(entry->UniquePartitionGUID));
         }
 
-        log_debug("No ESP partition matches CDROM start offset %" PRIu64 " (block size %" PRIu32 ").",
+        log_debug("No ESP partition matches El Torito start offset %" PRIu64 " (block size %" PRIu32 ").",
                   cdrom->PartitionStart, iso9660_block_size);
         return NULL;
 }
@@ -470,6 +472,6 @@ char16_t *disk_get_part_uuid(EFI_HANDLE *handle) {
                 return xasprintf(GUID_FORMAT_STR, GUID_FORMAT_VAL(hd->SignatureGuid));
         }
 
-        /* No GPT partition node found — try CDROM device path as fallback */
-        return disk_get_part_uuid_cdrom(dp);
+        /* No GPT partition node found — try El Torito device path as fallback */
+        return disk_get_part_uuid_eltorito(dp);
 }
