@@ -57,7 +57,7 @@ typedef struct Transfer {
         Context *context;
 } Transfer;
 
-typedef int (*TransferProgress)(const Transfer *t, const Instance *inst, unsigned percentage);
+typedef int (*TransferProgress)(const Transfer *t, const Instance *inst, unsigned percentage, void *userdata);
 
 Transfer* transfer_new(Context *ctx);
 Transfer* transfer_free(Transfer *t);
