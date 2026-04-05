@@ -137,9 +137,9 @@ int sd_varlink_callb(sd_varlink *v, const char *method, sd_json_variant **ret_pa
         sd_varlink_callb((v), (method), (ret_parameters), (ret_error_id), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Send method call with upgrade, wait for reply, then steal the connection fds for raw I/O.
- * For bidirectional sockets ret_input_fd and ret_output_fd will be the same fd. Callers
- * that need independent fds should dup() one of them. ret_parameters and ret_error_id are
- * borrowed references valid only until v is closed or unreffed.
+ * For bidirectional sockets ret_input_fd and ret_output_fd will be separate (dupped) fds
+ * referring to the same underlying socket. ret_parameters and ret_error_id are borrowed
+ * references valid only until v is closed or unreffed.
  * Returns > 0 if the connection was upgraded, 0 if a Varlink error occurred (and ret_error_id was set),
  * or < 0 on local failure. */
 int sd_varlink_call_and_upgrade(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, int *ret_input_fd, int *ret_output_fd);
@@ -171,9 +171,9 @@ int sd_varlink_replyb(sd_varlink *v, ...);
 
 /* Send a final reply to an upgrade request, then steal the connection fds for raw I/O.
  * The fds are returned in blocking mode. The varlink connection is disconnected afterwards.
- * For bidirectional sockets ret_input_fd and ret_output_fd will be the same fd. Callers
- * that need independent fds should dup() one of them. For pipe pairs (e.g. ssh-exec
- * transport) they will differ. Either ret pointer may be NULL.
+ * For bidirectional sockets ret_input_fd and ret_output_fd will be separate (dupped) fds
+ * referring to the same underlying socket. For pipe pairs (e.g. ssh-exec transport) they
+ * will differ. Either ret pointer may be NULL.
  *
  * Note: this call synchronously blocks until the reply is flushed to the socket. This is
  * usually fine as flush is fast but a misbehaving/adversary client that stops reading
