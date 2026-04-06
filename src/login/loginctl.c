@@ -21,6 +21,7 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "json-util.h"
+#include "varlink-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
@@ -1347,14 +1348,59 @@ static int verb_show_seat(int argc, char *argv[], uintptr_t _data, void *userdat
         return 0;
 }
 
+static int connect_varlink(sd_varlink **ret) {
+        return sd_varlink_connect_address(ret, "/run/systemd/io.systemd.Login");
+}
+
+static int activate_session_varlink(const char *verb, const char *id) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        r = connect_varlink(&vl);
+        if (r < 0)
+                return r;
+
+        const char *method =
+                streq(verb, "lock-session")      ? "io.systemd.Login.LockSession" :
+                streq(verb, "unlock-session")     ? "io.systemd.Login.UnlockSession" :
+                streq(verb, "terminate-session")  ? "io.systemd.Login.TerminateSession" :
+                                                    "io.systemd.Login.ActivateSession";
+
+        return varlink_callbo_and_log(
+                        vl, method, NULL,
+                        SD_JSON_BUILD_PAIR_STRING("Id", id));
+}
+
 static int verb_activate(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         assert(argv);
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                if (argc < 2) {
+                        r = activate_session_varlink(argv[0], NULL);
+                        if (r >= 0)
+                                return 0;
+                        log_debug_errno(r, "Failed via Varlink, falling back to D-Bus: %m");
+                } else {
+                        bool varlink_ok = true;
+                        for (int i = 1; i < argc; i++) {
+                                r = activate_session_varlink(argv[0], argv[i]);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed via Varlink, falling back to D-Bus: %m");
+                                        varlink_ok = false;
+                                        break;
+                                }
+                        }
+                        if (varlink_ok)
+                                return 0;
+                }
+        }
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
         if (argc < 2) {
                 r = sd_bus_call_method(
@@ -1391,7 +1437,6 @@ static int verb_activate(int argc, char *argv[], uintptr_t _data, void *userdata
 }
 
 static int verb_kill_session(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1401,6 +1446,27 @@ static int verb_kill_session(int argc, char *argv[], uintptr_t _data, void *user
 
         if (!arg_kill_whom)
                 arg_kill_whom = "all";
+
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                bool varlink_ok = true;
+                for (int i = 1; i < argc; i++) {
+                        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                        r = connect_varlink(&vl);
+                        if (r < 0) { varlink_ok = false; break; }
+
+                        r = varlink_callbo_and_log(
+                                        vl, "io.systemd.Login.KillSession", NULL,
+                                        SD_JSON_BUILD_PAIR_STRING("Id", argv[i]),
+                                        SD_JSON_BUILD_PAIR_STRING("Whom", arg_kill_whom),
+                                        SD_JSON_BUILD_PAIR_INTEGER("Signal", arg_signal));
+                        if (r < 0) { varlink_ok = false; break; }
+                }
+                if (varlink_ok)
+                        return 0;
+                log_debug("Failed via Varlink, falling back to D-Bus.");
+        }
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
         for (int i = 1; i < argc; i++) {
                 r = bus_call_method(
@@ -1417,7 +1483,6 @@ static int verb_kill_session(int argc, char *argv[], uintptr_t _data, void *user
 }
 
 static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         char* short_argv[3];
         bool b;
@@ -1430,15 +1495,47 @@ static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *use
         b = streq(argv[0], "enable-linger");
 
         if (argc < 2) {
-                /* No argument? Let's use an empty user name,
-                 * then logind will use our user. */
-
                 short_argv[0] = argv[0];
                 short_argv[1] = (char*) "";
                 short_argv[2] = NULL;
                 argv = short_argv;
                 argc = 2;
         }
+
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                bool varlink_ok = true;
+                for (int i = 1; i < argc; i++) {
+                        uid_t uid;
+
+                        if (isempty(argv[i]))
+                                uid = UID_INVALID;
+                        else {
+                                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                        }
+
+                        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                        r = connect_varlink(&vl);
+                        if (r < 0) { varlink_ok = false; break; }
+
+                        if (uid_is_valid(uid))
+                                r = varlink_callbo_and_log(
+                                                vl, "io.systemd.Login.SetUserLinger", NULL,
+                                                SD_JSON_BUILD_PAIR_UNSIGNED("UID", uid),
+                                                SD_JSON_BUILD_PAIR_BOOLEAN("Enable", b));
+                        else
+                                r = varlink_callbo_and_log(
+                                                vl, "io.systemd.Login.SetUserLinger", NULL,
+                                                SD_JSON_BUILD_PAIR_BOOLEAN("Enable", b));
+                        if (r < 0) { varlink_ok = false; break; }
+                }
+                if (varlink_ok)
+                        return 0;
+                log_debug("Failed via Varlink, falling back to D-Bus.");
+        }
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
         for (int i = 1; i < argc; i++) {
                 uid_t uid;
@@ -1465,7 +1562,6 @@ static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *use
 }
 
 static int verb_terminate_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1473,14 +1569,41 @@ static int verb_terminate_user(int argc, char *argv[], uintptr_t _data, void *us
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                bool varlink_ok = true;
+                for (int i = 1; i < argc; i++) {
+                        uid_t uid;
+                        if (isempty(argv[i]))
+                                uid = getuid();
+                        else {
+                                const char *u = argv[i];
+                                r = get_user_creds(&u, &uid, NULL, NULL, NULL, 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                        }
+
+                        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                        r = connect_varlink(&vl);
+                        if (r < 0) { varlink_ok = false; break; }
+
+                        r = varlink_callbo_and_log(
+                                        vl, "io.systemd.Login.TerminateUser", NULL,
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("UID", uid));
+                        if (r < 0) { varlink_ok = false; break; }
+                }
+                if (varlink_ok)
+                        return 0;
+                log_debug("Failed via Varlink, falling back to D-Bus.");
+        }
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
         for (int i = 1; i < argc; i++) {
                 uid_t uid;
-
                 if (isempty(argv[i]))
                         uid = getuid();
                 else {
                         const char *u = argv[i];
-
                         r = get_user_creds(&u, &uid, NULL, NULL, NULL, 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
@@ -1573,7 +1696,6 @@ static int verb_flush_devices(int argc, char *argv[], uintptr_t _data, void *use
 }
 
 static int verb_lock_sessions(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1581,10 +1703,28 @@ static int verb_lock_sessions(int argc, char *argv[], uintptr_t _data, void *use
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
+        bool lock = streq(argv[0], "lock-sessions");
+
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                r = connect_varlink(&vl);
+                if (r >= 0) {
+                        r = varlink_call_and_log(
+                                        vl,
+                                        lock ? "io.systemd.Login.LockSession" : "io.systemd.Login.UnlockSession",
+                                        NULL, NULL);
+                        if (r >= 0)
+                                return 0;
+                }
+                log_debug_errno(r, "Failed via Varlink, falling back to D-Bus: %m");
+        }
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
         r = bus_call_method(
                         bus,
                         bus_login_mgr,
-                        streq(argv[0], "lock-sessions") ? "LockSessions" : "UnlockSessions",
+                        lock ? "LockSessions" : "UnlockSessions",
                         &error, NULL,
                         NULL);
         if (r < 0)
@@ -1594,7 +1734,6 @@ static int verb_lock_sessions(int argc, char *argv[], uintptr_t _data, void *use
 }
 
 static int verb_terminate_seat(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1602,8 +1741,26 @@ static int verb_terminate_seat(int argc, char *argv[], uintptr_t _data, void *us
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        for (int i = 1; i < argc; i++) {
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                bool varlink_ok = true;
+                for (int i = 1; i < argc; i++) {
+                        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                        r = connect_varlink(&vl);
+                        if (r < 0) { varlink_ok = false; break; }
 
+                        r = varlink_callbo_and_log(
+                                        vl, "io.systemd.Login.TerminateSeat", NULL,
+                                        SD_JSON_BUILD_PAIR_STRING("Id", argv[i]));
+                        if (r < 0) { varlink_ok = false; break; }
+                }
+                if (varlink_ok)
+                        return 0;
+                log_debug("Failed via Varlink, falling back to D-Bus.");
+        }
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+        for (int i = 1; i < argc; i++) {
                 r = bus_call_method(bus, bus_login_mgr, "TerminateSeat", &error, NULL, "s", argv[i]);
                 if (r < 0)
                         return log_error_errno(r, "Could not terminate seat: %s", bus_error_message(&error, r));
