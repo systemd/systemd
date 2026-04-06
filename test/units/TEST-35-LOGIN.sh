@@ -806,7 +806,7 @@ teardown_varlink() (
 )
 
 testcase_varlink() {
-    local session uid session_out user_out
+    local session uid session_out user_out seat_out
 
     if [[ ! -c /dev/tty2 ]]; then
         echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
@@ -823,6 +823,8 @@ testcase_varlink() {
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSessions" >/dev/null
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method DescribeUser" >/dev/null
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListUsers" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method DescribeSeat" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSeats" >/dev/null
 
     : "--- Setup test session ---"
     create_session
@@ -874,6 +876,28 @@ testcase_varlink() {
     test "$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListUsers '{}' | wc -l)" -ge 2
     # without --more should fail
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListUsers '{}')
+
+    : "--- DescribeSeat ---"
+    seat_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeSeat '{"Id":"seat0"}')
+    echo "$seat_out" | jq -e '.Seat.Id == "seat0"' >/dev/null
+    echo "$seat_out" | jq -e '.Seat.CanTTY == true' >/dev/null
+    echo "$seat_out" | jq -e ".Seat.Sessions[] | select(.Id == \"$session\")" >/dev/null
+
+    # nonexistent seat
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeSeat '{"Id":"seat-nonexistent"}')
+
+    # self/auto resolution from a context without a session must fail with NoSuchSeat,
+    # not leak NoSuchSession from the peer-session lookup
+    for id_arg in '{"Id":"self"}' '{}' '{"Id":"auto"}'; do
+        self_err=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeSeat "$id_arg" 2>&1 || true)
+        echo "$self_err" | grep NoSuchSeat >/dev/null
+        (! echo "$self_err" | grep NoSuchSession >/dev/null)
+    done
+
+    : "--- ListSeats ---"
+    varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSeats '{}' | grep "seat0" >/dev/null
+    # without --more should fail
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListSeats '{}')
 }
 
 testcase_restart() {
