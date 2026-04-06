@@ -9,4 +9,4 @@ void fork_notify_terminate(PidRef *pidref);
 
 void fork_notify_terminate_many(sd_event_source **array, size_t n);
 
-int journal_fork(RuntimeScope scope, char * const *units, PidRef *ret_pidref);
+int journal_fork(RuntimeScope scope, char * const *units, const char *output, PidRef *ret_pidref);

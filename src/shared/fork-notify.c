@@ -205,7 +205,7 @@ void fork_notify_terminate_many(sd_event_source **array, size_t n) {
         free(array);
 }
 
-int journal_fork(RuntimeScope scope, char * const* units, PidRef *ret_pidref) {
+int journal_fork(RuntimeScope scope, char * const* units, const char *output, PidRef *ret_pidref) {
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
 
@@ -227,6 +227,9 @@ int journal_fork(RuntimeScope scope, char * const* units, PidRef *ret_pidref) {
                                  scope == RUNTIME_SCOPE_SYSTEM ? "--unit=%s" : "--user-unit=%s",
                                  *u) < 0)
                         return log_oom_debug();
+
+        if (output)
+                strv_extendf(&argv, "--output=%s", output);
 
         return fork_notify(argv, ret_pidref);
 }
