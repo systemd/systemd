@@ -2249,18 +2249,20 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Scope allocation happens on the user bus if we are unpriv, otherwise system bus. */
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *runtime_bus = NULL;
-        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
-                runtime_bus = sd_bus_ref(system_bus);
-        else {
-                r = sd_bus_default_user(&user_bus);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to open system bus: %m");
+        if (arg_register != 0 || !arg_keep_unit) {
+                if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
+                        runtime_bus = sd_bus_ref(system_bus);
+                else {
+                        r = sd_bus_default_user(&user_bus);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open user bus: %m");
 
-                r = sd_bus_set_close_on_exit(user_bus, false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to disable close-on-exit behaviour: %m");
+                        r = sd_bus_set_close_on_exit(user_bus, false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to disable close-on-exit behaviour: %m");
 
-                runtime_bus = sd_bus_ref(user_bus);
+                        runtime_bus = sd_bus_ref(user_bus);
+                }
         }
 
         bool use_kvm = arg_kvm > 0;
@@ -3595,28 +3597,32 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to get our own unit: %m");
         }
 
-        bool registered_system = false, registered_runtime = false;
+        MachineContext machine_ctx = {
+                .scope      = arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? RUNTIME_SCOPE_SYSTEM : _RUNTIME_SCOPE_INVALID,
+                .system_bus = system_bus,
+                .user_bus   = runtime_bus,
+        };
         if (arg_register != 0) {
                 char vm_address[STRLEN("vsock/") + DECIMAL_STR_MAX(unsigned)];
                 xsprintf(vm_address, "vsock/%u", child_cid);
+
+                const MachineRegistration reg = {
+                        .name                 = arg_machine,
+                        .id                   = arg_uuid,
+                        .service              = "systemd-vmspawn",
+                        .class                = "vm",
+                        .pidref               = &child_pidref,
+                        .root_directory       = arg_directory,
+                        .vsock_cid            = child_cid,
+                        .ssh_address          = child_cid != VMADDR_CID_ANY ? vm_address : NULL,
+                        .ssh_private_key_path = ssh_private_key_path,
+                        .allocate_unit        = !arg_keep_unit,
+                };
+
                 r = register_machine_with_fallback_and_log(
-                                arg_runtime_scope == RUNTIME_SCOPE_USER ? _RUNTIME_SCOPE_INVALID : RUNTIME_SCOPE_SYSTEM,
-                                system_bus,
-                                runtime_bus,
-                                arg_machine,
-                                arg_uuid,
-                                "systemd-vmspawn",
-                                "vm",
-                                &child_pidref,
-                                arg_directory,
-                                child_cid,
-                                /* local_ifindex= */ 0,
-                                child_cid != VMADDR_CID_ANY ? vm_address : NULL,
-                                ssh_private_key_path,
-                                !arg_keep_unit,
-                                /* graceful= */ arg_register < 0,
-                                &registered_system,
-                                &registered_runtime);
+                                &machine_ctx,
+                                &reg,
+                                /* graceful= */ arg_register < 0);
                 if (r < 0)
                         return r;
         }
@@ -3721,7 +3727,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (scope_allocated)
                 terminate_scope(runtime_bus, arg_machine);
 
-        (void) unregister_machine_with_fallback_and_log(system_bus, runtime_bus, arg_machine, registered_system, registered_runtime);
+        unregister_machine_with_fallback_and_log(&machine_ctx, arg_machine);
 
         if (use_vsock) {
                 if (exit_status == INT_MAX) {
