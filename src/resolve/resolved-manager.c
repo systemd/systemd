@@ -893,6 +893,8 @@ Manager* manager_free(Manager *m) {
         manager_mdns_stop(m);
         manager_dns_stub_stop(m);
         manager_varlink_done(m);
+        m->logind_varlink_retry_event = sd_event_source_disable_unref(m->logind_varlink_retry_event);
+        m->logind_varlink = sd_varlink_unref(m->logind_varlink);
 
         set_free(m->varlink_query_results_subscription);
         set_free(m->varlink_dns_configuration_subscription);

@@ -146,6 +146,9 @@ typedef struct Manager {
 
         sd_varlink_server *varlink_server;
         sd_varlink_server *varlink_monitor_server;
+        sd_varlink *logind_varlink;
+        sd_event_source *logind_varlink_retry_event;
+        usec_t logind_varlink_retry_delay;
 
         Set *varlink_query_results_subscription;
         Set *varlink_dns_configuration_subscription;
