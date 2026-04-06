@@ -13,6 +13,7 @@
 #include "hashmap.h"
 #include "json-util.h"
 #include "login-util.h"
+#include "virt.h"
 #include "os-util.h"
 #include "logind.h"
 #include "logind-action.h"
@@ -25,6 +26,7 @@
 #include "logind-shutdown.h"
 #include "logind-user.h"
 #include "logind-varlink.h"
+#include "path-util.h"
 #include "reboot-util.h"
 #include "signal-util.h"
 #include "sleep-config.h"
@@ -1892,6 +1894,256 @@ static int vl_method_cancel_scheduled_shutdown(sd_varlink *link, sd_json_variant
         return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Cancelled", true));
 }
 
+static const char* inhibit_what_polkit_action(InhibitWhat what, InhibitMode mode) {
+        switch (what) {
+        case INHIBIT_SHUTDOWN:
+                return IN_SET(mode, INHIBIT_BLOCK, INHIBIT_BLOCK_WEAK) ?
+                        "org.freedesktop.login1.inhibit-block-shutdown" :
+                        "org.freedesktop.login1.inhibit-delay-shutdown";
+        case INHIBIT_SLEEP:
+                return IN_SET(mode, INHIBIT_BLOCK, INHIBIT_BLOCK_WEAK) ?
+                        "org.freedesktop.login1.inhibit-block-sleep" :
+                        "org.freedesktop.login1.inhibit-delay-sleep";
+        case INHIBIT_IDLE:
+                return "org.freedesktop.login1.inhibit-block-idle";
+        case INHIBIT_HANDLE_POWER_KEY:
+                return "org.freedesktop.login1.inhibit-handle-power-key";
+        case INHIBIT_HANDLE_SUSPEND_KEY:
+                return "org.freedesktop.login1.inhibit-handle-suspend-key";
+        case INHIBIT_HANDLE_REBOOT_KEY:
+                return "org.freedesktop.login1.inhibit-handle-reboot-key";
+        case INHIBIT_HANDLE_HIBERNATE_KEY:
+                return "org.freedesktop.login1.inhibit-handle-hibernate-key";
+        case INHIBIT_HANDLE_LID_SWITCH:
+                return "org.freedesktop.login1.inhibit-handle-lid-switch";
+        default:
+                return NULL;
+        }
+}
+
+static int vl_method_inhibit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *what;
+                const char *who;
+                const char *why;
+                const char *mode;
+        } p;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "What", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, what), SD_JSON_MANDATORY },
+                { "Who",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, who),  SD_JSON_MANDATORY },
+                { "Why",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, why),  SD_JSON_MANDATORY },
+                { "Mode", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, mode), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        InhibitWhat w = inhibit_what_from_string(p.what);
+        if (w <= 0)
+                return sd_varlink_error_invalid_parameter_name(link, "What");
+
+        InhibitMode mm = inhibit_mode_from_string(p.mode);
+        if (mm < 0)
+                return sd_varlink_error_invalid_parameter_name(link, "Mode");
+
+        if (mm == INHIBIT_DELAY && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP)))
+                return sd_varlink_error_invalid_parameter_name(link, "Mode");
+
+        if (m->delayed_action && m->delayed_action->inhibit_what & w)
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        BIT_FOREACH(i, w) {
+                const InhibitWhat v = 1U << i;
+                const char *action = inhibit_what_polkit_action(v, mm);
+
+                r = varlink_verify_polkit_async(
+                                link,
+                                m->bus,
+                                action,
+                                /* details= */ NULL,
+                                &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
+
+        uid_t uid;
+        r = sd_varlink_get_peer_uid(link, &uid);
+        if (r < 0)
+                return r;
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = varlink_get_peer_pidref(link, &pidref);
+        if (r < 0)
+                return r;
+
+        if (hashmap_size(m->inhibitors) >= m->inhibitors_max)
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        _cleanup_free_ char *id = NULL;
+        do {
+                id = mfree(id);
+                if (asprintf(&id, "%" PRIu64, ++m->inhibit_counter) < 0)
+                        return -ENOMEM;
+        } while (hashmap_contains(m->inhibitors, id));
+
+        _cleanup_(inhibitor_freep) Inhibitor *inhibitor = NULL;
+        r = manager_add_inhibitor(m, id, &inhibitor);
+        if (r < 0)
+                return r;
+
+        inhibitor->what = w;
+        inhibitor->mode = mm;
+        inhibitor->pid = TAKE_PIDREF(pidref);
+        inhibitor->uid = uid;
+        inhibitor->why = strdup(p.why);
+        inhibitor->who = strdup(p.who);
+
+        if (!inhibitor->why || !inhibitor->who)
+                return -ENOMEM;
+
+        _cleanup_close_ int fifo_fd = inhibitor_create_fifo(inhibitor);
+        if (fifo_fd < 0)
+                return fifo_fd;
+
+        r = inhibitor_start(inhibitor);
+        if (r < 0)
+                return r;
+        TAKE_PTR(inhibitor);
+
+        r = sd_varlink_push_dup_fd(link, fifo_fd);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_set_reboot_parameter(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *parameter;
+        } p;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Parameter", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, parameter), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!reboot_parameter_is_valid(p.parameter))
+                return sd_varlink_error_invalid_parameter_name(link, "Parameter");
+
+        r = detect_container();
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return sd_varlink_error_invalid_parameter_name(link, "Parameter");
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        m->bus,
+                        "org.freedesktop.login1.set-reboot-parameter",
+                        /* details= */ NULL,
+                        &m->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = update_reboot_parameter_and_warn(p.parameter, /* keep= */ false);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_can_reboot_parameter(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        r = detect_container();
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", "na"));
+
+        uid_t uid;
+        r = sd_varlink_get_peer_uid(link, &uid);
+        if (r < 0)
+                return r;
+
+        const char *result;
+        if (uid == 0)
+                result = "yes";
+        else {
+#if ENABLE_POLKIT
+                result = "challenge";
+#else
+                result = "no";
+#endif
+        }
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", result));
+}
+
+#define WALL_MESSAGE_MAX 4096U
+
+static int vl_method_set_wall_message(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *wall_message;
+                int enable; /* tri-state */
+        } p = {
+                .enable = -1,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "WallMessage", SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, voffsetof(p, wall_message), 0                },
+                { "Enable",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     voffsetof(p, enable),       SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.wall_message && strlen(p.wall_message) > WALL_MESSAGE_MAX)
+                return sd_varlink_error_invalid_parameter_name(link, "WallMessage");
+
+        if (streq_ptr(m->wall_message, empty_to_null(p.wall_message)) &&
+            m->wall_messages == (p.enable > 0))
+                return sd_varlink_reply(link, NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        m->bus,
+                        "org.freedesktop.login1.set-wall-message",
+                        /* details= */ NULL,
+                        &m->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = free_and_strdup(&m->wall_message, empty_to_null(p.wall_message));
+        if (r < 0)
+                return log_oom();
+
+        m->wall_messages = p.enable > 0;
+
+        return sd_varlink_reply(link, NULL);
+}
+
 static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
@@ -2154,6 +2406,10 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.CanSleep",         vl_method_can_sleep,
                         "io.systemd.Login.ScheduleShutdown", vl_method_schedule_shutdown,
                         "io.systemd.Login.CancelScheduledShutdown", vl_method_cancel_scheduled_shutdown,
+                        "io.systemd.Login.Inhibit",          vl_method_inhibit,
+                        "io.systemd.Login.SetRebootParameter", vl_method_set_reboot_parameter,
+                        "io.systemd.Login.CanRebootParameter", vl_method_can_reboot_parameter,
+                        "io.systemd.Login.SetWallMessage",   vl_method_set_wall_message,
                         "io.systemd.Login.ListInhibitors",   vl_method_list_inhibitors,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,

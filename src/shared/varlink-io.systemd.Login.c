@@ -510,6 +510,36 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Whether a scheduled shutdown was actually cancelled."),
                 SD_VARLINK_DEFINE_OUTPUT(Cancelled, SD_VARLINK_BOOL, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                Inhibit,
+                SD_VARLINK_FIELD_COMMENT("What to inhibit, a colon-separated list of: shutdown, sleep, idle, handle-power-key, handle-suspend-key, handle-hibernate-key, handle-lid-switch, handle-reboot-key"),
+                SD_VARLINK_DEFINE_INPUT(What, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("A human-readable descriptive string of who is taking the inhibition"),
+                SD_VARLINK_DEFINE_INPUT(Who, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("A human-readable descriptive string of why the inhibition is taken"),
+                SD_VARLINK_DEFINE_INPUT(Why, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The inhibition mode: block, block-weak, or delay"),
+                SD_VARLINK_DEFINE_INPUT(Mode, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetRebootParameter,
+                SD_VARLINK_FIELD_COMMENT("The reboot parameter string."),
+                SD_VARLINK_DEFINE_INPUT(Parameter, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CanRebootParameter,
+                SD_VARLINK_DEFINE_OUTPUT(Result, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetWallMessage,
+                SD_VARLINK_FIELD_COMMENT("The wall message text."),
+                SD_VARLINK_DEFINE_INPUT(WallMessage, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to enable wall messages."),
+                SD_VARLINK_DEFINE_INPUT(Enable, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 InhibitorInfo,
                 SD_VARLINK_FIELD_COMMENT("The inhibitor identifier"),
@@ -672,6 +702,14 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_ScheduleShutdown,
                 SD_VARLINK_SYMBOL_COMMENT("Cancels a previously scheduled shutdown."),
                 &vl_method_CancelScheduledShutdown,
+                SD_VARLINK_SYMBOL_COMMENT("Takes an inhibition lock. Returns the inhibition FIFO FD."),
+                &vl_method_Inhibit,
+                SD_VARLINK_SYMBOL_COMMENT("Sets the reboot parameter."),
+                &vl_method_SetRebootParameter,
+                SD_VARLINK_SYMBOL_COMMENT("Checks if the caller can set the reboot parameter."),
+                &vl_method_CanRebootParameter,
+                SD_VARLINK_SYMBOL_COMMENT("Sets the wall message for upcoming shutdown."),
+                &vl_method_SetWallMessage,
                 SD_VARLINK_SYMBOL_COMMENT("Information about an inhibitor"),
                 &vl_type_InhibitorInfo,
                 SD_VARLINK_SYMBOL_COMMENT("Lists all current inhibitors."),

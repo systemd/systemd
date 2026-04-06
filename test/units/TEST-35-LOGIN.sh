@@ -1077,6 +1077,40 @@ testcase_varlink() {
         echo "$can_out" | jq -e '.Result | IN("yes","no","challenge","na")' >/dev/null
     done
 
+    : "--- Inhibit / reboot configuration (Introspect) ---"
+    for m in Inhibit SetRebootParameter CanRebootParameter SetWallMessage; do
+        varlinkctl introspect "$VARLINK_SOCKET" | grep "method $m" >/dev/null
+    done
+
+    : "--- Inhibit ---"
+    # Invalid "What" value
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.Inhibit \
+          '{"What":"not-a-real-what","Who":"t","Why":"t","Mode":"block"}')
+    # Invalid "Mode" value
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.Inhibit \
+          '{"What":"shutdown","Who":"t","Why":"t","Mode":"not-a-mode"}')
+    # Happy path — call returns the inhibit fd. varlinkctl closes the fd on exit
+    # which releases the lock immediately; just verify the call succeeds.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.Inhibit \
+        '{"What":"shutdown","Who":"varlink-test-inhibit","Why":"testing","Mode":"block"}' >/dev/null
+
+    : "--- SetRebootParameter / CanRebootParameter ---"
+    can_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.CanRebootParameter '{}')
+    echo "$can_out" | jq -e '.Result | IN("yes","no","challenge","na")' >/dev/null
+    # Invalid parameter (> NAME_MAX bytes — reboot_parameter_is_valid rejects it).
+    long_param=$(printf 'a%.0s' {1..300})
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetRebootParameter "{\"Parameter\":\"$long_param\"}")
+    # Set, verify via busctl, clear.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetRebootParameter '{"Parameter":"recovery"}'
+    assert_eq "$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 \
+                    org.freedesktop.login1.Manager RebootParameter)" 's "recovery"'
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetRebootParameter '{"Parameter":""}'
+
+    : "--- SetWallMessage ---"
+    # Happy path (disable wall messages, optional message unset, then restore).
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetWallMessage '{"Enable":false,"WallMessage":"varlink test"}'
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetWallMessage '{"Enable":true,"WallMessage":""}'
+
     : "--- ScheduleShutdown / CancelScheduledShutdown ---"
     # Start clean — cancel any prior scheduled shutdown.
     varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.CancelScheduledShutdown '{}' >/dev/null
