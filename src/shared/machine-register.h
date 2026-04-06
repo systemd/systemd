@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "runtime-scope.h"
 #include "shared-forward.h"
 
 typedef struct MachineRegistration {
@@ -17,23 +18,24 @@ typedef struct MachineRegistration {
         bool allocate_unit;
 } MachineRegistration;
 
+typedef struct MachineContext {
+        RuntimeScope scope;
+        sd_bus *system_bus;
+        sd_bus *user_bus;
+        bool registered_system;
+        bool registered_user;
+} MachineContext;
+
 int register_machine(
                 sd_bus *bus,
                 const MachineRegistration *reg,
                 RuntimeScope scope);
 int register_machine_with_fallback_and_log(
-                RuntimeScope scope,
-                sd_bus *system_bus,
-                sd_bus *user_bus,
+                MachineContext *ctx,
                 const MachineRegistration *reg,
-                bool graceful,
-                bool *reterr_registered_system,
-                bool *reterr_registered_user);
+                bool graceful);
 
 int unregister_machine(sd_bus *bus, const char *machine_name, RuntimeScope scope);
-int unregister_machine_with_fallback_and_log(
-                sd_bus *system_bus,
-                sd_bus *user_bus,
-                const char *machine_name,
-                bool registered_system,
-                bool registered_user);
+void unregister_machine_with_fallback_and_log(
+                MachineContext *ctx,
+                const char *machine_name);
