@@ -290,6 +290,12 @@ typedef enum IntegrityAlg {
         _INTEGRITY_ALG_INVALID = -EINVAL,
 } IntegrityAlg;
 
+typedef enum EncryptPBKDF {
+        ENCRYPT_PBKDF_PBKDF2,
+        _ENCRYPT_PBKDF_MAX,
+        _ENCRYPT_PBKDF_INVALID = -EINVAL,
+} EncryptPBKDF;
+
 typedef enum VerityMode {
         VERITY_OFF,
         VERITY_DATA,
@@ -472,6 +478,7 @@ typedef struct Partition {
         size_t tpm2_n_hash_pcr_values;
         IntegrityMode integrity;
         IntegrityAlg integrity_alg;
+        EncryptPBKDF encrypt_pbkdf;
         VerityMode verity;
         char *verity_match_key;
         MinimizeMode minimize;
@@ -598,6 +605,10 @@ static const char *integrity_alg_table[_INTEGRITY_ALG_MAX] = {
         [INTEGRITY_ALG_HMAC_SHA512] = "hmac-sha512",
 };
 
+static const char *encrypt_pbkdf_table[_ENCRYPT_PBKDF_MAX] = {
+        [ENCRYPT_PBKDF_PBKDF2] = "pbkdf2",
+};
+
 static const char *verity_mode_table[_VERITY_MODE_MAX] = {
         [VERITY_OFF]  = "off",
         [VERITY_DATA] = "data",
@@ -636,6 +647,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP(append_mode, AppendMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(integrity_mode, IntegrityMode, INTEGRITY_INLINE);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(integrity_alg, IntegrityAlg);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(encrypt_pbkdf, EncryptPBKDF);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(minimize_mode, MinimizeMode, MINIMIZE_BEST);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase, ProgressPhase);
@@ -738,6 +750,7 @@ static Partition *partition_new(Context *c) {
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
                 .fs_sector_size = UINT64_MAX,
                 .discard = -1,
+                .encrypt_pbkdf = _ENCRYPT_PBKDF_INVALID,
         };
 
         return p;
@@ -2735,6 +2748,7 @@ static int config_parse_key_file(
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_integrity, integrity_mode, IntegrityMode, INTEGRITY_OFF);
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_integrity_alg, integrity_alg, IntegrityAlg, INTEGRITY_ALG_HMAC_SHA256);
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_encrypt_pbkdf, encrypt_pbkdf, EncryptPBKDF, _ENCRYPT_PBKDF_INVALID);
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF);
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF);
@@ -2892,6 +2906,7 @@ static int partition_read_definition(
                 { "Partition", "KeyFile",                  config_parse_key_file,          0,                                  p                           },
                 { "Partition", "Integrity",                config_parse_integrity,         0,                                  &p->integrity               },
                 { "Partition", "IntegrityAlgorithm",       config_parse_integrity_alg,     0,                                  &p->integrity_alg           },
+                { "Partition", "EncryptionPBKDFType",      config_parse_encrypt_pbkdf,     0,                                  &p->encrypt_pbkdf           },
                 { "Partition", "Compression",              config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression             },
                 { "Partition", "CompressionLevel",         config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression_level       },
                 { "Partition", "SupplementFor",            config_parse_string,            0,                                  &p->supplement_for_name     },
@@ -3065,6 +3080,10 @@ static int partition_read_definition(
         if (p->encrypt == ENCRYPT_OFF && p->discard > 0)
                 log_syntax(NULL, LOG_WARNING, path, 1, 0,
                            "Discard=yes has no effect with Encrypt=off.");
+
+        if (p->encrypt == ENCRYPT_OFF && p->encrypt_pbkdf >= 0)
+                log_syntax(NULL, LOG_WARNING, path, 1, 0,
+                           "EncryptionPBKDFType= has no effect with Encrypt=off.");
 
         if (p->encrypt != ENCRYPT_OFF && p->integrity == INTEGRITY_INLINE && p->discard > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -5265,6 +5284,15 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         &luks_params);
         if (r < 0)
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
+
+        /* If an explicit PBKDF type is configured, apply it before adding any keyslots. This allows
+         * selecting a less memory-intensive KDF (e.g. pbkdf2) for environments where Argon2's ~1GB
+         * memory requirement during luksOpen is prohibitive (e.g. kdump with crashkernel=512MB). */
+        if (p->encrypt_pbkdf >= 0) {
+                r = cryptsetup_set_minimal_pbkdf(cd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set PBKDF type: %m");
+        }
 
         bool allow_discards = p->integrity != INTEGRITY_INLINE && (arg_discard ? p->discard != 0 : p->discard > 0);
         if (allow_discards) {
