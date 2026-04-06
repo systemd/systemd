@@ -176,7 +176,11 @@ int register_machine(
                 log_debug_errno(r, "Failed to connect to machined via varlink%s%s, falling back to D-Bus: %m",
                                 p ? " on " : "", strempty(p));
 
-                /* In case we are running with an older machined, fall back to D-Bus. */
+                /* In case we are running with an older machined, fall back to D-Bus. Note that the D-Bus
+                 * methods do not support the allocateUnit feature — machined will look up the caller's
+                 * existing cgroup unit instead of creating a dedicated scope. Callers that skip client-side
+                 * scope allocation when allocate_unit is set should be aware that on the D-Bus path no scope
+                 * will be created at all. */
                 if (!bus)
                         return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "Varlink connection to machined not available and no bus provided.");
 
