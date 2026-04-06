@@ -157,6 +157,7 @@ typedef struct Session {
         sd_event_source *timer_event_source;
 
         char *controller;
+        sd_varlink *controller_varlink;
         Hashmap *devices;
         sd_bus_track *track;
 
@@ -210,7 +211,9 @@ DECLARE_STRING_TABLE_LOOKUP(tty_validity, TTYValidity);
 void session_leave_vt(Session *s);
 
 bool session_is_controller(Session *s, const char *sender);
+bool session_is_controller_varlink(Session *s, sd_varlink *link);
 int session_set_controller(Session *s, const char *sender, bool force, bool prepare);
+int session_set_controller_varlink(Session *s, sd_varlink *link, bool force, bool prepare);
 void session_drop_controller(Session *s);
 
 bool session_job_pending(Session *s);

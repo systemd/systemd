@@ -216,6 +216,69 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Whether the session is locked."),
                 SD_VARLINK_DEFINE_INPUT(LockedHint, SD_VARLINK_BOOL, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                TakeControl,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session. If unspecified or 'self', targets the caller's session."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, take control even if another controller is active."),
+                SD_VARLINK_DEFINE_INPUT(Force, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Device event notifications will be sent as replies to this call."),
+                SD_VARLINK_DEFINE_OUTPUT(Type, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_OUTPUT(Major, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_OUTPUT(Minor, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                ReleaseControl,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session. If unspecified or 'self', targets the caller's session."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                TakeDevice,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session. If unspecified or 'self', targets the caller's session."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Major device number."),
+                SD_VARLINK_DEFINE_INPUT(Major, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Minor device number."),
+                SD_VARLINK_DEFINE_INPUT(Minor, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether the device is currently inactive."),
+                SD_VARLINK_DEFINE_OUTPUT(Inactive, SD_VARLINK_BOOL, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                ReleaseDevice,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session. If unspecified or 'self', targets the caller's session."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Major device number."),
+                SD_VARLINK_DEFINE_INPUT(Major, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Minor device number."),
+                SD_VARLINK_DEFINE_INPUT(Minor, SD_VARLINK_INT, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                PauseDeviceComplete,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session. If unspecified or 'self', targets the caller's session."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Major device number."),
+                SD_VARLINK_DEFINE_INPUT(Major, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Minor device number."),
+                SD_VARLINK_DEFINE_INPUT(Minor, SD_VARLINK_INT, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetType,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The session type to set."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(Type, SessionType, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDisplay,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The display to set."),
+                SD_VARLINK_DEFINE_INPUT(Display, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_ERROR(NotInControl);
+static SD_VARLINK_DEFINE_ERROR(DeviceIsTaken);
+static SD_VARLINK_DEFINE_ERROR(DeviceNotTaken);
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SessionRef,
                 SD_VARLINK_FIELD_COMMENT("The session identifier"),
@@ -375,6 +438,26 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_SetIdleHint,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the locked hint for a session."),
                 &vl_method_SetLockedHint,
+                SD_VARLINK_SYMBOL_COMMENT("Takes exclusive control of a session's devices. Device events are streamed back as replies."),
+                &vl_method_TakeControl,
+                SD_VARLINK_SYMBOL_COMMENT("Releases exclusive control of a session's devices."),
+                &vl_method_ReleaseControl,
+                SD_VARLINK_SYMBOL_COMMENT("Takes a device for the controlled session. Returns the device FD."),
+                &vl_method_TakeDevice,
+                SD_VARLINK_SYMBOL_COMMENT("Releases a previously taken device."),
+                &vl_method_ReleaseDevice,
+                SD_VARLINK_SYMBOL_COMMENT("Acknowledges a device pause."),
+                &vl_method_PauseDeviceComplete,
+                SD_VARLINK_SYMBOL_COMMENT("Sets the session type. Requires session control."),
+                &vl_method_SetType,
+                SD_VARLINK_SYMBOL_COMMENT("Sets the display for a graphical session. Requires session control."),
+                &vl_method_SetDisplay,
+                SD_VARLINK_SYMBOL_COMMENT("Caller is not the session controller"),
+                &vl_error_NotInControl,
+                SD_VARLINK_SYMBOL_COMMENT("Device is already taken"),
+                &vl_error_DeviceIsTaken,
+                SD_VARLINK_SYMBOL_COMMENT("Device has not been taken"),
+                &vl_error_DeviceNotTaken,
                 SD_VARLINK_SYMBOL_COMMENT("Information about a user"),
                 &vl_type_UserInfo,
                 SD_VARLINK_SYMBOL_COMMENT("Describes a specific user."),

@@ -7,6 +7,7 @@
 #include "bus-error.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
+#include "devnum-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hashmap.h"
@@ -18,6 +19,7 @@
 #include "logind-seat.h"
 #include "logind-session.h"
 #include "logind-session-dbus.h"
+#include "logind-session-device.h"
 #include "logind-shutdown.h"
 #include "logind-user.h"
 #include "logind-varlink.h"
@@ -913,6 +915,325 @@ static int vl_method_set_locked_hint(sd_varlink *link, sd_json_variant *paramete
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_take_control(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+                int force;
+        } p = {
+                .force = -1,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Id",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, voffsetof(p, id),    0 },
+                { "Force", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     voffsetof(p, force), 0 },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Session *session;
+        r = manager_varlink_get_session_by_name(m, link, p.id, &session);
+        if (r < 0)
+                return r;
+
+        bool force = p.force > 0;
+
+        uid_t uid;
+        r = sd_varlink_get_peer_uid(link, &uid);
+        if (r < 0)
+                return r;
+
+        if (uid != 0 && (force || uid != session->user->user_record->uid))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        r = session_set_controller_varlink(session, link, force, /* prepare= */ true);
+        if (r == -EBUSY)
+                return sd_varlink_error(link, "io.systemd.Login.NotInControl", NULL);
+        if (r < 0)
+                return r;
+
+        /* TakeControl uses SD_VARLINK_METHOD_MORE so device events can be streamed back.
+         * If the caller doesn't support streaming, just reply immediately. */
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_reply(link, NULL);
+
+        /* Don't reply yet — keep the connection open for device event notifications.
+         * The reply will come when ReleaseControl is called or the connection drops. */
+        return 0;
+}
+
+static int vl_method_release_control(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Id", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id), 0 },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Session *session;
+        r = manager_varlink_get_session_by_name(m, link, p.id, &session);
+        if (r < 0)
+                return r;
+
+        if (!session_is_controller_varlink(session, link))
+                return sd_varlink_error(link, "io.systemd.Login.NotInControl", NULL);
+
+        session_drop_controller(session);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_take_device(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+                unsigned major, minor;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Id",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, voffsetof(p, id),    0                },
+                { "Major", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        voffsetof(p, major), SD_JSON_MANDATORY },
+                { "Minor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        voffsetof(p, minor), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!DEVICE_MAJOR_VALID(p.major) || !DEVICE_MINOR_VALID(p.minor))
+                return sd_varlink_error_invalid_parameter_name(link, "Major");
+
+        Session *session;
+        r = manager_varlink_get_session_by_name(m, link, p.id, &session);
+        if (r < 0)
+                return r;
+
+        if (!SESSION_CLASS_CAN_TAKE_DEVICE(session->class))
+                return sd_varlink_error_invalid_parameter_name(link, "Id");
+
+        if (!session_is_controller_varlink(session, link))
+                return sd_varlink_error(link, "io.systemd.Login.NotInControl", NULL);
+
+        dev_t dev = makedev(p.major, p.minor);
+        _cleanup_(session_device_freep) SessionDevice *sd = NULL;
+
+        sd = hashmap_get(session->devices, &dev);
+        if (sd)
+                return sd_varlink_error(link, "io.systemd.Login.DeviceIsTaken", NULL);
+
+        r = session_device_new(session, dev, true, &sd);
+        if (r < 0)
+                return r;
+
+        r = session_device_save(sd);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_push_dup_fd(link, sd->fd);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Inactive", !sd->active));
+        if (r < 0)
+                return r;
+
+        session_save(session);
+        TAKE_PTR(sd);
+
+        return 1;
+}
+
+static int vl_method_release_device(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+                unsigned major, minor;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Id",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, voffsetof(p, id),    0                },
+                { "Major", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        voffsetof(p, major), SD_JSON_MANDATORY },
+                { "Minor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        voffsetof(p, minor), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!DEVICE_MAJOR_VALID(p.major) || !DEVICE_MINOR_VALID(p.minor))
+                return sd_varlink_error_invalid_parameter_name(link, "Major");
+
+        Session *session;
+        r = manager_varlink_get_session_by_name(m, link, p.id, &session);
+        if (r < 0)
+                return r;
+
+        if (!session_is_controller_varlink(session, link))
+                return sd_varlink_error(link, "io.systemd.Login.NotInControl", NULL);
+
+        dev_t dev = makedev(p.major, p.minor);
+        SessionDevice *sd = hashmap_get(session->devices, &dev);
+        if (!sd)
+                return sd_varlink_error(link, "io.systemd.Login.DeviceNotTaken", NULL);
+
+        session_device_free(sd);
+        session_save(session);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_pause_device_complete(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+                unsigned major, minor;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Id",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, voffsetof(p, id),    0                },
+                { "Major", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        voffsetof(p, major), SD_JSON_MANDATORY },
+                { "Minor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        voffsetof(p, minor), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!DEVICE_MAJOR_VALID(p.major) || !DEVICE_MINOR_VALID(p.minor))
+                return sd_varlink_error_invalid_parameter_name(link, "Major");
+
+        Session *session;
+        r = manager_varlink_get_session_by_name(m, link, p.id, &session);
+        if (r < 0)
+                return r;
+
+        if (!session_is_controller_varlink(session, link))
+                return sd_varlink_error(link, "io.systemd.Login.NotInControl", NULL);
+
+        dev_t dev = makedev(p.major, p.minor);
+        SessionDevice *sd = hashmap_get(session->devices, &dev);
+        if (!sd)
+                return sd_varlink_error(link, "io.systemd.Login.DeviceNotTaken", NULL);
+
+        session_device_complete_pause(sd);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_set_type(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+                const char *type;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Id",   SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id),   0                },
+                { "Type", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, type), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        SessionType type = session_type_from_string(p.type);
+        if (type < 0)
+                return sd_varlink_error_invalid_parameter_name(link, "Type");
+
+        Session *session;
+        r = manager_varlink_get_session_by_name(m, link, p.id, &session);
+        if (r < 0)
+                return r;
+
+        if (!SESSION_CLASS_CAN_CHANGE_TYPE(session->class))
+                return sd_varlink_error_invalid_parameter_name(link, "Type");
+
+        if (!session_is_controller_varlink(session, link))
+                return sd_varlink_error(link, "io.systemd.Login.NotInControl", NULL);
+
+        session_set_type(session, type);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_set_display(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+                const char *display;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Id",      SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id),      0                },
+                { "Display", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, display), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Session *session;
+        r = manager_varlink_get_session_by_name(m, link, p.id, &session);
+        if (r < 0)
+                return r;
+
+        if (!session_is_controller_varlink(session, link))
+                return sd_varlink_error(link, "io.systemd.Login.NotInControl", NULL);
+
+        if (!SESSION_TYPE_IS_GRAPHICAL(session->type))
+                return sd_varlink_error_invalid_parameter_name(link, "Display");
+
+        r = session_set_display(session, p.display);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        assert(server);
+        assert(link);
+
+        /* When a Varlink connection disconnects, check if it was a session controller and drop it */
+        Session *session;
+        HASHMAP_FOREACH(session, m->sessions)
+                if (session_is_controller_varlink(session, link)) {
+                        session_drop_controller(session);
+                        break;
+                }
+}
+
 static int vl_method_list_inhibitors(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -1128,11 +1449,22 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.KillSession",      vl_method_kill_session,
                         "io.systemd.Login.SetIdleHint",      vl_method_set_idle_hint,
                         "io.systemd.Login.SetLockedHint",    vl_method_set_locked_hint,
+                        "io.systemd.Login.TakeControl",      vl_method_take_control,
+                        "io.systemd.Login.ReleaseControl",   vl_method_release_control,
+                        "io.systemd.Login.TakeDevice",       vl_method_take_device,
+                        "io.systemd.Login.ReleaseDevice",    vl_method_release_device,
+                        "io.systemd.Login.PauseDeviceComplete", vl_method_pause_device_complete,
+                        "io.systemd.Login.SetType",          vl_method_set_type,
+                        "io.systemd.Login.SetDisplay",       vl_method_set_display,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
+
+        r = sd_varlink_server_bind_disconnect(s, vl_disconnect);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
 
         if (fd < 0)
                 r = sd_varlink_server_listen_address(s, "/run/systemd/io.systemd.Login", /* mode= */ 0666);

@@ -1549,26 +1549,38 @@ bool session_is_controller(Session *s, const char *sender) {
         return streq_ptr(ASSERT_PTR(s)->controller, sender);
 }
 
+bool session_is_controller_varlink(Session *s, sd_varlink *link) {
+        assert(s);
+        return s->controller_varlink && s->controller_varlink == link;
+}
+
+static bool session_has_controller(Session *s) {
+        return s->controller || s->controller_varlink;
+}
+
 static void session_release_controller(Session *s, bool notify) {
         _unused_ _cleanup_free_ char *name = NULL;
         SessionDevice *sd;
 
         assert(s);
 
-        if (!s->controller)
+        if (!session_has_controller(s))
                 return;
 
         name = s->controller;
 
         /* By resetting the controller before releasing the devices, we won't send notification signals.
          * This avoids sending useless notifications if the controller is released on disconnects. */
-        if (!notify)
+        if (!notify) {
                 s->controller = NULL;
+                s->controller_varlink = sd_varlink_unref(s->controller_varlink);
+        }
 
         while ((sd = hashmap_first(s->devices)))
                 session_device_free(sd);
 
         s->controller = NULL;
+        s->controller_varlink = sd_varlink_unref(s->controller_varlink);
         s->track = sd_bus_track_unref(s->track);
 }
 
@@ -1631,10 +1643,34 @@ int session_set_controller(Session *s, const char *sender, bool force, bool prep
         return 0;
 }
 
+int session_set_controller_varlink(Session *s, sd_varlink *link, bool force, bool prepare) {
+        int r;
+
+        assert(s);
+        assert(link);
+
+        if (session_is_controller_varlink(s, link))
+                return 0;
+        if (session_has_controller(s) && !force)
+                return -EBUSY;
+
+        if (prepare) {
+                r = session_prepare_vt(s);
+                if (r < 0)
+                        return r;
+        }
+
+        session_release_controller(s, true);
+        s->controller_varlink = sd_varlink_ref(link);
+        (void) session_save(s);
+
+        return 0;
+}
+
 void session_drop_controller(Session *s) {
         assert(s);
 
-        if (!s->controller)
+        if (!session_has_controller(s))
                 return;
 
         s->track = sd_bus_track_unref(s->track);

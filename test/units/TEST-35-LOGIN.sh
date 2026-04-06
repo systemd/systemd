@@ -983,6 +983,49 @@ testcase_varlink() {
     varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.KillSession "{\"Id\":\"$session\",\"Signal\":18,\"Whom\":\"leader\"}"
     loginctl session-status "$session" >/dev/null
 
+    : "--- Session device management (Introspect) ---"
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method TakeControl" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ReleaseControl" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method TakeDevice" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ReleaseDevice" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method PauseDeviceComplete" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method SetType" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method SetDisplay" >/dev/null
+
+    : "--- TakeControl / ReleaseControl ---"
+    # Without --more the reply is immediate; the ephemeral Varlink link becomes
+    # the controller and its close releases control again, so this is mainly a
+    # permission/arg-validation smoke test. Running as root is allowed.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TakeControl "{\"Id\":\"$session\"}"
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TakeControl '{"Id":"nonexistent-session-id"}')
+    # ReleaseControl from a fresh connection that is not the controller.
+    self_err=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ReleaseControl "{\"Id\":\"$session\"}" 2>&1 || true)
+    echo "$self_err" | grep NotInControl >/dev/null
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ReleaseControl '{"Id":"nonexistent-session-id"}')
+
+    : "--- TakeDevice / ReleaseDevice / PauseDeviceComplete ---"
+    # Out-of-range major (>= 1<<12) is rejected by DEVICE_MAJOR_VALID.
+    self_err=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TakeDevice \
+                   "{\"Id\":\"$session\",\"Major\":99999,\"Minor\":0}" 2>&1 || true)
+    echo "$self_err" | grep -E 'InvalidParameter|Major' >/dev/null
+    # No live Varlink controller on this session, so a valid device request hits NotInControl.
+    for method in TakeDevice ReleaseDevice PauseDeviceComplete; do
+        self_err=$(varlinkctl call "$VARLINK_SOCKET" "io.systemd.Login.$method" \
+                       "{\"Id\":\"$session\",\"Major\":13,\"Minor\":64}" 2>&1 || true)
+        echo "$self_err" | grep NotInControl >/dev/null
+    done
+
+    : "--- SetType / SetDisplay ---"
+    # Both require the caller to be the session controller — expect NotInControl.
+    self_err=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetType \
+                   "{\"Id\":\"$session\",\"Type\":\"tty\"}" 2>&1 || true)
+    echo "$self_err" | grep NotInControl >/dev/null
+    self_err=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetDisplay \
+                   "{\"Id\":\"$session\",\"Display\":\":0\"}" 2>&1 || true)
+    echo "$self_err" | grep NotInControl >/dev/null
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetType '{"Id":"nonexistent-session-id","Type":"tty"}')
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetDisplay '{"Id":"nonexistent-session-id","Display":":0"}')
+
     : "--- TerminateSession ---"
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TerminateSession '{"Id":"nonexistent-session-id"}')
     # Destructive: this ends the test session. Keep LAST.
