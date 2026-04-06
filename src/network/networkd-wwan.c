@@ -133,6 +133,11 @@ int bearer_get_by_path(Manager *manager, const char *path, Modem **ret_modem, Be
         assert(manager);
         assert(path);
 
+        if (ret_modem)
+                *ret_modem = NULL;
+        if (ret_bearer)
+                *ret_bearer = NULL;
+
         HASHMAP_FOREACH(modem, manager->modems_by_path) {
                 b = hashmap_get(modem->bearers_by_path, path);
                 if (!b)
