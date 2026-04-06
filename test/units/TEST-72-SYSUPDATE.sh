@@ -97,6 +97,7 @@ new_version() {
 
     if [[ -e /dev/loop-control ]]; then
         ddi_blockdev="$(losetup --find --show --sector-size "$sector_size" "$WORKDIR/source/ddi-$version.raw")"
+        trap '[[ -n "${ddi_blockdev:-}" && -b "$ddi_blockdev" ]] && losetup --detach "$ddi_blockdev"' RETURN
     else
         ddi_blockdev="$WORKDIR/source/ddi-$version.raw"
     fi
@@ -117,6 +118,7 @@ EOF
     dd if="$WORKDIR/source/part2-$version.raw" of="$WORKDIR/source/ddi-$version.raw" bs="$sector_size" seek="${ddi_part_starts[1]}" conv=notrunc
 
     [[ -b "$ddi_blockdev" ]] && losetup --detach "$ddi_blockdev"
+    trap - RETURN
 
     update_checksums
 }

@@ -1508,7 +1508,7 @@ static int transfer_acquire_ddi_instance(
         if (r < 0)
                 return r;
 
-        where = t->target.path;
+        where = strna(t->partition_info.device);
         log_info("%s Acquiring %s %s %s...", glyph(GLYPH_DOWNLOAD), i->path, glyph(GLYPH_ARROW_RIGHT), where);
 
         source_fd = open(image_path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
