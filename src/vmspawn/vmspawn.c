@@ -3601,21 +3601,25 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (arg_register != 0) {
                 char vm_address[STRLEN("vsock/") + DECIMAL_STR_MAX(unsigned)];
                 xsprintf(vm_address, "vsock/%u", child_cid);
+
+                const MachineRegistration reg = {
+                        .name                 = arg_machine,
+                        .id                   = arg_uuid,
+                        .service              = "systemd-vmspawn",
+                        .class                = "vm",
+                        .pidref               = &child_pidref,
+                        .root_directory       = arg_directory,
+                        .vsock_cid            = child_cid,
+                        .ssh_address          = child_cid != VMADDR_CID_ANY ? vm_address : NULL,
+                        .ssh_private_key_path = ssh_private_key_path,
+                        .allocate_unit        = !arg_keep_unit,
+                };
+
                 r = register_machine_with_fallback_and_log(
                                 arg_runtime_scope == RUNTIME_SCOPE_USER ? _RUNTIME_SCOPE_INVALID : RUNTIME_SCOPE_SYSTEM,
                                 system_bus,
                                 runtime_bus,
-                                arg_machine,
-                                arg_uuid,
-                                "systemd-vmspawn",
-                                "vm",
-                                &child_pidref,
-                                arg_directory,
-                                child_cid,
-                                /* local_ifindex= */ 0,
-                                child_cid != VMADDR_CID_ANY ? vm_address : NULL,
-                                ssh_private_key_path,
-                                !arg_keep_unit,
+                                &reg,
                                 /* graceful= */ arg_register < 0,
                                 &registered_system,
                                 &registered_runtime);
