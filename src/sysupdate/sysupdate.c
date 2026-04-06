@@ -10,6 +10,7 @@
 #include "constants.h"
 #include "dissect-image.h"
 #include "format-table.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
@@ -151,6 +152,7 @@ const char* context_get_cached_ddi_path(Context *c, const char *key) {
 int context_put_cached_ddi_path(Context *c, const char *key, char *path) {
         _cleanup_(ddi_cache_item_freep) DdiCacheItem *item = NULL;
         _cleanup_free_ char *k = NULL;
+        _cleanup_(unlink_and_freep) char *path_to_free = path;
         int r;
 
         assert(c);
@@ -171,7 +173,7 @@ int context_put_cached_ddi_path(Context *c, const char *key, char *path) {
 
         *item = (DdiCacheItem) {
                 .key = TAKE_PTR(k),
-                .path = path,
+                .path = TAKE_PTR(path_to_free),
         };
 
         ddi_cache_item_free(hashmap_remove(c->ddi_cache, key));
