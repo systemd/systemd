@@ -15,6 +15,7 @@ int register_machine(
                 int local_ifindex,
                 const char *address,
                 const char *key_path,
+                const char *control_address,
                 bool allocate_unit,
                 RuntimeScope scope);
 int register_machine_with_fallback_and_log(
@@ -31,6 +32,7 @@ int register_machine_with_fallback_and_log(
                 int local_ifindex,
                 const char *address,
                 const char *key_path,
+                const char *control_address,
                 bool allocate_unit,
                 bool graceful,
                 bool *reterr_registered_system,
