@@ -17,6 +17,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "logind-session.h"
 #include "logind.h"
@@ -526,6 +527,50 @@ int inhibit_what_from_string(const char *s) {
                 else
                         return _INHIBIT_WHAT_INVALID;
         }
+}
+
+int inhibitor_build_json(Inhibitor *i, sd_json_variant **ret) {
+        static const struct {
+                InhibitWhat bit;
+                const char *name;
+        } what_bits[] = {
+                { INHIBIT_SHUTDOWN,             "shutdown"             },
+                { INHIBIT_SLEEP,                "sleep"                },
+                { INHIBIT_IDLE,                 "idle"                 },
+                { INHIBIT_HANDLE_POWER_KEY,     "handle-power-key"     },
+                { INHIBIT_HANDLE_SUSPEND_KEY,   "handle-suspend-key"   },
+                { INHIBIT_HANDLE_HIBERNATE_KEY, "handle-hibernate-key" },
+                { INHIBIT_HANDLE_LID_SWITCH,    "handle-lid-switch"    },
+                { INHIBIT_HANDLE_REBOOT_KEY,    "handle-reboot-key"    },
+        };
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *what_array = NULL;
+        int r;
+
+        assert(i);
+        assert(ret);
+
+        FOREACH_ELEMENT(b, what_bits)
+                if (i->what & b->bit) {
+                        r = sd_json_variant_append_arrayb(
+                                        &what_array, SD_JSON_BUILD_STRING(b->name));
+                        if (r < 0)
+                                return r;
+                }
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("Id", i->id),
+                        SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(what_array),
+                                                     "What", SD_JSON_BUILD_EMPTY_ARRAY),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(what_array),
+                                                     "What", SD_JSON_BUILD_VARIANT(what_array)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Who", i->who),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Why", i->why),
+                        SD_JSON_BUILD_PAIR_STRING("Mode", inhibit_mode_to_string(i->mode)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("UID", i->uid),
+                        JSON_BUILD_PAIR_PIDREF_NON_NULL("PID", &i->pid),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("Since", &i->since));
 }
 
 static const char* const inhibit_mode_table[_INHIBIT_MODE_MAX] = {
