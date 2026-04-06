@@ -604,9 +604,9 @@ static void modem_simple_connect(Modem *modem) {
         if (!modem->port_name)
                 return;
 
-        (void) link_get_by_name(modem->manager, modem->port_name, &link);
-        if (!link)
-                return (void) log_debug("ModemManager: cannot find link for %s", modem->port_name);
+        r = link_get_by_name(modem->manager, modem->port_name, &link);
+        if (r < 0)
+                return (void) log_debug_errno(r, "ModemManager: cannot find link for %s: %m", modem->port_name);
 
         /* Check if .network file found at all */
         if (!link->network)
@@ -798,8 +798,8 @@ static int bearer_properties_changed_handler(
 
         Manager *manager = ASSERT_PTR(userdata);
         const char *path;
-        Modem *modem;
-        Bearer *b;
+        Modem *modem = NULL;
+        Bearer *b = NULL;
 
         assert(message);
 
@@ -807,15 +807,10 @@ static int bearer_properties_changed_handler(
         if (!path)
                 return 0;
 
-        if (bearer_get_by_path(manager, path, &modem, &b) < 0) {
-                /*
-                 * Have new bearer: check if we have the corresponding modem
-                 * for it which we might not during initialization.
-                 */
-                if (modem)
-                        (void) bearer_new_and_initialize(modem, path);
+        if (bearer_get_by_path(manager, path, &modem, &b) < 0)
+                /* Unknown bearer, nothing to do. Modem-bearer association is handled
+                 * by modem_map_bearers() during modem property initialization. */
                 return 0;
-        }
 
         if (b->slot_getall) {
                 /* Not initialized yet. Re-initialize it. */
