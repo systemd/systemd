@@ -772,20 +772,20 @@ EOF
     systemd-sysusers --inline "u lightuser"
 
     systemd-run -u "$TRANSIENTUNIT3" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_TYPE=unspecified" -p Type=exec -p User=lightuser sleep infinity
-    loginctl | grep lightuser | grep -w background-light >/dev/null
+    loginctl | grep lightuser | grep -w background_light >/dev/null
     systemctl stop "$TRANSIENTUNIT3"
 
     systemd-run -u "$TRANSIENTUNIT4" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_TYPE=tty" -p Type=exec -p User=lightuser sleep infinity
-    loginctl | grep lightuser | grep -w user-light >/dev/null
+    loginctl | grep lightuser | grep -w user_light >/dev/null
     systemctl stop "$TRANSIENTUNIT4"
 
     # Now check that run0's session class control works
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT0" sleep infinity
-    loginctl | grep lightuser | grep -w background-light >/dev/null
+    loginctl | grep lightuser | grep -w background_light >/dev/null
     systemctl stop "$RUN0UNIT0"
 
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT1" --lightweight=yes sleep infinity
-    loginctl | grep lightuser | grep -w background-light >/dev/null
+    loginctl | grep lightuser | grep -w background_light >/dev/null
     systemctl stop "$RUN0UNIT1"
 
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT2" --lightweight=no sleep infinity
@@ -793,7 +793,7 @@ EOF
     systemctl stop "$RUN0UNIT2"
 
     systemd-run --service-type=notify run0 -u root --unit="$RUN0UNIT3" sleep infinity
-    loginctl | grep root | grep -w background-light >/dev/null
+    loginctl | grep root | grep -w background_light >/dev/null
     systemctl stop "$RUN0UNIT3"
 }
 
@@ -1179,7 +1179,8 @@ testcase_restart() {
     for c in $classes; do
         unit="user-sleeper-$c.service"
         systemctl --quiet is-active "$unit"
-        loginctl | grep logind-test-user | grep -w "$c" >/dev/null
+        # loginctl's Varlink list path emits session class with underscores (Varlink enum convention).
+        loginctl | grep logind-test-user | grep -w "${c//-/_}" >/dev/null
         systemctl kill "$unit"
     done
 }
