@@ -1618,7 +1618,6 @@ static int verb_terminate_user(int argc, char *argv[], uintptr_t _data, void *us
 }
 
 static int verb_kill_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1629,14 +1628,42 @@ static int verb_kill_user(int argc, char *argv[], uintptr_t _data, void *userdat
         if (!arg_kill_whom)
                 arg_kill_whom = "all";
 
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                bool varlink_ok = true;
+                for (int i = 1; i < argc; i++) {
+                        uid_t uid;
+                        if (isempty(argv[i]))
+                                uid = getuid();
+                        else {
+                                const char *u = argv[i];
+                                r = get_user_creds(&u, &uid, NULL, NULL, NULL, 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                        }
+
+                        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                        r = connect_varlink(&vl);
+                        if (r < 0) { varlink_ok = false; break; }
+
+                        r = varlink_callbo_and_log(
+                                        vl, "io.systemd.Login.KillUser", NULL,
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("UID", uid),
+                                        SD_JSON_BUILD_PAIR_INTEGER("Signal", arg_signal));
+                        if (r < 0) { varlink_ok = false; break; }
+                }
+                if (varlink_ok)
+                        return 0;
+                log_debug("Failed via Varlink, falling back to D-Bus.");
+        }
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
         for (int i = 1; i < argc; i++) {
                 uid_t uid;
-
                 if (isempty(argv[i]))
                         uid = getuid();
                 else {
                         const char *u = argv[i];
-
                         r = get_user_creds(&u, &uid, NULL, NULL, NULL, 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
@@ -1656,7 +1683,6 @@ static int verb_kill_user(int argc, char *argv[], uintptr_t _data, void *userdat
 }
 
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1664,8 +1690,27 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        for (int i = 2; i < argc; i++) {
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                bool varlink_ok = true;
+                for (int i = 2; i < argc; i++) {
+                        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                        r = connect_varlink(&vl);
+                        if (r < 0) { varlink_ok = false; break; }
 
+                        r = varlink_callbo_and_log(
+                                        vl, "io.systemd.Login.AttachDevice", NULL,
+                                        SD_JSON_BUILD_PAIR_STRING("SeatId", argv[1]),
+                                        SD_JSON_BUILD_PAIR_STRING("SysfsPath", argv[i]));
+                        if (r < 0) { varlink_ok = false; break; }
+                }
+                if (varlink_ok)
+                        return 0;
+                log_debug("Failed via Varlink, falling back to D-Bus.");
+        }
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+        for (int i = 2; i < argc; i++) {
                 r = bus_call_method(
                         bus,
                         bus_login_mgr,
@@ -1680,13 +1725,25 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 }
 
 static int verb_flush_devices(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         assert(argv);
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                r = connect_varlink(&vl);
+                if (r >= 0) {
+                        r = varlink_call_and_log(vl, "io.systemd.Login.FlushDevices", NULL, NULL);
+                        if (r >= 0)
+                                return 0;
+                }
+                log_debug_errno(r, "Failed via Varlink, falling back to D-Bus: %m");
+        }
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
         r = bus_call_method(bus, bus_login_mgr, "FlushDevices", &error, NULL, "b", true);
         if (r < 0)
