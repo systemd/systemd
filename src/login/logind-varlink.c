@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
+#include "sd-device.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
@@ -8,6 +9,7 @@
 #include "bus-polkit.h"
 #include "cgroup-util.h"
 #include "escape.h"
+#include "device-util.h"
 #include "devnum-util.h"
 #include "efivars.h"
 #include "efi-api.h"
@@ -26,6 +28,7 @@
 #include "fs-util.h"
 #include "logind-action.h"
 #include "logind-dbus.h"
+#include "logind-brightness.h"
 #include "logind-inhibit.h"
 #include "logind-seat.h"
 #include "logind-session.h"
@@ -1235,6 +1238,73 @@ static int vl_method_set_display(sd_varlink *link, sd_json_variant *parameters, 
                 return r;
 
         return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_set_brightness(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *subsystem;
+                const char *name;
+                unsigned brightness;
+        } p;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Subsystem",  SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, voffsetof(p, subsystem),  SD_JSON_MANDATORY },
+                { "Name",       SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, voffsetof(p, name),       SD_JSON_MANDATORY },
+                { "Brightness", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,         voffsetof(p, brightness), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!STR_IN_SET(p.subsystem, "backlight", "leds"))
+                return sd_varlink_error_invalid_parameter_name(link, "Subsystem");
+        if (!filename_is_valid(p.name))
+                return sd_varlink_error_invalid_parameter_name(link, "Name");
+
+        /* Resolve the caller's session to verify seat membership */
+        Session *session;
+        r = manager_varlink_get_session_by_peer(m, link, /* consult_display= */ true, &session);
+        if (r < 0)
+                return r;
+
+        if (!session)
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        if (!session->seat)
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+        if (session->seat->active != session)
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        uid_t uid;
+        r = sd_varlink_get_peer_uid(link, &uid);
+        if (r < 0)
+                return r;
+
+        if (uid != 0 && uid != session->user->user_record->uid)
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        r = sd_device_new_from_subsystem_sysname(&d, p.subsystem, p.name);
+        if (r < 0)
+                return r;
+
+        const char *seat;
+        r = device_get_seat(d, &seat);
+        if (r < 0)
+                return r;
+        if (!streq(seat, session->seat->id))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        r = manager_write_brightness_varlink(m, d, p.brightness, link);
+        if (r < 0)
+                return r;
+
+        return 1; /* deferred reply */
 }
 
 static int vl_method_terminate_user(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -3189,6 +3259,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.PauseDeviceComplete", vl_method_pause_device_complete,
                         "io.systemd.Login.SetType",          vl_method_set_type,
                         "io.systemd.Login.SetDisplay",       vl_method_set_display,
+                        "io.systemd.Login.SetBrightness",    vl_method_set_brightness,
                         "io.systemd.Login.TerminateUser",    vl_method_terminate_user,
                         "io.systemd.Login.KillUser",         vl_method_kill_user,
                         "io.systemd.Login.SetUserLinger",    vl_method_set_user_linger,

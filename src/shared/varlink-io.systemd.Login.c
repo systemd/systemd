@@ -275,6 +275,15 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The display to set."),
                 SD_VARLINK_DEFINE_INPUT(Display, SD_VARLINK_STRING, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetBrightness,
+                SD_VARLINK_FIELD_COMMENT("The device subsystem, either 'backlight' or 'leds'."),
+                SD_VARLINK_DEFINE_INPUT(Subsystem, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The device sysfs name."),
+                SD_VARLINK_DEFINE_INPUT(Name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The brightness value to set."),
+                SD_VARLINK_DEFINE_INPUT(Brightness, SD_VARLINK_INT, 0));
+
 static SD_VARLINK_DEFINE_ERROR(NotInControl);
 static SD_VARLINK_DEFINE_ERROR(DeviceIsTaken);
 static SD_VARLINK_DEFINE_ERROR(DeviceNotTaken);
@@ -697,6 +706,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_SetType,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the display for a graphical session. Requires session control."),
                 &vl_method_SetDisplay,
+                SD_VARLINK_SYMBOL_COMMENT("Sets the brightness of a display device."),
+                &vl_method_SetBrightness,
                 SD_VARLINK_SYMBOL_COMMENT("Caller is not the session controller"),
                 &vl_error_NotInControl,
                 SD_VARLINK_SYMBOL_COMMENT("Device is already taken"),

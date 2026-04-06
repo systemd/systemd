@@ -5,6 +5,7 @@
 #include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-event.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "bus-message-util.h"
@@ -49,6 +50,9 @@ typedef struct BrightnessWriter {
         Set *current_messages;
         Set *pending_messages;
 
+        Set *current_varlink_links;
+        Set *pending_varlink_links;
+
         sd_event_source* child_event_source;
 } BrightnessWriter;
 
@@ -64,6 +68,15 @@ static BrightnessWriter* brightness_writer_free(BrightnessWriter *w) {
 
         set_free(w->current_messages);
         set_free(w->pending_messages);
+
+        sd_varlink *vl;
+        SET_FOREACH(vl, w->current_varlink_links)
+                sd_varlink_unref(vl);
+        set_free(w->current_varlink_links);
+
+        SET_FOREACH(vl, w->pending_varlink_links)
+                sd_varlink_unref(vl);
+        set_free(w->pending_varlink_links);
 
         w->child_event_source = sd_event_source_unref(w->child_event_source);
 
@@ -101,6 +114,26 @@ static void brightness_writer_reply(BrightnessWriter *w, int error) {
         }
 }
 
+static void brightness_writer_reply_varlink(BrightnessWriter *w, int error) {
+        assert(w);
+
+        for (;;) {
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+
+                vl = set_steal_first(w->current_varlink_links);
+                if (!vl)
+                        break;
+
+                int r;
+                if (error == 0)
+                        r = sd_varlink_reply(vl, NULL);
+                else
+                        r = sd_varlink_error_errno(vl, error);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to send varlink method reply, ignoring: %m");
+        }
+}
+
 static int brightness_writer_fork(BrightnessWriter *w);
 
 static int on_brightness_writer_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
@@ -112,9 +145,10 @@ static int on_brightness_writer_exit(sd_event_source *s, const siginfo_t *si, vo
 
         w->child_event_source = sd_event_source_unref(w->child_event_source);
 
-        brightness_writer_reply(w,
-                                si->si_code == CLD_EXITED &&
-                                si->si_status == EXIT_SUCCESS ? 0 : -EPROTO);
+        int error = si->si_code == CLD_EXITED && si->si_status == EXIT_SUCCESS ? 0 : -EPROTO;
+
+        brightness_writer_reply(w, error);
+        brightness_writer_reply_varlink(w, error);
 
         if (w->again) {
                 /* Another request to change the brightness has been queued. Act on it, but make the pending
@@ -122,6 +156,8 @@ static int on_brightness_writer_exit(sd_event_source *s, const siginfo_t *si, vo
                 w->again = false;
                 set_free(w->current_messages);
                 w->current_messages = TAKE_PTR(w->pending_messages);
+                set_free(w->current_varlink_links);
+                w->current_varlink_links = TAKE_PTR(w->pending_varlink_links);
 
                 r = brightness_writer_fork(w);
                 if (r >= 0)
@@ -193,6 +229,85 @@ static int set_add_message(Set **set, sd_bus_message *message) {
                 return r;
 
         return 1;
+}
+
+static int set_add_varlink(Set **set, sd_varlink *link) {
+        int r;
+
+        assert(set);
+
+        if (!link)
+                return 0;
+
+        r = set_ensure_put(set, NULL, sd_varlink_ref(link));
+        if (r <= 0) {
+                sd_varlink_unref(link);
+                return r;
+        }
+
+        return 1;
+}
+
+int manager_write_brightness_varlink(
+                Manager *m,
+                sd_device *device,
+                uint32_t brightness,
+                sd_varlink *link) {
+
+        _cleanup_(brightness_writer_freep) BrightnessWriter *w = NULL;
+        BrightnessWriter *existing;
+        const char *path;
+        int r;
+
+        assert(m);
+        assert(device);
+
+        r = sd_device_get_syspath(device, &path);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to get sysfs path for brightness device: %m");
+
+        existing = hashmap_get(m->brightness_writers, path);
+        if (existing) {
+                r = set_add_varlink(&existing->pending_varlink_links, link);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add varlink link to set: %m");
+
+                existing->brightness = brightness;
+                existing->again = true;
+                return 0;
+        }
+
+        w = new(BrightnessWriter, 1);
+        if (!w)
+                return log_oom();
+
+        *w = (BrightnessWriter) {
+                .device = sd_device_ref(device),
+                .path = strdup(path),
+                .brightness = brightness,
+        };
+
+        if (!w->path)
+                return log_oom();
+
+        r = hashmap_ensure_put(&m->brightness_writers, &brightness_writer_hash_ops, w->path, w);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return log_error_errno(r, "Failed to add brightness writer to hashmap: %m");
+
+        w->manager = m;
+
+        r = set_add_varlink(&w->current_varlink_links, link);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add varlink link to set: %m");
+
+        r = brightness_writer_fork(w);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(w);
+        return 0;
 }
 
 int manager_write_brightness(

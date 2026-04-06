@@ -1211,6 +1211,15 @@ testcase_varlink() {
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ScheduleShutdown \
           "{\"Type\":\"not-a-real-action\",\"USec\":$future_usec}")
 
+    : "--- SetBrightness ---"
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method SetBrightness" >/dev/null
+    # Invalid subsystem
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetBrightness \
+          '{"Subsystem":"not-a-subsystem","Name":"foo","Brightness":0}')
+    # Nonexistent device
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetBrightness \
+          '{"Subsystem":"backlight","Name":"no-such-device","Brightness":0}')
+
     : "--- TerminateSession ---"
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TerminateSession '{"Id":"nonexistent-session-id"}')
     # Destructive: this ends the test session. Keep LAST.
