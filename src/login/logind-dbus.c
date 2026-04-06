@@ -1704,7 +1704,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int trigger_device(Manager *m, sd_device *parent) {
+int trigger_device(Manager *m, sd_device *parent) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r;
 
@@ -1733,7 +1733,7 @@ static int trigger_device(Manager *m, sd_device *parent) {
         return 0;
 }
 
-static int attach_device(Manager *m, const char *seat, const char *sysfs, sd_bus_error *error) {
+int attach_device(Manager *m, const char *seat, const char *sysfs, sd_bus_error *error) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_free_ char *file = NULL;
         const char *id_for_seat;
@@ -1766,7 +1766,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs, sd_bus
         return trigger_device(m, d);
 }
 
-static int flush_devices(Manager *m) {
+int flush_devices(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
 
         assert(m);

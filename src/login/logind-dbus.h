@@ -64,5 +64,8 @@ void reset_scheduled_shutdown(Manager *m);
 int manager_setup_shutdown_timers(Manager *m);
 int update_schedule_file(Manager *m);
 void cancel_delayed_action(Manager *m);
+int trigger_device(Manager *m, sd_device *parent);
+int attach_device(Manager *m, const char *seat, const char *sysfs, sd_bus_error *error);
+int flush_devices(Manager *m);
 
 extern const BusObjectImplementation manager_object;

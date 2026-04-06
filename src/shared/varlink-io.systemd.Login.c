@@ -541,6 +541,18 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
+                AttachDevice,
+                SD_VARLINK_FIELD_COMMENT("The seat to attach the device to."),
+                SD_VARLINK_DEFINE_INPUT(SeatId, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The sysfs path of the device."),
+                SD_VARLINK_DEFINE_INPUT(SysfsPath, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                FlushDevices,
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
                 DescribeManager,
                 SD_VARLINK_FIELD_COMMENT("The manager state as a JSON object."),
                 SD_VARLINK_DEFINE_OUTPUT(Manager, SD_VARLINK_OBJECT, 0));
@@ -724,6 +736,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_CanRebootParameter,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the wall message for upcoming shutdown."),
                 &vl_method_SetWallMessage,
+                SD_VARLINK_SYMBOL_COMMENT("Attaches a device to a seat."),
+                &vl_method_AttachDevice,
+                SD_VARLINK_SYMBOL_COMMENT("Removes all explicit device-to-seat assignments."),
+                &vl_method_FlushDevices,
                 SD_VARLINK_SYMBOL_COMMENT("Describes the manager state."),
                 &vl_method_DescribeManager,
                 SD_VARLINK_SYMBOL_COMMENT("Subscribes to manager events (session/user/seat changes, shutdown/sleep preparation)."),

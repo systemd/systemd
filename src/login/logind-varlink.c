@@ -2203,6 +2203,90 @@ static int vl_method_can_reboot_parameter(sd_varlink *link, sd_json_variant *par
         return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", result));
 }
 
+static int vl_method_attach_device(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *seat_id;
+                const char *sysfs_path;
+        } p;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "SeatId",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, seat_id),    SD_JSON_MANDATORY },
+                { "SysfsPath", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, sysfs_path), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!path_is_normalized(p.sysfs_path))
+                return sd_varlink_error_invalid_parameter_name(link, "SysfsPath");
+        if (!path_startswith(p.sysfs_path, "/sys"))
+                return sd_varlink_error_invalid_parameter_name(link, "SysfsPath");
+
+        const char *seat_name = p.seat_id;
+        if (seat_is_self(seat_name) || seat_is_auto(seat_name)) {
+                Seat *seat;
+                r = manager_varlink_get_seat_by_name(m, link, seat_name, &seat);
+                if (r < 0)
+                        return r;
+                seat_name = seat->id;
+        } else if (!seat_name_is_valid(seat_name))
+                return sd_varlink_error_invalid_parameter_name(link, "SeatId");
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        m->bus,
+                        "org.freedesktop.login1.attach-device",
+                        /* details= */ NULL,
+                        &m->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        r = attach_device(m, seat_name, p.sysfs_path, &error);
+        if (r < 0) {
+                if (sd_bus_error_is_set(&error))
+                        log_debug("AttachDevice failed: %s", error.message);
+                return r;
+        }
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_flush_devices(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, NULL);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        m->bus,
+                        "org.freedesktop.login1.flush-devices",
+                        /* details= */ NULL,
+                        &m->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = flush_devices(m);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
 /* Determine whether booting into firmware setup is currently armed, mirroring the logic of
  * property_get_reboot_to_firmware_setup() in logind-dbus.c. Returns 1 if armed, 0 if not armed, or
  * a negative errno on failure / when the state cannot be determined. */
@@ -2798,6 +2882,8 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.SetRebootParameter", vl_method_set_reboot_parameter,
                         "io.systemd.Login.CanRebootParameter", vl_method_can_reboot_parameter,
                         "io.systemd.Login.SetWallMessage",   vl_method_set_wall_message,
+                        "io.systemd.Login.AttachDevice",     vl_method_attach_device,
+                        "io.systemd.Login.FlushDevices",     vl_method_flush_devices,
                         "io.systemd.Login.DescribeManager",  vl_method_describe_manager,
                         "io.systemd.Login.SubscribeManagerEvents", vl_method_subscribe_manager_events,
                         "io.systemd.Login.ListInhibitors",   vl_method_list_inhibitors,

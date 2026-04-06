@@ -1068,6 +1068,20 @@ testcase_varlink() {
     varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ActivateSessionOnSeat \
         "{\"SessionId\":\"$session\",\"SeatId\":\"seat0\"}"
 
+    : "--- AttachDevice / FlushDevices ---"
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method AttachDevice" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method FlushDevices" >/dev/null
+    # Invalid seat
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.AttachDevice \
+          '{"SeatId":"not..a..valid..seat","SysfsPath":"/sys/class/input/input0"}')
+    # Sysfs path must start with /sys and be normalized
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.AttachDevice \
+          '{"SeatId":"seat0","SysfsPath":"/tmp/somewhere"}')
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.AttachDevice \
+          '{"SeatId":"seat0","SysfsPath":"/sys/../etc/passwd"}')
+    # FlushDevices is idempotent; just verify it accepts the call.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.FlushDevices '{}'
+
     : "--- SwitchTo / SwitchToNext / SwitchToPrevious (negative) ---"
     # Nonexistent seat
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SwitchTo '{"SeatId":"seat-nonexistent","VTNr":2}')
