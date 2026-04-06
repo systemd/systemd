@@ -16,6 +16,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "logind.h"
 #include "logind-device.h"
@@ -828,6 +829,38 @@ void seat_add_to_gc_queue(Seat *s) {
 
         LIST_PREPEND(gc_queue, s->manager->seat_gc_queue, s);
         s->in_gc_queue = true;
+}
+
+int seat_build_json(Seat *s, sd_json_variant **ret) {
+        assert(s);
+        assert(ret);
+
+        int r;
+
+        dual_timestamp idle_ts = DUAL_TIMESTAMP_NULL;
+        int idle = seat_get_idle_hint(s, &idle_ts);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *sessions_array = NULL;
+        LIST_FOREACH(sessions_by_seat, session, s->sessions) {
+                r = sd_json_variant_append_arraybo(
+                                &sessions_array,
+                                SD_JSON_BUILD_PAIR_STRING("Id", session->id));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("Id", s->id),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ActiveSession", s->active ? s->active->id : NULL),
+                        SD_JSON_BUILD_PAIR_CONDITION(sessions_array != NULL, "Sessions", SD_JSON_BUILD_VARIANT(sessions_array)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanTTY", seat_can_tty(s)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanGraphical", seat_can_graphical(s)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("IdleHint", idle > 0),
+                        SD_JSON_BUILD_PAIR_CONDITION(idle > 0 && dual_timestamp_is_set(&idle_ts),
+                                                     "IdleSinceHint", SD_JSON_BUILD_UNSIGNED(idle_ts.realtime)),
+                        SD_JSON_BUILD_PAIR_CONDITION(idle > 0 && dual_timestamp_is_set(&idle_ts),
+                                                     "IdleSinceHintMonotonic", SD_JSON_BUILD_UNSIGNED(idle_ts.monotonic)));
 }
 
 static bool seat_name_valid_char(char c) {
