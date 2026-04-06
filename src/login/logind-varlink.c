@@ -460,6 +460,103 @@ static int vl_method_list_users(sd_varlink *link, sd_json_variant *parameters, s
         return 0;
 }
 
+static int manager_varlink_get_seat_by_name(
+                Manager *m,
+                sd_varlink *link,
+                const char *name,
+                Seat **ret) {
+
+        assert(m);
+        assert(link);
+        assert(ret);
+
+        /* Resolves a seat name to a seat object. Supports resolving the special names "self" and "auto",
+         * which resolve to the seat of the caller's session. */
+
+        if (seat_is_self(name) || seat_is_auto(name)) {
+                Session *session;
+                int r = manager_varlink_get_session_by_peer(m, link, /* consult_display= */ seat_is_auto(name), &session);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return sd_varlink_error(link, "io.systemd.Login.NoSuchSeat", /* parameters= */ NULL);
+
+                if (!session->seat)
+                        return sd_varlink_error(link, "io.systemd.Login.NoSuchSeat", /* parameters= */ NULL);
+
+                *ret = session->seat;
+                return 0;
+        }
+
+        Seat *seat = hashmap_get(m->seats, name);
+        if (!seat)
+                return sd_varlink_error(link, "io.systemd.Login.NoSuchSeat", /* parameters= */ NULL);
+
+        *ret = seat;
+        return 0;
+}
+
+static int vl_method_describe_seat(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Id", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id), 0 },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Seat *seat;
+        r = manager_varlink_get_seat_by_name(m, link, p.id, &seat);
+        if (r != 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = seat_build_json(seat, &v);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("Seat", v));
+}
+
+static int vl_method_list_seats(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        r = sd_varlink_set_sentinel(link, "io.systemd.Login.NoSuchSeat");
+        if (r < 0)
+                return r;
+
+        Seat *seat;
+        HASHMAP_FOREACH(seat, m->seats) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = seat_build_json(seat, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("Seat", v));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int vl_method_release_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -632,6 +729,8 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.ListSessions",     vl_method_list_sessions,
                         "io.systemd.Login.DescribeUser",     vl_method_describe_user,
                         "io.systemd.Login.ListUsers",        vl_method_list_users,
+                        "io.systemd.Login.DescribeSeat",     vl_method_describe_seat,
+                        "io.systemd.Login.ListSeats",        vl_method_list_seats,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
