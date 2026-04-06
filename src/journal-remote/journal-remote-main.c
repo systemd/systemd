@@ -24,6 +24,7 @@
 #include "parse-argument.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "socket-netlink.h"
@@ -828,6 +829,22 @@ static int parse_config(void) {
                 {}
         };
 
+        const char *config_file = secure_getenv("SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE");
+        if (config_file) {
+                if (isempty(config_file) || path_equal(config_file, "/dev/null"))
+                        return 0;
+
+                return config_parse(
+                                /* unit= */ NULL,
+                                config_file,
+                                /* f= */ NULL,
+                                "Remote\0",
+                                config_item_table_lookup, items,
+                                CONFIG_PARSE_WARN,
+                                /* userdata= */ NULL,
+                                /* ret_stat= */ NULL);
+        }
+
         return config_parse_standard_file_with_dropins(
                         "systemd/journal-remote.conf",
                         "Remote\0",
@@ -865,6 +882,10 @@ static int help(void) {
                "     --gnutls-log=CATEGORY...\n"
                "                            Specify a list of gnutls logging categories\n"
                "     --split-mode=none|host How many output files to create\n"
+               "     --max-use=BYTES        Maximum disk space to use\n"
+               "     --keep-free=BYTES      Minimum disk space to keep free\n"
+               "     --max-file-size=BYTES  Maximum size of individual journal files\n"
+               "     --max-files=N          Maximum number of journal files to keep\n"
                "\nNote: file descriptors from sd_listen_fds() will be consumed, too.\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
@@ -888,24 +909,32 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CERT,
                 ARG_TRUST,
                 ARG_GNUTLS_LOG,
+                ARG_MAX_USE,
+                ARG_KEEP_FREE,
+                ARG_MAX_FILE_SIZE,
+                ARG_MAX_FILES,
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "url",          required_argument, NULL, ARG_URL          },
-                { "getter",       required_argument, NULL, ARG_GETTER       },
-                { "listen-raw",   required_argument, NULL, ARG_LISTEN_RAW   },
-                { "listen-http",  required_argument, NULL, ARG_LISTEN_HTTP  },
-                { "listen-https", required_argument, NULL, ARG_LISTEN_HTTPS },
-                { "output",       required_argument, NULL, 'o'              },
-                { "split-mode",   required_argument, NULL, ARG_SPLIT_MODE   },
-                { "compress",     optional_argument, NULL, ARG_COMPRESS     },
-                { "seal",         optional_argument, NULL, ARG_SEAL         },
-                { "key",          required_argument, NULL, ARG_KEY          },
-                { "cert",         required_argument, NULL, ARG_CERT         },
-                { "trust",        required_argument, NULL, ARG_TRUST        },
-                { "gnutls-log",   required_argument, NULL, ARG_GNUTLS_LOG   },
+                { "help",          no_argument,       NULL, 'h'              },
+                { "version",       no_argument,       NULL, ARG_VERSION      },
+                { "url",           required_argument, NULL, ARG_URL          },
+                { "getter",        required_argument, NULL, ARG_GETTER       },
+                { "listen-raw",    required_argument, NULL, ARG_LISTEN_RAW   },
+                { "listen-http",   required_argument, NULL, ARG_LISTEN_HTTP  },
+                { "listen-https",  required_argument, NULL, ARG_LISTEN_HTTPS },
+                { "output",        required_argument, NULL, 'o'              },
+                { "split-mode",    required_argument, NULL, ARG_SPLIT_MODE   },
+                { "compress",      optional_argument, NULL, ARG_COMPRESS     },
+                { "seal",          optional_argument, NULL, ARG_SEAL         },
+                { "key",           required_argument, NULL, ARG_KEY          },
+                { "cert",          required_argument, NULL, ARG_CERT         },
+                { "trust",         required_argument, NULL, ARG_TRUST        },
+                { "gnutls-log",    required_argument, NULL, ARG_GNUTLS_LOG   },
+                { "max-use",       required_argument, NULL, ARG_MAX_USE      },
+                { "keep-free",     required_argument, NULL, ARG_KEEP_FREE    },
+                { "max-file-size", required_argument, NULL, ARG_MAX_FILE_SIZE },
+                { "max-files",     required_argument, NULL, ARG_MAX_FILES    },
                 {}
         };
 
@@ -1035,6 +1064,30 @@ static int parse_argv(int argc, char *argv[]) {
 #else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --gnutls-log= is not available.");
 #endif
+                        break;
+
+                case ARG_MAX_USE:
+                        r = parse_size(optarg, 1024, &arg_max_use);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --max-use= value: %s", optarg);
+                        break;
+
+                case ARG_KEEP_FREE:
+                        r = parse_size(optarg, 1024, &arg_keep_free);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --keep-free= value: %s", optarg);
+                        break;
+
+                case ARG_MAX_FILE_SIZE:
+                        r = parse_size(optarg, 1024, &arg_max_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --max-file-size= value: %s", optarg);
+                        break;
+
+                case ARG_MAX_FILES:
+                        r = safe_atou64(optarg, &arg_n_max_files);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --max-files= value: %s", optarg);
                         break;
 
                 case '?':
