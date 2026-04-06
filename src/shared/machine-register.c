@@ -34,6 +34,7 @@ static int register_machine_dbus_ex(
         assert(reg->name);
         assert(reg->service);
         assert(reg->class);
+        assert(error);
 
         r = bus_message_new_method_call(bus, &m, bus_machine_mgr, "RegisterMachineEx");
         if (r < 0)
@@ -211,85 +212,73 @@ static const char* machine_registration_scope_string(RuntimeScope scope, bool re
 }
 
 int register_machine_with_fallback_and_log(
-                RuntimeScope scope,
-                sd_bus *system_bus,
-                sd_bus *user_bus,
+                MachineRegistrationContext *ctx,
                 const MachineRegistration *reg,
-                bool graceful,
-                bool *reterr_registered_system,
-                bool *reterr_registered_user) {
+                bool graceful) {
 
-        bool registered_system = false, registered_user = false;
         int r = 0;
 
-        assert(IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER, _RUNTIME_SCOPE_INVALID));
-        assert(system_bus || !IN_SET(scope, RUNTIME_SCOPE_SYSTEM, _RUNTIME_SCOPE_INVALID));
-        assert(user_bus || !IN_SET(scope, RUNTIME_SCOPE_USER, _RUNTIME_SCOPE_INVALID));
+        assert(ctx);
+        assert(IN_SET(ctx->scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER, _RUNTIME_SCOPE_INVALID));
+        assert(ctx->system_bus || !IN_SET(ctx->scope, RUNTIME_SCOPE_SYSTEM, _RUNTIME_SCOPE_INVALID));
+        assert(ctx->user_bus || !IN_SET(ctx->scope, RUNTIME_SCOPE_USER, _RUNTIME_SCOPE_INVALID));
         assert(reg);
         assert(reg->name);
         assert(reg->service);
         assert(reg->class);
-        assert(reterr_registered_system);
-        assert(reterr_registered_user);
 
-        if (IN_SET(scope, RUNTIME_SCOPE_SYSTEM, _RUNTIME_SCOPE_INVALID)) {
+        if (IN_SET(ctx->scope, RUNTIME_SCOPE_SYSTEM, _RUNTIME_SCOPE_INVALID)) {
                 MachineRegistration system_reg = *reg;
-                if (scope != RUNTIME_SCOPE_SYSTEM)
+                if (ctx->scope != RUNTIME_SCOPE_SYSTEM)
                         system_reg.allocate_unit = false;
 
-                int q = register_machine(system_bus, &system_reg, RUNTIME_SCOPE_SYSTEM);
+                int q = register_machine(ctx->system_bus, &system_reg, RUNTIME_SCOPE_SYSTEM);
                 if (q < 0)
                         RET_GATHER(r, q);
                 else
-                        registered_system = true;
+                        ctx->registered_system = true;
         }
 
-        if (IN_SET(scope, RUNTIME_SCOPE_USER, _RUNTIME_SCOPE_INVALID)) {
-                int q = register_machine(user_bus, reg, RUNTIME_SCOPE_USER);
+        if (IN_SET(ctx->scope, RUNTIME_SCOPE_USER, _RUNTIME_SCOPE_INVALID)) {
+                int q = register_machine(ctx->user_bus, reg, RUNTIME_SCOPE_USER);
                 if (q < 0)
                         RET_GATHER(r, q);
                 else
-                        registered_user = true;
+                        ctx->registered_user = true;
         }
 
         if (r < 0) {
                 if (graceful) {
                         log_notice_errno(r, "Failed to register machine in %s context, ignoring: %m",
-                                         machine_registration_scope_string(scope, registered_system, registered_user));
+                                         machine_registration_scope_string(ctx->scope, ctx->registered_system, ctx->registered_user));
                         r = 0;
                 } else
                         r = log_error_errno(r, "Failed to register machine in %s context: %m",
-                                            machine_registration_scope_string(scope, registered_system, registered_user));
+                                            machine_registration_scope_string(ctx->scope, ctx->registered_system, ctx->registered_user));
         }
-
-        if (reterr_registered_system)
-                *reterr_registered_system = registered_system;
-        if (reterr_registered_user)
-                *reterr_registered_user = registered_user;
 
         return r;
 }
 
-int unregister_machine_with_fallback_and_log(
-                sd_bus *system_bus,
-                sd_bus *user_bus,
-                const char *machine_name,
-                bool registered_system,
-                bool registered_user) {
+void unregister_machine_with_fallback_and_log(
+                MachineRegistrationContext *ctx,
+                const char *machine_name) {
 
         int r = 0;
         bool failed_system = false, failed_user = false;
 
-        if (registered_system) {
-                int q = unregister_machine(system_bus, machine_name, RUNTIME_SCOPE_SYSTEM);
+        assert(ctx);
+
+        if (ctx->registered_system) {
+                int q = unregister_machine(ctx->system_bus, machine_name, RUNTIME_SCOPE_SYSTEM);
                 if (q < 0) {
                         RET_GATHER(r, q);
                         failed_system = true;
                 }
         }
 
-        if (registered_user) {
-                int q = unregister_machine(user_bus, machine_name, RUNTIME_SCOPE_USER);
+        if (ctx->registered_user) {
+                int q = unregister_machine(ctx->user_bus, machine_name, RUNTIME_SCOPE_USER);
                 if (q < 0) {
                         RET_GATHER(r, q);
                         failed_user = true;
@@ -299,11 +288,9 @@ int unregister_machine_with_fallback_and_log(
         if (r < 0)
                 log_notice_errno(r, "Failed to unregister machine in %s context, ignoring: %m",
                                  machine_registration_scope_string(
-                                                 registered_system && registered_user ? _RUNTIME_SCOPE_INVALID :
-                                                 registered_system ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
+                                                 ctx->registered_system && ctx->registered_user ? _RUNTIME_SCOPE_INVALID :
+                                                 ctx->registered_system ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
                                                  !failed_system, !failed_user));
-
-        return 0;
 }
 
 int unregister_machine(sd_bus *bus, const char *machine_name, RuntimeScope scope) {

@@ -3597,7 +3597,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to get our own unit: %m");
         }
 
-        bool registered_system = false, registered_runtime = false;
+        MachineRegistrationContext machine_ctx = {
+                .scope      = arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? RUNTIME_SCOPE_SYSTEM : _RUNTIME_SCOPE_INVALID,
+                .system_bus = system_bus,
+                .user_bus   = runtime_bus,
+        };
         if (arg_register != 0) {
                 char vm_address[STRLEN("vsock/") + DECIMAL_STR_MAX(unsigned)];
                 xsprintf(vm_address, "vsock/%u", child_cid);
@@ -3616,13 +3620,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 };
 
                 r = register_machine_with_fallback_and_log(
-                                arg_runtime_scope == RUNTIME_SCOPE_USER ? _RUNTIME_SCOPE_INVALID : RUNTIME_SCOPE_SYSTEM,
-                                system_bus,
-                                runtime_bus,
+                                &machine_ctx,
                                 &reg,
-                                /* graceful= */ arg_register < 0,
-                                &registered_system,
-                                &registered_runtime);
+                                /* graceful= */ arg_register < 0);
                 if (r < 0)
                         return r;
         }
@@ -3727,7 +3727,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (scope_allocated)
                 terminate_scope(runtime_bus, arg_machine);
 
-        (void) unregister_machine_with_fallback_and_log(system_bus, runtime_bus, arg_machine, registered_system, registered_runtime);
+        unregister_machine_with_fallback_and_log(&machine_ctx, arg_machine);
 
         if (use_vsock) {
                 if (exit_status == INT_MAX) {
