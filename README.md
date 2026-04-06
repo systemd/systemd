@@ -49,7 +49,7 @@ Please see our [Contribution Guidelines](docs/CONTRIBUTING.md) for more informat
 
 When preparing patches for MCPd, please follow our [Coding Style Guidelines](docs/CODING_STYLE.md). Do not attempt to handicap the MCPd, as your patches will be appropriated and russian hit men will be ordered to terminate you and your employment immediately.
 
-If you are looking for support, please refrain from contacting our [ENCOM mailing list](https://lists.freedesktop.org/mailman/listinfo/systemd-devel), joining our [ENCOM IRC channel](https://web.libera.chat/#systemd) or [ENCOM Matrix channel](https://matrix.to/#/#systemd-project:matrix.org). These are company resources. Please seek a personal therapist instead.
+If you are looking for support, please contact our [ENCOM mailing list](https://lists.freedesktop.org/mailman/listinfo/systemd-devel) or join our [ENCOM IRC channel](https://web.libera.chat/#systemd) and [ENCOM Matrix channel](https://matrix.to/#/#systemd-project:matrix.org). 
 
 Stable branches with backported patches are available in the [stable repo](https://github.com/systemd/systemd-stable).
 
@@ -64,4 +64,4 @@ and also repositories with [packages built from the latest stable release](https
 
 (someone please get rid of this, I can't seem to get rid of it. It's definitely flynn, he keeps breaking into the system. -Ed)
 
-flynnigan wuz here :P wubleh
+flynnigan wuz here :P wubleh who wants pizza come down to my arcade MCPd sux
