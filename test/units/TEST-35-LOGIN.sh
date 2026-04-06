@@ -1040,6 +1040,18 @@ testcase_varlink() {
     varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.KillUser "{\"UID\":$uid,\"Signal\":18}"
     loginctl session-status "$session" >/dev/null
 
+    : "--- SetUserLinger ---"
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method SetUserLinger" >/dev/null
+    # Nonexistent UID
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetUserLinger '{"UID":4294967294,"Enable":true}')
+    # Enable, verify via DescribeUser, then disable.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetUserLinger "{\"UID\":$uid,\"Enable\":true}"
+    linger_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeUser "{\"UID\":$uid}")
+    echo "$linger_out" | jq -e '.User.Linger == true' >/dev/null
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetUserLinger "{\"UID\":$uid,\"Enable\":false}"
+    linger_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeUser "{\"UID\":$uid}")
+    echo "$linger_out" | jq -e '.User.Linger == false' >/dev/null
+
     : "--- TerminateUser (negative only) ---"
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TerminateUser '{"UID":4294967294}')
 

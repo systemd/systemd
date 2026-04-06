@@ -7,6 +7,7 @@
 #include "bus-error.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
+#include "escape.h"
 #include "devnum-util.h"
 #include "efi-api.h"
 #include "efi-loader.h"
@@ -21,6 +22,7 @@
 #include "os-util.h"
 #include "parse-util.h"
 #include "logind.h"
+#include "fs-util.h"
 #include "logind-action.h"
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
@@ -30,7 +32,9 @@
 #include "logind-session-device.h"
 #include "logind-shutdown.h"
 #include "logind-user.h"
+#include "logind-user-dbus.h"
 #include "logind-varlink.h"
+#include "mkdir-label.h"
 #include "path-util.h"
 #include "reboot-util.h"
 #include "set.h"
@@ -1319,6 +1323,104 @@ static int vl_method_kill_user(sd_varlink *link, sd_json_variant *parameters, sd
         r = user_kill(user, p.signo);
         if (r < 0)
                 return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_set_user_linger(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                uid_t uid;
+                int enable; /* tri-state */
+        } p = {
+                .uid = UID_INVALID,
+                .enable = -1,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "UID",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid, voffsetof(p, uid),    0                },
+                { "Enable", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, voffsetof(p, enable), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        uid_t auth_uid;
+        r = sd_varlink_get_peer_uid(link, &auth_uid);
+        if (r < 0)
+                return r;
+
+        if (!uid_is_valid(p.uid)) {
+                /* Resolve to the peer's owning UID */
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                r = varlink_get_peer_pidref(link, &pidref);
+                if (r < 0)
+                        return r;
+
+                r = cg_pidref_get_owner_uid(&pidref, &p.uid);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get owner UID of peer: %m");
+        }
+
+        _cleanup_free_ struct passwd *pw = NULL;
+        r = getpwuid_malloc(p.uid, &pw);
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        m->bus,
+                        p.uid == auth_uid ? "org.freedesktop.login1.set-self-linger" :
+                                            "org.freedesktop.login1.set-user-linger",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        /* flags= */ 0,
+                        &m->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        (void) mkdir_p_label("/var/lib/systemd", 0755);
+        r = mkdir_safe_label("/var/lib/systemd/linger", 0755, 0, 0, MKDIR_WARN_MODE);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *escaped = cescape(pw->pw_name);
+        if (!escaped)
+                return -ENOMEM;
+
+        const char *path = strjoina("/var/lib/systemd/linger/", escaped);
+
+        if (p.enable > 0) {
+                r = touch(path);
+                if (r < 0)
+                        return r;
+
+                User *u;
+                if (manager_add_user_by_uid(m, p.uid, &u) >= 0) {
+                        (void) user_send_changed(u, "Linger");
+                        r = user_start(u);
+                        if (r < 0) {
+                                user_add_to_gc_queue(u);
+                                return r;
+                        }
+                }
+        } else {
+                r = unlink(path);
+                if (r < 0 && errno != ENOENT)
+                        return -errno;
+
+                User *u = hashmap_get(m->users, UID_TO_PTR(p.uid));
+                if (u) {
+                        u->gc_mode = USER_GC_BY_PIN;
+                        user_add_to_gc_queue(u);
+                        (void) user_send_changed(u, "Linger");
+                }
+        }
 
         return sd_varlink_reply(link, NULL);
 }
@@ -2668,6 +2770,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.SetDisplay",       vl_method_set_display,
                         "io.systemd.Login.TerminateUser",    vl_method_terminate_user,
                         "io.systemd.Login.KillUser",         vl_method_kill_user,
+                        "io.systemd.Login.SetUserLinger",    vl_method_set_user_linger,
                         "io.systemd.Login.TerminateSeat",    vl_method_terminate_seat,
                         "io.systemd.Login.ActivateSessionOnSeat", vl_method_activate_session_on_seat,
                         "io.systemd.Login.SwitchTo",         vl_method_switch_to,
