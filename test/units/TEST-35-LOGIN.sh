@@ -800,13 +800,14 @@ EOF
 teardown_varlink() (
     set +ex
 
+    systemctl stop test-varlink-inhibit.service 2>/dev/null
     cleanup_session
 
     return 0
 )
 
 testcase_varlink() {
-    local session uid session_out user_out default_user_out seat_out self_err
+    local session uid session_out user_out default_user_out seat_out self_err inhibitor_out
 
     if [[ ! -c /dev/tty2 ]]; then
         echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
@@ -822,6 +823,7 @@ testcase_varlink() {
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSessions" >/dev/null
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListUsers" >/dev/null
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSeats" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListInhibitors" >/dev/null
 
     : "--- Setup test session ---"
     create_session
@@ -925,6 +927,57 @@ testcase_varlink() {
 
     : "--- ListSeats: streaming path ---"
     varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSeats '{}' | grep "seat0" >/dev/null
+
+    : "--- ListInhibitors ---"
+    systemd-run --unit=test-varlink-inhibit.service --service-type=exec \
+        systemd-inhibit --what=shutdown --who="varlink-test" --why="testing varlink" --mode=block \
+            sleep infinity
+    timeout 10 bash -c "until varlinkctl call --more '$VARLINK_SOCKET' io.systemd.Login.ListInhibitors '{}' 2>/dev/null | grep varlink-test >/dev/null; do sleep 0.5; done"
+
+    inhibitor_out=$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListInhibitors '{}')
+    echo "$inhibitor_out" | grep '"Who":"varlink-test"' >/dev/null
+    echo "$inhibitor_out" | grep '"What":"shutdown"' >/dev/null
+    echo "$inhibitor_out" | grep '"Mode":"block"' >/dev/null
+    echo "$inhibitor_out" | grep '"Why":"testing varlink"' >/dev/null
+
+    # without --more should fail (ListInhibitors has no filter, --more required)
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListInhibitors '{}')
+
+    systemctl stop test-varlink-inhibit.service
+
+    # ListInhibitors has no single-lookup path, so an empty inhibitor list must
+    # return cleanly (no NoSuchInhibitor sentinel). Regardless of whatever
+    # inhibitors logind itself may have, the stream must never raise
+    # NoSuchInhibitor.
+    empty_inhibitor_err=$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListInhibitors '{}' 2>&1 || true)
+    (! echo "$empty_inhibitor_err" | grep NoSuchInhibitor >/dev/null)
+
+    : "--- ReleaseSession: NULL Id resolves to caller's session ---"
+    # A caller with a logind session calling ReleaseSession '{}' (no Id) must
+    # release its own session. Before this change, a NULL name skipped
+    # self-resolution in the helper, so the subsequent peer-session check
+    # yielded PermissionDenied. We spawn the call inside a transient unit with
+    # PAM so pam_systemd creates a real session for the caller.
+    PAMSERVICE_REL="pamserv-rel$RANDOM"
+    cat >/etc/pam.d/"$PAMSERVICE_REL" <<EOF
+auth sufficient    pam_unix.so
+auth required      pam_deny.so
+account sufficient pam_unix.so
+account required   pam_permit.so
+session optional   pam_systemd.so debug
+session required   pam_unix.so
+EOF
+    systemd-run --wait --pipe \
+        -p PAMName="$PAMSERVICE_REL" \
+        -p Type=exec \
+        -p User=logind-test-user \
+        varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ReleaseSession '{}'
+    rm -f /etc/pam.d/"$PAMSERVICE_REL"
+
+    # With no caller session (running as root outside any session), the helper
+    # must return NoSuchSession, not PermissionDenied.
+    no_sess_rel=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ReleaseSession '{}' 2>&1 || true)
+    echo "$no_sess_rel" | grep NoSuchSession >/dev/null
 }
 
 testcase_restart() {
