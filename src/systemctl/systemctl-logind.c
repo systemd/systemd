@@ -213,16 +213,75 @@ int logind_check_inhibitors(enum action a) {
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return 0;
 
+        /* Try Varlink first for listing inhibitors */
+        {
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *vl_reply = NULL;
+                const char *error_id = NULL;
+
+                r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Login");
+                if (r >= 0) {
+                        r = sd_varlink_collect(vl, "io.systemd.Login.ListInhibitors", NULL, &vl_reply, &error_id);
+                        if (r >= 0 && !error_id) {
+                                sd_json_variant *entry;
+                                JSON_VARIANT_ARRAY_FOREACH(entry, vl_reply) {
+                                        sd_json_variant *inhibitor = sd_json_variant_by_key(entry, "Inhibitor");
+                                        if (!inhibitor)
+                                                continue;
+
+                                        what = sd_json_variant_string(sd_json_variant_by_key(inhibitor, "What"));
+                                        who = sd_json_variant_string(sd_json_variant_by_key(inhibitor, "Who"));
+                                        why = sd_json_variant_string(sd_json_variant_by_key(inhibitor, "Why"));
+                                        mode = sd_json_variant_string(sd_json_variant_by_key(inhibitor, "Mode"));
+
+                                        sd_json_variant *uid_v = sd_json_variant_by_key(inhibitor, "UID");
+                                        uid = uid_v ? (uint32_t) sd_json_variant_unsigned(uid_v) : UID_INVALID;
+
+                                        sd_json_variant *pid_obj = sd_json_variant_by_key(inhibitor, "PID");
+                                        sd_json_variant *pid_v = pid_obj ? sd_json_variant_by_key(pid_obj, "Pid") : NULL;
+                                        pid = pid_v ? (uint32_t) sd_json_variant_unsigned(pid_v) : 0;
+
+                                        if (!STR_IN_SET(mode, "block", "block-weak"))
+                                                continue;
+                                        if (streq(mode, "block-weak") && (geteuid() == 0 || geteuid() == uid || !on_tty()))
+                                                continue;
+
+                                        _cleanup_strv_free_ char **sv = strv_split(what, ":");
+                                        if (!sv)
+                                                return log_oom();
+
+                                        if (!strv_contains(sv,
+                                                           IN_SET(a,
+                                                                  ACTION_HALT,
+                                                                  ACTION_POWEROFF,
+                                                                  ACTION_REBOOT,
+                                                                  ACTION_KEXEC) ? "shutdown" : "sleep"))
+                                                continue;
+
+                                        _cleanup_free_ char *comm = NULL;
+                                        if (pid_is_valid((pid_t) pid))
+                                                (void) pid_get_comm(pid, &comm);
+                                        _cleanup_free_ char *user = uid_to_name(uid);
+
+                                        log_warning("Operation inhibited by \"%s\" (PID "PID_FMT" \"%s\", user %s), reason is \"%s\".",
+                                                    who, (pid_t) pid, strna(comm), strna(user), why);
+                                        c++;
+                                }
+
+                                goto check_sessions;
+                        }
+                }
+                log_debug_errno(r, "Failed to list inhibitors via Varlink, falling back to D-Bus: %m");
+        }
+
         r = acquire_bus_full(BUS_FULL, /* graceful= */ true, &bus);
         if ((ERRNO_IS_NEG_DISCONNECT(r) || r == -ENOENT) && geteuid() == 0)
-                return 0; /* When D-Bus is not running (ECONNREFUSED) or D-Bus socket is not created (ENOENT),
-                           * allow root to force a shutdown. E.g. when running at the emergency console. */
+                return 0;
         if (r < 0)
                 return r;
 
         r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", NULL, &reply, NULL);
         if (r < 0)
-                /* If logind is not around, then there are no inhibitors... */
                 return 0;
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)");
@@ -269,6 +328,7 @@ int logind_check_inhibitors(enum action a) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
+check_sessions:
         /* root respects inhibitors since v257 but keeps ignoring sessions by default */
         if (arg_check_inhibitors < 0 && c == 0 && geteuid() == 0)
                 return 0;
@@ -517,10 +577,30 @@ int logind_show_shutdown(void) {
 #if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *vl_reply = NULL;
         sd_bus *bus;
-        const char *action, *pretty_action;
-        uint64_t elapse;
+        const char *action = NULL, *pretty_action;
+        uint64_t elapse = 0;
         int r;
+
+        /* Try Varlink first via DescribeManager */
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Login");
+                if (r >= 0) {
+                        r = varlink_call_and_log(vl, "io.systemd.Login.DescribeManager", NULL, &vl_reply);
+                        if (r >= 0) {
+                                sd_json_variant *mgr = sd_json_variant_by_key(vl_reply, "Manager");
+                                sd_json_variant *sched = mgr ? sd_json_variant_by_key(mgr, "ScheduledShutdown") : NULL;
+                                if (sched) {
+                                        action = sd_json_variant_string(sd_json_variant_by_key(sched, "Type"));
+                                        elapse = sd_json_variant_unsigned(sd_json_variant_by_key(sched, "USec"));
+                                }
+                                goto check;
+                        }
+                }
+                log_debug_errno(r, "Failed via Varlink, falling back to D-Bus: %m");
+        }
 
         r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
@@ -534,6 +614,7 @@ int logind_show_shutdown(void) {
         if (r < 0)
                 return r;
 
+check:
         if (isempty(action))
                 return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_ERR, SYNTHETIC_ERRNO(ENODATA), "No scheduled shutdown.");
 
