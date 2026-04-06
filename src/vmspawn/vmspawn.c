@@ -2249,18 +2249,20 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Scope allocation happens on the user bus if we are unpriv, otherwise system bus. */
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *runtime_bus = NULL;
-        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
-                runtime_bus = sd_bus_ref(system_bus);
-        else {
-                r = sd_bus_default_user(&user_bus);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to open user bus: %m");
+        if (arg_register != 0 || !arg_keep_unit) {
+                if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
+                        runtime_bus = sd_bus_ref(system_bus);
+                else {
+                        r = sd_bus_default_user(&user_bus);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open user bus: %m");
 
-                r = sd_bus_set_close_on_exit(user_bus, false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to disable close-on-exit behaviour: %m");
+                        r = sd_bus_set_close_on_exit(user_bus, false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to disable close-on-exit behaviour: %m");
 
-                runtime_bus = sd_bus_ref(user_bus);
+                        runtime_bus = sd_bus_ref(user_bus);
+                }
         }
 
         bool use_kvm = arg_kvm > 0;
