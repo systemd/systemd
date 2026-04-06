@@ -1754,7 +1754,7 @@ static int verify_arguments(void) {
 
         if (!(arg_clone_ns_flags & CLONE_NEWPID) ||
             !(arg_clone_ns_flags & CLONE_NEWUTS)) {
-                arg_register = false;
+                arg_register = 0;
                 if (arg_start_mode != START_PID1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--boot cannot be used without namespacing.");
         }
@@ -5782,26 +5782,26 @@ static int run_container(
                 scope_allocated = true;
         }
 
-        bool registered_system = false, registered_runtime = false;
+        MachineRegistrationContext machine_ctx = {
+                .scope      = arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? RUNTIME_SCOPE_SYSTEM : _RUNTIME_SCOPE_INVALID,
+                .system_bus = system_bus,
+                .user_bus   = runtime_bus,
+        };
         if (arg_register != 0) {
+                const MachineRegistration reg = {
+                        .name           = arg_machine,
+                        .id             = arg_uuid,
+                        .service        = arg_container_service_name,
+                        .class          = "container",
+                        .pidref         = pid,
+                        .root_directory = arg_directory,
+                        .local_ifindex  = ifi,
+                };
+
                 r = register_machine_with_fallback_and_log(
-                                arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? RUNTIME_SCOPE_SYSTEM : _RUNTIME_SCOPE_INVALID,
-                                system_bus,
-                                runtime_bus,
-                                arg_machine,
-                                arg_uuid,
-                                arg_container_service_name,
-                                "container",
-                                pid,
-                                arg_directory,
-                                /* cid= */ 0,
-                                ifi,
-                                /* address= */ NULL,
-                                /* key_path= */ NULL,
-                                /* allocate_unit= */ false,
-                                /* graceful= */ arg_register < 0,
-                                &registered_system,
-                                &registered_runtime);
+                                &machine_ctx,
+                                &reg,
+                                /* graceful= */ arg_register < 0);
                 if (r < 0)
                         return r;
         }
@@ -6015,7 +6015,7 @@ static int run_container(
         r = wait_for_container(pid, &container_status);
 
         /* Tell machined that we are gone. */
-        (void) unregister_machine_with_fallback_and_log(system_bus, runtime_bus, arg_machine, registered_system, registered_runtime);
+        unregister_machine_with_fallback_and_log(&machine_ctx, arg_machine);
 
         if (r < 0)
                 /* We failed to wait for the container, or the container exited abnormally. */
