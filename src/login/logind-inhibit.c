@@ -17,6 +17,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "logind-session.h"
 #include "logind.h"
@@ -526,6 +527,48 @@ int inhibit_what_from_string(const char *s) {
                 else
                         return _INHIBIT_WHAT_INVALID;
         }
+}
+
+static int inhibit_what_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        InhibitWhat *what = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+
+        for (unsigned bit = 0; (1U << bit) < (unsigned) _INHIBIT_WHAT_MAX; bit++) {
+                InhibitWhat w = 1U << bit;
+
+                if (!FLAGS_SET(*what, w))
+                        continue;
+
+                r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_STRING(inhibit_what_to_string(w)));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+int inhibitor_build_json(Inhibitor *i, sd_json_variant **ret) {
+        assert(i);
+        assert(ret);
+        assert(i->mode >= 0 && i->mode < _INHIBIT_MODE_MAX);
+        assert(inhibit_what_is_valid(i->what));
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_OBJECT("context",
+                                SD_JSON_BUILD_PAIR_STRING("ID", i->id),
+                                SD_JSON_BUILD_PAIR_CALLBACK("What", inhibit_what_build_json, &i->what),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Who", i->who),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Why", i->why),
+                                JSON_BUILD_PAIR_ENUM("Mode", inhibit_mode_to_string(i->mode)),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("UID", i->uid)),
+                        SD_JSON_BUILD_PAIR_OBJECT("runtime",
+                                JSON_BUILD_PAIR_PIDREF_NON_NULL("PID", &i->pid),
+                                JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("Since", &i->since)));
 }
 
 static const char* const inhibit_mode_table[_INHIBIT_MODE_MAX] = {

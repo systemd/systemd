@@ -800,13 +800,14 @@ EOF
 teardown_varlink() (
     set +ex
 
+    systemctl stop test-varlink-inhibit.service 2>/dev/null
     cleanup_session
 
     return 0
 )
 
 testcase_varlink() {
-    local session uid session_out user_out seat_out self_err
+    local session uid session_out user_out seat_out self_err inhibitor_out
 
     if [[ ! -c /dev/tty2 ]]; then
         echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
@@ -822,6 +823,7 @@ testcase_varlink() {
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSessions" >/dev/null
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListUsers" >/dev/null
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSeats" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListInhibitors" >/dev/null
 
     : "--- Setup test session ---"
     create_session
@@ -954,6 +956,32 @@ testcase_varlink() {
     : "--- ListSeats: streaming path ---"
     varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSeats '{}' | grep "seat0" >/dev/null
     test "$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSeats '{}' | wc -l)" -ge 1
+
+    : "--- ListInhibitors ---"
+    systemd-run --unit=test-varlink-inhibit.service --service-type=exec \
+        systemd-inhibit --what=shutdown --who="varlink-test" --why="testing varlink" --mode=block \
+            sleep infinity
+    timeout 10 bash -c "until varlinkctl call --more '$VARLINK_SOCKET' io.systemd.Login.ListInhibitors '{}' 2>/dev/null | grep varlink-test >/dev/null; do sleep 0.5; done"
+
+    local inhibitor_out
+    inhibitor_out=$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListInhibitors '{}')
+    # What is now an array of strings; pick our test record and validate fields with jq.
+    echo "$inhibitor_out" | jq --seq -e 'select(.context.Who == "varlink-test") | .context.What | type == "array" and contains(["shutdown"])' >/dev/null
+    echo "$inhibitor_out" | jq --seq -e 'select(.context.Who == "varlink-test") | .context.Mode == "block"' >/dev/null
+    echo "$inhibitor_out" | jq --seq -e 'select(.context.Who == "varlink-test") | .context.Why == "testing varlink"' >/dev/null
+
+    # without --more should fail (ListInhibitors has no filter, --more required)
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListInhibitors '{}')
+
+    systemctl stop test-varlink-inhibit.service
+
+    # ListInhibitors has no single-lookup path, so an empty inhibitor list must
+    # return cleanly (no NoSuchInhibitor sentinel). The framework emits an empty
+    # parameters reply as the stream terminator; the IDL-validation skip in the
+    # sentinel handler ensures this passes validation.
+    local empty_inhibitor_err
+    empty_inhibitor_err=$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListInhibitors '{}' 2>&1 || true)
+    (! echo "$empty_inhibitor_err" | grep NoSuchInhibitor >/dev/null)
 
     : "--- ReleaseSession: NULL ID resolves to caller's session ---"
     # A caller with a logind session calling ReleaseSession '{}' (no ID) must
