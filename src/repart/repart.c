@@ -290,6 +290,14 @@ typedef enum IntegrityAlg {
         _INTEGRITY_ALG_INVALID = -EINVAL,
 } IntegrityAlg;
 
+typedef enum EncryptKDF {
+        ENCRYPT_KDF_ARGON2ID,
+        ENCRYPT_KDF_PBKDF2,
+        ENCRYPT_KDF_MINIMAL,
+        _ENCRYPT_KDF_MAX,
+        _ENCRYPT_KDF_INVALID = -EINVAL,
+} EncryptKDF;
+
 typedef enum VerityMode {
         VERITY_OFF,
         VERITY_DATA,
@@ -472,6 +480,7 @@ typedef struct Partition {
         size_t tpm2_n_hash_pcr_values;
         IntegrityMode integrity;
         IntegrityAlg integrity_alg;
+        EncryptKDF encrypt_kdf;
         VerityMode verity;
         char *verity_match_key;
         MinimizeMode minimize;
@@ -598,6 +607,12 @@ static const char *integrity_alg_table[_INTEGRITY_ALG_MAX] = {
         [INTEGRITY_ALG_HMAC_SHA512] = "hmac-sha512",
 };
 
+static const char *encrypt_kdf_table[_ENCRYPT_KDF_MAX] = {
+        [ENCRYPT_KDF_ARGON2ID] = "argon2id",
+        [ENCRYPT_KDF_PBKDF2]   = "pbkdf2",
+        [ENCRYPT_KDF_MINIMAL]  = "minimal",
+};
+
 static const char *verity_mode_table[_VERITY_MODE_MAX] = {
         [VERITY_OFF]  = "off",
         [VERITY_DATA] = "data",
@@ -636,6 +651,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP(append_mode, AppendMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(integrity_mode, IntegrityMode, INTEGRITY_INLINE);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(integrity_alg, IntegrityAlg);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(encrypt_kdf, EncryptKDF);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(minimize_mode, MinimizeMode, MINIMIZE_BEST);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase, ProgressPhase);
@@ -738,6 +754,7 @@ static Partition *partition_new(Context *c) {
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
                 .fs_sector_size = UINT64_MAX,
                 .discard = -1,
+                .encrypt_kdf = _ENCRYPT_KDF_INVALID,
         };
 
         return p;
@@ -2735,6 +2752,7 @@ static int config_parse_key_file(
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_integrity, integrity_mode, IntegrityMode, INTEGRITY_OFF);
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_integrity_alg, integrity_alg, IntegrityAlg, INTEGRITY_ALG_HMAC_SHA256);
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_encrypt_kdf, encrypt_kdf, EncryptKDF, _ENCRYPT_KDF_INVALID);
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF);
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF);
@@ -2892,6 +2910,7 @@ static int partition_read_definition(
                 { "Partition", "KeyFile",                  config_parse_key_file,          0,                                  p                           },
                 { "Partition", "Integrity",                config_parse_integrity,         0,                                  &p->integrity               },
                 { "Partition", "IntegrityAlgorithm",       config_parse_integrity_alg,     0,                                  &p->integrity_alg           },
+                { "Partition", "EncryptKDF",               config_parse_encrypt_kdf,       0,                                  &p->encrypt_kdf             },
                 { "Partition", "Compression",              config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression             },
                 { "Partition", "CompressionLevel",         config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression_level       },
                 { "Partition", "SupplementFor",            config_parse_string,            0,                                  &p->supplement_for_name     },
@@ -3065,6 +3084,10 @@ static int partition_read_definition(
         if (p->encrypt == ENCRYPT_OFF && p->discard > 0)
                 log_syntax(NULL, LOG_WARNING, path, 1, 0,
                            "Discard=yes has no effect with Encrypt=off.");
+
+        if (p->encrypt == ENCRYPT_OFF && p->encrypt_kdf >= 0)
+                log_syntax(NULL, LOG_WARNING, path, 1, 0,
+                           "EncryptKDF= has no effect with Encrypt=off.");
 
         if (p->encrypt != ENCRYPT_OFF && p->integrity == INTEGRITY_INLINE && p->discard > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -5265,6 +5288,30 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         &luks_params);
         if (r < 0)
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
+
+        /* If an explicit KDF is configured, apply it before adding any keyslots. */
+        if (p->encrypt_kdf >= 0) {
+                if (p->encrypt_kdf == ENCRYPT_KDF_MINIMAL) {
+                        /* Minimal PBKDF2 with sha512, 1000 iterations, no benchmarking — appropriate
+                         * for high-entropy keys where the KDF only satisfies the LUKS2 format requirement
+                         * (e.g. kdump with crashkernel=512MB). */
+                        r = cryptsetup_set_minimal_pbkdf(cd);
+                } else {
+                        /* For argon2id or pbkdf2, set the type and let libcryptsetup benchmark
+                         * and determine the parameters. */
+                        static const struct crypt_pbkdf_type argon2id_pbkdf = {
+                                .type = "argon2id",
+                        };
+                        static const struct crypt_pbkdf_type pbkdf2_pbkdf = {
+                                .type = "pbkdf2",
+                        };
+
+                        r = sym_crypt_set_pbkdf_type(cd, p->encrypt_kdf == ENCRYPT_KDF_ARGON2ID ?
+                                                     &argon2id_pbkdf : &pbkdf2_pbkdf);
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set KDF type: %m");
+        }
 
         bool allow_discards = p->integrity != INTEGRITY_INLINE && (arg_discard ? p->discard != 0 : p->discard > 0);
         if (allow_discards) {
