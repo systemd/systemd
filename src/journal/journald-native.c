@@ -146,7 +146,7 @@ static int manager_process_entry(
                 }
 
                 /* A property follows */
-                if (n > ENTRY_FIELD_COUNT_MAX) {
+                if (n >= ENTRY_FIELD_COUNT_MAX) {
                         log_debug("Received an entry that has more than " STRINGIFY(ENTRY_FIELD_COUNT_MAX) " fields, ignoring entry.");
                         goto finish;
                 }
