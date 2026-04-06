@@ -585,7 +585,7 @@ static int bus_call_method_async_props(
 }
 
 static void modem_simple_connect(Modem *modem) {
-        Link *link;
+        Link *link = NULL;
         int r;
 
         assert(modem);
@@ -604,8 +604,8 @@ static void modem_simple_connect(Modem *modem) {
         if (!modem->port_name)
                 return;
 
-        (void) link_get_by_name(modem->manager, modem->port_name, &link);
-        if (!link)
+        r = link_get_by_name(modem->manager, modem->port_name, &link);
+        if (r < 0)
                 return (void) log_debug("ModemManager: cannot find link for %s", modem->port_name);
 
         /* Check if .network file found at all */
@@ -798,8 +798,8 @@ static int bearer_properties_changed_handler(
 
         Manager *manager = ASSERT_PTR(userdata);
         const char *path;
-        Modem *modem;
-        Bearer *b;
+        Modem *modem = NULL;
+        Bearer *b = NULL;
 
         assert(message);
 
