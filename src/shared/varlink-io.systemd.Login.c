@@ -540,6 +540,11 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(Enable, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                DescribeManager,
+                SD_VARLINK_FIELD_COMMENT("The manager state as a JSON object."),
+                SD_VARLINK_DEFINE_OUTPUT(Manager, SD_VARLINK_OBJECT, 0));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 InhibitorInfo,
                 SD_VARLINK_FIELD_COMMENT("The inhibitor identifier"),
@@ -710,6 +715,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_CanRebootParameter,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the wall message for upcoming shutdown."),
                 &vl_method_SetWallMessage,
+                SD_VARLINK_SYMBOL_COMMENT("Describes the manager state."),
+                &vl_method_DescribeManager,
                 SD_VARLINK_SYMBOL_COMMENT("Information about an inhibitor"),
                 &vl_type_InhibitorInfo,
                 SD_VARLINK_SYMBOL_COMMENT("Lists all current inhibitors."),

@@ -1077,6 +1077,25 @@ testcase_varlink() {
         echo "$can_out" | jq -e '.Result | IN("yes","no","challenge","na")' >/dev/null
     done
 
+    : "--- DescribeManager ---"
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method DescribeManager" >/dev/null
+    manager_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeManager '{}')
+    echo "$manager_out" | jq -e '.Manager | type == "object"' >/dev/null
+    echo "$manager_out" | jq -e '.Manager.KillUserProcesses | type == "boolean"' >/dev/null
+    echo "$manager_out" | jq -e '.Manager.HandlePowerKey | type == "string"' >/dev/null
+    echo "$manager_out" | jq -e '.Manager.IdleAction | type == "string"' >/dev/null
+    echo "$manager_out" | jq -e '.Manager.InhibitDelayMaxUSec | type == "number"' >/dev/null
+    # Fields may be absent on configurations without values, but if present they must have the right type.
+    echo "$manager_out" | jq -e '(.Manager | has("KillOnlyUsers") | not) or (.Manager.KillOnlyUsers | type == "array")' >/dev/null
+    echo "$manager_out" | jq -e '(.Manager | has("KillExcludeUsers") | not) or (.Manager.KillExcludeUsers | type == "array")' >/dev/null
+    echo "$manager_out" | jq -e '(.Manager | has("RebootParameter") | not) or (.Manager.RebootParameter | type == "string")' >/dev/null
+    echo "$manager_out" | jq -e '(.Manager | has("RebootToFirmwareSetup") | not) or (.Manager.RebootToFirmwareSetup | type == "boolean")' >/dev/null
+    echo "$manager_out" | jq -e '(.Manager | has("RebootToBootLoaderMenu") | not) or (.Manager.RebootToBootLoaderMenu | type == "number")' >/dev/null
+    echo "$manager_out" | jq -e '(.Manager | has("RebootToBootLoaderEntry") | not) or (.Manager.RebootToBootLoaderEntry | type == "string")' >/dev/null
+    # PreparingForShutdownWithMetadata is always emitted.
+    echo "$manager_out" | jq -e '.Manager.PreparingForShutdownWithMetadata | type == "object"' >/dev/null
+    echo "$manager_out" | jq -e '.Manager.PreparingForShutdownWithMetadata.Preparing | type == "boolean"' >/dev/null
+
     : "--- Inhibit / reboot configuration (Introspect) ---"
     for m in Inhibit SetRebootParameter CanRebootParameter SetWallMessage; do
         varlinkctl introspect "$VARLINK_SOCKET" | grep "method $m" >/dev/null

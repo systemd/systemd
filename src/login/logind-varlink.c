@@ -8,13 +8,18 @@
 #include "bus-polkit.h"
 #include "cgroup-util.h"
 #include "devnum-util.h"
+#include "efi-api.h"
+#include "efi-loader.h"
+#include "env-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "hashmap.h"
 #include "json-util.h"
 #include "login-util.h"
 #include "virt.h"
 #include "os-util.h"
+#include "parse-util.h"
 #include "logind.h"
 #include "logind-action.h"
 #include "logind-dbus.h"
@@ -2095,6 +2100,194 @@ static int vl_method_can_reboot_parameter(sd_varlink *link, sd_json_variant *par
         return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", result));
 }
 
+/* Determine whether booting into firmware setup is currently armed, mirroring the logic of
+ * property_get_reboot_to_firmware_setup() in logind-dbus.c. Returns 1 if armed, 0 if not armed, or
+ * a negative errno on failure / when the state cannot be determined. */
+static int get_reboot_to_firmware_setup(void) {
+        int r = getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
+        if (r == -ENXIO) {
+                r = efi_get_reboot_to_firmware();
+                if (r == -EOPNOTSUPP || r == -ENOENT)
+                        return 0;
+                return r;
+        }
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 0;
+        /* env=true non-EFI case: check /run marker */
+        return access("/run/systemd/reboot-to-firmware-setup", F_OK) == 0;
+}
+
+/* Mirrors property_get_reboot_to_boot_loader_menu(). Returns the current timeout (or 0 with no
+ * explicit timeout) via *ret, or -ENODATA if not armed / not supported. */
+static int get_reboot_to_boot_loader_menu(uint64_t *ret) {
+        assert(ret);
+
+        int r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
+        if (r == -ENXIO) {
+                usec_t x;
+                r = efi_loader_get_config_timeout_one_shot(&x);
+                if (r < 0)
+                        return r == -ENOENT ? -ENODATA : r;
+                *ret = x;
+                return 0;
+        }
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENODATA;
+
+        _cleanup_free_ char *v = NULL;
+        r = read_one_line_file("/run/systemd/reboot-to-boot-loader-menu", &v);
+        if (r < 0)
+                return r == -ENOENT ? -ENODATA : r;
+        return safe_atou64(v, ret);
+}
+
+/* Mirrors property_get_reboot_to_boot_loader_entry(). Returns a copy of the armed entry name via
+ * *ret (caller frees), or -ENODATA if not armed / not supported. */
+static int get_reboot_to_boot_loader_entry(Manager *m, char **ret) {
+        assert(m);
+        assert(ret);
+
+        int r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
+        if (r == -ENXIO) {
+                r = efi_loader_update_entry_one_shot_cache(&m->efi_loader_entry_one_shot, &m->efi_loader_entry_one_shot_stat);
+                if (r < 0)
+                        return r == -ENOENT ? -ENODATA : r;
+                if (!m->efi_loader_entry_one_shot)
+                        return -ENODATA;
+                char *c = strdup(m->efi_loader_entry_one_shot);
+                if (!c)
+                        return -ENOMEM;
+                *ret = c;
+                return 0;
+        }
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENODATA;
+
+        _cleanup_free_ char *v = NULL;
+        r = read_one_line_file("/run/systemd/reboot-to-boot-loader-entry", &v);
+        if (r < 0)
+                return r == -ENOENT ? -ENODATA : r;
+        if (!efi_loader_entry_name_valid(v))
+                return -ENODATA;
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int manager_build_json(Manager *m, sd_json_variant **ret) {
+        assert(m);
+        assert(ret);
+
+        dual_timestamp idle_ts = DUAL_TIMESTAMP_NULL;
+        int idle = manager_get_idle_hint(m, &idle_ts);
+
+        bool preparing_for_shutdown = m->delayed_action && (m->delayed_action->inhibit_what & INHIBIT_SHUTDOWN);
+        bool preparing_for_sleep = m->delayed_action && (m->delayed_action->inhibit_what & INHIBIT_SLEEP);
+
+        _cleanup_free_ char *reboot_parameter = NULL;
+        (void) read_reboot_parameter(&reboot_parameter);
+
+        int firmware_setup = get_reboot_to_firmware_setup();
+
+        uint64_t bootloader_menu = 0;
+        int bootloader_menu_r = get_reboot_to_boot_loader_menu(&bootloader_menu);
+
+        _cleanup_free_ char *bootloader_entry = NULL;
+        (void) get_reboot_to_boot_loader_entry(m, &bootloader_entry);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("NAutoVTs", m->n_autovts),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("KillUserProcesses", m->kill_user_processes),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("KillOnlyUsers", m->kill_only_users),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("KillExcludeUsers", m->kill_exclude_users),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RebootParameter", reboot_parameter),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("IdleHint", idle > 0),
+                        SD_JSON_BUILD_PAIR_CONDITION(idle > 0 && dual_timestamp_is_set(&idle_ts),
+                                                     "IdleSinceHint", SD_JSON_BUILD_UNSIGNED(idle_ts.realtime)),
+                        SD_JSON_BUILD_PAIR_CONDITION(idle > 0 && dual_timestamp_is_set(&idle_ts),
+                                                     "IdleSinceHintMonotonic", SD_JSON_BUILD_UNSIGNED(idle_ts.monotonic)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("BlockInhibited",
+                                                          inhibit_what_to_string(manager_inhibit_what(m, INHIBIT_BLOCK))),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("BlockWeakInhibited",
+                                                          inhibit_what_to_string(manager_inhibit_what(m, INHIBIT_BLOCK_WEAK))),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("DelayInhibited",
+                                                          inhibit_what_to_string(manager_inhibit_what(m, INHIBIT_DELAY))),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("InhibitDelayMaxUSec", m->inhibit_delay_max),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("UserStopDelayUSec", m->user_stop_delay),
+                        SD_JSON_BUILD_PAIR_STRING("HandlePowerKey", handle_action_to_string(m->handle_power_key)),
+                        SD_JSON_BUILD_PAIR_STRING("HandlePowerKeyLongPress", handle_action_to_string(m->handle_power_key_long_press)),
+                        SD_JSON_BUILD_PAIR_STRING("HandleRebootKey", handle_action_to_string(m->handle_reboot_key)),
+                        SD_JSON_BUILD_PAIR_STRING("HandleRebootKeyLongPress", handle_action_to_string(m->handle_reboot_key_long_press)),
+                        SD_JSON_BUILD_PAIR_STRING("HandleSuspendKey", handle_action_to_string(m->handle_suspend_key)),
+                        SD_JSON_BUILD_PAIR_STRING("HandleSuspendKeyLongPress", handle_action_to_string(m->handle_suspend_key_long_press)),
+                        SD_JSON_BUILD_PAIR_STRING("HandleHibernateKey", handle_action_to_string(m->handle_hibernate_key)),
+                        SD_JSON_BUILD_PAIR_STRING("HandleHibernateKeyLongPress", handle_action_to_string(m->handle_hibernate_key_long_press)),
+                        SD_JSON_BUILD_PAIR_STRING("HandleLidSwitch", handle_action_to_string(m->handle_lid_switch)),
+                        SD_JSON_BUILD_PAIR_STRING("HandleLidSwitchExternalPower", handle_action_to_string(m->handle_lid_switch_ep)),
+                        SD_JSON_BUILD_PAIR_STRING("HandleLidSwitchDocked", handle_action_to_string(m->handle_lid_switch_docked)),
+                        SD_JSON_BUILD_PAIR_STRING("HandleSecureAttentionKey", handle_action_to_string(m->handle_secure_attention_key)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("HoldoffTimeoutUSec", m->holdoff_timeout_usec),
+                        SD_JSON_BUILD_PAIR_STRING("IdleAction", handle_action_to_string(m->idle_action)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("IdleActionUSec", m->idle_action_usec),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("PreparingForShutdown", preparing_for_shutdown),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("PreparingForSleep", preparing_for_sleep),
+                        SD_JSON_BUILD_PAIR("PreparingForShutdownWithMetadata",
+                                           SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR_BOOLEAN("Preparing", preparing_for_shutdown),
+                                                           SD_JSON_BUILD_PAIR_CONDITION(preparing_for_shutdown && m->delayed_action,
+                                                                                        "Type",
+                                                                                        SD_JSON_BUILD_STRING(preparing_for_shutdown && m->delayed_action ?
+                                                                                                             handle_action_to_string(m->delayed_action->handle) : NULL)))),
+                        SD_JSON_BUILD_PAIR_CONDITION(firmware_setup >= 0,
+                                                     "RebootToFirmwareSetup",
+                                                     SD_JSON_BUILD_BOOLEAN(firmware_setup > 0)),
+                        SD_JSON_BUILD_PAIR_CONDITION(bootloader_menu_r >= 0,
+                                                     "RebootToBootLoaderMenu",
+                                                     SD_JSON_BUILD_UNSIGNED(bootloader_menu)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RebootToBootLoaderEntry", bootloader_entry),
+                        SD_JSON_BUILD_PAIR_CONDITION(handle_action_valid(m->scheduled_shutdown_action) &&
+                                                     m->scheduled_shutdown_action != HANDLE_IGNORE,
+                                                     "ScheduledShutdown",
+                                                     SD_JSON_BUILD_OBJECT(
+                                                                     SD_JSON_BUILD_PAIR_STRING("Type", handle_action_to_string(m->scheduled_shutdown_action)),
+                                                                     SD_JSON_BUILD_PAIR_UNSIGNED("USec", m->scheduled_shutdown_timeout))),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Docked", manager_is_docked_or_external_displays(m)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("LidClosed", manager_is_lid_closed(m)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("OnExternalPower", manager_is_on_external_power()),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("RemoveIPC", m->remove_ipc),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("RuntimeDirectorySize", m->runtime_dir_size),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("RuntimeDirectoryInodesMax", m->runtime_dir_inodes),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("InhibitorsMax", m->inhibitors_max),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("NCurrentInhibitors", (uint64_t) hashmap_size(m->inhibitors)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("SessionsMax", m->sessions_max),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("NCurrentSessions", (uint64_t) hashmap_size(m->sessions)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("StopIdleSessionUSec", m->stop_idle_session_usec),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("EnableWallMessages", m->wall_messages),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("WallMessage", m->wall_message));
+}
+
+static int vl_method_describe_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = manager_build_json(m, &v);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("Manager", v));
+}
+
 #define WALL_MESSAGE_MAX 4096U
 
 static int vl_method_set_wall_message(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -2410,6 +2603,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.SetRebootParameter", vl_method_set_reboot_parameter,
                         "io.systemd.Login.CanRebootParameter", vl_method_can_reboot_parameter,
                         "io.systemd.Login.SetWallMessage",   vl_method_set_wall_message,
+                        "io.systemd.Login.DescribeManager",  vl_method_describe_manager,
                         "io.systemd.Login.ListInhibitors",   vl_method_list_inhibitors,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
