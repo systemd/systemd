@@ -26,8 +26,6 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "capability-util.h"
-#include "chase.h"
-#include "chattr-util.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "discover-image.h"
@@ -150,6 +148,10 @@ static bool arg_firmware_describe = false;
 static Set *arg_firmware_features_include = NULL;
 static Set *arg_firmware_features_exclude = NULL;
 static char *arg_forward_journal = NULL;
+static uint64_t arg_forward_journal_max_use = UINT64_MAX;
+static uint64_t arg_forward_journal_keep_free = UINT64_MAX;
+static uint64_t arg_forward_journal_max_file_size = UINT64_MAX;
+static uint64_t arg_forward_journal_max_files = UINT64_MAX;
 static int arg_register = -1;
 static bool arg_keep_unit = false;
 static sd_id128_t arg_uuid = {};
@@ -293,6 +295,14 @@ static int help(void) {
                "\n%3$sIntegration:%4$s\n"
                "     --forward-journal=FILE|DIR\n"
                "                           Forward the VM's journal to the host\n"
+               "     --forward-journal-max-use=BYTES\n"
+               "                           Maximum disk space for forwarded journal\n"
+               "     --forward-journal-keep-free=BYTES\n"
+               "                           Minimum disk space to keep free\n"
+               "     --forward-journal-max-file-size=BYTES\n"
+               "                           Maximum size of individual journal files\n"
+               "     --forward-journal-max-files=N\n"
+               "                           Maximum number of journal files to keep\n"
                "     --pass-ssh-key=BOOL   Create an SSH key to access the VM\n"
                "     --ssh-key-type=TYPE   Choose what type of SSH key to pass\n"
                "\n%3$sInput/Output:%4$s\n"
@@ -399,6 +409,10 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SECURE_BOOT,
                 ARG_PRIVATE_USERS,
                 ARG_FORWARD_JOURNAL,
+                ARG_FORWARD_JOURNAL_MAX_USE,
+                ARG_FORWARD_JOURNAL_KEEP_FREE,
+                ARG_FORWARD_JOURNAL_MAX_FILE_SIZE,
+                ARG_FORWARD_JOURNAL_MAX_FILES,
                 ARG_PASS_SSH_KEY,
                 ARG_SSH_KEY_TYPE,
                 ARG_SET_CREDENTIAL,
@@ -425,65 +439,69 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",              no_argument,       NULL, 'h'                   },
-                { "version",           no_argument,       NULL, ARG_VERSION           },
-                { "quiet",             no_argument,       NULL, 'q'                   },
-                { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
-                { "image",             required_argument, NULL, 'i'                   },
-                { "image-format",      required_argument, NULL, ARG_IMAGE_FORMAT      },
-                { "image-disk-type",   required_argument, NULL, ARG_IMAGE_DISK_TYPE   },
-                { "ephemeral",         no_argument,       NULL, 'x'                   },
-                { "directory",         required_argument, NULL, 'D'                   },
-                { "machine",           required_argument, NULL, 'M'                   },
-                { "slice",             required_argument, NULL, 'S'                   },
-                { "cpus",              required_argument, NULL, ARG_CPUS              },
-                { "qemu-smp",          required_argument, NULL, ARG_CPUS              }, /* Compat alias */
-                { "ram",               required_argument, NULL, ARG_RAM               },
-                { "qemu-mem",          required_argument, NULL, ARG_RAM               }, /* Compat alias */
-                { "kvm",               required_argument, NULL, ARG_KVM               },
-                { "cxl",               required_argument, NULL, ARG_CXL               },
-                { "qemu-kvm",          required_argument, NULL, ARG_KVM               }, /* Compat alias */
-                { "vsock",             required_argument, NULL, ARG_VSOCK             },
-                { "qemu-vsock",        required_argument, NULL, ARG_VSOCK             }, /* Compat alias */
-                { "vsock-cid",         required_argument, NULL, ARG_VSOCK_CID         },
-                { "tpm",               required_argument, NULL, ARG_TPM               },
-                { "linux",             required_argument, NULL, ARG_LINUX             },
-                { "initrd",            required_argument, NULL, ARG_INITRD            },
-                { "console",           required_argument, NULL, ARG_CONSOLE           },
-                { "console-transport", required_argument, NULL, ARG_CONSOLE_TRANSPORT },
-                { "qemu-gui",          no_argument,       NULL, ARG_QEMU_GUI          }, /* compat option */
-                { "network-tap",       no_argument,       NULL, 'n'                   },
-                { "network-user-mode", no_argument,       NULL, ARG_NETWORK_USER_MODE },
-                { "uuid",              required_argument, NULL, ARG_UUID              },
-                { "register",          required_argument, NULL, ARG_REGISTER          },
-                { "keep-unit",         no_argument,       NULL, ARG_KEEP_UNIT         },
-                { "bind",              required_argument, NULL, ARG_BIND              },
-                { "bind-ro",           required_argument, NULL, ARG_BIND_RO           },
-                { "extra-drive",       required_argument, NULL, ARG_EXTRA_DRIVE       },
-                { "secure-boot",       required_argument, NULL, ARG_SECURE_BOOT       },
-                { "private-users",     required_argument, NULL, ARG_PRIVATE_USERS     },
-                { "forward-journal",   required_argument, NULL, ARG_FORWARD_JOURNAL   },
-                { "pass-ssh-key",      required_argument, NULL, ARG_PASS_SSH_KEY      },
-                { "ssh-key-type",      required_argument, NULL, ARG_SSH_KEY_TYPE      },
-                { "set-credential",    required_argument, NULL, ARG_SET_CREDENTIAL    },
-                { "load-credential",   required_argument, NULL, ARG_LOAD_CREDENTIAL   },
-                { "firmware",          required_argument, NULL, ARG_FIRMWARE          },
-                { "firmware-features", required_argument, NULL, ARG_FIRMWARE_FEATURES  },
-                { "discard-disk",      required_argument, NULL, ARG_DISCARD_DISK      },
-                { "background",        required_argument, NULL, ARG_BACKGROUND        },
-                { "smbios11",          required_argument, NULL, 's'                   },
-                { "grow-image",        required_argument, NULL, 'G'                   },
-                { "tpm-state",         required_argument, NULL, ARG_TPM_STATE         },
-                { "efi-nvram-template", required_argument, NULL, ARG_EFI_NVRAM_TEMPLATE },
-                { "efi-nvram-state",   required_argument, NULL, ARG_EFI_NVRAM_STATE   },
-                { "no-ask-password",   no_argument,       NULL, ARG_NO_ASK_PASSWORD   },
-                { "property",          required_argument, NULL, ARG_PROPERTY          },
-                { "notify-ready",      required_argument, NULL, ARG_NOTIFY_READY      },
-                { "bind-user",         required_argument, NULL, ARG_BIND_USER         },
-                { "bind-user-shell",   required_argument, NULL, ARG_BIND_USER_SHELL   },
-                { "bind-user-group",   required_argument, NULL, ARG_BIND_USER_GROUP   },
-                { "system",            no_argument,       NULL, ARG_SYSTEM            },
-                { "user",              no_argument,       NULL, ARG_USER              },
+                { "help",                          no_argument,       NULL, 'h'                              },
+                { "version",                       no_argument,       NULL, ARG_VERSION                      },
+                { "quiet",                         no_argument,       NULL, 'q'                              },
+                { "no-pager",                      no_argument,       NULL, ARG_NO_PAGER                     },
+                { "image",                         required_argument, NULL, 'i'                              },
+                { "image-format",                  required_argument, NULL, ARG_IMAGE_FORMAT                 },
+                { "image-disk-type",               required_argument, NULL, ARG_IMAGE_DISK_TYPE              },
+                { "ephemeral",                     no_argument,       NULL, 'x'                              },
+                { "directory",                     required_argument, NULL, 'D'                              },
+                { "machine",                       required_argument, NULL, 'M'                              },
+                { "slice",                         required_argument, NULL, 'S'                              },
+                { "cpus",                          required_argument, NULL, ARG_CPUS                         },
+                { "qemu-smp",                      required_argument, NULL, ARG_CPUS                         }, /* Compat alias */
+                { "ram",                           required_argument, NULL, ARG_RAM                          },
+                { "qemu-mem",                      required_argument, NULL, ARG_RAM                          }, /* Compat alias */
+                { "kvm",                           required_argument, NULL, ARG_KVM                          },
+                { "cxl",                           required_argument, NULL, ARG_CXL                          },
+                { "qemu-kvm",                      required_argument, NULL, ARG_KVM                          }, /* Compat alias */
+                { "vsock",                         required_argument, NULL, ARG_VSOCK                        },
+                { "qemu-vsock",                    required_argument, NULL, ARG_VSOCK                        }, /* Compat alias */
+                { "vsock-cid",                     required_argument, NULL, ARG_VSOCK_CID                    },
+                { "tpm",                           required_argument, NULL, ARG_TPM                          },
+                { "linux",                         required_argument, NULL, ARG_LINUX                        },
+                { "initrd",                        required_argument, NULL, ARG_INITRD                       },
+                { "console",                       required_argument, NULL, ARG_CONSOLE                      },
+                { "console-transport",             required_argument, NULL, ARG_CONSOLE_TRANSPORT            },
+                { "qemu-gui",                      no_argument,       NULL, ARG_QEMU_GUI                     }, /* compat option */
+                { "network-tap",                   no_argument,       NULL, 'n'                              },
+                { "network-user-mode",             no_argument,       NULL, ARG_NETWORK_USER_MODE            },
+                { "uuid",                          required_argument, NULL, ARG_UUID                         },
+                { "register",                      required_argument, NULL, ARG_REGISTER                     },
+                { "keep-unit",                     no_argument,       NULL, ARG_KEEP_UNIT                    },
+                { "bind",                          required_argument, NULL, ARG_BIND                         },
+                { "bind-ro",                       required_argument, NULL, ARG_BIND_RO                      },
+                { "extra-drive",                   required_argument, NULL, ARG_EXTRA_DRIVE                  },
+                { "secure-boot",                   required_argument, NULL, ARG_SECURE_BOOT                  },
+                { "private-users",                 required_argument, NULL, ARG_PRIVATE_USERS                },
+                { "forward-journal",               required_argument, NULL, ARG_FORWARD_JOURNAL              },
+                { "forward-journal-max-use",       required_argument, NULL, ARG_FORWARD_JOURNAL_MAX_USE      },
+                { "forward-journal-keep-free",     required_argument, NULL, ARG_FORWARD_JOURNAL_KEEP_FREE    },
+                { "forward-journal-max-file-size", required_argument, NULL, ARG_FORWARD_JOURNAL_MAX_FILE_SIZE },
+                { "forward-journal-max-files",     required_argument, NULL, ARG_FORWARD_JOURNAL_MAX_FILES    },
+                { "pass-ssh-key",                  required_argument, NULL, ARG_PASS_SSH_KEY                 },
+                { "ssh-key-type",                  required_argument, NULL, ARG_SSH_KEY_TYPE                 },
+                { "set-credential",                required_argument, NULL, ARG_SET_CREDENTIAL               },
+                { "load-credential",               required_argument, NULL, ARG_LOAD_CREDENTIAL              },
+                { "firmware",                      required_argument, NULL, ARG_FIRMWARE                     },
+                { "firmware-features",             required_argument, NULL, ARG_FIRMWARE_FEATURES            },
+                { "discard-disk",                  required_argument, NULL, ARG_DISCARD_DISK                 },
+                { "background",                    required_argument, NULL, ARG_BACKGROUND                   },
+                { "smbios11",                      required_argument, NULL, 's'                              },
+                { "grow-image",                    required_argument, NULL, 'G'                              },
+                { "tpm-state",                     required_argument, NULL, ARG_TPM_STATE                    },
+                { "efi-nvram-template",            required_argument, NULL, ARG_EFI_NVRAM_TEMPLATE           },
+                { "efi-nvram-state",               required_argument, NULL, ARG_EFI_NVRAM_STATE              },
+                { "no-ask-password",               no_argument,       NULL, ARG_NO_ASK_PASSWORD              },
+                { "property",                      required_argument, NULL, ARG_PROPERTY                     },
+                { "notify-ready",                  required_argument, NULL, ARG_NOTIFY_READY                 },
+                { "bind-user",                     required_argument, NULL, ARG_BIND_USER                    },
+                { "bind-user-shell",               required_argument, NULL, ARG_BIND_USER_SHELL              },
+                { "bind-user-group",               required_argument, NULL, ARG_BIND_USER_GROUP              },
+                { "system",                        no_argument,       NULL, ARG_SYSTEM                       },
+                { "user",                          no_argument,       NULL, ARG_USER                         },
                 {}
         };
 
@@ -763,6 +781,30 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_forward_journal);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_FORWARD_JOURNAL_MAX_USE:
+                        r = parse_size(optarg, 1024, &arg_forward_journal_max_use);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-use= value: %s", optarg);
+                        break;
+
+                case ARG_FORWARD_JOURNAL_KEEP_FREE:
+                        r = parse_size(optarg, 1024, &arg_forward_journal_keep_free);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-keep-free= value: %s", optarg);
+                        break;
+
+                case ARG_FORWARD_JOURNAL_MAX_FILE_SIZE:
+                        r = parse_size(optarg, 1024, &arg_forward_journal_max_file_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-file-size= value: %s", optarg);
+                        break;
+
+                case ARG_FORWARD_JOURNAL_MAX_FILES:
+                        r = safe_atou64(optarg, &arg_forward_journal_max_files);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-files= value: %s", optarg);
                         break;
 
                 case ARG_PASS_SSH_KEY:
@@ -1051,6 +1093,12 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_ram_slots > 0 && arg_ram_max == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Memory hotplug slots require a maximum RAM size");
+
+        if ((arg_forward_journal_max_use != UINT64_MAX ||
+             arg_forward_journal_keep_free != UINT64_MAX ||
+             arg_forward_journal_max_file_size != UINT64_MAX ||
+             arg_forward_journal_max_files != UINT64_MAX) && !arg_forward_journal)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--forward-journal-max-use=/--forward-journal-keep-free=/--forward-journal-max-file-size=/--forward-journal-max-files= require --forward-journal=.");
 
         if (arg_ephemeral && arg_extra_drives.n_drives > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --ephemeral with --extra-drive=");
@@ -1597,58 +1645,6 @@ static int start_tpm(
 
         r = strv_extend_many(&argv, "--ctrl", "type=unixio,fd=3");
         if (r < 0)
-                return log_oom();
-
-        r = fork_notify(argv, ret_pidref);
-        if (r < 0)
-                return r;
-
-        if (ret_listen_address)
-                *ret_listen_address = TAKE_PTR(listen_address);
-
-        return 0;
-}
-
-static int start_systemd_journal_remote(
-                const char *scope,
-                unsigned port,
-                const char *sd_socket_activate,
-                char **ret_listen_address,
-                PidRef *ret_pidref) {
-
-        int r;
-
-        assert(scope);
-        assert(sd_socket_activate);
-
-        _cleanup_free_ char *scope_prefix = NULL;
-        r = unit_name_to_prefix(scope, &scope_prefix);
-        if (r < 0)
-                return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
-
-        _cleanup_free_ char *listen_address = NULL;
-        if (asprintf(&listen_address, "vsock:2:%u", port) < 0)
-                return log_oom();
-
-        _cleanup_free_ char *sd_journal_remote = NULL;
-        r = find_executable_full(
-                        "systemd-journal-remote",
-                        /* root= */ NULL,
-                        STRV_MAKE(LIBEXECDIR),
-                        /* use_path_envvar= */ true, /* systemd-journal-remote should be installed in
-                                                        * LIBEXECDIR, but for supporting fancy setups. */
-                        &sd_journal_remote,
-                        /* ret_fd= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
-
-        _cleanup_strv_free_ char **argv = strv_new(
-                        sd_socket_activate,
-                        "--listen", listen_address,
-                        sd_journal_remote,
-                        "--output", arg_forward_journal,
-                        "--split-mode", endswith(arg_forward_journal, ".journal") ? "none" : "host");
-        if (!argv)
                 return log_oom();
 
         r = fork_notify(argv, ret_pidref);
@@ -2325,30 +2321,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Create runtime directory for the QEMU config file and other state */
         _cleanup_free_ char *runtime_dir = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
-        {
-                _cleanup_free_ char *subdir = NULL;
+        r = runtime_directory_make(arg_runtime_scope, "vmspawn", &runtime_dir, &runtime_dir_destroy);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create runtime directory: %m");
 
-                if (asprintf(&subdir, "systemd/vmspawn.%" PRIx64, random_u64()) < 0)
-                        return log_oom();
-
-                r = runtime_directory(arg_runtime_scope, subdir, &runtime_dir);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to lookup runtime directory: %m");
-                if (r > 0) { /* We need to create our own runtime dir */
-                        r = mkdir_p(runtime_dir, 0755);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create runtime directory '%s': %m", runtime_dir);
-
-                        /* We created this, hence also destroy it */
-                        runtime_dir_destroy = TAKE_PTR(runtime_dir);
-
-                        runtime_dir = strdup(runtime_dir_destroy);
-                        if (!runtime_dir)
-                                return log_oom();
-                }
-
-                log_debug("Using runtime directory: %s", runtime_dir);
-        }
+        log_debug("Using runtime directory: %s", runtime_dir);
 
         /* Build a QEMU config file for -readconfig. Items that can be expressed as QemuOpts sections go
          * here; things that require cmdline-only switches (e.g. -kernel, -smbios, -nographic, --add-fd)
@@ -3353,25 +3330,21 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_forward_journal) {
                 _cleanup_free_ char *listen_address = NULL;
-
-                ChaseFlags chase_flags = CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY;
-                if (endswith(arg_forward_journal, ".journal"))
-                        chase_flags |= CHASE_PARENT;
-
-                _cleanup_close_ int journal_fd = -EBADF;
-                r = chase(arg_forward_journal, /* root= */ NULL, chase_flags, /* ret_path= */ NULL, &journal_fd);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create journal directory for '%s': %m", arg_forward_journal);
-
-                r = chattr_fd(journal_fd, FS_NOCOW_FL, FS_NOCOW_FL);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to set NOCOW flag on journal directory for '%s', ignoring: %m", arg_forward_journal);
+                if (asprintf(&listen_address, "vsock:2:%u", child_cid) < 0)
+                        return log_oom();
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
                         return log_oom();
 
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
-                r = start_systemd_journal_remote(unit, child_cid, sd_socket_activate, &listen_address, &child);
+                r = fork_journal_remote(
+                                listen_address,
+                                arg_forward_journal,
+                                arg_forward_journal_max_use,
+                                arg_forward_journal_keep_free,
+                                arg_forward_journal_max_file_size,
+                                arg_forward_journal_max_files,
+                                &child);
                 if (r < 0)
                         return r;
 
