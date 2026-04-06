@@ -541,6 +541,36 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
+                SetRebootToFirmwareSetup,
+                SD_VARLINK_FIELD_COMMENT("Whether to boot into firmware setup on next reboot."),
+                SD_VARLINK_DEFINE_INPUT(Enable, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CanRebootToFirmwareSetup,
+                SD_VARLINK_DEFINE_OUTPUT(Result, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetRebootToBootLoaderMenu,
+                SD_VARLINK_FIELD_COMMENT("Timeout in microseconds to show the boot loader menu. Use UINT64_MAX to disable."),
+                SD_VARLINK_DEFINE_INPUT(Timeout, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CanRebootToBootLoaderMenu,
+                SD_VARLINK_DEFINE_OUTPUT(Result, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetRebootToBootLoaderEntry,
+                SD_VARLINK_FIELD_COMMENT("The boot loader entry to select on next reboot. Empty string to disable."),
+                SD_VARLINK_DEFINE_INPUT(Entry, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CanRebootToBootLoaderEntry,
+                SD_VARLINK_DEFINE_OUTPUT(Result, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
                 AttachDevice,
                 SD_VARLINK_FIELD_COMMENT("The seat to attach the device to."),
                 SD_VARLINK_DEFINE_INPUT(SeatId, SD_VARLINK_STRING, 0),
@@ -736,6 +766,18 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_CanRebootParameter,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the wall message for upcoming shutdown."),
                 &vl_method_SetWallMessage,
+                SD_VARLINK_SYMBOL_COMMENT("Sets whether to boot into firmware setup on next reboot."),
+                &vl_method_SetRebootToFirmwareSetup,
+                SD_VARLINK_SYMBOL_COMMENT("Checks if booting into firmware setup is supported."),
+                &vl_method_CanRebootToFirmwareSetup,
+                SD_VARLINK_SYMBOL_COMMENT("Sets the boot loader menu timeout for the next reboot."),
+                &vl_method_SetRebootToBootLoaderMenu,
+                SD_VARLINK_SYMBOL_COMMENT("Checks if setting the boot loader menu timeout is supported."),
+                &vl_method_CanRebootToBootLoaderMenu,
+                SD_VARLINK_SYMBOL_COMMENT("Sets the boot loader entry to select on next reboot."),
+                &vl_method_SetRebootToBootLoaderEntry,
+                SD_VARLINK_SYMBOL_COMMENT("Checks if selecting a boot loader entry is supported."),
+                &vl_method_CanRebootToBootLoaderEntry,
                 SD_VARLINK_SYMBOL_COMMENT("Attaches a device to a seat."),
                 &vl_method_AttachDevice,
                 SD_VARLINK_SYMBOL_COMMENT("Removes all explicit device-to-seat assignments."),

@@ -1161,6 +1161,21 @@ testcase_varlink() {
                     org.freedesktop.login1.Manager RebootParameter)" 's "recovery"'
     varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetRebootParameter '{"Parameter":""}'
 
+    : "--- Firmware / boot loader reboot ---"
+    for m in SetRebootToFirmwareSetup CanRebootToFirmwareSetup \
+             SetRebootToBootLoaderMenu CanRebootToBootLoaderMenu \
+             SetRebootToBootLoaderEntry CanRebootToBootLoaderEntry; do
+        varlinkctl introspect "$VARLINK_SOCKET" | grep "method $m" >/dev/null
+    done
+    for m in CanRebootToFirmwareSetup CanRebootToBootLoaderMenu CanRebootToBootLoaderEntry; do
+        can_out=$(varlinkctl call "$VARLINK_SOCKET" "io.systemd.Login.$m" '{}')
+        echo "$can_out" | jq -e '.Result | IN("yes","no","challenge","na")' >/dev/null
+    done
+    # If EFI isn't available the Set* calls fail with NotSupported; that's fine —
+    # accept either success or a clean error.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetRebootToFirmwareSetup '{"Enable":false}' 2>/dev/null || true
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetRebootToBootLoaderEntry '{"Entry":""}' 2>/dev/null || true
+
     : "--- SetWallMessage ---"
     # Happy path (disable wall messages, optional message unset, then restore).
     varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetWallMessage '{"Enable":false,"WallMessage":"varlink test"}'

@@ -9,6 +9,7 @@
 #include "cgroup-util.h"
 #include "escape.h"
 #include "devnum-util.h"
+#include "efivars.h"
 #include "efi-api.h"
 #include "efi-loader.h"
 #include "env-util.h"
@@ -39,6 +40,7 @@
 #include "reboot-util.h"
 #include "set.h"
 #include "signal-util.h"
+#include "stdio-util.h"
 #include "sleep-config.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -2203,6 +2205,278 @@ static int vl_method_can_reboot_parameter(sd_varlink *link, sd_json_variant *par
         return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", result));
 }
 
+static int vl_method_set_reboot_to_firmware_setup(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                int enable;
+        } p = {
+                .enable = -1,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Enable", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, voffsetof(p, enable), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        bool use_efi;
+        r = getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
+        if (r == -ENXIO) {
+                r = efi_reboot_to_firmware_supported();
+                if (r == -EOPNOTSUPP)
+                        return sd_varlink_error_invalid_parameter_name(link, "Enable");
+                if (r < 0)
+                        return r;
+                use_efi = true;
+        } else if (r <= 0)
+                return sd_varlink_error_invalid_parameter_name(link, "Enable");
+        else
+                use_efi = false;
+
+        r = varlink_verify_polkit_async(
+                        link, m->bus,
+                        "org.freedesktop.login1.set-reboot-to-firmware-setup",
+                        /* details= */ NULL,
+                        &m->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        if (use_efi) {
+                r = efi_set_reboot_to_firmware(p.enable > 0);
+                if (r < 0)
+                        return r;
+        } else {
+                if (p.enable > 0) {
+                        r = touch("/run/systemd/reboot-to-firmware-setup");
+                        if (r < 0)
+                                return r;
+                } else {
+                        if (unlink("/run/systemd/reboot-to-firmware-setup") < 0 && errno != ENOENT)
+                                return -errno;
+                }
+        }
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_can_reboot_to_firmware_setup(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
+        if (r == -ENXIO) {
+                r = efi_reboot_to_firmware_supported();
+                if (r < 0)
+                        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", "na"));
+        } else if (r <= 0)
+                return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", "na"));
+
+        uid_t uid;
+        r = sd_varlink_get_peer_uid(link, &uid);
+        if (r < 0)
+                return r;
+
+        const char *result = uid == 0 ? "yes" :
+#if ENABLE_POLKIT
+                "challenge"
+#else
+                "no"
+#endif
+                ;
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", result));
+}
+
+static int vl_method_set_reboot_to_boot_loader_menu(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                uint64_t timeout;
+        } p;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Timeout", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64, voffsetof(p, timeout), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        bool use_efi;
+        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
+        if (r == -ENXIO) {
+                uint64_t features;
+                r = efi_loader_get_features(&features);
+                if (r < 0 || !FLAGS_SET(features, EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT))
+                        return sd_varlink_error_invalid_parameter_name(link, "Timeout");
+                use_efi = true;
+        } else if (r <= 0)
+                return sd_varlink_error_invalid_parameter_name(link, "Timeout");
+        else
+                use_efi = false;
+
+        r = varlink_verify_polkit_async(
+                        link, m->bus,
+                        "org.freedesktop.login1.set-reboot-to-boot-loader-menu",
+                        /* details= */ NULL,
+                        &m->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        if (use_efi) {
+                if (p.timeout == UINT64_MAX)
+                        r = efi_set_variable(EFI_LOADER_VARIABLE_STR("LoaderConfigTimeoutOneShot"), NULL, 0);
+                else {
+                        char buf[DECIMAL_STR_MAX(uint64_t) + 1];
+                        xsprintf(buf, "%" PRIu64, DIV_ROUND_UP(p.timeout, USEC_PER_SEC));
+                        r = efi_set_variable_string(EFI_LOADER_VARIABLE_STR("LoaderConfigTimeoutOneShot"), buf);
+                }
+                if (r < 0)
+                        return r;
+        } else {
+                if (p.timeout == UINT64_MAX) {
+                        if (unlink("/run/systemd/reboot-to-boot-loader-menu") < 0 && errno != ENOENT)
+                                return -errno;
+                } else {
+                        r = write_string_filef("/run/systemd/reboot-to-boot-loader-menu",
+                                               WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                                               "%" PRIu64, p.timeout);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_can_reboot_to_boot_loader_menu(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
+        if (r == -ENXIO) {
+                uint64_t features;
+                r = efi_loader_get_features(&features);
+                if (r < 0 || !FLAGS_SET(features, EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT))
+                        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", "na"));
+        } else if (r <= 0)
+                return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", "na"));
+
+        uid_t uid;
+        r = sd_varlink_get_peer_uid(link, &uid);
+        if (r < 0)
+                return r;
+
+        const char *result = uid == 0 ? "yes" :
+#if ENABLE_POLKIT
+                "challenge"
+#else
+                "no"
+#endif
+                ;
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", result));
+}
+
+static int vl_method_set_reboot_to_boot_loader_entry(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *entry;
+        } p;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Entry", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, entry), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        bool use_efi;
+        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
+        if (r == -ENXIO) {
+                uint64_t features;
+                r = efi_loader_get_features(&features);
+                if (r < 0 || !FLAGS_SET(features, EFI_LOADER_FEATURE_ENTRY_ONESHOT))
+                        return sd_varlink_error_invalid_parameter_name(link, "Entry");
+                use_efi = true;
+        } else if (r <= 0)
+                return sd_varlink_error_invalid_parameter_name(link, "Entry");
+        else
+                use_efi = false;
+
+        if (!isempty(p.entry) && !efi_loader_entry_name_valid(p.entry))
+                return sd_varlink_error_invalid_parameter_name(link, "Entry");
+
+        r = varlink_verify_polkit_async(
+                        link, m->bus,
+                        "org.freedesktop.login1.set-reboot-to-boot-loader-entry",
+                        /* details= */ NULL,
+                        &m->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        if (use_efi) {
+                if (isempty(p.entry))
+                        r = efi_set_variable(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), NULL, 0);
+                else
+                        r = efi_set_variable_string(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), p.entry);
+                if (r < 0)
+                        return r;
+        } else {
+                if (isempty(p.entry)) {
+                        if (unlink("/run/systemd/reboot-to-boot-loader-entry") < 0 && errno != ENOENT)
+                                return -errno;
+                } else {
+                        r = write_string_file("/run/systemd/reboot-to-boot-loader-entry", p.entry,
+                                              WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_can_reboot_to_boot_loader_entry(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
+        if (r == -ENXIO) {
+                uint64_t features;
+                r = efi_loader_get_features(&features);
+                if (r < 0 || !FLAGS_SET(features, EFI_LOADER_FEATURE_ENTRY_ONESHOT))
+                        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", "na"));
+        } else if (r <= 0)
+                return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", "na"));
+
+        uid_t uid;
+        r = sd_varlink_get_peer_uid(link, &uid);
+        if (r < 0)
+                return r;
+
+        const char *result = uid == 0 ? "yes" :
+#if ENABLE_POLKIT
+                "challenge"
+#else
+                "no"
+#endif
+                ;
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", result));
+}
+
 static int vl_method_attach_device(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -2882,6 +3156,12 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.SetRebootParameter", vl_method_set_reboot_parameter,
                         "io.systemd.Login.CanRebootParameter", vl_method_can_reboot_parameter,
                         "io.systemd.Login.SetWallMessage",   vl_method_set_wall_message,
+                        "io.systemd.Login.SetRebootToFirmwareSetup", vl_method_set_reboot_to_firmware_setup,
+                        "io.systemd.Login.CanRebootToFirmwareSetup", vl_method_can_reboot_to_firmware_setup,
+                        "io.systemd.Login.SetRebootToBootLoaderMenu", vl_method_set_reboot_to_boot_loader_menu,
+                        "io.systemd.Login.CanRebootToBootLoaderMenu", vl_method_can_reboot_to_boot_loader_menu,
+                        "io.systemd.Login.SetRebootToBootLoaderEntry", vl_method_set_reboot_to_boot_loader_entry,
+                        "io.systemd.Login.CanRebootToBootLoaderEntry", vl_method_can_reboot_to_boot_loader_entry,
                         "io.systemd.Login.AttachDevice",     vl_method_attach_device,
                         "io.systemd.Login.FlushDevices",     vl_method_flush_devices,
                         "io.systemd.Login.DescribeManager",  vl_method_describe_manager,
