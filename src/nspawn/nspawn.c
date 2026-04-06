@@ -5784,21 +5784,21 @@ static int run_container(
 
         bool registered_system = false, registered_runtime = false;
         if (arg_register != 0) {
+                const MachineRegistration reg = {
+                        .name           = arg_machine,
+                        .id             = arg_uuid,
+                        .service        = arg_container_service_name,
+                        .class          = "container",
+                        .pidref         = pid,
+                        .root_directory = arg_directory,
+                        .local_ifindex  = ifi,
+                };
+
                 r = register_machine_with_fallback_and_log(
                                 arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? RUNTIME_SCOPE_SYSTEM : _RUNTIME_SCOPE_INVALID,
                                 system_bus,
                                 runtime_bus,
-                                arg_machine,
-                                arg_uuid,
-                                arg_container_service_name,
-                                "container",
-                                pid,
-                                arg_directory,
-                                /* cid= */ 0,
-                                ifi,
-                                /* address= */ NULL,
-                                /* key_path= */ NULL,
-                                /* allocate_unit= */ false,
+                                &reg,
                                 /* graceful= */ arg_register < 0,
                                 &registered_system,
                                 &registered_runtime);
