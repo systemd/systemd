@@ -2254,7 +2254,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         else {
                 r = sd_bus_default_user(&user_bus);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to open system bus: %m");
+                        return log_error_errno(r, "Failed to open user bus: %m");
 
                 r = sd_bus_set_close_on_exit(user_bus, false);
                 if (r < 0)
