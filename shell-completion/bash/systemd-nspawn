@@ -69,8 +69,8 @@ _systemd_nspawn() {
     local -A OPTS=(
         [STANDALONE]='-h --help --version --private-network -b --boot --read-only -q --quiet --share-system
                       --keep-unit -n --network-veth -j -x --ephemeral -a --as-pid2 -U --suppress-sync=yes
-                      --cleanup'
-        [ARG]='-D --directory -u --user --uuid --capability --drop-capability --link-journal --bind --bind-ro
+                      --cleanup --user --system'
+        [ARG]='-D --directory -u --uid --uuid --capability --drop-capability --link-journal --bind --bind-ro
                       -M --machine -S --slice -E --setenv -Z --selinux-context -L --selinux-apifs-context
                       --register --network-interface --network-bridge --personality -i --image --image-policy --tmpfs
                       --volatile --network-macvlan --kill-signal --template --notify-ready --root-hash --chdir
@@ -88,7 +88,7 @@ _systemd_nspawn() {
                 compopt -o nospace
                 comps=$(compgen -S/ -A directory -- "$cur" )
                 ;;
-            --user|-u)
+            --uid|-u)
                 comps=$( __get_users )
                 ;;
             --uuid|--root-hash)
