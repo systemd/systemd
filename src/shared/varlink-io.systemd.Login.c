@@ -163,6 +163,59 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The identifier string of the session to release. If unspecified or 'self', will return the callers session."),
                 SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                ActivateSession,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session. If unspecified or 'self'/'auto', targets the caller's session."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                LockSession,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session. If unspecified, locks all sessions."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                UnlockSession,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session. If unspecified, unlocks all sessions."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                TerminateSession,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                KillWhom,
+                SD_VARLINK_DEFINE_ENUM_VALUE(leader),
+                SD_VARLINK_DEFINE_ENUM_VALUE(all));
+
+static SD_VARLINK_DEFINE_METHOD(
+                KillSession,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Whom to kill in the session. If unspecified, defaults to 'all'."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(Whom, KillWhom, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The UNIX signal to send."),
+                SD_VARLINK_DEFINE_INPUT(Signal, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetIdleHint,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether the session is idle."),
+                SD_VARLINK_DEFINE_INPUT(IdleHint, SD_VARLINK_BOOL, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetLockedHint,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether the session is locked."),
+                SD_VARLINK_DEFINE_INPUT(LockedHint, SD_VARLINK_BOOL, 0));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SessionRef,
                 SD_VARLINK_FIELD_COMMENT("The session identifier"),
@@ -278,6 +331,7 @@ static SD_VARLINK_DEFINE_ERROR(VirtualTerminalAlreadyTaken);
 static SD_VARLINK_DEFINE_ERROR(TooManySessions);
 static SD_VARLINK_DEFINE_ERROR(UnitAllocationFailed);
 static SD_VARLINK_DEFINE_ERROR(NoSessionPIDFD);
+static SD_VARLINK_DEFINE_ERROR(NotSupported);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Login,
@@ -305,6 +359,22 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_ListSessions,
                 SD_VARLINK_SYMBOL_COMMENT("Reference to a session by identifier"),
                 &vl_type_SessionRef,
+                SD_VARLINK_SYMBOL_COMMENT("Activates a session, i.e. brings it to the foreground."),
+                &vl_method_ActivateSession,
+                SD_VARLINK_SYMBOL_COMMENT("Locks a session or all sessions."),
+                &vl_method_LockSession,
+                SD_VARLINK_SYMBOL_COMMENT("Unlocks a session or all sessions."),
+                &vl_method_UnlockSession,
+                SD_VARLINK_SYMBOL_COMMENT("Terminates a session."),
+                &vl_method_TerminateSession,
+                SD_VARLINK_SYMBOL_COMMENT("Whom to kill in a session"),
+                &vl_type_KillWhom,
+                SD_VARLINK_SYMBOL_COMMENT("Sends a signal to a session's processes."),
+                &vl_method_KillSession,
+                SD_VARLINK_SYMBOL_COMMENT("Sets the idle hint for a session."),
+                &vl_method_SetIdleHint,
+                SD_VARLINK_SYMBOL_COMMENT("Sets the locked hint for a session."),
+                &vl_method_SetLockedHint,
                 SD_VARLINK_SYMBOL_COMMENT("Information about a user"),
                 &vl_type_UserInfo,
                 SD_VARLINK_SYMBOL_COMMENT("Describes a specific user."),
@@ -338,4 +408,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Failed to allocate a unit for the session"),
                 &vl_error_UnitAllocationFailed,
                 SD_VARLINK_SYMBOL_COMMENT("The session leader process does not have a pidfd"),
-                &vl_error_NoSessionPIDFD);
+                &vl_error_NoSessionPIDFD,
+                SD_VARLINK_SYMBOL_COMMENT("The requested operation is not supported for this session (e.g. class or type mismatch)"),
+                &vl_error_NotSupported);

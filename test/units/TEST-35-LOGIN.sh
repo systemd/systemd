@@ -807,7 +807,7 @@ teardown_varlink() (
 )
 
 testcase_varlink() {
-    local session uid session_out user_out default_user_out seat_out self_err inhibitor_out
+    local session uid session_out user_out default_user_out seat_out self_err inhibitor_out session_path ts
 
     if [[ ! -c /dev/tty2 ]]; then
         echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
@@ -827,6 +827,13 @@ testcase_varlink() {
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method DescribeSeat" >/dev/null
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSeats" >/dev/null
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListInhibitors" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ActivateSession" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method LockSession" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method UnlockSession" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method TerminateSession" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method KillSession" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method SetIdleHint" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method SetLockedHint" >/dev/null
 
     : "--- Setup test session ---"
     create_session
@@ -925,6 +932,62 @@ testcase_varlink() {
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListInhibitors '{}')
 
     systemctl stop test-varlink-inhibit.service
+
+    session_path=$(session_bus_path)
+
+    : "--- ActivateSession ---"
+    # Session is already active after setup; re-activating must succeed and be a no-op.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ActivateSession "{\"Id\":\"$session\"}"
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ActivateSession '{"Id":"nonexistent-session-id"}')
+
+    : "--- SetIdleHint ---"
+    # SetIdleHint requires SESSION_TYPE_IS_GRAPHICAL (see session_set_idle_hint).
+    # The test session is tty, so both the true and false variants return NotSupported.
+    self_err=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetIdleHint "{\"Id\":\"$session\",\"IdleHint\":true}" 2>&1 || true)
+    echo "$self_err" | grep NotSupported >/dev/null
+    self_err=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetIdleHint "{\"Id\":\"$session\",\"IdleHint\":false}" 2>&1 || true)
+    echo "$self_err" | grep NotSupported >/dev/null
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetIdleHint '{"Id":"nonexistent-session-id","IdleHint":true}')
+
+    : "--- SetLockedHint ---"
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetLockedHint "{\"Id\":\"$session\",\"LockedHint\":true}"
+    assert_eq "$(busctl get-property org.freedesktop.login1 "$session_path" org.freedesktop.login1.Session LockedHint)" "b true"
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetLockedHint "{\"Id\":\"$session\",\"LockedHint\":false}"
+    assert_eq "$(busctl get-property org.freedesktop.login1 "$session_path" org.freedesktop.login1.Session LockedHint)" "b false"
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetLockedHint '{"Id":"nonexistent-session-id","LockedHint":true}')
+
+    : "--- LockSession / UnlockSession ---"
+    journalctl --sync
+    ts="$(date '+%H:%M:%S')"
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.LockSession "{\"Id\":\"$session\"}"
+    timeout -v 10 bash -c "journalctl -b -u systemd-logind.service --since='$ts' -n all --follow | grep -m 1 'Sent message type=signal .* member=Lock' >/dev/null"
+
+    journalctl --sync
+    ts="$(date '+%H:%M:%S')"
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.UnlockSession "{\"Id\":\"$session\"}"
+    timeout -v 10 bash -c "journalctl -b -u systemd-logind.service --since='$ts' -n all --follow | grep -m 1 'Sent message type=signal .* member=Unlock' >/dev/null"
+
+    # No Id targets every session.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.LockSession '{}'
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.UnlockSession '{}'
+
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.LockSession '{"Id":"nonexistent-session-id"}')
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.UnlockSession '{"Id":"nonexistent-session-id"}')
+
+    : "--- KillSession ---"
+    # Invalid signal number
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.KillSession "{\"Id\":\"$session\",\"Signal\":999}")
+    # Nonexistent session
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.KillSession '{"Id":"nonexistent-session-id","Signal":18}')
+    # SIGCONT (18 on Linux/x86_64/aarch64) to the leader: non-lethal, session must survive.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.KillSession "{\"Id\":\"$session\",\"Signal\":18,\"Whom\":\"leader\"}"
+    loginctl session-status "$session" >/dev/null
+
+    : "--- TerminateSession ---"
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TerminateSession '{"Id":"nonexistent-session-id"}')
+    # Destructive: this ends the test session. Keep LAST.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TerminateSession "{\"Id\":\"$session\"}"
+    timeout 10 bash -c "while loginctl session-status '$session' >/dev/null 2>&1; do sleep 0.5; done"
 }
 
 testcase_restart() {
