@@ -1205,6 +1205,30 @@ static int get_bus_path_by_id(
         return strdup_to(ret, path);
 }
 
+static int connect_varlink(sd_varlink **ret);
+
+static int show_session_varlink_json(const char *id) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        int r;
+
+        r = connect_varlink(&vl);
+        if (r < 0)
+                return r;
+
+        r = varlink_callbo_and_log(
+                        vl, "io.systemd.Login.DescribeSession", &reply,
+                        SD_JSON_BUILD_PAIR_STRING("Id", id ?: "auto"));
+        if (r < 0)
+                return r;
+
+        sd_json_variant *session = sd_json_variant_by_key(reply, "Session");
+        if (!session)
+                return -ENXIO;
+
+        return sd_json_variant_dump(session, arg_json_format_flags, NULL, NULL);
+}
+
 static int verb_show_session(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         bool properties;
@@ -1215,6 +1239,21 @@ static int verb_show_session(int argc, char *argv[], uintptr_t _data, void *user
         properties = !strstr(argv[0], "status");
 
         pager_open(arg_pager_flags);
+
+        /* For JSON output, use Varlink directly */
+        if (sd_json_format_enabled(arg_json_format_flags) && arg_transport == BUS_TRANSPORT_LOCAL) {
+                if (argc <= 1)
+                        return show_session_varlink_json(NULL);
+
+                for (int i = 1, first = true; i < argc; i++, first = false) {
+                        if (!first)
+                                putchar('\n');
+                        r = show_session_varlink_json(argv[i]);
+                        if (r < 0)
+                                return r;
+                }
+                return 0;
+        }
 
         if (argc <= 1) {
                 _cleanup_free_ char *path = NULL;
@@ -1251,6 +1290,32 @@ static int verb_show_session(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
+static int show_user_varlink_json(uid_t uid) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        int r;
+
+        r = connect_varlink(&vl);
+        if (r < 0)
+                return r;
+
+        if (uid_is_valid(uid))
+                r = varlink_callbo_and_log(
+                                vl, "io.systemd.Login.DescribeUser", &reply,
+                                SD_JSON_BUILD_PAIR_UNSIGNED("UID", uid));
+        else
+                r = varlink_call_and_log(
+                                vl, "io.systemd.Login.DescribeUser", NULL, &reply);
+        if (r < 0)
+                return r;
+
+        sd_json_variant *user = sd_json_variant_by_key(reply, "User");
+        if (!user)
+                return -ENXIO;
+
+        return sd_json_variant_dump(user, arg_json_format_flags, NULL, NULL);
+}
+
 static int verb_show_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         bool properties;
@@ -1262,8 +1327,27 @@ static int verb_show_user(int argc, char *argv[], uintptr_t _data, void *userdat
 
         pager_open(arg_pager_flags);
 
+        /* For JSON output, use Varlink directly */
+        if (sd_json_format_enabled(arg_json_format_flags) && arg_transport == BUS_TRANSPORT_LOCAL) {
+                if (argc <= 1)
+                        return show_user_varlink_json(UID_INVALID);
+
+                for (int i = 1, first = true; i < argc; i++, first = false) {
+                        uid_t uid;
+                        r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+
+                        if (!first)
+                                putchar('\n');
+                        r = show_user_varlink_json(uid);
+                        if (r < 0)
+                                return r;
+                }
+                return 0;
+        }
+
         if (argc <= 1) {
-                /* If no argument is specified inspect the manager itself */
                 if (properties)
                         return show_properties(bus, "/org/freedesktop/login1");
 
@@ -1302,6 +1386,28 @@ static int verb_show_user(int argc, char *argv[], uintptr_t _data, void *userdat
         return 0;
 }
 
+static int show_seat_varlink_json(const char *id) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        int r;
+
+        r = connect_varlink(&vl);
+        if (r < 0)
+                return r;
+
+        r = varlink_callbo_and_log(
+                        vl, "io.systemd.Login.DescribeSeat", &reply,
+                        SD_JSON_BUILD_PAIR_STRING("Id", id ?: "auto"));
+        if (r < 0)
+                return r;
+
+        sd_json_variant *seat = sd_json_variant_by_key(reply, "Seat");
+        if (!seat)
+                return -ENXIO;
+
+        return sd_json_variant_dump(seat, arg_json_format_flags, NULL, NULL);
+}
+
 static int verb_show_seat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         bool properties;
@@ -1313,10 +1419,24 @@ static int verb_show_seat(int argc, char *argv[], uintptr_t _data, void *userdat
 
         pager_open(arg_pager_flags);
 
+        /* For JSON output, use Varlink directly */
+        if (sd_json_format_enabled(arg_json_format_flags) && arg_transport == BUS_TRANSPORT_LOCAL) {
+                if (argc <= 1)
+                        return show_seat_varlink_json(NULL);
+
+                for (int i = 1, first = true; i < argc; i++, first = false) {
+                        if (!first)
+                                putchar('\n');
+                        r = show_seat_varlink_json(argv[i]);
+                        if (r < 0)
+                                return r;
+                }
+                return 0;
+        }
+
         if (argc <= 1) {
                 _cleanup_free_ char *path = NULL;
 
-                /* If no argument is specified inspect the manager itself */
                 if (properties)
                         return show_properties(bus, "/org/freedesktop/login1");
 
