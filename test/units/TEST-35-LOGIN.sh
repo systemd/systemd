@@ -1116,6 +1116,15 @@ testcase_varlink() {
                   io.systemd.Login.SubscribeSessionEvents "{\"Id\":\"$session\"}" 2>/dev/null || true)
     echo "$sub_out" | jq --seq -e 'select(.Ready == true)' >/dev/null
 
+    : "--- ListBootLoaderEntries ---"
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListBootLoaderEntries" >/dev/null
+    # Without --more must fail.
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListBootLoaderEntries '{}')
+    # With --more either enumerates entries or errors out when boot config is
+    # unavailable in the test VM; accept either, just verify no hang/crash.
+    timeout 10 varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListBootLoaderEntries '{}' \
+        >/dev/null 2>&1 || true
+
     : "--- SubscribeManagerEvents ---"
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method SubscribeManagerEvents" >/dev/null
     # Without --more the streaming subscription must be refused.

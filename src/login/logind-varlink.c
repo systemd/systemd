@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bootspec.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
 #include "escape.h"
@@ -2947,6 +2948,44 @@ static int vl_method_set_wall_message(sd_varlink *link, sd_json_variant *paramet
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_list_boot_loader_entries(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = sd_varlink_set_sentinel(link, "io.systemd.Login.NotSupported");
+        if (r < 0)
+                return r;
+
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+
+        r = boot_config_load_auto(&config, NULL, NULL);
+        if (r < 0 && r != -ENOKEY)
+                return r;
+
+        r = manager_read_efi_boot_loader_entries(m);
+        if (r >= 0)
+                (void) boot_config_augment_from_loader(&config, m->efi_boot_loader_entries, /* auto_only= */ true);
+
+        for (size_t i = 0; i < config.n_entries; i++) {
+                BootEntry *e = config.entries + i;
+
+                if (!e->id) /* some auto-detected entries have no id; nothing to report */
+                        continue;
+
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Id", e->id));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int vl_method_subscribe_manager_events(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -3379,6 +3418,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.AttachDevice",     vl_method_attach_device,
                         "io.systemd.Login.FlushDevices",     vl_method_flush_devices,
                         "io.systemd.Login.DescribeManager",  vl_method_describe_manager,
+                        "io.systemd.Login.ListBootLoaderEntries", vl_method_list_boot_loader_entries,
                         "io.systemd.Login.SubscribeManagerEvents", vl_method_subscribe_manager_events,
                         "io.systemd.Login.SubscribeSessionEvents", vl_method_subscribe_session_events,
                         "io.systemd.Login.ListInhibitors",   vl_method_list_inhibitors,

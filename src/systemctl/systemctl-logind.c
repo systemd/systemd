@@ -659,6 +659,33 @@ int help_boot_loader_entry(void) {
                 arg_transport = BUS_TRANSPORT_LOCAL;
         }
 
+        /* Try Varlink first */
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *vl_reply = NULL;
+                const char *error_id = NULL;
+
+                r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Login");
+                if (r >= 0) {
+                        r = sd_varlink_collect(vl, "io.systemd.Login.ListBootLoaderEntries", NULL, &vl_reply, &error_id);
+                        if (r >= 0 && !error_id) {
+                                bool found = false;
+                                sd_json_variant *entry;
+                                JSON_VARIANT_ARRAY_FOREACH(entry, vl_reply) {
+                                        const char *id = sd_json_variant_string(sd_json_variant_by_key(entry, "Id"));
+                                        if (id) {
+                                                puts(id);
+                                                found = true;
+                                        }
+                                }
+                                if (!found)
+                                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No boot loader entries discovered.");
+                                return 0;
+                        }
+                }
+                log_debug_errno(r, "Failed via Varlink, falling back to D-Bus: %m");
+        }
+
         r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
                 return r;

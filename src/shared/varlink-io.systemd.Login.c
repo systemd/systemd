@@ -603,6 +603,12 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The manager state as a JSON object."),
                 SD_VARLINK_DEFINE_OUTPUT(Manager, SD_VARLINK_OBJECT, 0));
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                ListBootLoaderEntries,
+                SD_VARLINK_REQUIRES_MORE,
+                SD_VARLINK_FIELD_COMMENT("A boot loader entry ID."),
+                SD_VARLINK_DEFINE_OUTPUT(Id, SD_VARLINK_STRING, 0));
+
 static SD_VARLINK_DEFINE_METHOD(
                 SubscribeManagerEvents,
                 SD_VARLINK_FIELD_COMMENT("The event type (SessionNew, SessionRemoved, UserNew, UserRemoved, SeatNew, SeatRemoved, PrepareForShutdown, PrepareForSleep)."),
@@ -813,6 +819,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_FlushDevices,
                 SD_VARLINK_SYMBOL_COMMENT("Describes the manager state."),
                 &vl_method_DescribeManager,
+                SD_VARLINK_SYMBOL_COMMENT("Lists boot loader entries."),
+                &vl_method_ListBootLoaderEntries,
                 SD_VARLINK_SYMBOL_COMMENT("Subscribes to manager events (session/user/seat changes, shutdown/sleep preparation)."),
                 &vl_method_SubscribeManagerEvents,
                 SD_VARLINK_SYMBOL_COMMENT("Subscribes to per-session events (Lock, Unlock)."),
