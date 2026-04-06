@@ -1077,6 +1077,16 @@ testcase_varlink() {
         echo "$can_out" | jq -e '.Result | IN("yes","no","challenge","na")' >/dev/null
     done
 
+    : "--- SubscribeManagerEvents ---"
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method SubscribeManagerEvents" >/dev/null
+    # Without --more the streaming subscription must be refused.
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SubscribeManagerEvents '{}')
+    # With --more the first notification is a Ready=true handshake; grab a few
+    # seconds of output and look for it.
+    sub_out=$(timeout 3 varlinkctl call --more "$VARLINK_SOCKET" \
+                  io.systemd.Login.SubscribeManagerEvents '{}' 2>/dev/null || true)
+    echo "$sub_out" | jq --seq -e 'select(.Ready == true)' >/dev/null
+
     : "--- DescribeManager ---"
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method DescribeManager" >/dev/null
     manager_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeManager '{}')

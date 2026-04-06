@@ -9,12 +9,14 @@
 #include "bus-object.h"
 #include "bus-polkit.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "logind-session.h"
 #include "logind.h"
 #include "logind-dbus.h"
 #include "logind-polkit.h"
 #include "logind-seat.h"
 #include "logind-seat-dbus.h"
+#include "logind-varlink.h"
 #include "logind-session-dbus.h"
 #include "logind-user.h"
 #include "string-util.h"
@@ -371,6 +373,13 @@ int seat_send_signal(Seat *s, bool new_seat) {
         _cleanup_free_ char *p = NULL;
 
         assert(s);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *data = NULL;
+        (void) sd_json_buildo(&data, SD_JSON_BUILD_PAIR_STRING("Id", s->id));
+        (void) manager_varlink_notify_manager_event(
+                        s->manager,
+                        new_seat ? "SeatNew" : "SeatRemoved",
+                        data);
 
         p = seat_bus_path(s);
         if (!p)

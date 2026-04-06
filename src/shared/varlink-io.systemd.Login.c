@@ -545,6 +545,15 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The manager state as a JSON object."),
                 SD_VARLINK_DEFINE_OUTPUT(Manager, SD_VARLINK_OBJECT, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                SubscribeManagerEvents,
+                SD_VARLINK_FIELD_COMMENT("The event type (SessionNew, SessionRemoved, UserNew, UserRemoved, SeatNew, SeatRemoved, PrepareForShutdown, PrepareForSleep)."),
+                SD_VARLINK_DEFINE_OUTPUT(Event, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Event-specific data."),
+                SD_VARLINK_DEFINE_OUTPUT(Data, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Sent once when the subscription is established."),
+                SD_VARLINK_DEFINE_OUTPUT(Ready, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 InhibitorInfo,
                 SD_VARLINK_FIELD_COMMENT("The inhibitor identifier"),
@@ -717,6 +726,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_SetWallMessage,
                 SD_VARLINK_SYMBOL_COMMENT("Describes the manager state."),
                 &vl_method_DescribeManager,
+                SD_VARLINK_SYMBOL_COMMENT("Subscribes to manager events (session/user/seat changes, shutdown/sleep preparation)."),
+                &vl_method_SubscribeManagerEvents,
                 SD_VARLINK_SYMBOL_COMMENT("Information about an inhibitor"),
                 &vl_type_InhibitorInfo,
                 SD_VARLINK_SYMBOL_COMMENT("Lists all current inhibitors."),

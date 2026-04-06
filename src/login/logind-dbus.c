@@ -36,6 +36,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "login-util.h"
 #include "logind-session.h"
 #include "logind.h"
@@ -49,6 +50,7 @@
 #include "logind-user.h"
 #include "logind-user-dbus.h"
 #include "logind-utmp.h"
+#include "logind-varlink.h"
 #include "mkdir-label.h"
 #include "os-util.h"
 #include "parse-util.h"
@@ -1943,6 +1945,19 @@ static int send_prepare_for(Manager *m, const HandleActionData *a, bool _active)
                 return 0;
 
         assert(IN_SET(a->inhibit_what, INHIBIT_SHUTDOWN, INHIBIT_SLEEP));
+
+        /* Also notify Varlink subscribers */
+        {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *data = NULL;
+                (void) sd_json_buildo(
+                                &data,
+                                SD_JSON_BUILD_PAIR_BOOLEAN("Active", active),
+                                SD_JSON_BUILD_PAIR_STRING("Type", handle_action_to_string(a->handle)));
+                (void) manager_varlink_notify_manager_event(
+                                m,
+                                a->inhibit_what == INHIBIT_SHUTDOWN ? "PrepareForShutdown" : "PrepareForSleep",
+                                data);
+        }
 
         /* We need to send both old and new signal for backward compatibility. The newer one allows clients
          * to know which type of reboot is going to happen, as they might be doing different actions (e.g.:

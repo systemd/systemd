@@ -8,8 +8,10 @@
 #include "bus-polkit.h"
 #include "format-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "logind.h"
 #include "logind-dbus.h"
+#include "logind-varlink.h"
 #include "logind-session.h"
 #include "logind-session-dbus.h"
 #include "logind-user.h"
@@ -390,6 +392,13 @@ int user_send_signal(User *u, bool new_user) {
         _cleanup_free_ char *p = NULL;
 
         assert(u);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *data = NULL;
+        (void) sd_json_buildo(&data, SD_JSON_BUILD_PAIR_UNSIGNED("UID", u->user_record->uid));
+        (void) manager_varlink_notify_manager_event(
+                        u->manager,
+                        new_user ? "UserNew" : "UserRemoved",
+                        data);
 
         p = user_bus_path(u);
         if (!p)

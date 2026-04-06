@@ -33,6 +33,7 @@
 #include "logind-varlink.h"
 #include "path-util.h"
 #include "reboot-util.h"
+#include "set.h"
 #include "signal-util.h"
 #include "sleep-config.h"
 #include "strv.h"
@@ -2337,8 +2338,94 @@ static int vl_method_set_wall_message(sd_varlink *link, sd_json_variant *paramet
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_subscribe_manager_events(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        /* Emit an initial snapshot of the current session/user/seat set so the client
+         * doesn't need a separate ListX call to learn about pre-existing objects. We do
+         * this synchronously before registering the subscription, so the client receives
+         * a well-ordered stream: snapshot events first, then Ready, then live events. */
+        Session *session;
+        HASHMAP_FOREACH(session, m->sessions) {
+                r = sd_varlink_notifybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_STRING("Event", "SessionNew"),
+                                SD_JSON_BUILD_PAIR("Data",
+                                                   SD_JSON_BUILD_OBJECT(
+                                                                   SD_JSON_BUILD_PAIR_STRING("Id", session->id))));
+                if (r < 0)
+                        return r;
+        }
+
+        User *user;
+        HASHMAP_FOREACH(user, m->users) {
+                r = sd_varlink_notifybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_STRING("Event", "UserNew"),
+                                SD_JSON_BUILD_PAIR("Data",
+                                                   SD_JSON_BUILD_OBJECT(
+                                                                   SD_JSON_BUILD_PAIR_UNSIGNED("UID", user->user_record->uid))));
+                if (r < 0)
+                        return r;
+        }
+
+        Seat *seat;
+        HASHMAP_FOREACH(seat, m->seats) {
+                r = sd_varlink_notifybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_STRING("Event", "SeatNew"),
+                                SD_JSON_BUILD_PAIR("Data",
+                                                   SD_JSON_BUILD_OBJECT(
+                                                                   SD_JSON_BUILD_PAIR_STRING("Id", seat->id))));
+                if (r < 0)
+                        return r;
+        }
+
+        /* Signal end of snapshot / start of live events. */
+        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Ready", true));
+        if (r < 0)
+                return r;
+
+        r = set_ensure_put(&m->varlink_manager_subscriptions, NULL, link);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                sd_varlink_ref(link);
+
+        return 1;
+}
+
+int manager_varlink_notify_manager_event(Manager *m, const char *event, sd_json_variant *data) {
+        assert(m);
+        assert(event);
+
+        if (set_isempty(m->varlink_manager_subscriptions))
+                return 0;
+
+        sd_varlink *link;
+        SET_FOREACH(link, m->varlink_manager_subscriptions) {
+                int r = sd_varlink_notifybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_STRING("Event", event),
+                                SD_JSON_BUILD_PAIR_CONDITION(data != NULL, "Data", SD_JSON_BUILD_VARIANT(data)));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to send manager event notification, ignoring: %m");
+        }
+
+        return 0;
+}
+
 static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        sd_varlink *removed_link;
 
         assert(server);
         assert(link);
@@ -2350,6 +2437,11 @@ static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *use
                         session_drop_controller(session);
                         break;
                 }
+
+        /* Clean up manager event subscriptions */
+        removed_link = set_remove(m->varlink_manager_subscriptions, link);
+        if (removed_link)
+                sd_varlink_unref(removed_link);
 }
 
 static int vl_method_list_inhibitors(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -2604,6 +2696,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.CanRebootParameter", vl_method_can_reboot_parameter,
                         "io.systemd.Login.SetWallMessage",   vl_method_set_wall_message,
                         "io.systemd.Login.DescribeManager",  vl_method_describe_manager,
+                        "io.systemd.Login.SubscribeManagerEvents", vl_method_subscribe_manager_events,
                         "io.systemd.Login.ListInhibitors",   vl_method_list_inhibitors,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
@@ -2635,5 +2728,6 @@ int manager_varlink_init(Manager *m, int fd) {
 void manager_varlink_done(Manager *m) {
         assert(m);
 
+        m->varlink_manager_subscriptions = set_free(m->varlink_manager_subscriptions);
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
 }
