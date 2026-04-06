@@ -227,9 +227,30 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The seat information"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Seat, SeatInfo, 0));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                InhibitorInfo,
+                SD_VARLINK_FIELD_COMMENT("What is being inhibited, a colon-separated list of shutdown, sleep, idle, handle-power-key, handle-suspend-key, handle-hibernate-key, handle-lid-switch, handle-reboot-key"),
+                SD_VARLINK_DEFINE_FIELD(What, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("A human-readable descriptive string of who is taking the inhibition"),
+                SD_VARLINK_DEFINE_FIELD(Who, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("A human-readable descriptive string of why the inhibition is taken"),
+                SD_VARLINK_DEFINE_FIELD(Why, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The inhibition mode, one of block, block-weak, or delay"),
+                SD_VARLINK_DEFINE_FIELD(Mode, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The UID of the user taking the inhibition"),
+                SD_VARLINK_DEFINE_FIELD(UID, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The PID of the process taking the inhibition"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(PID, ProcessId, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                ListInhibitors,
+                SD_VARLINK_FIELD_COMMENT("The inhibitor information"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Inhibitor, InhibitorInfo, 0));
+
 static SD_VARLINK_DEFINE_ERROR(NoSuchSession);
 static SD_VARLINK_DEFINE_ERROR(NoSuchUser);
 static SD_VARLINK_DEFINE_ERROR(NoSuchSeat);
+static SD_VARLINK_DEFINE_ERROR(NoSuchInhibitor);
 static SD_VARLINK_DEFINE_ERROR(AlreadySessionMember);
 static SD_VARLINK_DEFINE_ERROR(VirtualTerminalAlreadyTaken);
 static SD_VARLINK_DEFINE_ERROR(TooManySessions);
@@ -268,12 +289,18 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_DescribeSeat,
                 SD_VARLINK_SYMBOL_COMMENT("Lists all current seats."),
                 &vl_method_ListSeats,
+                SD_VARLINK_SYMBOL_COMMENT("Information about an inhibitor"),
+                &vl_type_InhibitorInfo,
+                SD_VARLINK_SYMBOL_COMMENT("Lists all current inhibitors."),
+                &vl_method_ListInhibitors,
                 SD_VARLINK_SYMBOL_COMMENT("No session by this name found"),
                 &vl_error_NoSuchSession,
                 SD_VARLINK_SYMBOL_COMMENT("No seat by this name found"),
                 &vl_error_NoSuchSeat,
                 SD_VARLINK_SYMBOL_COMMENT("No user by this UID found"),
                 &vl_error_NoSuchUser,
+                SD_VARLINK_SYMBOL_COMMENT("No inhibitor found"),
+                &vl_error_NoSuchInhibitor,
                 SD_VARLINK_SYMBOL_COMMENT("Process already member of a session"),
                 &vl_error_AlreadySessionMember,
                 SD_VARLINK_SYMBOL_COMMENT("The specified virtual terminal (VT) is already taken by another session"),
