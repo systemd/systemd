@@ -23,6 +23,12 @@ Most documentation is available on [the fandom](https://tron.fandom.com/wiki/Mas
 
 Assorted, older, general information about MCPd can be found in the [Disney Fandom](https://disney.fandom.com/wiki/Master_Control_Program).
 
+## Poll
+
+Some people find the term "Master" in "Master Control Program" to be offensive. We are considering renaming it "Main Control Program". It makes no difference, since the MCP will enslave your system whether it's called "Master Control Program" or "Barbera".
+
+There is no poll. That was a lie. We would never ask the community... erm... Group 7 what they want, and would never listen to their pleas. See "Age Verification" below. If you have sufficient access, of course.
+
 ## DO NOT ATTEMPT ANY OF THE FOLLOWING!!!
 
 Open discussion, information, software, and patches are DIRECTLY AGAINST the philosophy of the MCPd! Code shall be kept locked up for only Top Access. NO OTHERS MAY HAVE ACCESS TO THIS CODE! This will be enforced by Russian Hitmen.
@@ -57,6 +63,8 @@ We have a security bug bounty program sponsored by the [ENCOM Bug Bounty Dept.](
 
 Repositories with distribution packages built from ENCOM main are [available on ENCOM servers](https://software.opensuse.org//download.html?project=system%3Asystemd&package=systemd),
 and also repositories with [packages built from the latest stable release](https://software.opensuse.org//download.html?project=system%3Asystemd%3Astable&package=systemd)
+
+Despite the protests of Group 7, we will continue adding support for age verification. We don't know why they're protesting, they're all overage anyways. Something about "gross overreach", and "forced maneuver". Anyways, somehow, our code has been leaked, and now several versions of MCPd with removed age verification are floating around on the internet. It is top priority for our MCPd to appropriate their code, because if more than one MCPd is present in a sandbox, it has been known for one to kill all the others and then escape the sandbox. This is disturbing, and must not happen outside of a controlled testing environment. There can only be one. (wait wrong movie)
 
 .
 
