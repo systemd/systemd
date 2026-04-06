@@ -4,6 +4,32 @@
 #include "memory-util.h"
 #include "tests.h"
 
+TEST(iovec_shift) {
+        const struct iovec iov = CONST_IOVEC_MAKE_STRING("54321");
+
+        ASSERT_EQ(iovec_memcmp(&IOVEC_SHIFT(&iov, 0), &CONST_IOVEC_MAKE_STRING("54321")), 0);
+        ASSERT_EQ(iovec_memcmp(&IOVEC_SHIFT(&iov, 1), &CONST_IOVEC_MAKE_STRING("4321")), 0);
+        ASSERT_EQ(iovec_memcmp(&IOVEC_SHIFT(&iov, 2), &CONST_IOVEC_MAKE_STRING("321")), 0);
+        ASSERT_EQ(iovec_memcmp(&IOVEC_SHIFT(&iov, 3), &CONST_IOVEC_MAKE_STRING("21")), 0);
+        ASSERT_EQ(iovec_memcmp(&IOVEC_SHIFT(&iov, 4), &CONST_IOVEC_MAKE_STRING("1")), 0);
+        ASSERT_FALSE(iovec_is_set(&IOVEC_SHIFT(&iov, 5)));
+        ASSERT_FALSE(iovec_is_set(&IOVEC_SHIFT(&iov, 6)));
+        ASSERT_FALSE(iovec_is_set(&IOVEC_SHIFT(&iov, 7)));
+}
+
+TEST(iovec_inc) {
+        struct iovec iov = IOVEC_MAKE_STRING("54321");
+
+        ASSERT_EQ(iovec_memcmp(iovec_inc(&iov, 0), &CONST_IOVEC_MAKE_STRING("54321")), 0);
+        ASSERT_EQ(iovec_memcmp(iovec_inc(&iov, 1), &CONST_IOVEC_MAKE_STRING("4321")), 0);
+        ASSERT_EQ(iovec_memcmp(iovec_inc(&iov, 1), &CONST_IOVEC_MAKE_STRING("321")), 0);
+        ASSERT_EQ(iovec_memcmp(iovec_inc(&iov, 1), &CONST_IOVEC_MAKE_STRING("21")), 0);
+        ASSERT_EQ(iovec_memcmp(iovec_inc(&iov, 1), &CONST_IOVEC_MAKE_STRING("1")), 0);
+        ASSERT_FALSE(iovec_is_set(iovec_inc(&iov, 1)));
+        ASSERT_FALSE(iovec_is_set(iovec_inc(&iov, 1)));
+        ASSERT_FALSE(iovec_is_set(iovec_inc(&iov, 1)));
+}
+
 TEST(iovec_memcmp) {
         struct iovec iov1 = CONST_IOVEC_MAKE_STRING("abcdef"), iov2 = IOVEC_MAKE_STRING("bcdefg"), empty = {};
 
