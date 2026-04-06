@@ -800,13 +800,14 @@ EOF
 teardown_varlink() (
     set +ex
 
+    systemctl stop test-varlink-inhibit.service 2>/dev/null
     cleanup_session
 
     return 0
 )
 
 testcase_varlink() {
-    local session uid session_out default_session_out err_out user_out default_user_out seat_out self_err
+    local session uid session_out default_session_out err_out user_out default_user_out seat_out self_err inhibitor_out
 
     if [[ ! -c /dev/tty2 ]]; then
         echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
@@ -825,6 +826,7 @@ testcase_varlink() {
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListUsers" >/dev/null
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method DescribeSeat" >/dev/null
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSeats" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListInhibitors" >/dev/null
 
     : "--- Setup test session ---"
     create_session
@@ -912,6 +914,25 @@ testcase_varlink() {
     varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSeats '{}' | grep "seat0" >/dev/null
     # without --more should fail
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListSeats '{}')
+
+    : "--- ListInhibitors ---"
+    systemd-run --unit=test-varlink-inhibit.service --service-type=exec \
+        systemd-inhibit --what=shutdown --who="varlink-test" --why="testing varlink" --mode=block \
+            sleep infinity
+    timeout 10 bash -c "until varlinkctl call --more '$VARLINK_SOCKET' io.systemd.Login.ListInhibitors '{}' 2>/dev/null | grep varlink-test >/dev/null; do sleep 0.5; done"
+
+    inhibitor_out=$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListInhibitors '{}')
+    echo "$inhibitor_out" | jq --seq -e 'select(.Inhibitor.Who == "varlink-test")' >/dev/null
+    echo "$inhibitor_out" | jq --seq -e 'select(.Inhibitor.Who == "varlink-test") | select(.Inhibitor.What | index("shutdown"))' >/dev/null
+    echo "$inhibitor_out" | jq --seq -e 'select(.Inhibitor.Who == "varlink-test") | select(.Inhibitor.Mode == "block")' >/dev/null
+    echo "$inhibitor_out" | jq --seq -e 'select(.Inhibitor.Who == "varlink-test") | select(.Inhibitor.Why == "testing varlink")' >/dev/null
+    echo "$inhibitor_out" | jq --seq -e 'select(.Inhibitor.Who == "varlink-test") | select(.Inhibitor.UID != null)' >/dev/null
+    echo "$inhibitor_out" | jq --seq -e 'select(.Inhibitor.Who == "varlink-test") | select(.Inhibitor.PID != null)' >/dev/null
+
+    # without --more should fail
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListInhibitors '{}')
+
+    systemctl stop test-varlink-inhibit.service
 }
 
 testcase_restart() {
