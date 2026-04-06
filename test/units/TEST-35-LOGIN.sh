@@ -1103,6 +1103,19 @@ testcase_varlink() {
         echo "$can_out" | jq -e '.Result | IN("yes","no","challenge","na")' >/dev/null
     done
 
+    : "--- SubscribeSessionEvents ---"
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method SubscribeSessionEvents" >/dev/null
+    # Without --more the streaming subscription must be refused.
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SubscribeSessionEvents "{\"Id\":\"$session\"}")
+    # Nonexistent session
+    self_err=$(timeout 3 varlinkctl call --more "$VARLINK_SOCKET" \
+                   io.systemd.Login.SubscribeSessionEvents '{"Id":"nonexistent-session-id"}' 2>&1 || true)
+    echo "$self_err" | grep NoSuchSession >/dev/null
+    # Valid session: expect the Ready handshake.
+    sub_out=$(timeout 3 varlinkctl call --more "$VARLINK_SOCKET" \
+                  io.systemd.Login.SubscribeSessionEvents "{\"Id\":\"$session\"}" 2>/dev/null || true)
+    echo "$sub_out" | jq --seq -e 'select(.Ready == true)' >/dev/null
+
     : "--- SubscribeManagerEvents ---"
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method SubscribeManagerEvents" >/dev/null
     # Without --more the streaming subscription must be refused.

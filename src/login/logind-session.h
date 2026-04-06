@@ -158,6 +158,7 @@ typedef struct Session {
 
         char *controller;
         sd_varlink *controller_varlink;
+        Set *varlink_session_subscriptions;
         Hashmap *devices;
         sd_bus_track *track;
 

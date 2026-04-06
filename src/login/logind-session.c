@@ -36,6 +36,7 @@
 #include "logind-seat-dbus.h"
 #include "logind-session.h"
 #include "logind-session-dbus.h"
+#include "set.h"
 #include "logind-session-device.h"
 #include "logind-user.h"
 #include "logind-user-dbus.h"
@@ -205,6 +206,11 @@ Session* session_free(Session *s) {
         sd_bus_message_unref(s->upgrade_message);
 
         sd_varlink_unref(s->create_link);
+
+        sd_varlink *vl;
+        SET_FOREACH(vl, s->varlink_session_subscriptions)
+                sd_varlink_unref(vl);
+        set_free(s->varlink_session_subscriptions);
 
         free(s->tty);
         free(s->display);

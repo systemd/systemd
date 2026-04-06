@@ -596,6 +596,15 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Sent once when the subscription is established."),
                 SD_VARLINK_DEFINE_OUTPUT(Ready, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                SubscribeSessionEvents,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session. If unspecified or 'self'/'auto', targets the caller's session."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The event type (Lock, Unlock)."),
+                SD_VARLINK_DEFINE_OUTPUT(Event, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Sent once when the subscription is established."),
+                SD_VARLINK_DEFINE_OUTPUT(Ready, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 InhibitorInfo,
                 SD_VARLINK_FIELD_COMMENT("The inhibitor identifier"),
@@ -786,6 +795,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_DescribeManager,
                 SD_VARLINK_SYMBOL_COMMENT("Subscribes to manager events (session/user/seat changes, shutdown/sleep preparation)."),
                 &vl_method_SubscribeManagerEvents,
+                SD_VARLINK_SYMBOL_COMMENT("Subscribes to per-session events (Lock, Unlock)."),
+                &vl_method_SubscribeSessionEvents,
                 SD_VARLINK_SYMBOL_COMMENT("Information about an inhibitor"),
                 &vl_type_InhibitorInfo,
                 SD_VARLINK_SYMBOL_COMMENT("Lists all current inhibitors."),

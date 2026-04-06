@@ -890,6 +890,8 @@ int session_send_lock(Session *s, bool lock) {
         if (!p)
                 return -ENOMEM;
 
+        (void) session_varlink_notify_lock(s, lock);
+
         return sd_bus_emit_signal(
                         s->manager->bus,
                         p,

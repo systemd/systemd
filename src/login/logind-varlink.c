@@ -2883,6 +2883,61 @@ int manager_varlink_notify_manager_event(Manager *m, const char *event, sd_json_
         return 0;
 }
 
+static int vl_method_subscribe_session_events(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        struct {
+                const char *id;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Id", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id), 0 },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Session *session;
+        r = manager_varlink_get_session_by_name(m, link, p.id, &session);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Ready", true));
+        if (r < 0)
+                return r;
+
+        r = set_ensure_put(&session->varlink_session_subscriptions, NULL, link);
+        if (r < 0)
+                return r;
+        sd_varlink_ref(link);
+
+        return 1;
+}
+
+int session_varlink_notify_lock(Session *s, bool lock) {
+        assert(s);
+
+        if (set_isempty(s->varlink_session_subscriptions))
+                return 0;
+
+        sd_varlink *link;
+        SET_FOREACH(link, s->varlink_session_subscriptions) {
+                int r = sd_varlink_notifybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_STRING("Event", lock ? "Lock" : "Unlock"));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to send session event notification, ignoring: %m");
+        }
+
+        return 0;
+}
+
 static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         sd_varlink *removed_link;
@@ -2897,6 +2952,14 @@ static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *use
                         session_drop_controller(session);
                         break;
                 }
+
+        /* Clean up session event subscriptions */
+        Session *s;
+        HASHMAP_FOREACH(s, m->sessions) {
+                removed_link = set_remove(s->varlink_session_subscriptions, link);
+                if (removed_link)
+                        sd_varlink_unref(removed_link);
+        }
 
         /* Clean up manager event subscriptions */
         removed_link = set_remove(m->varlink_manager_subscriptions, link);
@@ -3166,6 +3229,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.FlushDevices",     vl_method_flush_devices,
                         "io.systemd.Login.DescribeManager",  vl_method_describe_manager,
                         "io.systemd.Login.SubscribeManagerEvents", vl_method_subscribe_manager_events,
+                        "io.systemd.Login.SubscribeSessionEvents", vl_method_subscribe_session_events,
                         "io.systemd.Login.ListInhibitors",   vl_method_list_inhibitors,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
