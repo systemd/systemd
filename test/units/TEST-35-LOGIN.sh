@@ -1062,6 +1062,38 @@ testcase_varlink() {
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SwitchToNext '{"SeatId":"seat-nonexistent"}')
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SwitchToPrevious '{"SeatId":"seat-nonexistent"}')
 
+    : "--- Power management (Introspect) ---"
+    for m in PowerOff Reboot Halt Suspend Hibernate HybridSleep SuspendThenHibernate Sleep \
+             CanPowerOff CanReboot CanHalt CanSuspend CanHibernate CanHybridSleep \
+             CanSuspendThenHibernate CanSleep ScheduleShutdown CancelScheduledShutdown; do
+        varlinkctl introspect "$VARLINK_SOCKET" | grep "method $m" >/dev/null
+    done
+
+    : "--- Can* capability queries ---"
+    # Read-only; each returns Result in {"yes","no","challenge","na"}.
+    for m in CanPowerOff CanReboot CanHalt CanSuspend CanHibernate CanHybridSleep \
+             CanSuspendThenHibernate CanSleep; do
+        can_out=$(varlinkctl call "$VARLINK_SOCKET" "io.systemd.Login.$m" '{}')
+        echo "$can_out" | jq -e '.Result | IN("yes","no","challenge","na")' >/dev/null
+    done
+
+    : "--- ScheduleShutdown / CancelScheduledShutdown ---"
+    # Start clean — cancel any prior scheduled shutdown.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.CancelScheduledShutdown '{}' >/dev/null
+    # Schedule ~1h out (far enough that the timer won't fire during the test).
+    future_usec=$(( ( $(date +%s) + 3600 ) * 1000000 ))
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ScheduleShutdown \
+        "{\"Type\":\"poweroff\",\"USec\":$future_usec}"
+    # Second ScheduleShutdown replaces the first; cancel returns Cancelled=true.
+    cancel_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.CancelScheduledShutdown '{}')
+    echo "$cancel_out" | jq -e '.Cancelled == true' >/dev/null
+    # Nothing scheduled now — cancel returns Cancelled=false.
+    cancel_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.CancelScheduledShutdown '{}')
+    echo "$cancel_out" | jq -e '.Cancelled == false' >/dev/null
+    # Unknown shutdown type.
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ScheduleShutdown \
+          "{\"Type\":\"not-a-real-action\",\"USec\":$future_usec}")
+
     : "--- TerminateSession ---"
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TerminateSession '{"Id":"nonexistent-session-id"}')
     # Destructive: this ends the test session. Keep LAST.

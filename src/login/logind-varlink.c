@@ -13,7 +13,9 @@
 #include "hashmap.h"
 #include "json-util.h"
 #include "login-util.h"
+#include "os-util.h"
 #include "logind.h"
+#include "logind-action.h"
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
 #include "logind-seat.h"
@@ -23,7 +25,9 @@
 #include "logind-shutdown.h"
 #include "logind-user.h"
 #include "logind-varlink.h"
+#include "reboot-util.h"
 #include "signal-util.h"
+#include "sleep-config.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "user-record.h"
@@ -1529,6 +1533,365 @@ static int vl_method_switch_to_previous(sd_varlink *link, sd_json_variant *param
         return sd_varlink_reply(link, NULL);
 }
 
+static int verify_shutdown_creds_varlink(
+                Manager *m,
+                sd_varlink *link,
+                const HandleActionData *a,
+                uint64_t flags) {
+
+        /* Interactive polkit authorization is requested via the
+         * "allowInteractiveAuthentication" JSON field on the incoming message and is
+         * honored automatically by varlink_verify_polkit_async_full(), so no
+         * POLKIT_ALLOW_INTERACTIVE needs to be plumbed through the flags here. */
+
+        bool multiple_sessions, blocked;
+        Inhibitor *offending = NULL;
+        uid_t uid;
+        int r;
+
+        assert(m);
+        assert(a);
+        assert(link);
+
+        r = sd_varlink_get_peer_uid(link, &uid);
+        if (r < 0)
+                return r;
+
+        /* Check for other users' sessions */
+        Session *session;
+        multiple_sessions = false;
+        HASHMAP_FOREACH(session, m->sessions)
+                if (SESSION_CLASS_IS_INHIBITOR_LIKE(session->class) &&
+                    session->user->user_record->uid != uid) {
+                        multiple_sessions = true;
+                        break;
+                }
+
+        blocked = manager_is_inhibited(m, a->inhibit_what, NULL, /* flags= */ 0, uid, &offending);
+
+        if (multiple_sessions) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                m->bus,
+                                a->polkit_action_multiple_sessions,
+                                /* details= */ NULL,
+                                &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (blocked) {
+                if (!FLAGS_SET(flags, SD_LOGIND_SKIP_INHIBITORS) &&
+                    (offending->mode != INHIBIT_BLOCK_WEAK ||
+                     (uid == 0 && FLAGS_SET(flags, SD_LOGIND_ROOT_CHECK_INHIBITORS))))
+                        return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+                PolkitFlags polkit_flags = 0;
+                if (offending->mode != INHIBIT_BLOCK_WEAK)
+                        polkit_flags |= POLKIT_ALWAYS_QUERY;
+
+                r = varlink_verify_polkit_async_full(
+                                link,
+                                m->bus,
+                                a->polkit_action_ignore_inhibit,
+                                /* details= */ NULL,
+                                /* good_user= */ UID_INVALID,
+                                polkit_flags,
+                                &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (!multiple_sessions && !blocked) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                m->bus,
+                                a->polkit_action,
+                                /* details= */ NULL,
+                                &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
+
+        return 1; /* authorized */
+}
+
+static int vl_method_do_shutdown_or_sleep(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                Manager *m,
+                HandleAction action) {
+
+        int r;
+
+        struct {
+                uint64_t flags;
+        } p = {
+                .flags = 0,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Flags", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64, voffsetof(p, flags), 0 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if ((p.flags & ~SD_LOGIND_SHUTDOWN_AND_SLEEP_FLAGS_PUBLIC) != 0)
+                return sd_varlink_error_invalid_parameter_name(link, "Flags");
+
+        if (FLAGS_SET(p.flags, (SD_LOGIND_REBOOT_VIA_KEXEC|SD_LOGIND_SOFT_REBOOT)))
+                return sd_varlink_error_invalid_parameter_name(link, "Flags");
+
+        if (action != HANDLE_REBOOT) {
+                if (FLAGS_SET(p.flags, SD_LOGIND_REBOOT_VIA_KEXEC))
+                        return sd_varlink_error_invalid_parameter_name(link, "Flags");
+                if (p.flags & (SD_LOGIND_SOFT_REBOOT|SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP))
+                        return sd_varlink_error_invalid_parameter_name(link, "Flags");
+        }
+
+        const HandleActionData *a = NULL;
+
+        if (FLAGS_SET(p.flags, SD_LOGIND_SOFT_REBOOT) ||
+            (FLAGS_SET(p.flags, SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP) && path_is_os_tree("/run/nextroot") > 0))
+                a = handle_action_lookup(HANDLE_SOFT_REBOOT);
+        else if (FLAGS_SET(p.flags, SD_LOGIND_REBOOT_VIA_KEXEC) && kexec_loaded())
+                a = handle_action_lookup(HANDLE_KEXEC);
+
+        if (action == HANDLE_SLEEP) {
+                HandleAction selected = handle_action_sleep_select(m);
+                if (selected < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "Flags");
+
+                assert_se(a = handle_action_lookup(selected));
+
+        } else if (HANDLE_ACTION_IS_SLEEP(action)) {
+                assert_se(a = handle_action_lookup(action));
+
+                r = sleep_supported_full(a->sleep_operation, /* ret_support= */ NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "Flags");
+        } else if (!a)
+                assert_se(a = handle_action_lookup(action));
+
+        r = verify_shutdown_creds_varlink(m, link, a, p.flags);
+        if (r <= 0)
+                return r;
+
+        if (m->delayed_action)
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        m->unlink_nologin = false;
+        reset_scheduled_shutdown(m);
+        m->scheduled_shutdown_timeout = 0;
+        m->scheduled_shutdown_action = action;
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, a, &error);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_poweroff(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_do_shutdown_or_sleep(link, parameters, ASSERT_PTR(userdata), HANDLE_POWEROFF);
+}
+
+static int vl_method_login_reboot(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_do_shutdown_or_sleep(link, parameters, ASSERT_PTR(userdata), HANDLE_REBOOT);
+}
+
+static int vl_method_login_halt(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_do_shutdown_or_sleep(link, parameters, ASSERT_PTR(userdata), HANDLE_HALT);
+}
+
+static int vl_method_suspend(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_do_shutdown_or_sleep(link, parameters, ASSERT_PTR(userdata), HANDLE_SUSPEND);
+}
+
+static int vl_method_hibernate(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_do_shutdown_or_sleep(link, parameters, ASSERT_PTR(userdata), HANDLE_HIBERNATE);
+}
+
+static int vl_method_hybrid_sleep(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_do_shutdown_or_sleep(link, parameters, ASSERT_PTR(userdata), HANDLE_HYBRID_SLEEP);
+}
+
+static int vl_method_suspend_then_hibernate(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_do_shutdown_or_sleep(link, parameters, ASSERT_PTR(userdata), HANDLE_SUSPEND_THEN_HIBERNATE);
+}
+
+static int vl_method_sleep(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_do_shutdown_or_sleep(link, parameters, ASSERT_PTR(userdata), HANDLE_SLEEP);
+}
+
+static int vl_method_can_shutdown_or_sleep(sd_varlink *link, Manager *m, HandleAction action) {
+        const HandleActionData *a;
+        uid_t uid;
+        int r;
+
+        r = sd_varlink_get_peer_uid(link, &uid);
+        if (r < 0)
+                return r;
+
+        if (action == HANDLE_SLEEP) {
+                HandleAction selected = handle_action_sleep_select(m);
+                if (selected < 0)
+                        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", "na"));
+
+                assert_se(a = handle_action_lookup(selected));
+
+        } else if (HANDLE_ACTION_IS_SLEEP(action)) {
+                assert_se(a = handle_action_lookup(action));
+
+                r = sleep_supported_full(a->sleep_operation, /* ret_support= */ NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", "na"));
+        } else
+                assert_se(a = handle_action_lookup(action));
+
+        /* For Varlink, we do a simplified check: root gets "yes", non-root gets "challenge" if polkit
+         * is available, "no" otherwise. This is a simplification — the D-Bus version does a detailed
+         * non-interactive polkit probe which has no Varlink equivalent yet. */
+        const char *result;
+        if (uid == 0)
+                result = "yes";
+        else {
+#if ENABLE_POLKIT
+                result = "challenge";
+#else
+                result = "no";
+#endif
+        }
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("Result", result));
+}
+
+static int vl_method_can_poweroff(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_can_shutdown_or_sleep(link, ASSERT_PTR(userdata), HANDLE_POWEROFF);
+}
+
+static int vl_method_can_reboot(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_can_shutdown_or_sleep(link, ASSERT_PTR(userdata), HANDLE_REBOOT);
+}
+
+static int vl_method_can_halt(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_can_shutdown_or_sleep(link, ASSERT_PTR(userdata), HANDLE_HALT);
+}
+
+static int vl_method_can_suspend(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_can_shutdown_or_sleep(link, ASSERT_PTR(userdata), HANDLE_SUSPEND);
+}
+
+static int vl_method_can_hibernate(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_can_shutdown_or_sleep(link, ASSERT_PTR(userdata), HANDLE_HIBERNATE);
+}
+
+static int vl_method_can_hybrid_sleep(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_can_shutdown_or_sleep(link, ASSERT_PTR(userdata), HANDLE_HYBRID_SLEEP);
+}
+
+static int vl_method_can_suspend_then_hibernate(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_can_shutdown_or_sleep(link, ASSERT_PTR(userdata), HANDLE_SUSPEND_THEN_HIBERNATE);
+}
+
+static int vl_method_can_sleep(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_can_shutdown_or_sleep(link, ASSERT_PTR(userdata), HANDLE_SLEEP);
+}
+
+static int vl_method_schedule_shutdown(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *type;
+                uint64_t usec;
+        } p;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Type", SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, voffsetof(p, type), SD_JSON_MANDATORY },
+                { "USec", SD_JSON_VARIANT_UNSIGNED,  sd_json_dispatch_uint64,       voffsetof(p, usec), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        HandleAction handle = handle_action_from_string(p.type);
+        if (!HANDLE_ACTION_IS_SHUTDOWN(handle))
+                return sd_varlink_error_invalid_parameter_name(link, "Type");
+
+        const HandleActionData *a;
+        assert_se(a = handle_action_lookup(handle));
+
+        r = verify_shutdown_creds_varlink(m, link, a, 0);
+        if (r <= 0)
+                return r;
+
+        m->scheduled_shutdown_action = handle;
+        m->shutdown_dry_run = false;
+        m->scheduled_shutdown_timeout = p.usec;
+
+        r = manager_setup_shutdown_timers(m);
+        if (r < 0)
+                return r;
+
+        r = update_schedule_file(m);
+        if (r < 0) {
+                reset_scheduled_shutdown(m);
+                return r;
+        }
+
+        manager_send_changed(m, "ScheduledShutdown");
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_cancel_scheduled_shutdown(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, NULL);
+        if (r != 0)
+                return r;
+
+        bool cancelled = handle_action_valid(m->scheduled_shutdown_action) && m->scheduled_shutdown_action != HANDLE_IGNORE;
+        if (!cancelled)
+                return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Cancelled", false));
+
+        const HandleActionData *a;
+        assert_se(a = handle_action_lookup(m->scheduled_shutdown_action));
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        m->bus,
+                        a->polkit_action,
+                        /* details= */ NULL,
+                        &m->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        cancel_delayed_action(m);
+        reset_scheduled_shutdown(m);
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Cancelled", true));
+}
+
 static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
@@ -1773,6 +2136,25 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.SwitchTo",         vl_method_switch_to,
                         "io.systemd.Login.SwitchToNext",     vl_method_switch_to_next,
                         "io.systemd.Login.SwitchToPrevious", vl_method_switch_to_previous,
+                        "io.systemd.Login.PowerOff",         vl_method_poweroff,
+                        "io.systemd.Login.Reboot",           vl_method_login_reboot,
+                        "io.systemd.Login.Halt",             vl_method_login_halt,
+                        "io.systemd.Login.Suspend",          vl_method_suspend,
+                        "io.systemd.Login.Hibernate",        vl_method_hibernate,
+                        "io.systemd.Login.HybridSleep",      vl_method_hybrid_sleep,
+                        "io.systemd.Login.SuspendThenHibernate", vl_method_suspend_then_hibernate,
+                        "io.systemd.Login.Sleep",            vl_method_sleep,
+                        "io.systemd.Login.CanPowerOff",      vl_method_can_poweroff,
+                        "io.systemd.Login.CanReboot",        vl_method_can_reboot,
+                        "io.systemd.Login.CanHalt",          vl_method_can_halt,
+                        "io.systemd.Login.CanSuspend",       vl_method_can_suspend,
+                        "io.systemd.Login.CanHibernate",     vl_method_can_hibernate,
+                        "io.systemd.Login.CanHybridSleep",   vl_method_can_hybrid_sleep,
+                        "io.systemd.Login.CanSuspendThenHibernate", vl_method_can_suspend_then_hibernate,
+                        "io.systemd.Login.CanSleep",         vl_method_can_sleep,
+                        "io.systemd.Login.ScheduleShutdown", vl_method_schedule_shutdown,
+                        "io.systemd.Login.CancelScheduledShutdown", vl_method_cancel_scheduled_shutdown,
+                        "io.systemd.Login.ListInhibitors",   vl_method_list_inhibitors,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);

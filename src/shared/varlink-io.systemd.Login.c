@@ -416,6 +416,100 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(SeatId, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                PowerOff,
+                SD_VARLINK_FIELD_COMMENT("Optional flags for the operation."),
+                SD_VARLINK_DEFINE_INPUT(Flags, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                Reboot,
+                SD_VARLINK_FIELD_COMMENT("Optional flags for the operation."),
+                SD_VARLINK_DEFINE_INPUT(Flags, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                Halt,
+                SD_VARLINK_FIELD_COMMENT("Optional flags for the operation."),
+                SD_VARLINK_DEFINE_INPUT(Flags, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                Suspend,
+                SD_VARLINK_FIELD_COMMENT("Optional flags for the operation."),
+                SD_VARLINK_DEFINE_INPUT(Flags, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                Hibernate,
+                SD_VARLINK_FIELD_COMMENT("Optional flags for the operation."),
+                SD_VARLINK_DEFINE_INPUT(Flags, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                HybridSleep,
+                SD_VARLINK_FIELD_COMMENT("Optional flags for the operation."),
+                SD_VARLINK_DEFINE_INPUT(Flags, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SuspendThenHibernate,
+                SD_VARLINK_FIELD_COMMENT("Optional flags for the operation."),
+                SD_VARLINK_DEFINE_INPUT(Flags, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                Sleep,
+                SD_VARLINK_FIELD_COMMENT("Optional flags for the operation."),
+                SD_VARLINK_DEFINE_INPUT(Flags, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CanPowerOff,
+                SD_VARLINK_DEFINE_OUTPUT(Result, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CanReboot,
+                SD_VARLINK_DEFINE_OUTPUT(Result, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CanHalt,
+                SD_VARLINK_DEFINE_OUTPUT(Result, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CanSuspend,
+                SD_VARLINK_DEFINE_OUTPUT(Result, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CanHibernate,
+                SD_VARLINK_DEFINE_OUTPUT(Result, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CanHybridSleep,
+                SD_VARLINK_DEFINE_OUTPUT(Result, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CanSuspendThenHibernate,
+                SD_VARLINK_DEFINE_OUTPUT(Result, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CanSleep,
+                SD_VARLINK_DEFINE_OUTPUT(Result, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                ScheduleShutdown,
+                SD_VARLINK_FIELD_COMMENT("The type of shutdown, e.g. 'poweroff', 'reboot', 'halt'."),
+                SD_VARLINK_DEFINE_INPUT(Type, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The time at which to shut down, in microseconds since the epoch. Use UINT64_MAX for the next maintenance window."),
+                SD_VARLINK_DEFINE_INPUT(USec, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CancelScheduledShutdown,
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether a scheduled shutdown was actually cancelled."),
+                SD_VARLINK_DEFINE_OUTPUT(Cancelled, SD_VARLINK_BOOL, 0));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 InhibitorInfo,
                 SD_VARLINK_FIELD_COMMENT("The inhibitor identifier"),
@@ -542,6 +636,42 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_SwitchToNext,
                 SD_VARLINK_SYMBOL_COMMENT("Switches to the previous virtual terminal on a seat."),
                 &vl_method_SwitchToPrevious,
+                SD_VARLINK_SYMBOL_COMMENT("Powers off the machine."),
+                &vl_method_PowerOff,
+                SD_VARLINK_SYMBOL_COMMENT("Reboots the machine."),
+                &vl_method_Reboot,
+                SD_VARLINK_SYMBOL_COMMENT("Halts the machine."),
+                &vl_method_Halt,
+                SD_VARLINK_SYMBOL_COMMENT("Suspends the machine."),
+                &vl_method_Suspend,
+                SD_VARLINK_SYMBOL_COMMENT("Hibernates the machine."),
+                &vl_method_Hibernate,
+                SD_VARLINK_SYMBOL_COMMENT("Hybrid-sleeps the machine."),
+                &vl_method_HybridSleep,
+                SD_VARLINK_SYMBOL_COMMENT("Suspends, then hibernates the machine."),
+                &vl_method_SuspendThenHibernate,
+                SD_VARLINK_SYMBOL_COMMENT("Puts the machine to sleep using the best available method."),
+                &vl_method_Sleep,
+                SD_VARLINK_SYMBOL_COMMENT("Checks if the caller is allowed to power off."),
+                &vl_method_CanPowerOff,
+                SD_VARLINK_SYMBOL_COMMENT("Checks if the caller is allowed to reboot."),
+                &vl_method_CanReboot,
+                SD_VARLINK_SYMBOL_COMMENT("Checks if the caller is allowed to halt."),
+                &vl_method_CanHalt,
+                SD_VARLINK_SYMBOL_COMMENT("Checks if the caller is allowed to suspend."),
+                &vl_method_CanSuspend,
+                SD_VARLINK_SYMBOL_COMMENT("Checks if the caller is allowed to hibernate."),
+                &vl_method_CanHibernate,
+                SD_VARLINK_SYMBOL_COMMENT("Checks if the caller is allowed to hybrid-sleep."),
+                &vl_method_CanHybridSleep,
+                SD_VARLINK_SYMBOL_COMMENT("Checks if the caller is allowed to suspend-then-hibernate."),
+                &vl_method_CanSuspendThenHibernate,
+                SD_VARLINK_SYMBOL_COMMENT("Checks if the caller is allowed to sleep."),
+                &vl_method_CanSleep,
+                SD_VARLINK_SYMBOL_COMMENT("Schedules a shutdown at a specific time."),
+                &vl_method_ScheduleShutdown,
+                SD_VARLINK_SYMBOL_COMMENT("Cancels a previously scheduled shutdown."),
+                &vl_method_CancelScheduledShutdown,
                 SD_VARLINK_SYMBOL_COMMENT("Information about an inhibitor"),
                 &vl_type_InhibitorInfo,
                 SD_VARLINK_SYMBOL_COMMENT("Lists all current inhibitors."),
