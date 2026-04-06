@@ -17,6 +17,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "logind-session.h"
 #include "logind.h"
@@ -526,6 +527,22 @@ int inhibit_what_from_string(const char *s) {
                 else
                         return _INHIBIT_WHAT_INVALID;
         }
+}
+
+int inhibitor_build_json(Inhibitor *i, sd_json_variant **ret) {
+        assert(i);
+        assert(ret);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("Id", i->id),
+                        SD_JSON_BUILD_PAIR_STRING("What", inhibit_what_to_string(i->what)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Who", i->who),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Why", i->why),
+                        SD_JSON_BUILD_PAIR_STRING("Mode", inhibit_mode_to_string(i->mode)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("UID", i->uid),
+                        JSON_BUILD_PAIR_PIDREF_NON_NULL("PID", &i->pid),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("Since", &i->since));
 }
 
 static const char* const inhibit_mode_table[_INHIBIT_MODE_MAX] = {
