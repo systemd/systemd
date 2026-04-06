@@ -157,6 +157,7 @@ int register_machine(
                 int local_ifindex,
                 const char *address,
                 const char *key_path,
+                const char *control_address,
                 bool allocate_unit,
                 RuntimeScope scope) {
 
@@ -201,6 +202,7 @@ int register_machine(
                         SD_JSON_BUILD_PAIR_CONDITION(!!directory, "rootDirectory", SD_JSON_BUILD_STRING(directory)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!address, "sshAddress", SD_JSON_BUILD_STRING(address)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!key_path, "sshPrivateKeyPath", SD_JSON_BUILD_STRING(key_path)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!control_address, "controlAddress", SD_JSON_BUILD_STRING(control_address)),
                         SD_JSON_BUILD_PAIR_CONDITION(isatty_safe(STDIN_FILENO), "allowInteractiveAuthentication", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(allocate_unit, "allocateUnit", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(pidref), "leaderProcessId", JSON_BUILD_PIDREF(pidref)));
@@ -239,6 +241,7 @@ int register_machine_with_fallback_and_log(
                 int local_ifindex,
                 const char *address,
                 const char *key_path,
+                const char *control_address,
                 bool allocate_unit,
                 bool graceful,
                 bool *reterr_registered_system,
@@ -269,6 +272,7 @@ int register_machine_with_fallback_and_log(
                                 local_ifindex,
                                 address,
                                 key_path,
+                                control_address,
                                 scope == RUNTIME_SCOPE_SYSTEM ? allocate_unit : false,
                                 RUNTIME_SCOPE_SYSTEM);
                 if (q < 0)
@@ -290,6 +294,7 @@ int register_machine_with_fallback_and_log(
                                 local_ifindex,
                                 address,
                                 key_path,
+                                control_address,
                                 allocate_unit,
                                 RUNTIME_SCOPE_USER);
                 if (q < 0)
