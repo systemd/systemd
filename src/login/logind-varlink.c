@@ -18,6 +18,7 @@
 #include "logind-inhibit.h"
 #include "logind-seat.h"
 #include "logind-session.h"
+#include "logind-session-dbus.h"
 #include "logind-shutdown.h"
 #include "logind-user.h"
 #include "logind-varlink.h"
@@ -694,6 +695,299 @@ static int vl_method_list_seats(sd_varlink *link, sd_json_variant *parameters, s
         return 0;
 }
 
+static int lookup_session_for_action(Manager *m, sd_varlink *link, const char *id, Session **ret) {
+        int r;
+
+        r = lookup_session_by_name(m, link, id ?: "self", ret);
+        if (r == -EINVAL)
+                return sd_varlink_error_invalid_parameter_name(link, "id");
+        if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.Login.NoSuchSession", /* parameters= */ NULL);
+
+        return r;
+}
+
+static int vl_method_activate_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "id", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id), SD_JSON_NULLABLE },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Session *session;
+        r = lookup_session_for_action(m, link, p.id, &session);
+        if (r < 0)
+                return r;
+
+#if ENABLE_POLKIT
+        r = varlink_verify_polkit_async(
+                        link,
+                        m->bus,
+                        "org.freedesktop.login1.chvt",
+                        /* details= */ NULL,
+                        &m->polkit_registry);
+        if (r <= 0)
+                return r;
+#else
+        /* As in check_polkit_chvt(), allow activation without polkit so non-root services can start
+         * graphical sessions in builds without it. */
+#endif
+
+        r = session_activate(session);
+        if (r == -EOPNOTSUPP)
+                return sd_varlink_error(link, "io.systemd.Login.NotSupported", /* parameters= */ NULL);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static int vl_method_lock_or_unlock_session(sd_varlink *link, sd_json_variant *parameters, Manager *m, bool lock) {
+        int r;
+
+        struct {
+                const char *id;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "id", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id), SD_JSON_NULLABLE },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Session *session = NULL;
+        if (p.id) {
+                r = lookup_session_for_action(m, link, p.id, &session);
+                if (r < 0)
+                        return r;
+        }
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        m->bus,
+                        "org.freedesktop.login1.lock-sessions",
+                        /* details= */ NULL,
+                        session ? session->user->user_record->uid : UID_INVALID,
+                        /* flags= */ 0,
+                        &m->polkit_registry,
+                        /* ret_admin= */ NULL);
+        if (r <= 0)
+                return r;
+
+        r = session ? session_send_lock(session, lock) : session_send_lock_all(m, lock);
+        if (r == -ENOTTY)
+                return sd_varlink_error(link, "io.systemd.Login.NotSupported", /* parameters= */ NULL);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static int vl_method_lock_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_lock_or_unlock_session(link, parameters, ASSERT_PTR(userdata), /* lock= */ true);
+}
+
+static int vl_method_unlock_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_lock_or_unlock_session(link, parameters, ASSERT_PTR(userdata), /* lock= */ false);
+}
+
+static int vl_method_terminate_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "id", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Session *session;
+        r = lookup_session_for_action(m, link, p.id, &session);
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        m->bus,
+                        "org.freedesktop.login1.manage",
+                        /* details= */ NULL,
+                        session->user->user_record->uid,
+                        /* flags= */ 0,
+                        &m->polkit_registry,
+                        /* ret_admin= */ NULL);
+        if (r <= 0)
+                return r;
+
+        r = session_stop(session, /* force= */ true);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_kill_whom, KillWhom, kill_whom_from_string);
+
+static int vl_method_kill_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+                KillWhom whom;
+                int signo;
+        } p = {
+                .whom = _KILL_WHOM_INVALID,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "id",     SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, voffsetof(p, id),    SD_JSON_MANDATORY },
+                { "whom",   SD_JSON_VARIANT_STRING,  json_dispatch_kill_whom,       voffsetof(p, whom),  SD_JSON_NULLABLE  },
+                { "signal", SD_JSON_VARIANT_INTEGER, sd_json_dispatch_signal,      voffsetof(p, signo), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Session *session;
+        r = lookup_session_for_action(m, link, p.id, &session);
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        m->bus,
+                        "org.freedesktop.login1.manage",
+                        /* details= */ NULL,
+                        session->user->user_record->uid,
+                        /* flags= */ 0,
+                        &m->polkit_registry,
+                        /* ret_admin= */ NULL);
+        if (r <= 0)
+                return r;
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        r = session_kill(session, p.whom >= 0 ? p.whom : KILL_ALL, p.signo, &error);
+        if (sd_bus_error_has_name(&error, SD_BUS_ERROR_NOT_SUPPORTED))
+                return sd_varlink_error(link, "io.systemd.Login.NotSupported", /* parameters= */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to signal session %s: %s", session->id, bus_error_message(&error, r));
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static int check_session_owner(sd_varlink *link, Session *session) {
+        uid_t uid;
+        int r;
+
+        r = sd_varlink_get_peer_uid(link, &uid);
+        if (r < 0)
+                return r;
+        if (uid != 0 && uid != session->user->user_record->uid)
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
+
+        return 0;
+}
+
+static int vl_method_set_idle_hint(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+                bool idle_hint;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "id",       SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, voffsetof(p, id),        SD_JSON_NULLABLE  },
+                { "idleHint", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      voffsetof(p, idle_hint), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Session *session;
+        r = lookup_session_for_action(m, link, p.id, &session);
+        if (r < 0)
+                return r;
+
+        r = check_session_owner(link, session);
+        if (r < 0)
+                return r;
+
+        r = session_set_idle_hint(session, p.idle_hint);
+        if (r == -ENOTTY)
+                return sd_varlink_error(link, "io.systemd.Login.NotSupported", /* parameters= */ NULL);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static int vl_method_set_locked_hint(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+                bool locked_hint;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "id",         SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, voffsetof(p, id),          SD_JSON_NULLABLE  },
+                { "lockedHint", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      voffsetof(p, locked_hint), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Session *session;
+        r = lookup_session_for_action(m, link, p.id, &session);
+        if (r < 0)
+                return r;
+
+        r = check_session_owner(link, session);
+        if (r < 0)
+                return r;
+
+        r = session_set_locked_hint(session, p.locked_hint);
+        if (r == -ENOTTY)
+                return sd_varlink_error(link, "io.systemd.Login.NotSupported", /* parameters= */ NULL);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int vl_method_list_inhibitors(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -904,6 +1198,13 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Shutdown.Halt",          vl_method_halt,
                         "io.systemd.Shutdown.KExec",         vl_method_kexec,
                         "io.systemd.Shutdown.SoftReboot",    vl_method_soft_reboot,
+                        "io.systemd.Login.ActivateSession",  vl_method_activate_session,
+                        "io.systemd.Login.LockSession",      vl_method_lock_session,
+                        "io.systemd.Login.UnlockSession",    vl_method_unlock_session,
+                        "io.systemd.Login.TerminateSession", vl_method_terminate_session,
+                        "io.systemd.Login.KillSession",      vl_method_kill_session,
+                        "io.systemd.Login.SetIdleHint",      vl_method_set_idle_hint,
+                        "io.systemd.Login.SetLockedHint",    vl_method_set_locked_hint,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
                         "io.systemd.service.GetLogLevel",    varlink_method_get_log_level,
