@@ -7,7 +7,9 @@
 typedef enum ResourceType {
         RESOURCE_URL_FILE,
         RESOURCE_URL_TAR,
+        RESOURCE_URL_DDI,
         RESOURCE_TAR,
+        RESOURCE_DDI,
         RESOURCE_PARTITION,
         RESOURCE_REGULAR_FILE,
         RESOURCE_DIRECTORY,
@@ -20,7 +22,9 @@ static inline bool RESOURCE_IS_SOURCE(ResourceType t) {
         return IN_SET(t,
                       RESOURCE_URL_FILE,
                       RESOURCE_URL_TAR,
+                      RESOURCE_URL_DDI,
                       RESOURCE_TAR,
+                      RESOURCE_DDI,
                       RESOURCE_REGULAR_FILE,
                       RESOURCE_DIRECTORY,
                       RESOURCE_SUBVOLUME);
@@ -53,7 +57,8 @@ static inline bool RESOURCE_IS_TAR(ResourceType t) {
 static inline bool RESOURCE_IS_URL(ResourceType t) {
         return IN_SET(t,
                       RESOURCE_URL_TAR,
-                      RESOURCE_URL_FILE);
+                      RESOURCE_URL_FILE,
+                      RESOURCE_URL_DDI);
 }
 
 typedef enum PathRelativeTo {
