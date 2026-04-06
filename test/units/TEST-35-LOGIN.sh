@@ -1026,6 +1026,42 @@ testcase_varlink() {
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetType '{"Id":"nonexistent-session-id","Type":"tty"}')
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetDisplay '{"Id":"nonexistent-session-id","Display":":0"}')
 
+    : "--- User + seat actions (Introspect) ---"
+    for m in TerminateUser KillUser TerminateSeat ActivateSessionOnSeat SwitchTo SwitchToNext SwitchToPrevious; do
+        varlinkctl introspect "$VARLINK_SOCKET" | grep "method $m" >/dev/null
+    done
+
+    : "--- KillUser ---"
+    # Invalid signal
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.KillUser "{\"UID\":$uid,\"Signal\":999}")
+    # Nonexistent UID
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.KillUser '{"UID":4294967294,"Signal":18}')
+    # SIGCONT is non-lethal.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.KillUser "{\"UID\":$uid,\"Signal\":18}"
+    loginctl session-status "$session" >/dev/null
+
+    : "--- TerminateUser (negative only) ---"
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TerminateUser '{"UID":4294967294}')
+
+    : "--- TerminateSeat (negative only) ---"
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TerminateSeat '{"Id":"seat-nonexistent"}')
+
+    : "--- ActivateSessionOnSeat ---"
+    # Nonexistent session / seat
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ActivateSessionOnSeat \
+          '{"SessionId":"nonexistent-session-id","SeatId":"seat0"}')
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ActivateSessionOnSeat \
+          "{\"SessionId\":\"$session\",\"SeatId\":\"seat-nonexistent\"}")
+    # Happy path — session is already active on seat0.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ActivateSessionOnSeat \
+        "{\"SessionId\":\"$session\",\"SeatId\":\"seat0\"}"
+
+    : "--- SwitchTo / SwitchToNext / SwitchToPrevious (negative) ---"
+    # Nonexistent seat
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SwitchTo '{"SeatId":"seat-nonexistent","VTNr":2}')
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SwitchToNext '{"SeatId":"seat-nonexistent"}')
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SwitchToPrevious '{"SeatId":"seat-nonexistent"}')
+
     : "--- TerminateSession ---"
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TerminateSession '{"Id":"nonexistent-session-id"}')
     # Destructive: this ends the test session. Keep LAST.

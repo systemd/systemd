@@ -328,6 +328,28 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("The user information"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(User, UserInfo, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                TerminateUser,
+                SD_VARLINK_FIELD_COMMENT("Numeric UNIX UID of the user to terminate."),
+                SD_VARLINK_DEFINE_INPUT(UID, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                KillUser,
+                SD_VARLINK_FIELD_COMMENT("Numeric UNIX UID of the user."),
+                SD_VARLINK_DEFINE_INPUT(UID, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The UNIX signal to send."),
+                SD_VARLINK_DEFINE_INPUT(Signal, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetUserLinger,
+                SD_VARLINK_FIELD_COMMENT("Numeric UNIX UID of the user. If unspecified, targets the caller's user."),
+                SD_VARLINK_DEFINE_INPUT(UID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to enable or disable lingering."),
+                SD_VARLINK_DEFINE_INPUT(Enable, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SeatInfo,
                 SD_VARLINK_FIELD_COMMENT("The seat identifier"),
@@ -359,6 +381,40 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_REQUIRES_MORE,
                 SD_VARLINK_FIELD_COMMENT("The seat information"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Seat, SeatInfo, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                TerminateSeat,
+                SD_VARLINK_FIELD_COMMENT("The seat identifier."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                ActivateSessionOnSeat,
+                SD_VARLINK_FIELD_COMMENT("The session identifier."),
+                SD_VARLINK_DEFINE_INPUT(SessionId, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The seat identifier."),
+                SD_VARLINK_DEFINE_INPUT(SeatId, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SwitchTo,
+                SD_VARLINK_FIELD_COMMENT("The seat identifier. If unspecified or 'self'/'auto', targets the caller's seat."),
+                SD_VARLINK_DEFINE_INPUT(SeatId, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The virtual terminal number to switch to."),
+                SD_VARLINK_DEFINE_INPUT(VTNr, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SwitchToNext,
+                SD_VARLINK_FIELD_COMMENT("The seat identifier. If unspecified or 'self'/'auto', targets the caller's seat."),
+                SD_VARLINK_DEFINE_INPUT(SeatId, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SwitchToPrevious,
+                SD_VARLINK_FIELD_COMMENT("The seat identifier. If unspecified or 'self'/'auto', targets the caller's seat."),
+                SD_VARLINK_DEFINE_INPUT(SeatId, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 InhibitorInfo,
@@ -464,12 +520,28 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_DescribeUser,
                 SD_VARLINK_SYMBOL_COMMENT("Lists all current users."),
                 &vl_method_ListUsers,
+                SD_VARLINK_SYMBOL_COMMENT("Terminates all sessions of a user."),
+                &vl_method_TerminateUser,
+                SD_VARLINK_SYMBOL_COMMENT("Sends a signal to all processes of a user."),
+                &vl_method_KillUser,
+                SD_VARLINK_SYMBOL_COMMENT("Enables or disables user lingering."),
+                &vl_method_SetUserLinger,
                 SD_VARLINK_SYMBOL_COMMENT("Information about a seat"),
                 &vl_type_SeatInfo,
                 SD_VARLINK_SYMBOL_COMMENT("Describes a specific seat."),
                 &vl_method_DescribeSeat,
                 SD_VARLINK_SYMBOL_COMMENT("Lists all current seats."),
                 &vl_method_ListSeats,
+                SD_VARLINK_SYMBOL_COMMENT("Terminates all sessions on a seat."),
+                &vl_method_TerminateSeat,
+                SD_VARLINK_SYMBOL_COMMENT("Activates a session on a specific seat."),
+                &vl_method_ActivateSessionOnSeat,
+                SD_VARLINK_SYMBOL_COMMENT("Switches to a specific virtual terminal on a seat."),
+                &vl_method_SwitchTo,
+                SD_VARLINK_SYMBOL_COMMENT("Switches to the next virtual terminal on a seat."),
+                &vl_method_SwitchToNext,
+                SD_VARLINK_SYMBOL_COMMENT("Switches to the previous virtual terminal on a seat."),
+                &vl_method_SwitchToPrevious,
                 SD_VARLINK_SYMBOL_COMMENT("Information about an inhibitor"),
                 &vl_type_InhibitorInfo,
                 SD_VARLINK_SYMBOL_COMMENT("Lists all current inhibitors."),
