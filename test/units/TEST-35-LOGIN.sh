@@ -1211,6 +1211,23 @@ testcase_varlink() {
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ScheduleShutdown \
           "{\"Type\":\"not-a-real-action\",\"USec\":$future_usec}")
 
+    : "--- SetClass ---"
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method SetClass" >/dev/null
+    # Only 'user' is allowed as target
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetClass \
+          "{\"Id\":\"$session\",\"Class\":\"background\"}")
+    # Nonexistent session
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetClass \
+          '{"Id":"nonexistent-session-id","Class":"user"}')
+    # Target session is already 'user' — upgrade is a no-op and returns success.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetClass \
+        "{\"Id\":\"$session\",\"Class\":\"user\"}"
+    # Omitting Id must not use uninitialized memory — exercises the homectl path.
+    # The call may succeed (caller's session auto-resolved) or return an error, but
+    # logind must stay running either way.
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetClass '{"Class":"user"}' || true
+    systemctl is-active systemd-logind.service >/dev/null
+
     : "--- SetBrightness ---"
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method SetBrightness" >/dev/null
     # Invalid subsystem

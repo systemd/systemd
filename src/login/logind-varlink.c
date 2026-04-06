@@ -168,6 +168,26 @@ int session_send_create_reply_varlink(Session *s, const sd_bus_error *error) {
                         JSON_BUILD_PAIR_ENUM("Type", session_type_to_string(s->type)));
 }
 
+int session_send_upgrade_reply_varlink(Session *s, const sd_bus_error *error) {
+        assert(s);
+
+        if (!s->upgrade_link)
+                return 0;
+
+        /* Don't reply yet if jobs are still pending (unless there's an error) */
+        if (!sd_bus_error_is_set(error) && session_job_pending(s))
+                return 0;
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = TAKE_PTR(s->upgrade_link);
+
+        if (sd_bus_error_is_set(error))
+                return sd_varlink_error_errno(vl, sd_bus_error_get_errno(error));
+
+        session_save(s);
+
+        return sd_varlink_reply(vl, NULL);
+}
+
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_session_class, SessionClass, session_class_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_session_type, SessionType, session_type_from_string);
 
@@ -1238,6 +1258,65 @@ static int vl_method_set_display(sd_varlink *link, sd_json_variant *parameters, 
                 return r;
 
         return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_set_class(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+                const char *class;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Id",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id),    0                },
+                { "Class", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, class), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        SessionClass class = session_class_from_string(p.class);
+        if (class < 0)
+                return sd_varlink_error_invalid_parameter_name(link, "Class");
+
+        /* For now, only upgrades user-incomplete → user */
+        if (class != SESSION_USER)
+                return sd_varlink_error_invalid_parameter_name(link, "Class");
+
+        Session *session;
+        r = manager_varlink_get_session_by_name(m, link, p.id, &session);
+        if (r < 0)
+                return r;
+
+        if (session->class == SESSION_USER) /* No change */
+                return sd_varlink_reply(link, NULL);
+        if (session->class != SESSION_USER_INCOMPLETE)
+                return sd_varlink_error_invalid_parameter_name(link, "Class");
+
+        if (session->upgrade_message || session->upgrade_link)
+                return sd_varlink_error_invalid_parameter_name(link, "Class");
+
+        uid_t uid;
+        r = sd_varlink_get_peer_uid(link, &uid);
+        if (r < 0)
+                return r;
+
+        if (uid != 0 && uid != session->user->user_record->uid)
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        session_set_class(session, class);
+
+        session->upgrade_link = sd_varlink_ref(link);
+
+        r = session_send_upgrade_reply_varlink(session, /* error= */ NULL);
+        if (r < 0)
+                return r;
+
+        return 1; /* deferred reply */
 }
 
 static int vl_method_set_brightness(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -3259,6 +3338,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.PauseDeviceComplete", vl_method_pause_device_complete,
                         "io.systemd.Login.SetType",          vl_method_set_type,
                         "io.systemd.Login.SetDisplay",       vl_method_set_display,
+                        "io.systemd.Login.SetClass",         vl_method_set_class,
                         "io.systemd.Login.SetBrightness",    vl_method_set_brightness,
                         "io.systemd.Login.TerminateUser",    vl_method_terminate_user,
                         "io.systemd.Login.KillUser",         vl_method_kill_user,

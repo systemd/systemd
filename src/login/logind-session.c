@@ -206,6 +206,7 @@ Session* session_free(Session *s) {
         sd_bus_message_unref(s->upgrade_message);
 
         sd_varlink_unref(s->create_link);
+        sd_varlink_unref(s->upgrade_link);
 
         sd_varlink *vl;
         SET_FOREACH(vl, s->varlink_session_subscriptions)

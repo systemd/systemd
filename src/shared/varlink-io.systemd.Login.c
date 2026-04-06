@@ -276,6 +276,13 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(Display, SD_VARLINK_STRING, 0));
 
 static SD_VARLINK_DEFINE_METHOD(
+                SetClass,
+                SD_VARLINK_FIELD_COMMENT("The identifier string of the session."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The session class to set. Currently only 'user' is allowed (upgrading from 'user-incomplete')."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(Class, SessionClass, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
                 SetBrightness,
                 SD_VARLINK_FIELD_COMMENT("The device subsystem, either 'backlight' or 'leds'."),
                 SD_VARLINK_DEFINE_INPUT(Subsystem, SD_VARLINK_STRING, 0),
@@ -706,6 +713,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_SetType,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the display for a graphical session. Requires session control."),
                 &vl_method_SetDisplay,
+                SD_VARLINK_SYMBOL_COMMENT("Sets the session class. Currently only upgrades from user-incomplete to user."),
+                &vl_method_SetClass,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the brightness of a display device."),
                 &vl_method_SetBrightness,
                 SD_VARLINK_SYMBOL_COMMENT("Caller is not the session controller"),

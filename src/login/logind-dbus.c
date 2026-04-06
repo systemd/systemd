@@ -4307,11 +4307,13 @@ static void session_jobs_reply(Session *s, uint32_t jid, const char *unit, const
 
                 (void) session_send_create_reply(s, &e);
                 (void) session_send_upgrade_reply(s, &e);
+                (void) session_send_upgrade_reply_varlink(s, &e);
                 return;
         }
 
         (void) session_send_create_reply(s, /* error= */ NULL);
         (void) session_send_upgrade_reply(s, /* error= */ NULL);
+        (void) session_send_upgrade_reply_varlink(s, /* error= */ NULL);
 }
 
 int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
