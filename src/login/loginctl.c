@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "bus-error.h"
+#include "bus-label.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-print-properties.h"
@@ -704,6 +705,8 @@ static int mark_session(char **sessions, const char *target_session) {
         return 0;
 }
 
+static int connect_varlink(sd_varlink **ret);
+
 static int print_session_status_info(sd_bus *bus, const char *path) {
 
         static const struct bus_properties_map map[] = {
@@ -734,14 +737,88 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        /* Keep the Varlink reply alive so string pointers remain valid */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *varlink_reply_pin = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         SessionStatusInfo i = {};
         int r;
+
+        /* Try Varlink first for the data fetch (faster, avoids N property round-trips) */
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                r = connect_varlink(&vl);
+                if (r >= 0) {
+                        /* Extract the session ID from the D-Bus path for the Varlink call */
+                        const char *id = NULL;
+                        if (path) {
+                                id = strrchr(path, '/');
+                                if (id) {
+                                        id++;
+                                        _cleanup_free_ char *unescaped = bus_label_unescape(id);
+                                        if (unescaped) {
+                                                r = varlink_callbo_and_log(
+                                                                vl, "io.systemd.Login.DescribeSession", &varlink_reply_pin,
+                                                                SD_JSON_BUILD_PAIR_STRING("Id", unescaped));
+                                                if (r >= 0) {
+                                                        sd_json_variant *session = sd_json_variant_by_key(varlink_reply_pin, "Session");
+                                                        if (session) {
+                                                                i.id = sd_json_variant_string(sd_json_variant_by_key(session, "Id"));
+                                                                i.state = sd_json_variant_string(sd_json_variant_by_key(session, "State"));
+                                                                i.tty = sd_json_variant_string(sd_json_variant_by_key(session, "TTY"));
+                                                                i.display = sd_json_variant_string(sd_json_variant_by_key(session, "Display"));
+                                                                i.remote_host = sd_json_variant_string(sd_json_variant_by_key(session, "RemoteHost"));
+                                                                i.remote_user = sd_json_variant_string(sd_json_variant_by_key(session, "RemoteUser"));
+                                                                i.service = sd_json_variant_string(sd_json_variant_by_key(session, "Service"));
+                                                                i.desktop = sd_json_variant_string(sd_json_variant_by_key(session, "Desktop"));
+                                                                i.type = sd_json_variant_string(sd_json_variant_by_key(session, "Type"));
+                                                                i.class = sd_json_variant_string(sd_json_variant_by_key(session, "Class"));
+                                                                i.scope = sd_json_variant_string(sd_json_variant_by_key(session, "Scope"));
+                                                                i.seat = sd_json_variant_string(sd_json_variant_by_key(session, "Seat"));
+                                                                i.remote = sd_json_variant_boolean(sd_json_variant_by_key(session, "Remote"));
+                                                                i.idle_hint = sd_json_variant_boolean(sd_json_variant_by_key(session, "IdleHint"));
+                                                                i.vtnr = (unsigned) sd_json_variant_unsigned(sd_json_variant_by_key(session, "VTNr"));
+
+                                                                sd_json_variant *user = sd_json_variant_by_key(session, "User");
+                                                                if (user) {
+                                                                        i.uid = (uid_t) sd_json_variant_unsigned(sd_json_variant_by_key(user, "UID"));
+                                                                        i.name = sd_json_variant_string(sd_json_variant_by_key(user, "Name"));
+                                                                }
+
+                                                                sd_json_variant *leader_obj = sd_json_variant_by_key(session, "Leader");
+                                                                if (leader_obj) {
+                                                                        sd_json_variant *pid = sd_json_variant_by_key(leader_obj, "pid");
+                                                                        if (pid)
+                                                                                i.leader = (pid_t) sd_json_variant_unsigned(pid);
+                                                                }
+
+                                                                sd_json_variant *ts = sd_json_variant_by_key(session, "Timestamp");
+                                                                if (ts) {
+                                                                        sd_json_variant *rt = sd_json_variant_by_key(ts, "Realtime");
+                                                                        sd_json_variant *mt = sd_json_variant_by_key(ts, "Monotonic");
+                                                                        if (rt) i.timestamp.realtime = sd_json_variant_unsigned(rt);
+                                                                        if (mt) i.timestamp.monotonic = sd_json_variant_unsigned(mt);
+                                                                }
+
+                                                                sd_json_variant *idle_since = sd_json_variant_by_key(session, "IdleSinceHint");
+                                                                if (idle_since) i.idle_hint_timestamp.realtime = sd_json_variant_unsigned(idle_since);
+                                                                sd_json_variant *idle_since_mono = sd_json_variant_by_key(session, "IdleSinceHintMonotonic");
+                                                                if (idle_since_mono) i.idle_hint_timestamp.monotonic = sd_json_variant_unsigned(idle_since_mono);
+
+                                                                goto format; /* Skip D-Bus fetch, go straight to formatting */
+                                                        }
+                                                }
+                                        }
+                                }
+                        }
+                }
+                log_debug_errno(r, "Failed to get session info via Varlink, falling back to D-Bus: %m");
+        }
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
+format:
         table = table_new_vertical();
         if (!table)
                 return log_oom();
@@ -925,14 +1002,72 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *varlink_reply_pin = NULL;
         _cleanup_(user_status_info_done) UserStatusInfo i = {};
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
+
+        /* Try Varlink first */
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                r = connect_varlink(&vl);
+                if (r >= 0) {
+                        /* Extract UID from the path (e.g. /org/freedesktop/login1/user/_1000 or /user/self) */
+                        const char *uid_str = strrchr(path, '/');
+                        if (uid_str) {
+                                uid_str++;
+                                _cleanup_free_ char *unescaped = bus_label_unescape(uid_str);
+
+                                if (streq_ptr(unescaped, "self"))
+                                        r = varlink_call_and_log(vl, "io.systemd.Login.DescribeUser", NULL, &varlink_reply_pin);
+                                else {
+                                        uid_t uid;
+                                        r = parse_uid(unescaped, &uid);
+                                        if (r >= 0)
+                                                r = varlink_callbo_and_log(
+                                                                vl, "io.systemd.Login.DescribeUser", &varlink_reply_pin,
+                                                                SD_JSON_BUILD_PAIR_UNSIGNED("UID", uid));
+                                }
+
+                                if (r >= 0) {
+                                        sd_json_variant *user = sd_json_variant_by_key(varlink_reply_pin, "User");
+                                        if (user) {
+                                                i.uid = (uid_t) sd_json_variant_unsigned(sd_json_variant_by_key(user, "UID"));
+                                                i.name = sd_json_variant_string(sd_json_variant_by_key(user, "Name"));
+                                                i.state = sd_json_variant_string(sd_json_variant_by_key(user, "State"));
+                                                i.slice = sd_json_variant_string(sd_json_variant_by_key(user, "Slice"));
+                                                i.display = sd_json_variant_string(sd_json_variant_by_key(user, "Display"));
+                                                i.linger = sd_json_variant_boolean(sd_json_variant_by_key(user, "Linger"));
+
+                                                sd_json_variant *ts = sd_json_variant_by_key(user, "Timestamp");
+                                                if (ts) {
+                                                        sd_json_variant *rt = sd_json_variant_by_key(ts, "Realtime");
+                                                        sd_json_variant *mt = sd_json_variant_by_key(ts, "Monotonic");
+                                                        if (rt) i.timestamp.realtime = sd_json_variant_unsigned(rt);
+                                                        if (mt) i.timestamp.monotonic = sd_json_variant_unsigned(mt);
+                                                }
+
+                                                sd_json_variant *sessions = sd_json_variant_by_key(user, "Sessions");
+                                                sd_json_variant *entry;
+                                                JSON_VARIANT_ARRAY_FOREACH(entry, sessions) {
+                                                        const char *sid = sd_json_variant_string(sd_json_variant_by_key(entry, "Id"));
+                                                        if (sid)
+                                                                (void) strv_extend(&i.sessions, sid);
+                                                }
+
+                                                goto format;
+                                        }
+                                }
+                        }
+                }
+                log_debug_errno(r, "Failed to get user info via Varlink, falling back to D-Bus: %m");
+        }
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
+format:
         table = table_new_vertical();
         if (!table)
                 return log_oom();
@@ -1024,14 +1159,52 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *varlink_reply_pin = NULL;
         _cleanup_(seat_status_info_done) SeatStatusInfo i = {};
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
+
+        /* Try Varlink first */
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                r = connect_varlink(&vl);
+                if (r >= 0) {
+                        const char *seat_id = strrchr(path, '/');
+                        if (seat_id) {
+                                seat_id++;
+                                _cleanup_free_ char *unescaped = bus_label_unescape(seat_id);
+                                if (unescaped) {
+                                        r = varlink_callbo_and_log(
+                                                        vl, "io.systemd.Login.DescribeSeat", &varlink_reply_pin,
+                                                        SD_JSON_BUILD_PAIR_STRING("Id", unescaped));
+                                        if (r >= 0) {
+                                                sd_json_variant *seat = sd_json_variant_by_key(varlink_reply_pin, "Seat");
+                                                if (seat) {
+                                                        i.id = sd_json_variant_string(sd_json_variant_by_key(seat, "Id"));
+                                                        i.active_session = sd_json_variant_string(sd_json_variant_by_key(seat, "ActiveSession"));
+
+                                                        sd_json_variant *sessions = sd_json_variant_by_key(seat, "Sessions");
+                                                        sd_json_variant *entry;
+                                                        JSON_VARIANT_ARRAY_FOREACH(entry, sessions) {
+                                                                const char *sid = sd_json_variant_string(sd_json_variant_by_key(entry, "Id"));
+                                                                if (sid)
+                                                                        (void) strv_extend(&i.sessions, sid);
+                                                        }
+
+                                                        goto format;
+                                                }
+                                        }
+                                }
+                        }
+                }
+                log_debug_errno(r, "Failed to get seat info via Varlink, falling back to D-Bus: %m");
+        }
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, 0, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
+format:
         table = table_new_vertical();
         if (!table)
                 return log_oom();
@@ -1204,8 +1377,6 @@ static int get_bus_path_by_id(
 
         return strdup_to(ret, path);
 }
-
-static int connect_varlink(sd_varlink **ret);
 
 static int show_session_varlink_json(const char *id) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
