@@ -851,7 +851,10 @@ static int verb_facts(int argc, char *argv[], uintptr_t data, void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                r = output_collected(&context);
+                if (arg_url)
+                        r = upload_collected(&context);
+                else
+                        r = output_collected(&context);
                 if (r < 0)
                         return r;
         }
