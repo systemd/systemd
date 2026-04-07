@@ -8,6 +8,8 @@ libsystemd_network_sources = files(
         'dhcp-option.c',
         'dhcp-packet.c',
         'dhcp-protocol.c',
+        'dhcp-server-request.c',
+        'dhcp-server-send.c',
         'dhcp6-network.c',
         'dhcp6-option.c',
         'dhcp6-protocol.c',

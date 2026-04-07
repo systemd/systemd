@@ -32,14 +32,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(sd_dhcp_server_set_bind_to_interface(server, false) >= 0);
         assert_se(sd_dhcp_server_set_relay_agent_information(server, "string:sample_circuit_id", "string:sample_remote_id") >= 0);
 
-        size_t buflen = size;
-        buflen += relay_agent_information_length(server->agent_circuit_id, server->agent_remote_id) + 2;
-        assert_se(message = malloc(buflen));
-        memcpy(message, data, size);
-
         server->fd = open("/dev/null", O_RDWR|O_CLOEXEC|O_NOCTTY);
         assert_se(server->fd >= 0);
 
-        (void) dhcp_server_relay_message(server, (DHCPMessage *) message, size - sizeof(DHCPMessage), buflen);
+        (void) dhcp_server_relay_message(server, &IOVEC_MAKE(data, size));
         return 0;
 }
