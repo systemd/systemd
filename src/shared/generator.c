@@ -490,9 +490,8 @@ int generator_write_network_device_deps(
 
         assert(dir);
         assert(what);
-        assert(where);
 
-        if (fstab_is_extrinsic(where, opts))
+        if (where && fstab_is_extrinsic(where, opts))
                 return 0;
 
         if (!fstab_test_option(opts, "_netdev\0"))
