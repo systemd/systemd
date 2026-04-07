@@ -2439,12 +2439,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
 
-        r = qemu_config_section(config_file, "device", "balloon0",
-                                "driver", "virtio-balloon",
-                                "free-page-reporting", "on");
-        if (r < 0)
-                return r;
-
         if (ARCHITECTURE_SUPPORTS_VMGENID) {
                 sd_id128_t vmgenid;
                 r = sd_id128_get_invocation_app_specific(SD_ID128_MAKE(bd,84,6d,e3,e4,7d,4b,6c,a6,85,4a,87,0f,3c,a3,a0), &vmgenid);
@@ -3606,6 +3600,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = vmspawn_qmp_setup_rng(bridge);
         if (r < 0)
                 return r;
+
+        r = vmspawn_qmp_setup_balloon(bridge);
+        if (r < 0)
+                return r;
+
         /* Resume vCPUs and switch to async event processing */
         r = vmspawn_varlink_start(bridge);
         if (r < 0)
