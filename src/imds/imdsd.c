@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <net/if.h>
 #include <sys/xattr.h>
 #include <unistd.h>
@@ -26,6 +25,7 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-ifname.h"
+#include "format-table.h"
 #include "hash-funcs.h"
 #include "hashmap.h"
 #include "imds-util.h"
@@ -36,6 +36,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "netlink-util.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -2203,50 +2204,45 @@ static int vl_server(void) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *endpoint_options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-imdsd@.service", "8", &link);
         if (r < 0)
                 return log_oom();
 
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table_group("Manual Endpoint Configuration", &endpoint_options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, options, endpoint_options);
+
         printf("%1$s [OPTIONS...] KEY\n"
-               "\n%5$sLow-level IMDS data acquisition.%6$s\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "  -i --interface=INTERFACE\n"
-               "                       Use the specified interface\n"
-               "     --refresh=SEC     Set token refresh time\n"
-               "     --fwmark=INTEGER  Choose firewall mark for HTTP traffic\n"
-               "     --cache=no        Disable cache use\n"
-               "  -w --wait=yes        Wait for connectivity\n"
-               "  -K --well-known=     Select well-known key\n"
-               "     --setup-network   Generate .network and .rr files\n"
-               "\n%3$sManual Endpoint Configuration:%4$s\n"
-               "     --vendor=VENDOR   Specify IMDS vendor literally\n"
-               "     --token-url=URL   URL for acquiring token\n"
-               "     --refresh-header-name=NAME\n"
-               "                       Header name for passing refresh time\n"
-               "     --data-url=URL    Base URL for acquiring data\n"
-               "     --data-url-suffix=STRING\n"
-               "                       Suffix to append to data URL\n"
-               "     --token-header-name=NAME\n"
-               "                       Header name for passing token string\n"
-               "     --extra-header='NAME: VALUE'\n"
-               "                       Additional header to pass to data transfer\n"
-               "     --address-ipv4=ADDRESS\n"
-               "     --address-ipv6=ADDRESS\n"
-               "                       Configure the IPv4 and IPv6 address of the IMDS server\n"
-               "     --well-known-key=NAME:KEY\n"
-               "                       Configure the location of well-known keys\n"
-               "\nSee the %2$s for details.\n",
+               "\n%2$sLow-level IMDS data acquisition.%3$s\n"
+               "\n%4$sOptions:%5$s\n",
                program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
                ansi_normal());
 
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\n%sManual Endpoint Configuration:%s\n",
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(endpoint_options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
@@ -2259,91 +2255,48 @@ static bool http_header_valid(const char *a) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_REFRESH,
-                ARG_FWMARK,
-                ARG_CACHE,
-                ARG_WAIT,
-                ARG_VENDOR,
-                ARG_TOKEN_URL,
-                ARG_REFRESH_HEADER_NAME,
-                ARG_DATA_URL,
-                ARG_DATA_URL_SUFFIX,
-                ARG_TOKEN_HEADER_NAME,
-                ARG_EXTRA_HEADER,
-                ARG_ADDRESS_IPV4,
-                ARG_ADDRESS_IPV6,
-                ARG_WELL_KNOWN_KEY,
-                ARG_SETUP_NETWORK,
-        };
-
-        static const struct option options[] = {
-                { "help",                no_argument,       NULL, 'h'                     },
-                { "version",             no_argument,       NULL, ARG_VERSION             },
-                { "interface",           required_argument, NULL, 'i'                     },
-                { "refresh",             required_argument, NULL, ARG_REFRESH             },
-                { "fwmark",              required_argument, NULL, ARG_FWMARK              },
-                { "cache",               required_argument, NULL, ARG_CACHE               },
-                { "wait",                required_argument, NULL, ARG_WAIT                },
-                { "well-known",          required_argument, NULL, 'K'                     },
-                { "setup-network",       no_argument,       NULL, ARG_SETUP_NETWORK       },
-
-                /* The following all configure endpoint information explicitly */
-                { "vendor",              required_argument, NULL, ARG_VENDOR              },
-                { "token-url",           required_argument, NULL, ARG_TOKEN_URL           },
-                { "refresh-header-name", required_argument, NULL, ARG_REFRESH_HEADER_NAME },
-                { "data-url",            required_argument, NULL, ARG_DATA_URL            },
-                { "data-url-suffix",     required_argument, NULL, ARG_DATA_URL_SUFFIX     },
-                { "token-header-name",   required_argument, NULL, ARG_TOKEN_HEADER_NAME   },
-                { "extra-header",        required_argument, NULL, ARG_EXTRA_HEADER        },
-                { "address-ipv4",        required_argument, NULL, ARG_ADDRESS_IPV4        },
-                { "address-ipv6",        required_argument, NULL, ARG_ADDRESS_IPV6        },
-                { "well-known-key",      required_argument, NULL, ARG_WELL_KNOWN_KEY      },
-                {}
-        };
-
-        int c, r;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hi:wK:", options, NULL)) >= 0) {
+        OptionParser state = { argc, argv };
+        const char *arg;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case 'i':
-                        if (isempty(optarg)) {
+                OPTION('i', "interface", "INTERFACE", "Use the specified interface"):
+                        if (isempty(arg)) {
                                 arg_ifname = mfree(arg_ifname);
                                 break;
                         }
 
-                        if (!ifname_valid_full(optarg, IFNAME_VALID_ALTERNATIVE|IFNAME_VALID_NUMERIC))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Interface name '%s' is not valid.", optarg);
+                        if (!ifname_valid_full(arg, IFNAME_VALID_ALTERNATIVE|IFNAME_VALID_NUMERIC))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Interface name '%s' is not valid.", arg);
 
-                        r = free_and_strdup_warn(&arg_ifname, optarg);
+                        r = free_and_strdup_warn(&arg_ifname, arg);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case ARG_REFRESH: {
-                        if (isempty(optarg)) {
+                OPTION_LONG("refresh", "SEC", "Set token refresh time"): {
+                        if (isempty(arg)) {
                                 arg_refresh_usec = REFRESH_USEC_DEFAULT;
                                 break;
                         }
 
                         usec_t t;
-                        r = parse_sec(optarg, &t);
+                        r = parse_sec(arg, &t);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse refresh timeout: %s", optarg);
+                                return log_error_errno(r, "Failed to parse refresh timeout: %s", arg);
                         if (t < REFRESH_USEC_MIN) {
                                 log_warning("Increasing specified refresh time to %s, lower values are not supported.", FORMAT_TIMESPAN(REFRESH_USEC_MIN, 0));
                                 arg_refresh_usec = REFRESH_USEC_MIN;
@@ -2352,50 +2305,48 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_FWMARK:
-                        if (isempty(optarg)) {
+                OPTION_LONG("fwmark", "INTEGER", "Choose firewall mark for HTTP traffic"):
+                        if (isempty(arg)) {
                                 arg_fwmark_set = false;
                                 break;
                         }
 
-                        if (streq(optarg, "default")) {
+                        if (streq(arg, "default")) {
                                 arg_fwmark = FWMARK_DEFAULT;
                                 arg_fwmark_set = true;
                                 break;
                         }
 
-                        r = safe_atou32(optarg, &arg_fwmark);
+                        r = safe_atou32(arg, &arg_fwmark);
                         if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse --fwmark= parameter: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse --fwmark= parameter: %s", arg);
 
                         arg_fwmark_set = true;
                         break;
 
-                case ARG_CACHE:
-                        r = parse_boolean_argument("--cache", optarg, &arg_cache);
+                OPTION_LONG("cache", "BOOL", "Enable/disable cache use"):
+                        r = parse_boolean_argument("--cache", arg, &arg_cache);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_WAIT:
-                        r = parse_boolean_argument("--wait", optarg, &arg_wait);
+                OPTION_LONG("wait", "BOOL", "Whether to wait for connectivity"):
+                        r = parse_boolean_argument("--wait", arg, &arg_wait);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case 'w':
+                OPTION_SHORT('w', NULL, "Same as --wait=yes"):
                         arg_wait = true;
                         break;
 
-                case 'K': {
-                        if (isempty(optarg)) {
+                OPTION('K', "well-known", "KEY", "Select well-known key"): {
+                        if (isempty(arg)) {
                                 arg_well_known = _IMDS_WELL_KNOWN_INVALID;
                                 break;
                         }
 
-                        ImdsWellKnown wk = imds_well_known_from_string(optarg);
+                        ImdsWellKnown wk = imds_well_known_from_string(arg);
                         if (wk < 0)
                                 return log_error_errno(wk, "Failed to parse --well-known= parameter: %m");
 
@@ -2403,146 +2354,148 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_VENDOR:
-                        if (isempty(optarg)) {
+                OPTION_LONG("setup-network", NULL, "Generate .network and .rr files"):
+                        arg_setup_network = true;
+                        break;
+
+                /* The following all configure endpoint information explicitly */
+                OPTION_GROUP("Manual Endpoint Configuration"):
+                        break;
+
+                OPTION_LONG("vendor", "VENDOR", "Specify IMDS vendor literally"):
+                        if (isempty(arg)) {
                                 arg_vendor = mfree(arg_vendor);
                                 break;
                         }
 
-                        r = free_and_strdup_warn(&arg_vendor, optarg);
+                        r = free_and_strdup_warn(&arg_vendor, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_TOKEN_URL:
-                        if (isempty(optarg)) {
+                OPTION_LONG("token-url", "URL", "URL for acquiring token"):
+                        if (isempty(arg)) {
                                 arg_token_url = mfree(arg_token_url);
                                 break;
                         }
 
-                        if (!http_url_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid URL: %s", optarg);
+                        if (!http_url_is_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid URL: %s", arg);
 
-                        r = free_and_strdup_warn(&arg_token_url, optarg);
+                        r = free_and_strdup_warn(&arg_token_url, arg);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_REFRESH_HEADER_NAME:
-                        if (isempty(optarg)) {
+                OPTION_LONG("refresh-header-name", "NAME", "Header name for passing refresh time"):
+                        if (isempty(arg)) {
                                 arg_refresh_header_name = mfree(arg_refresh_header_name);
                                 break;
                         }
 
-                        if (!http_header_name_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid HTTP header name: %s", optarg);
+                        if (!http_header_name_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid HTTP header name: %s", arg);
 
-                        r = free_and_strdup_warn(&arg_refresh_header_name, optarg);
+                        r = free_and_strdup_warn(&arg_refresh_header_name, arg);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_DATA_URL:
-                        if (isempty(optarg)) {
+                OPTION_LONG("data-url", "URL", "Base URL for acquiring data"):
+                        if (isempty(arg)) {
                                 arg_data_url = mfree(arg_data_url);
                                 break;
                         }
 
-                        if (!http_url_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid URL: %s", optarg);
+                        if (!http_url_is_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid URL: %s", arg);
 
-                        r = free_and_strdup_warn(&arg_data_url, optarg);
+                        r = free_and_strdup_warn(&arg_data_url, arg);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_DATA_URL_SUFFIX:
-                        if (isempty(optarg)) {
+                OPTION_LONG("data-url-suffix", "STRING", "Suffix to append to data URL"):
+                        if (isempty(arg)) {
                                 arg_data_url_suffix = mfree(arg_data_url_suffix);
                                 break;
                         }
 
-                        if (!ascii_is_valid(optarg) || string_has_cc(optarg, /* ok= */ NULL))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid URL suffix: %s", optarg);
+                        if (!ascii_is_valid(arg) || string_has_cc(arg, /* ok= */ NULL))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid URL suffix: %s", arg);
 
-                        r = free_and_strdup_warn(&arg_data_url_suffix, optarg);
+                        r = free_and_strdup_warn(&arg_data_url_suffix, arg);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_TOKEN_HEADER_NAME:
-                        if (isempty(optarg)) {
+                OPTION_LONG("token-header-name", "NAME", "Header name for passing token string"):
+                        if (isempty(arg)) {
                                 arg_token_header_name = mfree(arg_token_header_name);
                                 break;
                         }
 
-                        if (!http_header_name_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid HTTP header name: %s", optarg);
+                        if (!http_header_name_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid HTTP header name: %s", arg);
 
-                        r = free_and_strdup_warn(&arg_token_header_name, optarg);
+                        r = free_and_strdup_warn(&arg_token_header_name, arg);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_EXTRA_HEADER:
-                        if (isempty(optarg)) {
+                OPTION_LONG("extra-header", "NAME: VALUE", "Additional header to pass to data transfer"):
+                        if (isempty(arg)) {
                                 arg_extra_header = strv_free(arg_extra_header);
                                 break;
                         }
 
-                        if (!http_header_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid HTTP header: %s", optarg);
+                        if (!http_header_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid HTTP header: %s", arg);
 
-                        if (strv_extend(&arg_extra_header, optarg) < 0)
+                        if (strv_extend(&arg_extra_header, arg) < 0)
                                 return log_oom();
-
                         break;
 
-                case ARG_ADDRESS_IPV4: {
-                        if (isempty(optarg)) {
+                OPTION_LONG("address-ipv4", "ADDRESS", "Configure IPv4 address of the IMDS server"): {
+                        if (isempty(arg)) {
                                 arg_address_ipv4 = (struct in_addr) {};
                                 break;
                         }
 
                         union in_addr_union u;
-                        r = in_addr_from_string(AF_INET, optarg, &u);
+                        r = in_addr_from_string(AF_INET, arg, &u);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse IPv4 address: %s", optarg);
+                                return log_error_errno(r, "Failed to parse IPv4 address: %s", arg);
                         arg_address_ipv4 = u.in;
                         break;
                 }
 
-                case ARG_ADDRESS_IPV6: {
-                        if (isempty(optarg)) {
+                OPTION_LONG("address-ipv6", "ADDRESS", "Configure IPv6 address of the IMDS server"): {
+                        if (isempty(arg)) {
                                 arg_address_ipv6 = (struct in6_addr) {};
                                 break;
                         }
 
                         union in_addr_union u;
-                        r = in_addr_from_string(AF_INET6, optarg, &u);
+                        r = in_addr_from_string(AF_INET6, arg, &u);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse IPv6 address: %s", optarg);
+                                return log_error_errno(r, "Failed to parse IPv6 address: %s", arg);
                         arg_address_ipv6 = u.in6;
                         break;
                 }
 
-                case ARG_WELL_KNOWN_KEY: {
-                        if (isempty(optarg)) {
+                OPTION_LONG("well-known-key", "NAME:KEY", "Configure the location of well-known keys"): {
+                        if (isempty(arg)) {
                                 for (ImdsWellKnown wk = 0; wk < _IMDS_WELL_KNOWN_MAX; wk++)
                                         arg_well_known_key[wk] = mfree(arg_well_known_key[wk]);
                                 break;
                         }
 
-                        const char *e = strchr(optarg, ':');
+                        const char *e = strchr(arg, ':');
                         if (!e)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--well-known-key= expects colon separated name and key pairs.");
 
-                        _cleanup_free_ char *name = strndup(optarg, e - optarg);
+                        _cleanup_free_ char *name = strndup(arg, e - arg);
                         if (!name)
                                 return log_oom();
 
@@ -2557,21 +2510,9 @@ static int parse_argv(int argc, char *argv[]) {
                         r = free_and_strdup_warn(arg_well_known_key + wk, e);
                         if (r < 0)
                                 return r;
-
                         break;
                 }
-
-                case ARG_SETUP_NETWORK:
-                        arg_setup_network = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
-        }
 
         if (arg_vendor || arg_token_url || arg_refresh_header_name || arg_data_url || arg_data_url_suffix || arg_token_header_name || arg_extra_header)
                 arg_endpoint_source = ENDPOINT_USER;
@@ -2583,23 +2524,25 @@ static int parse_argv(int argc, char *argv[]) {
         arg_varlink = r;
 
         if (!arg_varlink) {
+                char **args = option_parser_get_args(&state);
+                size_t n_args = option_parser_get_n_args(&state);
 
                 if (arg_setup_network) {
-                        if (optind != argc)
+                        if (n_args != 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No argument expected.");
                 } else {
                         if (arg_well_known < 0) {
                                 /* if no --well-known= parameter was specified we require an argument */
-                                if (argc != optind+1)
+                                if (n_args != 1)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "A single argument expected.");
-                        } else if (argc > optind+1) /* if not, then the additional parameter is optional */
+                        } else if (n_args > 1) /* if not, then the additional parameter is optional */
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "At most a single argument expected.");
 
-                        if (argc > optind) {
-                                if (!imds_key_is_valid(argv[optind]))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified IMDS key is not valid, refusing: %s", argv[optind]);
+                        if (n_args > 0) {
+                                if (!imds_key_is_valid(args[0]))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified IMDS key is not valid, refusing: %s", args[0]);
 
-                                r = free_and_strdup_warn(&arg_key, argv[optind]);
+                                r = free_and_strdup_warn(&arg_key, args[0]);
                                 if (r < 0)
                                         return r;
                         }

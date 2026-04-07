@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <locale.h>
 
 #include "sd-bus.h"
@@ -19,6 +18,7 @@
 #include "hashmap.h"
 #include "json-util.h"
 #include "main-func.h"
+#include "options.h"
 #include "pager.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
@@ -644,6 +644,8 @@ static int describe(sd_bus *bus, const char *target_path, const char *version) {
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
 }
 
+VERB(verb_list, "list", "[TARGET[@VERSION]]", VERB_ANY, 2, VERB_DEFAULT|VERB_ONLINE_ONLY,
+     "List available targets and versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_free_ char *target_path = NULL, *version = NULL;
@@ -755,6 +757,8 @@ static int check_finished(sd_bus_message *reply, void *userdata, sd_bus_error *r
         return 0;
 }
 
+VERB(verb_check, "check", "[TARGET...]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+     "Check for updates");
 static int verb_check(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -1291,6 +1295,8 @@ static int do_update(sd_bus *bus, char **targets) {
         return did_anything ? 1 : 0;
 }
 
+VERB(verb_update, "update", "[TARGET[@VERSION]...]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+     "Install updates");
 static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **targets = NULL;
@@ -1344,6 +1350,8 @@ static int do_vacuum(sd_bus *bus, const char *target, const char *path) {
         return count + disabled > 0 ? 1 : 0;
 }
 
+VERB(verb_vacuum, "vacuum", "[TARGET...]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+     "Clean up old updates");
 static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **targets = NULL, **target_paths = NULL;
@@ -1488,6 +1496,8 @@ static int list_features(sd_bus *bus) {
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
 }
 
+VERB(verb_features, "features", "[FEATURE]", VERB_ANY, 2, VERB_ONLINE_ONLY,
+     "List and inspect optional features on host OS");
 static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -1537,6 +1547,10 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, false);
 }
 
+VERB(verb_enable, "enable", "FEATURE...", 2, VERB_ANY, VERB_ONLINE_ONLY,
+     "Enable optional feature on host OS");
+VERB(verb_enable, "disable", "FEATURE...", 2, VERB_ANY, VERB_ONLINE_ONLY,
+     "Disable optional feature on host OS");
 static int verb_enable(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         bool did_anything = false, enable;
@@ -1618,111 +1632,102 @@ static int verb_enable(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *verbs = NULL, *verbs2 = NULL, *options = NULL;
         int r;
 
         r = terminal_urlify_man("updatectl", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] [VERSION]\n"
-               "\n%5$sManage system updates.%6$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "  list [TARGET[@VERSION]]       List available targets and versions\n"
-               "  check [TARGET...]             Check for updates\n"
-               "  update [TARGET[@VERSION]...]  Install updates\n"
-               "  vacuum [TARGET...]            Clean up old updates\n"
-               "  features [FEATURE]            List and inspect optional features on host OS\n"
-               "  enable FEATURE...             Enable optional feature on host OS\n"
-               "  disable FEATURE...            Disable optional feature on host OS\n"
-               "  -h --help                     Show this help\n"
-               "     --version                  Show package version\n"
-               "\n%3$sOptions:%4$s\n"
-               "     --reboot             Reboot after updating to newer version\n"
-               "     --offline            Do not fetch metadata from the network\n"
-               "     --now                Download/delete resources immediately\n"
-               "  -H --host=[USER@]HOST   Operate on remote host\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-               , ansi_underline(), ansi_normal()
-               , ansi_highlight(), ansi_normal()
-        );
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
 
+        r = option_parser_get_help_table_group("Verbs", &verbs2);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, verbs2, options);
+
+        printf("%s [OPTIONS...] [VERSION]\n"
+               "\n%sManage system updates.%s\n"
+               "\n%sCommands:%s\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+        r = table_print_or_warn(verbs2);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n",
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
+VERB_COMMON_HELP_HIDDEN(help);
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_REBOOT,
-                ARG_OFFLINE,
-                ARG_NOW,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'             },
-                { "version",   no_argument,       NULL, ARG_VERSION     },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER    },
-                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND   },
-                { "host",      required_argument, NULL, 'H'             },
-                { "reboot",    no_argument,       NULL, ARG_REBOOT      },
-                { "offline",   no_argument,       NULL, ARG_OFFLINE     },
-                { "now",       no_argument,       NULL, ARG_NOW         },
-                {}
-        };
-
-        int c;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:", options, NULL)) >= 0) {
+        OptionParser state = { argc, argv };
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
-                        break;
-
-                case ARG_REBOOT:
+                OPTION_LONG("reboot", NULL, "Reboot after updating to newer version"):
                         arg_reboot = true;
                         break;
 
-                case ARG_OFFLINE:
+                OPTION_LONG("offline", NULL, "Do not fetch metadata from the network"):
                         arg_offline = true;
                         break;
 
-                case ARG_NOW:
+                OPTION_LONG("now", NULL, "Download/delete resources immediately"):
                         arg_now = true;
                         break;
 
-                case '?':
-                        return -EINVAL;
+                OPTION_COMMON_HOST:
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = arg;
+                        break;
 
-                default:
-                        assert_not_reached();
+                OPTION_COMMON_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                OPTION_COMMON_NO_LEGEND:
+                        arg_legend = false;
+                        break;
+
+                OPTION_GROUP("Verbs"): {}
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
                 }
-        }
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
@@ -1730,23 +1735,13 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        static const Verb verbs[] = {
-                { "list",     VERB_ANY, 2,        VERB_DEFAULT|VERB_ONLINE_ONLY, verb_list     },
-                { "check",    VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_check    },
-                { "update",   VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_update   },
-                { "vacuum",   VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_vacuum   },
-                { "features", VERB_ANY, 2,        VERB_ONLINE_ONLY,              verb_features },
-                { "enable",   2,        VERB_ANY, VERB_ONLINE_ONLY,              verb_enable   },
-                { "disable",  2,        VERB_ANY, VERB_ONLINE_ONLY,              verb_enable   },
-                {}
-        };
-
         setlocale(LC_ALL, "");
         log_setup();
 
         (void) signal(SIGWINCH, columns_lines_cache_reset);
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -1759,7 +1754,7 @@ static int run(int argc, char *argv[]) {
 
         (void) sd_bus_set_allow_interactive_authorization(bus, true);
 
-        return dispatch_verb(argc, argv, verbs, bus);
+        return dispatch_verb_with_args(args, bus);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
