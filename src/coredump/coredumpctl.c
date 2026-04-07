@@ -30,6 +30,7 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "image-policy.h"
+#include "io-util.h"
 #include "journal-internal.h"
 #include "journal-util.h"
 #include "json-util.h"
@@ -1091,8 +1092,6 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                 goto error;
 #endif
         } else {
-                ssize_t sz;
-
                 /* We want full data, nothing truncated. */
                 sd_journal_set_data_threshold(j, 0);
 
@@ -1104,14 +1103,9 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                 data += 9;
                 len -= 9;
 
-                sz = write(fd, data, len);
-                if (sz < 0) {
-                        r = log_error_errno(errno, "Failed to write output: %m");
-                        goto error;
-                }
-                if (sz != (ssize_t) len) {
-                        log_error("Short write to output.");
-                        r = -EIO;
+                r = loop_write(fd, data, len);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to write output: %m");
                         goto error;
                 }
         }
