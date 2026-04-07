@@ -133,7 +133,6 @@ static uint64_t arg_ram = UINT64_C(2) * U64_GB;
 static uint64_t arg_ram_max = 0;
 static unsigned arg_ram_slots = 0;
 static int arg_kvm = -1;
-static bool arg_cxl = false;
 static int arg_vsock = -1;
 static unsigned arg_vsock_cid = VMADDR_CID_ANY;
 static int arg_tpm = -1;
@@ -236,7 +235,6 @@ static int help(void) {
                "                           Configure guest's RAM size (and max/slots for\n"
                "                           hotplug)\n"
                "     --kvm=BOOL            Enable use of KVM\n"
-               "     --cxl=BOOL            Enable use of CXL\n"
                "     --vsock=BOOL          Override autodetection of VSOCK support\n"
                "     --vsock-cid=CID       Specify the CID to use for the guest's VSOCK support\n"
                "     --tpm=BOOL            Enable use of a virtual TPM\n"
@@ -382,7 +380,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CPUS,
                 ARG_RAM,
                 ARG_KVM,
-                ARG_CXL,
                 ARG_VSOCK,
                 ARG_VSOCK_CID,
                 ARG_TPM,
@@ -441,7 +438,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "ram",               required_argument, NULL, ARG_RAM               },
                 { "qemu-mem",          required_argument, NULL, ARG_RAM               }, /* Compat alias */
                 { "kvm",               required_argument, NULL, ARG_KVM               },
-                { "cxl",               required_argument, NULL, ARG_CXL               },
                 { "qemu-kvm",          required_argument, NULL, ARG_KVM               }, /* Compat alias */
                 { "vsock",             required_argument, NULL, ARG_VSOCK             },
                 { "qemu-vsock",        required_argument, NULL, ARG_VSOCK             }, /* Compat alias */
@@ -571,15 +567,6 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_tristate_argument_with_auto("--kvm=", optarg, &arg_kvm);
                         if (r < 0)
                                 return r;
-                        break;
-
-                case ARG_CXL:
-                        r = parse_boolean_argument("--cxl=", optarg, &arg_cxl);
-                        if (r < 0)
-                                return r;
-                        if (arg_cxl && !ARCHITECTURE_SUPPORTS_CXL)
-                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                       "CXL not supported on %s.", architecture_to_string(native_architecture()));
                         break;
 
                 case ARG_VSOCK:
@@ -2371,7 +2358,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
-        if (arg_cxl) {
+        if (ARCHITECTURE_SUPPORTS_CXL) {
                 r = qemu_config_key(config_file, "cxl", "on");
                 if (r < 0)
                         return r;
