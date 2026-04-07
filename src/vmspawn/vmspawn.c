@@ -53,6 +53,7 @@
 #include "machine-credential.h"
 #include "machine-register.h"
 #include "main-func.h"
+#include "memfd-util.h"
 #include "mkdir.h"
 #include "namespace-util.h"
 #include "netif-util.h"
@@ -90,6 +91,8 @@
 #include "utf8.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-qemu-config.h"
+#include "vmspawn-varlink.h"
+#include "vmspawn-qmp.h"
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
@@ -2202,6 +2205,45 @@ static int disk_serial(const char *filename, size_t max_len, char **ret) {
         return 0;
 }
 
+static int resolve_disk_driver(DiskType dt, const char *filename, DriveInfo *info) {
+        int r;
+
+        assert(filename);
+        assert(info);
+
+        switch (dt) {
+        case DISK_TYPE_VIRTIO_BLK:
+                info->disk_driver = "virtio-blk-pci";
+                info->serial = strdup(filename);
+                if (!info->serial)
+                        return -ENOMEM;
+                break;
+        case DISK_TYPE_VIRTIO_SCSI:
+                info->disk_driver = "scsi-hd";
+                r = disk_serial(filename, DISK_SERIAL_MAX_LEN_SCSI, &info->serial);
+                if (r < 0)
+                        return r;
+                break;
+        case DISK_TYPE_NVME:
+                info->disk_driver = "nvme";
+                r = disk_serial(filename, DISK_SERIAL_MAX_LEN_NVME, &info->serial);
+                if (r < 0)
+                        return r;
+                break;
+        case DISK_TYPE_VIRTIO_SCSI_CDROM:
+                info->disk_driver = "scsi-cd";
+                info->read_only = true;
+                r = disk_serial(filename, DISK_SERIAL_MAX_LEN_SCSI, &info->serial);
+                if (r < 0)
+                        return r;
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL, *kernel = NULL;
@@ -2311,8 +2353,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (asprintf(&mem, "%" PRIu64 "M", DIV_ROUND_UP(arg_ram, U64_MB)) < 0)
                 return log_oom();
 
-        /* Create our runtime directory. We need this for the QEMU config file, TPM state, virtiofsd
-         * sockets, runtime mounts, and SSH key material. */
+        /* Create our runtime directory. We need this for the QMP varlink control socket, the QEMU
+         * config file, TPM state, virtiofsd sockets, runtime mounts, and SSH key material. */
         _cleanup_free_ char *runtime_dir = NULL, *runtime_dir_suffix = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
 
@@ -2437,6 +2479,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Start building the cmdline for items that must remain as command line arguments */
         cmdline = strv_new(qemu_binary,
+                           "-S",
                            "-no-user-config");
         if (!cmdline)
                 return log_oom();
@@ -3470,6 +3513,29 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to call getsockname on VSOCK: %m");
         }
 
+
+        /* Create QMP socketpair for QEMU machine monitor control. FORK_CLOEXEC_OFF clears CLOEXEC on
+         * pass_fds in the child, so we do not need to do it manually here (same as TAP and VSOCK fds). */
+        _cleanup_close_pair_ int bridge_fds[2] = EBADF_PAIR;
+        if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, bridge_fds) < 0)
+                return log_error_errno(errno, "Failed to create QMP socketpair: %m");
+
+        if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
+                return log_oom();
+        pass_fds[n_pass_fds++] = bridge_fds[1];
+
+        r = qemu_config_section(config_file, "chardev", "qmp",
+                                "backend", "socket");
+        if (r < 0)
+                return r;
+        r = qemu_config_keyf(config_file, "fd", "%d", bridge_fds[1]);
+        if (r < 0)
+                return r;
+        r = qemu_config_section(config_file, "mon", "qmp",
+                                "chardev", "qmp",
+                                "mode", "control");
+        if (r < 0)
+                return r;
         /* Finalize the config file and add -readconfig to the cmdline */
         r = fflush_and_check(config_file);
         if (r < 0)
@@ -3534,10 +3600,29 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 _exit(EXIT_FAILURE);
         }
 
-        /* Close relevant fds we passed to qemu in the parent. We don't need them anymore. */
+        /* Close QEMU's end of the QMP socketpair in the parent. The TAP and VSOCK fds
+         * (if any) live in their respective info structs and will be closed after
+         * vmspawn_varlink_init() sends them to QEMU via getfd + SCM_RIGHTS. */
         child_pty = safe_close(child_pty);
-        child_vsock_fd = safe_close(child_vsock_fd);
-        tap_fd = safe_close(tap_fd);
+        bridge_fds[1] = safe_close(bridge_fds[1]);
+
+        /* Connect to VMM backend */
+        _cleanup_(vmspawn_qmp_bridge_freep) VmspawnQmpBridge *bridge = NULL;
+        r = vmspawn_varlink_init(&bridge, TAKE_FD(bridge_fds[0]), event);
+        if (r < 0)
+                return r;
+
+        /* Resume vCPUs and switch to async event processing */
+        r = vmspawn_varlink_start(bridge);
+        if (r < 0)
+                return r;
+
+        /* Varlink server for VM control */
+        _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *varlink_ctx = NULL;
+        _cleanup_free_ char *control_address = NULL;
+        r = vmspawn_varlink_setup(&varlink_ctx, TAKE_PTR(bridge), runtime_dir, &control_address);
+        if (r < 0)
+                return r;
 
         if (!arg_keep_unit) {
                 /* When a new scope is created for this container, then we'll be registered as its controller, in which
@@ -3602,6 +3687,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         .vsock_cid            = child_cid,
                         .ssh_address          = child_cid != VMADDR_CID_ANY ? vm_address : NULL,
                         .ssh_private_key_path = ssh_private_key_path,
+                        .control_address      = control_address,
                         .allocate_unit        = !arg_keep_unit,
                 };
 
