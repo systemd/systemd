@@ -108,6 +108,11 @@ int option_parse(
                                 /* Looks like we found an option parameter */
                                 break;
 
+                        if (state->stop_at_first_nonoption) {
+                                state->parsing_stopped = true;
+                                return 0;
+                        }
+
                         state->optind++;
                 }
 
@@ -232,6 +237,28 @@ int option_parse(
                 assert(!optval);
 
         return option->id;
+}
+
+char* option_parser_next_arg(const OptionParser *state) {
+        /* Peek at the next argument, whatever it is (option or position arg).
+         * May return NULL. */
+
+        assert(state->optind > 0);
+        assert(state->positional_offset <= state->argc);
+
+        return state->optind < state->argc ? state->argv[state->optind] : NULL;
+}
+
+char* option_parser_consume_next_arg(OptionParser *state) {
+        /* "Take" the next argument, whatever it is (option or position arg).
+         * The argument remains in the array, but the optind pointer is moved
+         * so we won't try to interpret it as an option.
+         * May return NULL. */
+
+        char *t = option_parser_next_arg(state);
+        if (t)
+                shift_arg(state->argv, state->positional_offset++, state->optind++);
+        return t;
 }
 
 char** option_parser_get_args(const OptionParser *state) {
