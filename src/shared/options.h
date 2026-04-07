@@ -113,6 +113,9 @@ int option_parse(
 #define FOREACH_OPTION(parser, opt, ret_a, on_error) \
         FOREACH_OPTION_FULL(parser, opt, /* ret_o= */ NULL, ret_a, on_error)
 
+char* option_parser_next_arg(const OptionParser *state);
+char* option_parser_consume_next_arg(OptionParser *state);
+
 char** option_parser_get_args(const OptionParser *state);
 size_t option_parser_get_n_args(const OptionParser *state);
 
