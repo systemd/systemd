@@ -28,6 +28,15 @@ CHANGES WITH 261 in spe:
           require direct IMDS access. The new meson option "-Dimds-network="
           can be used to change the default mode to "locked" at build-time.
 
+        Changes in systemd-sysext/systemd-confext:
+
+        * New initrd services systemd-sysext-sysroot.service and
+          systemd-confext-sysroot.service are provided. These services are
+          used to merge system and configuration extensions for the main system
+          from the initrd. This overcomes the limitation that system and
+          configuration extensions merged from the main system itself cannot be
+          used to modify the resources which are used in the early boot.
+
 CHANGES WITH 260:
 
         Feature Removals and Incompatible Changes:
@@ -689,9 +698,9 @@ CHANGES WITH 259:
         systemd-sysext/systemd-confext:
 
         * systemd-sysext and systemd-confext now support configuration files
-          /etc/systemd/systemd-sysext.conf and /etc/systemd/systemd-confext.conf,
-          which can be used to configure mutability or the image policy to
-          apply to DDI images.
+          /etc/systemd/sysext.conf and /etc/systemd/confext.conf, which can be
+          used to configure mutability or the image policy to apply to DDI
+          images.
 
         * systemd-sysext's and systemd-confext's --mutable= switch now accepts
           a new value "help" for listing available mutability modes.
