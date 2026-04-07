@@ -844,6 +844,34 @@ static int varlink_write(sd_varlink *v) {
 
 #define VARLINK_FDS_MAX (16U*1024U)
 
+static bool varlink_may_protocol_upgrade(sd_varlink *v) {
+        return v->protocol_upgrade || (v->server && FLAGS_SET(v->server->flags, SD_VARLINK_SERVER_UPGRADABLE));
+}
+
+/* When a protocol upgrade might happen, peek at the socket data to find the \0 message
+ * boundary and return a read size that won't consume past it. This prevents over-reading
+ * raw post-upgrade data into the varlink input buffer. Falls back to byte-by-byte for
+ * non-socket fds where MSG_PEEK is not available. */
+static size_t varlink_peek_upgrade_boundary(sd_varlink *v, void *p, size_t rs) {
+        assert(v);
+        assert(varlink_may_protocol_upgrade(v));
+
+        if (v->prefer_read)
+                return 1;
+
+        ssize_t peeked = recv(v->input_fd, p, rs, MSG_PEEK|MSG_DONTWAIT);
+        if (peeked < 0 && errno == ENOTSOCK)
+                v->prefer_read = true;
+        else if (peeked > 0) {
+                void *nul = memchr(p, 0, peeked);
+                return nul ? (size_t) ((char*) nul - (char*) p) + 1 : (size_t) peeked;
+        }
+
+        /* On EAGAIN, EOF, or other error, fall back to single-byte read to be
+         * safe. The real read below will handle the actual error/EOF. */
+        return 1;
+}
+
 static int varlink_read(sd_varlink *v) {
         struct iovec iov;
         struct msghdr mh;
@@ -895,11 +923,13 @@ static int varlink_read(sd_varlink *v) {
 
         p = v->input_buffer + v->input_buffer_index + v->input_buffer_size;
 
-        /* When a protocol upgrade is requested we can't consume any post-upgrade data from the socket buffer */
-        if (v->protocol_upgrade)
-                rs = 1;
-        else
-                rs = MALLOC_SIZEOF_SAFE(v->input_buffer) - (v->input_buffer_index + v->input_buffer_size);
+        rs = MALLOC_SIZEOF_SAFE(v->input_buffer) - (v->input_buffer_index + v->input_buffer_size);
+
+        /* When a protocol upgrade is requested we can't consume any post-upgrade data from the socket
+         * buffer. Use MSG_PEEK to find the \0 message boundary and only consume up to it. For non-socket
+         * fds (pipes) MSG_PEEK is not available, so fall back to byte-by-byte reading. */
+        if (varlink_may_protocol_upgrade(v))
+                rs = varlink_peek_upgrade_boundary(v, p, rs);
 
         if (v->allow_fd_passing_input > 0) {
                 iov = IOVEC_MAKE(p, rs);
