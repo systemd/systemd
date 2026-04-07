@@ -807,15 +807,10 @@ static int bearer_properties_changed_handler(
         if (!path)
                 return 0;
 
-        if (bearer_get_by_path(manager, path, &modem, &b) < 0) {
-                /*
-                 * Have new bearer: check if we have the corresponding modem
-                 * for it which we might not during initialization.
-                 */
-                if (modem)
-                        (void) bearer_new_and_initialize(modem, path);
+        if (bearer_get_by_path(manager, path, &modem, &b) < 0)
+                /* Unknown bearer, nothing to do. Modem-bearer association is handled
+                 * by modem_map_bearers() during modem property initialization. */
                 return 0;
-        }
 
         if (b->slot_getall) {
                 /* Not initialized yet. Re-initialize it. */
