@@ -45,6 +45,7 @@ wrap=(
     /usr/lib/systemd/tests/testdata/TEST-74-AUX-UTILS.units/proxy-echo.py
     /usr/libexec/polkit-1/polkitd
     /usr/lib/systemd/tests/integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units/fake-imds.py
+    /usr/lib/systemd/tests/integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units/fake-report-server.py
     agetty
     btrfs
     capsh
