@@ -604,9 +604,9 @@ static void modem_simple_connect(Modem *modem) {
         if (!modem->port_name)
                 return;
 
-        (void) link_get_by_name(modem->manager, modem->port_name, &link);
-        if (!link)
-                return (void) log_debug("ModemManager: cannot find link for %s", modem->port_name);
+        r = link_get_by_name(modem->manager, modem->port_name, &link);
+        if (r < 0)
+                return (void) log_debug_errno(r, "ModemManager: cannot find link for %s: %m", modem->port_name);
 
         /* Check if .network file found at all */
         if (!link->network)
