@@ -401,6 +401,16 @@ static int varlink_idl_format_symbol(
                         fputs("\n", f);
                 }
 
+                if ((symbol->symbol_flags & (SD_VARLINK_REQUIRES_UPGRADE|SD_VARLINK_SUPPORTS_UPGRADE)) != 0) {
+                        fputs(colors[COLOR_COMMENT], f);
+                        if (FLAGS_SET(symbol->symbol_flags, SD_VARLINK_REQUIRES_UPGRADE))
+                                fputs("# [Requires 'upgrade' flag]", f);
+                        else
+                                fputs("# [Supports 'upgrade' flag]", f);
+                        fputs(colors[COLOR_RESET], f);
+                        fputs("\n", f);
+                }
+
                 fputs(colors[COLOR_SYMBOL_TYPE], f);
                 fputs("method ", f);
                 fputs(colors[COLOR_IDENTIFIER], f);
