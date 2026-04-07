@@ -188,18 +188,6 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--cxl=<replaceable>BOOL</replaceable></option></term>
-
-          <listitem><para>Controls whether to enable CXL (Compute Express Link) support in the virtual
-          machine. CXL is a high-speed interconnect standard that allows CPUs to access memory attached to
-          devices such as accelerators and memory expanders, enabling flexible memory pooling and expansion
-          beyond what is physically installed on the motherboard. Only supported on x86_64 and aarch64
-          architectures.</para>
-
-          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><option>--vsock=<replaceable>BOOL</replaceable></option></term>
 
           <listitem><para>Controls whether to allocate a VSOCK socket for guest. If not specified or set to
