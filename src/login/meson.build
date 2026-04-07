@@ -21,6 +21,7 @@ systemd_logind_extract_sources = files(
         'logind-session-dbus.c',
         'logind-session-device.c',
         'logind-session.c',
+        'logind-shutdown.c',
         'logind-user-dbus.c',
         'logind-user.c',
         'logind-utmp.c',
