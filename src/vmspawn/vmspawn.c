@@ -3017,19 +3017,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 pidref_done(&child);
                 children[n_children++] = TAKE_PTR(source);
 
-                r = qemu_config_section(config_file, "chardev", "rootdir",
-                                        "backend", "socket",
-                                        "path", listen_address);
-                if (r < 0)
-                        return r;
+                _cleanup_free_ char *id = strdup("rootdir"), *tag = strdup("root");
+                if (!id || !tag)
+                        return log_oom();
 
-                r = qemu_config_section(config_file, "device", "rootdir",
-                                        "driver", "vhost-user-fs-pci",
-                                        "queue-size", "1024",
-                                        "chardev", "rootdir",
-                                        "tag", "root");
-                if (r < 0)
-                        return r;
+                if (!GREEDY_REALLOC(config.virtiofs.entries, config.virtiofs.n_entries + 1))
+                        return log_oom();
+
+                config.virtiofs.entries[config.virtiofs.n_entries++] = (VirtiofsInfo) {
+                        .id          = TAKE_PTR(id),
+                        .socket_path = TAKE_PTR(listen_address),
+                        .tag         = TAKE_PTR(tag),
+                };
 
                 if (strv_extend(&arg_kernel_cmdline_extra, "root=root rootfstype=virtiofs rw") < 0)
                         return log_oom();
@@ -3146,7 +3145,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         for (size_t j = 0; j < arg_runtime_mounts.n_mounts; j++) {
                 RuntimeMount *m = arg_runtime_mounts.mounts + j;
-                _cleanup_free_ char *listen_address = NULL;
+                _cleanup_free_ char *listen_address = NULL, *id = NULL, *tag = NULL;
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
@@ -3172,23 +3171,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 pidref_done(&child);
                 children[n_children++] = TAKE_PTR(source);
 
-                _cleanup_free_ char *id = NULL;
                 if (asprintf(&id, "mnt%zu", j) < 0)
                         return log_oom();
 
-                r = qemu_config_section(config_file, "chardev", id,
-                                        "backend", "socket",
-                                        "path", listen_address);
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_section(config_file, "device", id,
-                                        "driver", "vhost-user-fs-pci",
-                                        "queue-size", "1024",
-                                        "chardev", id,
-                                        "tag", id);
-                if (r < 0)
-                        return r;
+                tag = strdup(id);
+                if (!tag)
+                        return log_oom();
 
                 /* fstab uses whitespace as field separator, so octal-escape spaces in paths */
                 _cleanup_free_ char *escaped_target = octescape_full(m->target, SIZE_MAX, " \t");
@@ -3198,6 +3186,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (strextendf(&fstab_extra, "%s %s virtiofs %s,x-initrd.mount\n",
                                id, escaped_target, m->read_only ? "ro" : "rw") < 0)
                         return log_oom();
+
+                if (!GREEDY_REALLOC(config.virtiofs.entries, config.virtiofs.n_entries + 1))
+                        return log_oom();
+
+                config.virtiofs.entries[config.virtiofs.n_entries++] = (VirtiofsInfo) {
+                        .id          = TAKE_PTR(id),
+                        .socket_path = TAKE_PTR(listen_address),
+                        .tag         = TAKE_PTR(tag),
+                };
         }
 
         if (fstab_extra) {
@@ -3592,6 +3589,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
         }
+
+        r = vmspawn_qmp_setup_virtiofs(bridge, &config.virtiofs);
+        if (r < 0)
+                return r;
 
         r = vmspawn_qmp_setup_vsock(bridge, &config.vsock);
         if (r < 0)
