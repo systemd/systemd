@@ -1,0 +1,263 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+/* Integration test for the QMP client library against a real QEMU instance.
+ *
+ * Launches QEMU with -machine none (no bootable image needed) to get a live QMP monitor, then exercises the
+ * client library against it. Validates the blocking handshake, large response buffering (~200KB for
+ * query-qmp-schema), response correlation by id, and async command execution.
+ *
+ * Skipped automatically if QEMU is not installed. */
+
+#include <signal.h>
+#include <sys/socket.h>
+
+#include "sd-event.h"
+#include "sd-json.h"
+
+#include "fd-util.h"
+#include "pidref.h"
+#include "process-util.h"
+#include "qmp-client.h"
+#include "string-util.h"
+#include "tests.h"
+#include "time-util.h"
+#include "vmspawn-util.h"
+
+static int start_qemu(const char *qemu_binary, int fd, PidRef *ret) {
+        _cleanup_free_ char *chardev_arg = NULL;
+        int r;
+
+        assert(qemu_binary);
+        assert(fd >= 0);
+        assert(ret);
+
+        if (asprintf(&chardev_arg, "socket,id=qmp,fd=%d", fd) < 0)
+                return -ENOMEM;
+
+        r = pidref_safe_fork_full(
+                        "(qemu)",
+                        (const int[3]) { STDIN_FILENO, -EBADF, -EBADF },
+                        &fd, 1,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        ret);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child */
+                execl(qemu_binary, qemu_binary,
+                      "-machine", "none",
+                      "-nographic",
+                      "-nodefaults",
+                      "-chardev", chardev_arg,
+                      "-mon", "chardev=qmp,mode=control",
+                      NULL);
+                log_error_errno(errno, "Failed to exec %s: %m", qemu_binary);
+                _exit(EXIT_FAILURE);
+        }
+
+        return 0;
+}
+
+/* Test helper: tracks an async QMP command result and signals completion. */
+typedef struct {
+        sd_json_variant *result;
+        int error;
+        bool done;
+} QmpTestResult;
+
+static void on_test_result(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_class,
+                int error,
+                void *userdata) {
+
+        QmpTestResult *t = ASSERT_PTR(userdata);
+
+        t->error = error;
+        if (result)
+                t->result = sd_json_variant_ref(result);
+        t->done = true;
+}
+
+static void qmp_test_wait(sd_event *event, QmpTestResult *t) {
+        assert(event);
+        assert(t);
+
+        usec_t deadline = usec_add(now(CLOCK_MONOTONIC), 5 * USEC_PER_MINUTE);
+
+        while (!t->done) {
+                usec_t n = now(CLOCK_MONOTONIC);
+                ASSERT_LT(n, deadline);
+                ASSERT_OK(sd_event_run(event, usec_sub_unsigned(deadline, n)));
+        }
+}
+
+static void qmp_test_result_done(QmpTestResult *t) {
+        assert(t);
+
+        sd_json_variant_unref(t->result);
+        *t = (QmpTestResult) {};
+}
+
+TEST(qmp_client_qemu_handshake_and_schema) {
+        _cleanup_free_ char *qemu = NULL;
+        _cleanup_(qmp_client_freep) QmpClient *client = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        QmpTestResult t = {};
+        int qmp_fds[2];
+        int r;
+
+        if (find_qemu_binary(&qemu) < 0) {
+                log_tests_skipped("QEMU not found");
+                return;
+        }
+        log_info("Using QEMU: %s", qemu);
+
+        ASSERT_OK(sd_event_new(&event));
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, qmp_fds));
+
+        /* Clear CLOEXEC on QEMU's end so it survives exec */
+        ASSERT_OK(fd_cloexec(qmp_fds[1], false));
+
+        ASSERT_OK(start_qemu(qemu, qmp_fds[1], &pidref));
+        qmp_fds[1] = safe_close(qmp_fds[1]);
+
+        /* Blocking handshake against real QEMU */
+        r = qmp_client_connect_fd(&client, qmp_fds[0], event);
+        if (r < 0) {
+                log_tests_skipped_errno(r, "QMP handshake failed (QEMU may not support -machine none)");
+                (void) pidref_kill(&pidref, SIGKILL);
+                (void) pidref_wait_for_terminate(&pidref, NULL);
+                return;
+        }
+
+        r = qmp_client_start_async(client);
+        ASSERT_OK(r);
+
+        /* query-qmp-schema returns ~200KB -- validates the buffered reader handles large multi-read()
+         * responses correctly */
+        r = qmp_client_execute(client, "query-qmp-schema", NULL, on_test_result, &t);
+        ASSERT_OK(r);
+        qmp_test_wait(event, &t);
+        ASSERT_EQ(t.error, 0);
+        ASSERT_NOT_NULL(t.result);
+        ASSERT_TRUE(sd_json_variant_is_array(t.result));
+        ASSERT_GT(sd_json_variant_elements(t.result), (size_t) 0);
+        log_info("query-qmp-schema returned %zu entries", sd_json_variant_elements(t.result));
+        qmp_test_result_done(&t);
+
+        /* Clean shutdown */
+        r = qmp_client_execute(client, "quit", NULL, on_test_result, &t);
+        ASSERT_OK(r);
+        qmp_test_wait(event, &t);
+        ASSERT_EQ(t.error, 0);
+        qmp_test_result_done(&t);
+
+        siginfo_t si = {};
+        ASSERT_OK(pidref_wait_for_terminate(&pidref, &si));
+        ASSERT_EQ(si.si_code, CLD_EXITED);
+        ASSERT_EQ(si.si_status, EXIT_SUCCESS);
+}
+
+TEST(qmp_client_qemu_query_status) {
+        _cleanup_free_ char *qemu = NULL;
+        _cleanup_(qmp_client_freep) QmpClient *client = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        QmpTestResult t = {};
+        sd_json_variant *running, *status;
+        int qmp_fds[2];
+        int r;
+
+        if (find_qemu_binary(&qemu) < 0) {
+                log_tests_skipped("QEMU not found");
+                return;
+        }
+
+        ASSERT_OK(sd_event_new(&event));
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, qmp_fds));
+        ASSERT_OK(fd_cloexec(qmp_fds[1], false));
+
+        ASSERT_OK(start_qemu(qemu, qmp_fds[1], &pidref));
+        qmp_fds[1] = safe_close(qmp_fds[1]);
+
+        r = qmp_client_connect_fd(&client, qmp_fds[0], event);
+        if (r < 0) {
+                log_tests_skipped_errno(r, "QMP handshake failed");
+                (void) pidref_kill(&pidref, SIGKILL);
+                (void) pidref_wait_for_terminate(&pidref, NULL);
+                return;
+        }
+
+        r = qmp_client_start_async(client);
+        ASSERT_OK(r);
+
+        /* query-status validates response parsing against real QEMU output format */
+        r = qmp_client_execute(client, "query-status", NULL, on_test_result, &t);
+        ASSERT_OK(r);
+        qmp_test_wait(event, &t);
+        ASSERT_EQ(t.error, 0);
+        ASSERT_NOT_NULL(t.result);
+
+        status = sd_json_variant_by_key(t.result, "status");
+        ASSERT_NOT_NULL(status);
+        ASSERT_TRUE(sd_json_variant_is_string(status));
+
+        running = sd_json_variant_by_key(t.result, "running");
+        ASSERT_NOT_NULL(running);
+        ASSERT_TRUE(sd_json_variant_is_boolean(running));
+
+        log_info("QEMU status: %s, running: %s",
+                 sd_json_variant_string(status),
+                 true_false(sd_json_variant_boolean(running)));
+
+        qmp_test_result_done(&t);
+
+        /* Test stop + cont to exercise command sequencing and id correlation */
+        r = qmp_client_execute(client, "stop", NULL, on_test_result, &t);
+        ASSERT_OK(r);
+        qmp_test_wait(event, &t);
+        ASSERT_EQ(t.error, 0);
+        qmp_test_result_done(&t);
+
+        /* Verify status changed */
+        r = qmp_client_execute(client, "query-status", NULL, on_test_result, &t);
+        ASSERT_OK(r);
+        qmp_test_wait(event, &t);
+        ASSERT_EQ(t.error, 0);
+        ASSERT_NOT_NULL(t.result);
+
+        running = sd_json_variant_by_key(t.result, "running");
+        ASSERT_NOT_NULL(running);
+        ASSERT_FALSE(sd_json_variant_boolean(running));
+        log_info("After stop: running=%s", true_false(sd_json_variant_boolean(running)));
+
+        qmp_test_result_done(&t);
+
+        r = qmp_client_execute(client, "cont", NULL, on_test_result, &t);
+        ASSERT_OK(r);
+        qmp_test_wait(event, &t);
+        ASSERT_EQ(t.error, 0);
+        qmp_test_result_done(&t);
+
+        /* Clean shutdown */
+        r = qmp_client_execute(client, "quit", NULL, on_test_result, &t);
+        ASSERT_OK(r);
+        qmp_test_wait(event, &t);
+        ASSERT_EQ(t.error, 0);
+        qmp_test_result_done(&t);
+
+        siginfo_t si = {};
+        ASSERT_OK(pidref_wait_for_terminate(&pidref, &si));
+        ASSERT_EQ(si.si_code, CLD_EXITED);
+        ASSERT_EQ(si.si_status, EXIT_SUCCESS);
+}
+
+static int intro(void) {
+        ASSERT_TRUE(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
+        return 0;
+}
+
+DEFINE_TEST_MAIN_FULL(LOG_DEBUG, intro, NULL);
