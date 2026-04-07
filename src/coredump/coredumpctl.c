@@ -1099,7 +1099,17 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                         goto error;
                 }
 
-                r = decompress_stream(filename, fdf, fd, -1);
+                struct stat st;
+                bool use_sparse;
+
+                if (fstat(fd, &st) < 0) {
+                        r = log_error_errno(errno, "Failed to fstat output file: %m");
+                        goto error;
+                }
+
+                use_sparse = S_ISREG(st.st_mode);
+
+                r = decompress_stream(filename, fdf, fd, -1, /* sparse= */ use_sparse);
                 if (r < 0) {
                         log_error_errno(r, "Failed to decompress %s: %m", filename);
                         goto error;
