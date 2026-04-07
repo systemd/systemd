@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "sd-dhcp6-client.h"
 #include "sd-dhcp6-protocol.h"
 #include "sd-event.h"
@@ -1113,7 +1114,7 @@ TEST(dhcp6_client) {
         assert_se(sd_event_new(&e) >= 0);
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+                                             NULL, ERR_TO_PTR(-ETIMEDOUT)) >= 0);
 
         assert_se(sd_dhcp6_client_new(&client) >= 0);
         assert_se(sd_dhcp6_client_attach_event(client, e, 0) >= 0);

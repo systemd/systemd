@@ -3,6 +3,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
@@ -872,7 +873,7 @@ TEST(sd_event_source_set_io_fd) {
         ASSERT_OK_ERRNO(pipe2(pfd_a, O_CLOEXEC));
         ASSERT_OK_ERRNO(pipe2(pfd_b, O_CLOEXEC));
 
-        ASSERT_OK(sd_event_add_io(e, &s, pfd_a[0], EPOLLIN, NULL, INT_TO_PTR(-ENOANO)));
+        ASSERT_OK(sd_event_add_io(e, &s, pfd_a[0], EPOLLIN, NULL, ERR_TO_PTR(-ENOANO)));
         ASSERT_OK(sd_event_source_set_io_fd_own(s, true));
         TAKE_FD(pfd_a[0]);
 

@@ -1229,7 +1229,7 @@ static sd_event_source* source_new(sd_event *e, bool floating, EventSourceType t
 static int io_exit_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         assert(s);
 
-        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
+        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_ERR_OR_ZERO(userdata));
 }
 
 _public_ int sd_event_add_io(
@@ -1327,7 +1327,7 @@ static int event_setup_timer_fd(
 static int time_exit_callback(sd_event_source *s, uint64_t usec, void *userdata) {
         assert(s);
 
-        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
+        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_ERR_OR_ZERO(userdata));
 }
 
 static int setup_clock_data(sd_event *e, struct clock_data *d, clockid_t clock) {
@@ -1463,7 +1463,7 @@ _public_ int sd_event_add_time_relative(
 static int signal_exit_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         assert(s);
 
-        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
+        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_ERR_OR_ZERO(userdata));
 }
 
 _public_ int sd_event_add_signal(
@@ -1567,7 +1567,7 @@ _public_ int sd_event_add_signal(
 static int child_exit_callback(sd_event_source *s, const siginfo_t *si, void *userdata) {
         assert(s);
 
-        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
+        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_ERR_OR_ZERO(userdata));
 }
 
 static int verify_sigchld(int options) {
@@ -1758,7 +1758,7 @@ _public_ int sd_event_add_child_pidfd(
 static int generic_exit_callback(sd_event_source *s, void *userdata) {
         assert(s);
 
-        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
+        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_ERR_OR_ZERO(userdata));
 }
 
 _public_ int sd_event_add_defer(
@@ -2411,7 +2411,7 @@ static int inode_data_realize_watch(sd_event *e, InodeData *d) {
 static int inotify_exit_callback(sd_event_source *s, const struct inotify_event *event, void *userdata) {
         assert(s);
 
-        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
+        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_ERR_OR_ZERO(userdata));
 }
 
 static int event_add_inotify_fd_internal(

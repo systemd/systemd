@@ -194,7 +194,7 @@ static int device_wait_for_initialization_internal(
                 r = sd_event_add_time_relative(
                                 event, NULL,
                                 CLOCK_MONOTONIC, timeout_usec, 0,
-                                NULL, INT_TO_PTR(-ETIMEDOUT));
+                                NULL, ERR_TO_PTR(-ETIMEDOUT));
                 if (r < 0)
                         return log_error_errno(r, "Failed to add timeout event source: %m");
         }

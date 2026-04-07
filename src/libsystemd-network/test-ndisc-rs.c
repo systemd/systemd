@@ -6,6 +6,7 @@
 #include <netinet/icmp6.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
@@ -252,7 +253,7 @@ TEST(rs) {
 
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+                                             NULL, ERR_TO_PTR(-ETIMEDOUT)) >= 0);
 
         assert_se(sd_ndisc_stop(nd) >= 0);
         assert_se(sd_ndisc_start(nd) >= 0);
@@ -338,7 +339,7 @@ TEST(invalid_domain) {
 
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+                                             NULL, ERR_TO_PTR(-ETIMEDOUT)) >= 0);
 
         assert_se(sd_ndisc_start(nd) >= 0);
 
@@ -451,7 +452,7 @@ TEST(na) {
 
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+                                             NULL, ERR_TO_PTR(-ETIMEDOUT)) >= 0);
 
         assert_se(sd_ndisc_start(nd) >= 0);
 
@@ -529,7 +530,7 @@ TEST(timeout) {
 
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+                                             NULL, ERR_TO_PTR(-ETIMEDOUT)) >= 0);
 
         assert_se(sd_ndisc_start(nd) >= 0);
 

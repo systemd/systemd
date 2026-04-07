@@ -1130,10 +1130,10 @@ static int run_callout(
                 return log_error_errno(r, "Failed to create event: %m");
 
         /* Kill the helper & return an error if we get interrupted by a signal */
-        r = sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, NULL, INT_TO_PTR(-ECANCELED));
+        r = sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, NULL, ERR_TO_PTR(-ECANCELED));
         if (r < 0)
                 return log_error_errno(r, "Failed to register signal to event: %m");
-        r = sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, INT_TO_PTR(-ECANCELED));
+        r = sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, ERR_TO_PTR(-ECANCELED));
         if (r < 0)
                 return log_error_errno(r, "Failed to register signal to event: %m");
 
