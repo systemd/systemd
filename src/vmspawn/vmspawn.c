@@ -2335,6 +2335,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_close_ int notify_sock_fd = -EBADF;
         _cleanup_strv_free_ char **cmdline = NULL;
         _cleanup_free_ int *pass_fds = NULL;
+        _cleanup_(machine_config_done) MachineConfig config = {
+                .network = { .fd = -EBADF },
+                .vsock   = { .fd = -EBADF },
+        };
         sd_event_source **children = NULL;
         size_t n_children = 0, n_pass_fds = 0;
         int r;
@@ -2573,8 +2577,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
         _cleanup_close_ int delegate_userns_fd = -EBADF, tap_fd = -EBADF;
+        _cleanup_free_ char *tap_name = NULL;
+        struct ether_addr mac_vm = {};
+
         if (arg_network_stack == NETWORK_STACK_TAP) {
                 if (have_effective_cap(CAP_NET_ADMIN) <= 0) {
+                        /* Without CAP_NET_ADMIN we use nsresourced to create a TAP device.
+                         * The TAP fd is passed to QEMU via QMP getfd + SCM_RIGHTS after
+                         * the handshake, then referenced by name in netdev_add. */
                         delegate_userns_fd = userns_acquire_self_root();
                         if (delegate_userns_fd < 0)
                                 return log_error_errno(delegate_userns_fd, "Failed to acquire userns: %m");
@@ -2596,65 +2606,39 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (tap_fd < 0)
                                 return log_error_errno(tap_fd, "Failed to allocate network tap device: %m");
 
-                        r = strv_extend(&cmdline, "-netdev");
-                        if (r < 0)
-                                return log_oom();
-
-                        r = strv_extendf(&cmdline, "tap,id=net0,fd=%i", tap_fd);
-                        if (r < 0)
-                                return log_oom();
-
-                        r = strv_extend_many(&cmdline, "-device", "virtio-net-pci,netdev=net0");
-                        if (r < 0)
-                                return log_oom();
-
-                        if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
-                                return log_oom();
-
-                        pass_fds[n_pass_fds++] = tap_fd;
+                        config.network = (NetworkInfo) {
+                                .type = "tap",
+                                .fd   = TAKE_FD(tap_fd),
+                        };
                 } else {
-                        _cleanup_free_ char *tap_name = NULL;
-                        struct ether_addr mac_vm = {};
-
+                        /* With CAP_NET_ADMIN we create the TAP interface by name.
+                         * Configure via QMP after QEMU starts. */
                         tap_name = strjoin("vt-", arg_machine);
                         if (!tap_name)
                                 return log_oom();
 
                         (void) net_shorten_ifname(tap_name, /* check_naming_scheme= */ false);
 
-                        if (ether_addr_is_null(&arg_network_provided_mac)){
+                        if (ether_addr_is_null(&arg_network_provided_mac)) {
                                 r = net_generate_mac(arg_machine, &mac_vm, VM_TAP_HASH_KEY, 0);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to generate predictable MAC address for VM side: %m");
                         } else
                                 mac_vm = arg_network_provided_mac;
 
-                        r = qemu_config_section(config_file, "netdev", "net0",
-                                                "type", "tap",
-                                                "ifname", tap_name,
-                                                "script", "no",
-                                                "downscript", "no");
-                        if (r < 0)
-                                return r;
-
-                        r = qemu_config_section(config_file, "device", "nic0",
-                                                "driver", "virtio-net-pci",
-                                                "netdev", "net0",
-                                                "mac", ETHER_ADDR_TO_STR(&mac_vm));
-                        if (r < 0)
-                                return r;
+                        config.network = (NetworkInfo) {
+                                .type    = "tap",
+                                .ifname  = TAKE_PTR(tap_name),
+                                .mac     = mac_vm,
+                                .mac_set = true,
+                                .fd      = -EBADF,
+                        };
                 }
         } else if (arg_network_stack == NETWORK_STACK_USER) {
-                r = qemu_config_section(config_file, "netdev", "net0",
-                                        "type", "user");
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_section(config_file, "device", "nic0",
-                                        "driver", "virtio-net-pci",
-                                        "netdev", "net0");
-                if (r < 0)
-                        return r;
+                config.network = (NetworkInfo) {
+                        .type = "user",
+                        .fd   = -EBADF,
+                };
         } else {
                 r = strv_extend_many(&cmdline, "-nic", "none");
                 if (r < 0)
@@ -3618,6 +3602,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = vmspawn_qmp_probe_features(bridge);
         if (r < 0)
                 return r;
+
+        /* Device setup — all before resuming vCPUs */
+        if (config.network.type) {
+                r = vmspawn_qmp_setup_network(bridge, &config.network);
+                if (r < 0)
+                        return r;
+        }
 
         /* Resume vCPUs and switch to async event processing */
         r = vmspawn_qmp_start(bridge);
