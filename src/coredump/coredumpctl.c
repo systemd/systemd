@@ -1099,10 +1099,36 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                         goto error;
                 }
 
-                r = decompress_stream(filename, fdf, fd, -1);
+                struct stat st;
+                bool use_sparse;
+
+                if (fstat(fd, &st) < 0) {
+                        r = log_error_errno(errno, "Failed to fstat output file: %m");
+                        goto error;
+                }
+
+                use_sparse = S_ISREG(st.st_mode);
+
+                r = decompress_stream(filename, fdf, fd, -1, /* sparse= */ use_sparse);
                 if (r < 0) {
                         log_error_errno(r, "Failed to decompress %s: %m", filename);
                         goto error;
+                }
+
+                /* If we wrote a sparse file, the file size might not have been extended
+                 * for trailing holes. Set it to the current file position. */
+                if (use_sparse) {
+                        off_t pos = lseek(fd, 0, SEEK_CUR);
+                        if (pos < 0) {
+                                r = log_error_errno(errno, "Failed to get file position: %m");
+                                goto error;
+                        }
+
+                        r = RET_NERRNO(ftruncate(fd, pos));
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to truncate temporary file: %m");
+                                goto error;
+                        }
                 }
 #else
                 r = log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
