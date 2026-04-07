@@ -402,7 +402,7 @@
         be empty. If this option is used, the size allocation algorithm is slightly altered: the partition is
         created at least as big as required to fit the data in, i.e. the data size is an additional minimum
         size value taken into consideration for the allocation algorithm, similar to and in addition to the
-        <varname>SizeMin=</varname> value configured above.</para>
+        <varname>SizeMinBytes=</varname> value configured above.</para>
 
         <para>This option has no effect if the partition it is declared for already exists, i.e. existing
         data is never overwritten. Note that the data is copied in before the partition table is updated,
