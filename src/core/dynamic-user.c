@@ -711,21 +711,18 @@ int dynamic_user_lookup_name(Manager *m, const char *name, uid_t *ret) {
         return 0;
 }
 
-int dynamic_creds_make(Manager *m, const char *user, const char *group, DynamicCreds **ret) {
+DynamicCreds *dynamic_creds_make(Manager *m, const char *user, const char *group) {
         _cleanup_(dynamic_creds_unrefp) DynamicCreds *creds = NULL;
         int r;
 
         assert(m);
-        assert(ret);
 
-        if (!user && !group) {
-                *ret = NULL;
-                return 0;
-        }
+        if (!user && !group)
+                return NULL;
 
         creds = new0(DynamicCreds, 1);
         if (!creds)
-                return -ENOMEM;
+                return ERR_TO_PTR(-ENOMEM);
 
         /* A DynamicUser object encapsulates an allocation of both a UID and a GID for a specific name. However, some
          * services use different user and groups. For cases like that there's DynamicCreds containing a pair of user
@@ -734,19 +731,17 @@ int dynamic_creds_make(Manager *m, const char *user, const char *group, DynamicC
         if (user) {
                 r = dynamic_user_acquire(m, user, &creds->user);
                 if (r < 0)
-                        return r;
+                        return ERR_TO_PTR(r);
         }
 
         if (group && !streq_ptr(user, group)) {
                 r = dynamic_user_acquire(m, group, &creds->group);
                 if (r < 0)
-                        return r;
+                        return ERR_TO_PTR(r);
         } else
                 creds->group = ASSERT_PTR(dynamic_user_ref(creds->user));
 
-        *ret = TAKE_PTR(creds);
-
-        return 0;
+        return TAKE_PTR(creds);
 }
 
 int dynamic_creds_realize(DynamicCreds *creds, char **suggested_paths, uid_t *uid, gid_t *gid) {

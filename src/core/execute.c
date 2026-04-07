@@ -2806,12 +2806,11 @@ void exec_shared_runtime_vacuum(Manager *m) {
         }
 }
 
-int exec_runtime_make(
+ExecRuntime *exec_runtime_make(
                 const Unit *unit,
                 const ExecContext *context,
                 ExecSharedRuntime *shared,
-                DynamicCreds *creds,
-                ExecRuntime **ret) {
+                DynamicCreds *creds) {
         _cleanup_close_pair_ int ephemeral_storage_socket[2] = EBADF_PAIR;
         _cleanup_free_ char *ephemeral = NULL;
         _cleanup_(exec_runtime_freep) ExecRuntime *rt = NULL;
@@ -2819,29 +2818,26 @@ int exec_runtime_make(
 
         assert(unit);
         assert(context);
-        assert(ret);
 
-        if (!shared && !creds && !exec_needs_ephemeral(context)) {
-                *ret = NULL;
-                return 0;
-        }
+        if (!shared && !creds && !exec_needs_ephemeral(context))
+                return NULL;
 
         if (exec_needs_ephemeral(context)) {
                 r = mkdir_p("/var/lib/systemd/ephemeral-trees", 0755);
                 if (r < 0)
-                        return r;
+                        return ERR_TO_PTR(r);
 
                 r = tempfn_random_child("/var/lib/systemd/ephemeral-trees", unit->id, &ephemeral);
                 if (r < 0)
-                        return r;
+                        return ERR_TO_PTR(r);
 
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, ephemeral_storage_socket) < 0)
-                        return -errno;
+                        return ERR_TO_PTR(-errno);
         }
 
         rt = new(ExecRuntime, 1);
         if (!rt)
-                return -ENOMEM;
+                return ERR_TO_PTR(-ENOMEM);
 
         *rt = (ExecRuntime) {
                 .shared = shared,
@@ -2851,8 +2847,7 @@ int exec_runtime_make(
                 .ephemeral_storage_socket[1] = TAKE_FD(ephemeral_storage_socket[1]),
         };
 
-        *ret = TAKE_PTR(rt);
-        return 1;
+        return TAKE_PTR(rt);
 }
 
 ExecRuntime* exec_runtime_free(ExecRuntime *rt) {
