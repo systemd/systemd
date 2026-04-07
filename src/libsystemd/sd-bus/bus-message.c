@@ -359,12 +359,12 @@ static int message_from_header(
         /* Note that we are happy with unknown flags in the flags header! */
 
         a = ALIGN(sizeof(sd_bus_message));
+        /* Silence static analyzers, ALIGN cannot overflow for sizeof() */
+        assert(a != SIZE_MAX);
 
         if (label) {
                 label_sz = strlen(label);
-                /* Silence static analyzers */
-                assert(label_sz <= SIZE_MAX - ALIGN(sizeof(sd_bus_message)) - 1);
-                a += label_sz + 1;
+                assert_se(INC_SAFE(&a, label_sz + 1));
         }
 
         m = malloc0(a);
