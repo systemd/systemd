@@ -5,6 +5,8 @@
 
 #include "sd-forward.h"
 
+extern const struct hash_ops varlink_hash_ops;
+
 int varlink_get_peer_pidref(sd_varlink *v, PidRef *ret);
 
 int varlink_call_and_log(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters);
@@ -28,4 +30,4 @@ int varlink_server_new(
 
 int varlink_check_privileged_peer(sd_varlink *vl);
 
-extern const struct hash_ops varlink_hash_ops;
+int varlink_connect_auto(sd_varlink **ret, const char *where);

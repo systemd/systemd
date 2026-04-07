@@ -1,14 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "log.h"
 #include "pidref.h"
 #include "set.h"
 #include "string-util.h"
+#include "strv.h"
 #include "varlink-internal.h"
 #include "varlink-util.h"
 #include "version.h"
+
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                varlink_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                sd_varlink,
+                sd_varlink_unref);
 
 int varlink_get_peer_pidref(sd_varlink *v, PidRef *ret) {
         int r;
@@ -207,10 +219,50 @@ int varlink_check_privileged_peer(sd_varlink *vl) {
         return 0;
 }
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
-                varlink_hash_ops,
-                void,
-                trivial_hash_func,
-                trivial_compare_func,
-                sd_varlink,
-                sd_varlink_unref);
+int varlink_connect_auto(sd_varlink **ret, const char *where) {
+        int r;
+
+        assert(ret);
+        assert(where);
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+
+        if (STARTSWITH_SET(where, "/", "./")) {
+                /* If the string starts with a slash or dot slash we use it as a file system path */
+
+                _cleanup_close_ int fd = open(where, O_PATH|O_CLOEXEC);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open '%s': %m", where);
+
+                struct stat st;
+                if (fstat(fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", where);
+
+                if (S_ISSOCK(st.st_mode)) {
+                        /* Is this a socket in the fs? Then connect() to it. */
+
+                        r = sd_varlink_connect_address(&vl, FORMAT_PROC_FD_PATH(fd));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to connect to '%s': %m", where);
+
+                } else if (S_ISREG(st.st_mode) && (st.st_mode & 0111)) {
+                        /* Is this an executable binary? Then fork it off. */
+
+                        /* Ideally we'd use FORMAT_PROC_FD_PATH(fd) here too, but that breaks the #! logic */
+                        r = sd_varlink_connect_exec(&vl, where, STRV_MAKE(where));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to spawn '%s' process: %m", where);
+                } else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Unrecognized path '%s' is neither an AF_UNIX socket, nor an executable binary.",
+                                               where);
+        } else {
+                /* Otherwise assume this is an URL */
+                r = sd_varlink_connect_url(&vl, where);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to URL '%s': %m", where);
+        }
+
+        *ret = TAKE_PTR(vl);
+        return 0;
+}
