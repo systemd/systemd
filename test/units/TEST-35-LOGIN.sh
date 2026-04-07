@@ -845,6 +845,8 @@ testcase_varlink() {
     echo "$session_out" | jq -e '.Session.Class == "user"' >/dev/null
     echo "$session_out" | jq -e '.Session.State == "active"' >/dev/null
     echo "$session_out" | jq -e '.Session.Active == true' >/dev/null
+    # ExtraDeviceAccess may be absent (empty) but must be an array if present.
+    echo "$session_out" | jq -e '(.Session | has("ExtraDeviceAccess") | not) or (.Session.ExtraDeviceAccess | type == "array")' >/dev/null
 
     # nonexistent session
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeSession '{"Id":"nonexistent-session-id"}')
@@ -854,8 +856,13 @@ testcase_varlink() {
     varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSessions '{}' \
         | jq --seq -e --arg s "$session" 'select(.Session.Id == $s)' >/dev/null
     test "$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSessions '{}' | wc -l)" -ge 2
-    # without --more should fail
-    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListSessions '{}')
+    # without --more: must fail with ExpectedMore (not assert()) so logind stays running.
+    list_err=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListSessions '{}' 2>&1 || true)
+    # varlinkctl rewrites SD_VARLINK_ERROR_EXPECTED_MORE to the friendly description
+    # below (see src/varlinkctl/varlinkctl.c), so match on that substring rather than
+    # the raw error id.
+    echo "$list_err" | grep "'more' flag" >/dev/null
+    systemctl is-active systemd-logind.service >/dev/null
 
     : "--- DescribeUser ---"
     user_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeUser "{\"UID\":$uid}")
