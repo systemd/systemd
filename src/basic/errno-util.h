@@ -225,3 +225,31 @@ static inline bool ERRNO_IS_NEG_XATTR_ABSENT(intmax_t r) {
                 ERRNO_IS_NEG_NOT_SUPPORTED(r);
 }
 _DEFINE_ABS_WRAPPER(XATTR_ABSENT);
+
+/* Error pointer encoding — inspired by Linux kernel's ERR_PTR (include/linux/err.h).
+ *
+ * Encodes negative errno values into pointers in the range
+ * [UINTPTR_MAX - ERRNO_MAX, UINTPTR_MAX - 1]. UINTPTR_MAX itself
+ * (== POINTER_MAX) is excluded so that it remains available as a
+ * sentinel value (used by e.g. STRV_IGNORE and sd_varlink). */
+
+#define ERR_PTR(error)                                                  \
+        ((void *) ((uintptr_t) ((intptr_t) (error) - 1)))
+
+#define PTR_ERR(ptr)                                                    \
+        ((int) ((intptr_t) (ptr) + 1))
+
+#define IS_ERR(ptr)                                                     \
+        (((uintptr_t) (ptr)) - (UINTPTR_MAX - ERRNO_MAX) < (uintptr_t) ERRNO_MAX)
+
+#define IS_ERR_OR_NULL(ptr)                                             \
+        ({                                                              \
+                const void *_p = (ptr);                                 \
+                !_p || IS_ERR(_p);                                      \
+        })
+
+#define PTR_ERR_OR_ZERO(ptr)                                            \
+        ({                                                              \
+                const void *_p = (ptr);                                 \
+                IS_ERR(_p) ? PTR_ERR(_p) : 0;                          \
+        })
