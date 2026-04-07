@@ -2822,9 +2822,12 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
         assert_return(field, -EINVAL);
-        assert_return(ret_data, -EINVAL);
-        assert_return(ret_size, -EINVAL);
         assert_return(field_is_valid(field), -EINVAL);
+
+        if (ret_data)
+                *ret_data = NULL;
+        if (ret_size)
+                *ret_size = 0;
 
         f = j->current_file;
         if (!f)
@@ -2856,8 +2859,10 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 if (r < 0)
                         return r;
 
-                *ret_data = d;
-                *ret_size = l;
+                if (ret_data)
+                        *ret_data = d;
+                if (ret_size)
+                        *ret_size = l;
 
                 return 0;
         }
