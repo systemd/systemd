@@ -156,7 +156,7 @@ TEST(specifiers_assorted) {
         const sd_id128_t id = SD_ID128_ALLF;
         const uint64_t llu = UINT64_MAX;
         const Specifier table[] = {
-                /* Used in src/partition/repart.c */
+                /* Used in src/repart/repart.c */
                 { 'a', specifier_uuid,      &id },
                 { 'b', specifier_uint64,    &llu },
                 {}
