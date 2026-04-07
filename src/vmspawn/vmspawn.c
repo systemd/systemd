@@ -2439,8 +2439,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
 
+        sd_id128_t vmgenid = SD_ID128_NULL;
         if (ARCHITECTURE_SUPPORTS_VMGENID) {
-                sd_id128_t vmgenid;
                 r = sd_id128_get_invocation_app_specific(SD_ID128_MAKE(bd,84,6d,e3,e4,7d,4b,6c,a6,85,4a,87,0f,3c,a3,a0), &vmgenid);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to get invocation ID, making up randomized vmgenid: %m");
@@ -2449,15 +2449,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make up randomized vmgenid: %m");
                 }
-
-                r = qemu_config_section(config_file, "device", "vmgenid0",
-                                        "driver", "vmgenid");
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_keyf(config_file, "guid", SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(vmgenid));
-                if (r < 0)
-                        return r;
         }
 
         /* Start building the cmdline for items that must remain as command line arguments */
@@ -3604,6 +3595,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = vmspawn_qmp_setup_balloon(bridge);
         if (r < 0)
                 return r;
+
+        if (!sd_id128_is_null(vmgenid)) {
+                r = vmspawn_qmp_setup_vmgenid(bridge, vmgenid);
+                if (r < 0)
+                        return r;
+        }
 
         /* Resume vCPUs and switch to async event processing */
         r = vmspawn_varlink_start(bridge);
