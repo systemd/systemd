@@ -464,8 +464,8 @@ _public_ int sd_bus_message_new(
         /* Creation of messages with _SD_BUS_MESSAGE_TYPE_INVALID is allowed. */
         assert_return(type < _SD_BUS_MESSAGE_TYPE_MAX, -EINVAL);
 
-        /* Silence static analyzers */
-        assert_cc(sizeof(sd_bus_message) + sizeof(void*) + sizeof(BusMessageHeader) <= SIZE_MAX);
+        /* Silence static analyzers, ALIGN cannot overflow for sizeof() */
+        assert(ALIGN(sizeof(sd_bus_message)) != SIZE_MAX);
         sd_bus_message *t = malloc0(ALIGN(sizeof(sd_bus_message)) + sizeof(BusMessageHeader));
         if (!t)
                 return -ENOMEM;
