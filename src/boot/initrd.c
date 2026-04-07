@@ -136,16 +136,16 @@ EFI_STATUS initrd_register(
 }
 
 EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
-        EFI_STATUS err;
         struct initrd_loader *loader;
+        EFI_STATUS err;
 
         if (!initrd_handle)
                 return EFI_SUCCESS;
 
-        /* get the LoadFile2 protocol that we allocated earlier */
+        /* Get the LoadFile2 protocol that we allocated earlier */
         err = BS->HandleProtocol(initrd_handle, MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL), (void **) &loader);
         if (err != EFI_SUCCESS)
-                return err;
+                return log_debug_status(err, "Failed to acquire LoadFile2 protocol on our own initrd handle: %m");
 
         /* We uninstall the DevicePath and the LoadFile2 protocol in separate steps. That's because we want
          * to gracefully handle the former (because it's OK if something else takes over the device path),
@@ -162,9 +162,8 @@ EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
                         MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL), loader,
                         NULL);
         if (err != EFI_SUCCESS)
-                return err;
+                return log_debug_status(err, "Failed to uninstall LoadFile2 protocol from our own initrd handle: %m");
 
-        initrd_handle = NULL;
         free(loader);
         return EFI_SUCCESS;
 }
