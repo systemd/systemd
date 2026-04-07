@@ -108,6 +108,11 @@ int option_parse(
                                 /* Looks like we found an option parameter */
                                 break;
 
+                        if (state->stop_at_first_nonoption) {
+                                state->parsing_stopped = true;
+                                return 0;
+                        }
+
                         state->optind++;
                 }
 

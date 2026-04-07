@@ -79,17 +79,20 @@ extern const Option __start_SYSTEMD_OPTIONS[];
 extern const Option __stop_SYSTEMD_OPTIONS[];
 
 typedef struct OptionParser {
-        /* Those two should stay first so that it's possible to initialize the struct as { argc, argv }. */
-        int argc;                 /* The original argc. */
-        char **argv;              /* The argv array, possibly reordered. */
+        /* Those three should stay first so that it's possible to initialize the struct as { argc, argv }
+         * or { argc, argv, true/false }. */
+        int argc;                     /* The original argc. */
+        char **argv;                  /* The argv array, possibly reordered. */
+        bool stop_at_first_nonoption; /* Same as "+…" for getopt_long — only parse options before the first
+                                       * positional argument. */
 
-        int optind;               /* Position of the parameter being handled.
-                                   * 0 → option parsing hasn't been started yet. */
-        int short_option_offset;  /* Set when we're parsing an argument with one or more short options.
-                                   * 0 → we're not parsing short options. */
-        int positional_offset;    /* Offset to where positional parameters are. After processing has been
-                                   * finished, all options and their args are to the left of this offset. */
-        bool parsing_stopped;     /* We processed "--" or an option that terminates option parsing. */
+        bool parsing_stopped;         /* We processed "--" or an option that terminates option parsing. */
+        int optind;                   /* Position of the parameter being handled.
+                                       * 0 → option parsing hasn't been started yet. */
+        int short_option_offset;      /* Set when we're parsing an argument with one or more short options.
+                                       * 0 → we're not parsing short options. */
+        int positional_offset;        /* Offset to where positional parameters are. After processing has been
+                                       * finished, all options and their args are to the left of this offset. */
 } OptionParser;
 
 int option_parse(
