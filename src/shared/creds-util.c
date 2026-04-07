@@ -687,6 +687,12 @@ struct _packed_ tpm2_public_key_credential_header {
         /* Followed by NUL bytes until next 8 byte boundary */
 };
 
+struct _packed_ tpm2_pinned_srk_credential_header {
+        le32_t size;          /* Size of pinned SRK */
+        uint8_t data[];       /* Pinned SRK */
+        /* Followed by NUL bytes until next 8 byte boundary */
+};
+
 struct _packed_ scoped_credential_header {
         le64_t flags;         /* SCOPE_HASH_DATA_BASE_FLAGS for now */
 };
@@ -824,7 +830,7 @@ int encrypt_credential_and_warn(
                 CredentialFlags flags,
                 struct iovec *ret) {
 
-        _cleanup_(iovec_done) struct iovec tpm2_blob = {}, tpm2_policy_hash = {}, iv = {}, pubkey = {};
+        _cleanup_(iovec_done) struct iovec tpm2_blob = {}, tpm2_srk = {}, tpm2_policy_hash = {}, iv = {}, pubkey = {};
         _cleanup_(iovec_done_erase) struct iovec tpm2_key = {}, output = {}, host_key = {};
         _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
         _cleanup_free_ struct metadata_credential_header *m = NULL;
@@ -975,7 +981,7 @@ int encrypt_credential_and_warn(
                               &blobs,
                               &n_blobs,
                               &tpm2_primary_alg,
-                              /* ret_srk= */ NULL);
+                              CRED_KEY_WANTS_TPM2_PINNED_SRK(with_key) || CRED_KEY_REQUIRES_TPM2_PINNED_SRK(with_key) ? &tpm2_srk : NULL);
                 if (r < 0) {
                         if (sd_id128_equal(with_key, _CRED_AUTO_INITRD))
                                 log_warning("TPM2 present and used, but we didn't manage to talk to it. Credential will be refused if SecureBoot is enabled.");
@@ -993,19 +999,21 @@ int encrypt_credential_and_warn(
 
                 assert(tpm2_blob.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
                 assert(tpm2_policy_hash.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
+                assert(tpm2_srk.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
         }
 #endif
 
         if (CRED_KEY_IS_AUTO(with_key)) {
                 /* Let's settle the key type in auto mode now. */
+                assert(!iovec_is_set(&tpm2_key) || iovec_is_set(&tpm2_srk));
 
                 if (iovec_is_set(&host_key) && iovec_is_set(&tpm2_key))
                         id = iovec_is_set(&pubkey) ? (sd_id128_equal(with_key, _CRED_AUTO_SCOPED) ?
-                                                      CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED : CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK)
+                                                      CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK : CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK)
                                                    : (sd_id128_equal(with_key, _CRED_AUTO_SCOPED) ?
-                                                      CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED : CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC);
+                                                      CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK : CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK);
                 else if (iovec_is_set(&tpm2_key) && !sd_id128_equal(with_key, _CRED_AUTO_SCOPED))
-                        id = iovec_is_set(&pubkey) ? CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK : CRED_AES256_GCM_BY_TPM2_HMAC;
+                        id = iovec_is_set(&pubkey) ? CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK : CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK;
                 else if (iovec_is_set(&host_key))
                         id = sd_id128_equal(with_key, _CRED_AUTO_SCOPED) ? CRED_AES256_GCM_BY_HOST_SCOPED : CRED_AES256_GCM_BY_HOST;
                 else if (sd_id128_equal(with_key, _CRED_AUTO_INITRD))
@@ -1068,6 +1076,7 @@ int encrypt_credential_and_warn(
                 ALIGN8(offsetof(struct encrypted_credential_header, iv) + ivsz) +
                 ALIGN8(iovec_is_set(&tpm2_key) ? offsetof(struct tpm2_credential_header, policy_hash_and_blob) + tpm2_blob.iov_len + tpm2_policy_hash.iov_len : 0) +
                 ALIGN8(iovec_is_set(&pubkey) ? offsetof(struct tpm2_public_key_credential_header, data) + pubkey.iov_len : 0) +
+                ALIGN8(iovec_is_set(&tpm2_srk) ? offsetof(struct tpm2_pinned_srk_credential_header, data) + tpm2_srk.iov_len : 0) +
                 ALIGN8(uid_is_valid(uid) ? sizeof(struct scoped_credential_header) : 0) +
                 ALIGN8(offsetof(struct metadata_credential_header, name) + strlen_ptr(name)) +
                 input->iov_len + 2U * (size_t) bsz +
@@ -1114,6 +1123,16 @@ int encrypt_credential_and_warn(
                 memcpy(z->data, pubkey.iov_base, pubkey.iov_len);
 
                 p += ALIGN8(offsetof(struct tpm2_public_key_credential_header, data) + pubkey.iov_len);
+        }
+
+        if (iovec_is_set(&tpm2_srk)) {
+                struct tpm2_pinned_srk_credential_header *z;
+
+                z = (struct tpm2_pinned_srk_credential_header*) ((uint8_t*) output.iov_base + p);
+                z->size = htole32(tpm2_srk.iov_len);
+                memcpy(z->data, tpm2_srk.iov_base, tpm2_srk.iov_len);
+
+                p += ALIGN8(offsetof(struct tpm2_pinned_srk_credential_header, data) + tpm2_srk.iov_len);
         }
 
         if (uid_is_valid(uid)) {
@@ -1306,6 +1325,7 @@ int decrypt_credential_and_warn(
             ALIGN8(offsetof(struct encrypted_credential_header, iv) + le32toh(h->iv_size)) +
             ALIGN8(CRED_KEY_REQUIRES_TPM2(h->id) ? offsetof(struct tpm2_credential_header, policy_hash_and_blob) : 0) +
             ALIGN8(CRED_KEY_REQUIRES_TPM2_PK(h->id) ? offsetof(struct tpm2_public_key_credential_header, data) : 0) +
+            ALIGN8(CRED_KEY_REQUIRES_TPM2_PINNED_SRK(h->id) ? offsetof(struct tpm2_pinned_srk_credential_header, data) : 0) +
             ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
             ALIGN8(offsetof(struct metadata_credential_header, name)) +
             le32toh(h->tag_size))
@@ -1316,7 +1336,8 @@ int decrypt_credential_and_warn(
         if (CRED_KEY_REQUIRES_TPM2(h->id)) {
 #if HAVE_TPM2
                 struct tpm2_credential_header* t = (struct tpm2_credential_header*) ((uint8_t*) input->iov_base + p);
-                struct tpm2_public_key_credential_header *z = NULL;
+                struct tpm2_public_key_credential_header *z_pubkey = NULL;
+                struct tpm2_pinned_srk_credential_header *z_srk = NULL;
 
                 if (!TPM2_PCR_MASK_VALID(t->pcr_mask))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR mask out of range.");
@@ -1335,6 +1356,7 @@ int decrypt_credential_and_warn(
                     p +
                     ALIGN8(offsetof(struct tpm2_credential_header, policy_hash_and_blob) + le32toh(t->blob_size) + le32toh(t->policy_hash_size)) +
                     ALIGN8(CRED_KEY_REQUIRES_TPM2_PK(h->id) ? offsetof(struct tpm2_public_key_credential_header, data) : 0) +
+                    ALIGN8(CRED_KEY_REQUIRES_TPM2_PINNED_SRK(h->id) ? offsetof(struct tpm2_pinned_srk_credential_header, data) : 0) +
                     ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
                     ALIGN8(offsetof(struct metadata_credential_header, name)) +
                     le32toh(h->tag_size))
@@ -1345,23 +1367,42 @@ int decrypt_credential_and_warn(
                             le32toh(t->policy_hash_size));
 
                 if (CRED_KEY_REQUIRES_TPM2_PK(h->id)) {
-                        z = (struct tpm2_public_key_credential_header*) ((uint8_t*) input->iov_base + p);
+                        z_pubkey = (struct tpm2_public_key_credential_header*) ((uint8_t*) input->iov_base + p);
 
-                        if (!TPM2_PCR_MASK_VALID(le64toh(z->pcr_mask)) || le64toh(z->pcr_mask) == 0)
+                        if (!TPM2_PCR_MASK_VALID(le64toh(z_pubkey->pcr_mask)) || le64toh(z_pubkey->pcr_mask) == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR mask out of range.");
-                        if (le32toh(z->size) > PUBLIC_KEY_MAX)
+                        if (le32toh(z_pubkey->size) > PUBLIC_KEY_MAX)
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected public key size.");
 
                         if (input->iov_len <
                             p +
-                            ALIGN8(offsetof(struct tpm2_public_key_credential_header, data) + le32toh(z->size)) +
+                            ALIGN8(offsetof(struct tpm2_public_key_credential_header, data) + le32toh(z_pubkey->size)) +
+                            ALIGN8(CRED_KEY_REQUIRES_TPM2_PINNED_SRK(h->id) ? offsetof(struct tpm2_pinned_srk_credential_header, data) : 0) +
                             ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
                             ALIGN8(offsetof(struct metadata_credential_header, name)) +
                             le32toh(h->tag_size))
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
                         p += ALIGN8(offsetof(struct tpm2_public_key_credential_header, data) +
-                                    le32toh(z->size));
+                                    le32toh(z_pubkey->size));
+                }
+
+                if (CRED_KEY_REQUIRES_TPM2_PINNED_SRK(h->id)) {
+                        z_srk = (struct tpm2_pinned_srk_credential_header*) ((uint8_t*) input->iov_base + p);
+
+                        if (le32toh(z_srk->size) > CREDENTIAL_FIELD_SIZE_MAX)
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected pinned SRK size.");
+
+                        if (input->iov_len <
+                            p +
+                            ALIGN8(offsetof(struct tpm2_pinned_srk_credential_header, data) + le32toh(z_srk->size)) +
+                            ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
+                            ALIGN8(offsetof(struct metadata_credential_header, name)) +
+                            le32toh(h->tag_size))
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
+
+                        p += ALIGN8(offsetof(struct tpm2_pinned_srk_credential_header, data) +
+                                    le32toh(z_srk->size));
                 }
 
                 _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
@@ -1369,13 +1410,11 @@ int decrypt_credential_and_warn(
                 if (r < 0)
                         return r;
 
-                 // TODO: Add the SRK data to the credential structure so it can be plumbed
-                 // through and used to verify the TPM session.
                 r = tpm2_unseal(tpm2_context,
                                 le64toh(t->pcr_mask),
                                 le16toh(t->pcr_bank),
-                                z ? &IOVEC_MAKE(z->data, le32toh(z->size)) : NULL,
-                                z ? le64toh(z->pcr_mask) : 0,
+                                z_pubkey ? &IOVEC_MAKE(z_pubkey->data, le32toh(z_pubkey->size)) : NULL,
+                                z_pubkey ? le64toh(z_pubkey->pcr_mask) : 0,
                                 signature_json,
                                 /* pin= */ NULL,
                                 /* pcrlock_policy= */ NULL,
@@ -1384,7 +1423,7 @@ int decrypt_credential_and_warn(
                                 /* n_blobs= */ 1,
                                 &IOVEC_MAKE(t->policy_hash_and_blob + le32toh(t->blob_size), le32toh(t->policy_hash_size)),
                                 /* n_known_policy_hash= */ 1,
-                                /* srk= */ NULL,
+                                z_srk ? &IOVEC_MAKE(z_srk->data, le32toh(z_srk->size)) : NULL,
                                 &tpm2_key);
                 if (r == -EREMOTE)
                         return log_error_errno(r, "TPM key integrity check failed. Key most likely does not belong to this TPM.");
