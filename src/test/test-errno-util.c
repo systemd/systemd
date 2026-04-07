@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "errno-util.h"
+#include "macro.h"
 #include "stdio-util.h"
 #include "tests.h"
 
@@ -106,6 +107,41 @@ TEST(ERRNO_IS_TRANSIENT) {
         ASSERT_FALSE(ERRNO_IS_NEG_TRANSIENT(INT_MIN));
         ASSERT_FALSE(ERRNO_IS_NEG_TRANSIENT(INTMAX_MAX));
         ASSERT_FALSE(ERRNO_IS_NEG_TRANSIENT(INTMAX_MIN));
+}
+
+TEST(ERR_PTR) {
+        /* Basic roundtrip */
+        ASSERT_EQ(PTR_ERR(ERR_PTR(-EINVAL)), -EINVAL);
+        ASSERT_EQ(PTR_ERR(ERR_PTR(-ENOMEM)), -ENOMEM);
+        ASSERT_EQ(PTR_ERR(ERR_PTR(-ENOENT)), -ENOENT);
+
+        /* Edge cases */
+        ASSERT_EQ(PTR_ERR(ERR_PTR(-1)), -1);
+        ASSERT_EQ(PTR_ERR(ERR_PTR(-ERRNO_MAX)), -ERRNO_MAX);
+
+        /* IS_ERR detection */
+        ASSERT_TRUE(IS_ERR(ERR_PTR(-EINVAL)));
+        ASSERT_TRUE(IS_ERR(ERR_PTR(-1)));
+        ASSERT_TRUE(IS_ERR(ERR_PTR(-ERRNO_MAX)));
+
+        /* IS_ERR rejects non-errors */
+        ASSERT_FALSE(IS_ERR(NULL));
+        ASSERT_FALSE(IS_ERR(POINTER_MAX));
+        ASSERT_FALSE(IS_ERR(INT_TO_PTR(1)));
+        ASSERT_FALSE(IS_ERR(INT_TO_PTR(4096)));
+
+        /* IS_ERR_OR_NULL */
+        ASSERT_TRUE(IS_ERR_OR_NULL(NULL));
+        ASSERT_TRUE(IS_ERR_OR_NULL(ERR_PTR(-EINVAL)));
+        ASSERT_FALSE(IS_ERR_OR_NULL(INT_TO_PTR(1)));
+        ASSERT_FALSE(IS_ERR_OR_NULL(POINTER_MAX));
+
+        /* PTR_ERR_OR_ZERO */
+        ASSERT_EQ(PTR_ERR_OR_ZERO(ERR_PTR(-EINVAL)), -EINVAL);
+        ASSERT_EQ(PTR_ERR_OR_ZERO(INT_TO_PTR(1)), 0);
+
+        /* Does not conflict with POINTER_MAX sentinel */
+        ASSERT_TRUE(ERR_PTR(-1) != POINTER_MAX);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
