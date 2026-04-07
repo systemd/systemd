@@ -1116,7 +1116,7 @@ static uint64_t partition_min_size(const Context *context, const Partition *p) {
          * exists the current size is what we really need. If it doesn't exist yet refuse to allocate less
          * than 4K.
          *
-         * DEFAULT_MIN_SIZE is the default SizeMin= we configure if nothing else is specified. */
+         * DEFAULT_MIN_SIZE is the default SizeMinBytes= we configure if nothing else is specified. */
 
         if (PARTITION_IS_FOREIGN(p)) {
                 /* Don't allow changing size of partitions not managed by us */
