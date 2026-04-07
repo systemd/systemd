@@ -123,7 +123,7 @@ static int fact_build_send(FactFamilyContext *context, const char *object, sd_js
         return sd_varlink_replybo(context->link,
                         SD_JSON_BUILD_PAIR_STRING("name", context->fact_family->name),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("object", object),
-                        SD_JSON_BUILD_PAIR("value", SD_JSON_BUILD_VARIANT(value)));
+                        SD_JSON_BUILD_PAIR_VARIANT("value", value));
 }
 
 int fact_build_send_string(FactFamilyContext *context, const char *object, const char *value) {
