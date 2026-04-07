@@ -300,7 +300,7 @@ int start_upload(Uploader *u,
                 }
 
                 if (arg_key || arg_trust)
-                        (void) easy_setopt(curl, LOG_WARNING, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1);
+                        (void) easy_setopt(curl, LOG_WARNING, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
 
                 u->easy = TAKE_PTR(curl);
         } else {
