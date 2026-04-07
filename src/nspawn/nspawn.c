@@ -586,49 +586,12 @@ static int parse_environment(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        int r;
         uint64_t plus = 0, minus = 0;
         bool mask_all_settings = false, mask_no_settings = false;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
-
-        /* --user= used to require an argument (the container user to run as). It has been repurposed to
-         * optionally set the runtime scope, with --uid= replacing the old container user functionality.
-         * To maintain backwards compatibility with the space-separated form (--user NAME), stitch them
-         * together into --user=NAME before getopt sees them. Without this, getopt's optional_argument
-         * handling would interpret --user NAME as --user (no arg) followed by a positional argument.
-         * Operate on a copy to avoid modifying the caller's argv. */
-        _cleanup_strv_free_ char **argv_copy = NULL;
-        for (int i = 1; i < argc - 1; i++) {
-                if (streq(argv[i], "--"))
-                        break; /* Respect end-of-options sentinel */
-                if (!streq(argv[i], "--user"))
-                        continue;
-                if (argv[i + 1][0] == '-')
-                        continue; /* Next arg is an option, not a username */
-
-                /* Deep copy so we can freely replace and free entries */
-                if (!argv_copy) {
-                        argv_copy = strv_copy(argv);
-                        if (!argv_copy)
-                                return log_oom();
-                        argv = argv_copy;
-                }
-
-                log_warning("--user NAME is deprecated, use --uid=NAME instead.");
-
-                /* Stitch "--user" and the following argument into "--user=NAME" */
-                free(argv[i]);
-                argv[i] = strjoin("--user=", argv[i + 1]);
-                if (!argv[i])
-                        return log_oom();
-
-                /* Remove the now-consumed argument and shrink argc accordingly */
-                free(argv[i + 1]);
-                memmove(argv + i + 1, argv + i + 2, (argc - i - 1) * sizeof(char*));
-                argc--;
-        }
 
         OptionParser state = { argc, argv, /* stop_at_first_nonoption= */ true };
         const Option *opt;
@@ -1403,6 +1366,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "user", "NAME", "Run in the user service manager scope"):
+                        if (!arg) {
+                                /* --user= used to require an argument (the container user to run as). It has
+                                 * been repurposed to optionally set the runtime scope, with --uid= replacing
+                                 * the old container user functionality. To maintain backwards compatibility
+                                 * with the space-separated form (--user NAME), if the next arg does not look
+                                 * like an option, interpret it is a user name. */
+                                const char *t = option_parser_next_arg(&state);
+                                if (t && t[0] != '-')
+                                        arg = option_parser_consume_next_arg(&state);
+                        }
+
                         if (arg) {
                                 /* --user=NAME is a deprecated alias for --uid=NAME */
                                 log_warning("--user=NAME is deprecated, use --uid=NAME instead.");
