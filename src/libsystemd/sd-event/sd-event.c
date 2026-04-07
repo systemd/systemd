@@ -3804,6 +3804,9 @@ static int process_signal(sd_event *e, struct signal_data *d, uint32_t events, i
                 if (_unlikely_(n != sizeof(si)))
                         return -EIO;
 
+                if (_unlikely_(si.ssi_signo > INT_MAX)) /* Ensure value fits in int before casting */
+                        return -EIO;
+
                 if (_unlikely_(!SIGNAL_VALID(si.ssi_signo)))
                         return -EIO;
 
