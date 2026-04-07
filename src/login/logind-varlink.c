@@ -4,15 +4,19 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "bus-error.h"
+#include "bus-polkit.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hashmap.h"
 #include "json-util.h"
-#include "logind-session.h"
+#include "login-util.h"
 #include "logind.h"
 #include "logind-dbus.h"
 #include "logind-seat.h"
+#include "logind-session.h"
+#include "logind-shutdown.h"
 #include "logind-user.h"
 #include "logind-varlink.h"
 #include "strv.h"
@@ -20,6 +24,7 @@
 #include "user-record.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Login.h"
+#include "varlink-io.systemd.Shutdown.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
@@ -336,6 +341,101 @@ static int vl_method_release_session(sd_varlink *link, sd_json_variant *paramete
         return sd_varlink_reply(link, NULL);
 }
 
+static int setup_wall_message_timer(Manager *m, sd_varlink *link) {
+        uid_t uid = UID_INVALID;
+        int r;
+
+        (void) sd_varlink_get_peer_uid(link, &uid);
+        m->scheduled_shutdown_uid = uid;
+
+        _cleanup_free_ char *tty = NULL;
+        pid_t pid = 0;
+        r = sd_varlink_get_peer_pid(link, &pid);
+        if (r >= 0)
+                (void) get_ctty(pid, /* ret_devnr= */ NULL, &tty);
+
+        r = free_and_strdup_warn(&m->scheduled_shutdown_tty, tty);
+        if (r < 0)
+                return log_oom();
+
+        return manager_setup_wall_message_timer(m);
+}
+
+static int manager_do_shutdown_action(sd_varlink *link, sd_json_variant *parameters, HandleAction action) {
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(link));
+        int skip_inhibitors = -1;
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "skipInhibitors", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, 0, 0 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &skip_inhibitors);
+        if (r != 0)
+                return r;
+
+        uint64_t flags = skip_inhibitors > 0 ? SD_LOGIND_SKIP_INHIBITORS : 0;
+
+        const HandleActionData *a = handle_action_lookup(action);
+        assert(a);
+
+        r = manager_verify_shutdown_creds(m, /* message= */ NULL, link, a, flags, /* error= */ NULL);
+        if (r != 0)
+                return r;
+
+        {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+
+                (void) varlink_get_peer_pidref(link, &pidref);
+                log_shutdown_caller(&pidref, handle_action_to_string(action));
+        }
+
+        if (m->delayed_action)
+                return sd_varlink_error(link, "io.systemd.Shutdown.AlreadyInProgress", /* parameters= */ NULL);
+
+        /* Reset in case we're short-circuiting a scheduled shutdown */
+        m->unlink_nologin = false;
+        manager_reset_scheduled_shutdown(m);
+
+        m->scheduled_shutdown_timeout = 0;
+        m->scheduled_shutdown_action = action;
+
+        (void) setup_wall_message_timer(m, link);
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, a, &error);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to execute %s: %s",
+                                  handle_action_to_string(action),
+                                  bus_error_message(&error, r));
+                return sd_varlink_error_errno(link, r);
+        }
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_power_off(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return manager_do_shutdown_action(link, parameters, HANDLE_POWEROFF);
+}
+
+static int vl_method_reboot(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return manager_do_shutdown_action(link, parameters, HANDLE_REBOOT);
+}
+
+static int vl_method_halt(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return manager_do_shutdown_action(link, parameters, HANDLE_HALT);
+}
+
+static int vl_method_kexec(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return manager_do_shutdown_action(link, parameters, HANDLE_KEXEC);
+}
+
+static int vl_method_soft_reboot(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return manager_do_shutdown_action(link, parameters, HANDLE_SOFT_REBOOT);
+}
+
 int manager_varlink_init(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _unused_ _cleanup_close_ int fd_close = fd;
@@ -358,14 +458,20 @@ int manager_varlink_init(Manager *m, int fd) {
         r = sd_varlink_server_add_interface_many(
                         s,
                         &vl_interface_io_systemd_Login,
+                        &vl_interface_io_systemd_Shutdown,
                         &vl_interface_io_systemd_service);
         if (r < 0)
-                return log_error_errno(r, "Failed to add Login interface to varlink server: %m");
+                return log_error_errno(r, "Failed to add varlink interfaces: %m");
 
         r = sd_varlink_server_bind_method_many(
                         s,
                         "io.systemd.Login.CreateSession",    vl_method_create_session,
                         "io.systemd.Login.ReleaseSession",   vl_method_release_session,
+                        "io.systemd.Shutdown.PowerOff",      vl_method_power_off,
+                        "io.systemd.Shutdown.Reboot",        vl_method_reboot,
+                        "io.systemd.Shutdown.Halt",          vl_method_halt,
+                        "io.systemd.Shutdown.KExec",         vl_method_kexec,
+                        "io.systemd.Shutdown.SoftReboot",    vl_method_soft_reboot,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
