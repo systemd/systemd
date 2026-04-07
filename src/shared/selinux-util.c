@@ -389,6 +389,12 @@ static int selinux_fix_fd(
                 return log_selinux_enforcing_errno(errno, "Unable to lookup intended SELinux security context of %s: %m", label_path);
         }
 
+        /* Skip the write if the label is already correct, to avoid unnecessary
+         * timestamp changes on the file */
+        _cleanup_freecon_ char *oldcon = NULL;
+        if (sym_fgetfilecon_raw(fd, &oldcon) >= 0 && streq_ptr(fcon, oldcon))
+                return 0;
+
         r = RET_NERRNO(sym_setfilecon_raw(FORMAT_PROC_FD_PATH(fd), fcon));
         if (r < 0) {
                 /* If the FS doesn't support labels, then exit without warning */
@@ -400,8 +406,8 @@ static int selinux_fix_fd(
                         return 0;
 
                 /* If the old label is identical to the new one, suppress any kind of error */
-                _cleanup_freecon_ char *oldcon = NULL;
-                if (sym_getfilecon_raw(FORMAT_PROC_FD_PATH(fd), &oldcon) >= 0 && streq_ptr(fcon, oldcon))
+                _cleanup_freecon_ char *curcon = NULL;
+                if (sym_getfilecon_raw(FORMAT_PROC_FD_PATH(fd), &curcon) >= 0 && streq_ptr(fcon, curcon))
                         return 0;
 
                 return log_selinux_enforcing_errno(r, "Unable to fix SELinux security context of %s: %m", label_path);
