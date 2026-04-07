@@ -581,7 +581,7 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
         }
 
         /* Check for an inline coredump without copying the (potentially large) payload to heap. */
-        has_inline_coredump = sd_journal_get_data(j, "COREDUMP", &d, &l) >= 0;
+        has_inline_coredump = sd_journal_get_data(j, "COREDUMP", NULL, NULL) >= 0;
 
         if (!pid || !uid || !gid || !sgnl || !comm) {
                 log_warning("Found a coredump entry without mandatory fields (PID=%s, UID=%s, GID=%s, SIGNAL=%s, COMM=%s), ignoring.",
@@ -684,9 +684,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 RETRIEVE(d, l, "MESSAGE", message);
         }
 
-        /* Check for an inline coredump without copying the (potentially large) payload to heap.
-         * sd_journal_get_data() returns a pointer into the mmap'd journal — no allocation. */
-        has_inline_coredump = sd_journal_get_data(j, "COREDUMP", &d, &l) >= 0;
+        /* Check for an inline coredump without copying the (potentially large) payload to heap. */
+        has_inline_coredump = sd_journal_get_data(j, "COREDUMP", NULL, NULL) >= 0;
 
         if (need_space)
                 fputs("\n", file);
