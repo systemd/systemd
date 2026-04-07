@@ -56,9 +56,9 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncom
 int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncompressed_size);
 int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncompressed_size);
 
-int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes);
-int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes);
-int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes);
+int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes, bool sparse);
+int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, bool sparse);
+int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes, bool sparse);
 
 int dlopen_lz4(void);
 int dlopen_zstd(void);
