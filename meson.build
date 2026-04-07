@@ -2998,7 +2998,7 @@ if spatch.found()
         foreach dir : coccinelle_src_dirs
                 if dir not in coccinelle_exclude
                         test(
-                                'coccinelle-@0@'.format(fs.name(dir)),
+                                'coccinelle-@0@'.format(fs.name(dir.strip('/'))),
                                 check_coccinelle_sh,
                                 args : [meson.project_source_root() / dir,
                                         meson.project_source_root() / 'coccinelle'],
