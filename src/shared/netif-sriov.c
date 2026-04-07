@@ -34,14 +34,12 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 ConfigSection, config_section_hash_func, config_section_compare_func,
                 SRIOV, sr_iov_free);
 
-static int sr_iov_new(SRIOV **ret) {
+static SRIOV *sr_iov_new(void) {
         SRIOV *sr_iov;
-
-        assert(ret);
 
         sr_iov = new(SRIOV, 1);
         if (!sr_iov)
-                return -ENOMEM;
+                return ERR_TO_PTR(-ENOMEM);
 
         *sr_iov = (SRIOV) {
                   .vf = UINT32_MAX,
@@ -52,9 +50,7 @@ static int sr_iov_new(SRIOV **ret) {
                   .link_state = _SR_IOV_LINK_STATE_INVALID,
         };
 
-        *ret = TAKE_PTR(sr_iov);
-
-        return 0;
+        return sr_iov;
 }
 
 static int sr_iov_new_static(OrderedHashmap **sr_iov_by_section, const char *filename, unsigned section_line, SRIOV **ret) {
@@ -78,9 +74,9 @@ static int sr_iov_new_static(OrderedHashmap **sr_iov_by_section, const char *fil
                 return 0;
         }
 
-        r = sr_iov_new(&sr_iov);
-        if (r < 0)
-                return r;
+        sr_iov = sr_iov_new();
+        if (PTR_IS_ERR(sr_iov))
+                return PTR_TO_ERR(sr_iov);
 
         r = ordered_hashmap_ensure_put(sr_iov_by_section, &sr_iov_hash_ops_by_section, n, sr_iov);
         if (r < 0)

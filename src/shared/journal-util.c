@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "sd-bus.h"
 #include "sd-journal.h"
 
@@ -89,7 +90,7 @@ static int access_check_var_log_journal(sd_journal *j, bool want_other_users) {
 }
 
 int journal_access_blocked(sd_journal *j) {
-        return hashmap_contains(j->errors, INT_TO_PTR(-EACCES));
+        return hashmap_contains(j->errors, ERR_TO_PTR(-EACCES));
 }
 
 int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_users) {
@@ -117,7 +118,7 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
         HASHMAP_FOREACH_KEY(path, code, j->errors) {
                 int err;
 
-                err = ABS(PTR_TO_INT(code));
+                err = ABS(PTR_TO_ERR(code));
 
                 switch (err) {
                 case EACCES:

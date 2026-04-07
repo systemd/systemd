@@ -7,6 +7,7 @@
 #include <getopt.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-login.h"
@@ -221,7 +222,7 @@ int verb_settle_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         if (arg_timeout_usec != USEC_INFINITY) {
                 r = sd_event_add_time_relative(event, NULL, CLOCK_BOOTTIME, arg_timeout_usec, 0,
-                                               NULL, INT_TO_PTR(-ETIMEDOUT));
+                                               NULL, ERR_TO_PTR(-ETIMEDOUT));
                 if (r < 0)
                         return log_error_errno(r, "Failed to add timer event source: %m");
         }

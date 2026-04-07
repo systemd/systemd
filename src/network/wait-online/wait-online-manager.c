@@ -2,6 +2,7 @@
 
 #include <net/if.h>
 
+#include "errno-util.h"
 #include "sd-event.h"
 #include "sd-json.h"
 #include "sd-netlink.h"
@@ -486,7 +487,7 @@ int manager_new(Manager **ret,
         (void) sd_event_set_signal_exit(m->event, true);
 
         if (timeout > 0) {
-                r = sd_event_add_time_relative(m->event, NULL, CLOCK_BOOTTIME, timeout, 0, NULL, INT_TO_PTR(-ETIMEDOUT));
+                r = sd_event_add_time_relative(m->event, NULL, CLOCK_BOOTTIME, timeout, 0, NULL, ERR_TO_PTR(-ETIMEDOUT));
                 if (r < 0 && r != -EOVERFLOW)
                         return r;
         }

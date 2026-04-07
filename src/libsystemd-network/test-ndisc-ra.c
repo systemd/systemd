@@ -7,6 +7,7 @@
 #include <netinet/icmp6.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "sd-event.h"
 #include "sd-ndisc-protocol.h"
 #include "sd-radv.h"
@@ -296,7 +297,7 @@ TEST(ra) {
 
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+                                             NULL, ERR_TO_PTR(-ETIMEDOUT)) >= 0);
 
         assert_se(sd_radv_start(ra) >= 0);
 

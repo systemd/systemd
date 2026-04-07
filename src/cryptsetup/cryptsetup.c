@@ -1416,7 +1416,7 @@ static int make_security_device_monitor(
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        r = sd_event_add_time_relative(event, NULL, CLOCK_MONOTONIC, arg_token_timeout_usec, USEC_PER_SEC, NULL, INT_TO_PTR(-ETIMEDOUT));
+        r = sd_event_add_time_relative(event, NULL, CLOCK_MONOTONIC, arg_token_timeout_usec, USEC_PER_SEC, NULL, ERR_TO_PTR(-ETIMEDOUT));
         if (r < 0)
                 return log_error_errno(r, "Failed to install timeout event source: %m");
 
@@ -1957,7 +1957,7 @@ static int make_tpm2_device_monitor(
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        r = sd_event_add_time_relative(event, NULL, CLOCK_MONOTONIC, arg_token_timeout_usec, USEC_PER_SEC, NULL, INT_TO_PTR(-ETIMEDOUT));
+        r = sd_event_add_time_relative(event, NULL, CLOCK_MONOTONIC, arg_token_timeout_usec, USEC_PER_SEC, NULL, ERR_TO_PTR(-ETIMEDOUT));
         if (r < 0)
                 return log_error_errno(r, "Failed to install timeout event source: %m");
 

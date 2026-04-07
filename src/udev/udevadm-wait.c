@@ -5,6 +5,7 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "sd-event.h"
 
 #include "device-monitor-private.h"
@@ -233,7 +234,7 @@ static int setup_timer(sd_event *event) {
                 return 0;
 
         r = sd_event_add_time_relative(event, &s, CLOCK_BOOTTIME, arg_timeout_usec, 0,
-                                       NULL, INT_TO_PTR(-ETIMEDOUT));
+                                       NULL, ERR_TO_PTR(-ETIMEDOUT));
         if (r < 0)
                 return r;
 

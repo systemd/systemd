@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "sd-dhcp-client.h"
 #include "sd-dhcp-lease.h"
 #include "sd-event.h"
@@ -434,7 +435,7 @@ TEST(addr_acq) {
 
         ASSERT_OK(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)));
+                                             NULL, ERR_TO_PTR(-ETIMEDOUT)));
 
         ASSERT_OK(sd_dhcp_client_start(client));
         ASSERT_OK(sd_event_loop(e));
@@ -611,7 +612,7 @@ static void test_bootp_one(void) {
 
         ASSERT_OK(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)));
+                                             NULL, ERR_TO_PTR(-ETIMEDOUT)));
 
         ASSERT_OK(sd_dhcp_client_start(client));
         ASSERT_OK(sd_event_loop(e));
