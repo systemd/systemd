@@ -1091,4 +1091,145 @@ TEST(option_macros) {
                                         "-h"));
 }
 
+/* Test the pattern used by nspawn's --user: an optional-arg option that also
+ * peeks at the next arg to handle legacy "space-separated" form. */
+TEST(option_optional_arg_consume) {
+        static const Option options[] = {
+                { 1, .short_code = 'h', .long_code = "help" },
+                { 2, .long_code = "user", .metavar = "NAME", .flags = OPTION_OPTIONAL_ARG },
+                { 3, .short_code = 'u', .long_code = "uid", .metavar = "USER" },
+                {}
+        };
+
+        /* --user=NAME: optional arg provided via = */
+        test_option_parse_one(STRV_MAKE("arg0",
+                                        "--user=root"),
+                              options,
+                              (Entry[]) {
+                                      { "user", "root" },
+                                      {}
+                              },
+                              NULL,
+                              /* stop_at_first_nonoption= */ false);
+
+        /* --user without arg: next arg is an option, so no consumption */
+        test_option_parse_one(STRV_MAKE("arg0",
+                                        "--user",
+                                        "--help"),
+                              options,
+                              (Entry[]) {
+                                      { "user", NULL },
+                                      { "help" },
+                                      {}
+                              },
+                              NULL,
+                              /* stop_at_first_nonoption= */ false);
+
+        /* --user without arg: next arg is positional (doesn't start with -).
+         * The option parser returns NULL for the arg. The caller would then
+         * use option_parser_next_arg/consume_next_arg to grab it. */
+        {
+                char **argv = STRV_MAKE("arg0", "--user", "someuser", "pos1");
+                int argc = strv_length(argv);
+
+                OptionParser state = { argc, argv };
+                const Option *opt;
+                const char *arg;
+
+                ASSERT_OK_POSITIVE(option_parse(options, options + 3, &state, &opt, &arg));
+                ASSERT_STREQ(opt->long_code, "user");
+                ASSERT_NULL(arg);
+                ASSERT_STREQ(option_parser_next_arg(&state), "someuser");
+                ASSERT_STREQ(option_parser_consume_next_arg(&state), "someuser");
+
+                ASSERT_EQ(option_parse(options, options + 3, &state, &opt, &arg), 0);
+
+                ASSERT_TRUE(strv_equal(option_parser_get_args(&state), STRV_MAKE("pos1")));
+        }
+
+        /* --user at end of args: no next arg, so scope mode */
+        {
+                char **argv = STRV_MAKE("arg0", "--user");
+                int argc = strv_length(argv);
+
+                OptionParser state = { argc, argv };
+                const Option *opt;
+                const char *arg;
+
+                ASSERT_OK_POSITIVE(option_parse(options, options + 3, &state, &opt, &arg));
+                ASSERT_STREQ(opt->long_code, "user");
+                ASSERT_NULL(arg);
+                ASSERT_NULL(option_parser_next_arg(&state));
+                ASSERT_NULL(option_parser_consume_next_arg(&state));
+
+                ASSERT_EQ(option_parse(options, options + 3, &state, &opt, &arg), 0);
+
+                ASSERT_TRUE(strv_isempty(option_parser_get_args(&state)));
+        }
+
+        /* --user followed by -u (option): scope mode, -u gets its own processing */
+        {
+                char **argv = STRV_MAKE("arg0", "--user", "-u", "nobody");
+                int argc = strv_length(argv);
+
+                OptionParser state = { argc, argv };
+                const Option *opt;
+                const char *arg;
+
+                ASSERT_OK_POSITIVE(option_parse(options, options + 3, &state, &opt, &arg));
+                ASSERT_STREQ(opt->long_code, "user");
+                ASSERT_NULL(arg);
+                ASSERT_STREQ(option_parser_next_arg(&state), "-u");
+
+                ASSERT_OK_POSITIVE(option_parse(options, options + 3, &state, &opt, &arg));
+                ASSERT_STREQ(opt->long_code, "uid");
+                ASSERT_STREQ(arg, "nobody");
+                ASSERT_NULL(option_parser_next_arg(&state));
+                ASSERT_NULL(option_parser_consume_next_arg(&state));
+
+                ASSERT_EQ(option_parse(options, options + 3, &state, &opt, &arg), 0);
+
+                ASSERT_TRUE(strv_isempty(option_parser_get_args(&state)));
+        }
+
+        /* "Functional test": --user followed by -u (option): scope mode, -u gets its own processing,
+         * handled like in a real option parser. */
+        {
+                char **argv = STRV_MAKE("arg0", "--user", "-u", "nobody", "nogroup", "--user=nobody", "--user");
+                int argc = strv_length(argv);
+
+                OptionParser state = { argc, argv };
+                const Option *opt;
+                const char *arg;
+                int scope_seen = 0;
+                int nobody_seen = 0;
+
+                for (int c; (c = option_parse(options, options + 3, &state, &opt, &arg)) != 0; ) {
+                        ASSERT_OK(c);
+
+                        if (streq_ptr(opt->long_code, "user")) {
+                                if (!arg) {
+                                        const char *t = option_parser_next_arg(&state);
+                                        if (t && t[0] != '-')
+                                                arg = option_parser_consume_next_arg(&state);
+                                }
+
+                                if (arg) {
+                                        ASSERT_STREQ(arg, "nobody");
+                                        nobody_seen ++;
+                                } else
+                                        scope_seen ++;
+
+                        } else if (streq_ptr(opt->long_code, "uid")) {
+                                ASSERT_STREQ(arg, "nobody");
+                                nobody_seen ++;
+                        }
+                }
+
+                ASSERT_EQ(nobody_seen, 2);
+                ASSERT_EQ(scope_seen, 2);
+                ASSERT_TRUE(strv_equal(option_parser_get_args(&state), STRV_MAKE("nogroup")));
+        }
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
