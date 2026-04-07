@@ -596,7 +596,7 @@ static int vl_method_release_session(sd_varlink *link, sd_json_variant *paramete
 
         struct {
                 const char *id;
-        } p;
+        } p = {};
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "Id", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id), 0 },
@@ -609,12 +609,12 @@ static int vl_method_release_session(sd_varlink *link, sd_json_variant *paramete
 
         Session *session;
         r = manager_varlink_get_session_by_name(m, link, p.id, &session);
-        if (r < 0)
+        if (r != 0)
                 return r;
 
         Session *peer_session;
         r = manager_varlink_get_session_by_peer(m, link, /* consult_display= */ false, &peer_session);
-        if (r < 0)
+        if (r != 0)
                 return r;
         if (!peer_session)
                 return sd_varlink_error(link, "io.systemd.Login.NoSuchSession", /* parameters= */ NULL);
