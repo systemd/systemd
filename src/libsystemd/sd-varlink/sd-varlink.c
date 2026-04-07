@@ -3708,7 +3708,8 @@ _public_ int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_fl
                                  SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT|
                                  SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT|
                                  SD_VARLINK_SERVER_HANDLE_SIGINT|
-                                 SD_VARLINK_SERVER_HANDLE_SIGTERM)) == 0, -EINVAL);
+                                 SD_VARLINK_SERVER_HANDLE_SIGTERM|
+                                 SD_VARLINK_SERVER_UPGRADABLE)) == 0, -EINVAL);
 
         s = new(sd_varlink_server, 1);
         if (!s)
@@ -3914,6 +3915,8 @@ _public_ int sd_varlink_server_add_connection_pair(
         v->output_fd = output_fd;
         if (server->flags & SD_VARLINK_SERVER_INHERIT_USERDATA)
                 v->userdata = server->userdata;
+        if (server->flags & SD_VARLINK_SERVER_UPGRADABLE)
+                v->protocol_upgrade = true;
 
         if (ucred_acquired) {
                 v->ucred = ucred;
