@@ -951,7 +951,25 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
 #endif
 }
 
-int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
+static int maybe_sparse_write(int fd, const void *buf, size_t nbytes, bool sparse) {
+        if (sparse) {
+                ssize_t k;
+
+                k = sparse_write(fd, buf, nbytes, 64);
+                if (k < 0)
+                        return (int) k;
+        } else {
+                int r;
+
+                r = loop_write(fd, buf, nbytes);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes, bool sparse) {
         assert(fdf >= 0);
         assert(fdt >= 0);
 
@@ -1009,7 +1027,7 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                                 max_bytes -= n;
                         }
 
-                        k = loop_write(fdt, out, n);
+                        k = maybe_sparse_write(fdt, out, n, sparse);
                         if (k < 0)
                                 return k;
 
@@ -1031,7 +1049,7 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 #endif
 }
 
-int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
+int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, bool sparse) {
 #if HAVE_LZ4
         size_t c;
         _cleanup_(LZ4F_freeDecompressionContextp) LZ4F_decompressionContext_t ctx = NULL;
@@ -1082,7 +1100,7 @@ int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                         goto cleanup;
                 }
 
-                r = loop_write(fdt, buf, produced);
+                r = maybe_sparse_write(fdt, buf, produced, sparse);
                 if (r < 0)
                         goto cleanup;
         }
@@ -1212,7 +1230,7 @@ int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unc
 #endif
 }
 
-int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
+int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes, bool sparse) {
         assert(fdf >= 0);
         assert(fdt >= 0);
 
@@ -1290,7 +1308,7 @@ int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
                         if (left < output.pos)
                                 return -EFBIG;
 
-                        wrote = loop_write_full(fdt, output.dst, output.pos, USEC_INFINITY);
+                        wrote = maybe_sparse_write(fdt, output.dst, output.pos, sparse);
                         if (wrote < 0)
                                 return wrote;
 
@@ -1326,14 +1344,14 @@ int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
 #endif
 }
 
-int decompress_stream(const char *filename, int fdf, int fdt, uint64_t max_bytes) {
+int decompress_stream(const char *filename, int fdf, int fdt, uint64_t max_bytes, bool sparse) {
 
         if (endswith(filename, ".lz4"))
-                return decompress_stream_lz4(fdf, fdt, max_bytes);
+                return decompress_stream_lz4(fdf, fdt, max_bytes, sparse);
         if (endswith(filename, ".xz"))
-                return decompress_stream_xz(fdf, fdt, max_bytes);
+                return decompress_stream_xz(fdf, fdt, max_bytes, sparse);
         if (endswith(filename, ".zst"))
-                return decompress_stream_zstd(fdf, fdt, max_bytes);
+                return decompress_stream_zstd(fdf, fdt, max_bytes, sparse);
 
         return -EPROTONOSUPPORT;
 }
