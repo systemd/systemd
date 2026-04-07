@@ -249,7 +249,7 @@ static int image_auxiliary_path(Image *image, const char *suffix, char **ret) {
         return file_in_same_dir(image->path, fn, ret);
 }
 
-static int image_new(
+static Image *image_new(
                 ImageType t,
                 ImageClass c,
                 const char *pretty,
@@ -259,8 +259,7 @@ static int image_new(
                 usec_t mtime,
                 struct file_handle *fh,
                 uint64_t on_mount_id,
-                uint64_t inode,
-                Image **ret) {
+                uint64_t inode) {
 
         _cleanup_(image_unrefp) Image *i = NULL;
 
@@ -268,11 +267,10 @@ static int image_new(
         assert(t < _IMAGE_TYPE_MAX);
         assert(pretty);
         assert(path);
-        assert(ret);
 
         i = new(Image, 1);
         if (!i)
-                return -ENOMEM;
+                return ERR_TO_PTR(ENOMEM);
 
         *i = (Image) {
                 .n_ref = 1,
@@ -292,22 +290,20 @@ static int image_new(
         if (fh) {
                 i->fh = file_handle_dup(fh);
                 if (!i->fh)
-                        return -ENOMEM;
+                        return ERR_TO_PTR(ENOMEM);
         }
 
         i->name = strdup(pretty);
         if (!i->name)
-                return -ENOMEM;
+                return ERR_TO_PTR(ENOMEM);
 
         i->path = strdup(path);
         if (!i->path)
-                return -ENOMEM;
+                return ERR_TO_PTR(ENOMEM);
 
         path_simplify(i->path);
 
-        *ret = TAKE_PTR(i);
-
-        return 0;
+        return TAKE_PTR(i);
 }
 
 static int extract_image_basename(
@@ -519,28 +515,28 @@ static int image_make(
                                 read_only = r != 0;
                         }
 
-                        r = image_new(IMAGE_MSTACK,
-                                      c,
-                                      pretty,
-                                      path,
-                                      read_only,
-                                      crtime,
-                                      /* mtime= */ 0,
-                                      fh,
-                                      on_mount_id,
-                                      (uint64_t) st->st_ino,
-                                      ret);
-                        if (r < 0)
-                                return r;
+                        Image *img = image_new(IMAGE_MSTACK,
+                                              c,
+                                              pretty,
+                                              path,
+                                              read_only,
+                                              crtime,
+                                              /* mtime= */ 0,
+                                              fh,
+                                              on_mount_id,
+                                              (uint64_t) st->st_ino);
+                        if (PTR_IS_ERR(img))
+                                return PTR_TO_ERR(img);
 
                         if (mstack) {
                                 r = mstack_is_foreign_uid_owned(mstack);
                                 if (r < 0)
                                         log_debug_errno(r, "Failed to determine if mstack '%s' is foreign UID owned, assuming it is not: %m", path);
                                 if (r > 0)
-                                        (*ret)->foreign_uid_owned = true;
+                                        img->foreign_uid_owned = true;
                         }
 
+                        *ret = img;
                         return 0;
                 }
 
@@ -571,22 +567,22 @@ static int image_make(
                                 if (r < 0)
                                         return r;
 
-                                r = image_new(IMAGE_SUBVOLUME,
-                                              c,
-                                              pretty,
-                                              path,
-                                              info.read_only || read_only,
-                                              info.otime,
-                                              info.ctime,
-                                              fh,
-                                              on_mount_id,
-                                              (uint64_t) st->st_ino,
-                                              ret);
-                                if (r < 0)
-                                        return r;
+                                Image *img = image_new(IMAGE_SUBVOLUME,
+                                                      c,
+                                                      pretty,
+                                                      path,
+                                                      info.read_only || read_only,
+                                                      info.otime,
+                                                      info.ctime,
+                                                      fh,
+                                                      on_mount_id,
+                                                      (uint64_t) st->st_ino);
+                                if (PTR_IS_ERR(img))
+                                        return PTR_TO_ERR(img);
 
-                                (*ret)->foreign_uid_owned = uid_is_foreign(st->st_uid);
-                                (void) image_update_quota(*ret, fd);
+                                img->foreign_uid_owned = uid_is_foreign(st->st_uid);
+                                (void) image_update_quota(img, fd);
+                                *ret = img;
                                 return 0;
                         }
                 }
@@ -601,21 +597,21 @@ static int image_make(
                 (void) read_attr_fd(fd, &file_attr);
 
                 /* It's just a normal directory. */
-                r = image_new(IMAGE_DIRECTORY,
-                              c,
-                              pretty,
-                              path,
-                              read_only || (file_attr & FS_IMMUTABLE_FL),
-                              crtime,
-                              0, /* we don't use mtime of stat() here, since it's not the time of last change of the tree, but only of the top-level dir */
-                              fh,
-                              on_mount_id,
-                              (uint64_t) st->st_ino,
-                              ret);
-                if (r < 0)
-                        return r;
+                Image *img = image_new(IMAGE_DIRECTORY,
+                                       c,
+                                       pretty,
+                                       path,
+                                       read_only || (file_attr & FS_IMMUTABLE_FL),
+                                       crtime,
+                                       0, /* we don't use mtime of stat() here, since it's not the time of last change of the tree, but only of the top-level dir */
+                                       fh,
+                                       on_mount_id,
+                                       (uint64_t) st->st_ino);
+                if (PTR_IS_ERR(img))
+                        return PTR_TO_ERR(img);
 
-                (*ret)->foreign_uid_owned = uid_is_foreign(st->st_uid);
+                img->foreign_uid_owned = uid_is_foreign(st->st_uid);
+                *ret = img;
                 return 0;
 
         } else if (S_ISREG(st->st_mode) && endswith(path, ".raw")) {
@@ -641,23 +637,23 @@ static int image_make(
                         pretty = pretty_buffer;
                 }
 
-                r = image_new(IMAGE_RAW,
-                              c,
-                              pretty,
-                              path,
-                              !(st->st_mode & 0222) || read_only,
-                              crtime,
-                              timespec_load(&st->st_mtim),
-                              fh,
-                              on_mount_id,
-                              (uint64_t) st->st_ino,
-                              ret);
-                if (r < 0)
-                        return r;
+                Image *img = image_new(IMAGE_RAW,
+                                       c,
+                                       pretty,
+                                       path,
+                                       !(st->st_mode & 0222) || read_only,
+                                       crtime,
+                                       timespec_load(&st->st_mtim),
+                                       fh,
+                                       on_mount_id,
+                                       (uint64_t) st->st_ino);
+                if (PTR_IS_ERR(img))
+                        return PTR_TO_ERR(img);
 
-                (*ret)->usage = (*ret)->usage_exclusive = st->st_blocks * 512;
-                (*ret)->limit = (*ret)->limit_exclusive = st->st_size;
+                img->usage = img->usage_exclusive = st->st_blocks * 512;
+                img->limit = img->limit_exclusive = st->st_size;
 
+                *ret = img;
                 return 0;
 
         } else if (S_ISBLK(st->st_mode)) {
@@ -701,23 +697,23 @@ static int image_make(
                         block_fd = safe_close(block_fd);
                 }
 
-                r = image_new(IMAGE_BLOCK,
-                              c,
-                              pretty,
-                              path,
-                              !(st->st_mode & 0222) || read_only,
-                              0,
-                              0,
-                              fh,
-                              on_mount_id,
-                              (uint64_t) st->st_ino,
-                              ret);
-                if (r < 0)
-                        return r;
+                Image *img = image_new(IMAGE_BLOCK,
+                                       c,
+                                       pretty,
+                                       path,
+                                       !(st->st_mode & 0222) || read_only,
+                                       0,
+                                       0,
+                                       fh,
+                                       on_mount_id,
+                                       (uint64_t) st->st_ino);
+                if (PTR_IS_ERR(img))
+                        return PTR_TO_ERR(img);
 
                 if (!IN_SET(size, 0, UINT64_MAX))
-                        (*ret)->usage = (*ret)->usage_exclusive = (*ret)->limit = (*ret)->limit_exclusive = size;
+                        img->usage = img->usage_exclusive = img->limit = img->limit_exclusive = size;
 
+                *ret = img;
                 return 0;
         }
 

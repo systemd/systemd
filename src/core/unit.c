@@ -5186,19 +5186,20 @@ int unit_setup_exec_runtime(Unit *u) {
         }
 
         if (ec->dynamic_user) {
-                r = dynamic_creds_make(u->manager, ec->user, ec->group, &dcreds);
-                if (r < 0)
-                        return r;
+                dcreds = dynamic_creds_make(u->manager, ec->user, ec->group);
+                if (PTR_IS_ERR(dcreds))
+                        return PTR_TO_ERR(dcreds);
         }
 
-        r = exec_runtime_make(u, ec, esr, dcreds, rt);
-        if (r < 0)
-                return r;
+        ExecRuntime *ert = exec_runtime_make(u, ec, esr, dcreds);
+        if (PTR_IS_ERR(ert))
+                return PTR_TO_ERR(ert);
 
+        *rt = ert;
         TAKE_PTR(esr);
         TAKE_PTR(dcreds);
 
-        return r;
+        return 0;
 }
 
 CGroupRuntime* unit_setup_cgroup_runtime(Unit *u) {
