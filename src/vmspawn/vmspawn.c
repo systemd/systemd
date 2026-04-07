@@ -2695,40 +2695,21 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
-        _cleanup_close_ int child_vsock_fd = -EBADF;
         unsigned child_cid = arg_vsock_cid;
         if (use_vsock) {
-                int device_fd = vhost_device_fd;
+                config.vsock.fd = TAKE_FD(vhost_device_fd);
 
-                if (device_fd < 0) {
-                        child_vsock_fd = open("/dev/vhost-vsock", O_RDWR|O_CLOEXEC);
-                        if (child_vsock_fd < 0)
+                if (config.vsock.fd < 0) {
+                        config.vsock.fd = open("/dev/vhost-vsock", O_RDWR|O_CLOEXEC);
+                        if (config.vsock.fd < 0)
                                 return log_error_errno(errno, "Failed to open /dev/vhost-vsock as read/write: %m");
-
-                        device_fd = child_vsock_fd;
                 }
 
-                r = vsock_fix_child_cid(device_fd, &child_cid, arg_machine);
+                r = vsock_fix_child_cid(config.vsock.fd, &child_cid, arg_machine);
                 if (r < 0)
                         return log_error_errno(r, "Failed to fix CID for the guest VSOCK socket: %m");
 
-                r = qemu_config_section(config_file, "device", "vsock0",
-                                        "driver", "vhost-vsock-pci");
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_keyf(config_file, "guest-cid", "%u", child_cid);
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_keyf(config_file, "vhostfd", "%d", device_fd);
-                if (r < 0)
-                        return r;
-
-                if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
-                        return log_oom();
-
-                pass_fds[n_pass_fds++] = device_fd;
+                config.vsock.cid = child_cid;
         }
 
         /* -cpu stays on cmdline since not all flags are supported in config */
@@ -3611,6 +3592,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
         }
+
+        r = vmspawn_qmp_setup_vsock(bridge, &config.vsock);
+        if (r < 0)
+                return r;
 
         /* Resume vCPUs and switch to async event processing */
         r = vmspawn_qmp_start(bridge);
