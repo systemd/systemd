@@ -58,3 +58,17 @@ systemctl start systemd-report-basic.socket
 # Test facts via direct Varlink call on existing socket
 varlinkctl --more call /run/systemd/report/io.systemd.Basic io.systemd.Facts.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.Basic io.systemd.Facts.Describe {}
+
+# Test HTTP upload (plain http)
+at_exit() {
+    set +e
+    systemctl stop fake-report-server
+}
+trap at_exit EXIT
+
+systemd-run -p Type=notify --unit=fake-report-server \
+    /usr/lib/systemd/tests/integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units/fake-report-server.py
+systemctl status fake-report-server
+
+"$REPORT" metrics --url=http://localhost:8089/
+"$REPORT" facts --url=http://localhost:8089/
