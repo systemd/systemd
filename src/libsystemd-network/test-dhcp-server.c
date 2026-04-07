@@ -9,7 +9,9 @@
 #include "sd-event.h"
 
 #include "dhcp-server-internal.h"
+#include "dhcp-server-request.h"
 #include "hashmap.h"
+#include "iovec-util.h"
 #include "siphash24.h"
 #include "tests.h"
 
@@ -116,6 +118,7 @@ static void test_message_handler(void) {
                 .header.hlen = ETHER_ADDR_LEN,
                 .header.xid = htobe32(0x12345678),
                 .header.chaddr = { 'A', 'B', 'C', 'D', 'E', 'F' },
+                .header.magic = htobe32(DHCP_MAGIC_COOKIE),
                 .option_type.code = SD_DHCP_OPTION_MESSAGE_TYPE,
                 .option_type.length = 1,
                 .option_type.type = DHCP_DISCOVER,
@@ -146,61 +149,76 @@ static void test_message_handler(void) {
         ASSERT_OK(sd_dhcp_server_attach_event(server, NULL, 0));
         ASSERT_OK(sd_dhcp_server_start(server));
 
-        r = dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL);
+        r = dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL);
         if (r == -ENETDOWN)
                 return (void) log_tests_skipped("Network is not available");
-        ASSERT_OK_EQ(r, DHCP_OFFER);
+        ASSERT_OK(r);
 
+        /* Gracefully handle missing END tag */
         test.end = 0;
-        /* TODO, shouldn't this fail? */
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
-        test.end = SD_DHCP_OPTION_END;
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
+        /* Of course, we can also handle END tag */
+        test.end = SD_DHCP_OPTION_END;
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
+
+        /* Missing Message Type option */
         test.option_type.code = 0;
         test.option_type.length = 0;
         test.option_type.type = 0;
-        ASSERT_ERROR(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), ENOMSG);
+        ASSERT_ERROR(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL), ENODATA);
+
         test.option_type.code = SD_DHCP_OPTION_MESSAGE_TYPE;
         test.option_type.length = 1;
         test.option_type.type = DHCP_DISCOVER;
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
+        /* Invalid op */
         test.header.op = 0;
-        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+        ASSERT_ERROR(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL), EBADMSG);
+
         test.header.op = BOOTREQUEST;
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
+        /* Invalid htype */
         test.header.htype = 0;
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        ASSERT_ERROR(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL), EBADMSG);
+
         test.header.htype = ARPHRD_ETHER;
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
+        /* Invalid hlen */
         test.header.hlen = 0;
-        ASSERT_ERROR(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), EBADMSG);
-        test.header.hlen = ETHER_ADDR_LEN;
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        ASSERT_ERROR(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL), EBADMSG);
 
+        test.header.hlen = ETHER_ADDR_LEN;
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
+
+        /* DHCPREQUEST (init-reboot) without Requested IP Address option */
         test.option_type.type = DHCP_REQUEST;
-        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+        ASSERT_ERROR(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL), ENODATA);
+
         test.option_requested_ip.code = SD_DHCP_OPTION_REQUESTED_IP_ADDRESS;
         test.option_requested_ip.length = 4;
         test.option_requested_ip.address = htobe32(0x12345678);
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_NAK);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
+
         test.option_server_id.code = SD_DHCP_OPTION_SERVER_IDENTIFIER;
         test.option_server_id.length = 4;
         test.option_server_id.address = htobe32(INADDR_LOOPBACK);
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 3);
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
+        /* DHCPREQUEST (init-reboot) with unmatching server address */
         test.option_server_id.address = htobe32(0x12345678);
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 3);
-        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+        ASSERT_ERROR(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL), EBADMSG);
+
         test.option_server_id.address = htobe32(INADDR_LOOPBACK);
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 4);
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 3);
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
         test.option_client_id.code = SD_DHCP_OPTION_CLIENT_IDENTIFIER;
         test.option_client_id.length = 7;
@@ -211,10 +229,10 @@ static void test_message_handler(void) {
         test.option_client_id.id[4] = 'D';
         test.option_client_id.id[5] = 'E';
         test.option_client_id.id[6] = 'F';
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 30);
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
         /* add the static lease for the client ID */
         ASSERT_OK(sd_dhcp_server_stop(server));
@@ -228,25 +246,25 @@ static void test_message_handler(void) {
 
         /* discover */
         test.option_type.type = DHCP_DISCOVER;
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
         /* request neither bound nor static address */
         test.option_type.type = DHCP_REQUEST;
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 29);
-        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
         /* request the currently assigned address */
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 30);
-        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
         /* request the new static address */
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 31);
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
         /* release the bound static lease */
         test.header.ciaddr = htobe32(INADDR_LOOPBACK + 31);
         test.option_type.type = DHCP_RELEASE;
-        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
         /* drop the static lease for the client ID */
         ASSERT_OK(sd_dhcp_server_stop(server));
@@ -262,27 +280,27 @@ static void test_message_handler(void) {
         test.header.ciaddr = 0;
         test.option_type.type = DHCP_REQUEST;
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 29);
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
         /* request address reserved for static lease (unmatching client ID) */
         test.option_client_id.id[6] = 'H';
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 42);
-        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
         /* request unmatching address */
         test.option_client_id.id[6] = 'G';
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 41);
-        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
         /* request matching address */
         test.option_client_id.id[6] = 'G';
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 42);
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 
         /* try again */
         test.option_client_id.id[6] = 'G';
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 42);
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        ASSERT_OK(dhcp_server_process_message(server, &IOVEC_MAKE(&test, sizeof(test)), /* timestamp= */ NULL));
 }
 
 static uint64_t client_id_hash_helper(sd_dhcp_client_id *id, uint8_t key[HASH_KEY_SIZE]) {
