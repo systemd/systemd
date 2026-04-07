@@ -413,6 +413,41 @@ DISABLE_WARNING_REDUNDANT_DECLS;
 void free(void *p); /* NOLINT (readability-redundant-declaration) */
 REENABLE_WARNING;
 
+/* MAX_ERRNO is defined as 4095 in linux/err.h. We use the same value here. */
+#define ERRNO_MAX 4095
+
+/* Error pointer encoding — inspired by Linux kernel's ERR_PTR (include/linux/err.h).
+ *
+ * Encodes errno values into pointers in the range [UINTPTR_MAX - ERRNO_MAX,
+ * UINTPTR_MAX - 1]. UINTPTR_MAX itself (== POINTER_MAX) is excluded so that
+ * it remains available as a sentinel value (used by e.g. STRV_IGNORE and
+ * sd_varlink). Accepts both positive and negative errno values via ABS(). */
+
+#define ERR_TO_PTR(error)                                               \
+        ({                                                              \
+                intmax_t _e = (error);                                  \
+                assert_se(ABS(_e) > 0 && ABS(_e) <= ERRNO_MAX);        \
+                (void *) (UINTPTR_MAX - (uintptr_t) ABS(_e));          \
+        })
+
+#define PTR_TO_ERR(ptr)                                                 \
+        (-(int) (UINTPTR_MAX - (uintptr_t) (ptr)))
+
+#define PTR_IS_ERR(ptr)                                                 \
+        ((uintptr_t) (ptr) - (UINTPTR_MAX - ERRNO_MAX) < (uintptr_t) ERRNO_MAX)
+
+#define PTR_IS_ERR_OR_NULL(ptr)                                         \
+        ({                                                              \
+                const void *_p = (ptr);                                 \
+                !_p || PTR_IS_ERR(_p);                                  \
+        })
+
+#define PTR_TO_ERR_OR_ZERO(ptr)                                         \
+        ({                                                              \
+                const void *_p = (ptr);                                 \
+                PTR_IS_ERR(_p) ? PTR_TO_ERR(_p) : 0;                   \
+        })
+
 #define mfree(memory)                           \
         ({                                      \
                 free(memory);                   \
