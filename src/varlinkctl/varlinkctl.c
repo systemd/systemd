@@ -1269,7 +1269,7 @@ static int verb_serve(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
 
-        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_INHERIT_USERDATA);
+        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_UPGRADABLE);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server: %m");
 
