@@ -301,6 +301,16 @@ int xsetxattr_full(
         if (size == SIZE_MAX)
                 size = strlen(value);
 
+        /* Skip the write if the xattr already has the correct value, to avoid
+         * unnecessary timestamp changes on the file */
+        _cleanup_free_ char *old_value = NULL;
+        size_t old_size;
+
+        if (getxattr_at_malloc(fd, path, name, at_flags, &old_value, &old_size) >= 0 &&
+            old_size == size &&
+            memcmp(old_value, value, size) == 0)
+                return 0;
+
         if (have_xattrat && !isempty(path)) {
                 struct xattr_args args = {
                         .value = PTR_TO_UINT64(value),

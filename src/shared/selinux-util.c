@@ -360,6 +360,19 @@ void mac_selinux_disable_logging(void) {
 }
 
 #if HAVE_SELINUX
+static int setfilecon_idempotent(int fd, const char *context) {
+        _cleanup_freecon_ char *oldcon = NULL;
+
+        assert(fd >= 0);
+        assert(context);
+
+        /* Read current context via /proc/self/fd/ so this works for O_PATH fds too */
+        if (sym_getfilecon_raw(FORMAT_PROC_FD_PATH(fd), &oldcon) >= 0 && streq_ptr(context, oldcon))
+                return 0; /* Already correct */
+
+        return RET_NERRNO(sym_setfilecon_raw(FORMAT_PROC_FD_PATH(fd), context));
+}
+
 static int selinux_fix_fd(
                 int fd,
                 const char *label_path,
@@ -389,25 +402,19 @@ static int selinux_fix_fd(
                 return log_selinux_enforcing_errno(errno, "Unable to lookup intended SELinux security context of %s: %m", label_path);
         }
 
-        r = RET_NERRNO(sym_setfilecon_raw(FORMAT_PROC_FD_PATH(fd), fcon));
-        if (r < 0) {
-                /* If the FS doesn't support labels, then exit without warning */
-                if (ERRNO_IS_NOT_SUPPORTED(r))
-                        return 0;
+        r = setfilecon_idempotent(fd, fcon);
+        if (r >= 0)
+                return 0;
 
-                /* It the FS is read-only and we were told to ignore failures caused by that, suppress error */
-                if (r == -EROFS && (flags & LABEL_IGNORE_EROFS))
-                        return 0;
+        /* If the FS doesn't support labels, then exit without warning */
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return 0;
 
-                /* If the old label is identical to the new one, suppress any kind of error */
-                _cleanup_freecon_ char *oldcon = NULL;
-                if (sym_getfilecon_raw(FORMAT_PROC_FD_PATH(fd), &oldcon) >= 0 && streq_ptr(fcon, oldcon))
-                        return 0;
+        /* It the FS is read-only and we were told to ignore failures caused by that, suppress error */
+        if (r == -EROFS && (flags & LABEL_IGNORE_EROFS))
+                return 0;
 
-                return log_selinux_enforcing_errno(r, "Unable to fix SELinux security context of %s: %m", label_path);
-        }
-
-        return 0;
+        return log_selinux_enforcing_errno(r, "Unable to fix SELinux security context of %s: %m", label_path);
 }
 #endif
 
@@ -495,8 +502,9 @@ int mac_selinux_apply_fd(int fd, const char *path, const char *label) {
 
         assert(label);
 
-        if (sym_setfilecon_raw(FORMAT_PROC_FD_PATH(fd), label) < 0)
-                return log_selinux_enforcing_errno(errno, "Failed to set SELinux security context %s on path %s: %m", label, strna(path));
+        r = setfilecon_idempotent(fd, label);
+        if (r < 0)
+                return log_selinux_enforcing_errno(r, "Failed to set SELinux security context %s on path %s: %m", label, strna(path));
 #endif
         return 0;
 }
