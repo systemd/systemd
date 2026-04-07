@@ -2438,17 +2438,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
-        r = qemu_config_section(config_file, "object", "rng0",
-                                "qom-type", "rng-random",
-                                "filename", "/dev/urandom");
-        if (r < 0)
-                return r;
-
-        r = qemu_config_section(config_file, "device", "rng-device0",
-                                "driver", "virtio-rng-pci",
-                                "rng", "rng0");
-        if (r < 0)
-                return r;
 
         r = qemu_config_section(config_file, "device", "balloon0",
                                 "driver", "virtio-balloon",
@@ -3612,6 +3601,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
+
+        /* Device setup — all before resuming vCPUs */
+        r = vmspawn_qmp_setup_rng(bridge);
+        if (r < 0)
+                return r;
         /* Resume vCPUs and switch to async event processing */
         r = vmspawn_varlink_start(bridge);
         if (r < 0)
