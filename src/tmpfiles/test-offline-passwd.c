@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
-
 #include "format-util.h"
 #include "hashmap.h"
 #include "offline-passwd.h"
+#include "options.h"
+#include "strv.h"
 #include "tests.h"
 
-static char *arg_root = NULL;
+static const char *arg_root = NULL;
 
 static void test_resolve_one(const char *name) {
         bool relaxed = name || arg_root;
@@ -39,30 +39,22 @@ static void test_resolve_one(const char *name) {
         assert_se(relaxed || r == 0);
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "root",           required_argument,   NULL, 'r' },
-                {}
-        };
-
-        int c;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert_se(argc >= 0);
         assert_se(argv);
 
-        while ((c = getopt_long(argc, argv, "r:", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
-                case 'r':
-                        arg_root = optarg;
+
+                OPTION('r', "root", "PATH", "Operate on an alternate filesystem root"):
+                        arg_root = arg;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
+        *ret_args = option_parser_get_args(&state);
         return 0;
 }
 
@@ -71,15 +63,16 @@ int main(int argc, char **argv) {
 
         test_setup_logging(LOG_DEBUG);
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r < 0)
                 return r;
 
-        if (optind >= argc)
+        if (strv_isempty(args))
                 test_resolve_one(NULL);
         else
-                while (optind < argc)
-                        test_resolve_one(argv[optind++]);
+                STRV_FOREACH(a, args)
+                        test_resolve_one(*a);
 
         return 0;
 }
