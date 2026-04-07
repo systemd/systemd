@@ -188,6 +188,18 @@ Features:
 
 * oci: support "data" in any OCI descriptor, not just manifest config.
 
+* clean up credential naming a bit: let's say encrypted creds always should
+  carry .cred suffix, and unencrypted should not.
+
+* clean up naming of sidecar files in sd-stub: let's put global ones strictly
+  into /loader/extras/
+
+* bootctl link
+  - boot loader spec: document "extra" for both type1 and type2
+  - bootctl: add mech for removing oldest entries (gc)
+  - on "link": make just enough space to fit new image
+  - make sure boot counting works with bootctl link
+
 * report:
   - plug "facts" into systemd-report too, i.e. stuff that is more static, such as hostnames, ssh keys and so on.
   - pass filtering hints to services, so that they can also be applied server-side, not just client side
@@ -507,10 +519,6 @@ Features:
   main vs control process, useful in case of sd_notify() MAINPID= debugging).
   Net result: people who try to debug why their process gets killed should have
   some minimal, nice metadata directly on the signal event.
-
-* sd-boot/sd-stub: install a uefi "handle" to a sidecar dir of bls type #1
-  entries with an "uki" or "uki-url" stanza, and make sd-stub look for
-  that. That way we can parameterize type #1 entries nicely.
 
 * add a system-wide seccomp filter list for syscalls, kill "acct()" "@obsolete"
   and a few other legacy syscalls that way.

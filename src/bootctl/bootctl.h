@@ -50,6 +50,11 @@ extern char *arg_certificate_source;
 extern char *arg_private_key;
 extern KeySourceType arg_private_key_source_type;
 extern char *arg_private_key_source;
+extern char *arg_entry_title;
+extern char *arg_entry_version;
+extern uint64_t arg_entry_commit;
+extern char **arg_extras;
+extern unsigned arg_tries_left;
 
 static inline const char* arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */
