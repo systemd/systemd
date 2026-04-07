@@ -188,6 +188,7 @@ int config_parse_dhcp_static_lease_hwaddr(
         if (isempty(rvalue)) {
                 lease->client_id = mfree(lease->client_id);
                 lease->client_id_size = 0;
+                TAKE_PTR(lease);
                 return 0;
         }
 
