@@ -105,6 +105,7 @@ static char **arg_timer_property = NULL;
 static bool arg_with_timer = false;
 static bool arg_quiet = false;
 static bool arg_verbose = false;
+OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_aggressive_gc = false;
 static char *arg_working_directory = NULL;
 static char *arg_root_directory = NULL;
@@ -182,6 +183,7 @@ static int help(void) {
                "  -P --pipe                       Pass STDIN/STDOUT/STDERR directly to service\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
                "  -v --verbose                    Show unit logs while executing operation\n"
+               "     --output=STRING              Controls formatting of verbose logs, see journalctl\n"
                "     --json=pretty|short|off      Print unit name and invocation id as JSON\n"
                "  -G --collect                    Unload unit after it ran, even when failed\n"
                "  -S --shell                      Invoke a $SHELL interactively\n"
@@ -318,6 +320,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_EXEC_USER,
                 ARG_EXEC_GROUP,
                 ARG_NICE,
+                ARG_VERBOSE_OUTPUT,
                 ARG_ON_ACTIVE,
                 ARG_ON_BOOT,
                 ARG_ON_STARTUP,
@@ -370,6 +373,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "pipe",               no_argument,       NULL, 'P'                    },
                 { "quiet",              no_argument,       NULL, 'q'                    },
                 { "verbose",            no_argument,       NULL, 'v'                    },
+                { "output",             required_argument, NULL, ARG_VERBOSE_OUTPUT     },
                 { "on-active",          required_argument, NULL, ARG_ON_ACTIVE          },
                 { "on-boot",            required_argument, NULL, ARG_ON_BOOT            },
                 { "on-startup",         required_argument, NULL, ARG_ON_STARTUP         },
@@ -540,6 +544,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'v':
                         arg_verbose = true;
+                        break;
+
+                case ARG_VERBOSE_OUTPUT:
+                        arg_output = output_mode_from_string(optarg);
+                        if (arg_output < 0)
+                                return log_error_errno(arg_output, "Unknown output format '%s'.", optarg);
                         break;
 
                 case ARG_ON_ACTIVE:
@@ -2569,7 +2579,7 @@ static int start_transient_service(sd_bus *bus) {
 
         _cleanup_(fork_notify_terminate) PidRef journal_pid = PIDREF_NULL;
         if (arg_verbose)
-                (void) journal_fork(arg_runtime_scope, STRV_MAKE(c.unit), &journal_pid);
+                (void) journal_fork(arg_runtime_scope, STRV_MAKE(c.unit), arg_output, &journal_pid);
 
         r = bus_call_with_hint(bus, m, "service", &reply);
         if (r < 0)
