@@ -52,7 +52,9 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_symbol_type_t) {
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_symbol_flags_t) {
         SD_VARLINK_SUPPORTS_MORE         = 1 << 0, /* Call supports "more" flag */
         SD_VARLINK_REQUIRES_MORE         = 1 << 1, /* Call requires "more" flag */
-        _SD_VARLINK_SYMBOL_FLAGS_MAX     = (1 << 2) - 1,
+        SD_VARLINK_SUPPORTS_UPGRADE      = 1 << 2, /* Call supports "upgrade" flag */
+        SD_VARLINK_REQUIRES_UPGRADE      = 1 << 3, /* Call requires "upgrade" flag */
+        _SD_VARLINK_SYMBOL_FLAGS_MAX     = (1 << 4) - 1,
         _SD_VARLINK_SYMBOL_FLAGS_INVALID = -EINVAL,
         _SD_ENUM_FORCE_S64(SD_VARLINK_SYMBOL_FLAGS)
 } sd_varlink_symbol_flags_t;
