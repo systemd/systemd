@@ -149,16 +149,8 @@ static int smack_fix_fd(
                                                                     to ignore failures caused by that,
                                                                     suppress error */
                 return 0;
-        if (r < 0) {
-                /* If the old label is identical to the new one, suppress any kind of error */
-                _cleanup_free_ char *old_label = NULL;
-
-                if (fgetxattr_malloc(fd, "security.SMACK64", &old_label, /* ret_size= */ NULL) >= 0 &&
-                    streq(old_label, label))
-                        return 0;
-
+        if (r < 0)
                 return log_debug_errno(r, "Unable to fix SMACK label of '%s': %m", label_path);
-        }
 
         return 0;
 }
