@@ -3804,11 +3804,11 @@ static int process_signal(sd_event *e, struct signal_data *d, uint32_t events, i
                 if (_unlikely_(n != sizeof(si)))
                         return -EIO;
 
-                if (_unlikely_(!SIGNAL_VALID(si.ssi_signo)))
+                if (_unlikely_(si.ssi_signo > INT_MAX)) /* Ensure casting doesn't underflow */
                         return -EIO;
 
-                /* Silence static analyzers */
-                assert(si.ssi_signo < _NSIG);
+                if (_unlikely_(!SIGNAL_VALID(si.ssi_signo)))
+                        return -EIO;
 
                 if (e->signal_sources)
                         s = e->signal_sources[si.ssi_signo];
