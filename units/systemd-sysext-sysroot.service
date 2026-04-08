@@ -1,0 +1,32 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Merge System Extension Images into /sysroot/usr/ and /sysroot/opt/
+Documentation=man:systemd-sysext-sysroot.service(8)
+
+ConditionCapability=CAP_SYS_ADMIN
+ConditionDirectoryNotEmpty=|/sysroot/etc/extensions
+ConditionDirectoryNotEmpty=|/sysroot/var/lib/extensions
+ConditionPathExists=/etc/initrd-release
+ConditionKernelCommandLine=!systemd.sysext=0
+
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=initrd-root-fs.target shutdown.target
+Wants=modprobe@loop.service modprobe@dm_mod.service
+After=modprobe@loop.service modprobe@dm_mod.service sysroot.mount sysroot-usr.mount systemd-volatile-root.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=systemd-sysext --root=/sysroot refresh
+
+[Install]
+WantedBy=initrd.target

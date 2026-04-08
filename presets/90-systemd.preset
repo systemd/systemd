@@ -52,7 +52,9 @@ disable proc-sys-fs-binfmt_misc.mount
 disable syslog.socket
 
 disable systemd-boot-check-no-failures.service
+disable systemd-confext-sysroot.service
 disable systemd-journal-gatewayd.*
 disable systemd-journal-remote.*
 disable systemd-journal-upload.*
+disable systemd-sysext-sysroot.service
 disable systemd-time-wait-sync.service
