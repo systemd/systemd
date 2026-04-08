@@ -65,14 +65,7 @@ void delegated_userns_info_done(DelegatedUserNamespaceInfo *info) {
         info->n_ancestor_userns = 0;
 }
 
-void delegated_userns_info_done_many(DelegatedUserNamespaceInfo infos[], size_t n) {
-        assert(infos || n == 0);
-
-        FOREACH_ARRAY(info, infos, n)
-                delegated_userns_info_done(info);
-
-        free(infos);
-}
+static DEFINE_ARRAY_FREE_FUNC(delegated_userns_info_free_array, DelegatedUserNamespaceInfo, delegated_userns_info_done);
 
 UserNamespaceInfo* userns_info_new(void) {
         UserNamespaceInfo *info = new(UserNamespaceInfo, 1);
@@ -97,7 +90,7 @@ UserNamespaceInfo *userns_info_free(UserNamespaceInfo *userns) {
         free(userns->cgroups);
         free(userns->name);
 
-        delegated_userns_info_done_many(userns->delegates, userns->n_delegates);
+        delegated_userns_info_free_array(userns->delegates, userns->n_delegates);
 
         strv_free(userns->netifs);
 
@@ -154,12 +147,10 @@ static int dispatch_delegates_array(const char *name, sd_json_variant *variant, 
         size_t n = 0;
         int r;
 
-        CLEANUP_ARRAY(delegates, n, delegated_userns_info_done_many);
+        CLEANUP_ARRAY(delegates, n, delegated_userns_info_free_array);
 
         if (sd_json_variant_is_null(variant)) {
-                delegated_userns_info_done_many(info->delegates, info->n_delegates);
-                info->delegates = NULL;
-                info->n_delegates = 0;
+                CLEANUP_ARRAY(info->delegates, info->n_delegates, delegated_userns_info_free_array);
                 return 0;
         }
 
@@ -199,7 +190,7 @@ static int dispatch_delegates_array(const char *name, sd_json_variant *variant, 
                 n++;
         }
 
-        delegated_userns_info_done_many(info->delegates, info->n_delegates);
+        delegated_userns_info_free_array(info->delegates, info->n_delegates);
         info->delegates = TAKE_PTR(delegates);
         info->n_delegates = n;
 
