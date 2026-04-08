@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
 #include "sd-json.h"
 
 #include "bitfield.h"
+#include "bus-error.h"
 #include "bus-polkit.h"
 #include "cgroup.h"
 #include "condition.h"
@@ -10,15 +12,20 @@
 #include "execute.h"
 #include "format-util.h"
 #include "install.h"
+#include "job.h"
+#include "locale-util.h"
 #include "json-util.h"
 #include "manager.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "selinux-access.h"
+#include "service.h"
 #include "set.h"
 #include "strv.h"
 #include "unit.h"
+#include "unit-name.h"
 #include "varlink-cgroup.h"
+#include "varlink-common.h"
 #include "varlink-execute.h"
 #include "varlink-unit.h"
 #include "varlink-util.h"
@@ -105,6 +112,58 @@ static int unit_conditions_build_json(sd_json_variant **ret, const char *name, v
         return 0;
 }
 
+static int exec_command_list_build_json(sd_json_variant **ret, ExecCommand *list) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(ret);
+
+        if (!list) {
+                *ret = NULL;
+                return 0;
+        }
+
+        LIST_FOREACH(command, c, list) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
+
+                r = sd_json_buildo(
+                                &entry,
+                                SD_JSON_BUILD_PAIR_STRING("path", c->path),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("arguments", c->argv));
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&v, entry);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int service_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Service *s = SERVICE(ASSERT_PTR(userdata));
+
+        if (!s) {
+                *ret = NULL;
+                return 0;
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *exec_start = NULL;
+        int r;
+
+        r = exec_command_list_build_json(&exec_start, s->exec_command[SERVICE_EXEC_START]);
+        if (r < 0)
+                return r;
+
+        return sd_json_buildo(
+                        ASSERT_PTR(ret),
+                        SD_JSON_BUILD_PAIR_STRING("Type", service_type_to_string(s->type)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!exec_start, "ExecStart", SD_JSON_BUILD_VARIANT(exec_start)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("RemainAfterExit", s->remain_after_exit));
+}
+
 static int unit_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Unit *u = ASSERT_PTR(userdata);
 
@@ -189,17 +248,16 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_BOOLEAN("DebugInvocation", u->debug_invocation),
 
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_context_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", unit_exec_context_build_json, u));
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", unit_exec_context_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Service", service_context_build_json, u));
 
         // TODO follow up PRs:
-        // JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", exec_context_build_json, u)
         // JSON_BUILD_PAIR_CALLBACK_NON_NULL("Kill", kill_context_build_json, u)
         // Mount/Automount context
         // Path context
         // Scope context
         // Swap context
         // Timer context
-        // Service context
         // Socket context
 }
 
@@ -566,6 +624,323 @@ int varlink_error_no_such_unit(sd_varlink *v, const char *name) {
                         ASSERT_PTR(v),
                         VARLINK_ERROR_UNIT_NO_SUCH_UNIT,
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("parameter", name));
+}
+
+void varlink_job_send_change_signal(Job *j) {
+        assert(j);
+
+        if (!j->varlink)
+                return;
+
+        (void) sd_varlink_notifybo(
+                        j->varlink,
+                        SD_JSON_BUILD_PAIR_INTEGER("jobId", j->id),
+                        SD_JSON_BUILD_PAIR_STRING("unit", j->unit->id),
+                        SD_JSON_BUILD_PAIR_STRING("jobType", job_type_to_string(j->type)),
+                        SD_JSON_BUILD_PAIR_STRING("state", job_state_to_string(j->state)));
+}
+
+void varlink_job_send_removed_signal(Job *j) {
+        assert(j);
+
+        if (!j->varlink)
+                return;
+
+        /* Send the final reply, which terminates the streaming connection */
+        (void) sd_varlink_replybo(
+                        j->varlink,
+                        SD_JSON_BUILD_PAIR_INTEGER("jobId", j->id),
+                        SD_JSON_BUILD_PAIR_STRING("unit", j->unit->id),
+                        SD_JSON_BUILD_PAIR_STRING("jobType", job_type_to_string(j->type)),
+                        SD_JSON_BUILD_PAIR_STRING("result", job_result_to_string(j->result)));
+
+        j->varlink = sd_varlink_unref(j->varlink);
+}
+
+typedef struct TransientExecCommandItem {
+        const char *path;
+        char **arguments;
+} TransientExecCommandItem;
+
+static void transient_exec_command_item_done(TransientExecCommandItem *i) {
+        assert(i);
+        strv_free(i->arguments);
+}
+
+typedef struct TransientServiceParameters {
+        const char *type;
+        TransientExecCommandItem *exec_start;
+        size_t n_exec_start;
+        int remain_after_exit;
+} TransientServiceParameters;
+
+static void transient_service_parameters_done(TransientServiceParameters *p) {
+        assert(p);
+        FOREACH_ARRAY(i, p->exec_start, p->n_exec_start)
+                transient_exec_command_item_done(i);
+        free(p->exec_start);
+}
+
+static int dispatch_transient_exec_command(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field exec_command_dispatch[] = {
+                { "path",      SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(TransientExecCommandItem, path),      SD_JSON_MANDATORY },
+                { "arguments", SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,         offsetof(TransientExecCommandItem, arguments), 0                },
+                {}
+        };
+
+        TransientServiceParameters *p = ASSERT_PTR(userdata);
+        size_t n;
+        int r;
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Expected JSON array for execStart.");
+
+        n = sd_json_variant_elements(variant);
+        if (n == 0)
+                return 0;
+
+        p->exec_start = new0(TransientExecCommandItem, n);
+        if (!p->exec_start)
+                return -ENOMEM;
+
+        for (size_t i = 0; i < n; i++) {
+                sd_json_variant *element = sd_json_variant_by_index(variant, i);
+
+                r = sd_json_dispatch(element, exec_command_dispatch, flags, &p->exec_start[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        p->n_exec_start = n;
+        return 0;
+}
+
+typedef struct StartTransientParameters {
+        const char *name;
+        const char *mode;
+        const char *description;
+        TransientServiceParameters service;
+} StartTransientParameters;
+
+static void start_transient_parameters_done(StartTransientParameters *p) {
+        assert(p);
+        transient_service_parameters_done(&p->service);
+}
+
+static int dispatch_transient_service(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field service_dispatch[] = {
+                { "Type",            SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string,   offsetof(TransientServiceParameters, type),              0 },
+                { "ExecStart",       SD_JSON_VARIANT_ARRAY,   dispatch_transient_exec_command, 0,                                                       0 },
+                { "RemainAfterExit", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,       offsetof(TransientServiceParameters, remain_after_exit),  0 },
+                {}
+        };
+
+        StartTransientParameters *p = ASSERT_PTR(userdata);
+        return sd_json_dispatch(variant, service_dispatch, flags, &p->service);
+}
+
+static int transient_service_apply_properties(Unit *u, TransientServiceParameters *sp) {
+        int r;
+
+        Service *s = ASSERT_PTR(SERVICE(u));
+        assert(sp);
+
+        if (sp->type) {
+                ServiceType t = service_type_from_string(sp->type);
+                if (t < 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid service type: %s", sp->type);
+
+                s->type = t;
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "Type", "Type=%s", sp->type);
+        }
+
+        if (sp->remain_after_exit >= 0) {
+                s->remain_after_exit = sp->remain_after_exit;
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "RemainAfterExit", "RemainAfterExit=%s", yes_no(sp->remain_after_exit));
+        }
+
+        FOREACH_ARRAY(item, sp->exec_start, sp->n_exec_start) {
+                _cleanup_(exec_command_freep) ExecCommand *c = NULL;
+                _cleanup_strv_free_ char **argv = NULL;
+
+                if (!filename_or_absolute_path_is_valid(item->path))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid ExecStart path: %s", item->path);
+
+                if (!strv_isempty(item->arguments)) {
+                        argv = strv_copy(item->arguments);
+                        if (!argv)
+                                return -ENOMEM;
+                }
+
+                c = new0(ExecCommand, 1);
+                if (!c)
+                        return -ENOMEM;
+
+                r = path_simplify_alloc(item->path, &c->path);
+                if (r < 0)
+                        return r;
+
+                /* If no arguments were provided, default argv[0] to the executable path.
+                 * Otherwise the caller is expected to include argv[0] in the arguments array. */
+                if (strv_isempty(argv)) {
+                        r = strv_extend(&argv, c->path);
+                        if (r < 0)
+                                return r;
+                }
+
+                c->argv = TAKE_PTR(argv);
+
+                exec_command_append_list(&s->exec_command[SERVICE_EXEC_START], TAKE_PTR(c));
+        }
+
+        /* Write ExecStart= lines to the transient file */
+        if (sp->n_exec_start > 0) {
+                UnitWriteFlags esc_flags = UNIT_ESCAPE_SPECIFIERS|UNIT_ESCAPE_EXEC_SYNTAX_ENV;
+
+                LIST_FOREACH(command, c, s->exec_command[SERVICE_EXEC_START]) {
+                        _cleanup_free_ char *a = NULL, *t = NULL;
+                        const char *p;
+
+                        a = unit_concat_strv(c->argv, esc_flags);
+                        if (!a)
+                                return -ENOMEM;
+
+                        p = unit_escape_setting(c->path, esc_flags, &t);
+                        if (!p)
+                                return -ENOMEM;
+
+                        if (streq(c->path, c->argv[0]))
+                                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "ExecStart", "ExecStart=%s", a);
+                        else
+                                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "ExecStart", "ExecStart=@%s %s", p, a);
+                }
+        }
+
+        return 0;
+}
+
+int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",        SD_JSON_VARIANT_STRING,  json_dispatch_const_unit_name, offsetof(StartTransientParameters, name),        SD_JSON_MANDATORY },
+                { "mode",        SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(StartTransientParameters, mode),        0                },
+                { "description", SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(StartTransientParameters, description), 0                },
+                { "service",     SD_JSON_VARIANT_OBJECT,  dispatch_transient_service,    0,                                               0                },
+                {}
+        };
+
+        _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
+        _cleanup_(start_transient_parameters_done) StartTransientParameters p = {
+                .service.remain_after_exit = -1,
+        };
+        Manager *manager = ASSERT_PTR(userdata);
+        uint32_t job_id;
+        Unit *u;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = mac_selinux_access_check_varlink(link, "start");
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        JobMode job_mode;
+        if (p.mode) {
+                job_mode = job_mode_from_string(p.mode);
+                if (job_mode < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "mode");
+        } else
+                job_mode = JOB_REPLACE;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->system_bus,
+                        "org.freedesktop.systemd1.manage-units",
+                        (const char**) STRV_MAKE(
+                                        "unit", p.name,
+                                        "verb", "start",
+                                        "polkit.message", N_("Authentication is required to start transient unit '$(unit)'."),
+                                        "polkit.gettext_domain", GETTEXT_PACKAGE),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = manager_setup_transient_unit(manager, p.name, &u, &bus_error);
+        if (r < 0) {
+                const char *error_id = varlink_error_id_from_bus_error(&bus_error);
+                if (error_id)
+                        return sd_varlink_error(link, error_id, NULL);
+                return r;
+        }
+
+        /* Apply unit-level properties */
+        if (p.description) {
+                r = unit_set_description(u, p.description);
+                if (r < 0)
+                        return r;
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS, "Description", "Description=%s", p.description);
+        }
+
+        /* Apply service-specific properties */
+        if (unit_name_to_type(p.name) == UNIT_SERVICE) {
+                r = transient_service_apply_properties(u, &p.service);
+                if (r < 0)
+                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
+        }
+
+        unit_add_to_load_queue(u);
+        manager_dispatch_load_queue(manager);
+
+        if (u->load_state == UNIT_BAD_SETTING)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
+        if (!UNIT_IS_LOAD_COMPLETE(u->load_state))
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_NO_SUCH_UNIT, NULL);
+
+        r = varlink_unit_queue_job_one(
+                        u,
+                        JOB_START,
+                        job_mode,
+                        /* reload_if_possible= */ false,
+                        &job_id,
+                        &bus_error);
+        if (r < 0) {
+                const char *error_id = varlink_error_id_from_bus_error(&bus_error);
+                if (error_id)
+                        return sd_varlink_error(link, error_id, NULL);
+                return r;
+        }
+
+        /* Non-streaming: just return the job ID */
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_INTEGER("jobId", job_id),
+                                SD_JSON_BUILD_PAIR_STRING("unit", u->id),
+                                SD_JSON_BUILD_PAIR_STRING("jobType", job_type_to_string(JOB_START)));
+
+        /* Streaming: attach to the job and send the initial state notification */
+        Job *j = hashmap_get(manager->jobs, UINT32_TO_PTR(job_id));
+        if (!j)
+                /* Job already completed between queueing and now */
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_INTEGER("jobId", job_id),
+                                SD_JSON_BUILD_PAIR_STRING("unit", u->id),
+                                SD_JSON_BUILD_PAIR_STRING("jobType", job_type_to_string(JOB_START)),
+                                SD_JSON_BUILD_PAIR_STRING("result", "done"));
+
+        j->varlink = sd_varlink_ref(link);
+
+        return sd_varlink_notifybo(
+                        link,
+                        SD_JSON_BUILD_PAIR_INTEGER("jobId", job_id),
+                        SD_JSON_BUILD_PAIR_STRING("unit", u->id),
+                        SD_JSON_BUILD_PAIR_STRING("jobType", job_type_to_string(JOB_START)),
+                        SD_JSON_BUILD_PAIR_STRING("state", job_state_to_string(j->state)));
 }
 
 typedef struct UnitSetPropertiesParameters {
