@@ -5,8 +5,6 @@ libsystemd_network_sources = files(
         'dhcp-client-send.c',
         'dhcp-message.c',
         'dhcp-network.c',
-        'dhcp-option.c',
-        'dhcp-packet.c',
         'dhcp-protocol.c',
         'dhcp-relay-downstream.c',
         'dhcp-relay-interface.c',
@@ -87,9 +85,6 @@ executables += [
         },
         network_test_template + {
                 'sources' : files('test-dhcp-message.c'),
-        },
-        network_test_template + {
-                'sources' : files('test-dhcp-option.c'),
         },
         network_test_template + {
                 'sources' : files('test-dhcp-relay.c'),
