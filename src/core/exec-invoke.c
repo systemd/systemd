@@ -1086,14 +1086,11 @@ static int enforce_user(
 
 #if HAVE_PAM
 
-static void pam_response_free_array(struct pam_response *responses, size_t n_responses) {
-        assert(responses || n_responses == 0);
-
-        FOREACH_ARRAY(resp, responses, n_responses)
-                erase_and_free(resp->resp);
-
-        free(responses);
+static void pam_response_done(struct pam_response *response) {
+        erase_and_free(ASSERT_PTR(response)->resp);
 }
+
+static DEFINE_ARRAY_FREE_FUNC(pam_response_free_array, struct pam_response, pam_response_done);
 
 typedef struct AskPasswordConvData {
         const ExecContext *context;

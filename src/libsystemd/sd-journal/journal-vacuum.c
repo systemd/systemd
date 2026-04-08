@@ -49,15 +49,12 @@ static int vacuum_info_compare(const VacuumInfo *a, const VacuumInfo *b) {
         return strcmp(a->filename, b->filename);
 }
 
-static void vacuum_info_array_free(VacuumInfo *list, size_t n) {
-        if (!list)
-                return;
-
-        FOREACH_ARRAY(i, list, n)
-                free(i->filename);
-
-        free(list);
+static void vacuum_info_done(VacuumInfo *info) {
+        assert(info);
+        info->filename = mfree(info->filename);
 }
+
+static DEFINE_ARRAY_FREE_FUNC(vacuum_info_array_free, VacuumInfo, vacuum_info_done);
 
 static void patch_realtime(
                 int fd,
