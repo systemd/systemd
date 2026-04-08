@@ -5,9 +5,6 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <netinet/ip.h>
-#include <netinet/udp.h>
-
 #include "sd-dhcp-protocol.h"  /* IWYU pragma: export */
 
 #include "sd-forward.h"
@@ -18,58 +15,26 @@
  * MIN_V6ONLY_WAIT: The lower boundary for V6ONLY_WAIT. Value: 300 seconds */
 #define MIN_V6ONLY_WAIT_USEC (300U * USEC_PER_SEC)
 
-#define DHCP_MESSAGE_HEADER_DEFINITION \
-        uint8_t op;                    \
-        uint8_t htype;                 \
-        uint8_t hlen;                  \
-        uint8_t hops;                  \
-        be32_t xid;                    \
-        be16_t secs;                   \
-        be16_t flags;                  \
-        be32_t ciaddr;                 \
-        be32_t yiaddr;                 \
-        be32_t siaddr;                 \
-        be32_t giaddr;                 \
-        uint8_t chaddr[16];            \
-        uint8_t sname[64];             \
-        uint8_t file[128];             \
-        be32_t magic;
-
 struct DHCPMessageHeader {
-        DHCP_MESSAGE_HEADER_DEFINITION;
+        uint8_t op;
+        uint8_t htype;
+        uint8_t hlen;
+        uint8_t hops;
+        be32_t xid;
+        be16_t secs;
+        be16_t flags;
+        be32_t ciaddr;
+        be32_t yiaddr;
+        be32_t siaddr;
+        be32_t giaddr;
+        uint8_t chaddr[16];
+        uint8_t sname[64];
+        uint8_t file[128];
+        be32_t magic;
 } _packed_;
 
 typedef struct DHCPMessageHeader DHCPMessageHeader;
 
-struct DHCPMessage {
-        DHCP_MESSAGE_HEADER_DEFINITION;
-        uint8_t options[];
-} _packed_;
-
-typedef struct DHCPMessage DHCPMessage;
-assert_cc(sizeof(DHCPMessageHeader) == offsetof(DHCPMessage, options));
-
-struct sd_dhcp_message {
-        unsigned n_ref;
-
-        DHCPMessageHeader header;
-        Hashmap *options;
-};
-
-struct DHCPPacket {
-        struct iphdr ip;
-        struct udphdr udp;
-        DHCPMessage dhcp;
-} _packed_;
-
-typedef struct DHCPPacket DHCPPacket;
-
-#define DHCP_IP_SIZE            (int32_t)(sizeof(struct iphdr))
-#define DHCP_IP_UDP_SIZE        (int32_t)(sizeof(struct udphdr) + DHCP_IP_SIZE)
-#define DHCP_HEADER_SIZE        (int32_t)(sizeof(DHCPMessage))
-#define DHCP_MIN_MESSAGE_SIZE   576 /* the minimum internet hosts must be able to receive, see RFC 2132 Section 9.10 */
-#define DHCP_MIN_OPTIONS_SIZE   (DHCP_MIN_MESSAGE_SIZE - DHCP_HEADER_SIZE)
-#define DHCP_MIN_PACKET_SIZE    (DHCP_MIN_MESSAGE_SIZE + DHCP_IP_UDP_SIZE)
 #define DHCP_MAGIC_COOKIE       (uint32_t)(0x63825363)
 
 /* The size of BOOTP message. The BOOTP message does not have the magic field, but has the 64-byte
