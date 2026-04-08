@@ -34,4 +34,4 @@ int dns_resolvers_to_dot_strv(const sd_dns_resolver *resolvers, size_t n_resolve
 
 void sd_dns_resolver_done(sd_dns_resolver *res);
 
-void dns_resolver_done_many(sd_dns_resolver *resolvers, size_t n);
+void dns_resolver_free_array(sd_dns_resolver *array, size_t n);

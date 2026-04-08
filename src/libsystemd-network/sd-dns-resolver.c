@@ -26,14 +26,7 @@ sd_dns_resolver *sd_dns_resolver_unref(sd_dns_resolver *res) {
         return mfree(res);
 }
 
-void dns_resolver_done_many(sd_dns_resolver resolvers[], size_t n) {
-        assert(resolvers || n == 0);
-
-        FOREACH_ARRAY(res, resolvers, n)
-                sd_dns_resolver_done(res);
-
-        free(resolvers);
-}
+DEFINE_ARRAY_FREE_FUNC(dns_resolver_free_array, sd_dns_resolver, sd_dns_resolver_done);
 
 int dns_resolver_prio_compare(const sd_dns_resolver *a, const sd_dns_resolver *b) {
         return CMP(ASSERT_PTR(a)->priority, ASSERT_PTR(b)->priority);
