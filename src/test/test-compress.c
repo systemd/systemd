@@ -12,6 +12,7 @@
 #include "compress.h"
 #include "dlfcn-util.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "tests.h"
@@ -225,6 +226,152 @@ _unused_ static void test_compress_stream(const char *compression,
         r = decompress(dst, dst2, st.st_size - 1);
         assert_se(r == -EFBIG);
 }
+
+_unused_ static void test_decompress_stream_sparse(const char *compression,
+                                                   compress_stream_t compress,
+                                                   decompress_stream_t decompress) {
+
+        _cleanup_close_ int src = -EBADF, compressed = -EBADF, decompressed = -EBADF;
+        assert(compression);
+
+        _cleanup_(unlink_tempfilep) char
+                pattern_src[] = "/tmp/systemd-test.sparse-src.XXXXXX",
+                pattern_compressed[] = "/tmp/systemd-test.sparse-compressed.XXXXXX",
+                pattern_decompressed[] = "/tmp/systemd-test.sparse-decompressed.XXXXXX";
+        /* Create a sparse-like input: 4K of data, 64K of zeros, 4K of data, 64K trailing zeros.
+         * Total apparent size: 136K, but most of it is zeros. */
+        uint8_t data_block[4096];
+        struct stat st_src, st_decompressed;
+        uint64_t uncompressed_size;
+        int r;
+
+        log_debug("/* testing %s sparse decompression */", compression);
+
+        random_bytes(data_block, sizeof(data_block));
+
+        assert_se((src = mkostemp_safe(pattern_src)) >= 0);
+
+        /* Write: 4K data, 64K zeros, 4K data, 64K zeros */
+        assert_se(loop_write(src, data_block, sizeof(data_block)) >= 0);
+        assert_se(ftruncate(src, sizeof(data_block) + 65536) >= 0);
+        assert_se(lseek(src, sizeof(data_block) + 65536, SEEK_SET) >= 0);
+        assert_se(loop_write(src, data_block, sizeof(data_block)) >= 0);
+        assert_se(ftruncate(src, 2 * sizeof(data_block) + 2 * 65536) >= 0);
+        assert_se(lseek(src, 0, SEEK_SET) == 0);
+
+        assert_se(fstat(src, &st_src) >= 0);
+        assert_se(st_src.st_size == 2 * (off_t) sizeof(data_block) + 2 * 65536);
+
+        /* Compress */
+        assert_se((compressed = mkostemp_safe(pattern_compressed)) >= 0);
+        ASSERT_OK(compress(src, compressed, -1, &uncompressed_size));
+        assert_se((uint64_t) st_src.st_size == uncompressed_size);
+
+        /* Decompress to a regular file (sparse writes auto-detected) */
+        assert_se((decompressed = mkostemp_safe(pattern_decompressed)) >= 0);
+        assert_se(lseek(compressed, 0, SEEK_SET) == 0);
+        r = decompress(compressed, decompressed, st_src.st_size);
+        assert_se(r == 0);
+
+        /* Verify apparent size matches */
+        assert_se(fstat(decompressed, &st_decompressed) >= 0);
+        assert_se(st_decompressed.st_size == st_src.st_size);
+
+        /* Verify content matches by comparing bytes */
+        assert_se(lseek(src, 0, SEEK_SET) == 0);
+        assert_se(lseek(decompressed, 0, SEEK_SET) == 0);
+
+        for (off_t offset = 0; offset < st_src.st_size;) {
+                uint8_t buf_src[4096], buf_dst[4096];
+                size_t to_read = MIN((size_t) (st_src.st_size - offset), sizeof(buf_src));
+                ssize_t n;
+
+                n = loop_read(src, buf_src, to_read, true);
+                assert_se(n == (ssize_t) to_read);
+                n = loop_read(decompressed, buf_dst, to_read, true);
+                assert_se(n == (ssize_t) to_read);
+                assert_se(memcmp(buf_src, buf_dst, to_read) == 0);
+                offset += to_read;
+        }
+
+        /* Verify the decompressed file is actually sparse (uses less disk than apparent size).
+         * st_blocks is in 512-byte units. The file has 128K of zeros, so disk usage should be
+         * noticeably less than the apparent size if sparse writes worked.
+         * Only assert if the filesystem supports holes (SEEK_HOLE). */
+        log_debug("%s sparse decompression: apparent=%jd disk=%jd",
+                  compression,
+                  (intmax_t) st_decompressed.st_size,
+                  (intmax_t) st_decompressed.st_blocks * 512);
+        if (lseek(decompressed, 0, SEEK_HOLE) < st_decompressed.st_size)
+                assert_se(st_decompressed.st_blocks * 512 < st_decompressed.st_size);
+        else
+                log_debug("Filesystem does not support holes, skipping sparsity check");
+
+        /* Test all-zeros input: entire output should be a hole */
+        log_debug("/* testing %s sparse decompression of all-zeros */", compression);
+        {
+                _cleanup_close_ int zsrc = -EBADF, zcompressed = -EBADF, zdecompressed = -EBADF;
+                _cleanup_(unlink_tempfilep) char
+                        zp_src[] = "/tmp/systemd-test.sparse-zero-src.XXXXXX",
+                        zp_compressed[] = "/tmp/systemd-test.sparse-zero-compressed.XXXXXX",
+                        zp_decompressed[] = "/tmp/systemd-test.sparse-zero-decompressed.XXXXXX";
+                struct stat zst;
+                uint64_t zsize;
+                uint8_t zeros[65536] = {};
+
+                assert_se((zsrc = mkostemp_safe(zp_src)) >= 0);
+                assert_se(loop_write(zsrc, zeros, sizeof(zeros)) >= 0);
+                assert_se(lseek(zsrc, 0, SEEK_SET) == 0);
+
+                assert_se((zcompressed = mkostemp_safe(zp_compressed)) >= 0);
+                ASSERT_OK(compress(zsrc, zcompressed, -1, &zsize));
+                assert_se(zsize == sizeof(zeros));
+
+                assert_se((zdecompressed = mkostemp_safe(zp_decompressed)) >= 0);
+                assert_se(lseek(zcompressed, 0, SEEK_SET) == 0);
+                assert_se(decompress(zcompressed, zdecompressed, sizeof(zeros)) == 0);
+
+                assert_se(fstat(zdecompressed, &zst) >= 0);
+                assert_se(zst.st_size == (off_t) sizeof(zeros));
+                /* All zeros — disk usage should be minimal */
+                log_debug("%s all-zeros sparse: apparent=%jd disk=%jd",
+                          compression, (intmax_t) zst.st_size, (intmax_t) zst.st_blocks * 512);
+                if (lseek(zdecompressed, 0, SEEK_HOLE) < zst.st_size)
+                        assert_se(zst.st_blocks * 512 < zst.st_size);
+                else
+                        log_debug("Filesystem does not support holes, skipping sparsity check");
+        }
+
+        /* Test data ending with non-zero bytes: ftruncate should be a no-op */
+        log_debug("/* testing %s sparse decompression ending with data */", compression);
+        {
+                _cleanup_close_ int dsrc = -EBADF, dcompressed = -EBADF, ddecompressed = -EBADF;
+                _cleanup_(unlink_tempfilep) char
+                        dp_src[] = "/tmp/systemd-test.sparse-end-src.XXXXXX",
+                        dp_compressed[] = "/tmp/systemd-test.sparse-end-compressed.XXXXXX",
+                        dp_decompressed[] = "/tmp/systemd-test.sparse-end-decompressed.XXXXXX";
+                struct stat dst;
+                uint64_t dsize;
+                uint8_t zeros[65536] = {};
+
+                /* 64K zeros followed by 4K random data */
+                assert_se((dsrc = mkostemp_safe(dp_src)) >= 0);
+                assert_se(loop_write(dsrc, zeros, sizeof(zeros)) >= 0);
+                assert_se(loop_write(dsrc, data_block, sizeof(data_block)) >= 0);
+                assert_se(lseek(dsrc, 0, SEEK_SET) == 0);
+
+                assert_se((dcompressed = mkostemp_safe(dp_compressed)) >= 0);
+                ASSERT_OK(compress(dsrc, dcompressed, -1, &dsize));
+                assert_se(dsize == sizeof(zeros) + sizeof(data_block));
+
+                assert_se((ddecompressed = mkostemp_safe(dp_decompressed)) >= 0);
+                assert_se(lseek(dcompressed, 0, SEEK_SET) == 0);
+                assert_se(decompress(dcompressed, ddecompressed, dsize) == 0);
+
+                assert_se(fstat(ddecompressed, &dst) >= 0);
+                assert_se(dst.st_size == (off_t)(sizeof(zeros) + sizeof(data_block)));
+        }
+}
 #endif
 
 #if HAVE_LZ4
@@ -314,6 +461,8 @@ int main(int argc, char *argv[]) {
         test_compress_stream("XZ", "xzcat",
                              compress_stream_xz, decompress_stream_xz, srcfile);
 
+        test_decompress_stream_sparse("XZ", compress_stream_xz, decompress_stream_xz);
+
         test_decompress_startswith_short("XZ", compress_blob_xz, decompress_startswith_xz);
 
 #else
@@ -339,6 +488,8 @@ int main(int argc, char *argv[]) {
 
                 test_compress_stream("LZ4", "lz4cat",
                                      compress_stream_lz4, decompress_stream_lz4, srcfile);
+
+                test_decompress_stream_sparse("LZ4", compress_stream_lz4, decompress_stream_lz4);
 
                 test_lz4_decompress_partial();
 
@@ -367,6 +518,8 @@ int main(int argc, char *argv[]) {
 
         test_compress_stream("ZSTD", "zstdcat",
                              compress_stream_zstd, decompress_stream_zstd, srcfile);
+
+        test_decompress_stream_sparse("ZSTD", compress_stream_zstd, decompress_stream_zstd);
 
         test_decompress_startswith_short("ZSTD", compress_blob_zstd, decompress_startswith_zstd);
 #else
