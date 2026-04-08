@@ -29,7 +29,7 @@ typedef struct ConfFile {
 
 ConfFile* conf_file_free(ConfFile *c);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ConfFile*, conf_file_free);
-void conf_file_free_many(ConfFile **array, size_t n);
+void conf_file_free_array(ConfFile **array, size_t n);
 
 int conf_file_new_at(const char *path, const char *root, int rfd, ConfFilesFlags flags, ConfFile **ret);
 int conf_file_new(const char *path, const char *root, ConfFilesFlags flags, ConfFile **ret);

@@ -69,14 +69,7 @@ static void xattr_done(XAttr *xa) {
         iovec_done(&xa->data);
 }
 
-static void xattr_done_many(XAttr *xa, size_t n) {
-        assert(xa || n == 0);
-
-        FOREACH_ARRAY(i, xa, n)
-                xattr_done(i);
-
-        free(xa);
-}
+static DEFINE_ARRAY_FREE_FUNC(xattr_free_array, XAttr, xattr_done);
 
 static void open_inode_done(OpenInode *of) {
         assert(of);
@@ -87,7 +80,7 @@ static void open_inode_done(OpenInode *of) {
                 of->fd = safe_close(of->fd);
                 of->path = mfree(of->path);
         }
-        xattr_done_many(of->xattr, of->n_xattr);
+        xattr_free_array(of->xattr, of->n_xattr);
 #if HAVE_ACL
         if (of->acl_access)
                 sym_acl_free(of->acl_access);
@@ -96,14 +89,7 @@ static void open_inode_done(OpenInode *of) {
 #endif
 }
 
-static void open_inode_done_many(OpenInode *array, size_t n) {
-        assert(array || n == 0);
-
-        FOREACH_ARRAY(i, array, n)
-                open_inode_done(i);
-
-        free(array);
-}
+static DEFINE_ARRAY_FREE_FUNC(open_inode_free_array, OpenInode, open_inode_done);
 
 static int open_inode_apply_acl(OpenInode *of) {
         int r = 0;
@@ -792,7 +778,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                 return log_oom();
 
         size_t n_open_inodes = 0;
-        CLEANUP_ARRAY(open_inodes, n_open_inodes, open_inode_done_many);
+        CLEANUP_ARRAY(open_inodes, n_open_inodes, open_inode_free_array);
 
         /* Fill in the root inode. (Note: we leave the .path field as NULL to mark it as root inode.) */
         open_inodes[0] = (OpenInode) {
@@ -913,7 +899,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                 acl_t acl_access = NULL, acl_default = NULL;
                         XAttr *xa = NULL;
                         size_t n_xa = 0;
-                        CLEANUP_ARRAY(xa, n_xa, xattr_done_many);
+                        CLEANUP_ARRAY(xa, n_xa, xattr_free_array);
 
                         if (isempty(rest)) {
                                 /* This is the final node in the path, create it */

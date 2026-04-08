@@ -350,7 +350,7 @@ int in_addr_port_ifindex_name_from_string_auto(
         return r;
 }
 
-struct in_addr_full *in_addr_full_free(struct in_addr_full *a) {
+struct in_addr_full* in_addr_full_free(struct in_addr_full *a) {
         if (!a)
                 return NULL;
 
@@ -359,14 +359,7 @@ struct in_addr_full *in_addr_full_free(struct in_addr_full *a) {
         return mfree(a);
 }
 
-void in_addr_full_array_free(struct in_addr_full *addrs[], size_t n) {
-        assert(addrs || n == 0);
-
-        FOREACH_ARRAY(a, addrs, n)
-                in_addr_full_freep(a);
-
-        free(addrs);
-}
+DEFINE_POINTER_ARRAY_FREE_FUNC(struct in_addr_full*, in_addr_full_free);
 
 int in_addr_full_new(
                 int family,

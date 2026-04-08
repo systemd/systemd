@@ -303,7 +303,7 @@ DECLARE_STRING_TABLE_LOOKUP(private_pids, PrivatePIDs);
 void bind_mount_free_many(BindMount *b, size_t n);
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);
 
-void mount_image_free_many(MountImage *m, size_t n);
+void mount_image_free_array(MountImage *m, size_t n);
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item);
 
 void temporary_filesystem_free_many(TemporaryFileSystem *t, size_t n);

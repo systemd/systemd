@@ -169,7 +169,7 @@ int deserialize_dnr(sd_dns_resolver **ret, const char *string) {
 
         sd_dns_resolver *dnr = NULL;
         size_t n = 0;
-        CLEANUP_ARRAY(dnr, n, dns_resolver_done_many);
+        CLEANUP_ARRAY(dnr, n, dns_resolver_free_array);
         int priority = 0;
 
         for (;;) {

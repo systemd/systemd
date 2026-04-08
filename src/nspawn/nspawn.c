@@ -364,11 +364,6 @@ static int parse_private_users(
         return 0;
 }
 
-static void unref_many_tables(Table* (*tablesp)[]) {
-        for (Table **t = *ASSERT_PTR(tablesp); *t; t++)
-                *t = table_unref(*t);
-}
-
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -379,7 +374,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        static const char *groups[] = {
+        static const char* const groups[] = {
                 NULL,
                 "Image",
                 "Execution",
@@ -396,7 +391,7 @@ static int help(void) {
                 "Other",
         };
 
-        _cleanup_(unref_many_tables) Table* tables[ELEMENTSOF(groups) + 1] = {};
+        _cleanup_(table_unref_many) Table* tables[ELEMENTSOF(groups) + 1] = {};
 
         for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
                 r = option_parser_get_help_table_group(groups[i], &tables[i]);
@@ -1372,7 +1367,7 @@ static int parse_argv(int argc, char *argv[]) {
                                  * been repurposed to optionally set the runtime scope, with --uid= replacing
                                  * the old container user functionality. To maintain backwards compatibility
                                  * with the space-separated form (--user NAME), if the next arg does not look
-                                 * like an option, interpret it a user name. */
+                                 * like an option, interpret it as a user name. */
                                 const char *t = option_parser_next_arg(&state);
                                 if (t && t[0] != '-') {
                                         arg = option_parser_consume_next_arg(&state);
