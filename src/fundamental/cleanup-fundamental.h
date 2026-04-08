@@ -63,6 +63,16 @@
                 free(array);                                    \
         }
 
+/* Clean up an array of objects of known size by dropping all the items in it.
+ * Then free the array itself. */
+#define DEFINE_ARRAY_FREE_FUNC(name, type, helper)              \
+        void name(type *array, size_t n) {                      \
+                assert(array || n == 0);                        \
+                FOREACH_ARRAY(item, array, n)                   \
+                        helper(item);                           \
+                free(array);                                    \
+        }
+
 typedef void (*free_array_func_t)(void *p, size_t n);
 
 /* An automatic _cleanup_-like logic for destroy arrays (i.e. pointers + size) when leaving scope */
