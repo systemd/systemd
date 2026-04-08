@@ -624,7 +624,7 @@ int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, OomdCGroupCo
 
 int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
         _cleanup_(oomd_cgroup_context_unrefp) OomdCGroupContext *ctx = NULL;
-        _cleanup_free_ char *p = NULL, *val = NULL;
+        _cleanup_free_ char *p = NULL;
         bool is_root;
         int r;
 
@@ -678,13 +678,9 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
                 else if (r < 0)
                         return log_debug_errno(r, "Error getting memory.swap.current from %s: %m", path);
 
-                r = cg_get_keyed_attribute(path, "memory.stat", STRV_MAKE("pgscan"), &val);
+                r = cg_get_keyed_attribute_uint64(path, "memory.stat", "pgscan", &ctx->pgscan);
                 if (r < 0)
                         return log_debug_errno(r, "Error getting pgscan from memory.stat under %s: %m", path);
-
-                r = safe_atou64(val, &ctx->pgscan);
-                if (r < 0)
-                        return log_debug_errno(r, "Error converting pgscan value to uint64_t: %m");
         }
 
         *ret = TAKE_PTR(ctx);
