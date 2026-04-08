@@ -9,7 +9,7 @@
 #include "sd-dhcp-server.h"
 
 #include "dhcp-client-id-internal.h"
-#include "dhcp-option.h"
+#include "dhcp-message.h"
 #include "sd-forward.h"
 #include "network-common.h"
 #include "sparse-endian.h"
