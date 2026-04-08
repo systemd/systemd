@@ -918,6 +918,37 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#UtmpMode="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(UtmpMode, ExecUtmpMode, 0));
 
+/* Shared types — used by both StartTransient (input) and Unit.List (output) */
+
+/* Keep in sync with service_type_table[] in src/core/service.c */
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                ServiceType,
+                SD_VARLINK_DEFINE_ENUM_VALUE(simple),
+                SD_VARLINK_DEFINE_ENUM_VALUE(exec),
+                SD_VARLINK_DEFINE_ENUM_VALUE(forking),
+                SD_VARLINK_DEFINE_ENUM_VALUE(oneshot),
+                SD_VARLINK_DEFINE_ENUM_VALUE(dbus),
+                SD_VARLINK_DEFINE_ENUM_VALUE(notify),
+                SD_VARLINK_FIELD_COMMENT("Like notify, but also implements a reload protocol via SIGHUP."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(notify_reload),
+                SD_VARLINK_DEFINE_ENUM_VALUE(idle));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ExecCommand,
+                SD_VARLINK_FIELD_COMMENT("Executable path."),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Command line arguments including argv[0]. If empty, defaults to the executable path."),
+                SD_VARLINK_DEFINE_FIELD(arguments, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ServiceContext,
+                SD_VARLINK_FIELD_COMMENT("Service type."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Type, ServiceType, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("ExecStart commands."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecStart, ExecCommand, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to keep the service active after the main process exits."),
+                SD_VARLINK_DEFINE_FIELD(RemainAfterExit, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 /* UnitContext */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Condition,
@@ -1075,7 +1106,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The cgroup context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The exec context of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Exec, ExecContext, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Exec, ExecContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The service context of the unit (only for .service units)"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Service, ServiceContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ActivationDetails,
@@ -1236,6 +1269,68 @@ static SD_VARLINK_DEFINE_ERROR(
                 PropertyNotSupported,
                 SD_VARLINK_DEFINE_FIELD(property, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+/* Keep in sync with job_type_table[] in src/core/job.c */
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                JobType,
+                SD_VARLINK_DEFINE_ENUM_VALUE(start),
+                SD_VARLINK_DEFINE_ENUM_VALUE(verify_active),
+                SD_VARLINK_DEFINE_ENUM_VALUE(stop),
+                SD_VARLINK_DEFINE_ENUM_VALUE(reload),
+                SD_VARLINK_DEFINE_ENUM_VALUE(reload_or_start),
+                SD_VARLINK_DEFINE_ENUM_VALUE(restart),
+                SD_VARLINK_DEFINE_ENUM_VALUE(try_restart),
+                SD_VARLINK_DEFINE_ENUM_VALUE(try_reload),
+                SD_VARLINK_DEFINE_ENUM_VALUE(nop));
+
+/* Keep in sync with job_state_table[] in src/core/job.c */
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                JobState,
+                SD_VARLINK_DEFINE_ENUM_VALUE(waiting),
+                SD_VARLINK_DEFINE_ENUM_VALUE(running));
+
+/* Keep in sync with job_result_table[] in src/core/job.c */
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                JobResult,
+                SD_VARLINK_DEFINE_ENUM_VALUE(done),
+                SD_VARLINK_DEFINE_ENUM_VALUE(canceled),
+                SD_VARLINK_DEFINE_ENUM_VALUE(timeout),
+                SD_VARLINK_DEFINE_ENUM_VALUE(failed),
+                SD_VARLINK_DEFINE_ENUM_VALUE(dependency),
+                SD_VARLINK_DEFINE_ENUM_VALUE(skipped),
+                SD_VARLINK_DEFINE_ENUM_VALUE(invalid),
+                SD_VARLINK_DEFINE_ENUM_VALUE(assert),
+                SD_VARLINK_DEFINE_ENUM_VALUE(unsupported),
+                SD_VARLINK_DEFINE_ENUM_VALUE(collected),
+                SD_VARLINK_DEFINE_ENUM_VALUE(once),
+                SD_VARLINK_DEFINE_ENUM_VALUE(frozen),
+                SD_VARLINK_DEFINE_ENUM_VALUE(concurrency));
+
+static SD_VARLINK_DEFINE_ERROR(UnitExists);
+static SD_VARLINK_DEFINE_ERROR(UnitTypeNotSupported);
+static SD_VARLINK_DEFINE_ERROR(BadUnitSetting);
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                StartTransient,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("Unit context skeleton. Must include ID (the unit name). Other fields like Description and Service are optional."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(context, UnitContext, 0),
+                SD_VARLINK_FIELD_COMMENT("Job mode. Defaults to replace."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, JobMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit context. Set in non-streaming reply and final streaming reply."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit runtime state. Set in non-streaming reply and final streaming reply."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("ID of the enqueued start job. Set in streaming notifications."),
+                SD_VARLINK_DEFINE_OUTPUT(jobId, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit name. Set in streaming notifications."),
+                SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Job type. Set in streaming notifications."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(jobType, JobType, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Current job state. Set in streaming intermediate notifications."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(state, JobState, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Final job result. Set in streaming final reply."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(result, JobResult, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD(
                 SetProperties,
                 SD_VARLINK_FIELD_COMMENT("The name of the unit to operate on."),
@@ -1252,6 +1347,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_List,
                 SD_VARLINK_SYMBOL_COMMENT("Set unit properties"),
                 &vl_method_SetProperties,
+                SD_VARLINK_SYMBOL_COMMENT("Create a transient unit and start it"),
+                &vl_method_StartTransient,
                 &vl_type_RateLimit,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's conditions"),
                 &vl_type_Condition,
@@ -1333,7 +1430,22 @@ SD_VARLINK_DEFINE_INTERFACE(
                 /* UnitContext enums */
                 &vl_type_CollectMode,
                 &vl_type_EmergencyAction,
+
+                /* Shared types (used by both StartTransient and Unit.List) */
+                SD_VARLINK_SYMBOL_COMMENT("Service type"),
+                &vl_type_ServiceType,
+                SD_VARLINK_SYMBOL_COMMENT("Job mode"),
                 &vl_type_JobMode,
+                SD_VARLINK_SYMBOL_COMMENT("Job type"),
+                &vl_type_JobType,
+                SD_VARLINK_SYMBOL_COMMENT("Job state"),
+                &vl_type_JobState,
+                SD_VARLINK_SYMBOL_COMMENT("Job result"),
+                &vl_type_JobResult,
+                SD_VARLINK_SYMBOL_COMMENT("An executable command"),
+                &vl_type_ExecCommand,
+                SD_VARLINK_SYMBOL_COMMENT("Service-specific context"),
+                &vl_type_ServiceContext,
 
                 /* Errors */
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
@@ -1347,4 +1459,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Job for the unit may only be enqueued by dependencies"),
                 &vl_error_OnlyByDependency,
                 SD_VARLINK_SYMBOL_COMMENT("A unit that requires D-Bus cannot be started as D-Bus is shutting down"),
-                &vl_error_DBusShuttingDown);
+                &vl_error_DBusShuttingDown,
+                SD_VARLINK_SYMBOL_COMMENT("A unit with this name already exists"),
+                &vl_error_UnitExists,
+                SD_VARLINK_SYMBOL_COMMENT("This unit type does not support transient units"),
+                &vl_error_UnitTypeNotSupported,
+                SD_VARLINK_SYMBOL_COMMENT("The unit file content contains invalid settings"),
+                &vl_error_BadUnitSetting);
