@@ -1609,6 +1609,33 @@ DeviceAllow=/dev/loop-control
       </varlistentry>
 
       <varlistentry>
+        <term><varname>OOMRules=</varname></term>
+
+        <listitem>
+          <para>Takes a space-separated list of OOM ruleset names. The rulesets are defined in
+          <filename>.oomrule</filename> files placed in
+          <filename>/etc/systemd/oomd/rules.d/</filename>,
+          <filename>/run/systemd/oomd/rules.d/</filename>,
+          <filename>/usr/local/lib/systemd/oomd/rules.d/</filename>, or
+          <filename>/usr/lib/systemd/oomd/rules.d/</filename>. When set,
+          <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          will monitor this unit's cgroup and evaluate the specified rulesets against it.
+          Each ruleset defines conditions (such as memory pressure or swap usage thresholds) and an action
+          to take when those conditions are met. See
+          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details on the available ruleset options.</para>
+
+          <para>Setting this property will also result in <varname>After=</varname> and
+          <varname>Wants=</varname> dependencies on <filename>systemd-oomd.service</filename> unless
+          <varname>DefaultDependencies=no</varname>.</para>
+
+          <para>Defaults to an empty list, which means no rulesets are applied.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MemoryPressureWatch=</varname></term>
 
         <listitem><para>Controls memory pressure monitoring for invoked processes. Takes a boolean or one of

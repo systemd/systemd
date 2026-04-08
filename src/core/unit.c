@@ -1623,7 +1623,7 @@ static int unit_add_oomd_dependencies(Unit *u) {
         if (!c)
                 return 0;
 
-        bool wants_oomd = c->moom_swap == MANAGED_OOM_KILL || c->moom_mem_pressure == MANAGED_OOM_KILL;
+        bool wants_oomd = c->moom_swap == MANAGED_OOM_KILL || c->moom_mem_pressure == MANAGED_OOM_KILL || !strv_isempty(c->moom_rules);
         if (!wants_oomd)
                 return 0;
 
