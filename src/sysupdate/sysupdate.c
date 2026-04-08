@@ -128,7 +128,7 @@ static int read_definitions(
         size_t n_files = 0, n_transfers = 0, n_disabled = 0;
         int r;
 
-        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
         CLEANUP_ARRAY(transfers, n_transfers, free_transfers);
         CLEANUP_ARRAY(disabled, n_disabled, free_transfers);
 
@@ -208,7 +208,7 @@ static int context_read_definitions(Context *c, const char* node, bool requires_
         ConfFile **files = NULL;
         size_t n_files = 0;
 
-        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
         r = conf_files_list_strv_full(".feature", arg_root,
                                       CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
@@ -1718,7 +1718,7 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         ConfFile **directories = NULL;
         size_t n_directories = 0;
 
-        CLEANUP_ARRAY(directories, n_directories, conf_file_free_many);
+        CLEANUP_ARRAY(directories, n_directories, conf_file_free_array);
 
         r = conf_files_list_strv_full(".d", arg_root, CONF_FILES_DIRECTORY|CONF_FILES_WARN,
                                       (const char * const *) CONF_PATHS_STRV(""), &directories, &n_directories);
