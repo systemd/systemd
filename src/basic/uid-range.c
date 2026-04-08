@@ -76,6 +76,9 @@ static void uid_range_coalesce(UIDRange *range) {
                                 memmove(y, y + 1, sizeof(UIDRangeEntry) * (range->n_entries - j - 1));
 
                         range->n_entries--;
+
+                        /* Silence static analyzers, j cannot be 0 here since it starts at i + 1, i.e. >= 1 */
+                        assert(j > 0);
                         j--;
                 }
         }
