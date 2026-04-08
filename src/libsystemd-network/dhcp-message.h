@@ -4,7 +4,14 @@
 #include "sd-dhcp-client-id.h"
 #include "sd-forward.h"
 
-#include "sparse-endian.h"
+#include "dhcp-protocol.h"
+
+struct sd_dhcp_message {
+        unsigned n_ref;
+
+        DHCPMessageHeader header;
+        Hashmap *options;
+};
 
 typedef struct sd_dhcp_message sd_dhcp_message;
 
