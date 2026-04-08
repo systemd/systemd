@@ -3030,8 +3030,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        size_t i = 0;
-        FOREACH_ARRAY(drive, arg_extra_drives.drives, arg_extra_drives.n_drives) {
+        for (size_t i = 0; i < arg_extra_drives.n_drives; i++) {
+                ExtraDrive *drive = arg_extra_drives.drives + i;
                 if (strv_extend(&cmdline, "-blockdev") < 0)
                         return log_oom();
 
@@ -3470,6 +3470,42 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to call getsockname on VSOCK: %m");
         }
 
+
+        /* Pre-allocate PCIe root ports for QMP device_add hotplug. On PCIe machine types
+         * (q35, virt), QMP device_add is always hotplug — the root bus (pcie.0) does not support
+         * it. Each root port provides one slot for hotplug. We create enough ports for all devices
+         * that will be set up via QMP, plus 10 spare ports for future runtime hotplug. */
+        unsigned n_pcie_ports = 0;
+        if (ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS) {
+                /* Count maximum possible PCI devices: root image + extra drives + SCSI controller +
+                 * network + virtiofs mounts + vsock. The actual count may be lower (e.g. no network,
+                 * no SCSI), but unused ports have negligible overhead. */
+                n_pcie_ports = 1 + arg_extra_drives.n_drives +  /* drives (+ possible SCSI controller) */
+                               1 +                              /* network */
+                               (arg_directory ? 1 : 0) +        /* rootdir virtiofs */
+                               arg_runtime_mounts.n_mounts +    /* extra virtiofs mounts */
+                               1 +                              /* vsock */
+                               10;                              /* reserved for future hotplug */
+
+                for (unsigned i = 0; i < n_pcie_ports; i++) {
+                        char id[STRLEN("vmspawn-hotplug-pci-root-port-") + DECIMAL_STR_MAX(unsigned)];
+                        if (i < n_pcie_ports - 10)
+                                xsprintf(id, "vmspawn-pcieport-%u", i);
+                        else
+                                xsprintf(id, "vmspawn-hotplug-pci-root-port-%u", i - (n_pcie_ports - 10));
+
+                        r = qemu_config_section(config_file, "device", id,
+                                                "driver", "pcie-root-port");
+                        if (r < 0)
+                                return r;
+                        r = qemu_config_keyf(config_file, "chassis", "%u", i + 1);
+                        if (r < 0)
+                                return r;
+                        r = qemu_config_keyf(config_file, "slot", "%u", i + 1);
+                        if (r < 0)
+                                return r;
+                }
+        }
         /* Finalize the config file and add -readconfig to the cmdline */
         r = fflush_and_check(config_file);
         if (r < 0)
