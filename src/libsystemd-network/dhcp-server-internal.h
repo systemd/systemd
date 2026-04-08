@@ -7,7 +7,7 @@
 
 #include "sd-dhcp-server.h"
 
-#include "dhcp-option.h"
+#include "dhcp-message.h"
 #include "network-common.h"
 #include "sd-forward.h"
 #include "sparse-endian.h"
