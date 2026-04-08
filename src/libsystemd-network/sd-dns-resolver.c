@@ -299,7 +299,7 @@ int dns_resolvers_to_dot_addrs(const sd_dns_resolver *resolvers, size_t n_resolv
 
         struct in_addr_full **addrs = NULL;
         size_t n = 0;
-        CLEANUP_ARRAY(addrs, n, in_addr_full_array_free);
+        CLEANUP_ARRAY(addrs, n, in_addr_full_free_array);
 
         FOREACH_ARRAY(res, resolvers, n_resolvers) {
                 if (!FLAGS_SET(res->transports, SD_DNS_ALPN_DOT))
@@ -340,7 +340,7 @@ int dns_resolvers_to_dot_strv(const sd_dns_resolver *resolvers, size_t n_resolve
 
         struct in_addr_full **addrs = NULL;
         size_t n = 0;
-        CLEANUP_ARRAY(addrs, n, in_addr_full_array_free);
+        CLEANUP_ARRAY(addrs, n, in_addr_full_free_array);
 
         r = dns_resolvers_to_dot_addrs(resolvers, n_resolvers, &addrs, &n);
         if (r < 0)
