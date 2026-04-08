@@ -4862,7 +4862,7 @@ int unit_make_transient(Unit *u) {
          * creating the transient, and is closed in unit_load(), as soon as we start loading the file. */
 
         WITH_UMASK(0022) {
-                f = fopen(path, "we");
+                f = fopen(path, "w+e");
                 if (!f)
                         return -errno;
         }
@@ -4886,6 +4886,40 @@ int unit_make_transient(Unit *u) {
         fputs("# This is a transient unit file, created programmatically via the systemd API. Do not edit.\n",
               u->transient_file);
 
+        return 0;
+}
+
+int manager_setup_transient_unit(Manager *m, const char *name, Unit **ret, sd_bus_error *reterr_error) {
+        Unit *u;
+        int r;
+
+        assert(m);
+        assert(name);
+        assert(ret);
+
+        UnitType t = unit_name_to_type(name);
+        if (t < 0)
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Invalid unit name or type: %s", name);
+
+        if (!unit_vtable[t]->can_transient)
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Unit type %s does not support transient units.",
+                                         unit_type_to_string(t));
+
+        r = manager_load_unit(m, name, /* path= */ NULL, reterr_error, &u);
+        if (r < 0)
+                return r;
+
+        if (!unit_is_pristine(u))
+                return sd_bus_error_setf(reterr_error, BUS_ERROR_UNIT_EXISTS,
+                                         "Unit %s was already loaded or has a fragment file.", name);
+
+        r = unit_make_transient(u);
+        if (r < 0)
+                return r;
+
+        *ret = u;
         return 0;
 }
 
