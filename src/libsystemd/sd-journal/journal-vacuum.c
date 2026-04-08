@@ -21,7 +21,7 @@
 #include "time-util.h"
 #include "xattr-util.h"
 
-typedef struct vacuum_info {
+typedef struct VacuumInfo {
         uint64_t usage;
         char *filename;
 
@@ -30,9 +30,9 @@ typedef struct vacuum_info {
         sd_id128_t seqnum_id;
         uint64_t seqnum;
         bool have_seqnum;
-} vacuum_info;
+} VacuumInfo;
 
-static int vacuum_info_compare(const vacuum_info *a, const vacuum_info *b) {
+static int vacuum_info_compare(const VacuumInfo *a, const VacuumInfo *b) {
         int r;
 
         if (a->have_seqnum && b->have_seqnum &&
@@ -49,7 +49,7 @@ static int vacuum_info_compare(const vacuum_info *a, const vacuum_info *b) {
         return strcmp(a->filename, b->filename);
 }
 
-static void vacuum_info_array_free(vacuum_info *list, size_t n) {
+static void vacuum_info_array_free(VacuumInfo *list, size_t n) {
         if (!list)
                 return;
 
@@ -137,7 +137,7 @@ int journal_directory_vacuum(
         uint64_t sum = 0, freed = 0, n_active_files = 0;
         size_t n_list = 0, i;
         _cleanup_closedir_ DIR *d = NULL;
-        vacuum_info *list = NULL;
+        VacuumInfo *list = NULL;
         usec_t retention_limit = 0;
         int r;
 
@@ -280,7 +280,7 @@ int journal_directory_vacuum(
                 if (!GREEDY_REALLOC(list, n_list + 1))
                         return -ENOMEM;
 
-                list[n_list++] = (vacuum_info) {
+                list[n_list++] = (VacuumInfo) {
                         .filename = TAKE_PTR(p),
                         .usage = size,
                         .seqnum = seqnum,
