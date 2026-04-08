@@ -877,8 +877,8 @@ static void *upgrade_pipelining_thread(void *arg) {
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         ASSERT_FD(fd);
         int addrlen = sockaddr_un_set_path(&sa.un, arg);
-        ASSERT_OK(addrlen >= 0);
-        ASSERT_OK_ERRNO(connect(fd, &sa.sa, addrlen) >= 0);
+        ASSERT_OK(addrlen);
+        ASSERT_OK_ERRNO(connect(fd, &sa.sa, addrlen));
 
         /* Build pipelined message: upgrade JSON + \0 + raw payload, all in one write */
         static const char upgrade_msg[] = "{\"method\":\"io.test.Upgrade\",\"upgrade\":true}";
