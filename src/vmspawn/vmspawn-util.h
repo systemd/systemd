@@ -59,20 +59,33 @@
 #  define KERNEL_CMDLINE_SIZE 512
 #endif
 
+/* ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS is co-located with QEMU_MACHINE_TYPE so they stay in
+ * sync: q35 and virt machine types need pcie-root-port bridges for QMP device_add hotplug.
+ * Exception: m68k's "virt" uses virtio-mmio, not PCIe, so it doesn't need root ports. */
 #if defined(__x86_64__) || defined(__i386__)
 #  define QEMU_MACHINE_TYPE "q35"
-#elif defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch64) || defined(__m68k__)
+#  define ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS 1
+#elif defined(__m68k__)
 #  define QEMU_MACHINE_TYPE "virt"
+#  define ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS 0
+#elif defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch64)
+#  define QEMU_MACHINE_TYPE "virt"
+#  define ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS 1
 #elif defined(__s390__) || defined(__s390x__)
 #  define QEMU_MACHINE_TYPE "s390-ccw-virtio"
+#  define ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS 0
 #elif defined(__powerpc__) || defined(__powerpc64__)
 #  define QEMU_MACHINE_TYPE "pseries"
+#  define ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS 0
 #elif defined(__mips__)
 #  define QEMU_MACHINE_TYPE "malta"
+#  define ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS 0
 #elif defined(__sparc__)
 #  define QEMU_MACHINE_TYPE "sun4u"
+#  define ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS 0
 #else
 #  define QEMU_MACHINE_TYPE "none"
+#  define ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS 0
 #endif
 
 #if defined(__arm__) || defined(__aarch64__)
