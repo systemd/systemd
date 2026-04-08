@@ -53,6 +53,7 @@
 #include "machine-credential.h"
 #include "machine-register.h"
 #include "main-func.h"
+#include "memfd-util.h"
 #include "mkdir.h"
 #include "namespace-util.h"
 #include "netif-util.h"
@@ -91,6 +92,8 @@
 #include "utf8.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-qemu-config.h"
+#include "vmspawn-qmp.h"
+#include "vmspawn-varlink.h"
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
@@ -2391,8 +2394,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (asprintf(&mem, "%" PRIu64 "M", DIV_ROUND_UP(arg_ram, U64_MB)) < 0)
                 return log_oom();
 
-        /* Create our runtime directory. We need this for the QEMU config file, TPM state, virtiofsd
-         * sockets, runtime mounts, and SSH key material. */
+        /* Create our runtime directory. We need this for the QMP varlink control socket, the QEMU
+         * config file, TPM state, virtiofsd sockets, runtime mounts, and SSH key material. */
         _cleanup_free_ char *runtime_dir = NULL, *runtime_dir_suffix = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
 
@@ -2515,8 +2518,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
-        /* Start building the cmdline for items that must remain as command line arguments */
+        /* Start building the cmdline for items that must remain as command line arguments.
+         * -S starts QEMU with vCPUs paused — we set up devices via QMP then resume with "cont". */
         cmdline = strv_new(qemu_binary,
+                           "-S",
                            "-no-user-config");
         if (!cmdline)
                 return log_oom();
@@ -3437,6 +3442,31 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return r;
 
 
+        /* Create QMP socketpair for QEMU machine monitor control. FORK_CLOEXEC_OFF clears CLOEXEC on
+         * pass_fds in the child, so we don't need to do it manually here (same as TAP and VSOCK fds). */
+        _cleanup_close_pair_ int bridge_fds[2] = EBADF_PAIR;
+        if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, bridge_fds) < 0)
+                return log_error_errno(errno, "Failed to create QMP socketpair: %m");
+
+        if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
+                return log_oom();
+        pass_fds[n_pass_fds++] = bridge_fds[1];
+
+        r = qemu_config_section(config_file, "chardev", "qmp",
+                                "backend", "socket");
+        if (r < 0)
+                return r;
+
+        r = qemu_config_keyf(config_file, "fd", "%d", bridge_fds[1]);
+        if (r < 0)
+                return r;
+
+        r = qemu_config_section(config_file, "mon", "qmp",
+                                "chardev", "qmp",
+                                "mode", "control");
+        if (r < 0)
+                return r;
+
         /* Pre-allocate PCIe root ports for QMP device_add hotplug. On PCIe machine types
          * (q35, virt), QMP device_add is always hotplug — the root bus (pcie.0) does not support
          * it. Each root port provides one slot for hotplug. We create enough ports for all devices
@@ -3464,9 +3494,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                                 "driver", "pcie-root-port");
                         if (r < 0)
                                 return r;
+
                         r = qemu_config_keyf(config_file, "chassis", "%zu", i + 1);
                         if (r < 0)
                                 return r;
+
                         r = qemu_config_keyf(config_file, "slot", "%zu", i + 1);
                         if (r < 0)
                                 return r;
@@ -3536,10 +3568,29 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 _exit(EXIT_FAILURE);
         }
 
-        /* Close relevant fds we passed to qemu in the parent. We don't need them anymore. */
+        /* Close QEMU's end of the QMP socketpair in the parent. The TAP and VSOCK fds
+         * (if any) live in their respective info structs and will be closed after
+         * vmspawn_qmp_init() sends them to QEMU via getfd + SCM_RIGHTS. */
         child_pty = safe_close(child_pty);
-        child_vsock_fd = safe_close(child_vsock_fd);
-        tap_fd = safe_close(tap_fd);
+        bridge_fds[1] = safe_close(bridge_fds[1]);
+
+        /* Connect to VMM backend */
+        _cleanup_(vmspawn_qmp_bridge_freep) VmspawnQmpBridge *bridge = NULL;
+        r = vmspawn_qmp_init(&bridge, TAKE_FD(bridge_fds[0]), event);
+        if (r < 0)
+                return r;
+
+        /* Resume vCPUs and switch to async event processing */
+        r = vmspawn_qmp_start(bridge);
+        if (r < 0)
+                return r;
+
+        /* Varlink server for VM control */
+        _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *varlink_ctx = NULL;
+        _cleanup_free_ char *control_address = NULL;
+        r = vmspawn_varlink_setup(&varlink_ctx, TAKE_PTR(bridge), runtime_dir, &control_address);
+        if (r < 0)
+                return r;
 
         if (!arg_keep_unit) {
                 /* When a new scope is created for this container, then we'll be registered as its controller, in which
@@ -3604,6 +3655,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         .vsock_cid            = child_cid,
                         .ssh_address          = child_cid != VMADDR_CID_ANY ? vm_address : NULL,
                         .ssh_private_key_path = ssh_private_key_path,
+                        .control_address      = control_address,
                         .allocate_unit        = !arg_keep_unit,
                 };
 
