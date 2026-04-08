@@ -349,11 +349,11 @@ static int process_machine(const char *machine, const char *port) {
                 if (!streq_ptr(p.service, "systemd-nspawn"))
                         return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Don't know how to SSH into '%s' container %s.", p.service, machine);
 
-                r = runtime_directory_generic(scope, "systemd/nspawn/unix-export", &path);
+                r = runtime_directory_generic(scope, "systemd/nspawn", &path);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine runtime directory: %m");
 
-                if (!path_extend(&path, machine, "ssh"))
+                if (!path_extend(&path, machine, "unix-export", "ssh"))
                         return log_oom();
 
                 r = is_socket(path);
