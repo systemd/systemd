@@ -2205,6 +2205,45 @@ static int disk_serial(const char *filename, size_t max_len, char **ret) {
         return 0;
 }
 
+static int resolve_disk_driver(DiskType dt, const char *filename, DriveInfo *info) {
+        int r;
+
+        assert(filename);
+        assert(info);
+
+        switch (dt) {
+        case DISK_TYPE_VIRTIO_BLK:
+                info->disk_driver = "virtio-blk-pci";
+                info->serial = strdup(filename);
+                if (!info->serial)
+                        return -ENOMEM;
+                break;
+        case DISK_TYPE_VIRTIO_SCSI:
+                info->disk_driver = "scsi-hd";
+                r = disk_serial(filename, DISK_SERIAL_MAX_LEN_SCSI, &info->serial);
+                if (r < 0)
+                        return r;
+                break;
+        case DISK_TYPE_NVME:
+                info->disk_driver = "nvme";
+                r = disk_serial(filename, DISK_SERIAL_MAX_LEN_NVME, &info->serial);
+                if (r < 0)
+                        return r;
+                break;
+        case DISK_TYPE_VIRTIO_SCSI_CDROM:
+                info->disk_driver = "scsi-cd";
+                info->read_only = true;
+                r = disk_serial(filename, DISK_SERIAL_MAX_LEN_SCSI, &info->serial);
+                if (r < 0)
+                        return r;
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL, *kernel = NULL;
@@ -2813,24 +2852,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        bool need_scsi_controller =
-                IN_SET(arg_image_disk_type, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM) && arg_image;
-        if (!need_scsi_controller)
-                FOREACH_ARRAY(drive, arg_extra_drives.drives, arg_extra_drives.n_drives) {
-                        DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
-                        if (IN_SET(dt, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM)) {
-                                need_scsi_controller = true;
-                                break;
-                        }
-                }
-
-        if (need_scsi_controller) {
-                r = qemu_config_section(config_file, "device", "vmspawn_scsi",
-                                        "driver", "virtio-scsi-pci");
-                if (r < 0)
-                        return r;
-        }
-
         if (arg_image) {
                 assert(!arg_directory);
 
@@ -2840,74 +2861,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 return log_error_errno(r,
                                                        "Block device '%s' cannot be used with 'qcow2' format, only 'raw' is supported: %m",
                                                        arg_image);
-                }
-
-                if (arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI_CDROM)
-                        r = qemu_config_section(config_file, "drive", "vmspawn",
-                                                "if", "none",
-                                                "file", arg_image,
-                                                "format", image_format_to_string(arg_image_format),
-                                                "media", "cdrom",
-                                                "readonly", "on");
-                else
-                        r = qemu_config_section(config_file, "drive", "vmspawn",
-                                                "if", "none",
-                                                "file", arg_image,
-                                                "format", image_format_to_string(arg_image_format),
-                                                "discard", on_off(arg_discard_disk),
-                                                "snapshot", on_off(arg_ephemeral));
-                if (r < 0)
-                        return r;
-
-                _cleanup_free_ char *image_fn = NULL;
-                r = path_extract_filename(arg_image, &image_fn);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", image_fn);
-
-                const char *disk_driver;
-                _cleanup_free_ char *serial = NULL;
-
-                switch (arg_image_disk_type) {
-                case DISK_TYPE_VIRTIO_BLK:
-                        disk_driver = "virtio-blk-pci";
-                        serial = strdup(image_fn);
-                        if (!serial)
-                                return log_oom();
-                        break;
-                case DISK_TYPE_VIRTIO_SCSI:
-                        disk_driver = "scsi-hd";
-                        r = disk_serial(image_fn, DISK_SERIAL_MAX_LEN_SCSI, &serial);
-                        if (r < 0)
-                                return log_oom();
-                        break;
-                case DISK_TYPE_NVME:
-                        disk_driver = "nvme";
-                        r = disk_serial(image_fn, DISK_SERIAL_MAX_LEN_NVME, &serial);
-                        if (r < 0)
-                                return log_oom();
-                        break;
-                case DISK_TYPE_VIRTIO_SCSI_CDROM:
-                        disk_driver = "scsi-cd";
-                        r = disk_serial(image_fn, DISK_SERIAL_MAX_LEN_SCSI, &serial);
-                        if (r < 0)
-                                return log_oom();
-                        break;
-                default:
-                        assert_not_reached();
-                }
-
-                r = qemu_config_section(config_file, "device", "vmspawn-disk",
-                                        "driver", disk_driver,
-                                        "drive", "vmspawn",
-                                        "bootindex", "1",
-                                        "serial", serial);
-                if (r < 0)
-                        return r;
-
-                if (IN_SET(arg_image_disk_type, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM)) {
-                        r = qemu_config_key(config_file, "bus", "vmspawn_scsi.0");
-                        if (r < 0)
-                                return r;
                 }
 
                 if (arg_image_disk_type != DISK_TYPE_VIRTIO_SCSI_CDROM) {
@@ -2999,86 +2952,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        for (size_t i = 0; i < arg_extra_drives.n_drives; i++) {
-                ExtraDrive *drive = arg_extra_drives.drives + i;
-                if (strv_extend(&cmdline, "-blockdev") < 0)
-                        return log_oom();
-
-                _cleanup_free_ char *escaped_drive = escape_qemu_value(drive->path);
-                if (!escaped_drive)
-                        return log_oom();
-
-                struct stat st;
-                if (stat(drive->path, &st) < 0)
-                        return log_error_errno(errno, "Failed to stat '%s': %m", drive->path);
-
-                const char *driver = NULL;
-                if (S_ISREG(st.st_mode))
-                        driver = "file";
-                else if (S_ISBLK(st.st_mode)) {
-                        if (drive->format == IMAGE_FORMAT_QCOW2)
-                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                       "Block device '%s' cannot be used with 'qcow2' format, only 'raw' is supported.",
-                                                       drive->path);
-                        driver = "host_device";
-                } else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s'.", drive->path);
-
-                DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
-
-                if (strv_extendf(&cmdline, "driver=%s,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu%s",
-                                 image_format_to_string(drive->format), driver, escaped_drive, i,
-                                 dt == DISK_TYPE_VIRTIO_SCSI_CDROM ? ",read-only=on" : "") < 0)
-                        return log_oom();
-
-                _cleanup_free_ char *drive_fn = NULL;
-                r = path_extract_filename(drive->path, &drive_fn);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", drive->path);
-
-                _cleanup_free_ char *escaped_drive_fn = escape_qemu_value(drive_fn);
-                if (!escaped_drive_fn)
-                        return log_oom();
-
-                if (strv_extend(&cmdline, "-device") < 0)
-                        return log_oom();
-
-                switch (dt) {
-                case DISK_TYPE_VIRTIO_BLK:
-                        if (strv_extendf(&cmdline, "virtio-blk-pci,drive=vmspawn_extra_%zu,serial=%s", i++, escaped_drive_fn) < 0)
-                                return log_oom();
-                        break;
-                case DISK_TYPE_VIRTIO_SCSI: {
-                        _cleanup_free_ char *serial = NULL;
-                        r = disk_serial(escaped_drive_fn, DISK_SERIAL_MAX_LEN_SCSI, &serial);
-                        if (r < 0)
-                                return log_oom();
-                        if (strv_extendf(&cmdline, "scsi-hd,bus=vmspawn_scsi.0,drive=vmspawn_extra_%zu,serial=%s", i++, serial) < 0)
-                                return log_oom();
-                        break;
-                }
-                case DISK_TYPE_NVME: {
-                        _cleanup_free_ char *serial = NULL;
-                        r = disk_serial(escaped_drive_fn, DISK_SERIAL_MAX_LEN_NVME, &serial);
-                        if (r < 0)
-                                return log_oom();
-                        if (strv_extendf(&cmdline, "nvme,drive=vmspawn_extra_%zu,serial=%s", i++, serial) < 0)
-                                return log_oom();
-                        break;
-                }
-                case DISK_TYPE_VIRTIO_SCSI_CDROM: {
-                        _cleanup_free_ char *serial = NULL;
-                        r = disk_serial(escaped_drive_fn, DISK_SERIAL_MAX_LEN_SCSI, &serial);
-                        if (r < 0)
-                                return log_oom();
-                        if (strv_extendf(&cmdline, "scsi-cd,bus=vmspawn_scsi.0,drive=vmspawn_extra_%zu,serial=%s", i++, serial) < 0)
-                                return log_oom();
-                        break;
-                }
-                default:
-                        assert_not_reached();
-                }
-        }
+        /* Extra drive validation is done in the post-fork drive info construction loop
+         * to avoid stat()'ing each drive twice. */
 
         if (!IN_SET(arg_console_mode, CONSOLE_GUI, CONSOLE_HEADLESS)) {
                 r = strv_prepend(&arg_kernel_cmdline_extra,
@@ -3437,7 +3312,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to call getsockname on VSOCK: %m");
         }
 
-
         /* Create QMP socketpair for QEMU machine monitor control. FORK_CLOEXEC_OFF clears CLOEXEC on
          * pass_fds in the child, so we don't need to do it manually here (same as TAP and VSOCK fds). */
         _cleanup_close_pair_ int bridge_fds[2] = EBADF_PAIR;
@@ -3500,6 +3374,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 return r;
                 }
         }
+
         /* Finalize the config file and add -readconfig to the cmdline */
         r = fflush_and_check(config_file);
         if (r < 0)
@@ -3570,14 +3445,153 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         child_pty = safe_close(child_pty);
         bridge_fds[1] = safe_close(bridge_fds[1]);
 
+        /* Build drive info for QMP-based setup. vmspawn opens all image files and
+         * passes fds to QEMU via add-fd — QEMU never needs filesystem access. */
+        _cleanup_(drive_infos_done) DriveInfos drives = {};
+
+        drives.drives = new0(DriveInfo, 1 + arg_extra_drives.n_drives);
+        if (!drives.drives)
+                return log_oom();
+
+        if (arg_image) {
+                int open_flags = (arg_ephemeral ? O_RDONLY : O_RDWR) | O_CLOEXEC | O_NOCTTY;
+
+                _cleanup_close_ int image_fd = open(arg_image, open_flags);
+                if (image_fd < 0)
+                        return log_error_errno(errno, "Failed to open '%s': %m", arg_image);
+
+                struct stat st;
+                if (fstat(image_fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", arg_image);
+                if (!S_ISREG(st.st_mode) && !S_ISBLK(st.st_mode))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected regular file or block device for image: %s", arg_image);
+
+                _cleanup_free_ char *image_fn = NULL;
+                r = path_extract_filename(arg_image, &image_fn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", arg_image);
+
+                DriveInfo *d = &drives.drives[drives.n_drives++];
+                *d = (DriveInfo) { .fd = -EBADF, .overlay_fd = -EBADF };
+
+                r = resolve_disk_driver(arg_image_disk_type, image_fn, d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve disk driver for '%s': %m", image_fn);
+
+                d->path = arg_image;
+                d->format = image_format_to_string(arg_image_format);
+                d->node_name = strdup("vmspawn");
+                if (!d->node_name)
+                        return log_oom();
+                d->fd = TAKE_FD(image_fd);
+                d->is_block_device = S_ISBLK(st.st_mode);
+                d->discard = arg_discard_disk && !d->read_only;
+                d->boot = true;
+
+                /* For ephemeral mode, create an anonymous overlay file. QEMU will format it
+                 * as qcow2 via blockdev-create, so no filesystem path is needed.
+                 * Skip for read-only drives (e.g. CDROM) where overlays are not meaningful. */
+                if (arg_ephemeral && !d->read_only) {
+                        _cleanup_close_ int overlay_fd = open(runtime_dir, O_TMPFILE | O_RDWR | O_CLOEXEC, 0600);
+                        if (overlay_fd < 0) {
+                                if (!ERRNO_IS_NOT_SUPPORTED(errno))
+                                        return log_error_errno(errno, "Failed to create ephemeral overlay in '%s': %m", runtime_dir);
+
+                                /* Fallback to memfd if O_TMPFILE is not supported */
+                                overlay_fd = memfd_new("vmspawn-overlay");
+                                if (overlay_fd < 0)
+                                        return log_error_errno(overlay_fd, "Failed to create ephemeral overlay via memfd: %m");
+                        }
+                        d->overlay_fd = TAKE_FD(overlay_fd);
+                        d->no_flush = true;
+                }
+        }
+
+        /* Extra drives: validated and configured via QMP */
+        size_t extra_idx = 0;
+        FOREACH_ARRAY(drive, arg_extra_drives.drives, arg_extra_drives.n_drives) {
+                _cleanup_free_ char *drive_fn = NULL;
+                r = path_extract_filename(drive->path, &drive_fn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", drive->path);
+
+                DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
+
+                DriveInfo *d = &drives.drives[drives.n_drives++];
+                *d = (DriveInfo) { .fd = -EBADF, .overlay_fd = -EBADF };
+
+                r = resolve_disk_driver(dt, drive_fn, d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve disk driver for '%s': %m", drive_fn);
+
+                _cleanup_close_ int drive_fd = open(drive->path, (d->read_only ? O_RDONLY : O_RDWR) | O_CLOEXEC | O_NOCTTY);
+                if (drive_fd < 0)
+                        return log_error_errno(errno, "Failed to open '%s': %m", drive->path);
+
+                struct stat drive_st;
+                if (fstat(drive_fd, &drive_st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", drive->path);
+                if (!S_ISREG(drive_st.st_mode) && !S_ISBLK(drive_st.st_mode))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s'.", drive->path);
+                if (S_ISBLK(drive_st.st_mode) && drive->format == IMAGE_FORMAT_QCOW2)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Block device '%s' cannot be used with 'qcow2' format, only 'raw' is supported.",
+                                               drive->path);
+
+                d->path = drive->path;
+                d->format = image_format_to_string(drive->format);
+                d->fd = TAKE_FD(drive_fd);
+                d->is_block_device = S_ISBLK(drive_st.st_mode);
+                d->no_flush = true;
+
+                if (asprintf(&d->node_name, "vmspawn_extra_%zu", extra_idx++) < 0)
+                        return log_oom();
+        }
+
+        /* Assign PCIe root port names to devices. The ports were pre-allocated in the config
+         * file above. Each PCI device that will be hotplugged via QMP device_add gets a port. */
+        if (ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS) {
+                unsigned port = 0;
+
+                /* Drives: non-SCSI drives get individual ports, SCSI controller gets one port */
+                bool need_scsi = false;
+                FOREACH_ARRAY(d, drives.drives, drives.n_drives) {
+                        if (STR_IN_SET(d->disk_driver, "scsi-hd", "scsi-cd")) {
+                                need_scsi = true;
+                                continue;
+                        }
+                        if (asprintf(&d->pcie_port, "vmspawn-pcieport-%u", port++) < 0)
+                                return log_oom();
+                }
+                if (need_scsi)
+                        if (asprintf(&drives.scsi_pcie_port, "vmspawn-pcieport-%u", port++) < 0)
+                                return log_oom();
+
+                if (network.type)
+                        if (asprintf(&network.pcie_port, "vmspawn-pcieport-%u", port++) < 0)
+                                return log_oom();
+
+                FOREACH_ARRAY(v, virtiofs.entries, virtiofs.n_entries)
+                        if (asprintf(&v->pcie_port, "vmspawn-pcieport-%u", port++) < 0)
+                                return log_oom();
+
+                if (vsock.fd >= 0)
+                        if (asprintf(&vsock.pcie_port, "vmspawn-pcieport-%u", port++) < 0)
+                                return log_oom();
+        }
+
         /* Connect to VMM backend */
         _cleanup_(vmspawn_qmp_bridge_freep) VmspawnQmpBridge *bridge = NULL;
         r = vmspawn_qmp_init(&bridge, TAKE_FD(bridge_fds[0]), event);
         if (r < 0)
                 return r;
 
-
         /* Device setup — all before resuming vCPUs */
+        r = vmspawn_qmp_setup_drives(bridge, &drives);
+        if (r < 0)
+                return r;
+
         if (network.type) {
                 r = vmspawn_qmp_setup_network(bridge, &network);
                 if (r < 0)

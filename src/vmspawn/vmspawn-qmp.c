@@ -425,7 +425,7 @@ static int qmp_setup_one_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, const D
                         .boot               = drive->boot,
                 };
                 if (!ectx->node_name || !ectx->overlay_file_node || !ectx->base_fmt_node || !ectx->disk_driver ||
-                    (drive->serial && !ectx->serial))
+                    (drive->serial && !ectx->serial) || (drive->pcie_port && !ectx->pcie_port))
                         return log_oom();
 
                 r = vmspawn_qmp_bridge_register_job(bridge, job_id,
