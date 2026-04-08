@@ -9,8 +9,10 @@
 #define REPORT_CERT_FILE     CERTIFICATE_ROOT "/certs/systemd-report.pem"
 #define REPORT_TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 
+extern sd_json_format_flags_t arg_json_format_flags;
 extern char *arg_url, *arg_key, *arg_cert, *arg_trust;
 extern char **arg_extra_headers;
+extern char *arg_process;
 extern usec_t arg_network_timeout_usec;
 
 typedef enum Action {
@@ -34,3 +36,4 @@ typedef struct Context {
 } Context;
 
 int upload_collected(Context *context);
+int process_collected(Context *context);
