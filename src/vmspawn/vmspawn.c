@@ -218,7 +218,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        static const char *groups[] = {
+        static const char* const groups[] = {
                 NULL,
                 "Image",
                 "Host Configuration",

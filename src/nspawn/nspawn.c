@@ -379,7 +379,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        static const char *groups[] = {
+        static const char* const groups[] = {
                 NULL,
                 "Image",
                 "Execution",
@@ -1372,7 +1372,7 @@ static int parse_argv(int argc, char *argv[]) {
                                  * been repurposed to optionally set the runtime scope, with --uid= replacing
                                  * the old container user functionality. To maintain backwards compatibility
                                  * with the space-separated form (--user NAME), if the next arg does not look
-                                 * like an option, interpret it a user name. */
+                                 * like an option, interpret it as a user name. */
                                 const char *t = option_parser_next_arg(&state);
                                 if (t && t[0] != '-') {
                                         arg = option_parser_consume_next_arg(&state);
