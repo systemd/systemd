@@ -17,6 +17,7 @@ typedef struct MachineRegistration {
         int local_ifindex;
         const char *ssh_address;
         const char *ssh_private_key_path;
+        const char *control_address;
         bool allocate_unit;
 } MachineRegistration;
 
