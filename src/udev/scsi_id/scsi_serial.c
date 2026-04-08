@@ -491,9 +491,14 @@ static int check_fill_0x83_id(struct scsi_id_device *dev_scsi,
          * this differs from SCSI_ID_T10_VENDOR, where the vendor is
          * included in the identifier.
          */
-        if (id_search->id_type == SCSI_ID_VENDOR_SPECIFIC)
+        if (id_search->id_type == SCSI_ID_VENDOR_SPECIFIC) {
                 if (append_vendor_model(dev_scsi, serial + 1) < 0)
                         return 1;
+                /* append_vendor_model() uses memcpy() without null-terminating.
+                 * The buffer was zeroed by the caller, but ensure the string is
+                 * explicitly terminated for strlen() below. */
+                serial[1 + VENDOR_LENGTH + MODEL_LENGTH] = '\0';
+        }
 
         i = 4; /* offset to the start of the identifier */
         s = j = strlen(serial);

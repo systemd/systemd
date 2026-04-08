@@ -238,14 +238,10 @@ static enum nss_status fill_in_hostent(
         if (additional) {
                 ((char**) r_aliases)[0] = r_alias;
                 ((char**) r_aliases)[1] = NULL;
-                /* Silence static analyzers */
-                assert(idx <= buflen - 2 * sizeof(char*));
-                idx += 2*sizeof(char*);
+                assert_se(INC_SAFE(&idx, 2 * sizeof(char*)));
         } else {
                 ((char**) r_aliases)[0] = NULL;
-                /* Silence static analyzers */
-                assert(idx <= buflen - sizeof(char*));
-                idx += sizeof(char*);
+                assert_se(INC_SAFE(&idx, sizeof(char*)));
         }
 
         /* Third, add addresses */

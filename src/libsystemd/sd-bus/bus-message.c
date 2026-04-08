@@ -359,12 +359,12 @@ static int message_from_header(
         /* Note that we are happy with unknown flags in the flags header! */
 
         a = ALIGN(sizeof(sd_bus_message));
+        /* Silence static analyzers, ALIGN cannot overflow for sizeof() */
+        assert(a != SIZE_MAX);
 
         if (label) {
                 label_sz = strlen(label);
-                /* Silence static analyzers */
-                assert(label_sz <= SIZE_MAX - ALIGN(sizeof(sd_bus_message)) - 1);
-                a += label_sz + 1;
+                assert_se(INC_SAFE(&a, label_sz + 1));
         }
 
         m = malloc0(a);
@@ -464,9 +464,10 @@ _public_ int sd_bus_message_new(
         /* Creation of messages with _SD_BUS_MESSAGE_TYPE_INVALID is allowed. */
         assert_return(type < _SD_BUS_MESSAGE_TYPE_MAX, -EINVAL);
 
-        /* Silence static analyzers */
-        assert_cc(sizeof(sd_bus_message) + sizeof(void*) + sizeof(BusMessageHeader) <= SIZE_MAX);
-        sd_bus_message *t = malloc0(ALIGN(sizeof(sd_bus_message)) + sizeof(BusMessageHeader));
+        /* Silence static analyzers, ALIGN cannot overflow for sizeof() */
+        size_t msgsz = ALIGN(sizeof(sd_bus_message));
+        assert(msgsz != SIZE_MAX);
+        sd_bus_message *t = malloc0(msgsz + sizeof(BusMessageHeader));
         if (!t)
                 return -ENOMEM;
 

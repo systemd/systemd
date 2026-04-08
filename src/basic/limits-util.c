@@ -28,9 +28,9 @@ uint64_t physical_memory(void) {
         assert(sc > 0);
 
         ps = page_size();
-        /* Silence static analyzers */
-        assert((uint64_t) sc <= UINT64_MAX / (uint64_t) ps);
-        mem = (uint64_t) sc * (uint64_t) ps;
+        /* Physical page count times page size cannot realistically overflow uint64_t,
+         * but use MUL_SAFE to make this obvious to static analyzers. */
+        assert_se(MUL_SAFE(&mem, (uint64_t) sc, (uint64_t) ps));
 
         r = cg_get_root_path(&root);
         if (r < 0) {
