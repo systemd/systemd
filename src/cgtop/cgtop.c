@@ -285,16 +285,11 @@ static int process_cpu(Group *g, unsigned iteration) {
                 if (r < 0)
                         return r;
         } else {
-                _cleanup_free_ char *val = NULL;
                 uint64_t u;
 
-                r = cg_get_keyed_attribute(g->path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
+                r = cg_get_keyed_attribute_uint64(g->path, "cpu.stat", "usage_usec", &u);
                 if (IN_SET(r, -ENOENT, -ENXIO))
                         return 0;
-                if (r < 0)
-                        return r;
-
-                r = safe_atou64(val, &u);
                 if (r < 0)
                         return r;
 
