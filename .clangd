@@ -1,4 +1,16 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+# Strip GCC-only flags from compile_commands.json before clang sees them.
+# clangd reports these as driver-level "unknown argument" errors which can't
+# be silenced via Diagnostics.Suppress, so they must be removed instead.
+#   -fwide-exec-charset:        used by EFI boot code to make L"..." literals UTF-16
+#   -maccumulate-outgoing-args: GCC x86 codegen flag, no clang equivalent
+CompileFlags:
+  Remove: [-fwide-exec-charset=*, -maccumulate-outgoing-args]
+
 Diagnostics:
   UnusedIncludes: Strict
+  # __no_reorder__ is a GCC-only attribute (see _no_reorder_ in
+  # src/fundamental/macro-fundamental.h). Meson detects it during configure
+  # with GCC and enables it unconditionally, so clangd flags every use.
+  Suppress: [unknown-attributes]
