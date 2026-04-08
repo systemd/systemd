@@ -187,6 +187,7 @@ int register_machine(
                         SD_JSON_BUILD_PAIR_CONDITION(!!reg->root_directory, "rootDirectory", SD_JSON_BUILD_STRING(reg->root_directory)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!reg->ssh_address, "sshAddress", SD_JSON_BUILD_STRING(reg->ssh_address)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!reg->ssh_private_key_path, "sshPrivateKeyPath", SD_JSON_BUILD_STRING(reg->ssh_private_key_path)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!reg->control_address, "controlAddress", SD_JSON_BUILD_STRING(reg->control_address)),
                         SD_JSON_BUILD_PAIR_CONDITION(isatty_safe(STDIN_FILENO), "allowInteractiveAuthentication", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(reg->allocate_unit, "allocateUnit", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(reg->pidref), "leaderProcessId", JSON_BUILD_PIDREF(reg->pidref)));
