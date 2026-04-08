@@ -50,6 +50,7 @@
 #include "fdset.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "fork-notify.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
@@ -94,6 +95,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "polkit-agent.h"
@@ -131,6 +133,7 @@
 /* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
 #define NSPAWN_NOTIFY_SOCKET_PATH "/run/host/notify"
 #define NSPAWN_MOUNT_TUNNEL "/run/host/incoming"
+#define NSPAWN_JOURNAL_SOCKET_PATH "/run/host/journal/socket"
 
 #define EXIT_FORCE_RESTART 133
 
@@ -258,6 +261,11 @@ static char *arg_background = NULL;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 static bool arg_cleanup = false;
 static bool arg_ask_password = true;
+static char *arg_forward_journal = NULL;
+static uint64_t arg_forward_journal_max_use = UINT64_MAX;
+static uint64_t arg_forward_journal_keep_free = UINT64_MAX;
+static uint64_t arg_forward_journal_max_file_size = UINT64_MAX;
+static uint64_t arg_forward_journal_max_files = UINT64_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_template, freep);
@@ -298,6 +306,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_bind_user_groups, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_forward_journal, freep);
 
 static int parse_private_users(
                 const char *s,
@@ -1240,6 +1249,36 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_LINK_JOURNAL;
                         break;
 
+                OPTION_LONG("forward-journal", "FILE|DIR", "Forward the VM's journal to the host"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_forward_journal);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("forward-journal-max-use", "BYTES", "Maximum disk space for forwarded journal"):
+                        r = parse_size(optarg, 1024, &arg_forward_journal_max_use);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-use= value: %s", optarg);
+                        break;
+ 
+                OPTION_LONG("keep-free", "BYTES", "Minimum disk space to keep free"):
+                        r = parse_size(optarg, 1024, &arg_forward_journal_keep_free);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-keep-free= value: %s", optarg);
+                        break;
+ 
+                OPTION_LONG("max-file-size", "BYTES", "Maximum size of individual journal files"):
+                        r = parse_size(optarg, 1024, &arg_forward_journal_max_file_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-file-size= value: %s", optarg);
+                        break;
+ 
+                OPTION_LONG("max-files", "N", "Maximum number of journal files to keep"):
+                        r = safe_atou64(optarg, &arg_forward_journal_max_files);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-files= value: %s", optarg);
+                        break;
+
                 OPTION_GROUP("Mounts"): {}
 
                 OPTION_LONG("bind", "PATH[:PATH[:OPTIONS]]",
@@ -1435,6 +1474,12 @@ static int parse_argv(int argc, char *argv[]) {
         arg_caps_retain |= plus;
         arg_caps_retain |= arg_private_network ? UINT64_C(1) << CAP_NET_ADMIN : 0;
         arg_caps_retain &= ~minus;
+
+        if ((arg_forward_journal_max_use != UINT64_MAX ||
+             arg_forward_journal_keep_free != UINT64_MAX ||
+             arg_forward_journal_max_file_size != UINT64_MAX ||
+             arg_forward_journal_max_files != UINT64_MAX) && !arg_forward_journal)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--forward-journal-max-use=/--forward-journal-keep-free=/--forward-journal-max-file-size=/--forward-journal-max-files= require --forward-journal=.");
 
         /* Make sure to parse environment before we reset the settings mask below */
         r = parse_environment();
@@ -5934,6 +5979,9 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL, *mountfsd_link = NULL;
+        _cleanup_free_ char *runtime_dir = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
+        _cleanup_(fork_notify_terminate) PidRef journal_remote_pidref = PIDREF_NULL;
 
         log_setup();
 
@@ -6461,6 +6509,59 @@ static int run(int argc, char *argv[]) {
                         goto finish;
                 }
                 expose_args.nfnl = nfnl;
+        }
+
+        if (arg_forward_journal) {
+                r = runtime_directory_make(
+                                arg_runtime_scope,
+                                "nspawn-journal",
+                                &runtime_dir,
+                                &runtime_dir_destroy);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to create runtime directory: %m");
+                        goto finish;
+                }
+
+                _cleanup_free_ char *socket_path = path_join(runtime_dir, "socket");
+                if (!socket_path) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                r = fork_journal_remote(
+                                socket_path,
+                                arg_forward_journal,
+                                arg_forward_journal_max_use,
+                                arg_forward_journal_keep_free,
+                                arg_forward_journal_max_file_size,
+                                arg_forward_journal_max_files,
+                                &journal_remote_pidref);
+                if (r < 0)
+                        goto finish;
+
+                CustomMount *cm = custom_mount_add(&arg_custom_mounts, &arg_n_custom_mounts, CUSTOM_MOUNT_BIND);
+                if (!cm) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                cm->source = TAKE_PTR(socket_path);
+                cm->read_only = true;
+                cm->destination = strdup(NSPAWN_JOURNAL_SOCKET_PATH);
+                if (!cm->destination) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                r = machine_credential_add(&arg_credentials, "journal.forward_to_socket", NSPAWN_JOURNAL_SOCKET_PATH, SIZE_MAX);
+                if (r == -EEXIST) {
+                        log_error_errno(r, "Credential 'journal.forward_to_socket' already set via --set-credential=, refusing --forward-journal=.");
+                        goto finish;
+                }
+                if (r < 0) {
+                        log_error_errno(r, "Failed to add 'journal.forward_to_socket' credential: %m");
+                        goto finish;
+                }
         }
 
         for (;;) {
