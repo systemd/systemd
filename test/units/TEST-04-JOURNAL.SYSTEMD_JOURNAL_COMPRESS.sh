@@ -17,6 +17,13 @@ EOF
 systemctl reset-failed systemd-journald.service
 
 for c in NONE XZ LZ4 ZSTD; do
+    # compression_to_string() returns "uncompressed" for COMPRESSION_NONE
+    if [[ "${c}" == NONE ]]; then
+        log_name="uncompressed"
+    else
+        log_name="${c,,}"
+    fi
+
     cat >/run/systemd/system/systemd-journald.service.d/compress.conf <<EOF
 [Service]
 Environment=SYSTEMD_JOURNAL_COMPRESS=${c}
@@ -28,14 +35,20 @@ EOF
     ID="$(systemd-id128 new)"
     systemd-cat -t "$ID" bash -c "for ((i=0;i<100;i++)); do echo -n hoge with ${c}; done; echo"
     journalctl --sync
-    timeout 10 bash -c "until SYSTEMD_LOG_LEVEL=debug journalctl --verify --quiet --file /var/log/journal/$MACHINE_ID/system.journal 2>&1 | grep -F 'compress=${c}' >/dev/null; do sleep .5; done"
+    timeout 10 bash -c "until SYSTEMD_LOG_LEVEL=debug journalctl --verify --quiet --file /var/log/journal/$MACHINE_ID/system.journal 2>&1 | grep -F 'compress=${log_name}' >/dev/null; do sleep .5; done"
 
     # $SYSTEMD_JOURNAL_COMPRESS= also works for journal-remote
     if [[ -x /usr/lib/systemd/systemd-journal-remote ]]; then
         for cc in NONE XZ LZ4 ZSTD; do
+            if [[ "${cc}" == NONE ]]; then
+                cc_log_name="uncompressed"
+            else
+                cc_log_name="${cc,,}"
+            fi
+
             rm -f /tmp/foo.journal
             SYSTEMD_JOURNAL_COMPRESS="${cc}" /usr/lib/systemd/systemd-journal-remote --split-mode=none -o /tmp/foo.journal --getter="journalctl -b -o export -t $ID"
-            SYSTEMD_LOG_LEVEL=debug journalctl --verify --quiet --file /tmp/foo.journal 2>&1 | grep -F "compress=${cc}" >/dev/null
+            SYSTEMD_LOG_LEVEL=debug journalctl --verify --quiet --file /tmp/foo.journal 2>&1 | grep -F "compress=${cc_log_name}" >/dev/null
             journalctl -t "$ID" -o cat --file /tmp/foo.journal | grep -F "hoge with ${c}" >/dev/null
         done
     fi

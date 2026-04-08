@@ -49,5 +49,3 @@ int import_allocate_event_with_signals(sd_event **ret);
 int import_make_foreign_userns(int *userns_fd);
 
 int import_remove_tree(const char *path, int *userns_fd, ImportFlags flags);
-
-#define IMPORT_BUFFER_SIZE (128U*1024U)
