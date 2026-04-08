@@ -413,10 +413,67 @@ DISABLE_WARNING_REDUNDANT_DECLS;
 void free(void *p); /* NOLINT (readability-redundant-declaration) */
 REENABLE_WARNING;
 
-#define mfree(memory)                           \
-        ({                                      \
-                free(memory);                   \
-                (typeof(memory)) NULL;          \
+/* MAX_ERRNO is defined as 4095 in linux/err.h. We use the same value here. */
+#define ERRNO_MAX 4095
+
+/* Error pointer encoding — inspired by Linux kernel's ERR_PTR (include/linux/err.h).
+ *
+ * Encodes errno values into pointers in the range [UINTPTR_MAX - ERRNO_MAX,
+ * UINTPTR_MAX - 1]. UINTPTR_MAX itself (== POINTER_MAX) is excluded because
+ * it is used throughout the codebase as a sentinel value distinct from errors:
+ * STRV_IGNORE, variadic argument terminators (strv_extend_many, path_join,
+ * strv_env_merge), sd_varlink sentinel, and various "not yet set" markers.
+ * If UINTPTR_MAX were in the error range, PTR_TO_ERR(POINTER_MAX) would
+ * return 0 ("success"), silently misclassifying sentinels as non-errors.
+ *
+ * Accepts both positive and negative errno values via ABS(). */
+
+#define ERR_TO_PTR(error)                                               \
+        ({                                                              \
+                intmax_t _e = (error);                                  \
+                assert_se(ABS(_e) > 0 && ABS(_e) <= ERRNO_MAX);        \
+                (void *) (UINTPTR_MAX - (uintptr_t) ABS(_e));          \
+        })
+
+#define PTR_TO_ERR(ptr)                                                 \
+        (-(int) (UINTPTR_MAX - (uintptr_t) (ptr)))
+
+#define PTR_IS_ERR(ptr)                                                 \
+        ((uintptr_t) (ptr) >= UINTPTR_MAX - ERRNO_MAX && (uintptr_t) (ptr) < UINTPTR_MAX)
+
+/* Single-comparison guard for cleanup macros and mfree(). Unlike
+ * PTR_IS_ERR() this also covers UINTPTR_MAX (== POINTER_MAX). We need
+ * this because PTR_IS_ERR() deliberately excludes UINTPTR_MAX from the
+ * error range, so !PTR_IS_ERR(p) has two disjuncts:
+ *
+ *   p < UINTPTR_MAX - ERRNO_MAX  ||  p == UINTPTR_MAX
+ *
+ * GCC at -O2 inlines cleanup functions deeply enough to evaluate both
+ * branches and determines that UINTPTR_MAX can reach free()/closedir(),
+ * emitting -Wfree-nonheap-object. The single >= comparison collapses
+ * both the error range and the sentinel into one check, so its negation
+ * gives GCC a provable upper bound on the pointer value. */
+#define PTR_IS_DIRTY(ptr)                                               \
+        ((uintptr_t) (ptr) >= UINTPTR_MAX - ERRNO_MAX)
+
+#define PTR_IS_ERR_OR_NULL(ptr)                                         \
+        ({                                                              \
+                const void *_p = (ptr);                                 \
+                !_p || PTR_IS_ERR(_p);                                  \
+        })
+
+#define PTR_TO_ERR_OR_ZERO(ptr)                                         \
+        ({                                                              \
+                const void *_p = (ptr);                                 \
+                PTR_IS_ERR(_p) ? PTR_TO_ERR(_p) : 0;                   \
+        })
+
+#define mfree(memory)                                   \
+        ({                                              \
+                typeof(memory) _mfree_ = (memory);      \
+                if (!PTR_IS_DIRTY(_mfree_))             \
+                        free(_mfree_);                  \
+                (typeof(memory)) NULL;                  \
         })
 
 #define UPDATE_FLAG(orig, flag, b)                      \
