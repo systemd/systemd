@@ -145,7 +145,7 @@ static int manager_static_records_read(Manager *m) {
 
         ConfFile **files = NULL;
         size_t n_files = 0;
-        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
         r = conf_files_list_nulstr_full(
                         ".rr",

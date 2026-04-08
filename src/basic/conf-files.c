@@ -33,12 +33,7 @@ ConfFile* conf_file_free(ConfFile *c) {
         return mfree(c);
 }
 
-void conf_file_free_many(ConfFile **array, size_t n) {
-        FOREACH_ARRAY(i, array, n)
-                conf_file_free(*i);
-
-        free(array);
-}
+DEFINE_POINTER_ARRAY_FREE_FUNC(ConfFile*, conf_file_free);
 
 static int conf_files_log_level(ConfFilesFlags flags) {
         return FLAGS_SET(flags, CONF_FILES_WARN) ? LOG_WARNING : LOG_DEBUG;
@@ -485,7 +480,7 @@ static int dump_files(Hashmap *fh, const char *root, ConfFilesFlags flags, ConfF
         size_t n_files = 0;
         int r;
 
-        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
         assert(ret_files);
         assert(ret_n_files);
@@ -528,7 +523,7 @@ static int copy_and_sort_files_from_hashmap(
         int log_level = conf_files_log_level(flags);
 
         /* The entries in the array given by hashmap_dump_sorted() are still owned by the hashmap.
-         * Hence, do not use conf_file_free_many() for 'entries' */
+         * Hence, do not use conf_file_free_array() for 'entries' */
         r = hashmap_dump_sorted(fh, (void***) &files, &n_files);
         if (r < 0)
                 return log_oom_full(log_level);

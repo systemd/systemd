@@ -486,7 +486,7 @@ int conf_files_cat(const char *root, const char *name, CatFlags flags) {
         /* Then locate the drop-ins, if any */
         ConfFile **dropins = NULL;
         size_t n_dropins = 0;
-        CLEANUP_ARRAY(dropins, n_dropins, conf_file_free_many);
+        CLEANUP_ARRAY(dropins, n_dropins, conf_file_free_array);
         r = conf_files_list_strv_full(extension, root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN, (const char* const*) dirs, &dropins, &n_dropins);
         if (r < 0)
                 return log_error_errno(r, "Failed to query file list: %m");

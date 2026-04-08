@@ -417,7 +417,7 @@ static int run(int argc, char *argv[]) {
                 ConfFile **files = NULL;
                 size_t n_files = 0;
 
-                CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+                CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
                 STRV_FOREACH(i, arg_proc_cmdline_modules)
                         RET_GATHER(ret, modules_list_append_dup(&module_set, *i));

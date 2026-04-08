@@ -53,6 +53,17 @@
                         *t = helper(*t);                        \
         }
 
+/* Clean up an array of pointers to objects by dropping all the items in it.
+ * The size of the array is passed in as a parameter, so NULL items may appear in the middle of the array.
+ * Free the array itself afterwards. */
+#define DEFINE_POINTER_ARRAY_FREE_FUNC(type, helper)            \
+        void helper ## _array(type *array, size_t n) {          \
+                assert(array || n == 0);                        \
+                FOREACH_ARRAY(item, array, n)                   \
+                        helper(*item);                          \
+                free(array);                                    \
+        }
+
 typedef void (*free_array_func_t)(void *p, size_t n);
 
 /* An automatic _cleanup_-like logic for destroy arrays (i.e. pointers + size) when leaving scope */
