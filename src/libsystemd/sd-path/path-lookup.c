@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "fs-util.h"
 #include "log.h"
+#include "mkdir.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -99,6 +100,34 @@ int runtime_directory(RuntimeScope scope, const char *fallback_suffix, char **re
                 return r;
 
         return 1;
+}
+
+int runtime_directory_make(RuntimeScope scope, const char *subdir, char **ret_dir, char **ret_dir_destroy) {
+        _cleanup_free_ char *dir = NULL, *destroy = NULL;
+        int r;
+
+        assert(subdir);
+        assert(ret_dir);
+        assert(ret_dir_destroy);
+
+        r = runtime_directory(scope, subdir, &dir);
+        if (r < 0)
+                return r;
+
+        if (r > 0) {
+                destroy = strdup(dir);
+                if (!destroy)
+                        return -ENOMEM;
+
+                r = mkdir_p(dir, 0755);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret_dir = TAKE_PTR(dir);
+        *ret_dir_destroy = TAKE_PTR(destroy);
+
+        return 0;
 }
 
 static const char* const user_data_unit_paths[] = {
