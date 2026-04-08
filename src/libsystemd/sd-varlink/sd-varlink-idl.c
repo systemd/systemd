@@ -1955,7 +1955,7 @@ int varlink_idl_validate_method_reply(const sd_varlink_symbol *method, sd_json_v
                 return -EBADMSG;
 
         /* If method replies have the "continues" flag set, but the method is not allowed to generate that, return a recognizable error */
-        if (FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES) && (method->symbol_type & (SD_VARLINK_SUPPORTS_MORE|SD_VARLINK_REQUIRES_MORE)) == 0)
+        if (FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES) && (method->symbol_flags & (SD_VARLINK_SUPPORTS_MORE|SD_VARLINK_REQUIRES_MORE)) == 0)
                 return -EBADE;
 
         return varlink_idl_validate_symbol(method, v, SD_VARLINK_OUTPUT, reterr_bad_field);
