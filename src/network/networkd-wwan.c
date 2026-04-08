@@ -37,7 +37,7 @@ Bearer* bearer_free(Bearer *b) {
         free(b->name);
         free(b->apn);
 
-        in_addr_full_array_free(b->dns, b->n_dns);
+        in_addr_full_free_array(b->dns, b->n_dns);
 
         return mfree(b);
 }
