@@ -718,6 +718,24 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#UtmpMode="),
                 SD_VARLINK_DEFINE_FIELD(UtmpMode, SD_VARLINK_STRING, 0));
 
+/* Shared types — used by both StartTransient (input) and Unit.List (output) */
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ExecCommand,
+                SD_VARLINK_FIELD_COMMENT("Executable path."),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Command line arguments including argv[0]. If empty, defaults to the executable path."),
+                SD_VARLINK_DEFINE_FIELD(arguments, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ServiceContext,
+                SD_VARLINK_FIELD_COMMENT("Service type: simple, exec, forking, oneshot, dbus, notify, idle."),
+                SD_VARLINK_DEFINE_FIELD(Type, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("ExecStart commands."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecStart, ExecCommand, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to keep the service active after the main process exits."),
+                SD_VARLINK_DEFINE_FIELD(RemainAfterExit, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 /* UnitContext */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Condition,
@@ -875,7 +893,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The cgroup context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The exec context of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Exec, ExecContext, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Exec, ExecContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The service context of the unit (only for .service units)"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Service, ServiceContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ActivationDetails,
@@ -1036,6 +1056,32 @@ static SD_VARLINK_DEFINE_ERROR(
                 PropertyNotSupported,
                 SD_VARLINK_DEFINE_FIELD(property, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_ERROR(UnitExists);
+static SD_VARLINK_DEFINE_ERROR(UnitTypeNotSupported);
+static SD_VARLINK_DEFINE_ERROR(BadUnitSetting);
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                StartTransient,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("The name of the transient unit to create."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Job mode: replace, fail, isolate, etc. Defaults to replace."),
+                SD_VARLINK_DEFINE_INPUT(mode, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit description."),
+                SD_VARLINK_DEFINE_INPUT(description, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Service-specific properties. Required for .service units."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(service, ServiceContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("ID of the enqueued start job."),
+                SD_VARLINK_DEFINE_OUTPUT(jobId, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Unit name."),
+                SD_VARLINK_DEFINE_OUTPUT(unit, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Job type string."),
+                SD_VARLINK_DEFINE_OUTPUT(jobType, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Current job state: waiting, running. Set for intermediate notifications."),
+                SD_VARLINK_DEFINE_OUTPUT(state, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Final result: done, failed, canceled, timeout, dependency, skipped, etc. Set in the final reply."),
+                SD_VARLINK_DEFINE_OUTPUT(result, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD(
                 SetProperties,
                 SD_VARLINK_FIELD_COMMENT("The name of the unit to operate on."),
@@ -1052,6 +1098,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_List,
                 SD_VARLINK_SYMBOL_COMMENT("Set unit properties"),
                 &vl_method_SetProperties,
+                SD_VARLINK_SYMBOL_COMMENT("Create a transient unit and start it"),
+                &vl_method_StartTransient,
                 &vl_type_RateLimit,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's conditions"),
                 &vl_type_Condition,
@@ -1109,6 +1157,12 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Exec context of a unit"),
                 &vl_type_ExecContext,
 
+                /* Shared types (used by both StartTransient and Unit.List) */
+                SD_VARLINK_SYMBOL_COMMENT("An executable command"),
+                &vl_type_ExecCommand,
+                SD_VARLINK_SYMBOL_COMMENT("Service-specific context"),
+                &vl_type_ServiceContext,
+
                 /* Errors */
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
                 &vl_error_NoSuchUnit,
@@ -1121,4 +1175,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Job for the unit may only be enqueued by dependencies"),
                 &vl_error_OnlyByDependency,
                 SD_VARLINK_SYMBOL_COMMENT("A unit that requires D-Bus cannot be started as D-Bus is shutting down"),
-                &vl_error_DBusShuttingDown);
+                &vl_error_DBusShuttingDown,
+                SD_VARLINK_SYMBOL_COMMENT("A unit with this name already exists"),
+                &vl_error_UnitExists,
+                SD_VARLINK_SYMBOL_COMMENT("This unit type does not support transient units"),
+                &vl_error_UnitTypeNotSupported,
+                SD_VARLINK_SYMBOL_COMMENT("The unit file content contains invalid settings"),
+                &vl_error_BadUnitSetting);
