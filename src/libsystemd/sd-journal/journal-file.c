@@ -1965,6 +1965,10 @@ static int maybe_decompress_payload(
                                         *ret_size = 0;
                                 return 0;
                         }
+
+                        /* Caller only wants to check field existence, skip full decompression */
+                        if (!ret_data && !ret_size)
+                                return 1;
                 }
 
                 r = decompress_blob(compression, payload, size, &f->compress_buffer, &rsize, 0);
