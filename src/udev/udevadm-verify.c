@@ -171,7 +171,7 @@ int verb_verify_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         ConfFile **files = NULL;
         size_t n_files = 0;
 
-        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
         r = search_rules_files(strv_skip(argv, optind), arg_root, &files, &n_files);
         if (r < 0)

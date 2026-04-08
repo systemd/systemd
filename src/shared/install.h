@@ -202,7 +202,7 @@ static inline int unit_file_exists(RuntimeScope scope, const LookupPaths *lp, co
 int unit_file_get_list(RuntimeScope scope, const char *root_dir, char * const *states, char * const *patterns, Hashmap **ret);
 
 InstallChangeType install_changes_add(InstallChange **changes, size_t *n_changes, InstallChangeType type, const char *path, const char *source);
-void install_changes_free(InstallChange *changes, size_t n_changes);
+void install_changes_free(InstallChange *array, size_t n);
 
 int install_change_dump_error(const InstallChange *change, char **ret_errmsg, const char **ret_bus_error);
 int install_changes_dump(

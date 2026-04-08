@@ -1748,14 +1748,7 @@ static void sub_mount_clear(SubMount *s) {
         s->mount_fd = safe_close(s->mount_fd);
 }
 
-void sub_mount_array_free(SubMount *s, size_t n) {
-        assert(s || n == 0);
-
-        for (size_t i = 0; i < n; i++)
-                sub_mount_clear(s + i);
-
-        free(s);
-}
+DEFINE_ARRAY_FREE_FUNC(sub_mount_array_free, SubMount, sub_mount_clear);
 
 #if HAVE_LIBMOUNT
 static int sub_mount_compare(const SubMount *a, const SubMount *b) {

@@ -4055,7 +4055,7 @@ int bus_exec_context_set_transient_property(
                 MountImage *mount_images = NULL;
                 size_t n_mount_images = 0;
 
-                CLEANUP_ARRAY(mount_images, n_mount_images, mount_image_free_many);
+                CLEANUP_ARRAY(mount_images, n_mount_images, mount_image_free_array);
 
                 r = sd_bus_message_enter_container(message, 'a', "(ssba(ss))");
                 if (r < 0)
@@ -4127,7 +4127,7 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (n_mount_images == 0) {
-                                mount_image_free_many(c->mount_images, c->n_mount_images);
+                                mount_image_free_array(c->mount_images, c->n_mount_images);
                                 c->mount_images = NULL;
                                 c->n_mount_images = 0;
 
@@ -4158,7 +4158,7 @@ int bus_exec_context_set_transient_property(
                 MountImage *extension_images = NULL;
                 size_t n_extension_images = 0;
 
-                CLEANUP_ARRAY(extension_images, n_extension_images, mount_image_free_many);
+                CLEANUP_ARRAY(extension_images, n_extension_images, mount_image_free_array);
 
                 r = sd_bus_message_enter_container(message, 'a', "(sba(ss))");
                 if (r < 0)
@@ -4220,7 +4220,7 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (n_extension_images == 0) {
-                                mount_image_free_many(c->extension_images, c->n_extension_images);
+                                mount_image_free_array(c->extension_images, c->n_extension_images);
                                 c->extension_images = NULL;
                                 c->n_extension_images = 0;
 
