@@ -13,7 +13,7 @@
 /* When func() returns the void value (NULL, -1, …) of the appropriate type */
 #define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)         \
         static inline void func##p(type *p) {           \
-                if (*p)                                 \
+                if (!PTR_IS_DIRTY(*p))                  \
                         *p = func(*p);                  \
         }
 
@@ -21,7 +21,7 @@
  * provided by a dynamically loaded (dlopen()) shared library, hence add an assertion. */
 #define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(type, func, name, empty) \
         static inline void name(type *p) {                              \
-                if (*p != (empty)) {                                    \
+                if (*p != (empty) && !PTR_IS_DIRTY(*p)) {               \
                         DISABLE_WARNING_ADDRESS;                        \
                         assert(func);                                   \
                         REENABLE_WARNING;                               \
@@ -36,7 +36,7 @@
 /* When func() doesn't return the appropriate type, and is also a macro, set variable to empty afterwards. */
 #define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO_RENAME(type, macro, name, empty) \
         static inline void name(type *p) {                              \
-                if (*p != (empty)) {                                    \
+                if (*p != (empty) && !PTR_IS_DIRTY(*p)) {               \
                         macro(*p);                                      \
                         *p = (empty);                                   \
                 }                                                       \
