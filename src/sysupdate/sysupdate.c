@@ -111,11 +111,7 @@ static Context* context_new(void) {
         return new0(Context, 1);
 }
 
-static void free_transfers(Transfer **array, size_t n) {
-        FOREACH_ARRAY(t, array, n)
-                transfer_free(*t);
-        free(array);
-}
+static DEFINE_POINTER_ARRAY_FREE_FUNC(Transfer*, transfer_free);
 
 static int read_definitions(
                 Context *c,
@@ -129,8 +125,8 @@ static int read_definitions(
         int r;
 
         CLEANUP_ARRAY(files, n_files, conf_file_free_array);
-        CLEANUP_ARRAY(transfers, n_transfers, free_transfers);
-        CLEANUP_ARRAY(disabled, n_disabled, free_transfers);
+        CLEANUP_ARRAY(transfers, n_transfers, transfer_free_array);
+        CLEANUP_ARRAY(disabled, n_disabled, transfer_free_array);
 
         assert(c);
         assert(dirs);
