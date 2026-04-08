@@ -621,4 +621,46 @@ TEST(null_map_element) {
         ASSERT_STREQ(bad_field, "m");
 }
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                SupportsMoreMethod,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_DEFINE_OUTPUT(result, SD_VARLINK_STRING, 0));
+
+TEST(reply_continues_with_more_flag) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        ASSERT_OK(sd_json_buildo(&v, SD_JSON_BUILD_PAIR_STRING("result", "hello")));
+
+        const char *bad_field = NULL;
+        ASSERT_OK(varlink_idl_validate_method_reply(
+                &vl_method_SupportsMoreMethod, v, SD_VARLINK_REPLY_CONTINUES, &bad_field));
+        ASSERT_NULL(bad_field);
+
+        ASSERT_OK(varlink_idl_validate_method_reply(
+                &vl_method_SupportsMoreMethod, v, /* flags= */ 0, &bad_field));
+        ASSERT_NULL(bad_field);
+}
+
+static SD_VARLINK_DEFINE_METHOD(
+                NoMoreMethod,
+                SD_VARLINK_DEFINE_OUTPUT(result, SD_VARLINK_STRING, 0));
+
+TEST(reply_continues_without_more_flag) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        ASSERT_OK(sd_json_buildo(&v, SD_JSON_BUILD_PAIR_STRING("result", "hello")));
+
+        const char *bad_field = NULL;
+        /* Request a "continues" reply from a method without SD_VARLINK_SUPPORTS_MORE/REQUIRES_MORE - this
+         * should fail the validation with EBADE */
+        ASSERT_ERROR(varlink_idl_validate_method_reply(
+                &vl_method_NoMoreMethod, v, SD_VARLINK_REPLY_CONTINUES, &bad_field), EBADE);
+        ASSERT_NULL(bad_field);
+
+        /* Without the "continues" flag, validation should succeed */
+        ASSERT_OK(varlink_idl_validate_method_reply(
+                &vl_method_NoMoreMethod, v, /* flags= */ 0, &bad_field));
+        ASSERT_NULL(bad_field);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
