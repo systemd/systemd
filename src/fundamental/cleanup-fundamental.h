@@ -45,6 +45,14 @@
 #define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(type, macro, empty)      \
         DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO_RENAME(type, macro, macro##p, empty)
 
+/* Clean up a NULL-terminated array by dropping all the items in it (up to the first NULL).
+ * The array itself is not deallocated. */
+#define DEFINE_ARRAY_DONE_FUNC(type, helper)                    \
+        void helper ## _many(type (*p)[]) {                     \
+                for (type *t = *ASSERT_PTR(p); *t; t++)         \
+                        *t = helper(*t);                        \
+        }
+
 typedef void (*free_array_func_t)(void *p, size_t n);
 
 /* An automatic _cleanup_-like logic for destroy arrays (i.e. pointers + size) when leaving scope */
