@@ -7,6 +7,8 @@
 #include <linux/if_infiniband.h>
 #include <linux/if_packet.h>
 #include <net/if_arp.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
 #include <string.h>
 
 #include "dhcp-network.h"
@@ -16,6 +18,14 @@
 #include "iovec-wrapper.h"
 #include "socket-util.h"
 #include "unaligned.h"
+
+struct DHCPPacket {
+        struct iphdr ip;
+        struct udphdr udp;
+        DHCPMessageHeader dhcp;
+} _packed_;
+
+typedef struct DHCPPacket DHCPPacket;
 
 static int _bind_raw_socket(
                 int ifindex,
