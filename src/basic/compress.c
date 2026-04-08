@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -951,11 +952,65 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
 #endif
 }
 
+#if HAVE_COMPRESSION
+/* Determine whether sparse writes should be used for this fd. Sparse writes are only safe on
+ * regular files without O_APPEND (O_APPEND ignores lseek position, which would collapse holes). */
+static bool should_sparse(int fd) {
+        struct stat st;
+
+        if (fstat(fd, &st) < 0)
+                return false;
+
+        int flags = fcntl(fd, F_GETFL);
+        if (flags < 0)
+                return false;
+
+        return S_ISREG(st.st_mode) && !FLAGS_SET(flags, O_APPEND);
+}
+
+/* After sparse decompression, set the file size to the current position to account for
+ * trailing holes that sparse_write() created via lseek but never extended the file size for. */
+static int finalize_sparse(int fd) {
+        off_t pos;
+
+        pos = lseek(fd, 0, SEEK_CUR);
+        if (pos < 0)
+                return -errno;
+
+        if (ftruncate(fd, pos) < 0)
+                return -errno;
+
+        return 0;
+}
+
+static int maybe_sparse_write(int fd, const void *buf, size_t nbytes, bool sparse) {
+        if (sparse) {
+                ssize_t k;
+
+                /* Note: sparse_write() does not retry on EINTR and converts short writes to -EIO.
+                 * This is fine here since sparse mode is only used on regular files, where short
+                 * writes and EINTR are not expected in practice. */
+                k = sparse_write(fd, buf, nbytes, 64);
+                if (k < 0)
+                        return (int) k;
+        } else {
+                int r;
+
+                r = loop_write_full(fd, buf, nbytes, USEC_INFINITY);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+#endif
+
 int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
         assert(fdf >= 0);
         assert(fdt >= 0);
 
 #if HAVE_XZ
+        bool sparse = should_sparse(fdt);
         int r;
 
         r = dlopen_lzma();
@@ -1009,7 +1064,7 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                                 max_bytes -= n;
                         }
 
-                        k = loop_write(fdt, out, n);
+                        k = maybe_sparse_write(fdt, out, n, sparse);
                         if (k < 0)
                                 return k;
 
@@ -1021,7 +1076,7 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                                                   s.total_in, s.total_out,
                                                   (double) s.total_out / s.total_in * 100);
 
-                                return 0;
+                                return sparse ? finalize_sparse(fdt) : 0;
                         }
                 }
         }
@@ -1038,6 +1093,7 @@ int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
         _cleanup_free_ char *buf = NULL;
         char *src;
         struct stat st;
+        bool sparse = should_sparse(fdt);
         int r;
         size_t total_in = 0, total_out = 0;
 
@@ -1082,7 +1138,7 @@ int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                         goto cleanup;
                 }
 
-                r = loop_write(fdt, buf, produced);
+                r = maybe_sparse_write(fdt, buf, produced, sparse);
                 if (r < 0)
                         goto cleanup;
         }
@@ -1093,7 +1149,7 @@ int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                 log_debug("LZ4 decompression finished (%zu -> %zu bytes, %.1f%%)",
                           total_in, total_out,
                           (double) total_out / total_in * 100);
-        r = 0;
+        r = sparse ? finalize_sparse(fdt) : 0;
  cleanup:
         munmap(src, st.st_size);
         return r;
@@ -1217,6 +1273,7 @@ int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
         assert(fdt >= 0);
 
 #if HAVE_ZSTD
+        bool sparse = should_sparse(fdt);
         _cleanup_(ZSTD_freeDCtxp) ZSTD_DCtx *dctx = NULL;
         _cleanup_free_ void *in_buff = NULL, *out_buff = NULL;
         size_t in_allocsize, out_allocsize;
@@ -1290,7 +1347,7 @@ int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
                         if (left < output.pos)
                                 return -EFBIG;
 
-                        wrote = loop_write_full(fdt, output.dst, output.pos, USEC_INFINITY);
+                        wrote = maybe_sparse_write(fdt, output.dst, output.pos, sparse);
                         if (wrote < 0)
                                 return wrote;
 
@@ -1319,7 +1376,7 @@ int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
                           in_bytes,
                           max_bytes - left,
                           (double) (max_bytes - left) / in_bytes * 100);
-        return 0;
+        return sparse ? finalize_sparse(fdt) : 0;
 #else
         return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
                                "Cannot decompress file. Compiled without ZSTD support.");
@@ -1330,9 +1387,9 @@ int decompress_stream(const char *filename, int fdf, int fdt, uint64_t max_bytes
 
         if (endswith(filename, ".lz4"))
                 return decompress_stream_lz4(fdf, fdt, max_bytes);
-        if (endswith(filename, ".xz"))
+        else if (endswith(filename, ".xz"))
                 return decompress_stream_xz(fdf, fdt, max_bytes);
-        if (endswith(filename, ".zst"))
+        else if (endswith(filename, ".zst"))
                 return decompress_stream_zstd(fdf, fdt, max_bytes);
 
         return -EPROTONOSUPPORT;
