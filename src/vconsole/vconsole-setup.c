@@ -215,6 +215,22 @@ static int verify_vc_display_mode(int fd) {
         return mode != KD_TEXT ? -EBUSY : 0;
 }
 
+static int verify_vc_support_font(int fd) {
+        struct console_font_op cfo = {
+                .op        = KD_FONT_OP_GET,
+                .width     = UINT_MAX,
+                .height    = UINT_MAX,
+                .charcount = UINT_MAX,
+        };
+
+        assert(fd >= 0);
+
+        if (ioctl(fd, KDFONTOP, &cfo) < 0)
+                return ERRNO_IS_NOT_SUPPORTED(errno) ? 0 : -errno;
+
+        return 1;
+}
+
 static int toggle_utf8_vc(const char *name, int fd, bool utf8) {
         int r;
         struct termios tc = {};
@@ -315,7 +331,7 @@ static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
         return 1; /* Report that we did something */
 }
 
-static int font_load_and_wait(const char *vc, Context *c) {
+static int font_load_and_wait(int fd, const char *vc, Context *c) {
         const char* args[9];
         unsigned i = 0;
         int r;
@@ -337,6 +353,16 @@ static int font_load_and_wait(const char *vc, Context *c) {
                         return log_error_errno(errno, "Failed to check if '" KBD_SETFONT "' is available: %m");
 
                 log_notice("'" KBD_SETFONT "' is not available, skipping console font setup.");
+                return 0; /* Report that we skipped this */
+        }
+
+        /* May be called on the dummy console (e.g. during keymap setup with fbcon deferred takeover). Font
+         * changes are not supported here and will fail. */
+        r = verify_vc_support_font(fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check '%s' has font support: %m", vc);
+        if (r == 0) {
+                log_notice("'%s' has no font support, skipping.", vc);
                 return 0; /* Report that we skipped this */
         }
 
@@ -371,9 +397,8 @@ static int font_load_and_wait(const char *vc, Context *c) {
                 _exit(EXIT_FAILURE);
         }
 
-        /* setfont returns EX_OSERR when ioctl(KDFONTOP/PIO_FONTX/PIO_FONTX) fails. This might mean various
-         * things, but in particular lack of a graphical console. Let's be generous and not treat this as an
-         * error. */
+        /* setfont returns EX_OSERR when ioctl(KDFONTOP/PIO_FONTX/PIO_FONTX) fails. Let's be generous and not
+         * treat this as an error. */
         r = pidref_wait_for_terminate_and_check(KBD_SETFONT, &pidref, WAIT_LOG_ABNORMAL);
         if (r < 0)
                 return r; /* WAIT_LOG_ABNORMAL means we already have logged about these kinds of errors */
@@ -404,7 +429,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
         struct unimapdesc unimapd;
         _cleanup_free_ struct unipair* unipairs = NULL;
         _cleanup_free_ void *fontbuf = NULL;
-        int log_level = LOG_WARNING, r;
+        int r;
 
         assert(src_fd >= 0);
 
@@ -415,14 +440,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
         /* get metadata of the current font (width, height, count) */
         r = ioctl(src_fd, KDFONTOP, &cfo);
         if (r < 0) {
-                /* We might be called to operate on the dummy console (to setup keymap
-                 * mainly) when fbcon deferred takeover is used for example. In such case,
-                 * setting font is not supported and is expected to fail. */
-                if (errno == ENOSYS)
-                        log_level = LOG_DEBUG;
-
-                log_full_errno(log_level, errno,
-                               "KD_FONT_OP_GET failed while trying to get the font metadata: %m");
+                log_warning_errno(errno, "KD_FONT_OP_GET failed while trying to get the font metadata: %m");
         } else {
                 /* verify parameter sanity first */
                 if (cfo.width > 32 || cfo.height > 32 || cfo.charcount > 512)
@@ -458,7 +476,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
         }
 
         if (cfo.op != KD_FONT_OP_SET)
-                log_full(log_level, "Fonts will not be copied to remaining consoles");
+                log_warning("Fonts will not be copied to remaining consoles");
 
         for (unsigned i = 1; i <= 63; i++) {
                 char ttyname[sizeof("/dev/tty63")];
@@ -656,7 +674,7 @@ static int run(int argc, char **argv) {
 
         (void) toggle_utf8_vc(vc, fd, utf8);
 
-        int setfont_status = font_load_and_wait(vc, &c);
+        int setfont_status = font_load_and_wait(fd, vc, &c);
         int loadkeys_status = keyboard_load_and_wait(vc, &c, utf8);
 
         if (idx > 0) {
