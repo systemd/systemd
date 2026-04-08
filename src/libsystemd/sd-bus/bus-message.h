@@ -153,7 +153,8 @@ static inline uint64_t BUS_MESSAGE_COOKIE(sd_bus_message *m) {
 }
 
 static inline size_t BUS_MESSAGE_SIZE(sd_bus_message *m) {
-        /* Silence static analyzers */
+        /* Silence static analyzers, fields_size is validated at message creation */
+        assert(ALIGN8(m->fields_size) != SIZE_MAX);
         assert(ALIGN8(m->fields_size) <= SIZE_MAX - sizeof(BusMessageHeader));
         assert(m->body_size <= SIZE_MAX - sizeof(BusMessageHeader) - ALIGN8(m->fields_size));
         return
@@ -163,7 +164,8 @@ static inline size_t BUS_MESSAGE_SIZE(sd_bus_message *m) {
 }
 
 static inline size_t BUS_MESSAGE_BODY_BEGIN(sd_bus_message *m) {
-        /* Silence static analyzers */
+        /* Silence static analyzers, fields_size is validated at message creation */
+        assert(ALIGN8(m->fields_size) != SIZE_MAX);
         assert(ALIGN8(m->fields_size) <= SIZE_MAX - sizeof(BusMessageHeader));
         return
                 sizeof(BusMessageHeader) +
