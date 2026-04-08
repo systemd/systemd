@@ -86,6 +86,7 @@
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"
+#include "umask-util.h"
 #include "unit-name.h"
 #include "user-record.h"
 #include "user-util.h"
@@ -1572,7 +1573,8 @@ static int start_tpm(
         if (r < 0)
                 return log_oom();
 
-        r = fork_notify(argv, ret_pidref);
+        WITH_UMASK(0177)
+                r = fork_notify(argv, ret_pidref);
         if (r < 0)
                 return r;
 
@@ -1733,8 +1735,9 @@ static int start_virtiofsd(
         if (sock < 0)
                 return log_error_errno(errno, "Failed to create unix socket: %m");
 
-        if (bind(sock, &su.sa, r) < 0)
-                return log_error_errno(errno, "Failed to bind unix socket to '%s': %m", listen_address);
+        WITH_UMASK(0177)
+                if (bind(sock, &su.sa, r) < 0)
+                        return log_error_errno(errno, "Failed to bind unix socket to '%s': %m", listen_address);
 
         if (listen(sock, SOMAXCONN_DELUXE) < 0)
                 return log_error_errno(errno, "Failed to listen on unix socket '%s': %m", listen_address);
