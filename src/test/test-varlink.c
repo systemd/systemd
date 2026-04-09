@@ -11,9 +11,11 @@
 #include "sd-varlink.h"
 
 #include "fd-util.h"
+#include "io-util.h"
 #include "json-util.h"
 #include "memfd-util.h"
 #include "rm-rf.h"
+#include "socket-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "varlink-util.h"
@@ -725,7 +727,7 @@ static int reply_notify_then_error(sd_varlink *link, sd_json_variant *parameters
 
 TEST(notify_then_error) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        ASSERT_OK(sd_event_default(&e));
+        ASSERT_OK(sd_event_new(&e));
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         ASSERT_OK(sd_varlink_server_new(&s, 0));
@@ -750,6 +752,188 @@ TEST(notify_then_error) {
         ASSERT_OK(sd_varlink_observe(c, "io.test.NotifyThenError", /* parameters= */ NULL));
 
         ASSERT_OK(sd_event_loop(e));
+}
+
+static int method_upgrade(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        int r;
+
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE));
+
+        r = sd_varlink_reply_and_upgrade(link, /* parameters= */ NULL, &input_fd, &output_fd);
+        if (r < 0)
+                return r;
+
+        /* After upgrade, do raw I/O: read until EOF, reverse, write back.
+         * The client shuts down its write side after sending, so we get a clean EOF. */
+        char buf[64] = {};
+        ssize_t n = ASSERT_OK(loop_read(input_fd, buf, sizeof(buf) - 1, /* do_poll= */ true));
+        ASSERT_GT(n, 0);
+
+        /* Reverse the received bytes */
+        for (ssize_t i = 0; i < n / 2; i++)
+                SWAP_TWO(buf[i], buf[n - 1 - i]);
+
+        ASSERT_OK(loop_write(output_fd, buf, n));
+
+        return 0;
+}
+
+static int method_upgrade_without_flag(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int input_fd = -EBADF, output_fd = -EBADF;
+
+        /* Calling reply_and_upgrade without the client requesting it should fail with -EPROTO */
+        ASSERT_ERROR(sd_varlink_reply_and_upgrade(link, /* parameters= */ NULL, &input_fd, &output_fd), EPROTO);
+
+        sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS);
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static void *upgrade_thread(void *arg) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *c = NULL;
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        sd_json_variant *o = NULL;
+        const char *error_id = NULL;
+
+        ASSERT_OK(sd_varlink_connect_address(&c, arg));
+        ASSERT_OK(sd_varlink_set_description(c, "upgrade-client"));
+
+        ASSERT_OK(sd_varlink_call_and_upgrade(c, "io.test.Upgrade", /* parameters= */ NULL, &o, &error_id, &input_fd, &output_fd));
+        ASSERT_NULL(error_id);
+        ASSERT_GE(input_fd, 0);
+        ASSERT_GE(output_fd, 0);
+        ASSERT_NE(input_fd, output_fd); /* library dups for bidirectional sockets */
+
+        /* Send a test string, shut down write side so server sees EOF, then read the reversed reply */
+        static const char msg[] = "Hello!";
+        ASSERT_OK(loop_write(output_fd, msg, strlen(msg)));
+        ASSERT_OK_ERRNO(shutdown(output_fd, SHUT_WR));
+
+        char buf[64] = {};
+        ssize_t n = ASSERT_OK(loop_read(input_fd, buf, strlen(msg), /* do_poll= */ true));
+        ASSERT_EQ((size_t) n, strlen(msg));
+        ASSERT_STREQ(buf, "!olleH");
+
+        /* Also test that a regular call (without upgrade flag) correctly rejects reply_and_upgrade on
+         * the server side, and still works as a normal call */
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *c2 = NULL;
+        ASSERT_OK(sd_varlink_connect_address(&c2, arg));
+        ASSERT_OK(sd_varlink_set_description(c2, "no-upgrade-client"));
+        ASSERT_OK(sd_varlink_call(c2, "io.test.UpgradeWithoutFlag", /* parameters= */ NULL, &o, &error_id));
+        ASSERT_NULL(error_id);
+
+        return NULL;
+}
+
+TEST(upgrade) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        pthread_t t;
+        const char *sp;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/varlink-test-XXXXXX", &tmpdir));
+        sp = strjoina(tmpdir, "/socket");
+
+        ASSERT_OK(sd_event_new(&e));
+
+        ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_UPGRADABLE));
+        ASSERT_OK(sd_varlink_server_set_description(s, "upgrade-server"));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.Upgrade", method_upgrade));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.UpgradeWithoutFlag", method_upgrade_without_flag));
+        ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+
+        ASSERT_OK(-pthread_create(&t, NULL, upgrade_thread, (void*) sp));
+
+        /* Run the event loop until no more connections (the thread will disconnect when done) */
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_OK(-pthread_join(t, NULL));
+}
+
+static int method_upgrade_and_exit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        sd_event *event = ASSERT_PTR(userdata);
+
+        int r = method_upgrade(link, parameters, flags, /* userdata= */ NULL);
+
+        /* Exit the event loop after the upgrade is handled. We can't use sd_varlink_get_event()
+         * here because the connection is already disconnected after reply_and_upgrade. */
+        (void) sd_event_exit(event, r < 0 ? r : EXIT_SUCCESS);
+        return r;
+}
+
+static void *upgrade_pipelining_thread(void *arg) {
+        union sockaddr_union sa = {};
+        _cleanup_close_ int fd = -EBADF;
+
+        /* Connect a raw socket and pipeline: upgrade JSON + \0 + raw data in a single write.
+         * This tests that the server's byte-by-byte reading (SD_VARLINK_SERVER_UPGRADABLE)
+         * doesn't consume the raw data into the varlink input buffer. */
+        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        ASSERT_FD(fd);
+        int addrlen = sockaddr_un_set_path(&sa.un, arg);
+        ASSERT_OK(addrlen);
+        ASSERT_OK_ERRNO(connect(fd, &sa.sa, addrlen));
+
+        /* Build pipelined message: upgrade JSON + \0 + raw payload, all in one write */
+        static const char upgrade_msg[] = "{\"method\":\"io.test.Upgrade\",\"upgrade\":true}";
+        static const char raw_payload[] = "Pipelined!";
+        char send_buf[sizeof(upgrade_msg) + sizeof(raw_payload)]; /* includes \0 from upgrade_msg as delimiter */
+
+        memcpy(send_buf, upgrade_msg, sizeof(upgrade_msg)); /* copies trailing \0 = varlink delimiter */
+        memcpy(send_buf + sizeof(upgrade_msg), raw_payload, sizeof(raw_payload) - 1);
+
+        size_t total = sizeof(upgrade_msg) + strlen(raw_payload);
+        ASSERT_OK(loop_write(fd, send_buf, total));
+
+        /* Shut down write side so server's method_upgrade sees EOF after raw payload */
+        ASSERT_OK_ERRNO(shutdown(fd, SHUT_WR));
+
+        /* Read everything: upgrade reply (JSON + \0) + reversed raw payload. The server closes
+         * the connection after writing, so loop_read() reads until EOF and gets it all. */
+        char buf[256] = {};
+        ssize_t n = ASSERT_OK(loop_read(fd, buf, sizeof(buf) - 1, /* do_poll= */ true));
+        ASSERT_GT(n, 0);
+
+        /* Split at the \0 delimiter between JSON reply and raw payload */
+        char *delim = memchr(buf, 0, n);
+        ASSERT_NOT_NULL(delim);
+
+        char *raw = delim + 1;
+        size_t raw_size = (size_t) n - (size_t)(raw - buf);
+
+        ASSERT_EQ(raw_size, strlen(raw_payload));
+        ASSERT_STREQ(strndupa_safe(raw, raw_size), "!denilepiP");
+
+        return NULL;
+}
+
+TEST(upgrade_pipelining) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        pthread_t t;
+        const char *sp;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/varlink-test-XXXXXX", &tmpdir));
+        sp = strjoina(tmpdir, "/socket");
+
+        ASSERT_OK(sd_event_new(&e));
+
+        ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_UPGRADABLE|SD_VARLINK_SERVER_INHERIT_USERDATA));
+        ASSERT_OK(sd_varlink_server_set_description(s, "upgrade-pipelining-server"));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.Upgrade", method_upgrade_and_exit));
+        ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        sd_varlink_server_set_userdata(s, e);
+
+        ASSERT_OK(-pthread_create(&t, NULL, upgrade_pipelining_thread, (void*) sp));
+
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_OK(-pthread_join(t, NULL));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
