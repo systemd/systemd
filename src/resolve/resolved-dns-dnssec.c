@@ -100,7 +100,8 @@ static int dnssec_rsa_verify_raw(
                 return -EIO;
         e = m = NULL;
 
-        assert((size_t) RSA_size(rpubkey) == signature_size);
+        if ((size_t) RSA_size(rpubkey) != signature_size)
+                return -EINVAL;
 
         epubkey = EVP_PKEY_new();
         if (!epubkey)
@@ -232,7 +233,8 @@ static int dnssec_ecdsa_verify_raw(
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                        "EC_POINT_bn2point failed: 0x%lx", ERR_get_error());
 
-        assert(EC_KEY_check_key(eckey) == 1);
+        if (EC_KEY_check_key(eckey) != 1)
+                return -EIO;
 
         r = BN_bin2bn(signature_r, signature_r_size, NULL);
         if (!r)
