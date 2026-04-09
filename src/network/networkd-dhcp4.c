@@ -136,8 +136,7 @@ static int dhcp4_get_classless_static_or_static_routes(Link *link, sd_dhcp_route
                 if (ret_num)
                         *ret_num = r;
                 return 1; /* classless */
-        } else if (r != -ENODATA)
-                return r;
+        }
 
         r = sd_dhcp_lease_get_static_routes(link->dhcp_lease, &routes);
         if (r < 0)
@@ -188,10 +187,7 @@ static int dhcp4_find_gateway_for_destination(
                 gw = (struct in_addr) {};
         }
 
-        r = dhcp4_get_classless_static_or_static_routes(link, &routes, &n_routes);
-        if (r < 0 && r != -ENODATA)
-                return r;
-        is_classless = r > 0;
+        is_classless = dhcp4_get_classless_static_or_static_routes(link, &routes, &n_routes) > 0;
 
         /* First, find most suitable gateway. */
         FOREACH_ARRAY(e, routes, n_routes) {
@@ -233,11 +229,8 @@ static int dhcp4_find_gateway_for_destination(
         if (!is_classless) {
                 /* No matching static route is found, and the destination is not in the acquired network,
                  * falling back to the Router option. */
-                r = dhcp4_get_router(link, ret);
-                if (r >= 0)
+                if (dhcp4_get_router(link, ret) >= 0)
                         return 0;
-                if (r != -ENODATA)
-                        return r;
         }
 
         return -EHOSTUNREACH; /* Cannot reach the destination. */
@@ -568,11 +561,8 @@ static int dhcp4_request_classless_static_or_static_routes(Link *link) {
         if (!link->network->dhcp_use_routes)
                 return 0;
 
-        r = dhcp4_get_classless_static_or_static_routes(link, &routes, &n_routes);
-        if (r == -ENODATA)
+        if (dhcp4_get_classless_static_or_static_routes(link, &routes, &n_routes) < 0)
                 return 0;
-        if (r < 0)
-                return r;
 
         FOREACH_ARRAY(e, routes, n_routes) {
                 _cleanup_(route_unrefp) Route *route = NULL;
@@ -624,12 +614,10 @@ static int dhcp4_request_default_gateway(Link *link) {
                 return r;
 
         r = dhcp4_get_router(link, &router);
-        if (r == -ENODATA) {
-                log_link_debug(link, "DHCP: No valid router address received from DHCP server.");
+        if (r < 0) {
+                log_link_debug_errno(link, r, "DHCP: No valid router address received from DHCP server, ignoring: %m");
                 return 0;
         }
-        if (r < 0)
-                return r;
 
         r = route_new(&route);
         if (r < 0)
@@ -766,10 +754,8 @@ static int dhcp4_request_routes_to_dns(Link *link) {
                 return 0;
 
         r = sd_dhcp_lease_get_dns(link->dhcp_lease, &dns);
-        if (IN_SET(r, 0, -ENODATA))
+        if (r <= 0)
                 return 0;
-        if (r < 0)
-                return r;
 
         return dhcp4_request_routes_to_servers(link, dns, r);
 }
@@ -787,10 +773,8 @@ static int dhcp4_request_routes_to_ntp(Link *link) {
                 return 0;
 
         r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &ntp);
-        if (IN_SET(r, 0, -ENODATA))
+        if (r <= 0)
                 return 0;
-        if (r < 0)
-                return r;
 
         return dhcp4_request_routes_to_servers(link, ntp, r);
 }
@@ -953,9 +937,6 @@ static int dhcp4_request_address(Link *link, bool announce) {
                 const struct in_addr *router;
 
                 r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
-                if (r < 0 && r != -ENODATA)
-                        return log_link_error_errno(link, r, "DHCP error: Could not get gateway: %m");
-
                 if (r > 0 && in4_addr_is_set(&router[0]))
                         log_struct(LOG_INFO,
                                    LOG_LINK_INTERFACE(link),
@@ -989,9 +970,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         addr->lifetime_preferred_usec = lifetime_usec;
         addr->lifetime_valid_usec = lifetime_usec;
         addr->prefixlen = prefixlen;
-        r = sd_dhcp_lease_get_broadcast(link->dhcp_lease, &addr->broadcast);
-        if (r < 0 && r != -ENODATA)
-                return log_link_warning_errno(link, r, "DHCP: failed to get broadcast address: %m");
+        (void) sd_dhcp_lease_get_broadcast(link->dhcp_lease, &addr->broadcast);
         SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !prefixroute_by_kernel(link));
         addr->route_metric = link->network->dhcp_route_metric;
         addr->duplicate_address_detection = link->network->dhcp_send_decline ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_NO;
@@ -1088,8 +1067,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         if (link->network->dhcp_use_mtu) {
                 uint16_t mtu;
 
-                r = sd_dhcp_lease_get_mtu(lease, &mtu);
-                if (r >= 0) {
+                if (sd_dhcp_lease_get_mtu(lease, &mtu) >= 0) {
                         r = link_request_to_set_mtu(link, mtu);
                         if (r < 0)
                                 log_link_error_errno(link, r, "Failed to set MTU to %" PRIu16 ": %m", mtu);
@@ -1477,7 +1455,6 @@ static bool link_dhcp4_ipv6_only_mode(Link *link) {
 }
 
 static int dhcp4_configure(Link *link) {
-        sd_dhcp_option *send_option;
         void *request_options;
         int r;
 
@@ -1619,21 +1596,13 @@ static int dhcp4_configure(Link *link) {
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for '%u': %m", option);
                 }
 
-                ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_options) {
-                        r = sd_dhcp_client_add_option(link->dhcp_client, send_option);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
-                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set send option: %m");
-                }
+                r = dhcp_client_set_extra_options(link->dhcp_client, link->network->dhcp_client_send_options);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set extra options: %m");
 
-                ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_vendor_options) {
-                        r = sd_dhcp_client_add_vendor_option(link->dhcp_client, send_option);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
-                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set send option: %m");
-                }
+                r = dhcp_client_set_vendor_options(link->dhcp_client, link->network->dhcp_client_send_vendor_options);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set vendor options: %m");
 
                 r = dhcp4_set_hostname(link);
                 if (r < 0)
@@ -1652,11 +1621,9 @@ static int dhcp4_configure(Link *link) {
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set MUD URL: %m");
                 }
 
-                if (link->network->dhcp_user_class) {
-                        r = sd_dhcp_client_set_user_class(link->dhcp_client, link->network->dhcp_user_class);
-                        if (r < 0)
-                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set user class: %m");
-                }
+                r = dhcp_client_set_user_class(link->dhcp_client, &link->network->dhcp_user_class);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set user class: %m");
         }
 
         if (link->network->dhcp_client_port > 0) {
