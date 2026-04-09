@@ -36,6 +36,8 @@ static int clone_device(const char *clone_name, const char *source_dev, const ch
         if (!clone_dev_path)
                 return log_oom();
 
+        /* Check before calling the DM ioctl to give a cleaner error message;
+         * DM_DEV_CREATE would return EEXIST too, but with a less obvious message. */
         if (access(clone_dev_path, F_OK) >= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Device '%s' already exists.", clone_dev_path);
 

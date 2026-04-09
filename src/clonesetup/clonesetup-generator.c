@@ -112,6 +112,9 @@ static int generate_clone_units(const char *clone_name, const char *source_dev, 
 
         /* symlink unit file to enable it */
         dmname = strjoin("dev-mapper-", e, ".device");
+        if (!dmname)
+                return log_oom();
+
         r = generator_add_symlink(arg_dest, dmname, "requires", unit);
         if (r < 0)
                 return r;

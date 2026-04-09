@@ -10,8 +10,12 @@
 #include "fd-util.h"
 #include "log.h"
 #include "sd-device.h"
-#include "stdio-util.h"          /* xsprintf() */
 #include "string-util.h"
+
+/* According to the Linux kernel sysfs ABI, the size of a block device reported in
+ * /sys/block/<disk>/size is always expressed in units of 512-byte sectors, regardless
+ * of the physical block size of the device. */
+#define SECTOR_SIZE 512
 
 /* Returns the size in bytes of the block device at dev_path.
  * Loading the dm-clone table needs the source device size in sectors; sysfs
@@ -124,8 +128,8 @@ int dm_clone_create_device(
                 const char *dest_dev,
                 const char *metadata_dev) {
 
+        _cleanup_free_ char *target_params = NULL;
         uint64_t src_dev_size_sectors, src_dev_size;
-        char target_params[256];
         int r;
 
         assert(name);
@@ -137,13 +141,14 @@ int dm_clone_create_device(
         if (r < 0)
                 return r;
 
-        src_dev_size_sectors = src_dev_size / 512;
+        src_dev_size_sectors = src_dev_size / SECTOR_SIZE;
 
         /* dm-clone target params: <metadata_dev> <dest_dev> <source_dev> <region_size> <hydration_threshold> [options]
          *   8 = region size in sectors (4KB regions with 512-byte sectors)
          *   1 = hydration threshold (regions to hydrate per batch)
          *   no_hydration = don't start automatic background hydration */
-        xsprintf(target_params, "%s %s %s 8 1 no_hydration", metadata_dev, dest_dev, source_dev);
+        if (asprintf(&target_params, "%s %s %s 8 1 no_hydration", metadata_dev, dest_dev, source_dev) < 0)
+                return log_oom();
 
         r = dm_clone_create(name);
         if (r < 0)
