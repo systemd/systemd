@@ -672,15 +672,6 @@ static int varlink_call_and_upgrade(const char *url, const char *method, sd_json
         if (!isempty(error_id))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADE), "Upgrade via %s() failed with error: %s", method, error_id);
 
-        /* For bidirectional sockets input_fd == output_fd. Dup immediately so that _cleanup_close_
-         * on both variables can never double-close the same fd. Note that on fcntl() failure
-         * output_fd is overwritten with -1, so only input_fd holds the real fd at cleanup time. */
-        if (input_fd == output_fd) {
-                output_fd = fcntl(input_fd, F_DUPFD_CLOEXEC, 3);
-                if (output_fd < 0)
-                        return log_error_errno(errno, "Failed to dup upgraded connection fd: %m");
-        }
-
         if (!strv_isempty(exec_cmdline)) {
                 /* --exec mode: place the upgraded connection on stdin/stdout so that the child
                  * process can just read/write naturally. */
@@ -1165,6 +1156,155 @@ static int verb_list_registry(int argc, char *argv[], uintptr_t _data, void *use
                 else
                         printf("\n%zu registered services listed.\n", table_get_rows(table) - 1);
         }
+
+        return 0;
+}
+
+/* Build a minimal IDL from a qualified method name so that introspection works. The parsed interface is
+ * returned to the caller who must keep it alive for the lifetime of the server
+ * (sd_varlink_server_add_interface() borrows the pointer). */
+static int varlink_server_add_interface_from_method(sd_varlink_server *s, const char *method, sd_varlink_interface **ret_interface) {
+        assert(s);
+        assert(method);
+        assert(ret_interface);
+
+        const char *dot = strrchr(method, '.');
+        assert(dot);
+
+        _cleanup_free_ char *interface_name = strndup(method, dot - method);
+        if (!interface_name)
+                return log_oom();
+
+        /* Note that we do not need to put the upgrade flag comment here, it is added automatically
+         * by varlink_idl_format_symbol() because of the SD_VARLINK_REQUIRES_UPGRADE flag. */
+        _cleanup_free_ char *idl_text = strjoin(
+                        "interface ", interface_name, "\n"
+                        "\n"
+                        "method ", dot + 1, " () -> ()\n");
+        if (!idl_text)
+                return log_oom();
+
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *iface = NULL;
+        int r = sd_varlink_idl_parse(idl_text, /* reterr_line= */ NULL, /* reterr_column= */ NULL, &iface);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse IDL for method '%s': %m", method);
+
+        /* Mark the method as requiring the upgrade flag so introspection shows the annotation */
+        assert(iface->symbols[0] && iface->symbols[0]->symbol_type == SD_VARLINK_METHOD);
+        ((sd_varlink_symbol*) iface->symbols[0])->symbol_flags |= SD_VARLINK_REQUIRES_UPGRADE;
+
+        r = sd_varlink_server_add_interface(s, iface);
+        if (r < 0)
+                return r;
+
+        *ret_interface = TAKE_PTR(iface);
+
+        return 0;
+}
+
+static int method_serve_upgrade(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        char **exec_cmdline = ASSERT_PTR(userdata);
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        int r;
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, NULL);
+
+        r = sd_varlink_reply_and_upgrade(link, /* parameters= */ NULL, &input_fd, &output_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to upgrade connection: %m");
+
+        /* Copy exec_cmdline before forking: pidref_safe_fork() calls rename_process() which
+         * overwrites the argv area that exec_cmdline points into. */
+        _cleanup_strv_free_ char **cmdline_copy = strv_copy(exec_cmdline);
+        if (!cmdline_copy)
+                return log_oom();
+
+        r = pidref_safe_fork_full(
+                        "(serve)",
+                        (int[]) { input_fd, output_fd, STDERR_FILENO },
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_DETACH|FORK_LOG,
+                        /* ret= */ NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                execvp(cmdline_copy[0], cmdline_copy);
+                log_error_errno(errno, "Failed to execute '%s': %m", cmdline_copy[0]);
+                _exit(EXIT_FAILURE);
+        }
+
+        return 0;
+}
+
+VERB(verb_serve, "serve", "METHOD CMDLINE…", 3, VERB_ANY, 0, "Serve a command via varlink protocol upgrade");
+static int verb_serve(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        const char *method;
+        char **exec_cmdline;
+        int r, n;
+
+        assert(argc >= 3); /* Guaranteed by verb dispatch table */
+
+        method = argv[1];
+        exec_cmdline = argv + 2;
+
+        r = varlink_idl_qualified_symbol_name_is_valid(method);
+        if (r < 0)
+                return log_error_errno(r, "Failed to validate method name '%s': %m", method);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid qualified method name: '%s'", method);
+
+        /* Require socket activation */
+        n = sd_listen_fds(/* unset_environment= */ true);
+        if (n < 0)
+                return log_error_errno(n, "Failed to determine passed file descriptors: %m");
+        if (n == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed via socket activation.");
+        if (n > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected exactly one socket activation fd, got %d.", n);
+
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get event loop: %m");
+
+        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_UPGRADABLE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate varlink server: %m");
+
+        _cleanup_free_ char *description = strjoin("serve:", method);
+        if (!description)
+                return log_oom();
+
+        r = sd_varlink_server_set_description(s, description);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set server description: %m");
+
+        r = sd_varlink_server_bind_method(s, method, method_serve_upgrade);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind method '%s': %m", method);
+
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *iface = NULL;
+        r = varlink_server_add_interface_from_method(s, method, &iface);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add interface for method '%s': %m", method);
+
+        sd_varlink_server_set_userdata(s, exec_cmdline);
+
+        r = sd_varlink_server_listen_fd(s, SD_LISTEN_FDS_START);
+        if (r < 0)
+                return log_error_errno(r, "Failed to listen on socket activation fd: %m");
+
+        r = sd_varlink_server_attach_event(s, event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach varlink server to event loop: %m");
+
+        (void) sd_notify(/* unset_environment= */ false, "READY=1");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
 
         return 0;
 }

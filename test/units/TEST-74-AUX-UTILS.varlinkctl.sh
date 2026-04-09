@@ -257,6 +257,9 @@ systemd-run --wait --pipe --user --machine testuser@ \
         varlinkctl --more call "/run/user/$testuser_uid/systemd/io.systemd.Manager" io.systemd.Unit.List '{}'
 
 # test --upgrade (protocol upgrade)
+# The basic --upgrade proxy test is covered by the "varlinkctl serve" tests below (which use
+# serve+rev/gunzip as the server). The tests here exercise features that need the Python
+# server: file-input (defer fallback), ssh-exec transport (pipe pairs) and --exec mode.
 UPGRADE_SOCKET="$(mktemp -d)/upgrade.sock"
 UPGRADE_SERVER="$(mktemp)"
 cat >"$UPGRADE_SERVER" <<'PYEOF'
@@ -320,15 +323,6 @@ if sock:
 PYEOF
 chmod +x "$UPGRADE_SERVER"
 
-# Start the server in the background, wait for readiness via sd_notify
-systemd-notify --fork -q -- python3 "$UPGRADE_SERVER" "$UPGRADE_SOCKET"
-
-# Test proxy mode: pipe data through --upgrade, passing parameters and validate
-result="$(echo "hello world" | varlinkctl call --upgrade "unix:$UPGRADE_SOCKET" io.systemd.test.Reverse '{"foo":"bar"}')"
-echo "$result" | grep "<<< UPGRADED >>>" >/dev/null
-echo "$result" | grep '"foo": "bar"' >/dev/null
-echo "$result" | grep "dlrow olleh" >/dev/null
-
 # Test --upgrade with stdin redirected from a regular file (epoll can't poll regular files,
 # so this exercises the sd_event_add_defer fallback path)
 UPGRADE_SOCKET2="$(mktemp -d)/upgrade.sock"
@@ -370,3 +364,39 @@ rm -f "$EXEC_RESULT"
 
 rm -f "$UPGRADE_SOCKET" "$UPGRADE_SOCKET2" "$UPGRADE_SERVER" /tmp/test-upgrade-input
 rm -rf "$(dirname "$UPGRADE_SOCKET")" "$(dirname "$UPGRADE_SOCKET2")"
+
+# Test varlinkctl serve: expose a stdio command via varlink protocol upgrade with socket activation.
+# This is the "inetd for varlink" pattern: any stdio tool becomes a varlink service.
+SERVE_SOCKET="$(mktemp -d)/serve.sock"
+
+# Test 1: serve rev: proves bidirectional data flow through the upgrade
+SERVE_PID=$(systemd-notify --fork -- \
+                           systemd-socket-activate -l "$SERVE_SOCKET" -- \
+                                   varlinkctl serve io.systemd.test.Reverse rev)
+
+# Verify introspection works on the serve endpoint and shows the upgrade annotation
+varlinkctl introspect "unix:$SERVE_SOCKET" io.systemd.test | grep "method Reverse" >/dev/null
+varlinkctl introspect "unix:$SERVE_SOCKET" io.systemd.test | grep "Requires 'upgrade' flag" >/dev/null
+
+result="$(echo "hello world" | varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.test.Reverse '{}')"
+echo "$result" | grep "dlrow olleh" >/dev/null
+kill "$SERVE_PID" 2>/dev/null || true
+wait "$SERVE_PID" 2>/dev/null || true
+rm -f "$SERVE_SOCKET"
+
+# Test 2: decompress via serve: the "sandboxed decompressor" use-case (the real thing would be a proper
+# unit with real sandboxing).
+# Pipe gzip-compressed data through a varlinkctl serve + gunzip endpoint and verify round-trip.
+SERVE_PID=$(systemd-notify --fork -- \
+                           systemd-socket-activate -l "$SERVE_SOCKET" -- \
+                                   varlinkctl serve io.systemd.Compress.Decompress gunzip)
+
+SERVE_TMPDIR="$(mktemp -d)"
+echo "untrusted data decompressed safely via varlink serve" | gzip > "$SERVE_TMPDIR/compressed.gz"
+result="$(varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.Compress.Decompress '{}' < "$SERVE_TMPDIR/compressed.gz")"
+echo "$result" | grep "untrusted data decompressed safely" >/dev/null
+kill "$SERVE_PID" 2>/dev/null || true
+wait "$SERVE_PID" 2>/dev/null || true
+
+rm -f "$SERVE_SOCKET"
+rm -rf "$(dirname "$SERVE_SOCKET")" "$SERVE_TMPDIR"
