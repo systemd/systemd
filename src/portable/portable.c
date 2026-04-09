@@ -524,7 +524,7 @@ static int portable_extract_by_path(
                                 seq[0] = safe_close(seq[0]);
                                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                                if (setns(CLONE_NEWUSER, userns_fd) < 0) {
+                                if (setns(userns_fd, CLONE_NEWUSER) < 0) {
                                         r = log_debug_errno(errno, "Failed to join userns: %m");
                                         report_errno_and_exit(errno_pipe_fd[1], r);
                                 }
