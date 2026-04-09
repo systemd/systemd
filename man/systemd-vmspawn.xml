@@ -729,7 +729,7 @@
           <option>--console=interactive</option>, <option>--console=read-only</option>, and
           <option>--console=native</option> modes.</para>
 
-          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
 
         <varlistentry>
