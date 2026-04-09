@@ -3562,8 +3562,6 @@ static int count_connection(sd_varlink_server *server, const struct ucred *ucred
         assert(server);
         assert(ucred);
 
-        server->n_connections++;
-
         if (FLAGS_SET(server->flags, SD_VARLINK_SERVER_ACCOUNT_UID)) {
                 assert(uid_is_valid(ucred->uid));
 
@@ -3580,6 +3578,8 @@ static int count_connection(sd_varlink_server *server, const struct ucred *ucred
                 if (r < 0)
                         return varlink_server_log_errno(server, r, "Failed to increment counter in UID hash table: %m");
         }
+
+        server->n_connections++;
 
         return 0;
 }
