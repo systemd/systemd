@@ -1431,10 +1431,6 @@ static int dhcp_client_private_options_append_json(Link *link, sd_json_variant *
 }
 
 static int dhcp_client_id_append_json(Link *link, sd_json_variant **v) {
-        const sd_dhcp_client_id *client_id;
-        const void *data;
-        size_t l;
-        int r;
 
         assert(link);
         assert(v);
@@ -1442,12 +1438,13 @@ static int dhcp_client_id_append_json(Link *link, sd_json_variant **v) {
         if (!link->dhcp_client)
                 return 0;
 
-        r = sd_dhcp_client_get_client_id(link->dhcp_client, &client_id);
-        if (r < 0)
+        const sd_dhcp_client_id *client_id;
+        if (sd_dhcp_client_get_client_id(link->dhcp_client, &client_id) < 0)
                 return 0;
 
-        r = sd_dhcp_client_id_get_raw(client_id, &data, &l);
-        if (r < 0)
+        const void *data;
+        size_t l;
+        if (sd_dhcp_client_id_get_raw(client_id, &data, &l) < 0)
                 return 0;
 
         return sd_json_variant_merge_objectbo(v, SD_JSON_BUILD_PAIR_BYTE_ARRAY("ClientIdentifier", data, l));
