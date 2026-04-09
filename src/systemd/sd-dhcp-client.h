@@ -50,7 +50,7 @@ int sd_dhcp_client_set_callback(
                 sd_dhcp_client *client,
                 sd_dhcp_client_callback_t cb,
                 void *userdata);
-
+int sd_dhcp_client_set_anonymize(sd_dhcp_client *client, int b);
 int sd_dhcp_client_set_request_option(
                 sd_dhcp_client *client,
                 uint8_t option);
@@ -156,9 +156,7 @@ int sd_dhcp_client_is_waiting_for_ipv6_connectivity(sd_dhcp_client *client);
 
 _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_client);
 
-/* NOTE: anonymize parameter is used to initialize PRL memory with different
- * options when using RFC7844 Anonymity Profiles */
-int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize);
+int sd_dhcp_client_new(sd_dhcp_client **ret);
 
 int sd_dhcp_client_attach_event(
                 sd_dhcp_client *client,

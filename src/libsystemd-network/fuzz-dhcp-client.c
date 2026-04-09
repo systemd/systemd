@@ -54,7 +54,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         ASSERT_NOT_NULL(e);
 
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
-        ASSERT_OK(sd_dhcp_client_new(&client, /* anonymize= */ false));
+        ASSERT_OK(sd_dhcp_client_new(&client));
         ASSERT_NOT_NULL(client);
 
         ASSERT_OK(sd_dhcp_client_attach_event(client, e, /* priority= */ 0));
