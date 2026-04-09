@@ -435,6 +435,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--output=</option></term>
+
+        <listitem>
+          <para>Controls formatting unit log output, see journalctl for possible values</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--on-active=</option></term>
         <term><option>--on-boot=</option></term>
         <term><option>--on-startup=</option></term>
