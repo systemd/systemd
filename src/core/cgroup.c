@@ -2980,9 +2980,8 @@ int unit_check_oomd_kill(Unit *u) {
 }
 
 int unit_check_oom(Unit *u) {
-        _cleanup_free_ char *oom_kill = NULL;
         bool increased;
-        uint64_t c;
+        uint64_t c = 0;
         int r;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
@@ -2997,31 +2996,23 @@ int unit_check_oom(Unit *u) {
          * back to reading oom_kill if we can't find the file or field. */
 
         if (ctx->memory_oom_group) {
-                r = cg_get_keyed_attribute(
+                r = cg_get_keyed_attribute_uint64(
                                 crt->cgroup_path,
                                 "memory.events.local",
-                                STRV_MAKE("oom_group_kill"),
-                                &oom_kill);
+                                "oom_group_kill",
+                                &c);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                         return log_unit_debug_errno(u, r, "Failed to read oom_group_kill field of memory.events.local cgroup attribute, ignoring: %m");
         }
 
-        if (isempty(oom_kill)) {
-                r = cg_get_keyed_attribute(
+        if (!ctx->memory_oom_group || r < 0) {
+                r = cg_get_keyed_attribute_uint64(
                                 crt->cgroup_path,
                                 "memory.events",
-                                STRV_MAKE("oom_kill"),
-                                &oom_kill);
+                                "oom_kill",
+                                &c);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                         return log_unit_debug_errno(u, r, "Failed to read oom_kill field of memory.events cgroup attribute: %m");
-        }
-
-        if (!oom_kill)
-                c = 0;
-        else {
-                r = safe_atou64(oom_kill, &c);
-                if (r < 0)
-                        return log_unit_debug_errno(u, r, "Failed to parse memory.events cgroup oom field: %m");
         }
 
         increased = c > crt->oom_kill_last;
@@ -3569,14 +3560,9 @@ static int unit_get_cpu_usage_raw(const Unit *u, const CGroupRuntime *crt, nsec_
         if (unit_has_host_root_cgroup(u))
                 return procfs_cpu_get_usage(ret);
 
-        _cleanup_free_ char *val = NULL;
         uint64_t us;
 
-        r = cg_get_keyed_attribute(crt->cgroup_path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
-        if (r < 0)
-                return r;
-
-        r = safe_atou64(val, &us);
+        r = cg_get_keyed_attribute_uint64(crt->cgroup_path, "cpu.stat", "usage_usec", &us);
         if (r < 0)
                 return r;
 
