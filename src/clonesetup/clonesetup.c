@@ -58,7 +58,7 @@ static int clone_device(const char *clone_name, const char *source_dev, const ch
 }
 
 /* Arguments: systemd-clonesetup add NAME SOURCE-DEVICE DST_DEVICE META-DEVICE [OPTIONS] */
-static int verb_add(int argc, char *argv[], void *userdata) {
+static int verb_add(int argc, char *argv[], uintptr_t data, void *userdata) {
         int r;
 
         assert(argc >= 5 && argc <= 6);
@@ -78,7 +78,7 @@ static int verb_add(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_remove(int argc, char *argv[], void *userdata) {
+static int verb_remove(int argc, char *argv[], uintptr_t data, void *userdata) {
         const char *name = ASSERT_PTR(argv[1]);
         int r;
 
@@ -162,8 +162,8 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         static const Verb verbs[] = {
-                { "add",    5, 6, 0, verb_add    },
-                { "remove", 2, 2, 0, verb_remove },
+                { "add",    5, 6, 0, verb_add,    0 },
+                { "remove", 2, 2, 0, verb_remove, 0 },
                 {}
         };
         return dispatch_verb(argc, argv, verbs, NULL);
