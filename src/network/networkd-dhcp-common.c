@@ -273,7 +273,6 @@ bool address_is_filtered(int family, const union in_addr_union *address, uint8_t
 
 int link_get_captive_portal(Link *link, const char **ret) {
         const char *dhcp4_cp = NULL, *dhcp6_cp = NULL, *ndisc_cp = NULL;
-        int r;
 
         assert(link);
         assert(ret);
@@ -283,17 +282,11 @@ int link_get_captive_portal(Link *link, const char **ret) {
                 return 0;
         }
 
-        if (link->network->dhcp_use_captive_portal && link->dhcp_lease) {
-                r = sd_dhcp_lease_get_captive_portal(link->dhcp_lease, &dhcp4_cp);
-                if (r < 0 && r != -ENODATA)
-                        return r;
-        }
+        if (link->network->dhcp_use_captive_portal && link->dhcp_lease)
+                (void) sd_dhcp_lease_get_captive_portal(link->dhcp_lease, &dhcp4_cp);
 
-        if (link->network->dhcp6_use_captive_portal && link->dhcp6_lease) {
-                r = sd_dhcp6_lease_get_captive_portal(link->dhcp6_lease, &dhcp6_cp);
-                if (r < 0 && r != -ENODATA)
-                        return r;
-        }
+        if (link->network->dhcp6_use_captive_portal && link->dhcp6_lease)
+                (void) sd_dhcp6_lease_get_captive_portal(link->dhcp6_lease, &dhcp6_cp);
 
         if (link->network->ndisc_use_captive_portal) {
                 NDiscCaptivePortal *cp;

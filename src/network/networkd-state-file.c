@@ -634,9 +634,6 @@ static void serialize_resolvers(
                 int r;
 
                 r = sd_dhcp_lease_get_dnr(lease, &resolvers);
-                if (r < 0 && r != -ENODATA)
-                        log_warning_errno(r, "Failed to get DNR from DHCP lease, ignoring: %m");
-
                 if (r > 0) {
                         r = dns_resolvers_to_dot_strv(resolvers, r, &names);
                         if (r < 0)
