@@ -1348,9 +1348,7 @@ static int dhcp_client_lease_append_json(Link *link, sd_json_variant **v) {
         if (r < 0 && r != -ENODATA)
                 return r;
 
-        r = sd_dhcp_lease_get_hostname(link->dhcp_lease, &hostname);
-        if (r < 0 && r != -ENODATA)
-                return r;
+        (void) sd_dhcp_lease_get_hostname(link->dhcp_lease, &hostname);
 
         r = sd_json_buildo(
                         &w,
