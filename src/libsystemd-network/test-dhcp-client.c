@@ -48,7 +48,7 @@ static be32_t xid;
 TEST(dhcp_client_setters) {
         /* Initialize client without Anonymize settings. */
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
-        ASSERT_OK(sd_dhcp_client_new(&client, /* anonymize= */ false));
+        ASSERT_OK(sd_dhcp_client_new(&client));
         ASSERT_NOT_NULL(client);
 
         ASSERT_RETURN_EXPECTED_SE(sd_dhcp_client_set_request_option(NULL, 0) == -EINVAL);
@@ -94,7 +94,8 @@ TEST(dhcp_client_setters) {
 TEST(dhcp_client_anonymize) {
         /* Initialize client with Anonymize settings. */
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
-        ASSERT_OK(sd_dhcp_client_new(&client, /* anonymize= */ true));
+        ASSERT_OK(sd_dhcp_client_new(&client));
+        ASSERT_OK(sd_dhcp_client_anonymize(client, true));
         ASSERT_NOT_NULL(client);
 
         ASSERT_OK_ZERO(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_NETBIOS_NAME_SERVER));
@@ -228,7 +229,7 @@ TEST(discover_message) {
         ASSERT_NOT_NULL(e);
 
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
-        ASSERT_OK(sd_dhcp_client_new(&client, /* anonymize= */ false));
+        ASSERT_OK(sd_dhcp_client_new(&client));
         ASSERT_NOT_NULL(client);
 
         ASSERT_OK(sd_dhcp_client_attach_event(client, e, /* priority= */ 0));
@@ -417,7 +418,7 @@ TEST(addr_acq) {
         ASSERT_NOT_NULL(e);
 
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
-        ASSERT_OK(sd_dhcp_client_new(&client, /* anonymize= */ false));
+        ASSERT_OK(sd_dhcp_client_new(&client));
         ASSERT_NOT_NULL(client);
 
         ASSERT_OK(sd_dhcp_client_attach_event(client, e, /* priority= */ 0));
@@ -592,7 +593,7 @@ static void test_bootp_one(void) {
         ASSERT_NOT_NULL(e);
 
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
-        ASSERT_OK(sd_dhcp_client_new(&client, /* anonymize= */ false));
+        ASSERT_OK(sd_dhcp_client_new(&client));
         ASSERT_NOT_NULL(client);
 
         ASSERT_OK(sd_dhcp_client_attach_event(client, e, /* priority= */ 0));
