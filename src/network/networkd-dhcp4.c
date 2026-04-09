@@ -1486,9 +1486,13 @@ static int dhcp4_configure(Link *link) {
         if (link->dhcp_client)
                 return log_link_debug_errno(link, SYNTHETIC_ERRNO(EBUSY), "DHCPv4 client is already configured.");
 
-        r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
+        r = sd_dhcp_client_new(&link->dhcp_client);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to allocate DHCPv4 client: %m");
+
+        r = sd_dhcp_client_set_anonymize(link->dhcp_client, link->network->dhcp_anonymize);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to anonymize requests: %m");
 
         r = sd_dhcp_client_set_bootp(link->dhcp_client, link->network->dhcp_use_bootp);
         if (r < 0)
