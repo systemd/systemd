@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 #include <locale.h>
+#include <unistd.h>
 
 #include "sd-event.h"
 
@@ -22,30 +23,15 @@
 #include "verbs.h"
 
 static ImportFlags arg_import_flags = 0;
-static ImportCompressType arg_compress = IMPORT_COMPRESS_UNKNOWN;
+static Compression arg_compress = _COMPRESSION_INVALID;
 static ImageClass arg_class = IMAGE_MACHINE;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 static void determine_compression_from_filename(const char *p) {
-
-        if (arg_compress != IMPORT_COMPRESS_UNKNOWN)
+        if (arg_compress >= 0)
                 return;
 
-        if (!p) {
-                arg_compress = IMPORT_COMPRESS_UNCOMPRESSED;
-                return;
-        }
-
-        if (endswith(p, ".xz"))
-                arg_compress = IMPORT_COMPRESS_XZ;
-        else if (endswith(p, ".gz"))
-                arg_compress = IMPORT_COMPRESS_GZIP;
-        else if (endswith(p, ".bz2"))
-                arg_compress = IMPORT_COMPRESS_BZIP2;
-        else if (endswith(p, ".zst"))
-                arg_compress = IMPORT_COMPRESS_ZSTD;
-        else
-                arg_compress = IMPORT_COMPRESS_UNCOMPRESSED;
+        arg_compress = p ? compression_from_filename(p) : COMPRESSION_NONE;
 }
 
 static void on_tar_finished(TarExport *export, int error, void *userdata) {
@@ -91,7 +77,7 @@ static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userda
 
                 fd = open_fd;
 
-                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, path, import_compress_type_to_string(arg_compress));
+                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, path, compression_to_string(arg_compress));
         } else {
                 _cleanup_free_ char *pretty = NULL;
 
@@ -101,7 +87,7 @@ static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userda
                 fd = STDOUT_FILENO;
 
                 (void) fd_get_path(fd, &pretty);
-                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), import_compress_type_to_string(arg_compress));
+                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), compression_to_string(arg_compress));
         }
 
         r = import_allocate_event_with_signals(&event);
@@ -172,14 +158,14 @@ static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userda
 
                 fd = open_fd;
 
-                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, path, import_compress_type_to_string(arg_compress));
+                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, path, compression_to_string(arg_compress));
         } else {
                 _cleanup_free_ char *pretty = NULL;
 
                 fd = STDOUT_FILENO;
 
                 (void) fd_get_path(fd, &pretty);
-                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), import_compress_type_to_string(arg_compress));
+                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), compression_to_string(arg_compress));
         }
 
         r = import_allocate_event_with_signals(&event);
@@ -265,8 +251,8 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_FORMAT:
-                        arg_compress = import_compress_type_from_string(optarg);
-                        if (arg_compress < 0 || arg_compress == IMPORT_COMPRESS_UNKNOWN)
+                        arg_compress = compression_from_string_harder(optarg);
+                        if (arg_compress < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown format: %s", optarg);
                         break;

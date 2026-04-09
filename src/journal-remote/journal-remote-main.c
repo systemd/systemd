@@ -209,7 +209,7 @@ static int build_accept_encoding(char **ret) {
 
         const CompressionConfig *cc;
         ORDERED_HASHMAP_FOREACH(cc, arg_compression) {
-                const char *c = compression_lowercase_to_string(cc->algorithm);
+                const char *c = compression_to_string(cc->algorithm);
                 if (strextendf_with_separator(&buf, ",", "%s;q=%.1f", c, q) < 0)
                         return -ENOMEM;
                 q -= step;
@@ -361,7 +361,7 @@ static mhd_result request_handler(
                 RemoteSource *source = *connection_cls;
                 header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Encoding");
                 if (header) {
-                        Compression c = compression_lowercase_from_string(header);
+                        Compression c = compression_from_string_harder(header);
                         if (c <= 0 || !compression_supported(c))
                                 return mhd_respondf(connection, 0, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
                                                     "Unsupported Content-Encoding type: %s", header);

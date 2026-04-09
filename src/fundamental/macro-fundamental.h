@@ -227,6 +227,12 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
                 MAX(_d, a);                             \
         })
 
+#define MAX5(x, y, z, a, b)                             \
+        ({                                              \
+                const typeof(x) _e = MAX4(x, y, z, a);  \
+                MAX(_e, b);                             \
+        })
+
 #undef MIN
 #define MIN(a, b) __MIN(UNIQ, (a), UNIQ, (b))
 #define __MIN(aq, a, bq, b)                             \
