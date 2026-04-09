@@ -5,6 +5,7 @@
 
 #include "sd-varlink.h"
 
+#include "json-stream.h"
 #include "list.h"
 #include "pidref.h"
 #include "sd-forward.h"
@@ -70,85 +71,21 @@ typedef enum VarlinkState {
                VARLINK_PROCESSING_METHOD,               \
                VARLINK_PROCESSING_METHOD_MORE)
 
-typedef struct VarlinkJsonQueueItem VarlinkJsonQueueItem;
-
-/* A queued message we shall write into the socket, along with the file descriptors to send at the same
- * time. This queue item binds them together so that message/fd boundaries are maintained throughout the
- * whole pipeline. */
-struct VarlinkJsonQueueItem {
-        LIST_FIELDS(VarlinkJsonQueueItem, queue);
-        sd_json_variant *data;
-        size_t n_fds;
-        int fds[];
-};
-
 typedef struct sd_varlink {
         unsigned n_ref;
 
         sd_varlink_server *server;
 
         VarlinkState state;
-        bool connecting; /* This boolean indicates whether the socket fd we are operating on is currently
-                          * processing an asynchronous connect(). In that state we watch the socket for
-                          * EPOLLOUT, but we refrain from calling read() or write() on the socket as that
-                          * will trigger ENOTCONN. Note that this boolean is kept separate from the
-                          * VarlinkState above on purpose: while the connect() is still not complete we
-                          * already want to allow queuing of messages and similar. Thus it's nice to keep
-                          * these two state concepts separate: the VarlinkState encodes what our own view of
-                          * the connection is, i.e. whether we think it's a server, a client, and has
-                          * something queued already, while 'connecting' tells us a detail about the
-                          * transport used below, that should have no effect on how we otherwise accept and
-                          * process operations from the user.
-                          *
-                          * Or to say this differently: VARLINK_STATE_IS_ALIVE(state) tells you whether the
-                          * connection is good to use, even if it might not be fully connected
-                          * yet. connecting=true then informs you that actually we are still connecting, and
-                          * the connection is actually not established yet and thus any requests you enqueue
-                          * now will still work fine but will be queued only, not sent yet, but that
-                          * shouldn't stop you from using the connection, since eventually whatever you queue
-                          * *will* be sent.
-                          *
-                          * Or to say this even differently: 'state' is a high-level ("application layer"
-                          * high, if you so will) state, while 'conecting' is a low-level ("transport layer"
-                          * low, if you so will) state, and while they are not entirely unrelated and
-                          * sometimes propagate effects to each other they are only asynchronously connected
-                          * at most. */
+
+        /* Transport layer: input/output buffers, fd passing, output queue, read/write/parse
+         * step functions, sd-event integration (input/output/time event sources, idle
+         * timeout, description, peer credentials). The varlink-level state machine and
+         * dispatch logic live in sd-varlink.c; everything else about moving bytes is
+         * delegated. */
+        JsonStream *stream;
+
         unsigned n_pending;
-
-        int input_fd;
-        int output_fd;
-
-        char *input_buffer; /* valid data starts at input_buffer_index, ends at input_buffer_index+input_buffer_size */
-        size_t input_buffer_index;
-        size_t input_buffer_size;
-        size_t input_buffer_unscanned;
-
-        void *input_control_buffer;
-        size_t input_control_buffer_size;
-
-        char *output_buffer; /* valid data starts at output_buffer_index, ends at output_buffer_index+output_buffer_size */
-        size_t output_buffer_index;
-        size_t output_buffer_size;
-
-        int *input_fds; /* file descriptors associated with the data in input_buffer (for fd passing) */
-        size_t n_input_fds;
-
-        int *output_fds; /* file descriptors associated with the data in output_buffer (for fd passing) */
-        size_t n_output_fds;
-
-        /* Further messages to output not yet formatted into text, and thus not included in output_buffer
-         * yet. We keep them separate from output_buffer, to not violate fd message boundaries: we want that
-         * each fd that is sent is associated with its fds, and that fds cannot be accidentally associated
-         * with preceding or following messages. */
-        LIST_HEAD(VarlinkJsonQueueItem, output_queue);
-        VarlinkJsonQueueItem *output_queue_tail;
-        size_t n_output_queue;
-
-        /* The fds to associate with the next message that is about to be enqueued. The user first pushes the
-         * fds it intends to send via varlink_push_fd() into this queue, and then once the message data is
-         * submitted we'll combine the fds and the message data into one. */
-        int *pushed_fds;
-        size_t n_pushed_fds;
 
         sd_varlink_reply_t reply_callback;
 
@@ -157,39 +94,18 @@ typedef struct sd_varlink {
         sd_varlink_reply_flags_t current_reply_flags;
         sd_varlink_symbol *current_method;
 
-        VarlinkJsonQueueItem *previous;
+        JsonStreamQueueItem *previous;
         char *sentinel;
 
-        int peer_pidfd;
-        struct ucred ucred;
-        bool ucred_acquired:1;
-
-        bool write_disconnected:1;
-        bool read_disconnected:1;
-        bool prefer_read:1;
-        bool prefer_write:1;
-        bool got_pollhup:1;
-
-        bool protocol_upgrade:1; /* Whether a protocol_upgrade was requested */
-
-        bool output_buffer_sensitive:1; /* whether to erase the output buffer after writing it to the socket */
-        bool input_sensitive:1; /* Whether incoming messages might be sensitive */
-
-        bool allow_fd_passing_output;
-        int allow_fd_passing_input;
-
-        int af; /* address family if socket; AF_UNSPEC if not socket; negative if not known */
-
-        usec_t timestamp;
-        usec_t timeout;
+        /* Per-call protocol-upgrade marker: set when the *current* method call carries the
+         * SD_VARLINK_METHOD_UPGRADE flag. Validated by sd_varlink_reply_and_upgrade() to
+         * ensure the caller's contract is honored. The transport-layer "stop reading at the
+         * next message boundary" behavior is governed independently by the JsonStream's
+         * bounded_reads flag. */
+        bool protocol_upgrade:1;
 
         void *userdata;
-        char *description;
 
-        sd_event *event;
-        sd_event_source *input_event_source;
-        sd_event_source *output_event_source;
-        sd_event_source *time_event_source;
         sd_event_source *quit_event_source;
         sd_event_source *defer_event_source;
 
@@ -254,7 +170,7 @@ typedef struct sd_varlink_server {
         log_debug("%s: " fmt, varlink_server_description(s), ##__VA_ARGS__)
 
 static inline const char* varlink_description(sd_varlink *v) {
-        return (v ? v->description : NULL) ?: "varlink";
+        return (v && v->stream ? json_stream_get_description(v->stream) : NULL) ?: "varlink";
 }
 
 static inline const char* varlink_server_description(sd_varlink_server *s) {
