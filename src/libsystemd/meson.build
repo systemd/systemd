@@ -80,6 +80,7 @@ sd_login_sources = files('sd-login/sd-login.c')
 ############################################################
 
 sd_json_sources = files(
+        'sd-json/json-stream.c',
         'sd-json/json-util.c',
         'sd-json/sd-json.c',
 )
