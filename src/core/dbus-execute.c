@@ -4302,7 +4302,7 @@ int bus_exec_context_set_transient_property(
                                                 exec_directory_type_to_string(i),
                                                 source_escaped,
                                                 destination_escaped || FLAGS_SET(symlink_flags, EXEC_DIRECTORY_READ_ONLY) ? ":" : "",
-                                                destination_escaped,
+                                                strempty(destination_escaped),
                                                 FLAGS_SET(symlink_flags, EXEC_DIRECTORY_READ_ONLY) ? ":ro" : "");
                         }
                 }
