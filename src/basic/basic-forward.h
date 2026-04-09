@@ -140,6 +140,3 @@ typedef struct SocketAddress SocketAddress;
 
 #define USEC_INFINITY           ((usec_t) UINT64_MAX)
 #define NSEC_INFINITY           ((nsec_t) UINT64_MAX)
-
-/* MAX_ERRNO is defined as 4095 in linux/err.h. We use the same value here. */
-#define ERRNO_MAX               4095
