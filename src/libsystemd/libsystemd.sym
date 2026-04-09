@@ -1094,5 +1094,6 @@ global:
 LIBSYSTEMD_261 {
 global:
         sd_varlink_call_and_upgrade;
+        sd_varlink_reply_and_upgrade;
         sd_varlink_set_sentinel;
 } LIBSYSTEMD_260;

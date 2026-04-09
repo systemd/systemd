@@ -844,10 +844,49 @@ static int varlink_write(sd_varlink *v) {
 
 #define VARLINK_FDS_MAX (16U*1024U)
 
+static bool varlink_may_protocol_upgrade(sd_varlink *v) {
+        return v->protocol_upgrade || (v->server && FLAGS_SET(v->server->flags, SD_VARLINK_SERVER_UPGRADABLE));
+}
+
+/* When a protocol upgrade might happen, peek at the socket data to find the \0 message
+ * boundary and return a read size that won't consume past it. This prevents over-reading
+ * raw post-upgrade data into the varlink input buffer. Falls back to byte-by-byte for
+ * non-socket fds where MSG_PEEK is not available. */
+static ssize_t varlink_peek_upgrade_boundary(sd_varlink *v, void *p, size_t rs) {
+        assert(v);
+
+        if (!varlink_may_protocol_upgrade(v))
+                return rs;
+
+        if (v->prefer_read)
+                return 1;
+
+        ssize_t peeked = recv(v->input_fd, p, rs, MSG_PEEK|MSG_DONTWAIT);
+        if (peeked < 0) {
+                if (errno == ENOTSOCK) {
+                        v->prefer_read = true;
+                        return 1;  /* Not a socket, fall back to byte-to-byte */
+                } else if (!ERRNO_IS_TRANSIENT(errno))
+                        return -errno;
+
+                /* Transient error, this should not happen but fall back to byte-to-byte */
+                return 1;
+        }
+        /* EOF, the real recv() will also get it so what we return does not matter */
+        if (peeked == 0)
+                return rs;
+
+        void *nul_chr = memchr(p, 0, peeked);
+        if (nul_chr)
+                return (ssize_t) ((char*) nul_chr - (char*) p) + 1;
+
+        return (ssize_t) peeked;
+}
+
 static int varlink_read(sd_varlink *v) {
         struct iovec iov;
         struct msghdr mh;
-        size_t rs;
+        ssize_t rs;
         ssize_t n;
         void *p;
 
@@ -895,11 +934,14 @@ static int varlink_read(sd_varlink *v) {
 
         p = v->input_buffer + v->input_buffer_index + v->input_buffer_size;
 
-        /* When a protocol upgrade is requested we can't consume any post-upgrade data from the socket buffer */
-        if (v->protocol_upgrade)
-                rs = 1;
-        else
-                rs = MALLOC_SIZEOF_SAFE(v->input_buffer) - (v->input_buffer_index + v->input_buffer_size);
+        rs = MALLOC_SIZEOF_SAFE(v->input_buffer) - (v->input_buffer_index + v->input_buffer_size);
+
+        /* When a protocol upgrade is requested we can't consume any post-upgrade data from the socket
+         * buffer. Use MSG_PEEK to find the \0 message boundary and only consume up to it. For non-socket
+         * fds (pipes) MSG_PEEK is not available, so fall back to byte-by-byte reading. */
+        rs = varlink_peek_upgrade_boundary(v, p, rs);
+        if (rs < 0)
+                return varlink_log_errno(v, rs, "Failed to peek upgrade boundary: %m");
 
         if (v->allow_fd_passing_input > 0) {
                 iov = IOVEC_MAKE(p, rs);
@@ -1544,6 +1586,8 @@ static int varlink_dispatch_method(sd_varlink *v) {
                              (flags & SD_VARLINK_METHOD_ONEWAY) ? VARLINK_PROCESSING_METHOD_ONEWAY :
                                                                   VARLINK_PROCESSING_METHOD);
 
+        v->protocol_upgrade = FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE);
+
         assert(v->server);
 
         /* First consult user supplied method implementations */
@@ -1566,11 +1610,15 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                         r = varlink_idl_validate_method_call(v->current_method, parameters, flags, &bad_field);
                         if (r == -EBADE) {
-                                varlink_log_errno(v, r, "Method %s() called without 'more' flag, but flag needs to be set.",
-                                                  method);
+                                bool missing_upgrade = FLAGS_SET(v->current_method->symbol_flags, SD_VARLINK_REQUIRES_UPGRADE) &&
+                                                       !FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE);
+
+                                varlink_log_errno(v, r, "Method %s() called without '%s' flag, but flag needs to be set.",
+                                                  method, missing_upgrade ? "upgrade" : "more");
 
                                 if (v->state == VARLINK_PROCESSING_METHOD) {
-                                        r = sd_varlink_error(v, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                                        r = sd_varlink_error(v, missing_upgrade ? SD_VARLINK_ERROR_EXPECTED_UPGRADE
+                                                                                : SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
                                         /* If we didn't manage to enqueue an error response, then fail the
                                          * connection completely. Otherwise ignore the error from
                                          * sd_varlink_error() here, as it is synthesized from the function's
@@ -2385,6 +2433,56 @@ _public_ int sd_varlink_call(
         return sd_varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
 }
 
+static int varlink_handle_upgrade_fds(sd_varlink *v, int *ret_input_fd, int *ret_output_fd) {
+        int r;
+
+        assert(v);
+        assert(ret_input_fd || ret_output_fd);
+
+        /* Ensure no post-upgrade data was consumed into our input buffer (we ensure this via MSG_PEEK or
+         * byte-to-byte) and refuse the upgrade rather than silently losing the data. */
+        if (v->input_buffer_size != 0)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
+                                         "Unexpected buffered data during protocol upgrade, refusing.");
+
+        /* Pass the connection fds to the caller, it owns them now. Reset to blocking mode
+         * since callers of the upgraded protocol will generally expect normal blocking
+         * semantics. */
+        r = fd_nonblock(v->input_fd, false);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to set input fd to blocking mode: %m");
+        if (v->input_fd != v->output_fd) {
+                r = fd_nonblock(v->output_fd, false);
+                if (r < 0)
+                        return varlink_log_errno(v, r, "Failed to set output fd to blocking mode: %m");
+        }
+
+        /* For bidirectional sockets (input_fd == output_fd), dup the fd so that callers
+         * always get two independent fds they can close separately. */
+        if (v->input_fd == v->output_fd) {
+                v->output_fd = fcntl(v->input_fd, F_DUPFD_CLOEXEC, 3);
+                if (v->output_fd < 0)
+                        return varlink_log_errno(v, errno, "Failed to dup upgraded connection fd: %m");
+        }
+
+        /* Hand out requested fds, shut down unwanted directions. */
+        if (ret_input_fd)
+                *ret_input_fd = TAKE_FD(v->input_fd);
+        else {
+                (void) shutdown(v->input_fd, SHUT_RD);
+                v->input_fd = safe_close(v->input_fd);
+        }
+
+        if (ret_output_fd)
+                *ret_output_fd = TAKE_FD(v->output_fd);
+        else {
+                (void) shutdown(v->output_fd, SHUT_WR);
+                v->output_fd = safe_close(v->output_fd);
+        }
+
+        return 0;
+}
+
 _public_ int sd_varlink_call_and_upgrade(
                 sd_varlink *v,
                 const char *method,
@@ -2436,45 +2534,12 @@ _public_ int sd_varlink_call_and_upgrade(
                 goto finish;
         }
 
-        /* Pass the connection fds to the caller, it owns them now. Reset to blocking mode
-         * since callers of the upgraded protocol will generally expect normal blocking
-         * semantics. */
-        r = fd_nonblock(v->input_fd, false);
+        /* Even if setting up the fds fails we must disconnect: the server already accepted the
+         * upgrade, so the other side is speaking raw protocol while we expect JSON. */
+        r = varlink_handle_upgrade_fds(v, ret_input_fd, ret_output_fd);
         if (r < 0) {
-                varlink_log_errno(v, r, "Failed to set input fd to blocking mode: %m");
-                goto disconnect;
-        }
-        if (v->input_fd != v->output_fd) {
-                r = fd_nonblock(v->output_fd, false);
-                if (r < 0) {
-                        varlink_log_errno(v, r, "Failed to set output fd to blocking mode: %m");
-                        goto disconnect;
-                }
-        }
-
-        /* Hand out the fds to the caller. When the caller doesn't want one direction, shut it
-         * down: but avoid closing the underlying fd if the other direction still needs it
-         * (i.e. when input_fd == output_fd). */
-        bool same_fd = v->input_fd == v->output_fd;
-
-        if (ret_input_fd)
-                *ret_input_fd = TAKE_FD(v->input_fd);
-        else {
-                (void) shutdown(v->input_fd, SHUT_RD);
-                if (same_fd && ret_output_fd)
-                        TAKE_FD(v->input_fd); /* don't close yet, output branch needs it */
-                else
-                        v->input_fd = safe_close(v->input_fd);
-        }
-
-        if (ret_output_fd)
-                *ret_output_fd = TAKE_FD(v->output_fd);
-        else {
-                (void) shutdown(v->output_fd, SHUT_WR);
-                if (same_fd && ret_input_fd)
-                        TAKE_FD(v->output_fd);
-                else
-                        v->output_fd = safe_close(v->output_fd);
+                varlink_set_state(v, VARLINK_DISCONNECTED);
+                goto finish;
         }
 
         varlink_set_state(v, VARLINK_DISCONNECTED);
@@ -2488,10 +2553,6 @@ _public_ int sd_varlink_call_and_upgrade(
 
         return 1;
 
-disconnect:
-        /* If we fail after the server already accepted the upgrade, nothing can be done but disconnect.
-         * The other side is speaking raw protocol while we expect JSON. */
-        varlink_set_state(v, VARLINK_DISCONNECTED);
 finish:
         v->protocol_upgrade = false;
         assert(v->n_pending == 1);
@@ -2804,6 +2865,97 @@ _public_ int sd_varlink_replyb(sd_varlink *v, ...) {
                 return r;
 
         return sd_varlink_reply(v, parameters);
+}
+
+_public_ int sd_varlink_reply_and_upgrade(sd_varlink *v, sd_json_variant *parameters, int *ret_input_fd, int *ret_output_fd) {
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(ret_input_fd || ret_output_fd, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+
+        if (!IN_SET(v->state,
+                    VARLINK_PROCESSING_METHOD,
+                    VARLINK_PENDING_METHOD))
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        /* Verify the client actually requested a protocol upgrade */
+        if (!v->protocol_upgrade)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
+                                         "Method call did not request a protocol upgrade.");
+
+        /* Ensure we did not buffer any data beyond the upgrade request. Check this before sending the
+         * reply so that we can return a normal error (the framework will send an error reply to the
+         * client). In normal operation this cannot happen because the client waits for our reply before
+         * sending raw data, and we set protocol_upgrade=true in dispatch to limit subsequent reads to
+         * single bytes. But a misbehaving client could pipeline data early. */
+        if (v->input_buffer_size > 0)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADMSG),
+                                         "Unexpected buffered data from client during protocol upgrade.");
+
+        /* Validate parameters BEFORE sanitization (same validation as sd_varlink_reply(), but upgrade
+         * replies never carry the 'continues' flag so we always pass flags=0) */
+        if (v->current_method) {
+                const char *bad_field = NULL;
+
+                r = varlink_idl_validate_method_reply(v->current_method, parameters, /* flags= */ 0, &bad_field);
+                if (r < 0)
+                        /* Please adjust test/units/end.sh when updating the log message. */
+                        varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
+                                          v->current_method->name, strna(bad_field));
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        r = sd_json_buildo(&m, JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        r = varlink_enqueue_json(v, m);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+
+        /* Flush the reply to the socket before stealing the fds. The reply must be fully written
+         * before the caller starts speaking the upgraded protocol. */
+        for (;;) {
+                r = varlink_write(v);
+                if (r < 0) {
+                        varlink_log_errno(v, r, "Failed to flush reply: %m");
+                        goto disconnect;
+                }
+                if (v->output_buffer_size == 0 && !v->output_queue)
+                        break;
+                if (v->write_disconnected) {
+                        r = varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET),
+                                              "Write disconnected during upgrade reply flush.");
+                        goto disconnect;
+                }
+
+                r = fd_wait_for_event(v->output_fd, POLLOUT, USEC_INFINITY);
+                if (ERRNO_IS_NEG_TRANSIENT(r))
+                        continue;
+                if (r < 0) {
+                        varlink_log_errno(v, r, "Failed to wait for writable fd: %m");
+                        goto disconnect;
+                }
+                assert(r > 0);
+
+                handle_revents(v, r);
+        }
+
+        /* Detach from the event loop before stealing the fds */
+        varlink_detach_event_sources(v);
+
+        /* Now hand the original FDs over to the caller, from this point on we have nothing to do with the
+         * connection anymore, it's up to the caller and we close the connection below */
+        r = varlink_handle_upgrade_fds(v, ret_input_fd, ret_output_fd);
+
+disconnect:
+        /* This also sets the connection state to VARLINK_DISCONNECTED */
+        sd_varlink_close(v);
+
+        return r < 0 ? r : 1;
 }
 
 _public_ int sd_varlink_reset_fds(sd_varlink *v) {
@@ -3600,7 +3752,8 @@ _public_ int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_fl
                                  SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT|
                                  SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT|
                                  SD_VARLINK_SERVER_HANDLE_SIGINT|
-                                 SD_VARLINK_SERVER_HANDLE_SIGTERM)) == 0, -EINVAL);
+                                 SD_VARLINK_SERVER_HANDLE_SIGTERM|
+                                 SD_VARLINK_SERVER_UPGRADABLE)) == 0, -EINVAL);
 
         s = new(sd_varlink_server, 1);
         if (!s)
@@ -4557,6 +4710,7 @@ _public_ int sd_varlink_error_to_errno(const char *error, sd_json_variant *param
                 { SD_VARLINK_ERROR_INVALID_PARAMETER,      -EINVAL        },
                 { SD_VARLINK_ERROR_PERMISSION_DENIED,      -EACCES        },
                 { SD_VARLINK_ERROR_EXPECTED_MORE,          -EBADE         },
+                { SD_VARLINK_ERROR_EXPECTED_UPGRADE,       -EPROTOTYPE    },
         };
 
         int r;
