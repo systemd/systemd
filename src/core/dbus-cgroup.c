@@ -427,8 +427,12 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("SocketBindDeny", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_deny), 0),
         SD_BUS_PROPERTY("RestrictNetworkInterfaces", "(bas)", property_get_restrict_network_interfaces, 0, 0),
         SD_BUS_PROPERTY("BindNetworkInterface", "s", NULL, offsetof(CGroupContext, bind_network_interface), 0),
-        SD_BUS_PROPERTY("MemoryPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(CGroupContext, memory_pressure_watch), 0),
-        SD_BUS_PROPERTY("MemoryPressureThresholdUSec", "t", bus_property_get_usec, offsetof(CGroupContext, memory_pressure_threshold_usec), 0),
+        SD_BUS_PROPERTY("MemoryPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(CGroupContext, pressure[PRESSURE_MEMORY].watch), 0),
+        SD_BUS_PROPERTY("MemoryPressureThresholdUSec", "t", bus_property_get_usec, offsetof(CGroupContext, pressure[PRESSURE_MEMORY].threshold_usec), 0),
+        SD_BUS_PROPERTY("CPUPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(CGroupContext, pressure[PRESSURE_CPU].watch), 0),
+        SD_BUS_PROPERTY("CPUPressureThresholdUSec", "t", bus_property_get_usec, offsetof(CGroupContext, pressure[PRESSURE_CPU].threshold_usec), 0),
+        SD_BUS_PROPERTY("IOPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(CGroupContext, pressure[PRESSURE_IO].watch), 0),
+        SD_BUS_PROPERTY("IOPressureThresholdUSec", "t", bus_property_get_usec, offsetof(CGroupContext, pressure[PRESSURE_IO].threshold_usec), 0),
         SD_BUS_PROPERTY("NFTSet", "a(iiss)", property_get_cgroup_nft_set, 0, 0),
         SD_BUS_PROPERTY("CoredumpReceive", "b", bus_property_get_bool, offsetof(CGroupContext, coredump_receive), 0),
 
@@ -712,9 +716,12 @@ static int bus_cgroup_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "MemoryPressureWatch")) {
+        } else if (STR_IN_SET(name, "MemoryPressureWatch", "CPUPressureWatch", "IOPressureWatch")) {
                 CGroupPressureWatch p;
                 const char *t;
+
+                PressureResource pt = streq(name, "MemoryPressureWatch") ? PRESSURE_MEMORY :
+                                      streq(name, "CPUPressureWatch") ? PRESSURE_CPU : PRESSURE_IO;
 
                 r = sd_bus_message_read(message, "s", &t);
                 if (r < 0)
@@ -729,26 +736,29 @@ static int bus_cgroup_set_transient_property(
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->memory_pressure_watch = p;
-                        unit_write_settingf(u, flags, name, "MemoryPressureWatch=%s", strempty(cgroup_pressure_watch_to_string(p)));
+                        c->pressure[pt].watch = p;
+                        unit_write_settingf(u, flags, name, "%s=%s", name, strempty(cgroup_pressure_watch_to_string(p)));
                 }
 
                 return 1;
 
-        } else if (streq(name, "MemoryPressureThresholdUSec")) {
+        } else if (STR_IN_SET(name, "MemoryPressureThresholdUSec", "CPUPressureThresholdUSec", "IOPressureThresholdUSec")) {
                 uint64_t t;
+
+                PressureResource pt = streq(name, "MemoryPressureThresholdUSec") ? PRESSURE_MEMORY :
+                                      streq(name, "CPUPressureThresholdUSec") ? PRESSURE_CPU : PRESSURE_IO;
 
                 r = sd_bus_message_read(message, "t", &t);
                 if (r < 0)
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->memory_pressure_threshold_usec = t;
+                        c->pressure[pt].threshold_usec = t;
 
                         if (t == UINT64_MAX)
-                                unit_write_setting(u, flags, name, "MemoryPressureThresholdUSec=");
+                                unit_write_settingf(u, flags, name, "%s=", name);
                         else
-                                unit_write_settingf(u, flags, name, "MemoryPressureThresholdUSec=%" PRIu64, t);
+                                unit_write_settingf(u, flags, name, "%s=%" PRIu64, name, t);
                 }
 
                 return 1;

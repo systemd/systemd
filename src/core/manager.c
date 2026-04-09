@@ -616,9 +616,13 @@ static char** sanitize_environment(char **l) {
                         l,
                         "CACHE_DIRECTORY",
                         "CONFIGURATION_DIRECTORY",
+                        "CPU_PRESSURE_WATCH",
+                        "CPU_PRESSURE_WRITE",
                         "CREDENTIALS_DIRECTORY",
                         "EXIT_CODE",
                         "EXIT_STATUS",
+                        "IO_PRESSURE_WATCH",
+                        "IO_PRESSURE_WRITE",
                         "INVOCATION_ID",
                         "JOURNAL_STREAM",
                         "LISTEN_FDNAMES",
@@ -796,26 +800,38 @@ static int manager_setup_sigchld_event_source(Manager *m) {
         return 0;
 }
 
-int manager_setup_memory_pressure_event_source(Manager *m) {
+typedef int (*pressure_add_t)(sd_event *, sd_event_source **, sd_event_handler_t, void *);
+typedef int (*pressure_set_period_t)(sd_event_source *, usec_t, usec_t);
+
+static const struct {
+        pressure_add_t add;
+        pressure_set_period_t set_period;
+} pressure_dispatch_table[_PRESSURE_RESOURCE_MAX] = {
+        [PRESSURE_MEMORY] = { sd_event_add_memory_pressure, sd_event_source_set_memory_pressure_period },
+        [PRESSURE_CPU]    = { sd_event_add_cpu_pressure,    sd_event_source_set_cpu_pressure_period    },
+        [PRESSURE_IO]     = { sd_event_add_io_pressure,     sd_event_source_set_io_pressure_period     },
+};
+
+int manager_setup_pressure_event_source(Manager *m, PressureResource t) {
         int r;
 
         assert(m);
+        assert(t >= 0 && t < _PRESSURE_RESOURCE_MAX);
 
-        m->memory_pressure_event_source = sd_event_source_disable_unref(m->memory_pressure_event_source);
+        m->pressure_event_source[t] = sd_event_source_disable_unref(m->pressure_event_source[t]);
 
-        r = sd_event_add_memory_pressure(m->event, &m->memory_pressure_event_source, NULL, NULL);
+        r = pressure_dispatch_table[t].add(m->event, &m->pressure_event_source[t], NULL, NULL);
         if (r < 0)
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_NOTICE, r,
-                               "Failed to establish memory pressure event source, ignoring: %m");
-        else if (m->defaults.memory_pressure_threshold_usec != USEC_INFINITY) {
+                               "Failed to establish %s pressure event source, ignoring: %m", pressure_resource_to_string(t));
+        else if (m->defaults.pressure[t].threshold_usec != USEC_INFINITY) {
 
-                /* If there's a default memory pressure threshold set, also apply it to the service manager itself */
-                r = sd_event_source_set_memory_pressure_period(
-                                m->memory_pressure_event_source,
-                                m->defaults.memory_pressure_threshold_usec,
-                                MEMORY_PRESSURE_DEFAULT_WINDOW_USEC);
+                r = pressure_dispatch_table[t].set_period(
+                                m->pressure_event_source[t],
+                                m->defaults.pressure[t].threshold_usec,
+                                PRESSURE_DEFAULT_WINDOW_USEC);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to adjust memory pressure threshold, ignoring: %m");
+                        log_warning_errno(r, "Failed to adjust %s pressure threshold, ignoring: %m", pressure_resource_to_string(t));
         }
 
         return 0;
@@ -1001,9 +1017,11 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 if (r < 0)
                         return r;
 
-                r = manager_setup_memory_pressure_event_source(m);
-                if (r < 0)
-                        return r;
+                for (PressureResource t = 0; t < _PRESSURE_RESOURCE_MAX; t++) {
+                        r = manager_setup_pressure_event_source(m, t);
+                        if (r < 0)
+                                return r;
+                }
 
 #if HAVE_LIBBPF
                 if (MANAGER_IS_SYSTEM(m) && bpf_restrict_fs_supported(/* initialize= */ true)) {
@@ -1711,7 +1729,8 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->user_lookup_event_source);
         sd_event_source_unref(m->handoff_timestamp_event_source);
         sd_event_source_unref(m->pidref_event_source);
-        sd_event_source_unref(m->memory_pressure_event_source);
+        FOREACH_ARRAY(pressure_event_source, m->pressure_event_source, _PRESSURE_RESOURCE_MAX)
+                sd_event_source_unref(*pressure_event_source);
 
         safe_close(m->signal_fd);
         safe_close(m->notify_fd);
@@ -4300,8 +4319,7 @@ int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
         m->defaults.oom_score_adjust = defaults->oom_score_adjust;
         m->defaults.oom_score_adjust_set = defaults->oom_score_adjust_set;
 
-        m->defaults.memory_pressure_watch = defaults->memory_pressure_watch;
-        m->defaults.memory_pressure_threshold_usec = defaults->memory_pressure_threshold_usec;
+        memcpy(m->defaults.pressure, defaults->pressure, sizeof(m->defaults.pressure));
 
         m->defaults.memory_zswap_writeback = defaults->memory_zswap_writeback;
 
@@ -5195,8 +5213,11 @@ void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope) {
                 .tasks_max = DEFAULT_TASKS_MAX,
                 .timer_accuracy_usec = 1 * USEC_PER_MINUTE,
 
-                .memory_pressure_watch = CGROUP_PRESSURE_WATCH_AUTO,
-                .memory_pressure_threshold_usec = MEMORY_PRESSURE_DEFAULT_THRESHOLD_USEC,
+                .pressure = {
+                        [PRESSURE_MEMORY] = { .watch = CGROUP_PRESSURE_WATCH_AUTO, .threshold_usec = PRESSURE_DEFAULT_THRESHOLD_USEC },
+                        [PRESSURE_CPU]    = { .watch = CGROUP_PRESSURE_WATCH_AUTO, .threshold_usec = PRESSURE_DEFAULT_THRESHOLD_USEC },
+                        [PRESSURE_IO]     = { .watch = CGROUP_PRESSURE_WATCH_AUTO, .threshold_usec = PRESSURE_DEFAULT_THRESHOLD_USEC },
+                },
 
                 .oom_policy = OOM_STOP,
                 .oom_score_adjust_set = false,

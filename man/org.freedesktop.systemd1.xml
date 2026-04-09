@@ -552,6 +552,14 @@ node /org/freedesktop/systemd1 {
       readonly t DefaultMemoryPressureThresholdUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DefaultMemoryPressureWatch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t DefaultCPUPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DefaultCPUPressureWatch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t DefaultIOPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DefaultIOPressureWatch = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t TimerSlackNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -792,6 +800,14 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultMemoryPressureThresholdUSec is not documented!-->
 
     <!--property DefaultMemoryPressureWatch is not documented!-->
+
+    <!--property DefaultCPUPressureThresholdUSec is not documented!-->
+
+    <!--property DefaultCPUPressureWatch is not documented!-->
+
+    <!--property DefaultIOPressureThresholdUSec is not documented!-->
+
+    <!--property DefaultIOPressureWatch is not documented!-->
 
     <!--property TimerSlackNSec is not documented!-->
 
@@ -1242,6 +1258,14 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryPressureThresholdUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryPressureWatch"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultCPUPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultCPUPressureWatch"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultIOPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultIOPressureWatch"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TimerSlackNSec"/>
 
@@ -3066,6 +3090,14 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s CPUPressureWatch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t CPUPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s IOPressureWatch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t IOPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iiss) NFTSet = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b CoredumpReceive = ...;
@@ -3734,6 +3766,14 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property MemoryPressureWatch is not documented!-->
 
     <!--property MemoryPressureThresholdUSec is not documented!-->
+
+    <!--property CPUPressureWatch is not documented!-->
+
+    <!--property CPUPressureThresholdUSec is not documented!-->
+
+    <!--property IOPressureWatch is not documented!-->
+
+    <!--property IOPressureThresholdUSec is not documented!-->
 
     <!--property NFTSet is not documented!-->
 
@@ -4426,6 +4466,14 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUPressureWatch"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOPressureWatch"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOPressureThresholdUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NFTSet"/>
 
@@ -5326,6 +5374,14 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s CPUPressureWatch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t CPUPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s IOPressureWatch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t IOPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iiss) NFTSet = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b CoredumpReceive = ...;
@@ -6011,6 +6067,14 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property MemoryPressureThresholdUSec is not documented!-->
 
+    <!--property CPUPressureWatch is not documented!-->
+
+    <!--property CPUPressureThresholdUSec is not documented!-->
+
+    <!--property IOPressureWatch is not documented!-->
+
+    <!--property IOPressureThresholdUSec is not documented!-->
+
     <!--property NFTSet is not documented!-->
 
     <!--property CoredumpReceive is not documented!-->
@@ -6676,6 +6740,14 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUPressureWatch"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOPressureWatch"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOPressureThresholdUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NFTSet"/>
 
@@ -7399,6 +7471,14 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s CPUPressureWatch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t CPUPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s IOPressureWatch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t IOPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iiss) NFTSet = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b CoredumpReceive = ...;
@@ -8008,6 +8088,14 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property MemoryPressureThresholdUSec is not documented!-->
 
+    <!--property CPUPressureWatch is not documented!-->
+
+    <!--property CPUPressureThresholdUSec is not documented!-->
+
+    <!--property IOPressureWatch is not documented!-->
+
+    <!--property IOPressureThresholdUSec is not documented!-->
+
     <!--property NFTSet is not documented!-->
 
     <!--property CoredumpReceive is not documented!-->
@@ -8581,6 +8669,14 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUPressureWatch"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOPressureWatch"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOPressureThresholdUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NFTSet"/>
 
@@ -9437,6 +9533,14 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s CPUPressureWatch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t CPUPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s IOPressureWatch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t IOPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iiss) NFTSet = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b CoredumpReceive = ...;
@@ -10028,6 +10132,14 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property MemoryPressureThresholdUSec is not documented!-->
 
+    <!--property CPUPressureWatch is not documented!-->
+
+    <!--property CPUPressureThresholdUSec is not documented!-->
+
+    <!--property IOPressureWatch is not documented!-->
+
+    <!--property IOPressureThresholdUSec is not documented!-->
+
     <!--property NFTSet is not documented!-->
 
     <!--property CoredumpReceive is not documented!-->
@@ -10583,6 +10695,14 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUPressureWatch"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOPressureWatch"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOPressureThresholdUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NFTSet"/>
 
@@ -11292,6 +11412,14 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s CPUPressureWatch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t CPUPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s IOPressureWatch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t IOPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iiss) NFTSet = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b CoredumpReceive = ...;
@@ -11464,6 +11592,14 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property MemoryPressureWatch is not documented!-->
 
     <!--property MemoryPressureThresholdUSec is not documented!-->
+
+    <!--property CPUPressureWatch is not documented!-->
+
+    <!--property CPUPressureThresholdUSec is not documented!-->
+
+    <!--property IOPressureWatch is not documented!-->
+
+    <!--property IOPressureThresholdUSec is not documented!-->
 
     <!--property NFTSet is not documented!-->
 
@@ -11652,6 +11788,14 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUPressureWatch"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOPressureWatch"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOPressureThresholdUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NFTSet"/>
 
@@ -11864,6 +12008,14 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s CPUPressureWatch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t CPUPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s IOPressureWatch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t IOPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iiss) NFTSet = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b CoredumpReceive = ...;
@@ -12050,6 +12202,14 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property MemoryPressureWatch is not documented!-->
 
     <!--property MemoryPressureThresholdUSec is not documented!-->
+
+    <!--property CPUPressureWatch is not documented!-->
+
+    <!--property CPUPressureThresholdUSec is not documented!-->
+
+    <!--property IOPressureWatch is not documented!-->
+
+    <!--property IOPressureThresholdUSec is not documented!-->
 
     <!--property NFTSet is not documented!-->
 
@@ -12263,6 +12423,14 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureThresholdUSec"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUPressureWatch"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOPressureWatch"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOPressureThresholdUSec"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="NFTSet"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CoredumpReceive"/>
@@ -12475,7 +12643,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <function>RemoveSubgroupFromUnit()</function>, and
       <function>KillUnitSubgroup()</function> were added in version 258.</para>
       <para><varname>TransactionsWithOrderingCycle</varname> was added in version 259.</para>
-      <para><varname>DefaultMemoryZSwapWriteback</varname> was added in version 261.</para>
+      <para><varname>DefaultMemoryZSwapWriteback</varname>,
+      <varname>DefaultCPUPressureThresholdUSec</varname>,
+      <varname>DefaultCPUPressureWatch</varname>,
+      <varname>DefaultIOPressureThresholdUSec</varname>, and
+      <varname>DefaultIOPressureWatch</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
@@ -12567,6 +12739,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ExecReloadPostEx</varname> were added in version 259.</para>
       <para><varname>BindNetworkInterface</varname>, <varname>MemoryTHP</varname>,
       <varname>RefreshOnReload</varname>, and <varname>RootMStack</varname> were added in version 260.</para>
+      <para><varname>CPUPressureThresholdUSec</varname>,
+      <varname>CPUPressureWatch</varname>,
+      <varname>IOPressureThresholdUSec</varname>, and
+      <varname>IOPressureWatch</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12637,6 +12813,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMKills</varname> were added in 259.</para>
       <para><varname>BindNetworkInterface</varname> <varname>MemoryTHP</varname>, and
       <varname>RootMStack</varname> were added in version 260.</para>
+      <para><varname>CPUPressureThresholdUSec</varname>,
+      <varname>CPUPressureWatch</varname>,
+      <varname>IOPressureThresholdUSec</varname>, and
+      <varname>IOPressureWatch</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12702,6 +12882,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMKills</varname> were added in 259.</para>
       <para><varname>BindNetworkInterface</varname> <varname>MemoryTHP</varname>, and
       <varname>RootMStack</varname> were added in version 260.</para>
+      <para><varname>CPUPressureThresholdUSec</varname>,
+      <varname>CPUPressureWatch</varname>,
+      <varname>IOPressureThresholdUSec</varname>, and
+      <varname>IOPressureWatch</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12765,6 +12949,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMKills</varname> were added in 259.</para>
       <para><varname>BindNetworkInterface</varname>, <varname>MemoryTHP</varname>, and
       <varname>RootMStack</varname> were added in version 260.</para>
+      <para><varname>CPUPressureThresholdUSec</varname>,
+      <varname>CPUPressureWatch</varname>,
+      <varname>IOPressureThresholdUSec</varname>, and
+      <varname>IOPressureWatch</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -12798,6 +12986,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
       <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
+      <para><varname>CPUPressureThresholdUSec</varname>,
+      <varname>CPUPressureWatch</varname>,
+      <varname>IOPressureThresholdUSec</varname>, and
+      <varname>IOPressureWatch</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -12829,6 +13021,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
       <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
+      <para><varname>CPUPressureThresholdUSec</varname>,
+      <varname>CPUPressureWatch</varname>,
+      <varname>IOPressureThresholdUSec</varname>, and
+      <varname>IOPressureWatch</varname> were added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>

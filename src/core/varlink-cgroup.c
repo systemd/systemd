@@ -323,8 +323,12 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("ManagedOOMMemoryPressureLimit", c->moom_mem_pressure_limit),
                         JSON_BUILD_PAIR_FINITE_USEC("ManagedOOMMemoryPressureDurationUSec", c->moom_mem_pressure_duration_usec),
                         SD_JSON_BUILD_PAIR_STRING("ManagedOOMPreference", managed_oom_preference_to_string(c->moom_preference)),
-                        SD_JSON_BUILD_PAIR_STRING("MemoryPressureWatch", cgroup_pressure_watch_to_string(c->memory_pressure_watch)),
-                        JSON_BUILD_PAIR_FINITE_USEC("MemoryPressureThresholdUSec", c->memory_pressure_threshold_usec),
+                        SD_JSON_BUILD_PAIR_STRING("MemoryPressureWatch", cgroup_pressure_watch_to_string(c->pressure[PRESSURE_MEMORY].watch)),
+                        JSON_BUILD_PAIR_FINITE_USEC("MemoryPressureThresholdUSec", c->pressure[PRESSURE_MEMORY].threshold_usec),
+                        SD_JSON_BUILD_PAIR_STRING("CPUPressureWatch", cgroup_pressure_watch_to_string(c->pressure[PRESSURE_CPU].watch)),
+                        JSON_BUILD_PAIR_FINITE_USEC("CPUPressureThresholdUSec", c->pressure[PRESSURE_CPU].threshold_usec),
+                        SD_JSON_BUILD_PAIR_STRING("IOPressureWatch", cgroup_pressure_watch_to_string(c->pressure[PRESSURE_IO].watch)),
+                        JSON_BUILD_PAIR_FINITE_USEC("IOPressureThresholdUSec", c->pressure[PRESSURE_IO].threshold_usec),
 
                         /* Others */
                         SD_JSON_BUILD_PAIR_BOOLEAN("CoredumpReceive", c->coredump_receive));

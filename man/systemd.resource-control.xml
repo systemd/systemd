@@ -1628,7 +1628,7 @@ DeviceAllow=/dev/loop-control
         <para>Note that services are free to use the two environment variables, but it is unproblematic if
         they ignore them. Memory pressure handling must be implemented individually in each service, and
         usually means different things for different software. For further details on memory pressure
-        handling see <ulink url="https://systemd.io/MEMORY_PRESSURE">Memory Pressure Handling in
+        handling see <ulink url="https://systemd.io/PRESSURE">Resource Pressure Handling in
         systemd</ulink>.</para>
 
         <para>Services implemented using
@@ -1656,6 +1656,104 @@ DeviceAllow=/dev/loop-control
         details on the permitted syntax.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CPUPressureWatch=</varname></term>
+
+        <listitem><para>Controls CPU pressure monitoring for invoked processes. Takes a boolean or one of
+        <literal>auto</literal> and <literal>skip</literal>. If <literal>no</literal>, tells the service not
+        to watch for CPU pressure events, by setting the <varname>$CPU_PRESSURE_WATCH</varname>
+        environment variable to the literal string <filename>/dev/null</filename>. If <literal>yes</literal>,
+        tells the service to watch for CPU pressure events. This ensures the
+        <filename>cpu.pressure</filename> cgroup attribute file is accessible for
+        reading and writing by the service's user. It then sets the <varname>$CPU_PRESSURE_WATCH</varname>
+        environment variable for processes invoked by the unit to the file system path to this file. The
+        threshold information configured with <varname>CPUPressureThresholdSec=</varname> is encoded in
+        the <varname>$CPU_PRESSURE_WRITE</varname> environment variable. If the <literal>auto</literal>
+        value is set the protocol is enabled if CPU resource controls are configured for the unit (e.g. because
+        <varname>CPUWeight=</varname> or <varname>CPUQuota=</varname> is set), and
+        disabled otherwise. If set to <literal>skip</literal> the logic is neither enabled, nor disabled and
+        the two environment variables are not set.</para>
+
+        <para>Note that services are free to use the two environment variables, but it is unproblematic if
+        they ignore them. CPU pressure handling must be implemented individually in each service, and
+        usually means different things for different software.</para>
+
+        <para>Services implemented using
+        <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry> may use
+        <citerefentry><refentrytitle>sd_event_add_cpu_pressure</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        to watch for and handle CPU pressure events.</para>
+
+        <para>If not explicitly set, defaults to the <varname>DefaultCPUPressureWatch=</varname> setting in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CPUPressureThresholdSec=</varname></term>
+
+        <listitem><para>Sets the CPU pressure threshold time for CPU pressure monitor as configured via
+        <varname>CPUPressureWatch=</varname>. Specifies the maximum CPU stall time before a CPU
+        pressure event is signalled to the service, per 2s window. If not specified, defaults to the
+        <varname>DefaultCPUPressureThresholdSec=</varname> setting in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        (which in turn defaults to 200ms). The specified value expects a time unit such as
+        <literal>ms</literal> or <literal>μs</literal>, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details on the permitted syntax.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOPressureWatch=</varname></term>
+
+        <listitem><para>Controls IO pressure monitoring for invoked processes. Takes a boolean or one of
+        <literal>auto</literal> and <literal>skip</literal>. If <literal>no</literal>, tells the service not
+        to watch for IO pressure events, by setting the <varname>$IO_PRESSURE_WATCH</varname>
+        environment variable to the literal string <filename>/dev/null</filename>. If <literal>yes</literal>,
+        tells the service to watch for IO pressure events. This enables IO accounting for the
+        service, and ensures the <filename>io.pressure</filename> cgroup attribute file is accessible for
+        reading and writing by the service's user. It then sets the <varname>$IO_PRESSURE_WATCH</varname>
+        environment variable for processes invoked by the unit to the file system path to this file. The
+        threshold information configured with <varname>IOPressureThresholdSec=</varname> is encoded in
+        the <varname>$IO_PRESSURE_WRITE</varname> environment variable. If the <literal>auto</literal>
+        value is set the protocol is enabled if IO accounting is anyway enabled for the unit (e.g. because
+        <varname>IOWeight=</varname> or <varname>IODeviceWeight=</varname> is set), and
+        disabled otherwise. If set to <literal>skip</literal> the logic is neither enabled, nor disabled and
+        the two environment variables are not set.</para>
+
+        <para>Note that services are free to use the two environment variables, but it is unproblematic if
+        they ignore them. IO pressure handling must be implemented individually in each service, and
+        usually means different things for different software.</para>
+
+        <para>Services implemented using
+        <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry> may use
+        <citerefentry><refentrytitle>sd_event_add_io_pressure</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        to watch for and handle IO pressure events.</para>
+
+        <para>If not explicitly set, defaults to the <varname>DefaultIOPressureWatch=</varname> setting in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOPressureThresholdSec=</varname></term>
+
+        <listitem><para>Sets the IO pressure threshold time for IO pressure monitor as configured via
+        <varname>IOPressureWatch=</varname>. Specifies the maximum IO stall time before an IO
+        pressure event is signalled to the service, per 2s window. If not specified, defaults to the
+        <varname>DefaultIOPressureThresholdSec=</varname> setting in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        (which in turn defaults to 200ms). The specified value expects a time unit such as
+        <literal>ms</literal> or <literal>μs</literal>, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details on the permitted syntax.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
     </variablelist>
 
