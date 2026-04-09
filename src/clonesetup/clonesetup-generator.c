@@ -81,30 +81,30 @@ static int generate_clone_units(const char *clone_name, const char *source_dev, 
                 return r;
 
         fprintf(f,
-            "[Unit]\n"
-            "Description=Create dm-clone device %s\n"
-            "Documentation=man:dmsetup(8) man:fstab(5) man:systemd-fstab-generator(8)\n"
-            "DefaultDependencies=no\n"
-            "BindsTo=%s %s %s\n"
-            "Requires=%s %s %s\n"
-            "After=%s %s %s\n"
-            "Before=blockdev@dev-mapper-%s.target\n"
-            "Wants=blockdev@dev-mapper-%s.target\n"
-            "Conflicts=shutdown.target\n"
-            "\n"
-            "[Service]\n"
-            "Type=oneshot\n"
-            "RemainAfterExit=yes\n"
-            "ExecStart=" SYSTEMD_CLONESETUP_PATH " add '%s' '%s' '%s' '%s' '%s'\n"
-            "ExecStop=" SYSTEMD_CLONESETUP_PATH " remove %s\n"
-            "TimeoutSec=0\n",
-            clone_dev_path,
-            source_unit, dest_unit, metadata_unit,
-            source_unit, dest_unit, metadata_unit,
-            source_unit, dest_unit, metadata_unit,
-            e, e,
-            clone_name, escaped_source, escaped_dest, escaped_metadata, "",
-            clone_name);
+                "[Unit]\n"
+                "Description=Create dm-clone device %s\n"
+                "Documentation=man:dmsetup(8) man:fstab(5) man:systemd-fstab-generator(8)\n"
+                "DefaultDependencies=no\n"
+                "BindsTo=%s %s %s\n"
+                "Requires=%s %s %s\n"
+                "After=%s %s %s\n"
+                "Before=blockdev@dev-mapper-%s.target\n"
+                "Wants=blockdev@dev-mapper-%s.target\n"
+                "Conflicts=shutdown.target\n"
+                "\n"
+                "[Service]\n"
+                "Type=oneshot\n"
+                "RemainAfterExit=yes\n"
+                "ExecStart=" SYSTEMD_CLONESETUP_PATH " add '%s' '%s' '%s' '%s' '%s'\n"
+                "ExecStop=" SYSTEMD_CLONESETUP_PATH " remove %s\n"
+                "TimeoutSec=0\n",
+                clone_dev_path,
+                source_unit, dest_unit, metadata_unit,
+                source_unit, dest_unit, metadata_unit,
+                source_unit, dest_unit, metadata_unit,
+                e, e,
+                clone_name, escaped_source, escaped_dest, escaped_metadata, "",
+                clone_name);
 
         r = fflush_and_check(f);
         if (r < 0)

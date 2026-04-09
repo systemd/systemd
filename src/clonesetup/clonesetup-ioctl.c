@@ -70,7 +70,7 @@ static int dm_clone_create(const char *name) {
         assert(name);
 
         struct dm_ioctl dm = {};
-        return dm_ioctl_run(name, DM_DEV_CREATE, &dm, sizeof(struct dm_ioctl));
+        return dm_ioctl_run(name, DM_DEV_CREATE, &dm, sizeof(dm));
 }
 
 /* Second dm ioctl needed to create a device. */
@@ -90,19 +90,20 @@ static int dm_clone_load_table(const char *name, uint64_t size_sectors, const ch
         if (!dm_buf)
                 return -ENOMEM;
         dm = dm_buf;
-
-        dm->data_start = sizeof(struct dm_ioctl);
-        dm->target_count = 1;
+        *dm = (struct dm_ioctl) {
+                .data_start  = sizeof(struct dm_ioctl),
+                .target_count = 1,
+        };
 
         tgt = (struct dm_target_spec *) ((uint8_t *) dm + dm->data_start);
-        tgt->sector_start = 0;
-        tgt->length = size_sectors;
+        *tgt = (struct dm_target_spec) {
+                .length = size_sectors,
+                .next   = 0,
+        };
         strncpy(tgt->target_type, "clone", sizeof(tgt->target_type));
-        tgt->next = 0;
 
         params_buf = (char *) tgt + sizeof(struct dm_target_spec);
         strcpy(params_buf, target_params);
-        tgt->status = 0;
 
         return dm_ioctl_run(name, DM_TABLE_LOAD, dm, dm_size);
 }
@@ -113,7 +114,7 @@ static int dm_clone_activate(const char *name) {
 
         struct dm_ioctl dm = {};
 
-        return dm_ioctl_run(name, DM_DEV_SUSPEND, &dm, sizeof(struct dm_ioctl));
+        return dm_ioctl_run(name, DM_DEV_SUSPEND, &dm, sizeof(dm));
 }
 
 /* Calls multiple dm ioctls to create device. */
@@ -176,9 +177,11 @@ int dm_clone_send_message(const char *name, const char *message) {
         if (!dm_buf)
                 return -ENOMEM;
         dm = dm_buf;
-        dm->data_start = sizeof(struct dm_ioctl);
+        *dm = (struct dm_ioctl) {
+                .data_start = sizeof(struct dm_ioctl),
+        };
 
-        msg = (struct dm_target_msg *) ((char *) dm + dm->data_start);
+        msg = (struct dm_target_msg *) ((uint8_t *) dm + dm->data_start);
         strcpy(msg->message, message);
 
         return dm_ioctl_run(name, DM_TARGET_MSG, dm, dm_size);
@@ -190,7 +193,7 @@ int dm_clone_remove_device(const char *name) {
         int r;
 
         assert(name);
-        r = dm_ioctl_run(name, DM_DEV_REMOVE, &dm, sizeof(struct dm_ioctl));
+        r = dm_ioctl_run(name, DM_DEV_REMOVE, &dm, sizeof(dm));
         if (r < 0)
                 return r;
 

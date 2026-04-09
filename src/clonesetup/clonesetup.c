@@ -44,7 +44,7 @@ static int clone_device(const char *clone_name, const char *source_dev, const ch
                 return log_error_errno(r, "Failed to create dm-clone device: %m");
 
         /* Wait for udev to create /dev/mapper/<name> */
-        r = device_wait_for_devlink(clone_dev_path, "block", 10 * USEC_PER_SEC, NULL);
+        r = device_wait_for_devlink(clone_dev_path, "block", 10 * USEC_PER_SEC, /* ret_inode = */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for device %s: %m", clone_dev_path);
 
@@ -96,15 +96,15 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s add NAME SOURCE-DEVICE DST-DEVICE META-DEVICE [OPTIONS] \n"
-                        "%1$s remove VOLUME\n\n"
-                        "%2$sAdd or remove a dm clone device.%3$s\n\n"
-                        "  -h --help            Show this help\n"
-                        "     --version         Show package version\n"
-                        "\nSee the %4$s for details.\n",
-                        program_invocation_short_name,
-                        ansi_highlight(),
-                        ansi_normal(),
-                        link);
+               "%1$s remove VOLUME\n\n"
+               "%2$sAdd or remove a dm clone device.%3$s\n\n"
+               "  -h --help            Show this help\n"
+               "     --version         Show package version\n"
+               "\nSee the %4$s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -160,7 +160,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         static const Verb verbs[] = {
-                { "add",    5, 6, 0, verb_add },
+                { "add",    5, 6, 0, verb_add    },
                 { "remove", 2, 2, 0, verb_remove },
                 {}
         };
