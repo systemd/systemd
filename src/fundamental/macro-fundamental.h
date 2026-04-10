@@ -415,16 +415,6 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
  */
 #define STRLEN(x) (sizeof(""x"") - sizeof(typeof(x[0])))
 
-DISABLE_WARNING_REDUNDANT_DECLS;
-void free(void *p); /* NOLINT (readability-redundant-declaration) */
-REENABLE_WARNING;
-
-#define mfree(memory)                           \
-        ({                                      \
-                free(memory);                   \
-                (typeof(memory)) NULL;          \
-        })
-
 #define UPDATE_FLAG(orig, flag, b)                      \
         ((b) ? ((orig) | (flag)) : ((orig) & ~(flag)))
 #define SET_FLAG(v, flag, b) \

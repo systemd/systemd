@@ -6,6 +6,7 @@
 #endif
 
 #include "assert-fundamental.h"         /* IWYU pragma: keep */
+#include "cleanup-fundamental.h"
 #include "macro-fundamental.h"
 
 #if SD_BOOT
