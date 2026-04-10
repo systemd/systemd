@@ -102,11 +102,17 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>unlink</option> <replaceable>ID</replaceable></term>
+        <term><option>unlink</option> <optional><replaceable>ID</replaceable></optional></term>
 
-        <listitem><para>Removes a boot loader entry including the files it refers to. Takes a single boot
-        loader entry ID string or a glob pattern as argument. Referenced files such as kernel or initrd are
-        only removed if no other entry refers to them.</para>
+        <listitem><para>Removes a boot loader entry including the files it refers to. Takes an optional boot
+        loader entry ID string or a glob pattern as argument. Referenced files such as the kernel, initrds,
+        system extensions (sysexts), configuration extensions (confexts) or credential files are only removed
+        if no other entry refers to them.</para>
+
+        <para>If no <replaceable>ID</replaceable> argument is specified, the <option>--oldest</option> option
+        must be specified, in which case the boot loader entry with the lowest version is removed (for
+        robustness reasons the currently booted menu entry is never removed, nor is the last existing boot
+        loader entry).</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
