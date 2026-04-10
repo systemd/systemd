@@ -2526,10 +2526,11 @@ static sd_dhcp_client* dhcp_client_free(sd_dhcp_client *client) {
 
         client_initialize(client);
 
-        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
-        client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
-        client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
-        client->timeout_expire = sd_event_source_unref(client->timeout_expire);
+        sd_event_source_unref(client->timeout_resend);
+        sd_event_source_unref(client->timeout_t1);
+        sd_event_source_unref(client->timeout_t2);
+        sd_event_source_unref(client->timeout_expire);
+        sd_event_source_unref(client->timeout_ipv6_only_mode);
 
         sd_dhcp_client_detach_event(client);
 
