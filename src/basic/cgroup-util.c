@@ -1560,6 +1560,24 @@ fail:
         return r;
 }
 
+int cg_get_keyed_attribute_uint64(const char *path, const char *attribute, const char *key, uint64_t *ret) {
+        _cleanup_free_ char *val = NULL;
+        int r;
+
+        assert(key);
+        assert(ret);
+
+        r = cg_get_keyed_attribute(path, attribute, STRV_MAKE(key), &val);
+        if (r < 0)
+                return r;
+
+        r = safe_atou64(val, ret);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse value '%s' of key '%s' in cgroup attribute '%s': %m", val, key, attribute);
+
+        return 0;
+}
+
 int cg_mask_to_string(CGroupMask mask, char **ret) {
         _cleanup_free_ char *s = NULL;
         bool space = false;
