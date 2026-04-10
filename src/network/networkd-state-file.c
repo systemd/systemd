@@ -136,7 +136,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 if (r >= 0) {
                         struct in_addr_full **dot_servers;
                         size_t n = 0;
-                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
+                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_free_array);
 
                         r = dns_resolvers_to_dot_addrs(resolvers, r, &dot_servers, &n);
                         if (r < 0)
@@ -165,7 +165,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 if (r >= 0) {
                         struct in_addr_full **dot_servers;
                         size_t n = 0;
-                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
+                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_free_array);
 
                         r = dns_resolvers_to_dot_addrs(resolvers, r, &dot_servers, &n);
                         if (r < 0)
@@ -193,7 +193,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 SET_FOREACH(a, link->ndisc_dnr) {
                         struct in_addr_full **dot_servers = NULL;
                         size_t n = 0;
-                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
+                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_free_array);
 
                         r = dns_resolvers_to_dot_addrs(&a->resolver, 1, &dot_servers, &n);
                         if (r < 0)

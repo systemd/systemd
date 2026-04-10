@@ -319,16 +319,14 @@ InstallChangeType install_changes_add(
         return type;
 }
 
-void install_changes_free(InstallChange *changes, size_t n_changes) {
-        assert(changes || n_changes == 0);
+static void install_change_done(InstallChange *change) {
+        assert(change);
 
-        FOREACH_ARRAY(i, changes, n_changes) {
-                free(i->path);
-                free(i->source);
-        }
-
-        free(changes);
+        change->path = mfree(change->path);
+        change->source = mfree(change->source);
 }
+
+DEFINE_ARRAY_FREE_FUNC(install_changes_free, InstallChange, install_change_done);
 
 static void install_change_dump_success(const InstallChange *change) {
         assert(change);

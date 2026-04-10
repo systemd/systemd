@@ -50,19 +50,7 @@ static const char* dnat_map_name(void) {
         return cached;
 }
 
-static sd_netlink_message** netlink_message_unref_many(sd_netlink_message **m) {
-        if (!m)
-                return NULL;
-
-        /* This does not free array. The end of the array must be NULL. */
-
-        for (sd_netlink_message **p = m; *p; p++)
-                *p = sd_netlink_message_unref(*p);
-
-        return m;
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_netlink_message**, netlink_message_unref_many);
+static DEFINE_ARRAY_DONE_FUNC(sd_netlink_message*, sd_netlink_message_unref);
 
 static int nfnl_open_expr_container(sd_netlink_message *m, const char *name) {
         int r;
@@ -736,8 +724,7 @@ static uint32_t concat_types2(enum nft_key_types a, enum nft_key_types b) {
 }
 
 static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
-        sd_netlink_message *messages[10] = {};
-        _unused_ _cleanup_(netlink_message_unref_manyp) sd_netlink_message **unref = messages;
+        _cleanup_(sd_netlink_message_unref_many) sd_netlink_message *messages[10] = {};
         size_t msgcnt = 0, ip_type_size;
         uint32_t set_id = 0;
         int ip_type, r;
@@ -1058,8 +1045,7 @@ static int fw_nftables_add_local_dnat_internal(
                 uint16_t remote_port,
                 const union in_addr_union *previous_remote) {
 
-        sd_netlink_message *messages[3] = {};
-        _unused_ _cleanup_(netlink_message_unref_manyp) sd_netlink_message **unref = messages;
+        _cleanup_(sd_netlink_message_unref_many) sd_netlink_message *messages[3] = {};
         uint32_t data[5], key[2], dlen;
         size_t msgcnt = 0;
         int r;

@@ -205,11 +205,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_groups, strv_freep);
 
-static void unref_many_tables(Table* (*tablesp)[]) {
-        for (Table **t = *ASSERT_PTR(tablesp); *t; t++)
-                *t = table_unref(*t);
-}
-
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -220,7 +215,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        static const char *groups[] = {
+        static const char* const groups[] = {
                 NULL,
                 "Image",
                 "Host Configuration",
@@ -234,7 +229,7 @@ static int help(void) {
                 "Credentials",
         };
 
-        _cleanup_(unref_many_tables) Table* tables[ELEMENTSOF(groups) + 1] = {};
+        _cleanup_(table_unref_many) Table* tables[ELEMENTSOF(groups) + 1] = {};
 
         for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
                 r = option_parser_get_help_table_group(groups[i], &tables[i]);

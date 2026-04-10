@@ -45,6 +45,35 @@
 #define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(type, macro, empty)      \
         DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO_RENAME(type, macro, macro##p, empty)
 
+/* Clean up a NULL-terminated array by dropping all the items in it (up to the first NULL).
+ * The array itself is not deallocated. */
+#define DEFINE_ARRAY_DONE_FUNC(type, helper)                    \
+        void helper ## _many(type (*p)[]) {                     \
+                for (type *t = *ASSERT_PTR(p); *t; t++)         \
+                        *t = helper(*t);                        \
+        }
+
+/* Clean up an array of pointers to objects by dropping all the items in it.
+ * The size of the array is passed in as a parameter, so NULL items may appear in the middle of the array.
+ * Free the array itself afterwards. */
+#define DEFINE_POINTER_ARRAY_FREE_FUNC(type, helper)            \
+        void helper ## _array(type *array, size_t n) {          \
+                assert(array || n == 0);                        \
+                FOREACH_ARRAY(item, array, n)                   \
+                        helper(*item);                          \
+                free(array);                                    \
+        }
+
+/* Clean up an array of objects of known size by dropping all the items in it.
+ * Then free the array itself. */
+#define DEFINE_ARRAY_FREE_FUNC(name, type, helper)              \
+        void name(type *array, size_t n) {                      \
+                assert(array || n == 0);                        \
+                FOREACH_ARRAY(item, array, n)                   \
+                        helper(item);                           \
+                free(array);                                    \
+        }
+
 typedef void (*free_array_func_t)(void *p, size_t n);
 
 /* An automatic _cleanup_-like logic for destroy arrays (i.e. pointers + size) when leaving scope */
