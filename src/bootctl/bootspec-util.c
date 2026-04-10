@@ -17,6 +17,7 @@
 
 int boot_config_load_and_select(
                 BootConfig *config,
+                const char *root,
                 const char *esp_path,
                 dev_t esp_devid,
                 const char *xbootldr_path,
@@ -32,7 +33,7 @@ int boot_config_load_and_select(
         if (r < 0)
                 return r;
 
-        if (!arg_root) {
+        if (!root) {
                 _cleanup_strv_free_ char **efi_entries = NULL;
 
                 r = efi_loader_get_entries(&efi_entries);
@@ -44,7 +45,7 @@ int boot_config_load_and_select(
                         (void) boot_config_augment_from_loader(config, efi_entries, /* auto_only= */ false);
         }
 
-        return boot_config_select_special_entries(config, /* skip_efivars= */ !!arg_root);
+        return boot_config_select_special_entries(config, /* skip_efivars= */ !!root);
 }
 
 int boot_entry_make_commit_filename(
