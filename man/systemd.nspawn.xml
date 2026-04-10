@@ -341,6 +341,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestrictAddressFamilies=</varname></term>
+
+        <listitem><para>Restricts the socket address families accessible to the container. This is equivalent
+        to the <option>--restrict-address-families=</option> command line switch, and takes the same list
+        parameter. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LimitCPU=</varname></term>
         <term><varname>LimitFSIZE=</varname></term>
         <term><varname>LimitDATA=</varname></term>
