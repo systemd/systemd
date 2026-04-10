@@ -1238,7 +1238,6 @@ int bus_socket_take_fd(sd_bus *b) {
 int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         struct iovec *iov;
         ssize_t k;
-        size_t n;
         unsigned j;
         int r;
 
@@ -1254,9 +1253,8 @@ int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         if (r < 0)
                 return r;
 
-        n = m->n_iovec * sizeof(struct iovec);
-        iov = newa(struct iovec, n);
-        memcpy_safe(iov, m->iovec, n);
+        iov = newa(struct iovec, m->n_iovec);
+        memcpy_safe(iov, m->iovec, sizeof(struct iovec) * m->n_iovec);
 
         j = 0;
         iovec_advance(iov, &j, *idx);
