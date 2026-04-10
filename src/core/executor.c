@@ -16,7 +16,6 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fdset.h"
-#include "fileio.h"
 #include "format-table.h"
 #include "label-util.h"
 #include "log.h"
@@ -106,19 +105,19 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("deserialize", "FD", "Deserialize process config from FD"): {
-                        _cleanup_close_ int fd = -EBADF;
-                        FILE *f;
-
-                        fd = parse_fd(arg);
+                        int fd = parse_fd(arg);
                         if (fd < 0)
                                 return log_error_errno(fd, "Failed to parse serialization fd \"%s\": %m", arg);
 
+                        /* Set O_CLOEXEC and as a side effect, verify that the fd is valid. */
                         r = fd_cloexec(fd, /* cloexec= */ true);
+                        if (r == -EBADF)
+                                return log_error_errno(r, "Serialization fd %d is not valid.", fd);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set serialization fd %d to close-on-exec: %m",
                                                        fd);
 
-                        f = take_fdopen(&fd, "r");
+                        FILE *f = fdopen(fd, "r");
                         if (!f)
                                 return log_error_errno(errno, "Failed to open serialization fd %d: %m", fd);
 
