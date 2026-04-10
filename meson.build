@@ -2896,7 +2896,13 @@ if git.found()
                      'ls-files', ':/*.[ch]', ':/*.cc',
                 check : false)
         if all_files.returncode() == 0
-                all_files = files(all_files.stdout().split())
+                existing_files = []
+                foreach f : all_files.stdout().split()
+                        if fs.exists(f)
+                                existing_files += f
+                        endif
+                endforeach
+                all_files = files(existing_files)
 
                 custom_target(
                         output : 'tags',
