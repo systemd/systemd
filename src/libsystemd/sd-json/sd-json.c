@@ -3122,6 +3122,11 @@ static int json_parse_internal(
                                 goto finish;
                         }
 
+                        if (n_stack > DEPTH_MAX) {
+                                r = -ELNRNG;
+                                goto finish;
+                        }
+
                         if (!GREEDY_REALLOC(stack, n_stack+1)) {
                                 r = -ENOMEM;
                                 goto finish;
@@ -3175,6 +3180,11 @@ static int json_parse_internal(
 
                         if (n_stack == 1 && !FLAGS_SET(flags, SD_JSON_PARSE_MUST_BE_ARRAY) && FLAGS_SET(flags, SD_JSON_PARSE_MUST_BE_OBJECT)) {
                                 r = -EINVAL;
+                                goto finish;
+                        }
+
+                        if (n_stack > DEPTH_MAX) {
+                                r = -ELNRNG;
                                 goto finish;
                         }
 
