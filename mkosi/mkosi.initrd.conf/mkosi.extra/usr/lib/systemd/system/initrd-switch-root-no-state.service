@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[Unit]
+Description=Override switch-root to use --no-state
+DefaultDependencies=no
+Before=initrd-switch-root.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=mkdir -p /run/systemd/system/initrd-switch-root.service.d
+ExecStart=sh -c 'printf "[Service]\nExecStart=\nExecStart=systemctl --no-block --no-state switch-root\n" >/run/systemd/system/initrd-switch-root.service.d/no-state.conf'
+ExecStart=systemctl daemon-reload
+# Remove initrd credentials so the new PID 1 imports them fresh from SMBIOS.
+# Without this, the existing credential files cause import_credentials() to
+# skip all entries (O_EXCL → EEXIST), leaving $CREDENTIALS_DIRECTORY unset.
+# That breaks $NOTIFY_SOCKET propagation and thus VM exit code reporting.
+# The credentials directory is a read-only mount, so we must unmount it first.
+ExecStart=sh -c 'umount /run/credentials/@system 2>/dev/null; rm -rf /run/credentials/@system'
