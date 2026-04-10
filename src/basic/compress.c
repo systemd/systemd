@@ -266,6 +266,24 @@ bool compression_supported(Compression c) {
         return BIT_SET(supported, c);
 }
 
+Compression compression_detect_from_magic(const uint8_t data[static COMPRESSION_MAGIC_BYTES_MAX]) {
+        /* Magic signatures per RFC 1952 (gzip), tukaani.org/xz/xz-file-format.txt (xz),
+         * RFC 8878 (zstd), lz4/doc/lz4_Frame_format.md (lz4), and the bzip2 file format.
+         * Make sure to update COMPRESSION_MAGIC_BYTES_MAX if needed when adding a new magic. */
+        if (memcmp(data, (const uint8_t[]) { 0x1f, 0x8b }, 2) == 0)
+                return COMPRESSION_GZIP;
+        if (memcmp(data, (const uint8_t[]) { 0xfd, '7', 'z', 'X', 'Z', 0x00 }, 6) == 0)
+                return COMPRESSION_XZ;
+        if (memcmp(data, (const uint8_t[]) { 0x28, 0xb5, 0x2f, 0xfd }, 4) == 0)
+                return COMPRESSION_ZSTD;
+        if (memcmp(data, (const uint8_t[]) { 0x04, 0x22, 0x4d, 0x18 }, 4) == 0)
+                return COMPRESSION_LZ4;
+        if (memcmp(data, (const uint8_t[]) { 'B', 'Z', 'h' }, 3) == 0)
+                return COMPRESSION_BZIP2;
+
+        return _COMPRESSION_INVALID;
+}
+
 int dlopen_xz(void) {
 #if HAVE_XZ
         SD_ELF_NOTE_DLOPEN(
@@ -1748,22 +1766,6 @@ Compression compressor_type(const Compressor *c) {
 }
 
 int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
-        static const uint8_t xz_signature[] = {
-                0xfd, '7', 'z', 'X', 'Z', 0x00
-        };
-        static const uint8_t lz4_signature[] = {
-                0x04, 0x22, 0x4d, 0x18
-        };
-        static const uint8_t zstd_signature[] = {
-                0x28, 0xb5, 0x2f, 0xfd
-        };
-        static const uint8_t gzip_signature[] = {
-                0x1f, 0x8b
-        };
-        static const uint8_t bzip2_signature[] = {
-                'B', 'Z', 'h'
-        };
-
 #if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD || HAVE_ZLIB || HAVE_BZIP2
         int r;
 #endif
@@ -1773,23 +1775,21 @@ int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
         if (*ret)
                 return 1;
 
-        if (size < MAX5(sizeof(xz_signature),
-                        sizeof(gzip_signature),
-                        sizeof(zstd_signature),
-                        sizeof(bzip2_signature),
-                        sizeof(lz4_signature)))
+        if (size < COMPRESSION_MAGIC_BYTES_MAX)
                 return 0;
 
         assert(data);
+
+        Compression type = compression_detect_from_magic(data);
 
         _cleanup_(compressor_freep) Decompressor *c = new0(Decompressor, 1);
         if (!c)
                 return -ENOMEM;
 
-        c->type = COMPRESSION_NONE;
+        switch (type) {
 
 #if HAVE_XZ
-        if (c->type == COMPRESSION_NONE && memcmp(data, xz_signature, sizeof(xz_signature)) == 0) {
+        case COMPRESSION_XZ: {
                 r = dlopen_xz();
                 if (r < 0)
                         return r;
@@ -1798,12 +1798,12 @@ int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
                 if (xzr != LZMA_OK)
                         return -EIO;
 
-                c->type = COMPRESSION_XZ;
+                break;
         }
 #endif
 
 #if HAVE_LZ4
-        if (c->type == COMPRESSION_NONE && memcmp(data, lz4_signature, sizeof(lz4_signature)) == 0) {
+        case COMPRESSION_LZ4: {
                 r = dlopen_lz4();
                 if (r < 0)
                         return r;
@@ -1812,12 +1812,12 @@ int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
                 if (sym_LZ4F_isError(rc))
                         return -ENOMEM;
 
-                c->type = COMPRESSION_LZ4;
+                break;
         }
 #endif
 
 #if HAVE_ZSTD
-        if (c->type == COMPRESSION_NONE && memcmp(data, zstd_signature, sizeof(zstd_signature)) == 0) {
+        case COMPRESSION_ZSTD: {
                 r = dlopen_zstd();
                 if (r < 0)
                         return r;
@@ -1826,12 +1826,12 @@ int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
                 if (!c->d_zstd)
                         return -ENOMEM;
 
-                c->type = COMPRESSION_ZSTD;
+                break;
         }
 #endif
 
 #if HAVE_ZLIB
-        if (c->type == COMPRESSION_NONE && memcmp(data, gzip_signature, sizeof(gzip_signature)) == 0) {
+        case COMPRESSION_GZIP: {
                 r = dlopen_zlib();
                 if (r < 0)
                         return r;
@@ -1840,12 +1840,12 @@ int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
                 if (r != Z_OK)
                         return -EIO;
 
-                c->type = COMPRESSION_GZIP;
+                break;
         }
 #endif
 
 #if HAVE_BZIP2
-        if (c->type == COMPRESSION_NONE && memcmp(data, bzip2_signature, sizeof(bzip2_signature)) == 0) {
+        case COMPRESSION_BZIP2: {
                 r = dlopen_bzip2();
                 if (r < 0)
                         return r;
@@ -1854,10 +1854,20 @@ int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
                 if (r != BZ_OK)
                         return -EIO;
 
-                c->type = COMPRESSION_BZIP2;
+                break;
         }
 #endif
 
+        default:
+                if (type != _COMPRESSION_INVALID)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Detected %s compression, but support is not compiled in.",
+                                               compression_to_string(type));
+                type = COMPRESSION_NONE;
+                break;
+        }
+
+        c->type = type;
         c->encoding = false;
 
         log_debug("Detected compression type: %s", compression_to_string(c->type));

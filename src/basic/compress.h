@@ -33,6 +33,9 @@ bool compression_supported(Compression c);
  * intermediate buffers. */
 #define COMPRESS_PIPE_BUFFER_SIZE (128U*1024U)
 
+#define COMPRESSION_MAGIC_BYTES_MAX 6U
+Compression compression_detect_from_magic(const uint8_t data[static COMPRESSION_MAGIC_BYTES_MAX]);
+
 /* Compressor / Decompressor — opaque push-based streaming compression context */
 
 typedef struct Compressor Compressor;
