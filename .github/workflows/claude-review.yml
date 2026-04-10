@@ -256,27 +256,34 @@ jobs:
 
           ## Phase 1: Review commits
 
-          List the directories in `worktrees/` — there is one per commit. Each
-          worktree at `worktrees/<sha>/` contains the full source tree checked out at
-          that commit, plus `commit.patch` (the diff) and `commit-message.txt`
-          (the commit message). Spawn one
-          review subagent per worktree, all in a single message so they run concurrently.
-          Do NOT pre-compute diffs or read any other files before spawning — the subagents
-          will do that themselves.
+          First, list the directories in `worktrees/` and read `review-schema.json`.
+          Then, spawn exactly one review subagent per worktree directory, all in a
+          single message so they run concurrently. Do NOT batch or group multiple
+          commits into a single agent. Do NOT read any other files before spawning —
+          the subagents will do that themselves.
+
+          Each worktree at `worktrees/<sha>/` contains the full source tree checked
+          out at that commit, plus `commit.patch` (the diff) and `commit-message.txt`
+          (the commit message).
 
           Each reviewer reviews design, code quality, style, potential bugs, and
           security implications.
 
+          Each subagent must be spawned with `model: "opus"`.
+
           Each subagent prompt must include:
           - Instructions to read `pr-context.json` in the repository root for additional
             context.
-          - Instructions to read `review-schema.json` in the repository root and
-            return a JSON array matching the `comments` items schema from that file.
+          - The contents of `review-schema.json` (paste it into each prompt so the
+            agent doesn't have to read it separately).
           - The worktree path.
           - Instructions to read `commit-message.txt` and `commit.patch` in the
             worktree for the commit message and diff.
           - Instructions to verify every `line` and `start_line` value
             against the hunk ranges in `commit.patch` before returning.
+          - Instructions to return ONLY a raw JSON array of findings. No markdown,
+            no explanation, no code fences — just the JSON array. If there are no
+            findings, return `[]`.
 
           ## Phase 2: Collect, deduplicate, and summarize
 
@@ -290,26 +297,20 @@ jobs:
             populate the `resolve` array.
           - If `tracking_comment` is non-null, use it as the basis for your summary.
 
+          Trust the subagent findings — do NOT re-verify them by running your own
+          bash, grep, sed, or awk commands against the source code. Phase 2 should
+          only read `pr-context.json` and then produce the structured output.
+
           Then:
-          1. Collect all issues. Merge duplicates (same file, lines within 3 of each other, same problem).
-          2. Drop low-confidence findings.
-          3. Check the existing inline review comments from `pr-context.json`. Do NOT
-             include a comment if one already exists on the same file about the same
-             problem, even if the exact line numbers differ (lines shift between
-             revisions). Also check for author replies that dismiss or reject a previous
-             comment — do NOT re-raise an issue the PR author has already responded to
-             disagreeing with.
-             Populate the `resolve` array with the REST API `id` (integer) of your own
-             review comment threads that should be resolved (user.login == "github-actions[bot]"
-             and body starts with "Claude: "). Do not resolve threads from human reviewers.
-             A thread should be resolved if:
-             - The issue it raised has been addressed in the current PR (i.e. your review
-               no longer flags it), or
-             - The PR author (or another reviewer) left a reply disagreeing with or
-               dismissing the comment.
-             Only include the `id` of the **first** comment in each thread (the one that
-             started the conversation). Do not resolve threads for issues that are still
-             present and unaddressed.
+          1. Collect all issues. Merge duplicates across agents (same file, same
+             problem, lines within 3 of each other).
+          2. Drop issues that already have a review comment on the same file about
+             the same problem, or where the PR author replied disagreeing.
+          3. Populate the `resolve` array with the `id` of your own review comment
+             threads (user.login == "github-actions[bot]", body starts with
+             "Claude: ") that should be resolved — either because the issue was
+             fixed or because the author dismissed it. Use the first comment `id`
+             in each thread. Do not resolve threads from human reviewers.
           4. Write a `summary` field in markdown for a top-level tracking comment.
 
               **If no existing tracking comment was found (first run):**
@@ -486,7 +487,7 @@ jobs:
                   ...(c.side != null && { side: c.side }),
                   ...(c.start_line != null && { start_line: c.start_line }),
                   ...(c.start_side != null && { start_side: c.start_side }),
-                  body: `Claude: **${c.severity}**: ${c.body}`,
+                  body: c.body,
                 });
                 posted++;
               } catch (e) {
