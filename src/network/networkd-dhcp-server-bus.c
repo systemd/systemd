@@ -58,7 +58,7 @@ static int property_get_leases(
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_append_array(reply, 'y', &lease->chaddr, sizeof(lease->chaddr));
+                r = sd_bus_message_append_array(reply, 'y', &lease->hw_addr.bytes, lease->hw_addr.length);
                 if (r < 0)
                         return r;
 
