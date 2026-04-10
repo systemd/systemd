@@ -17,6 +17,7 @@
 #include "errno-util.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "iovec-util.h"
 #include "ip-util.h"
@@ -1378,6 +1379,8 @@ static sd_dhcp_client* dhcp_client_free(sd_dhcp_client *client) {
 
         client_initialize(client);
 
+        safe_close(client->socket_fd);
+
         sd_event_source_unref(client->timeout_resend);
         sd_event_source_unref(client->timeout_t1);
         sd_event_source_unref(client->timeout_t2);
@@ -1411,6 +1414,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret) {
 
         *client = (sd_dhcp_client) {
                 .n_ref = 1,
+                .socket_fd = -EBADF,
                 .state = DHCP_STATE_STOPPED,
                 .ifindex = -1,
                 .port = DHCP_PORT_CLIENT,
