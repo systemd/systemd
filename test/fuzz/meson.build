@@ -51,7 +51,7 @@ foreach p : out.stdout().split()
         #
         # Also, backslashes get mangled, so skip test. See
         # https://github.com/mesonbuild/meson/issues/1564.
-        if p.contains('\\')
+        if p.contains('\\') or not fs.exists(p)
                 continue
         endif
         fuzzer = fs.name(fs.parent(p))
