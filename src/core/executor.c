@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdlib.h>
 
 #include "sd-messages.h"
@@ -18,9 +17,10 @@
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
-#include "getopt-defs.h"
+#include "format-table.h"
 #include "label-util.h"
 #include "log.h"
+#include "options.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
@@ -32,120 +32,90 @@ STATIC_DESTRUCTOR_REGISTER(arg_serialization, fclosep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd", "1", &link);
         if (r < 0)
                 return log_oom();
 
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
         printf("%s [OPTIONS...]\n\n"
-               "%sSandbox and execute processes.%s\n\n"
-               "  -h --help                Show this help and exit\n"
-               "     --version             Print version string and exit\n"
-               "     --log-target=TARGET   Set log target (console, journal,\n"
-               "                                           journal-or-kmsg,\n"
-               "                                           kmsg, null)\n"
-               "     --log-level=LEVEL     Set log level (debug, info, notice,\n"
-               "                                          warning, err, crit,\n"
-               "                                          alert, emerg)\n"
-               "     --log-color=BOOL      Highlight important messages\n"
-               "     --log-location=BOOL   Include code location in messages\n"
-               "     --log-time=BOOL       Prefix messages with current time\n"
-               "     --deserialize=FD      Deserialize process config from FD\n"
-               "\nSee the %s for details.\n",
+               "%sSandbox and execute processes.%s\n\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_normal(),
-               link);
+               ansi_normal());
 
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                COMMON_GETOPT_ARGS,
-                ARG_VERSION,
-                ARG_DESERIALIZE,
-        };
-
-        static const struct option options[] = {
-                { "log-level",      required_argument, NULL, ARG_LOG_LEVEL      },
-                { "log-target",     required_argument, NULL, ARG_LOG_TARGET     },
-                { "log-color",      required_argument, NULL, ARG_LOG_COLOR      },
-                { "log-location",   required_argument, NULL, ARG_LOG_LOCATION   },
-                { "log-time",       required_argument, NULL, ARG_LOG_TIME       },
-                { "help",           no_argument,       NULL, 'h'                },
-                { "version",        no_argument,       NULL, ARG_VERSION        },
-                { "deserialize",    required_argument, NULL, ARG_DESERIALIZE    },
-                {}
-        };
-
-        int c, r;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
-                case 'h':
+
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_LOG_LEVEL:
-                        r = log_set_max_level_from_string(optarg);
+                OPTION_LONG("log-level", "LEVEL",
+                            "Set log level (console, journal, journal-or-kmsg, kmsg, null)"):
+                        r = log_set_max_level_from_string(arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse log level \"%s\": %m", optarg);
-
+                                return log_error_errno(r, "Failed to parse log level \"%s\": %m", arg);
                         break;
 
-                case ARG_LOG_TARGET:
-                        r = log_set_target_from_string(optarg);
+                OPTION_LONG("log-target", "TARGET",
+                            "Set log target (debug, info, notice, warning, err, crit, alert, emerg)"):
+                        r = log_set_target_from_string(arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse log target \"%s\": %m", optarg);
-
+                                return log_error_errno(r, "Failed to parse log target \"%s\": %m", arg);
                         break;
 
-                case ARG_LOG_COLOR:
-                        r = log_show_color_from_string(optarg);
+                OPTION_LONG("log-color", "BOOL", "Highlight important messages"):
+                        r = log_show_color_from_string(arg);
                         if (r < 0)
-                                return log_error_errno(
-                                                r,
-                                                "Failed to parse log color setting \"%s\": %m",
-                                                optarg);
-
+                                return log_error_errno(r, "Failed to parse log color setting \"%s\": %m", arg);
                         break;
 
-                case ARG_LOG_LOCATION:
-                        r = log_show_location_from_string(optarg);
+                OPTION_LONG("log-location", "BOOL", "Include code location in messages"):
+                        r = log_show_location_from_string(arg);
                         if (r < 0)
-                                return log_error_errno(
-                                                r,
-                                                "Failed to parse log location setting \"%s\": %m",
-                                                optarg);
-
+                                return log_error_errno(r, "Failed to parse log location setting \"%s\": %m", arg);
                         break;
 
-                case ARG_LOG_TIME:
-                        r = log_show_time_from_string(optarg);
+                OPTION_LONG("log-time", "BOOL", "Prefix messages with current time"):
+                        r = log_show_time_from_string(arg);
                         if (r < 0)
-                                return log_error_errno(
-                                                r,
-                                                "Failed to parse log time setting \"%s\": %m",
-                                                optarg);
-
+                                return log_error_errno(r, "Failed to parse log time setting \"%s\": %m", arg);
                         break;
 
-                case ARG_DESERIALIZE: {
+                OPTION_LONG("deserialize", "FD", "Deserialize process config from FD"): {
                         _cleanup_close_ int fd = -EBADF;
                         FILE *f;
 
-                        fd = parse_fd(optarg);
+                        fd = parse_fd(arg);
                         if (fd < 0)
                                 return log_error_errno(fd,
                                                        "Failed to parse serialization fd \"%s\": %m",
-                                                       optarg);
+                                                       arg);
 
                         r = fd_cloexec(fd, /* cloexec= */ true);
                         if (r < 0)
@@ -159,15 +129,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         safe_fclose(arg_serialization);
                         arg_serialization = f;
-
                         break;
                 }
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (!arg_serialization)
