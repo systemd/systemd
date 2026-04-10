@@ -22,6 +22,9 @@ CHANGES WITH 261 in spe:
 
         New features:
 
+        * A new tmpfiles.d/root.conf has been added that sets permissions
+          on the root directory (/) to 0555
+
         * Networking to cloud IMDS services may be locked down for recognized
           clouds. This is recommended for secure installations, but typically
           conflicts with traditional IMDS clients such as cloud-init, which
