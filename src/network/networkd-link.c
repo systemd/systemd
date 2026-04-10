@@ -65,6 +65,7 @@
 #include "networkd-sysctl.h"
 #include "networkd-wifi.h"
 #include "networkd-wwan-bus.h"
+#include "networkd-xlat.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"
@@ -261,6 +262,8 @@ static void link_free_engines(Link *link) {
         ndisc_flush(link);
 
         link->radv = sd_radv_unref(link->radv);
+
+        xlat_done(link);
 }
 
 static Link* link_free(Link *link) {
@@ -423,6 +426,10 @@ int link_stop_engines(Link *link, bool may_keep_dynamic) {
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m"));
 
                 ndisc_flush(link);
+
+                r = xlat_stop(link);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop CLAT: %m"));
         }
 
         r = sd_dhcp_server_stop(link->dhcp_server);
@@ -2771,6 +2778,14 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .kind = TAKE_PTR(kind),
 
                 .bridge_vlan_pvid = UINT16_MAX,
+
+                .clat_tun_fd = -EBADF,
+                .clat_send_fd = -EBADF,
+                .clat_recv_fd = -EBADF,
+#if ENABLE_CLAT_BPF
+                .clat_bpf_ingress_fd = -EBADF,
+                .clat_bpf_egress_fd = -EBADF,
+#endif
 
                 .ipv6ll_address_gen_mode = _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID,
 
