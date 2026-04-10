@@ -390,7 +390,8 @@ static sd_device* handle_scsi_hyperv(sd_device *parent, char **path, size_t guid
         }
         guid[k] = '\0';
 
-        format_lun_number(parent, &lun);
+        if (format_lun_number(parent, &lun) < 0)
+                return NULL;
         path_prepend(path, "vmbus-%s-%s", guid, lun);
         return parent;
 }
