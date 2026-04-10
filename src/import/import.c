@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <locale.h>
 #include <unistd.h>
 
@@ -12,12 +11,14 @@
 #include "discover-image.h"
 #include "env-util.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "import-raw.h"
 #include "import-tar.h"
 #include "import-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -138,7 +139,8 @@ static void on_tar_finished(TarImport *import, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int verb_import_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
+VERB(verb_tar, "tar", "FILE [NAME]", 2, 3, 0, "Import a TAR image");
+static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(tar_import_unrefp) TarImport *import = NULL;
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -207,7 +209,8 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int verb_import_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
+VERB(verb_raw, "raw", "FILE [NAME]", 2, 3, 0, "Import a RAW image");
+static int verb_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(raw_import_unrefp) RawImport *import = NULL;
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -269,193 +272,152 @@ static int verb_import_raw(int argc, char *argv[], uintptr_t _data, void *userda
 }
 
 static int help(void) {
-        printf("%1$s [OPTIONS...] {COMMAND} ...\n"
-               "\n%4$sImport disk images.%5$s\n"
-               "\n%2$sCommands:%3$s\n"
-               "  tar FILE [NAME]             Import a TAR image\n"
-               "  raw FILE [NAME]             Import a RAW image\n"
-               "\n%2$sOptions:%3$s\n"
-               "  -h --help                   Show this help\n"
-               "     --version                Show package version\n"
-               "     --force                  Force creation of image\n"
-               "     --image-root=PATH        Image root directory\n"
-               "     --read-only              Create a read-only image\n"
-               "     --direct                 Import directly to specified file\n"
-               "     --btrfs-subvol=BOOL      Controls whether to create a btrfs subvolume\n"
-               "                              instead of a directory\n"
-               "     --btrfs-quota=BOOL       Controls whether to set up quota for btrfs\n"
-               "                              subvolume\n"
-               "     --convert-qcow2=BOOL     Controls whether to convert QCOW2 images to\n"
-               "                              regular disk images\n"
-               "     --sync=BOOL              Controls whether to sync() before completing\n"
-               "     --offset=BYTES           Offset to seek to in destination\n"
-               "     --size-max=BYTES         Maximum number of bytes to write to destination\n"
-               "     --class=CLASS            Select image class (machine, sysext, confext,\n"
-               "                              portable)\n"
-               "     --system                 Operate in per-system mode\n"
-               "     --user                   Operate in per-user mode\n",
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
+        int r;
+
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, options);
+
+        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
+               "%sImport disk images.%s\n"
+               "\n%sCommands:%s\n",
                program_invocation_short_name,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
                ansi_normal());
+
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n",
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
 
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP_HIDDEN(help);
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_FORCE,
-                ARG_IMAGE_ROOT,
-                ARG_READ_ONLY,
-                ARG_DIRECT,
-                ARG_BTRFS_SUBVOL,
-                ARG_BTRFS_QUOTA,
-                ARG_CONVERT_QCOW2,
-                ARG_SYNC,
-                ARG_OFFSET,
-                ARG_SIZE_MAX,
-                ARG_CLASS,
-                ARG_SYSTEM,
-                ARG_USER,
-        };
-
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "force",           no_argument,       NULL, ARG_FORCE           },
-                { "image-root",      required_argument, NULL, ARG_IMAGE_ROOT      },
-                { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
-                { "direct",          no_argument,       NULL, ARG_DIRECT          },
-                { "btrfs-subvol",    required_argument, NULL, ARG_BTRFS_SUBVOL    },
-                { "btrfs-quota",     required_argument, NULL, ARG_BTRFS_QUOTA     },
-                { "convert-qcow2",   required_argument, NULL, ARG_CONVERT_QCOW2   },
-                { "sync",            required_argument, NULL, ARG_SYNC            },
-                { "offset",          required_argument, NULL, ARG_OFFSET          },
-                { "size-max",        required_argument, NULL, ARG_SIZE_MAX        },
-                { "class",           required_argument, NULL, ARG_CLASS           },
-                { "system",          no_argument,       NULL, ARG_SYSTEM          },
-                { "user",            no_argument,       NULL, ARG_USER            },
-                {}
-        };
-
-        int r, c;
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_FORCE:
+                OPTION_LONG("force", NULL, "Force creation of image"):
                         arg_import_flags |= IMPORT_FORCE;
                         break;
 
-                case ARG_IMAGE_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image_root);
+                OPTION_LONG("image-root", "PATH", "Image root directory"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image_root);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_READ_ONLY:
+                OPTION_LONG("read-only", NULL, "Create a read-only image"):
                         arg_import_flags |= IMPORT_READ_ONLY;
                         break;
 
-                case ARG_DIRECT:
+                OPTION_LONG("direct", NULL, "Import directly to specified file"):
                         arg_import_flags |= IMPORT_DIRECT;
                         break;
 
-                case ARG_BTRFS_SUBVOL:
-                        r = parse_boolean_argument("--btrfs-subvol=", optarg, NULL);
+                OPTION_LONG("btrfs-subvol", "BOOL",
+                            "Controls whether to create a btrfs subvolume instead of a directory"):
+                        r = parse_boolean_argument("--btrfs-subvol=", arg, NULL);
                         if (r < 0)
                                 return r;
-
                         SET_FLAG(arg_import_flags, IMPORT_BTRFS_SUBVOL, r);
                         break;
 
-                case ARG_BTRFS_QUOTA:
-                        r = parse_boolean_argument("--btrfs-quota=", optarg, NULL);
+                OPTION_LONG("btrfs-quota", "BOOL",
+                            "Controls whether to set up quota for btrfs subvolume"):
+                        r = parse_boolean_argument("--btrfs-quota=", arg, NULL);
                         if (r < 0)
                                 return r;
-
                         SET_FLAG(arg_import_flags, IMPORT_BTRFS_QUOTA, r);
                         break;
 
-                case ARG_CONVERT_QCOW2:
-                        r = parse_boolean_argument("--convert-qcow2=", optarg, NULL);
+                OPTION_LONG("convert-qcow2", "BOOL",
+                            "Controls whether to convert QCOW2 images to regular disk images"):
+                        r = parse_boolean_argument("--convert-qcow2=", arg, NULL);
                         if (r < 0)
                                 return r;
-
                         SET_FLAG(arg_import_flags, IMPORT_CONVERT_QCOW2, r);
                         break;
 
-                case ARG_SYNC:
-                        r = parse_boolean_argument("--sync=", optarg, NULL);
+                OPTION_LONG("sync", "BOOL", "Controls whether to sync() before completing"):
+                        r = parse_boolean_argument("--sync=", arg, NULL);
                         if (r < 0)
                                 return r;
-
                         SET_FLAG(arg_import_flags, IMPORT_SYNC, r);
                         break;
 
-                case ARG_OFFSET: {
+                OPTION_LONG("offset", "BYTES", "Offset to seek to in destination"): {
                         uint64_t u;
 
-                        r = safe_atou64(optarg, &u);
+                        r = safe_atou64(arg, &u);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --offset= argument: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --offset= argument: %s", arg);
                         if (!FILE_SIZE_VALID(u))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument to --offset= switch too large: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument to --offset= switch too large: %s", arg);
 
                         arg_offset = u;
                         break;
                 }
 
-                case ARG_SIZE_MAX: {
+                OPTION_LONG("size-max", "BYTES", "Maximum number of bytes to write to destination"): {
                         uint64_t u;
 
-                        r = parse_size(optarg, 1024, &u);
+                        r = parse_size(arg, 1024, &u);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --size-max= argument: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --size-max= argument: %s", arg);
                         if (!FILE_SIZE_VALID(u))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument to --size-max= switch too large: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument to --size-max= switch too large: %s", arg);
 
                         arg_size_max = u;
                         break;
                 }
 
-                case ARG_CLASS:
-                        arg_class = image_class_from_string(optarg);
+                OPTION_LONG("class", "CLASS",
+                            "Select image class (machine, sysext, confext, portable)"):
+                        arg_class = image_class_from_string(arg);
                         if (arg_class < 0)
-                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", optarg);
-
+                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", arg);
                         break;
 
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, "Operate in per-system mode"):
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
-                case ARG_USER:
+                OPTION_LONG("user", NULL, "Operate in per-user mode"):
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         /* Make sure offset+size is still in the valid range if both set */
@@ -476,18 +438,8 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_runtime_scope == RUNTIME_SCOPE_USER)
                 arg_import_flags |= IMPORT_FOREIGN_UID;
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
-}
-
-static int import_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0, verb_help       },
-                { "tar",  2,        3,        0, verb_import_tar },
-                { "raw",  2,        3,        0, verb_import_raw },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 static void parse_env(void) {
@@ -523,13 +475,14 @@ static int run(int argc, char *argv[]) {
 
         parse_env();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
         (void) ignore_signals(SIGPIPE);
 
-        return import_main(argc, argv);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);
