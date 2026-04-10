@@ -112,7 +112,8 @@ static sd_device* handle_scsi_fibre_channel(sd_device *parent, char **path) {
         if (sd_device_get_sysattr_value(fcdev, "port_name", &port) < 0)
                 return NULL;
 
-        format_lun_number(parent, &lun);
+        if (format_lun_number(parent, &lun) < 0)
+                return NULL;
         path_prepend(path, "fc-%s-%s", port, lun);
         return parent;
 }
@@ -137,7 +138,8 @@ static sd_device* handle_scsi_sas_wide_port(sd_device *parent, char **path) {
         if (sd_device_get_sysattr_value(sasdev, "sas_address", &sas_address) < 0)
                 return NULL;
 
-        format_lun_number(parent, &lun);
+        if (format_lun_number(parent, &lun) < 0)
+                return NULL;
         path_prepend(path, "sas-%s-%s", sas_address, lun);
         return parent;
 }
@@ -192,7 +194,8 @@ static sd_device* handle_scsi_sas(sd_device *parent, char **path) {
                         return NULL;
         }
 
-        format_lun_number(parent, &lun);
+        if (format_lun_number(parent, &lun) < 0)
+                return NULL;
         if (sas_address)
                  path_prepend(path, "sas-exp%s-phy%s-%s", sas_address, phy_id, lun);
         else
@@ -239,7 +242,8 @@ static sd_device* handle_scsi_iscsi(sd_device *parent, char **path) {
         if (sd_device_get_sysattr_value(conndev, "persistent_port", &port) < 0)
                 return NULL;
 
-        format_lun_number(parent, &lun);
+        if (format_lun_number(parent, &lun) < 0)
+                return NULL;
         path_prepend(path, "ip-%s:%s-iscsi-%s-%s", addr, port, target, lun);
         return parent;
 }
@@ -390,7 +394,8 @@ static sd_device* handle_scsi_hyperv(sd_device *parent, char **path, size_t guid
         }
         guid[k] = '\0';
 
-        format_lun_number(parent, &lun);
+        if (format_lun_number(parent, &lun) < 0)
+                return NULL;
         path_prepend(path, "vmbus-%s-%s", guid, lun);
         return parent;
 }
