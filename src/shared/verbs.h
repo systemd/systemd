@@ -39,19 +39,27 @@ typedef struct {
                 .help = h,                                              \
         }
 
-#define VERB_FULL(d, v, a, amin, amax, f, dat, h)                       \
+/* Forward-define function d. scope specifies the scope, e.g. static. */
+#define VERB_FULL_SCOPE(d, v, a, amin, amax, f, dat, scope, h)          \
         DISABLE_WARNING_REDUNDANT_DECLS                                 \
-        static int d(int, char**, uintptr_t, void*);                    \
+        scope int d(int, char**, uintptr_t, void*);                     \
         REENABLE_WARNING                                                \
         _VERB_DATA(d, v, a, amin, amax, f, dat, h)
+/* The same as VERB_FULL_SCOPE, but without the scope argument */
+#define VERB_FULL(d, v, a, amin, amax, f, dat, h)                       \
+        VERB_FULL_SCOPE(d, v, a, amin, amax, f, dat, static, h)
 
 /* The same as VERB_FULL, but without the data argument */
+#define VERB_SCOPE(d, v, a, amin, amax, f, scope, h)                    \
+        VERB_FULL_SCOPE(d, v, a, amin, amax, f, /* dat= */ 0, scope, h)
 #define VERB(d, v, a, amin, amax, f, h)                                 \
-        VERB_FULL(d, v, a, amin, amax, f, /* dat= */ 0, h)
+        VERB_SCOPE(d, v, a, amin, amax, f, static, h)
 
 /* Simplified VERB for parameters that take no argument */
+#define VERB_NOARG_SCOPE(d, v, scope, h)                                \
+        VERB_SCOPE(d, v, /* a= */ NULL, /* amin= */ VERB_ANY, /* amax= */ 1, /* f= */ 0, scope, h)
 #define VERB_NOARG(d, v, h)                                             \
-        VERB(d, v, /* a= */ NULL, /* amin= */ VERB_ANY, /* amax= */ 1, /* f= */ 0, h)
+        VERB_NOARG_SCOPE(d, v, static, h)
 
 /* Magic entry in the table (which will not be returned) that designates the start of the group <gr>.
  * The macro works as a separator between groups and must be between other VERB* stanzas. */
