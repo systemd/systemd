@@ -1341,6 +1341,28 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><option>--restrict-address-families=</option></term>
+
+        <listitem><para>Restrict the socket address families accessible to the container. Takes a
+        space-separated list of address family names, such as <constant>AF_INET</constant>,
+        <constant>AF_INET6</constant> or <constant>AF_UNIX</constant>. When prefixed with
+        <literal>~</literal> the listed address families will be prohibited, otherwise they will be permitted
+        (allowlisted). Use the special value <literal>none</literal> to prohibit all address families. This
+        option may be specified more than once, in which case the configured lists are combined. If both a
+        positive and a negative list are configured, the negative list takes precedence over the positive
+        list.</para>
+
+        <para>Note that currently this option defaults to no restrictions, i.e. all address families are
+        accessible. In a future version of systemd, the default will be changed to restrict address families to
+        <constant>AF_INET</constant>, <constant>AF_INET6</constant> and <constant>AF_UNIX</constant>. Use
+        <option>--restrict-address-families=</option> (with an empty argument) or set
+        <varname>RestrictAddressFamilies=</varname> in a <filename>.nspawn</filename> file to opt out of
+        filtering explicitly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-Z</option></term>
         <term><option>--selinux-context=</option></term>
 
