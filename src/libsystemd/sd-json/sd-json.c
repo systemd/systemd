@@ -3117,6 +3117,12 @@ static int json_parse_internal(
                                 goto finish;
                         }
 
+                        /* n_stack includes the top level entry, hence > instead of >= */
+                        if (n_stack > DEPTH_MAX) {
+                                r = -ELNRNG;
+                                goto finish;
+                        }
+
                         if (!GREEDY_REALLOC(stack, n_stack+1)) {
                                 r = -ENOMEM;
                                 goto finish;
@@ -3165,6 +3171,12 @@ static int json_parse_internal(
                 case JSON_TOKEN_ARRAY_OPEN:
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT)) {
                                 r = -EINVAL;
+                                goto finish;
+                        }
+
+                        /* n_stack includes the top level entry, hence > instead of >= */
+                        if (n_stack > DEPTH_MAX) {
+                                r = -ELNRNG;
                                 goto finish;
                         }
 
