@@ -519,6 +519,106 @@ systemctl show -P Markers "$UNIT_NAME" | grep needs-stop
 (! systemctl show -P Markers "$UNIT_NAME" | grep needs-reload)
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": []}}"
 
+# Test io.systemd.Unit.StartTransient
+MANAGER_SOCKET="/run/systemd/io.systemd.Manager"
+
+# Basic oneshot transient service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"name":"varlink-transient-test.service","service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}')
+echo "$result" | grep -q '"jobId"'
+
+# Wait for completion
+timeout 30 bash -c 'until systemctl show -P ActiveState varlink-transient-test.service | grep -q inactive; do sleep 0.5; done'
+systemctl show -P Result varlink-transient-test.service | grep -q success
+
+# With explicit mode
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"name":"varlink-transient-test2.service","mode":"fail","service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}')
+echo "$result" | grep -q '"jobId"'
+
+# Streaming: should get intermediate state updates and a final result
+result=$(varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"name":"varlink-transient-test3.service","service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}')
+echo "$result" | grep -q '"state"'
+echo "$result" | grep -q '"result"'
+echo "$result" | grep -q '"done"'
+
+# Error: unit already exists — create a long-running service, then try to create it again while it's active
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"name":"varlink-transient-exists.service","service":{"ExecStart":[{"path":"sleep","arguments":["sleep","infinity"]}]}}'
+timeout 10 bash -c 'until systemctl is-active varlink-transient-exists.service; do sleep 0.5; done'
+(! varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"name":"varlink-transient-exists.service","service":{"ExecStart":[{"path":"sleep","arguments":["sleep","infinity"]}]}}')
+
+# Multiple ExecStart commands (oneshot allows multiple)
+result=$(varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"name":"varlink-transient-multi.service","service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"},{"path":"/bin/true"}]}}')
+echo "$result" | grep -q '"result"'
+echo "$result" | grep -q '"done"'
+
+# Transient service with Description and RemainAfterExit
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"name":"varlink-transient-desc.service","description":"Test description property","service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}')
+echo "$result" | grep -q '"jobId"'
+timeout 10 bash -c 'until systemctl is-active varlink-transient-desc.service; do sleep 0.5; done'
+systemctl show -P Description varlink-transient-desc.service | grep -q "Test description property"
+systemctl show -P RemainAfterExit varlink-transient-desc.service | grep -q "yes"
+
+# Verify that Unit.List returns the same ServiceContext structure we used to create the unit
+list_result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.List '{"name":"varlink-transient-desc.service"}')
+echo "$list_result" | jq -e '.context.Service.Type == "oneshot"'
+echo "$list_result" | jq -e '.context.Service.RemainAfterExit == true'
+echo "$list_result" | jq -e '.context.Service.ExecStart[0].path == "/bin/true"'
+
+# Transient service with arguments — argv[0] is added automatically
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"name":"varlink-transient-args.service","service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/echo","arguments":["/bin/echo","hello"]}]}}')
+echo "$result" | grep -q '"jobId"'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-args.service; do sleep 0.5; done'
+# Verify that Unit.List output includes argv[0] automatically
+list_result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.List '{"name":"varlink-transient-args.service"}')
+echo "$list_result" | jq -e '.context.Service.ExecStart[0].path == "/bin/echo"'
+echo "$list_result" | jq -e '.context.Service.ExecStart[0].arguments == ["/bin/echo", "hello"]'
+
+# Verify that omitting arguments defaults argv[0] to the path
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"name":"varlink-transient-noargs.service","service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}')
+timeout 30 bash -c 'until systemctl is-active varlink-transient-noargs.service; do sleep 0.5; done'
+list_result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.List '{"name":"varlink-transient-noargs.service"}')
+echo "$list_result" | jq -e '.context.Service.ExecStart[0].arguments == ["/bin/true"]'
+
+# Error: invalid mode
+(! varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"name":"varlink-transient-test4.service","mode":"bogus","service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}')
+
+# Error: unsupported unit type (target does not support transient)
+(! varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"name":"varlink-transient-test.target","description":"test"}')
+
+# Error: bad unit setting (missing ExecStart= for non-oneshot service)
+(! varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"name":"varlink-transient-bad.service","service":{"Type":"simple"}}')
+
+# Cleanup
+systemctl stop varlink-transient-test.service 2>/dev/null || true
+systemctl stop varlink-transient-test2.service 2>/dev/null || true
+systemctl stop varlink-transient-test3.service 2>/dev/null || true
+systemctl stop varlink-transient-multi.service 2>/dev/null || true
+systemctl stop varlink-transient-exists.service 2>/dev/null || true
+systemctl stop varlink-transient-desc.service 2>/dev/null || true
+systemctl stop varlink-transient-args.service 2>/dev/null || true
+systemctl stop varlink-transient-noargs.service 2>/dev/null || true
+systemctl stop varlink-transient-bad.service 2>/dev/null || true
+systemctl reset-failed varlink-transient-desc.service 2>/dev/null || true
+systemctl reset-failed varlink-transient-args.service 2>/dev/null || true
+systemctl reset-failed varlink-transient-noargs.service 2>/dev/null || true
+systemctl reset-failed varlink-transient-test.service 2>/dev/null || true
+systemctl reset-failed varlink-transient-test2.service 2>/dev/null || true
+systemctl reset-failed varlink-transient-test3.service 2>/dev/null || true
+systemctl reset-failed varlink-transient-multi.service 2>/dev/null || true
+systemctl reset-failed varlink-transient-exists.service 2>/dev/null || true
+systemctl reset-failed varlink-transient-bad.service 2>/dev/null || true
+
 # --dry-run with destructive verbs
 # kexec is skipped intentionally, as it requires a bit more involved setup
 VERBS=(
