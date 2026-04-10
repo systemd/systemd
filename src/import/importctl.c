@@ -1273,7 +1273,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'N':
-                        arg_import_flags_mask &= ~IMPORT_PULL_KEEP_DOWNLOAD;
+                        arg_import_flags &= ~IMPORT_PULL_KEEP_DOWNLOAD;
                         arg_import_flags_mask |= IMPORT_PULL_KEEP_DOWNLOAD;
                         break;
 
