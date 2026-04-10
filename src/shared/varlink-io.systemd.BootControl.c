@@ -134,6 +134,19 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("If true the boot loader will be registered in an EFI boot entry via EFI variables, otherwise this is omitted"),
                 SD_VARLINK_DEFINE_INPUT(touchVariables, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                Unlink,
+                SD_VARLINK_FIELD_COMMENT("Index into array of file descriptors passed along with this message, pointing to file descriptor to root file system to operate on"),
+                SD_VARLINK_DEFINE_INPUT(rootFileDescriptor, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Root directory to operate relative to. If both this and rootFileDescriptor is specified, this is purely informational. If only this is specified, it is what will be used."),
+                SD_VARLINK_DEFINE_INPUT(rootDirectory, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Selects how to identify boot entries"),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(bootEntryTokenType, BootEntryTokenType, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The ID of the boot loader entry to remove."),
+                SD_VARLINK_DEFINE_INPUT(id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, remove the oldest entry."),
+                SD_VARLINK_DEFINE_INPUT(oldest, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_ERROR(
                 RebootToFirmwareNotSupported);
 
@@ -142,6 +155,9 @@ static SD_VARLINK_DEFINE_ERROR(
 
 static SD_VARLINK_DEFINE_ERROR(
                 NoESPFound);
+
+static SD_VARLINK_DEFINE_ERROR(
+                NoDollarBootFound);
 
 static SD_VARLINK_DEFINE_ERROR(
                 BootEntryTokenUnavailable);
@@ -170,11 +186,15 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_BootEntryTokenType,
                 SD_VARLINK_SYMBOL_COMMENT("Install the boot loader on the ESP."),
                 &vl_method_Install,
+                SD_VARLINK_SYMBOL_COMMENT("Unlink a boot menu item"),
+                &vl_method_Unlink,
                 SD_VARLINK_SYMBOL_COMMENT("SetRebootToFirmware() and GetRebootToFirmware() return this if the firmware does not actually support the reboot-to-firmware-UI concept."),
                 &vl_error_RebootToFirmwareNotSupported,
                 SD_VARLINK_SYMBOL_COMMENT("No boot entry defined."),
                 &vl_error_NoSuchBootEntry,
                 SD_VARLINK_SYMBOL_COMMENT("No EFI System Partition (ESP) found."),
                 &vl_error_NoESPFound,
-                SD_VARLINK_SYMBOL_COMMENT("The select boot entry token could not be determined."),
+                SD_VARLINK_SYMBOL_COMMENT("Neither ESP nor XBOOTLDR found, hence not $BOOT location identified."),
+                &vl_error_NoDollarBootFound,
+                SD_VARLINK_SYMBOL_COMMENT("The selected boot entry token could not be determined."),
                 &vl_error_BootEntryTokenUnavailable);
