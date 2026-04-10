@@ -18,3 +18,12 @@ Subscription to the Security Advisories and/or systemd-security mailing list is 
 Those conditions should be backed by publicly accessible information (ideally, a track of posts and commits from the mail address in question).
 If you fall into one of those categories and wish to be subscribed,
 contact the maintainers or submit a **[subscription request](https://www.redhat.com/mailman/listinfo/systemd-security)**.
+
+# Requirements for a Valid Report
+
+- Please ensure the issue is reproducible on main
+- Please ensure a fully working, end-to-end reproducer is provided
+- Please ensure the reproducer is real-world and not simulated or abstracted
+- Please ensure the reproducer demonstrably violates a security boundary
+- Please do not try to impose any conditions on the project maintainers
+- Please do not disclose a report elsewhere until the project maintainers have either accepted and disclosed it, or rejected it
