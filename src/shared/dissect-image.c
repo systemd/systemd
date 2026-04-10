@@ -81,11 +81,9 @@
 /* how many times to wait for the device nodes to appear */
 #define N_DEVICE_NODE_LIST_ATTEMPTS 10
 
-static int allowed_fstypes(char ***ret_strv) {
-        _cleanup_strv_free_ char **l = NULL;
+static char **allowed_fstypes(void) {
+        char **l;
         const char *e;
-
-        assert(ret_strv);
 
         e = secure_getenv("SYSTEMD_DISSECT_FILE_SYSTEMS");
         if (e)
@@ -99,23 +97,21 @@ static int allowed_fstypes(char ***ret_strv) {
                              "vfat",
                              "xfs");
         if (!l)
-                return -ENOMEM;
+                return ERR_TO_PTR(ENOMEM);
 
-        *ret_strv = TAKE_PTR(l);
-        return 0;
+        return l;
 }
 
 int dissect_fstype_ok(const char *fstype) {
         _cleanup_strv_free_ char **l = NULL;
-        int r;
 
         /* When we automatically mount file systems, be a bit conservative by default what we are willing to
          * mount, just as an extra safety net to not mount with badly maintained legacy file system
          * drivers. */
 
-        r = allowed_fstypes(&l);
-        if (r < 0)
-                return r;
+        l = allowed_fstypes();
+        if (PTR_IS_ERR(l))
+                return PTR_TO_ERR(l);
 
         if (strv_contains(l, fstype))
                 return true;
@@ -191,9 +187,9 @@ static int probe_blkid_filter(blkid_probe p) {
 
         assert(p);
 
-        r = allowed_fstypes(&fstypes);
-        if (r < 0)
-                return r;
+        fstypes = allowed_fstypes();
+        if (PTR_IS_ERR(fstypes))
+                return PTR_TO_ERR(fstypes);
 
         /* allowed_fstypes() returns the list of filesystem types that we are willing to mount. For the
          * blkid probe filter we additionally need to be able to detect crypto_LUKS (so that we can set up
@@ -648,22 +644,20 @@ int dissected_image_name_from_path(const char *path, char **ret) {
 }
 
 #if HAVE_BLKID
-static int dissected_image_new(const char *path, DissectedImage **ret) {
+static DissectedImage *dissected_image_new(const char *path) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_free_ char *name = NULL;
         int r;
 
-        assert(ret);
-
         if (path) {
                 r = dissected_image_name_from_path(path, &name);
                 if (r < 0)
-                        return r;
+                        return ERR_TO_PTR(r);
         }
 
         m = new(DissectedImage, 1);
         if (!m)
-                return -ENOMEM;
+                return ERR_TO_PTR(ENOMEM);
 
         *m = (DissectedImage) {
                 .has_init_system = -1,
@@ -673,8 +667,7 @@ static int dissected_image_new(const char *path, DissectedImage **ret) {
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
                 m->partitions[i] = DISSECTED_PARTITION_NULL;
 
-        *ret = TAKE_PTR(m);
-        return 0;
+        return TAKE_PTR(m);
 }
 #endif
 
@@ -1942,9 +1935,9 @@ int dissected_image_new_from_existing_verity(
         if (!node)
                 return -ENOMEM;
 
-        r = dissected_image_new(src, &dissected_image);
-        if (r < 0)
-                return r;
+        dissected_image = dissected_image_new(src);
+        if (PTR_IS_ERR(dissected_image))
+                return PTR_TO_ERR(dissected_image);
 
         mount_node_fd = open_partition(node, /* is_partition= */ false, /* loop= */ NULL);
         if (mount_node_fd < 0)
@@ -2003,9 +1996,9 @@ int dissect_image_file(
         if (r < 0)
                 return r;
 
-        r = dissected_image_new(path, &m);
-        if (r < 0)
-                return r;
+        m = dissected_image_new(path);
+        if (PTR_IS_ERR(m))
+                return PTR_TO_ERR(m);
 
         m->image_size = st.st_size;
 
@@ -2839,21 +2832,18 @@ static DecryptedImage* decrypted_image_free(DecryptedImage *d) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(DecryptedImage, decrypted_image, decrypted_image_free);
 
 #if HAVE_LIBCRYPTSETUP
-static int decrypted_image_new(DecryptedImage **ret) {
+static DecryptedImage *decrypted_image_new(void) {
         _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
-
-        assert(ret);
 
         d = new(DecryptedImage, 1);
         if (!d)
-                return -ENOMEM;
+                return ERR_TO_PTR(ENOMEM);
 
         *d = (DecryptedImage) {
                 .n_ref = 1,
         };
 
-        *ret = TAKE_PTR(d);
-        return 0;
+        return TAKE_PTR(d);
 }
 
 static uint64_t dissected_image_diskseq(const DissectedImage *di) {
@@ -3522,9 +3512,9 @@ int dissected_image_decrypt(
                 SET_FLAG(flags, DISSECT_IMAGE_VERITY_SHARE, r);
 
 #if HAVE_LIBCRYPTSETUP
-        r = decrypted_image_new(&d);
-        if (r < 0)
-                return r;
+        d = decrypted_image_new();
+        if (PTR_IS_ERR(d))
+                return PTR_TO_ERR(d);
 
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
                 DissectedPartition *p = m->partitions + i;
@@ -4495,9 +4485,9 @@ int dissect_loop_device(
 
         assert(loop);
 
-        r = dissected_image_new(loop->backing_file ?: loop->node, &m);
-        if (r < 0)
-                return r;
+        m = dissected_image_new(loop->backing_file ?: loop->node);
+        if (PTR_IS_ERR(m))
+                return PTR_TO_ERR(m);
 
         m->loop = loop_device_ref(loop);
         m->image_size = m->loop->device_size;
@@ -5266,9 +5256,9 @@ int mountfsd_mount_image_fd(
                 assert(pp.designator >= 0);
 
                 if (!di) {
-                        r = dissected_image_new(/* path= */ NULL, &di);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to allocated new dissected image structure: %m");
+                        di = dissected_image_new(/* path= */ NULL);
+                        if (PTR_IS_ERR(di))
+                                return log_debug_errno(PTR_TO_ERR(di), "Failed to allocate new dissected image structure: %m");
                 }
 
                 if (di->partitions[pp.designator].found)
