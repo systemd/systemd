@@ -20,6 +20,17 @@ CHANGES WITH 261 in spe:
           attestation environments which use hardware CC registers and not the
           TPM quote.
 
+        * TPM-sealed credentials are now pinned to the TPM's SRK by default.
+          This prevents MITM interposer attacks from stealing the decrypted
+          credentials by ensuring that communication with the TPM is protected
+          by a private key only known to the same TPM the credential was sealed
+          to. Additionally, this allows usage of TPM-sealed credentials when
+          the TPM's owner hierarchy is protected with a PIN.
+
+          This feature may be disabled by passing the "--with-key=tpm2-no-srk"
+          option to systemd-creds to create credentials that are backwards
+          compatible with earlier systemd versions.
+
         New features:
 
         * Networking to cloud IMDS services may be locked down for recognized

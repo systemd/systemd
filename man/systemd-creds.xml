@@ -346,6 +346,12 @@
         available but still work on systems lacking support for this. The special value
         <literal>help</literal> may be used to list supported key types.</para>
 
+        <para>systemd v261 and later additionally pin the encrypted credential to the TPM2's SRK to defend
+        against MITM interposer attacks when decrypting credentials. This makes the resulting
+        credentials incompatible with earlier systemd versions. To create credentials that are
+        backwards-compatible with older systemd versions, specify <literal>tpm2-no-srk</literal> or
+        <literal>host+tpm2-no-srk</literal> instead.</para>
+
         <para>The <option>-H</option> switch is a shortcut for <option>--with-key=host</option>. Similar,
         <option>-T</option> is a shortcut for <option>--with-key=tpm2</option>.</para>
 
