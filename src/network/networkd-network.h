@@ -7,6 +7,7 @@
 #include "bridge.h"
 #include "firewall-util.h"
 #include "ipoib.h"
+#include "iovec-wrapper.h"
 #include "net-condition.h"
 #include "network-util.h"
 #include "networkd-bridge-vlan.h"
@@ -123,7 +124,7 @@ typedef struct Network {
         bool dhcp_iaid_set;
         char *dhcp_vendor_class_identifier;
         char *dhcp_mudurl;
-        char **dhcp_user_class;
+        struct iovec_wrapper dhcp_user_class;
         char *dhcp_hostname;
         char *dhcp_label;
         uint64_t dhcp_max_attempts;
@@ -168,8 +169,8 @@ typedef struct Network {
         Set *dhcp_deny_listed_ip;
         Set *dhcp_allow_listed_ip;
         Set *dhcp_request_options;
-        OrderedHashmap *dhcp_client_send_options;
-        OrderedHashmap *dhcp_client_send_vendor_options;
+        Hashmap *dhcp_client_send_options;
+        Hashmap *dhcp_client_send_vendor_options;
         char *dhcp_netlabel;
         NFTSetContext dhcp_nft_set_context;
 
@@ -226,8 +227,8 @@ typedef struct Network {
         usec_t dhcp_server_default_lease_time_usec, dhcp_server_max_lease_time_usec;
         uint32_t dhcp_server_pool_offset;
         uint32_t dhcp_server_pool_size;
-        OrderedHashmap *dhcp_server_send_options;
-        OrderedHashmap *dhcp_server_send_vendor_options;
+        Hashmap *dhcp_server_send_options;
+        Hashmap *dhcp_server_send_vendor_options;
         struct in_addr dhcp_server_boot_server_address;
         char *dhcp_server_boot_server_name;
         char *dhcp_server_boot_filename;
