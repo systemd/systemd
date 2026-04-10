@@ -533,6 +533,40 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestrictExec=</varname></term>
+
+        <listitem><para>Takes a boolean argument or the special value <literal>strict</literal>. Defaults to
+        <literal>no</literal>. When enabled, PID 1 loads a BPF LSM program that enforces a deny-default
+        execution policy: only binaries residing on signed dm-verity block devices (and the initramfs during
+        early boot) are permitted to execute. Execution from tmpfs, procfs, sysfs, unsigned dm-verity devices,
+        and anonymous executable memory mappings is denied.</para>
+
+        <para>The enforcement hooks block <function>execve()</function> of untrusted binaries
+        (<literal>bprm_check_security</literal>), <constant>PROT_EXEC</constant> memory mappings including
+        shared libraries (<literal>mmap_file</literal>), and write-to-execute transitions such as JIT
+        compilation (<literal>file_mprotect</literal>).</para>
+
+        <para>Note that execution from overlayfs mounts is blocked even if the underlying layers reside on
+        signed dm-verity devices, because the BPF program sees the overlay filesystem's anonymous device
+        number rather than the underlying block device. Multi-device filesystems such as btrfs are similarly
+        unsupported.</para>
+
+        <para>This requires the kernel to be booted with <literal>dm_verity.require_signatures=1</literal>
+        on the kernel command line and with BPF LSM enabled (<literal>lsm=...,bpf</literal>). If either
+        prerequisite is not met, PID 1 will refuse to complete startup.</para>
+
+        <para>The value <literal>yes</literal> is equivalent to <literal>strict</literal>. Additional
+        modes may be added in the future.</para>
+
+        <para>This option may also be set via the <varname>systemd.restrict_exec=</varname> kernel command
+        line option, see
+        <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SystemCallArchitectures=</varname></term>
 
         <listitem><para>Takes a space-separated list of architecture
