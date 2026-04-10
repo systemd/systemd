@@ -8766,9 +8766,9 @@ static int context_open_copy_block_paths(
 
                 if (size != UINT64_MAX) {
                         if (size <= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File to copy bytes from '%s' has zero size, refusing.", opened);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to copy bytes from '%s' has zero size, refusing.", opened);
                         if (size % 512 != 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File to copy bytes from '%s' has size that is not multiple of 512, refusing.", opened);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to copy bytes from '%s' has size that is not multiple of 512, refusing.", opened);
                 }
 
                 p->copy_blocks_fd = TAKE_FD(source_fd);
