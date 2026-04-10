@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -10,7 +11,9 @@
 #include "build-path.h"
 #include "chase.h"
 #include "conf-parser.h"
+#include "copy.h"
 #include "dirent-util.h"
+#include "dissect-image.h"
 #include "errno-util.h"
 #include "event-util.h"
 #include "extract-word.h"
@@ -41,6 +44,7 @@
 #include "sysupdate-resource.h"
 #include "sysupdate-transfer.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 #include "web-util.h"
 
 /* Default value for InstancesMax= for fs object targets */
@@ -569,7 +573,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
 
         if (!RESOURCE_IS_SOURCE(t->source.type))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Source Type= must be one of url-file, url-tar, tar, regular-file, directory, subvolume.");
+                                  "Source Type= must be one of url-file, url-tar, url-ddi, tar, ddi, regular-file, directory, subvolume.");
 
         if (t->target.type < 0) {
                 switch (t->source.type) {
@@ -585,6 +589,11 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 case RESOURCE_TAR:
                 case RESOURCE_DIRECTORY:
                         t->target.type = RESOURCE_DIRECTORY;
+                        break;
+
+                case RESOURCE_URL_DDI:
+                case RESOURCE_DDI:
+                        t->target.type = RESOURCE_PARTITION;
                         break;
 
                 case RESOURCE_SUBVOLUME:
@@ -603,7 +612,9 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         if ((IN_SET(t->source.type, RESOURCE_URL_FILE, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE) &&
              !IN_SET(t->target.type, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE)) ||
             (IN_SET(t->source.type, RESOURCE_URL_TAR, RESOURCE_TAR, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME) &&
-             !IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME)))
+             !IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME)) ||
+            (IN_SET(t->source.type, RESOURCE_URL_DDI, RESOURCE_DDI) &&
+             t->target.type != RESOURCE_PARTITION))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Target type '%s' is incompatible with source type '%s', refusing.",
                                   resource_type_to_string(t->target.type), resource_type_to_string(t->source.type));
@@ -621,7 +632,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                                   "PathRelativeTo=explicit can only be used in source specifications.");
 
         if (t->source.path) {
-                if (RESOURCE_IS_FILESYSTEM(t->source.type) || t->source.type == RESOURCE_PARTITION)
+                if (RESOURCE_IS_FILESYSTEM(t->source.type) || IN_SET(t->source.type, RESOURCE_PARTITION, RESOURCE_DDI))
                         if (!path_is_absolute(t->source.path) || !path_is_normalized(t->source.path))
                                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                                   "Source path is not a normalized, absolute path: %s", t->source.path);
@@ -655,6 +666,15 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 if (!t->target.patterns)
                         return log_oom();
         }
+
+        if (IN_SET(t->source.type, RESOURCE_DDI, RESOURCE_URL_DDI) && !t->target.partition_type_set)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "DDI sources require Target MatchPartitionType= to be specified.");
+
+        if (IN_SET(t->source.type, RESOURCE_DDI, RESOURCE_URL_DDI) &&
+            t->target.partition_type.designator < 0)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "DDI sources require a target MatchPartitionType= with a known partition designator.");
 
         if (t->current_symlink && !RESOURCE_IS_FILESYSTEM(t->target.type) && !path_is_absolute(t->current_symlink))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -1002,6 +1022,59 @@ static CalloutContext *callout_context_free(CalloutContext *ctx) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(CalloutContext*, callout_context_free);
 
+typedef struct ProgressRange {
+        TransferProgress callback;
+        void *userdata;
+        unsigned start;
+        unsigned end;
+} ProgressRange;
+
+typedef struct DdiCopyProgress {
+        const Transfer *transfer;
+        const Instance *instance;
+        ProgressRange range;
+        uint64_t size;
+} DdiCopyProgress;
+
+static int progress_range_callback(
+                const Transfer *t,
+                const Instance *i,
+                unsigned percentage,
+                void *userdata) {
+
+        ProgressRange *range = ASSERT_PTR(userdata);
+        uint64_t scaled;
+
+        assert(t);
+        assert(i);
+        assert(range->callback);
+        assert(range->start <= range->end);
+        assert(percentage <= 100);
+
+        scaled = range->start + ((uint64_t) (range->end - range->start) * percentage) / 100;
+        return range->callback(t, i, MIN((unsigned) scaled, 100U), range->userdata);
+}
+
+static int ddi_copy_progress(uint64_t n_bytes, uint64_t bytes_per_second, void *userdata) {
+        DdiCopyProgress *p = ASSERT_PTR(userdata);
+        unsigned percentage;
+
+        (void) bytes_per_second;
+
+        assert(p->transfer);
+        assert(p->instance);
+        assert(p->range.callback);
+
+        if (p->size == 0)
+                percentage = 100;
+        else if (p->size > 100)
+                percentage = (unsigned) MIN(n_bytes / MAX(p->size / 100, UINT64_C(1)), UINT64_C(100));
+        else
+                percentage = (unsigned) MIN((n_bytes * 100) / p->size, UINT64_C(100));
+
+        return progress_range_callback(p->transfer, p->instance, percentage, &p->range);
+}
+
 static int callout_context_new(const Transfer *t, const Instance *i, TransferProgress cb,
                                const char *name, void* userdata, CalloutContext **ret) {
         _cleanup_(callout_context_freep) CalloutContext *ctx = NULL;
@@ -1096,7 +1169,7 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 if (progress < 0)
                         log_warning("Got invalid percent value '%s', ignoring.", progress_str);
                 else {
-                        r = ctx->callback(ctx->transfer, ctx->instance, progress);
+                        r = ctx->callback(ctx->transfer, ctx->instance, progress, ctx->userdata);
                         if (r < 0)
                                 return r;
                 }
@@ -1258,6 +1331,265 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
         return 0;
 }
 
+static int transfer_ensure_ddi_target_type(Transfer *t) {
+        assert(t);
+
+        if (t->target.type != RESOURCE_PARTITION)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "DDI sources require a partition target.");
+
+        if (!t->target.partition_type_set)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "DDI sources require MatchPartitionType= to be set.");
+
+        if (t->target.partition_type.designator < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "DDI sources require a target partition type with a known designator.");
+
+        return 0;
+}
+
+static int transfer_download_url_to_temporary(
+                Transfer *t,
+                Instance *i,
+                const char *digest,
+                ProgressRange *progress,
+                const char **ret_path) {
+
+        _cleanup_(unlink_and_freep) char *temporary = NULL;
+        const char *cached;
+        int r;
+
+        assert(t);
+        assert(i);
+        assert(digest);
+        assert(progress);
+        assert(ret_path);
+
+        cached = context_get_cached_ddi_path(t->context, i->path);
+        if (cached) {
+                *ret_path = cached;
+                return 1;
+        }
+
+        r = tempfn_random_child(/* p= */ NULL, "systemd-sysupdate-ddi.", &temporary);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate temporary path for DDI download: %m");
+
+        r = run_callout("(sd-pull-raw)",
+                        STRV_MAKE(
+                                SYSTEMD_PULL_PATH,
+                                "raw",
+                                "--direct",
+                                "--verify", digest,
+                                "--sync=no",
+                                i->path,
+                                temporary),
+                        t, i, progress_range_callback, progress);
+        if (r < 0)
+                return r;
+
+        r = context_put_cached_ddi_path(t->context, i->path, TAKE_PTR(temporary));
+        if (r < 0)
+                return log_error_errno(r, "Failed to cache downloaded DDI '%s': %m", i->path);
+
+        cached = context_get_cached_ddi_path(t->context, i->path);
+        assert(cached);
+
+        *ret_path = cached;
+        return 0;
+}
+
+static int transfer_acquire_ddi_instance(
+                Transfer *t,
+                Instance *i,
+                InstanceMetadata *f,
+                TransferProgress cb,
+                void *userdata) {
+
+        _cleanup_(dissected_image_unrefp) DissectedImage *image = NULL;
+        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+        _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
+        _cleanup_free_ char *digest = NULL;
+        ProgressRange download_progress = {
+                .callback = cb,
+                .userdata = userdata,
+                .start = 0,
+                .end = 50,
+        };
+        ProgressRange extract_progress = {
+                .callback = cb,
+                .userdata = userdata,
+                .start = 0,
+                .end = 100,
+        };
+        DdiCopyProgress copy_progress;
+        const DissectedPartition *source_partition;
+        const char *image_path, *where;
+        int r;
+
+        assert(t);
+        assert(i);
+        assert(f);
+        assert(cb);
+
+        r = transfer_ensure_ddi_target_type(t);
+        if (r < 0)
+                return r;
+
+        image_path = i->path;
+        if (i->resource->type == RESOURCE_URL_DDI) {
+                if (!i->metadata.sha256sum_set)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 checksum not known for DDI download '%s', refusing.", i->path);
+
+                digest = hexmem(i->metadata.sha256sum, sizeof(i->metadata.sha256sum));
+                if (!digest)
+                        return log_oom();
+
+                r = transfer_download_url_to_temporary(t, i, digest, &download_progress, &image_path);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        extract_progress.start = 50;
+        }
+
+        if (partition_designator_is_verity(t->target.partition_type.designator)) {
+                verity.designator = partition_verity_to_data(t->target.partition_type.designator);
+                if (verity.designator < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Failed to derive data partition designator for '%s'.",
+                                               partition_designator_to_string(t->target.partition_type.designator));
+        }
+
+        r = dissect_image_file_and_warn(
+                        image_path,
+                        verity.designator >= 0 ? &verity : NULL,
+                        /* mount_options= */ NULL,
+                        /* image_policy= */ NULL,
+                        /* filter= */ NULL,
+                        DISSECT_IMAGE_READ_ONLY |
+                        DISSECT_IMAGE_GPT_ONLY |
+                        DISSECT_IMAGE_USR_NO_ROOT |
+                        DISSECT_IMAGE_ALLOW_EMPTY,
+                        &image);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dissect DDI '%s': %m", image_path);
+
+        source_partition = image->partitions + t->target.partition_type.designator;
+        if (!source_partition->found)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "DDI '%s' does not contain a %s partition.",
+                                       image_path,
+                                       partition_designator_to_string(t->target.partition_type.designator));
+
+        if (IN_SET(source_partition->offset, UINT64_MAX, 0) || source_partition->size == UINT64_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "DDI '%s' did not report a usable offset/size for the %s partition.",
+                                       image_path,
+                                       partition_designator_to_string(t->target.partition_type.designator));
+
+        r = find_suitable_partition(
+                        t->target.path,
+                        source_partition->size,
+                        &t->target.partition_type.uuid,
+                        &t->partition_info);
+        if (r < 0)
+                return r;
+
+        r = free_and_strdup_warn(&t->partition_info.label, t->final_partition_label);
+        if (r < 0)
+                return r;
+
+        t->partition_info.type = t->partition_type_partial;
+        t->partition_change = PARTITION_LABEL | PARTITION_TYPE;
+
+        log_debug("Marking partition '%s' as partial (label='%s', type=%s).",
+                  strna(t->partition_info.device),
+                  t->partition_info.label,
+                  SD_ID128_TO_UUID_STRING(t->partition_info.type));
+        r = patch_partition(t->target.path, &t->partition_info, t->partition_change);
+        if (r < 0)
+                return r;
+
+        where = strna(t->partition_info.device);
+        log_info("%s Acquiring %s %s %s...", glyph(GLYPH_DOWNLOAD), i->path, glyph(GLYPH_ARROW_RIGHT), where);
+
+        source_fd = open(image_path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (source_fd < 0)
+                return log_error_errno(errno, "Failed to open DDI '%s': %m", image_path);
+
+        target_fd = open(t->target.path, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        if (target_fd < 0)
+                return log_error_errno(errno, "Failed to open target '%s': %m", t->target.path);
+
+        if (lseek(source_fd, source_partition->offset, SEEK_SET) < 0)
+                return log_error_errno(errno, "Failed to seek to DDI partition offset in '%s': %m", image_path);
+
+        if (lseek(target_fd, t->partition_info.start, SEEK_SET) < 0)
+                return log_error_errno(errno, "Failed to seek to target partition offset in '%s': %m", t->target.path);
+
+        copy_progress = (DdiCopyProgress) {
+                .transfer = t,
+                .instance = i,
+                .range = extract_progress,
+                .size = source_partition->size,
+        };
+
+        r = copy_bytes_full(
+                        source_fd,
+                        target_fd,
+                        source_partition->size,
+                        arg_sync ? COPY_FSYNC : 0,
+                        /* ret_remains= */ NULL,
+                        /* ret_remains_size= */ NULL,
+                        ddi_copy_progress,
+                        &copy_progress);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract %s partition from DDI '%s' into '%s': %m",
+                                       partition_designator_to_string(t->target.partition_type.designator),
+                                       image_path,
+                                       t->target.path);
+
+        r = progress_range_callback(t, i, 100, &extract_progress);
+        if (r < 0)
+                return r;
+
+        t->partition_info.type = t->partition_type_pending;
+        t->partition_change = PARTITION_TYPE;
+
+        if (f->partition_uuid_set) {
+                t->partition_info.uuid = f->partition_uuid;
+                t->partition_change |= PARTITION_UUID;
+        }
+
+        if (f->partition_flags_set) {
+                t->partition_info.flags = f->partition_flags;
+                t->partition_change |= PARTITION_FLAGS;
+        }
+
+        if (f->no_auto >= 0) {
+                t->partition_info.no_auto = f->no_auto;
+                t->partition_change |= PARTITION_NO_AUTO;
+        }
+
+        if (f->read_only >= 0) {
+                t->partition_info.read_only = f->read_only;
+                t->partition_change |= PARTITION_READ_ONLY;
+        }
+
+        if (f->growfs >= 0) {
+                t->partition_info.growfs = f->growfs;
+                t->partition_change |= PARTITION_GROWFS;
+        }
+
+        log_debug("Marking partition '%s' as pending (type=%s).",
+                  strna(t->partition_info.device),
+                  SD_ID128_TO_UUID_STRING(t->partition_info.type));
+        r = patch_partition(t->target.path, &t->partition_info, t->partition_change);
+        if (r < 0)
+                return r;
+
+        log_info("Successfully acquired '%s'.", i->path);
+        return 0;
+}
+
 int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, TransferProgress cb, void *userdata) {
         _cleanup_free_ char *digest = NULL;
         char offset[DECIMAL_STR_MAX(uint64_t)+1], max_size[DECIMAL_STR_MAX(uint64_t)+1];
@@ -1279,6 +1611,9 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                 log_info("No need to acquire '%s', already installed.", i->path);
                 return 0;
         }
+
+        if (IN_SET(i->resource->type, RESOURCE_DDI, RESOURCE_URL_DDI))
+                return transfer_acquire_ddi_instance(t, i, f, cb, userdata);
 
         if (RESOURCE_IS_FILESYSTEM(t->target.type)) {
                 r = mkdir_parents(t->temporary_partial_path, 0755);
@@ -1488,6 +1823,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                 t, i, cb, userdata);
                 break;
 
+        case RESOURCE_DDI:
+        case RESOURCE_URL_DDI:
         default:
                 assert_not_reached();
         }

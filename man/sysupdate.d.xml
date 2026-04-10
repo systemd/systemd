@@ -178,6 +178,19 @@
       use of <filename>SHA256SUMS</filename> files, authenticated via
       <filename>SHA256SUMS.gpg</filename>.</para></listitem>
 
+      <listitem><para>The <literal>url-ddi</literal> resource type encapsulates a Discoverable Disk Image
+      (DDI) on a web server, referenced via a HTTP or HTTPS URL. When an update takes place, the image is
+      downloaded and the GPT partition selected by the target's <varname>MatchPartitionType=</varname>
+      setting is extracted and written to the target partition. This resource type is only available for
+      sources, not for targets. Like <literal>url-file</literal>, version enumeration makes use of
+      <filename>SHA256SUMS</filename> files, authenticated via
+      <filename>SHA256SUMS.gpg</filename>.</para></listitem>
+
+      <listitem><para>The <literal>ddi</literal> resource type is the local equivalent of
+      <literal>url-ddi</literal>, and encapsulates local DDI files on disk. During updates, the GPT
+      partition selected by the target's <varname>MatchPartitionType=</varname> setting is extracted and
+      written to the target partition. This resource type is only available for sources.</para></listitem>
+
       <listitem><para>The <literal>regular-file</literal> resource type encapsulates a local regular file on
       disk. During updates the file is uncompressed and written to the target file or partition. This
       resource type is available both as source and as target. When updating no integrity or authentication
@@ -249,6 +262,28 @@
             <entry><constant>directory</constant>, <constant>subvolume</constant></entry>
             <entry>yes</entry>
             <entry>yes</entry>
+            <entry>no</entry>
+            <entry>-</entry>
+          </row>
+
+          <row>
+            <entry><constant>url-ddi</constant></entry>
+            <entry>HTTP/HTTPS DDIs</entry>
+            <entry>yes</entry>
+            <entry><constant>partition</constant></entry>
+            <entry>yes</entry>
+            <entry>yes</entry>
+            <entry>no</entry>
+            <entry>-</entry>
+          </row>
+
+          <row>
+            <entry><constant>ddi</constant></entry>
+            <entry>Local DDIs</entry>
+            <entry>yes</entry>
+            <entry><constant>partition</constant></entry>
+            <entry>no</entry>
+            <entry>no</entry>
             <entry>no</entry>
             <entry>-</entry>
           </row>
@@ -588,8 +623,9 @@
         <term><varname>Type=</varname></term>
 
         <listitem><para>Specifies the resource type of the source for the transfer. Takes one of
-        <constant>url-file</constant>, <constant>url-tar</constant>, <constant>tar</constant>,
-        <constant>regular-file</constant>, <constant>directory</constant> or
+        <constant>url-file</constant>, <constant>url-tar</constant>, <constant>url-ddi</constant>,
+        <constant>tar</constant>, <constant>ddi</constant>, <constant>regular-file</constant>,
+        <constant>directory</constant> or
         <constant>subvolume</constant>. For details about the resource types, see above. This option is
         mandatory.</para>
 
@@ -606,8 +642,8 @@
 
         <listitem><para>Specifies where to find source versions of this resource.</para>
 
-        <para>If the source type is selected as <constant>url-file</constant> or
-        <constant>url-tar</constant> this must be a HTTP/HTTPS URL. The URL is suffixed with
+        <para>If the source type is selected as <constant>url-file</constant>,
+        <constant>url-tar</constant>, or <constant>url-ddi</constant>, this must be a HTTP/HTTPS URL. The URL is suffixed with
         <filename>/SHA256SUMS</filename> to acquire the manifest file, with
         <filename>/SHA256SUMS.gpg</filename> to acquire the detached signature file for it, and with the file
         names listed in the manifest file in case an update is executed and a resource shall be
@@ -629,8 +665,8 @@
         wildcard, so that a version identifier may be extracted from the filename. All other wildcards are
         optional.</para>
 
-        <para>If the source type is <constant>regular-file</constant> or <constant>directory</constant>, the
-        pattern may contain slash characters. In this case, it will match the file or directory in
+        <para>If the source type is <constant>regular-file</constant>, <constant>ddi</constant>, or
+        <constant>directory</constant>, the pattern may contain slash characters. In this case, it will match the file or directory in
         corresponding subdirectory. For example <literal>MatchPattern=foo_@v/bar.efi</literal> will match
         <literal>bar.efi</literal> in directory <literal>foo_1</literal>. </para>
 
@@ -743,7 +779,9 @@
         partitions are ignored. If not specified, the GPT partition type <constant>linux-generic</constant>
         is used. Accepts either a literal type UUID or a symbolic type identifier. For a list of supported
         type identifiers, see the <varname>Type=</varname> setting in
-        <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        This setting is required when the source <varname>Type=</varname> is <constant>ddi</constant> or
+        <constant>url-ddi</constant>, so that the matching partition can be extracted from the image.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>

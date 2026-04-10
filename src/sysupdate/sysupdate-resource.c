@@ -205,7 +205,7 @@ static int resource_load_from_directory(
         _cleanup_closedir_ DIR *d = NULL;
 
         assert(rr);
-        assert(IN_SET(rr->type, RESOURCE_TAR, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME));
+        assert(IN_SET(rr->type, RESOURCE_TAR, RESOURCE_DDI, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME));
         assert(IN_SET(m, S_IFREG, S_IFDIR));
 
         d = opendir(rr->path);
@@ -628,6 +628,7 @@ int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
         switch (rr->type) {
 
         case RESOURCE_TAR:
+        case RESOURCE_DDI:
         case RESOURCE_REGULAR_FILE:
                 r = resource_load_from_directory(rr, S_IFREG);
                 break;
@@ -643,6 +644,7 @@ int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
 
         case RESOURCE_URL_FILE:
         case RESOURCE_URL_TAR:
+        case RESOURCE_URL_DDI:
                 r = resource_load_from_web(rr, verify, web_cache);
                 break;
 
@@ -735,9 +737,9 @@ int resource_resolve_path(
         assert(rr);
 
         if (IN_SET(rr->path_relative_to, PATH_RELATIVE_TO_ESP, PATH_RELATIVE_TO_XBOOTLDR, PATH_RELATIVE_TO_BOOT) &&
-            !IN_SET(rr->type, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY))
+            !IN_SET(rr->type, RESOURCE_DDI, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Paths relative to %s are only allowed for regular-file or directory resources.",
+                                       "Paths relative to %s are only allowed for ddi, regular-file, or directory resources.",
                                        path_relative_to_to_string(rr->path_relative_to));
 
         if (rr->path_auto) {
@@ -821,7 +823,7 @@ int resource_resolve_path(
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine block device of file system: %m");
 
-        } else if (RESOURCE_IS_FILESYSTEM(rr->type)) {
+        } else if (RESOURCE_IS_FILESYSTEM(rr->type) || rr->type == RESOURCE_DDI) {
                 _cleanup_free_ char *resolved = NULL, *relative_to = NULL;
                 ChaseFlags chase_flags = CHASE_NONEXISTENT | CHASE_PREFIX_ROOT | CHASE_TRIGGER_AUTOFS;
 
@@ -881,7 +883,9 @@ int resource_resolve_path(
 static const char *resource_type_table[_RESOURCE_TYPE_MAX] = {
         [RESOURCE_URL_FILE]     = "url-file",
         [RESOURCE_URL_TAR]      = "url-tar",
+        [RESOURCE_URL_DDI]      = "url-ddi",
         [RESOURCE_TAR]          = "tar",
+        [RESOURCE_DDI]          = "ddi",
         [RESOURCE_PARTITION]    = "partition",
         [RESOURCE_REGULAR_FILE] = "regular-file",
         [RESOURCE_DIRECTORY]    = "directory",

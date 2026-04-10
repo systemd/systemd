@@ -10,7 +10,9 @@
 #include "constants.h"
 #include "dissect-image.h"
 #include "format-table.h"
+#include "fs-util.h"
 #include "glyph-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
 #include "loop-util.h"
@@ -64,6 +66,27 @@ const Specifier specifier_table[] = {
         {}
 };
 
+typedef struct DdiCacheItem {
+        char *key;
+        char *path;
+} DdiCacheItem;
+
+static DdiCacheItem* ddi_cache_item_free(DdiCacheItem *i) {
+        if (!i)
+                return NULL;
+
+        if (i->path)
+                (void) unlink(i->path);
+
+        free(i->key);
+        free(i->path);
+        return mfree(i);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(DdiCacheItem*, ddi_cache_item_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(ddi_cache_hash_ops, char, string_hash_func, string_compare_func, DdiCacheItem, ddi_cache_item_free);
+
 typedef struct Context {
         Transfer **transfers;
         size_t n_transfers;
@@ -79,6 +102,7 @@ typedef struct Context {
         UpdateSet *newest_installed, *candidate;
 
         Hashmap *web_cache; /* Cache for downloaded resources, keyed by URL */
+        Hashmap *ddi_cache; /* Cache for downloaded DDI paths, keyed by source path */
 } Context;
 
 static Context* context_free(Context *c) {
@@ -100,6 +124,7 @@ static Context* context_free(Context *c) {
         free(c->update_sets);
 
         hashmap_free(c->web_cache);
+        hashmap_free(c->ddi_cache);
 
         return mfree(c);
 }
@@ -109,6 +134,56 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Context*, context_free);
 static Context* context_new(void) {
         /* For now, no fields to initialize non-zero */
         return new0(Context, 1);
+}
+
+const char* context_get_cached_ddi_path(Context *c, const char *key) {
+        DdiCacheItem *i;
+
+        assert(c);
+        assert(key);
+
+        i = hashmap_get(c->ddi_cache, key);
+        if (!i)
+                return NULL;
+
+        return i->path;
+}
+
+int context_put_cached_ddi_path(Context *c, const char *key, char *path) {
+        _cleanup_(ddi_cache_item_freep) DdiCacheItem *item = NULL;
+        _cleanup_free_ char *k = NULL;
+        _cleanup_(unlink_and_freep) char *path_to_free = path;
+        int r;
+
+        assert(c);
+        assert(key);
+        assert(path);
+
+        r = hashmap_ensure_allocated(&c->ddi_cache, &ddi_cache_hash_ops);
+        if (r < 0)
+                return r;
+
+        k = strdup(key);
+        if (!k)
+                return -ENOMEM;
+
+        item = new(DdiCacheItem, 1);
+        if (!item)
+                return -ENOMEM;
+
+        *item = (DdiCacheItem) {
+                .key = TAKE_PTR(k),
+                .path = TAKE_PTR(path_to_free),
+        };
+
+        ddi_cache_item_free(hashmap_remove(c->ddi_cache, key));
+
+        r = hashmap_put(c->ddi_cache, item->key, item);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(item);
+        return 0;
 }
 
 static void free_transfers(Transfer **array, size_t n) {
@@ -977,11 +1052,13 @@ static int context_make_online(Context **ret, const char *node) {
         return 0;
 }
 
-static int context_on_acquire_progress(const Transfer *t, const Instance *inst, unsigned percentage) {
+static int context_on_acquire_progress(const Transfer *t, const Instance *inst, unsigned percentage, void *userdata) {
         const Context *c = ASSERT_PTR(t->context);
         size_t i, n = c->n_transfers;
         uint64_t base, scaled;
         unsigned overall;
+
+        (void) userdata;
 
         for (i = 0; i < n; i++)
                 if (c->transfers[i] == t)

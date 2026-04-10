@@ -56,16 +56,18 @@ at_exit() {
 trap at_exit EXIT
 
 update_checksums() {
-    (cd "$WORKDIR/source" && rm -f BEST-BEFORE-* && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
+    (cd "$WORKDIR/source" && rm -f BEST-BEFORE-* && sha256sum uki* part* ddi* dir-*.tar.gz >SHA256SUMS)
 }
 
 update_checksums_with_best_before() {
-    (cd "$WORKDIR/source" && rm -f BEST-BEFORE-* && touch "BEST-BEFORE-$1" && sha256sum uki* part* dir-*.tar.gz "BEST-BEFORE-$1" >SHA256SUMS)
+    (cd "$WORKDIR/source" && rm -f BEST-BEFORE-* && touch "BEST-BEFORE-$1" && sha256sum uki* part* ddi* dir-*.tar.gz "BEST-BEFORE-$1" >SHA256SUMS)
 }
 
 new_version() {
     local sector_size="${1:?}"
     local version="${2:?}"
+    local ddi_blockdev ddi_disk_size
+    local -a ddi_part_starts
 
     # Create a pair of random partition payloads, and compress one.
     # To make not the initial bytes of part1-xxx.raw accidentally match one of the compression header,
@@ -89,6 +91,34 @@ new_version() {
     echo $RANDOM >"$WORKDIR/source/dir-$version/foo.txt"
     echo $RANDOM >"$WORKDIR/source/dir-$version/bar.txt"
     tar --numeric-owner -C "$WORKDIR/source/dir-$version/" -czf "$WORKDIR/source/dir-$version.tar.gz" .
+
+    ddi_disk_size=$((sector_size * 2048 * 2 + 1024 * 1024 * 2))
+    truncate -s "$ddi_disk_size" "$WORKDIR/source/ddi-$version.raw"
+
+    if [[ -e /dev/loop-control ]]; then
+        ddi_blockdev="$(losetup --find --show --sector-size "$sector_size" "$WORKDIR/source/ddi-$version.raw")"
+        trap '[[ -n "${ddi_blockdev:-}" && -b "$ddi_blockdev" ]] && losetup --detach "$ddi_blockdev"' RETURN
+    else
+        ddi_blockdev="$WORKDIR/source/ddi-$version.raw"
+    fi
+
+    sfdisk "$ddi_blockdev" <<EOF
+label: gpt
+unit: sectors
+sector-size: $sector_size
+
+size=2048, type=4f68bce3-e8cd-4db1-96e7-fbcaf984b709, name=root-$version
+size=2048, type=2c7357ed-ebd2-46d9-aec1-23d437ec2bf5, name=root-verity-$version
+EOF
+
+    mapfile -t ddi_part_starts < <(sfdisk --dump "$ddi_blockdev" | sed -n 's/.*start= *\([0-9]\+\),.*/\1/p')
+    [[ ${#ddi_part_starts[@]} -eq 2 ]]
+
+    dd if="$WORKDIR/source/part1-$version.raw" of="$WORKDIR/source/ddi-$version.raw" bs="$sector_size" seek="${ddi_part_starts[0]}" conv=notrunc
+    dd if="$WORKDIR/source/part2-$version.raw" of="$WORKDIR/source/ddi-$version.raw" bs="$sector_size" seek="${ddi_part_starts[1]}" conv=notrunc
+
+    [[ -b "$ddi_blockdev" ]] && losetup --detach "$ddi_blockdev"
+    trap - RETURN
 
     update_checksums
 }
@@ -437,6 +467,74 @@ EOF
     verify_version "$blockdev" "$sector_size" v6 1
     verify_version_current "$blockdev" "$sector_size" v7 2
 
+    # Create eighth version, update from a local DDI, and verify that the
+    # root and root-verity targets are extracted from the same source image.
+    new_version "$sector_size" v8
+
+    cat >"$CONFIGDIR/01-first.transfer" <<EOF
+[Source]
+Type=ddi
+Path=$WORKDIR/source
+MatchPattern=ddi-@v.raw
+
+[Target]
+Type=partition
+Path=$blockdev
+MatchPattern=part1-@v
+MatchPartitionType=root-x86-64
+EOF
+
+    cat >"$CONFIGDIR/02-second.transfer" <<EOF
+[Source]
+Type=ddi
+Path=$WORKDIR/source
+MatchPattern=ddi-@v.raw
+
+[Target]
+Type=partition
+Path=$blockdev
+MatchPattern=a-very-long-partition-name-@v
+MatchPartitionType=root-x86-64-verity
+EOF
+
+    update_now "$update_type"
+    verify_version_current "$blockdev" "$sector_size" v8 1
+    verify_version "$blockdev" "$sector_size" v7 2
+
+    # Create ninth version, update from a file:// URL DDI, and verify that we
+    # can again extract both target partitions from one downloaded image.
+    new_version "$sector_size" v9
+
+    cat >"$CONFIGDIR/01-first.transfer" <<EOF
+[Source]
+Type=url-ddi
+Path=file://$WORKDIR/source
+MatchPattern=ddi-@v.raw
+
+[Target]
+Type=partition
+Path=$blockdev
+MatchPattern=part1-@v
+MatchPartitionType=root-x86-64
+EOF
+
+    cat >"$CONFIGDIR/02-second.transfer" <<EOF
+[Source]
+Type=url-ddi
+Path=file://$WORKDIR/source
+MatchPattern=ddi-@v.raw
+
+[Target]
+Type=partition
+Path=$blockdev
+MatchPattern=a-very-long-partition-name-@v
+MatchPartitionType=root-x86-64-verity
+EOF
+
+    update_now "$update_type"
+    verify_version "$blockdev" "$sector_size" v8 1
+    verify_version_current "$blockdev" "$sector_size" v9 2
+
     # Check with a best before in the past
     update_checksums_with_best_before "$(date -u +'%Y-%m-%d' -d 'last month')"
     (! "$SYSUPDATE" --verify=no update)
@@ -455,10 +553,10 @@ EOF
     # Let's make sure that we don't break our backwards-compat for .conf files
     # (what .transfer files were called before v257)
     for i in "$CONFIGDIR/"*.conf; do echo mv "$i" "${i%.conf}.transfer"; done
-    new_version "$sector_size" v8
+    new_version "$sector_size" v10
     update_now "$update_type"
-    verify_version_current "$blockdev" "$sector_size" v8 1
-    verify_version "$blockdev" "$sector_size" v7 2
+    verify_version_current "$blockdev" "$sector_size" v10 1
+    verify_version "$blockdev" "$sector_size" v9 2
 
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
