@@ -293,6 +293,8 @@ int curl_glue_make(CURL **ret, const char *url, void *userdata) {
         if (curl_easy_setopt(c, CURLOPT_PROTOCOLS_STR, "HTTP,HTTPS,FILE") != CURLE_OK)
 #else
         if (curl_easy_setopt(c, CURLOPT_PROTOCOLS, CURLPROTO_HTTP|CURLPROTO_HTTPS|CURLPROTO_FILE) != CURLE_OK)
+                return -EIO;
+        if (curl_easy_setopt(c, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP|CURLPROTO_HTTPS) != CURLE_OK)
 #endif
                 return -EIO;
 
