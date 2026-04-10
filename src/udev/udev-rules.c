@@ -1841,7 +1841,7 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
         ConfFile **files = NULL;
         size_t n_files = 0;
 
-        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
         r = conf_files_list_strv_full(".rules", /* root= */ NULL, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
                                       (const char* const*) directories, &files, &n_files);

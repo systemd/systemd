@@ -24,7 +24,6 @@ typedef struct DelegatedUserNamespaceInfo {
 }
 
 void delegated_userns_info_done(DelegatedUserNamespaceInfo *info);
-void delegated_userns_info_done_many(DelegatedUserNamespaceInfo infos[], size_t n);
 
 typedef struct UserNamespaceInfo {
         uid_t owner;
