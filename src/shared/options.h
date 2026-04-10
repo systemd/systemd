@@ -5,10 +5,11 @@
 #include "shared-forward.h"
 
 typedef enum OptionFlags {
-        OPTION_OPTIONAL_ARG  = 1U << 0,  /* Same as optional_argument in getopt */
-        OPTION_STOPS_PARSING = 1U << 1,  /* This option acts like "--" */
-        OPTION_GROUP_MARKER  = 1U << 2,  /* Fake option entry to separate groups */
-        OPTION_HELP_ENTRY    = 1U << 3,  /* Fake option entry to insert an additional help line */
+        OPTION_OPTIONAL_ARG        = 1U << 0,  /* Same as optional_argument in getopt */
+        OPTION_STOPS_PARSING       = 1U << 1,  /* This option acts like "--" */
+        OPTION_GROUP_MARKER        = 1U << 2,  /* Fake option entry to separate groups */
+        OPTION_HELP_ENTRY          = 1U << 3,  /* Fake option entry to insert an additional help line */
+        OPTION_HELP_ENTRY_VERBATIM = 1U << 4,  /* Same, but use the long_code in the first column as written */
 } OptionFlags;
 
 typedef struct Option {
