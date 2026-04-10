@@ -50,7 +50,7 @@ struct scsi_id_device {
 
 int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname);
 int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
-                    int page_code, int len);
+                    int page_code, size_t len);
 
 /*
  * Page code values.
