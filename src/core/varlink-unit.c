@@ -24,7 +24,7 @@
 #include "varlink-util.h"
 
 #define JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY(name, value) \
-        SD_JSON_BUILD_PAIR_CONDITION(value > EMERGENCY_ACTION_NONE, name, SD_JSON_BUILD_STRING(emergency_action_to_string(value)))
+        SD_JSON_BUILD_PAIR_CONDITION(value > EMERGENCY_ACTION_NONE, name, JSON_BUILD_STRING_UNDERSCORIFY(emergency_action_to_string(value)))
 
 static int unit_dependencies_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -149,8 +149,8 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("JoinsNamespaceOf", unit_dependencies_build_json, u),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("RequiresMountsFor", unit_mounts_for_build_json, &u->mounts_for),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("WantsMountsFor", unit_mounts_for_build_json, &u->mounts_for),
-                        SD_JSON_BUILD_PAIR_STRING("OnSuccessJobMode", job_mode_to_string(u->on_success_job_mode)),
-                        SD_JSON_BUILD_PAIR_STRING("OnFailureJobMode", job_mode_to_string(u->on_failure_job_mode)),
+                        JSON_BUILD_PAIR_ENUM("OnSuccessJobMode", job_mode_to_string(u->on_success_job_mode)),
+                        JSON_BUILD_PAIR_ENUM("OnFailureJobMode", job_mode_to_string(u->on_failure_job_mode)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("IgnoreOnIsolate", u->ignore_on_isolate),
                         SD_JSON_BUILD_PAIR_BOOLEAN("StopWhenUnneeded", u->stop_when_unneeded),
                         SD_JSON_BUILD_PAIR_BOOLEAN("RefuseManualStart", u->refuse_manual_start),
@@ -158,7 +158,7 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_BOOLEAN("AllowIsolate", u->allow_isolate),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultDependencies", u->default_dependencies),
                         SD_JSON_BUILD_PAIR_BOOLEAN("SurviveFinalKillSignal", u->survive_final_kill_signal),
-                        SD_JSON_BUILD_PAIR_STRING("CollectMode", collect_mode_to_string(u->collect_mode)),
+                        JSON_BUILD_PAIR_ENUM("CollectMode", collect_mode_to_string(u->collect_mode)),
                         JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY("FailureAction", u->failure_action),
                         JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY("SuccessAction", u->success_action),
                         JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE("FailureActionExitStatus", u->failure_action_exit_status),
