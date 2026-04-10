@@ -556,6 +556,49 @@ TEST(depth) {
         fputs("\n", stdout);
 }
 
+static char *prepare_nested_json(const char *open, unsigned depth) {
+        char *s, *p;
+        size_t olen;
+
+        assert_se(open);
+
+        olen = strlen(open);
+        s = p = new(char, olen * depth + 1);
+        if (!s)
+                return NULL;
+
+        for (unsigned i = 0; i < depth; i++)
+                p = mempcpy(p, open, olen);
+        *p = '\0';
+
+        return s;
+}
+
+TEST(parse_depth) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *s = NULL;
+
+        /* Refuse parsing > DEPTH_MAX (currently 2048) levels of nested arrays */
+        s = prepare_nested_json("[", 2049);
+        ASSERT_ERROR(sd_json_parse(s, 0, &v, NULL, NULL), ELNRNG);
+        s = mfree(s);
+
+        /* Same for nested objects */
+        s = prepare_nested_json("{\"a\":", 2049);
+        ASSERT_ERROR(sd_json_parse(s, 0, &v, NULL, NULL), ELNRNG);
+        s = mfree(s);
+
+        /* <= DEPTH_MAX levels of nested arrays should be refused by EINVAL
+         * later in the parsing process */
+        s = prepare_nested_json("[", 2048);
+        ASSERT_ERROR(sd_json_parse(s, 0, &v, NULL, NULL), EINVAL);
+        s = mfree(s);
+
+        /* And the same for nested objects */
+        s = prepare_nested_json("{\"a\":", 2048);
+        ASSERT_ERROR(sd_json_parse(s, 0, &v, NULL, NULL), EINVAL);
+}
+
 TEST(normalize) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
         _cleanup_free_ char *t = NULL;
