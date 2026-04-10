@@ -5,6 +5,8 @@
 
 #include <scsi/scsi.h>
 
+#include "basic-forward.h"
+
 struct scsi_ioctl_command {
         unsigned inlen;        /* excluding scsi command length */
         unsigned outlen;
