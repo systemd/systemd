@@ -122,11 +122,12 @@ Features:
 * sysext: make systemd-{sys,conf}ext-sysroot.service work in the split '/var'
   configuration.
 
-* sd-varlink: add fully async modes of the protocol upgrade stuff
+* introduce a concept of /etc/machine-info "TAGS=" field that allows tagging
+  machines with zero, one or more roles, states or other forms of
+  categorization. Then, add a way of using this in sysupdate to automatically
+  enable certain transfers, one for each role.
 
-* sd-varlink: optimize the read-byte-by-byte mode in case upgrade mode is
-  enabled, via recvmsg() with MSG_SEEK: first read non-destrictively, look for
-  NUL byte, and only then flush out
+* sd-varlink: add fully async modes of the protocol upgrade stuff
 
 * repart: maybe remove iso9660/eltorito superblock from disk when booting via
   gpt, if there is one.
