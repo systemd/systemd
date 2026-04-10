@@ -4,7 +4,6 @@
 ***/
 
 #include <net/if_arp.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -13,602 +12,586 @@
 #include "sd-dhcp-lease.h"
 #include "sd-event.h"
 
-#include "dhcp-duid-internal.h"
-#include "dhcp-network.h"
-#include "dhcp-option.h"
+#include "dhcp-client-internal.h"
+#include "dhcp-message.h"
+#include "dhcp-protocol.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
+#include "in-addr-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "ip-util.h"
 #include "log.h"
+#include "set.h"
+#include "strv.h"
 #include "tests.h"
 
-static struct hw_addr_data hw_addr = {
+static const struct hw_addr_data hw_addr = {
         .length = ETH_ALEN,
         .ether = {{ 'A', 'B', 'C', '1', '2', '3' }},
 }, bcast_addr = {
         .length = ETH_ALEN,
         .ether = {{ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }},
 };
-typedef void (*test_callback_recv_t)(size_t size, DHCPMessage *dhcp);
 
-struct bootp_addr_data {
-        uint8_t *offer_buf;
-        size_t offer_len;
-        int netmask_offset;
-        int ip_offset;
+static const uint16_t server_port = 1067;
+static const uint16_t client_port = 1068;
+static const int ip_service_type = IPTOS_CLASS_CS3;
+
+static const union in_addr_union prefix = {
+        .bytes = { 198, 51, 100, 0 },
+}, server_address = {
+        .bytes = { 198, 51, 100, 1 },
+}, client_address = {
+        .bytes = { 198, 51, 100, 100 },
+}, broadcast = {
+        .bytes = { 198, 51, 100, 255 },
+}, netmask = {
+        .bytes = { 255, 255, 255, 0 },
 };
-static struct bootp_addr_data *bootp_test_context;
 
-static int test_fd[2];
-static test_callback_recv_t callback_recv;
-static be32_t xid;
+static const usec_t lifetime = USEC_PER_DAY;
 
-TEST(dhcp_client_setters) {
-        /* Initialize client without Anonymize settings. */
+static const sd_dhcp_client_id client_id_generic = {
+        .size = 10,
+        .id.type = 0,
+        .id.data = { 1, 2, 3, 4, 5, 6, 7, 8, 9, },
+};
+
+/* options sent by client */
+static const char * const *user_class_strv = STRV_MAKE_CONST("user-class-hoge", "user-class-foo");
+static const char * const *vendor_specific_strv = STRV_MAKE_CONST("vendor-specific-hoge", "vendor-specific-foo");
+static const char *vendor_class = "vendor-class";
+static const char *mud_url = "https://mud-url.example.com";
+static const char *hostname = "hogehoge.example.com";
+static const uint32_t mtu = 3000;
+static const char *extra_option_163 = "private_option_163";
+static const char *extra_option_164 = "private_option_164";
+
+static void setup(sd_event_io_handler_t io_handler, sd_dhcp_client_callback_t client_handler, sd_dhcp_client **ret) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_NOT_NULL(e);
+
+        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
+
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
         ASSERT_OK(sd_dhcp_client_new(&client));
-        ASSERT_NOT_NULL(client);
 
-        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_client_set_request_option(NULL, 0) == -EINVAL);
-        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_client_set_request_address(NULL, NULL) == -EINVAL);
-        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_client_set_ifindex(NULL, 0) == -EINVAL);
+        client->socket_fd = TAKE_FD(socket_fd[0]);
 
-        ASSERT_OK(sd_dhcp_client_set_ifindex(client, 15));
-        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_client_set_ifindex(client, -42) == -EINVAL);
-        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_client_set_ifindex(client, -1) == -EINVAL);
-        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_client_set_ifindex(client, 0) == -EINVAL);
-        ASSERT_OK(sd_dhcp_client_set_ifindex(client, 1));
+        /* Set a fake socket address, as the client will never call dhcp_network_bind_raw_socket() when
+         * socket_fd is set. */
+        client->link.ll = (struct sockaddr_ll) {
+                .sll_family = AF_PACKET,
+                .sll_protocol = htobe16(ETH_P_IP),
+                .sll_ifindex = 42,
+                .sll_hatype = ARPHRD_ETHER,
+                .sll_halen = bcast_addr.length,
+        };
+        memcpy(client->link.ll.sll_addr, bcast_addr.bytes, bcast_addr.length);
 
-        ASSERT_OK_POSITIVE(sd_dhcp_client_set_hostname(client, "host"));
-        ASSERT_OK_ZERO(sd_dhcp_client_set_hostname(client, "host"));
-        ASSERT_OK_POSITIVE(sd_dhcp_client_set_hostname(client, "host.domain"));
-        ASSERT_OK_POSITIVE(sd_dhcp_client_set_hostname(client, NULL));
-        ASSERT_ERROR(sd_dhcp_client_set_hostname(client, "~host"), EINVAL);
-        ASSERT_ERROR(sd_dhcp_client_set_hostname(client, "~host.domain"), EINVAL);
+        ASSERT_OK(sd_dhcp_client_attach_event(client, e, SD_EVENT_PRIORITY_NORMAL));
+        ASSERT_OK(sd_dhcp_client_set_ifindex(client, 42));
+        ASSERT_OK(sd_dhcp_client_set_mac(client, hw_addr.bytes, bcast_addr.bytes, hw_addr.length, ARPHRD_ETHER));
+        ASSERT_OK(sd_dhcp_client_set_callback(client, client_handler, e));
+        ASSERT_OK(sd_dhcp_client_set_port(client, server_port));
+        ASSERT_OK(sd_dhcp_client_set_client_port(client, client_port));
+        ASSERT_OK(sd_dhcp_client_set_ip_service_type(client, ip_service_type));
 
-        ASSERT_OK_ZERO(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_SUBNET_MASK));
-        ASSERT_OK_ZERO(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_ROUTER));
-        ASSERT_OK_ZERO(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_HOST_NAME));
-        ASSERT_OK_ZERO(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_DOMAIN_NAME));
-        ASSERT_OK_ZERO(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_DOMAIN_NAME_SERVER));
+        /* options */
+        for (uint8_t i = 178; i <= 207; i++) /* These are currently unassigned. See sd-dhcp-protocol.h. */
+                ASSERT_OK(sd_dhcp_client_set_request_option(client, i));
 
-        ASSERT_ERROR(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_PAD), EINVAL);
-        ASSERT_ERROR(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_END), EINVAL);
-        ASSERT_ERROR(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_MESSAGE_TYPE), EINVAL);
-        ASSERT_ERROR(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_OVERLOAD), EINVAL);
-        ASSERT_ERROR(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_PARAMETER_REQUEST_LIST), EINVAL);
+        ASSERT_OK(sd_dhcp_client_set_client_id(client, client_id_generic.id.type, client_id_generic.id.data, client_id_generic.size - 1));
+        ASSERT_OK(sd_dhcp_client_set_mtu(client, mtu));
+        ASSERT_OK(sd_dhcp_client_set_mud_url(client, mud_url));
+        ASSERT_OK(sd_dhcp_client_set_hostname(client, hostname));
+        ASSERT_OK(sd_dhcp_client_set_vendor_class_identifier(client, vendor_class));
 
-        /* RFC7844: option 33 (SD_DHCP_OPTION_STATIC_ROUTE) is set in the
-         * default PRL when using Anonymize, so it is changed to other option
-         * that is not set by default, to check that it was set successfully.
-         * Options not set by default (using or not anonymize) are option 17
-         * (SD_DHCP_OPTION_ROOT_PATH) and 42 (SD_DHCP_OPTION_NTP_SERVER) */
-        ASSERT_OK_POSITIVE(sd_dhcp_client_set_request_option(client, 17));
-        ASSERT_OK_ZERO(sd_dhcp_client_set_request_option(client, 17));
-        ASSERT_OK_POSITIVE(sd_dhcp_client_set_request_option(client, 42));
-        ASSERT_OK_ZERO(sd_dhcp_client_set_request_option(client, 17));
+        _cleanup_(tlv_unrefp) TLV *vendor_specific =
+                ASSERT_NOT_NULL(tlv_new(TLV_DHCP4_SUBOPTION));
+        uint8_t c = 0;
+        STRV_FOREACH(s, vendor_specific_strv)
+                ASSERT_OK(tlv_append(vendor_specific, ++c, strlen(*s), *s));
+        ASSERT_OK(dhcp_client_set_vendor_options(client, vendor_specific));
+
+        _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
+        STRV_FOREACH(s, user_class_strv)
+                ASSERT_OK(iovw_put(&iovw, (void*) *s, strlen(*s)));
+        ASSERT_OK(dhcp_client_set_user_class(client, &iovw));
+
+        _cleanup_(tlv_unrefp) TLV *extra_options = ASSERT_NOT_NULL(tlv_new(TLV_DHCP4));
+        ASSERT_OK(tlv_append(extra_options, 163, strlen(extra_option_163), extra_option_163));
+        ASSERT_OK(tlv_append(extra_options, 164, strlen(extra_option_164), extra_option_164));
+        ASSERT_OK(dhcp_client_set_extra_options(client, extra_options));
+
+        /* IO event source for the fake server side */
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        ASSERT_OK(sd_event_add_io(e, &s, socket_fd[1], EPOLLIN, io_handler, client));
+        ASSERT_OK(sd_event_source_set_priority(s, SD_EVENT_PRIORITY_IMPORTANT));
+        ASSERT_OK(sd_event_source_set_description(s, "fake-server-io-event-source"));
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, true));
+        TAKE_FD(socket_fd[1]);
+        ASSERT_OK(sd_event_source_set_floating(s, true));
+
+        *ret = TAKE_PTR(client);
 }
 
-TEST(dhcp_client_set_anonymize) {
-        /* Initialize client with Anonymize settings. */
-        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
-        ASSERT_OK(sd_dhcp_client_new(&client));
-        ASSERT_OK(sd_dhcp_client_set_anonymize(client, true));
-        ASSERT_NOT_NULL(client);
+static void receive_message(int fd, bool raw, bool check_xid, sd_dhcp_client *client, sd_dhcp_message **ret) {
+        ssize_t buflen = ASSERT_OK_POSITIVE(next_datagram_size_fd(fd));
+        _cleanup_free_ void *buf = ASSERT_NOT_NULL(malloc0(buflen));
 
-        ASSERT_OK_POSITIVE(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_NETBIOS_NAME_SERVER));
-        ASSERT_OK_ZERO(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_HOST_NAME));
-        ASSERT_ERROR(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_PARAMETER_REQUEST_LIST), EINVAL);
+        struct msghdr msg = {
+                .msg_iov = &IOVEC_MAKE(buf, buflen),
+                .msg_iovlen = 1,
+        };
+        ssize_t len = ASSERT_OK_ERRNO(recvmsg_safe(fd, &msg, MSG_DONTWAIT));
 
-        /* RFC7844: option 101 (SD_DHCP_OPTION_NEW_TZDB_TIMEZONE) is not set in the
-         * default PRL when using Anonymize, */
-        ASSERT_OK_POSITIVE(sd_dhcp_client_set_request_option(client, 101));
-        ASSERT_OK_ZERO(sd_dhcp_client_set_request_option(client, 101));
+        struct iovec payload = IOVEC_MAKE(buf, len);
+        if (raw)
+                ASSERT_OK(udp_packet_verify(
+                                          &payload,
+                                          client->server_port,
+                                          /* checksum= */ true,
+                                          &payload));
+
+        ASSERT_OK(dhcp_message_parse(
+                                  &payload,
+                                  BOOTREQUEST,
+                                  check_xid ? &client->xid : NULL,
+                                  ARPHRD_ETHER,
+                                  &hw_addr,
+                                  ret));
 }
 
-static int check_options(uint8_t code, uint8_t len, const void *option, void *userdata) {
-        switch (code) {
-        case SD_DHCP_OPTION_CLIENT_IDENTIFIER: {
-                sd_dhcp_duid duid;
-                uint32_t iaid;
+static void iovw_send(int fd, struct iovec_wrapper *iovw) {
+        struct msghdr mh = {
+                .msg_iov = iovw->iovec,
+                .msg_iovlen = iovw->count,
+        };
+        ASSERT_OK_ERRNO(sendmsg(fd, &mh, MSG_NOSIGNAL));
+}
 
-                ASSERT_OK(sd_dhcp_duid_set_en(&duid));
-                ASSERT_OK(dhcp_identifier_set_iaid(NULL, &hw_addr, /* legacy_unstable_byteorder= */ true, &iaid));
+static void send_message(int fd, bool raw, sd_dhcp_client *client, sd_dhcp_message *m) {
+        _cleanup_(iovw_done_free) struct iovec_wrapper payload = {};
+        ASSERT_OK(dhcp_message_build(m, &payload));
 
-                ASSERT_EQ(len, 19u);
-                ASSERT_EQ(len, sizeof(uint8_t) + sizeof(uint32_t) + duid.size);
-                ASSERT_EQ(((uint8_t*) option)[0], 0xff);
-
-                ASSERT_EQ(memcmp((uint8_t*) option + 1, &iaid, sizeof(iaid)), 0);
-                ASSERT_EQ(memcmp((uint8_t*) option + 5, &duid.duid, duid.size), 0);
-                break;
+        if (!raw) {
+                iovw_send(fd, &payload);
+                return;
         }
+
+        struct iphdr ip;
+        struct udphdr udp;
+        ASSERT_OK(udp_packet_build(
+                                  server_address.in.s_addr,
+                                  client->server_port,
+                                  m->header.yiaddr,
+                                  client->port,
+                                  client->ip_service_type,
+                                  &payload,
+                                  &ip,
+                                  &udp));
+
+        _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
+        ASSERT_OK(iovw_put(&iovw, &ip, sizeof(struct iphdr)));
+        ASSERT_OK(iovw_put(&iovw, &udp, sizeof(struct udphdr)));
+        ASSERT_OK(iovw_put_iovw(&iovw, &payload));
+        iovw_send(fd, &iovw);
+}
+
+static void create_reply(sd_dhcp_client *client, sd_dhcp_message *request, uint8_t type, sd_dhcp_message **ret) {
+        assert(ret);
+
+        struct hw_addr_data hw;
+        ASSERT_OK(dhcp_message_get_hw_addr(request, &hw));
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+        ASSERT_OK(dhcp_message_init_header(
+                                  m,
+                                  BOOTREPLY,
+                                  be32toh(request->header.xid),
+                                  request->header.htype,
+                                  &hw));
+
+        if (client->bootp) {
+                m->header.yiaddr = client_address.in.s_addr;
+                m->header.siaddr = server_address.in.s_addr;
+                ASSERT_OK(dhcp_message_append_option_address(m, SD_DHCP_OPTION_SUBNET_MASK, &netmask.in));
+                ASSERT_OK(dhcp_message_append_option_address(m, SD_DHCP_OPTION_BROADCAST, &broadcast.in));
+
+                *ret = TAKE_PTR(m);
+                return;
+        }
+
+        ASSERT_OK(dhcp_message_append_option_u8(m, SD_DHCP_OPTION_MESSAGE_TYPE, type));
+        ASSERT_OK(dhcp_message_append_option_address(m, SD_DHCP_OPTION_SERVER_IDENTIFIER, &server_address.in));
+
+        switch (type) {
+        case DHCP_OFFER:
+        case DHCP_ACK:
+                m->header.yiaddr = client_address.in.s_addr;
+                ASSERT_OK(dhcp_message_append_option_address(m, SD_DHCP_OPTION_SUBNET_MASK, &netmask.in));
+                ASSERT_OK(dhcp_message_append_option_address(m, SD_DHCP_OPTION_BROADCAST, &broadcast.in));
+                ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME, usec_to_be32_sec(lifetime)));
+                /* The following two options are intentionally set with spurious values, to test the adjusting logic. */
+                ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_REBINDING_TIME, usec_to_be32_sec(lifetime + USEC_PER_SEC)));
+                ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_RENEWAL_TIME, usec_to_be32_sec(lifetime - USEC_PER_SEC)));
+                break;
+
+        case DHCP_NAK:
+                ASSERT_OK(dhcp_message_append_option_string(m, SD_DHCP_OPTION_ERROR_MESSAGE, "test error message"));
+                break;
 
         default:
                 ;
         }
 
-        return 0;
+        *ret = TAKE_PTR(m);
 }
 
-int dhcp_network_send_raw_socket(int fd, const union sockaddr_union *link, const struct iovec_wrapper *iovw) {
-        uint16_t ip_check, udp_check;
-
-        ASSERT_OK(fd);
-        ASSERT_NOT_NULL(iovw);
-
-        _cleanup_(iovec_done) struct iovec iov = {};
-        ASSERT_OK(iovw_concat(iovw, &iov));
-
-        size_t len = iov.iov_len;
-        ASSERT_GT(len, sizeof(DHCPPacket));
-
-        DHCPPacket *discover = ASSERT_NOT_NULL(iov.iov_base);
-
-        ASSERT_EQ(discover->ip.ttl, IPDEFTTL);
-        ASSERT_EQ(discover->ip.protocol, IPPROTO_UDP);
-        ASSERT_EQ(discover->ip.saddr, INADDR_ANY);
-        ASSERT_EQ(discover->ip.daddr, INADDR_BROADCAST);
-        ASSERT_EQ(discover->udp.source, be16toh(DHCP_PORT_CLIENT));
-        ASSERT_EQ(discover->udp.dest, be16toh(DHCP_PORT_SERVER));
-
-        ip_check = discover->ip.check;
-
-        discover->ip.ttl = 0;
-        discover->ip.check = discover->udp.len;
-
-        udp_check = ~ip_checksum(&discover->ip.ttl, len - 8);
-        ASSERT_EQ(udp_check, 0xffff);
-
-        discover->ip.ttl = IPDEFTTL;
-        discover->ip.check = ip_check;
-
-        ip_check = ~ip_checksum((uint8_t*) &discover->ip, sizeof(discover->ip));
-        ASSERT_EQ(ip_check, 0xffff);
-
-        ASSERT_NE(discover->dhcp.xid, 0u);
-        ASSERT_EQ(memcmp(discover->dhcp.chaddr, hw_addr.bytes, hw_addr.length), 0);
-
-        ASSERT_NOT_NULL(callback_recv);
-        callback_recv(len - sizeof(struct iphdr) - sizeof(struct udphdr), &discover->dhcp);
-
-        return 0;
+static void verify_header(sd_dhcp_message *m) {
+        ASSERT_EQ(m->header.op, BOOTREQUEST);
+        ASSERT_EQ(m->header.htype, ARPHRD_ETHER);
+        ASSERT_EQ(memcmp_nn(m->header.chaddr, m->header.hlen, hw_addr.bytes, hw_addr.length), 0);
 }
 
-int dhcp_network_bind_raw_socket(
-                int ifindex,
-                union sockaddr_union *link,
-                uint32_t id,
-                const struct hw_addr_data *_hw_addr,
-                const struct hw_addr_data *_bcast_addr,
-                uint16_t arp_type,
-                uint16_t port,
-                bool so_priority_set,
-                int so_priority) {
+static void verify_basic_options(sd_dhcp_message *m, uint8_t type) {
+        uint8_t t;
+        ASSERT_OK(dhcp_message_get_option_u8(m, SD_DHCP_OPTION_MESSAGE_TYPE, &t));
+        ASSERT_EQ(t, type);
 
-        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd));
-        return test_fd[0];
+        sd_dhcp_client_id id;
+        ASSERT_OK(dhcp_message_get_option_client_id(m, &id));
+        ASSERT_EQ(client_id_compare_func(&id, &client_id_generic), 0);
 }
 
-int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int ip_service_type) {
-        return ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
-}
-
-int dhcp_network_send_udp_socket(int fd, be32_t address, uint16_t port, const struct iovec_wrapper *iovw) {
-        return 0;
-}
-
-static void test_discover_message_verify(size_t size, struct DHCPMessage *dhcp) {
-        ASSERT_OK_EQ(dhcp_option_parse(dhcp, size, check_options, NULL, NULL), DHCP_DISCOVER);
-        log_debug("  recv DHCP Discover 0x%08x", be32toh(dhcp->xid));
-}
-
-TEST(discover_message) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        ASSERT_OK(sd_event_new(&e));
-        ASSERT_NOT_NULL(e);
-
-        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
-        ASSERT_OK(sd_dhcp_client_new(&client));
-        ASSERT_NOT_NULL(client);
-
-        ASSERT_OK(sd_dhcp_client_attach_event(client, e, /* priority= */ 0));
-
-        ASSERT_OK(sd_dhcp_client_set_ifindex(client, 42));
-        ASSERT_OK(sd_dhcp_client_set_mac(client, hw_addr.bytes, bcast_addr.bytes, hw_addr.length, ARPHRD_ETHER));
-
-        ASSERT_OK(sd_dhcp_client_set_request_option(client, 248));
-
-        callback_recv = test_discover_message_verify;
-
-        ASSERT_OK(sd_dhcp_client_start(client));
-        ASSERT_OK(sd_event_run(e, /* timeout= */ UINT64_MAX));
-        ASSERT_OK(sd_dhcp_client_stop(client));
-        ASSERT_NULL(client = sd_dhcp_client_unref(client));
-
-        test_fd[1] = safe_close(test_fd[1]);
-        callback_recv = NULL;
-}
-
-static uint8_t test_addr_acq_offer[] = {
-        0x45, 0x10, 0x01, 0x48, 0x00, 0x00, 0x00, 0x00,
-        0x80, 0x11, 0xb3, 0x84, 0xc0, 0xa8, 0x02, 0x01,
-        0xc0, 0xa8, 0x02, 0xbf, 0x00, 0x43, 0x00, 0x44,
-        0x01, 0x34, 0x00, 0x00, 0x02, 0x01, 0x06, 0x00,
-        0x6f, 0x95, 0x2f, 0x30, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0xc0, 0xa8, 0x02, 0xbf,
-        0xc0, 0xa8, 0x02, 0x01, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x63, 0x82, 0x53, 0x63, 0x35, 0x01, 0x02, 0x36,
-        0x04, 0xc0, 0xa8, 0x02, 0x01, 0x33, 0x04, 0x00,
-        0x00, 0x02, 0x58, 0x01, 0x04, 0xff, 0xff, 0xff,
-        0x00, 0x2a, 0x04, 0xc0, 0xa8, 0x02, 0x01, 0x0f,
-        0x09, 0x6c, 0x61, 0x62, 0x2e, 0x69, 0x6e, 0x74,
-        0x72, 0x61, 0x03, 0x04, 0xc0, 0xa8, 0x02, 0x01,
-        0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-};
-
-static uint8_t test_addr_acq_ack[] = {
-        0x45, 0x10, 0x01, 0x48, 0x00, 0x00, 0x00, 0x00,
-        0x80, 0x11, 0xb3, 0x84, 0xc0, 0xa8, 0x02, 0x01,
-        0xc0, 0xa8, 0x02, 0xbf, 0x00, 0x43, 0x00, 0x44,
-        0x01, 0x34, 0x00, 0x00, 0x02, 0x01, 0x06, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0xc0, 0xa8, 0x02, 0xbf,
-        0xc0, 0xa8, 0x02, 0x01, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x63, 0x82, 0x53, 0x63, 0x35, 0x01, 0x05, 0x36,
-        0x04, 0xc0, 0xa8, 0x02, 0x01, 0x33, 0x04, 0x00,
-        0x00, 0x02, 0x58, 0x01, 0x04, 0xff, 0xff, 0xff,
-        0x00, 0x2a, 0x04, 0xc0, 0xa8, 0x02, 0x01, 0x0f,
-        0x09, 0x6c, 0x61, 0x62, 0x2e, 0x69, 0x6e, 0x74,
-        0x72, 0x61, 0x03, 0x04, 0xc0, 0xa8, 0x02, 0x01,
-        0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-};
-
-static int test_addr_acq_acquired(sd_dhcp_client *client, int event, void *userdata) {
-        ASSERT_NOT_NULL(client);
-        ASSERT_TRUE(IN_SET(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE, SD_DHCP_CLIENT_EVENT_SELECTING));
-
-        sd_dhcp_lease *lease;
-        ASSERT_OK(sd_dhcp_client_get_lease(client, &lease));
-        ASSERT_NOT_NULL(lease);
-
-        struct in_addr addr;
-        ASSERT_OK(sd_dhcp_lease_get_address(lease, &addr));
-        ASSERT_EQ(memcmp(&addr.s_addr, &test_addr_acq_ack[44], sizeof(addr.s_addr)), 0);
-
-        ASSERT_OK(sd_dhcp_lease_get_netmask(lease, &addr));
-        ASSERT_EQ(memcmp(&addr.s_addr, &test_addr_acq_ack[285], sizeof(addr.s_addr)), 0);
-
-        const struct in_addr *addrs;
-        ASSERT_OK_EQ(sd_dhcp_lease_get_router(lease, &addrs), 1);
-        ASSERT_EQ(memcmp(&addrs[0].s_addr, &test_addr_acq_ack[308], sizeof(addrs[0].s_addr)), 0);
-
-        log_info("  DHCP address acquired");
-
-        sd_event *e = ASSERT_NOT_NULL(sd_dhcp_client_get_event(client));
-        return ASSERT_OK(sd_event_exit(e, 0));
-}
-
-static void test_addr_acq_recv_request(size_t size, DHCPMessage *request) {
-        uint16_t udp_check = 0;
-        uint8_t *msg_bytes = (uint8_t *)request;
-
-        ASSERT_OK_EQ(dhcp_option_parse(request, size, check_options, NULL, NULL), DHCP_REQUEST);
-        ASSERT_EQ(request->xid, xid);
-
-        uint8_t *end = ASSERT_NOT_NULL(memrchr(msg_bytes, SD_DHCP_OPTION_END, size));
-        ASSERT_TRUE(memeqzero(end + 1, msg_bytes + size - end - 1));
-
-        log_info("  recv DHCP Request  0x%08x", be32toh(xid));
-
-        memcpy(&test_addr_acq_ack[26], &udp_check, sizeof(udp_check));
-        memcpy(&test_addr_acq_ack[32], &xid, sizeof(xid));
-        memcpy(&test_addr_acq_ack[56], hw_addr.bytes, hw_addr.length);
-
-        callback_recv = NULL;
-
-        ASSERT_OK_EQ_ERRNO(write(test_fd[1], test_addr_acq_ack, sizeof(test_addr_acq_ack)),
-                           (ssize_t) sizeof(test_addr_acq_ack));
-
-        log_info("  send DHCP Ack");
-};
-
-static void test_addr_acq_recv_discover(size_t size, DHCPMessage *discover) {
-        uint16_t udp_check = 0;
-        uint8_t *msg_bytes = (uint8_t *)discover;
-
-        ASSERT_OK_EQ(dhcp_option_parse(discover, size, check_options, NULL, NULL), DHCP_DISCOVER);
-
-        uint8_t *end = ASSERT_NOT_NULL(memrchr(msg_bytes, SD_DHCP_OPTION_END, size));
-        ASSERT_TRUE(memeqzero(end + 1, msg_bytes + size - end - 1));
-
-        xid = discover->xid;
-
-        log_info("  recv DHCP Discover 0x%08x", be32toh(xid));
-
-        memcpy(&test_addr_acq_offer[26], &udp_check, sizeof(udp_check));
-        memcpy(&test_addr_acq_offer[32], &xid, sizeof(xid));
-        memcpy(&test_addr_acq_offer[56], hw_addr.bytes, hw_addr.length);
-
-        callback_recv = test_addr_acq_recv_request;
-
-        ASSERT_OK_EQ_ERRNO(write(test_fd[1], test_addr_acq_offer, sizeof(test_addr_acq_offer)),
-                           (ssize_t) sizeof(test_addr_acq_offer));
-
-        log_info("  sent DHCP Offer");
-}
-
-TEST(addr_acq) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        ASSERT_OK(sd_event_new(&e));
-        ASSERT_NOT_NULL(e);
-
-        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
-        ASSERT_OK(sd_dhcp_client_new(&client));
-        ASSERT_NOT_NULL(client);
-
-        ASSERT_OK(sd_dhcp_client_attach_event(client, e, /* priority= */ 0));
-
-        ASSERT_OK(sd_dhcp_client_set_ifindex(client, 42));
-        ASSERT_OK(sd_dhcp_client_set_mac(client, hw_addr.bytes, bcast_addr.bytes, hw_addr.length, ARPHRD_ETHER));
-
-        ASSERT_OK(sd_dhcp_client_set_callback(client, test_addr_acq_acquired, NULL));
-
-        callback_recv = test_addr_acq_recv_discover;
-
-        ASSERT_OK(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
-                                             30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)));
-
-        ASSERT_OK(sd_dhcp_client_start(client));
-        ASSERT_OK(sd_event_loop(e));
-        ASSERT_OK(sd_dhcp_client_set_callback(client, NULL, NULL));
-        ASSERT_OK(sd_dhcp_client_stop(client));
-        ASSERT_NULL(client = sd_dhcp_client_unref(client));
-
-        test_fd[1] = safe_close(test_fd[1]);
-        callback_recv = NULL;
-        xid = 0;
-}
-
-static uint8_t test_addr_bootp_reply[] = {
-        0x45, 0x00, 0x01, 0x40, 0x00, 0x00, 0x40, 0x00,
-        0xff, 0x11, 0x70, 0xab, 0x0a, 0x00, 0x00, 0x02,
-        0xff, 0xff, 0xff, 0xff, 0x00, 0x43, 0x00, 0x44,
-        0x01, 0x2c, 0x2b, 0x91, 0x02, 0x01, 0x06, 0x00,
-        0x69, 0xd3, 0x79, 0x11, 0x17, 0x00, 0x80, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x0a, 0x46, 0x00, 0x02,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x50, 0x2d, 0xf4, 0x1f, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x63, 0x82, 0x53, 0x63, 0x01, 0x04, 0xff, 0x00,
-        0x00, 0x00, 0x36, 0x04, 0x0a, 0x00, 0x00, 0x02,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-};
-
-static uint8_t test_addr_bootp_reply_bootpd[] = {
-        0x45, 0x00, 0x01, 0x48, 0xbe, 0xad, 0x40, 0x00,
-        0x40, 0x11, 0x73, 0x43, 0xc0, 0xa8, 0x43, 0x31,
-        0xc0, 0xa8, 0x43, 0x32, 0x00, 0x43, 0x00, 0x44,
-        0x01, 0x34, 0x08, 0xfa, 0x02, 0x01, 0x06, 0x00,
-        0x82, 0x57, 0xda, 0xf1, 0x00, 0x01, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0xc0, 0xa8, 0x43, 0x32,
-        0xc0, 0xa8, 0x43, 0x31, 0x00, 0x00, 0x00, 0x00,
-        0xc2, 0x3e, 0xa5, 0x53, 0x57, 0x72, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x64, 0x65, 0x62, 0x69, 0x61, 0x6e, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x63, 0x82, 0x53, 0x63, 0x01, 0x04, 0xff, 0xff,
-        0xff, 0xf0, 0x03, 0x04, 0xc0, 0xa8, 0x43, 0x31,
-        0x06, 0x04, 0x0a, 0x00, 0x01, 0x01, 0x0c, 0x15,
-        0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2d, 0x64,
-        0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x2d, 0x74,
-        0x72, 0x69, 0x78, 0x69, 0x65, 0xff, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-};
-
-static struct bootp_addr_data bootp_addr_data[] = {
-        {
-                .offer_buf = test_addr_bootp_reply,
-                .offer_len = sizeof(test_addr_bootp_reply),
-                .netmask_offset = 270,
-                .ip_offset = 44,
-        },
-        {
-                .offer_buf = test_addr_bootp_reply_bootpd,
-                .offer_len = sizeof(test_addr_bootp_reply_bootpd),
-                .netmask_offset = 270,
-                .ip_offset = 44,
-        },
-};
-
-static int test_bootp_acquired(sd_dhcp_client *client, int event, void *userdata) {
-        ASSERT_NOT_NULL(client);
-        ASSERT_TRUE(IN_SET(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE, SD_DHCP_CLIENT_EVENT_SELECTING));
-
-        sd_dhcp_lease *lease;
-        ASSERT_OK(sd_dhcp_client_get_lease(client, &lease));
-        ASSERT_NOT_NULL(lease);
-
-        struct in_addr addr;
-        ASSERT_OK(sd_dhcp_lease_get_address(lease, &addr));
-        ASSERT_EQ(memcmp(&addr.s_addr, &bootp_test_context->offer_buf[bootp_test_context->ip_offset], sizeof(addr.s_addr)), 0);
-
-        ASSERT_OK(sd_dhcp_lease_get_netmask(lease, &addr));
-        ASSERT_EQ(memcmp(&addr.s_addr, &bootp_test_context->offer_buf[bootp_test_context->netmask_offset], sizeof(addr.s_addr)), 0);
-
-        log_info("  BOOTP address acquired");
-
-        sd_event *e = ASSERT_NOT_NULL(sd_dhcp_client_get_event(client));
-        return ASSERT_OK(sd_event_exit(e, 0));
-}
-
-static void test_bootp_recv_request(size_t size, DHCPMessage *request) {
-        uint16_t udp_check = 0;
-
-        xid = request->xid;
-
-        log_info("  recv BOOTP Request  0x%08x", be32toh(xid));
-
-        callback_recv = NULL;
-
-        memcpy(&bootp_test_context->offer_buf[26], &udp_check, sizeof(udp_check));
-        memcpy(&bootp_test_context->offer_buf[32], &xid, sizeof(xid));
-        memcpy(&bootp_test_context->offer_buf[56], hw_addr.bytes, hw_addr.length);
-
-        ASSERT_OK_EQ_ERRNO(write(test_fd[1], bootp_test_context->offer_buf, bootp_test_context->offer_len),
-                           (ssize_t) bootp_test_context->offer_len);
-
-        log_info("  sent BOOTP Reply");
-};
-
-static void test_bootp_one(void) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        ASSERT_OK(sd_event_new(&e));
-        ASSERT_NOT_NULL(e);
-
-        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
-        ASSERT_OK(sd_dhcp_client_new(&client));
-        ASSERT_NOT_NULL(client);
-
-        ASSERT_OK(sd_dhcp_client_attach_event(client, e, /* priority= */ 0));
-
-        ASSERT_OK(sd_dhcp_client_set_bootp(client, true));
-
-        ASSERT_OK(sd_dhcp_client_set_ifindex(client, 42));
-        ASSERT_OK(sd_dhcp_client_set_mac(client, hw_addr.bytes, bcast_addr.bytes, hw_addr.length, ARPHRD_ETHER));
-
-        ASSERT_OK(sd_dhcp_client_set_callback(client, test_bootp_acquired, NULL));
-
-        callback_recv = test_bootp_recv_request;
-
-        ASSERT_OK(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
-                                             30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)));
-
-        ASSERT_OK(sd_dhcp_client_start(client));
-        ASSERT_OK(sd_event_loop(e));
-        ASSERT_OK(sd_dhcp_client_set_callback(client, NULL, NULL));
-        ASSERT_OK(sd_dhcp_client_stop(client));
-        ASSERT_NULL(client = sd_dhcp_client_unref(client));
-
-        test_fd[1] = safe_close(test_fd[1]);
-        callback_recv = NULL;
-        xid = 0;
-}
-
-TEST(bootp) {
-        FOREACH_ELEMENT(i, bootp_addr_data) {
-                bootp_test_context = i;
-                test_bootp_one();
+static void verify_request(sd_dhcp_message *m, uint8_t type) {
+        verify_header(m);
+        verify_basic_options(m, type);
+
+        _cleanup_set_free_ Set *prl = NULL;
+        ASSERT_OK(dhcp_message_get_option_parameter_request_list(m, &prl));
+
+        for (uint8_t i = 178; i <= 207; i++)
+                ASSERT_TRUE(set_contains(prl, UINT_TO_PTR(i)));
+
+        uint16_t sz;
+        ASSERT_OK(dhcp_message_get_option_u16(m, SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE, &sz));
+        ASSERT_EQ(sz, mtu);
+
+        _cleanup_free_ char *str = NULL;
+        ASSERT_OK(dhcp_message_get_option_string(m, SD_DHCP_OPTION_MUD_URL, &str));
+        ASSERT_STREQ(str, mud_url);
+
+        str = mfree(str);
+        ASSERT_OK(dhcp_message_get_option_hostname(m, &str));
+        ASSERT_STREQ(str, hostname);
+
+        str = mfree(str);
+        ASSERT_OK(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, &str));
+        ASSERT_STREQ(str, vendor_class);
+
+        _cleanup_(tlv_unrefp) TLV *vendor_specific = NULL;
+        ASSERT_OK(dhcp_message_get_option_sub_tlv(
+                                  m,
+                                  SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION,
+                                  TLV_DHCP4_SUBOPTION,
+                                  &vendor_specific));
+        ASSERT_EQ(hashmap_size(vendor_specific->entries), strv_length((char**) vendor_specific_strv));
+        uint8_t c = 0;
+        STRV_FOREACH(s, vendor_specific_strv) {
+                struct iovec v;
+                ASSERT_OK(tlv_get(vendor_specific, ++c, &v));
+                ASSERT_EQ(memcmp_nn(v.iov_base, v.iov_len, *s, strlen(*s)), 0);
         }
+
+        _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
+        STRV_FOREACH(s, user_class_strv)
+                ASSERT_OK(iovw_put(&iovw, (void*) *s, strlen(*s)));
+        _cleanup_(iovw_done_free) struct iovec_wrapper user_class = {};
+        ASSERT_OK(dhcp_message_get_option_length_prefixed_data(m, SD_DHCP_OPTION_USER_CLASS, /* length_size= */ 1, &user_class));
+        ASSERT_TRUE(iovw_equal(&user_class, &iovw));
+
+        str = mfree(str);
+        ASSERT_OK(dhcp_message_get_option_string(m, 163, &str));
+        ASSERT_STREQ(str, extra_option_163);
+
+        str = mfree(str);
+        ASSERT_OK(dhcp_message_get_option_string(m, 164, &str));
+        ASSERT_STREQ(str, extra_option_164);
+}
+
+static void verify_request_server_address(sd_dhcp_message *m) {
+        struct in_addr a;
+        ASSERT_OK(dhcp_message_get_option_address(m, SD_DHCP_OPTION_SERVER_IDENTIFIER, &a));
+        ASSERT_TRUE(in4_addr_equal(&a, &server_address.in));
+}
+
+static void verify_request_client_address(sd_dhcp_message *m, bool header) {
+        if (header)
+                ASSERT_EQ(m->header.ciaddr, client_address.in.s_addr);
+        else {
+                struct in_addr a;
+                ASSERT_OK(dhcp_message_get_option_address(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, &a));
+                ASSERT_TRUE(in4_addr_equal(&a, &client_address.in));
+        }
+}
+
+static void verify_reply(sd_dhcp_client *client, DHCPState state) {
+        ASSERT_EQ(client->state, state);
+
+        sd_dhcp_lease *lease;
+        ASSERT_OK(sd_dhcp_client_get_lease(client, &lease));
+
+        struct in_addr a;
+        ASSERT_OK(sd_dhcp_lease_get_address(lease, &a));
+        ASSERT_TRUE(in4_addr_equal(&a, &client_address.in));
+
+        ASSERT_OK(sd_dhcp_lease_get_server_identifier(lease, &a));
+        ASSERT_TRUE(in4_addr_equal(&a, &server_address.in));
+
+        ASSERT_OK(sd_dhcp_lease_get_broadcast(lease, &a));
+        ASSERT_TRUE(in4_addr_equal(&a, &broadcast.in));
+
+        ASSERT_OK(sd_dhcp_lease_get_netmask(lease, &a));
+        ASSERT_TRUE(in4_addr_equal(&a, &netmask.in));
+
+        uint8_t prefixlen;
+        ASSERT_OK(sd_dhcp_lease_get_prefix(lease, &a, &prefixlen));
+        ASSERT_TRUE(in4_addr_equal(&a, &prefix.in));
+        ASSERT_EQ(prefixlen, 24u);
+
+        if (client->bootp) {
+                usec_t t;
+                ASSERT_OK(sd_dhcp_lease_get_lifetime(lease, &t));
+                ASSERT_EQ(t, USEC_INFINITY);
+        } else {
+                usec_t t;
+                ASSERT_OK(sd_dhcp_lease_get_lifetime(lease, &t));
+                ASSERT_EQ(t, lifetime);
+                ASSERT_OK(sd_dhcp_lease_get_t1(lease, &t));
+                ASSERT_EQ(t, lifetime / 2);
+                ASSERT_OK(sd_dhcp_lease_get_t2(lease, &t));
+                ASSERT_EQ(t, lifetime * 7 / 8);
+        }
+}
+
+static int basic_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        sd_dhcp_client *client = ASSERT_PTR(userdata);
+        static unsigned count = 0;
+
+        count++;
+        log_debug("%s: count=%u", __func__, count);
+
+        switch (count) {
+        case 1: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                verify_request(request, DHCP_DISCOVER);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_OFFER, &reply);
+
+                send_message(fd, /* raw= */ true, client, reply);
+                break;
+        }
+        case 2: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                /* REQUEST (selecting) */
+                verify_request(request, DHCP_REQUEST);
+                verify_request_server_address(request);
+                verify_request_client_address(request, /* header= */ false);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_ACK, &reply);
+
+                send_message(fd, /* raw= */ true, client, reply);
+                break;
+        }
+        case 3: {
+                /* In this stage, client is already restarted and a new xid is picked. */
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ false, client, &request);
+
+                verify_header(request);
+                verify_basic_options(request, DHCP_DECLINE);
+                verify_request_server_address(request);
+                verify_request_client_address(request, /* header= */ false);
+                break;
+        }
+        case 4: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                verify_request(request, DHCP_DISCOVER);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_OFFER, &reply);
+
+                send_message(fd, /* raw= */ true, client, reply);
+                break;
+        }
+        case 5: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                /* REQUEST (selecting) */
+                verify_request(request, DHCP_REQUEST);
+                verify_request_server_address(request);
+                verify_request_client_address(request, /* header= */ false);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_ACK, &reply);
+
+                send_message(fd, /* raw= */ true, client, reply);
+                break;
+        }
+        case 6: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ false, /* check_xid= */ true, client, &request);
+
+                /* REQUEST (renewing) */
+                verify_request(request, DHCP_REQUEST);
+                verify_request_client_address(request, /* header= */ true);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_ACK, &reply);
+
+                send_message(fd, /* raw= */ false, client, reply);
+                break;
+        }
+        case 7: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ false, /* check_xid= */ true, client, &request);
+
+                /* REQUEST (renewing) */
+                verify_request(request, DHCP_REQUEST);
+                verify_request_client_address(request, /* header= */ true);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_ACK, &reply);
+
+                send_message(fd, /* raw= */ false, client, reply);
+                break;
+        }
+        case 8: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                /* REQUEST (rebinding) */
+                verify_request(request, DHCP_REQUEST);
+                verify_request_client_address(request, /* header= */ true);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_ACK, &reply);
+
+                send_message(fd, /* raw= */ true, client, reply);
+                break;
+        }
+        case 9: {
+                /* In this stage, client is already stopped and the xid has been cleared. */
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ false, /* check_xid= */ false, client, &request);
+
+                verify_header(request);
+                verify_basic_options(request, DHCP_RELEASE);
+                verify_request_server_address(request);
+                verify_request_client_address(request, /* header= */ true);
+
+                ASSERT_OK(sd_event_exit(sd_dhcp_client_get_event(client), 0));
+                break;
+        }
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+static int restart_now_defer_handler(sd_event_source *s, void *userdata) {
+        sd_dhcp_client *client = ASSERT_PTR(userdata);
+
+        ASSERT_OK(sd_event_source_set_time_relative(client->timeout_resend, /* usec= */ 0));
+        return 0;
+}
+
+static int basic_client_handler(sd_dhcp_client *client, int event, void *userdata) {
+        sd_event *e = ASSERT_PTR(userdata);
+        static unsigned count = 0;
+
+        count++;
+        log_debug("%s: count=%u, event=%i", __func__, count, event);
+
+        switch (count) {
+        case 1:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_SELECTING);
+                verify_reply(client, DHCP_STATE_SELECTING);
+                break;
+        case 2:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
+                verify_reply(client, DHCP_STATE_BOUND);
+                /* decline the bound lease, and restart the cycle. */
+                ASSERT_OK(sd_dhcp_client_send_decline(client));
+                break;
+        case 3:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_EXPIRED);
+                verify_reply(client, DHCP_STATE_BOUND);
+                /* on decline, the client will be restarted with a delay. Let's boost the restart timer. */
+                ASSERT_OK(sd_event_add_defer(e, /* ret= */ NULL, restart_now_defer_handler, client));
+                break;
+        case 4:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_SELECTING);
+                verify_reply(client, DHCP_STATE_SELECTING);
+                break;
+        case 5:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
+                verify_reply(client, DHCP_STATE_BOUND);
+                /* renew the lease manually */
+                ASSERT_OK(sd_dhcp_client_send_renew(client));
+                break;
+        case 6:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_RENEW);
+                verify_reply(client, DHCP_STATE_BOUND);
+                /* renew the lease by timer, triggering the corresponding timer event source now. */
+                ASSERT_OK(sd_event_source_set_time_relative(client->timeout_t1, /* usec= */ 0));
+                break;
+        case 7:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_RENEW);
+                verify_reply(client, DHCP_STATE_BOUND);
+                /* rebind the lease, triggering the corresponding timer event source now. */
+                ASSERT_OK(sd_event_source_set_time_relative(client->timeout_t2, /* usec= */ 0));
+                break;
+        case 8:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_RENEW);
+                verify_reply(client, DHCP_STATE_BOUND);
+                /* release and stop. */
+                ASSERT_OK(sd_dhcp_client_stop(client));
+                break;
+        case 9:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_STOP);
+                verify_reply(client, DHCP_STATE_BOUND);
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+TEST(basic) {
+        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
+        setup(basic_io_handler, basic_client_handler, &client);
+        ASSERT_OK(sd_dhcp_client_set_send_release(client, true));
+        ASSERT_OK(sd_dhcp_client_start(client));
+        ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
 }
 
 static int intro(void) {
