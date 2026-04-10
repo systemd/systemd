@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
 
 #include "alloc-util.h"
 #include "build.h"
+#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
@@ -26,107 +27,83 @@ static bool arg_instance = false;
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-escape", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] [NAME...]\n\n"
-               "%3$sEscape strings for usage in systemd unit names.%4$s\n\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "     --suffix=SUFFIX      Unit suffix to append to escaped strings\n"
-               "     --template=TEMPLATE  Insert strings as instance into template\n"
-               "     --instance           With --unescape, show just the instance part\n"
-               "  -u --unescape           Unescape strings\n"
-               "  -m --mangle             Mangle strings\n"
-               "  -p --path               When escaping/unescaping assume the string is a path\n"
-               "\nSee the %2$s for details.\n",
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...] [NAME...]\n\n"
+               "%sEscape strings for usage in systemd unit names.%s\n\n",
                program_invocation_short_name,
-               link,
                ansi_highlight(),
                ansi_normal());
 
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_SUFFIX,
-                ARG_TEMPLATE
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "suffix",    required_argument, NULL, ARG_SUFFIX    },
-                { "template",  required_argument, NULL, ARG_TEMPLATE  },
-                { "unescape",  no_argument,       NULL, 'u'           },
-                { "mangle",    no_argument,       NULL, 'm'           },
-                { "path",      no_argument,       NULL, 'p'           },
-                { "instance",  no_argument,       NULL, 'i'           },
-                {}
-        };
-
-        int c;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hump", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_SUFFIX: {
-                        UnitType t = unit_type_from_string(optarg);
+                OPTION_LONG("suffix", "SUFFIX", "Unit suffix to append to escaped strings"): {
+                        UnitType t = unit_type_from_string(arg);
                         if (t < 0)
-                                return log_error_errno(t, "Invalid unit suffix type \"%s\".", optarg);
+                                return log_error_errno(t, "Invalid unit suffix type \"%s\".", arg);
 
-                        arg_suffix = optarg;
+                        arg_suffix = arg;
                         break;
                 }
 
-                case ARG_TEMPLATE:
-                        if (!unit_name_is_valid(optarg, UNIT_NAME_TEMPLATE))
+                OPTION_LONG("template", "TEMPLATE", "Insert strings as instance into template"):
+                        if (!unit_name_is_valid(arg, UNIT_NAME_TEMPLATE))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Template name %s is not valid.", optarg);
+                                                       "Template name %s is not valid.", arg);
 
-                        arg_template = optarg;
+                        arg_template = arg;
                         break;
 
-                case 'u':
-                        arg_action = ACTION_UNESCAPE;
-                        break;
-
-                case 'm':
-                        arg_action = ACTION_MANGLE;
-                        break;
-
-                case 'p':
-                        arg_path = true;
-                        break;
-
-                case 'i':
+                OPTION_LONG("instance", NULL, "With --unescape, show just the instance part"):
                         arg_instance = true;
                         break;
 
-                case '?':
-                        return -EINVAL;
+                OPTION('u', "unescape", NULL, "Unescape strings"):
+                        arg_action = ACTION_UNESCAPE;
+                        break;
 
-                default:
-                        assert_not_reached();
+                OPTION('m', "mangle", NULL, "Mangle strings"):
+                        arg_action = ACTION_MANGLE;
+                        break;
+
+                OPTION('p', "path", NULL,
+                       "When escaping/unescaping assume the string is a path"):
+                        arg_path = true;
+                        break;
                 }
 
-        if (optind >= argc)
+        if (option_parser_get_n_args(&state) == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Not enough arguments.");
 
@@ -154,6 +131,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--instance may not be combined with --template.");
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
@@ -162,11 +140,12 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        STRV_FOREACH(i, argv + optind) {
+        STRV_FOREACH(i, args) {
                 _cleanup_free_ char *e = NULL;
 
                 switch (arg_action) {
@@ -267,7 +246,7 @@ static int run(int argc, char *argv[]) {
                         break;
                 }
 
-                if (i != argv + optind)
+                if (i != args)
                         fputc(' ', stdout);
 
                 fputs(e, stdout);
