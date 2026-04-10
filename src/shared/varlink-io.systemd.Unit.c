@@ -1044,6 +1044,30 @@ static SD_VARLINK_DEFINE_ERROR(
                 PropertyNotSupported,
                 SD_VARLINK_DEFINE_FIELD(property, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_ERROR(UnitExists);
+static SD_VARLINK_DEFINE_ERROR(UnitTypeNotSupported);
+static SD_VARLINK_DEFINE_ERROR(BadUnitSetting);
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                StartTransient,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("The name of the transient unit to create."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Job mode: replace, fail, isolate, etc. Defaults to replace."),
+                SD_VARLINK_DEFINE_INPUT(mode, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Raw unit file content including section headers."),
+                SD_VARLINK_DEFINE_INPUT(content, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("ID of the enqueued start job."),
+                SD_VARLINK_DEFINE_OUTPUT(jobId, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Unit name."),
+                SD_VARLINK_DEFINE_OUTPUT(unit, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Job type string."),
+                SD_VARLINK_DEFINE_OUTPUT(jobType, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Current job state: waiting, running. Set for intermediate notifications."),
+                SD_VARLINK_DEFINE_OUTPUT(state, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Final result: done, failed, canceled, timeout, dependency, skipped, etc. Set in the final reply."),
+                SD_VARLINK_DEFINE_OUTPUT(result, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD(
                 SetProperties,
                 SD_VARLINK_FIELD_COMMENT("The name of the unit to operate on."),
@@ -1060,6 +1084,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_List,
                 SD_VARLINK_SYMBOL_COMMENT("Set unit properties"),
                 &vl_method_SetProperties,
+                SD_VARLINK_SYMBOL_COMMENT("Create a transient unit and start it"),
+                &vl_method_StartTransient,
                 &vl_type_RateLimit,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's conditions"),
                 &vl_type_Condition,
@@ -1129,4 +1155,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Job for the unit may only be enqueued by dependencies"),
                 &vl_error_OnlyByDependency,
                 SD_VARLINK_SYMBOL_COMMENT("A unit that requires D-Bus cannot be started as D-Bus is shutting down"),
-                &vl_error_DBusShuttingDown);
+                &vl_error_DBusShuttingDown,
+                SD_VARLINK_SYMBOL_COMMENT("A unit with this name already exists"),
+                &vl_error_UnitExists,
+                SD_VARLINK_SYMBOL_COMMENT("This unit type does not support transient units"),
+                &vl_error_UnitTypeNotSupported,
+                SD_VARLINK_SYMBOL_COMMENT("The unit file content contains invalid settings"),
+                &vl_error_BadUnitSetting);

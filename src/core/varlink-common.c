@@ -17,6 +17,8 @@ const char* varlink_error_id_from_bus_error(const sd_bus_error *e) {
                 { BUS_ERROR_NO_SUCH_UNIT,       VARLINK_ERROR_UNIT_NO_SUCH_UNIT       },
                 { BUS_ERROR_ONLY_BY_DEPENDENCY, VARLINK_ERROR_UNIT_ONLY_BY_DEPENDENCY },
                 { BUS_ERROR_SHUTTING_DOWN,      VARLINK_ERROR_UNIT_DBUS_SHUTTING_DOWN },
+                { BUS_ERROR_UNIT_EXISTS,        VARLINK_ERROR_UNIT_UNIT_EXISTS        },
+                { BUS_ERROR_BAD_UNIT_SETTING,   VARLINK_ERROR_UNIT_BAD_SETTING        },
         };
 
         if (!sd_bus_error_is_set(e))

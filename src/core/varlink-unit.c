@@ -1,15 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
 #include "sd-json.h"
 
 #include "bitfield.h"
+#include "bus-error.h"
 #include "bus-polkit.h"
 #include "cgroup.h"
 #include "condition.h"
 #include "dbus-job.h"
+#include "conf-parser.h"
 #include "execute.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "install.h"
+#include "job.h"
+#include "load-fragment.h"
+#include "locale-util.h"
 #include "json-util.h"
 #include "manager.h"
 #include "path-util.h"
@@ -18,7 +26,9 @@
 #include "set.h"
 #include "strv.h"
 #include "unit.h"
+#include "unit-name.h"
 #include "varlink-cgroup.h"
+#include "varlink-common.h"
 #include "varlink-execute.h"
 #include "varlink-unit.h"
 #include "varlink-util.h"
@@ -566,6 +576,172 @@ int varlink_error_no_such_unit(sd_varlink *v, const char *name) {
                         ASSERT_PTR(v),
                         VARLINK_ERROR_UNIT_NO_SUCH_UNIT,
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("parameter", name));
+}
+
+void varlink_job_send_change_signal(Job *j) {
+        assert(j);
+
+        if (!j->varlink)
+                return;
+
+        (void) sd_varlink_notifybo(
+                        j->varlink,
+                        SD_JSON_BUILD_PAIR_INTEGER("jobId", j->id),
+                        SD_JSON_BUILD_PAIR_STRING("unit", j->unit->id),
+                        SD_JSON_BUILD_PAIR_STRING("jobType", job_type_to_string(j->type)),
+                        SD_JSON_BUILD_PAIR_STRING("state", job_state_to_string(j->state)));
+}
+
+void varlink_job_send_removed_signal(Job *j) {
+        assert(j);
+
+        if (!j->varlink)
+                return;
+
+        /* Send the final reply, which terminates the streaming connection */
+        (void) sd_varlink_replybo(
+                        j->varlink,
+                        SD_JSON_BUILD_PAIR_INTEGER("jobId", j->id),
+                        SD_JSON_BUILD_PAIR_STRING("unit", j->unit->id),
+                        SD_JSON_BUILD_PAIR_STRING("jobType", job_type_to_string(j->type)),
+                        SD_JSON_BUILD_PAIR_STRING("result", job_result_to_string(j->result)));
+
+        j->varlink = sd_varlink_unref(j->varlink);
+}
+
+int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct {
+                const char *name;
+                const char *mode;
+                const char *content;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",    SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, offsetof(typeof(p), name),    SD_JSON_MANDATORY },
+                { "mode",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(typeof(p), mode),    0                },
+                { "content", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(typeof(p), content), SD_JSON_MANDATORY },
+                {}
+        };
+
+        _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        uint32_t job_id;
+        Unit *u;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = mac_selinux_access_check_varlink(link, "start");
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        JobMode job_mode;
+        if (p.mode) {
+                job_mode = job_mode_from_string(p.mode);
+                if (job_mode < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "mode");
+        } else
+                job_mode = JOB_REPLACE;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->system_bus,
+                        "org.freedesktop.systemd1.manage-units",
+                        (const char**) STRV_MAKE(
+                                        "unit", p.name,
+                                        "verb", "start",
+                                        "polkit.message", N_("Authentication is required to start transient unit '$(unit)'."),
+                                        "polkit.gettext_domain", GETTEXT_PACKAGE),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = manager_setup_transient_unit(manager, p.name, &u, &bus_error);
+        if (r < 0) {
+                const char *error_id = varlink_error_id_from_bus_error(&bus_error);
+                if (error_id)
+                        return sd_varlink_error(link, error_id, NULL);
+                return r;
+        }
+
+        /* Write the caller-provided unit file content to the transient file.
+         * Then parse it directly to populate in-memory state. This is necessary because
+         * unit_load_fragment() skips file parsing for transient units (it assumes the D-Bus
+         * property dispatch chain already populated everything in memory). Since we bypass
+         * that chain and write raw file content instead, we must parse it ourselves. */
+        fputs(p.content, u->transient_file);
+        fputc('\n', u->transient_file);
+
+        r = fflush_and_check(u->transient_file);
+        if (r < 0)
+                return r;
+
+        /* Rewind the transient file (opened read-write) so config_parse() can read it back. */
+        rewind(u->transient_file);
+
+        r = config_parse(u->id, u->fragment_path, u->transient_file,
+                         UNIT_VTABLE(u)->sections,
+                         config_item_perf_lookup, load_fragment_gperf_lookup,
+                         0,
+                         u,
+                         NULL);
+        if (r < 0)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
+
+        unit_add_to_load_queue(u);
+        manager_dispatch_load_queue(manager);
+
+        if (u->load_state == UNIT_BAD_SETTING)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
+        if (!UNIT_IS_LOAD_COMPLETE(u->load_state))
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_NO_SUCH_UNIT, NULL);
+
+        r = varlink_unit_queue_job_one(
+                        u,
+                        JOB_START,
+                        job_mode,
+                        /* reload_if_possible= */ false,
+                        &job_id,
+                        &bus_error);
+        if (r < 0) {
+                const char *error_id = varlink_error_id_from_bus_error(&bus_error);
+                if (error_id)
+                        return sd_varlink_error(link, error_id, NULL);
+                return r;
+        }
+
+        /* Non-streaming: just return the job ID */
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_INTEGER("jobId", job_id),
+                                SD_JSON_BUILD_PAIR_STRING("unit", u->id),
+                                SD_JSON_BUILD_PAIR_STRING("jobType", job_type_to_string(JOB_START)));
+
+        /* Streaming: attach to the job and send the initial state notification */
+        Job *j = hashmap_get(manager->jobs, UINT32_TO_PTR(job_id));
+        if (!j)
+                /* Job already completed between queueing and now */
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_INTEGER("jobId", job_id),
+                                SD_JSON_BUILD_PAIR_STRING("unit", u->id),
+                                SD_JSON_BUILD_PAIR_STRING("jobType", job_type_to_string(JOB_START)),
+                                SD_JSON_BUILD_PAIR_STRING("result", "done"));
+
+        j->varlink = sd_varlink_ref(link);
+
+        return sd_varlink_notifybo(
+                        link,
+                        SD_JSON_BUILD_PAIR_INTEGER("jobId", job_id),
+                        SD_JSON_BUILD_PAIR_STRING("unit", u->id),
+                        SD_JSON_BUILD_PAIR_STRING("jobType", job_type_to_string(JOB_START)),
+                        SD_JSON_BUILD_PAIR_STRING("state", job_state_to_string(j->state)));
 }
 
 typedef struct UnitSetPropertiesParameters {
