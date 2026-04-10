@@ -159,6 +159,28 @@ typedef struct Link {
         unsigned ndisc_messages;
         bool ndisc_configured;
 
+        /* CLAT (464XLAT) — common state */
+        struct in6_addr clat_pref64_prefix;
+        uint8_t clat_pref64_prefix_len;
+        struct in6_addr clat_ipv6_src;
+        bool clat_running;
+        bool clat_bpf_active;   /* true = BPF path, false = TUN fallback */
+
+        /* CLAT BPF path */
+#if ENABLE_CLAT_BPF
+        struct clat_bpf *clat_bpf_obj;
+        int clat_bpf_ingress_fd;
+        int clat_bpf_egress_fd;
+#endif
+
+        /* CLAT TUN fallback path */
+        int clat_tun_fd;
+        int clat_send_fd;
+        int clat_recv_fd;
+        sd_event_source *clat_tun_event_source;
+        sd_event_source *clat_recv_event_source;
+        int clat_ifindex;
+
         sd_radv *radv;
 
         sd_dhcp6_client *dhcp6_client;
