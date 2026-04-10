@@ -34,6 +34,7 @@
 #include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "string-table.h"
@@ -81,6 +82,8 @@ char *arg_certificate_source = NULL;
 char *arg_private_key = NULL;
 KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
 char *arg_private_key_source = NULL;
+uint64_t arg_keep_free = KEEP_FREE_BYTES_DEFAULT;
+bool arg_oldest = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -360,7 +363,7 @@ VERB_GROUP("Boot Loader Specification Commands");
 VERB_SCOPE_NOARG(, verb_list, "list",
            "List boot loader entries");
 
-VERB_SCOPE(, verb_unlink, "unlink", "ID", 2, 2, 0,
+VERB_SCOPE(, verb_unlink, "unlink", "ID", VERB_ANY, 2, 0,
            "Remove boot loader entry");
 
 VERB_SCOPE_NOARG(, verb_cleanup, "cleanup",
@@ -641,6 +644,27 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_LONG("oldest", "BOOL",
+                            "Delete oldest boot menu entry"):
+                        r = parse_boolean_argument("--oldest=", arg, &arg_oldest);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                OPTION_LONG("keep-free", "BYTES",
+                            "How much space to keep free on ESP/XBOOTLDR"):
+
+                        if (isempty(arg))
+                                arg_keep_free = KEEP_FREE_BYTES_DEFAULT;
+                        else {
+                                r = parse_size(arg, 1024, &arg_keep_free);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --keep-free=: %s", arg);
+                        }
+
+                        break;
                 }
 
         char **args = option_parser_get_args(&state);
@@ -710,7 +734,8 @@ static int vl_server(void) {
                         "io.systemd.BootControl.ListBootEntries",     vl_method_list_boot_entries,
                         "io.systemd.BootControl.SetRebootToFirmware", vl_method_set_reboot_to_firmware,
                         "io.systemd.BootControl.GetRebootToFirmware", vl_method_get_reboot_to_firmware,
-                        "io.systemd.BootControl.Install",             vl_method_install);
+                        "io.systemd.BootControl.Install",             vl_method_install,
+                        "io.systemd.BootControl.Unlink",              vl_method_unlink);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
