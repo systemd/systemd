@@ -330,4 +330,122 @@ TEST(dhcp_message) {
         ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
 }
 
+static void test_domains_one(size_t len, const uint8_t *data, char * const *expected) {
+        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, len, data));
+        ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_DOMAIN_SEARCH, &strv));
+        ASSERT_TRUE(strv_equal(strv, expected));
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH);
+        strv = strv_free(strv);
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, len / 2, data));
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, len - len / 2, data + len / 2));
+        ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_DOMAIN_SEARCH, &strv));
+        ASSERT_TRUE(strv_equal(strv, expected));
+}
+
+static void test_domains_fail(size_t len, const uint8_t *data) {
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, len, data));
+        ASSERT_ERROR(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_DOMAIN_SEARCH, /* ret= */ NULL), EBADMSG);
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH);
+
+        _cleanup_free_ uint8_t *sip = new(uint8_t, len + 1);
+        sip[0] = 0;
+        memcpy(sip + 1, data, len);
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_SIP_SERVER, len + 1, sip));
+        ASSERT_ERROR(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_SIP_SERVER, /* ret= */ NULL), EBADMSG);
+}
+
+TEST(domains) {
+        /* simple */
+        static uint8_t simple[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                4, 'h', 'o', 'g', 'e',
+                3, 'f', 'o', 'o',
+                0,
+        };
+        test_domains_one(ELEMENTSOF(simple), simple,
+                         STRV_MAKE("example.com", "hoge.foo"));
+
+        /* compressed */
+        static uint8_t compressed[] = {
+                4, 'h', 'o', 'g', 'e',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                3, 'f', 'o', 'o',
+                0xc0, 5,
+                3, 'b', 'a', 'r',
+                0xc0, 18,
+                3, 'b', 'a', 'z',
+                0xc0, 0,
+        };
+        test_domains_one(ELEMENTSOF(compressed), compressed,
+                         STRV_MAKE("hoge.example.com", "foo.example.com", "bar.foo.example.com", "baz.hoge.example.com"));
+
+        /* invalid pointer */
+        static uint8_t invalid[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                3, 'f', 'o', 'o',
+                0xc0, 0xff,
+        };
+        test_domains_fail(ELEMENTSOF(invalid), invalid);
+
+        /* forward pointer */
+        static uint8_t forward[] = {
+                4, 'h', 'o', 'g', 'e',
+                0xc0, 11,
+                3, 'f', 'o', 'o',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+        };
+        test_domains_fail(ELEMENTSOF(forward), forward);
+
+        /* infinite loop */
+        static uint8_t loop1[] = {
+                0xc0, 0x00,
+        };
+        test_domains_fail(ELEMENTSOF(loop1), loop1);
+
+        static uint8_t loop2[] = {
+                0xc0, 0x02,
+                0xc0, 0x00,
+        };
+        test_domains_fail(ELEMENTSOF(loop2), loop2);
+
+        static uint8_t loop3[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                0xc0, 0x00,
+        };
+        test_domains_fail(ELEMENTSOF(loop3), loop3);
+
+        /* unterminated */
+        static uint8_t unterminated[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+        };
+        test_domains_fail(ELEMENTSOF(unterminated), unterminated);
+
+        /* truncated label */
+        static uint8_t truncated[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o',
+        };
+        test_domains_fail(ELEMENTSOF(truncated), truncated);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
