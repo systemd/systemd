@@ -634,9 +634,6 @@ static void serialize_resolvers(
                 int r;
 
                 r = sd_dhcp_lease_get_dnr(lease, &resolvers);
-                if (r < 0 && r != -ENODATA)
-                        log_warning_errno(r, "Failed to get DNR from DHCP lease, ignoring: %m");
-
                 if (r > 0) {
                         r = dns_resolvers_to_dot_strv(resolvers, r, &names);
                         if (r < 0)
@@ -958,15 +955,6 @@ static int link_save(Link *link) {
 
         print_link_hashmap(f, "CARRIER_BOUND_TO=", link->bound_to_links);
         print_link_hashmap(f, "CARRIER_BOUND_BY=", link->bound_by_links);
-
-        if (link->dhcp_lease) {
-                r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
-                if (r < 0)
-                        return r;
-
-                fprintf(f, "DHCP_LEASE=%s\n", link->lease_file);
-        } else
-                (void) unlink(link->lease_file);
 
         r = link_serialize_dhcp6_client(link, f);
         if (r < 0)
