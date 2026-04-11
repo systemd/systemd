@@ -1889,10 +1889,10 @@ static int manager_rebalance_calculate(Manager *m) {
                 assert(h->rebalance_usage <= usage_sum);
                 assert(h->rebalance_weight <= weight_sum);
 
-                d = ((double) (free_sum / 4096.0) * (double) h->rebalance_weight) / (double) weight_sum; /* Calculate new space for this home in units of 4K */
+                d = free_sum / 4096.0 * h->rebalance_weight / weight_sum; /* Calculate new space for this home in units of 4K */
 
                 /* Convert from units of 4K back to bytes */
-                if (d >= (double) (UINT64_MAX/4096))
+                if (d >= UINT64_MAX / 4096)
                         new_free = UINT64_MAX;
                 else
                         new_free = (uint64_t) d * 4096;
@@ -1928,7 +1928,7 @@ static int manager_rebalance_calculate(Manager *m) {
                         h->rebalance_pending = true;
                 }
 
-                if ((fabs((double) h->rebalance_size - (double) h->rebalance_goal) * 100 / (double) h->rebalance_size) >= 5.0)
+                if (ABS_DIFF(h->rebalance_size, h->rebalance_goal) * 100.0 / h->rebalance_size >= 5.0)
                         relevant = true;
         }
 
