@@ -56,6 +56,7 @@ int dhcp_message_get_option_client_id(sd_dhcp_message *message, sd_dhcp_client_i
 int dhcp_message_get_option_parameter_request_list(sd_dhcp_message *message, Set **ret);
 int dhcp_message_get_option_dns_name(sd_dhcp_message *message, uint8_t code, char **ret);
 int dhcp_message_get_option_hostname(sd_dhcp_message *message, char **ret);
+int dhcp_message_get_option_search_domains(sd_dhcp_message *message, char ***ret);
 int dhcp_message_get_option_vendor_specific(sd_dhcp_message *message, Hashmap **ret);
 int dhcp_message_get_option_user_class(sd_dhcp_message *message, struct iovec_wrapper *ret);
 
