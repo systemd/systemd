@@ -6,6 +6,7 @@
 #include "sd-forward.h"
 
 #include "list.h"
+#include "log.h"
 
 /* JsonStream provides the transport layer used by sd-varlink (and other consumers like
  * the QMP client) for exchanging length-delimited JSON messages over a pair of file
@@ -131,6 +132,16 @@ void json_stream_done(JsonStream *s);
  * messages, POLLHUP detection, async connect completion, etc.). The string is duped. */
 int json_stream_set_description(JsonStream *s, const char *description);
 const char* json_stream_get_description(const JsonStream *s);
+
+static inline const char* json_stream_description(const JsonStream *s) {
+        return (s ? s->description : NULL) ?: "json-stream";
+}
+
+#define json_stream_log(s, fmt, ...) \
+        log_debug("%s: " fmt, json_stream_description(s), ##__VA_ARGS__)
+
+#define json_stream_log_errno(s, error, fmt, ...) \
+        log_debug_errno((error), "%s: " fmt, json_stream_description(s), ##__VA_ARGS__)
 
 /* fd ownership */
 int json_stream_attach_fds(JsonStream *s, int input_fd, int output_fd);
