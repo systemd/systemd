@@ -475,7 +475,7 @@ int nss_pack_group_record_shadow(
 
         assert(buffer);
 
-        p = buffer + sizeof(void*) * (n + 1); /* place member strings right after the ptr array */
+        p = buffer + sizeof(void*) * n; /* place member strings right after the ptr array */
         array = (char**) buffer; /* place ptr array at beginning of buffer, under assumption buffer is aligned */
 
         sgrp->sg_mem = array;
