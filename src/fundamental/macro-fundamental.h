@@ -234,12 +234,20 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
         })
 
 #undef MIN
-#define MIN(a, b) __MIN(UNIQ, (a), UNIQ, (b))
+#define MIN(a, b) __MIN(UNIQ, a, UNIQ, b)
 #define __MIN(aq, a, bq, b)                             \
         ({                                              \
                 const typeof(a) UNIQ_T(A, aq) = (a);    \
                 const typeof(b) UNIQ_T(B, bq) = (b);    \
                 UNIQ_T(A, aq) < UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
+        })
+
+#define ABS_DIFF(a, b) __ABS_DIFF(UNIQ, a, UNIQ, b)
+#define __ABS_DIFF(aq, a, bq, b)                        \
+        ({                                              \
+                const typeof(a) UNIQ_T(A, aq) = (a);    \
+                const typeof(b) UNIQ_T(B, bq) = (b);    \
+                UNIQ_T(A, aq) < UNIQ_T(B, bq) ? UNIQ_T(B, bq) - UNIQ_T(A, aq) : UNIQ_T(A, aq) - UNIQ_T(B, bq); \
         })
 
 /* evaluates to (void) if _A or _B are not constant or of different types */
