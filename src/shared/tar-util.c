@@ -660,6 +660,8 @@ static int archive_entry_read_stat(
         int r;
 
         assert(entry);
+        assert(xa);
+        assert(n_xa);
 
         /* Fills in all fields that are present in the archive entry. Doesn't change the fields if the entry
          * doesn't contain the relevant data */
@@ -1160,6 +1162,7 @@ static int hardlink_lookup(
         assert(d);
         assert(inode_fd >= 0);
         assert(sx);
+        assert(ret);
 
         /* If we know the hardlink count, and it's 1, then don't bother */
         if (FLAGS_SET(sx->stx_mask, STATX_NLINK) && sx->stx_nlink == 1)

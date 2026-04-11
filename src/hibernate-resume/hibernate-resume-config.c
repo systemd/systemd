@@ -242,6 +242,8 @@ int acquire_hibernate_info(HibernateInfo *ret) {
         _cleanup_(hibernate_info_done) HibernateInfo i = {};
         int r;
 
+        assert(ret);
+
         r = get_kernel_hibernate_location(&i.cmdline);
         if (r < 0)
                 return r;

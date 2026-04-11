@@ -2507,7 +2507,7 @@ static int tpm2_load_external(
 }
 
 static int tpm2_marshal_private(const TPM2B_PRIVATE *private, void **ret, size_t *ret_size) {
-        size_t max_size = sizeof(*private), blob_size = 0;
+        size_t max_size = sizeof(*ASSERT_PTR(private)), blob_size = 0;
         _cleanup_free_ void *blob = NULL;
         TSS2_RC rc;
 
@@ -2550,7 +2550,7 @@ static int tpm2_unmarshal_private(const void *data, size_t size, TPM2B_PRIVATE *
 }
 
 int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size) {
-        size_t max_size = sizeof(*public), blob_size = 0;
+        size_t max_size = sizeof(*ASSERT_PTR(public)), blob_size = 0;
         _cleanup_free_ void *blob = NULL;
         TSS2_RC rc;
 
@@ -2593,7 +2593,7 @@ static int tpm2_unmarshal_public(const void *data, size_t size, TPM2B_PUBLIC *re
 }
 
 int tpm2_marshal_nv_public(const TPM2B_NV_PUBLIC *nv_public, void **ret, size_t *ret_size) {
-        size_t max_size = sizeof(*nv_public), blob_size = 0;
+        size_t max_size = sizeof(*ASSERT_PTR(nv_public)), blob_size = 0;
         _cleanup_free_ void *blob = NULL;
         TSS2_RC rc;
 
@@ -6412,6 +6412,7 @@ int tpm2_seal_data(
         assert(c);
         assert(data);
         assert(primary_handle);
+        POINTER_MAY_BE_NULL(policy);
 
         /* This is a generic version of tpm2_seal(), that doesn't imply any policy or any specific
          * combination of the two keypairs in their marshalling. tpm2_seal() is somewhat specific to the FDE
@@ -6477,6 +6478,7 @@ int tpm2_unseal_data(
         assert(public_blob);
         assert(private_blob);
         assert(primary_handle);
+        assert(ret_data);
 
         TPM2B_PUBLIC public;
         r = tpm2_unmarshal_public(public_blob->iov_base, public_blob->iov_len, &public);
@@ -8319,6 +8321,8 @@ int tpm2_pcrlock_policy_load(
         _cleanup_free_ char *discovered_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
+
+        assert(ret_policy);
 
         r = tpm2_pcrlock_search_file(path, &f, &discovered_path);
         if (r == -ENOENT) {

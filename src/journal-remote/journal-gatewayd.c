@@ -815,6 +815,8 @@ static int get_virtualization(char **v) {
         char *b = NULL;
         int r;
 
+        assert(v);
+
         r = sd_bus_default_system(&bus);
         if (r < 0)
                 return r;

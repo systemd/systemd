@@ -2082,6 +2082,7 @@ int oci_load(FILE *f, const char *bundle, Settings **ret) {
         int r;
 
         assert_se(bundle);
+        assert(ret);
 
         path = strjoina(bundle, "/config.json");
 

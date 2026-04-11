@@ -153,6 +153,7 @@ static int get_process_container_parent_cmdline(PidRef *pid, char** ret_cmdline)
 
         assert(pidref_is_set(pid));
         assert(!pidref_is_remote(pid));
+        assert(ret_cmdline);
 
         r = pidref_from_same_root_fs(pid, &PIDREF_MAKE_FROM_PID(1));
         if (r < 0)

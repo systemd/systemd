@@ -50,6 +50,8 @@ static int connect_to_resolved(sd_varlink **ret) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
         int r;
 
+        assert(ret);
+
         r = sd_varlink_connect_address(&link, "/run/systemd/resolve/io.systemd.Resolve");
         if (r < 0)
                 return r;

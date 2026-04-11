@@ -65,6 +65,8 @@ static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_
         const char *subsystem, *devtype, *tag;
         int r;
 
+        assert(ret);
+
         r = device_monitor_new_full(&monitor, sender, -EBADF);
         if (r < 0)
                 return log_error_errno(r, "Failed to create netlink socket: %m");

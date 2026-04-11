@@ -107,6 +107,8 @@ static int convert_user(
         assert(u);
         assert(g);
         assert(user_record_gid(u) == g->gid);
+        assert(ret_converted_user);
+        assert(ret_converted_group);
 
         if (shell_copy)
                 shell = u->shell;

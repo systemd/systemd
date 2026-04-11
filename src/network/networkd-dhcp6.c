@@ -202,6 +202,10 @@ static int dhcp6_request_address(
         Address *existing;
         int r;
 
+        assert(link);
+        assert(server_address);
+        assert(ip6_addr);
+
         r = address_new(&addr);
         if (r < 0)
                 return log_oom();

@@ -104,6 +104,7 @@ static int netdev_l2tp_create_message_tunnel(NetDev *netdev, union in_addr_union
         assert(local_address);
         assert(netdev);
         assert(netdev->manager);
+        assert(ret);
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         uint16_t encap_type;
@@ -200,6 +201,7 @@ static int netdev_l2tp_create_message_session(NetDev *netdev, L2tpSession *sessi
         assert(netdev->manager);
         assert(session);
         assert(session->tunnel);
+        assert(ret);
 
         r = sd_genl_message_new(netdev->manager->genl, L2TP_GENL_NAME, L2TP_CMD_SESSION_CREATE, &m);
         if (r < 0)

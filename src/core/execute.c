@@ -2372,6 +2372,8 @@ static int exec_shared_runtime_add(
 
         assert(m);
         assert(id);
+        assert(tmp_dir);
+        assert(var_tmp_dir);
 
         /* tmp_dir, var_tmp_dir, {net,ipc}ns_storage_socket fds are donated on success */
 
