@@ -1173,7 +1173,7 @@ _public_ int sd_varlink_idl_parse(
         _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *interface = NULL;
         _cleanup_(varlink_symbol_freep) sd_varlink_symbol *symbol = NULL;
 
-        assert_return(ret, -EINVAL);
+        POINTER_MAY_BE_NULL(ret);
 
         enum {
                 STATE_PRE_INTERFACE,
@@ -1410,7 +1410,8 @@ _public_ int sd_varlink_idl_parse(
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(interface);
+        if (ret)
+                *ret = TAKE_PTR(interface);
         return 0;
 }
 
