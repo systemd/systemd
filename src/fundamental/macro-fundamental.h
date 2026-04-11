@@ -171,7 +171,7 @@
 #define U64_GB (UINT64_C(1024) * U64_MB)
 
 #undef MAX
-#define MAX(a, b) __MAX(UNIQ, (a), UNIQ, (b))
+#define MAX(a, b) __MAX(UNIQ, a, UNIQ, b)
 #define __MAX(aq, a, bq, b)                             \
         ({                                              \
                 const typeof(a) UNIQ_T(A, aq) = (a);    \
@@ -234,12 +234,20 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
         })
 
 #undef MIN
-#define MIN(a, b) __MIN(UNIQ, (a), UNIQ, (b))
+#define MIN(a, b) __MIN(UNIQ, a, UNIQ, b)
 #define __MIN(aq, a, bq, b)                             \
         ({                                              \
                 const typeof(a) UNIQ_T(A, aq) = (a);    \
                 const typeof(b) UNIQ_T(B, bq) = (b);    \
                 UNIQ_T(A, aq) < UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
+        })
+
+#define ABS_DIFF(a, b) __ABS_DIFF(UNIQ, a, UNIQ, b)
+#define __ABS_DIFF(aq, a, bq, b)                        \
+        ({                                              \
+                const typeof(a) UNIQ_T(A, aq) = (a);    \
+                const typeof(b) UNIQ_T(B, bq) = (b);    \
+                UNIQ_T(A, aq) < UNIQ_T(B, bq) ? UNIQ_T(B, bq) - UNIQ_T(A, aq) : UNIQ_T(A, aq) - UNIQ_T(B, bq); \
         })
 
 /* evaluates to (void) if _A or _B are not constant or of different types */
@@ -312,7 +320,7 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
         })
 
 #undef CLAMP
-#define CLAMP(x, low, high) __CLAMP(UNIQ, (x), UNIQ, (low), UNIQ, (high))
+#define CLAMP(x, low, high) __CLAMP(UNIQ, x, UNIQ, low, UNIQ, high)
 #define __CLAMP(xq, x, lowq, low, highq, high)                          \
         ({                                                              \
                 const typeof(x) UNIQ_T(X, xq) = (x);                    \
@@ -329,7 +337,7 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
  * computation should be possible in the given type. Therefore, we use
  * [x / y + !!(x % y)]. Note that on "Real CPUs" a division returns both the
  * quotient and the remainder, so both should be equally fast. */
-#define DIV_ROUND_UP(x, y) __DIV_ROUND_UP(UNIQ, (x), UNIQ, (y))
+#define DIV_ROUND_UP(x, y) __DIV_ROUND_UP(UNIQ, x, UNIQ, y)
 #define __DIV_ROUND_UP(xq, x, yq, y)                                    \
         ({                                                              \
                 const typeof(x) UNIQ_T(X, xq) = (x);                    \
@@ -341,11 +349,11 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
 #define __ROUND_UP(q, x, y)                                             \
         ({                                                              \
                 const typeof(y) UNIQ_T(A, q) = (y);                     \
-                const typeof(x) UNIQ_T(B, q) = DIV_ROUND_UP((x), UNIQ_T(A, q)); \
+                const typeof(x) UNIQ_T(B, q) = DIV_ROUND_UP(x, UNIQ_T(A, q)); \
                 typeof(x) UNIQ_T(C, q);                                 \
                 MUL_SAFE(&UNIQ_T(C, q), UNIQ_T(B, q), UNIQ_T(A, q)) ? UNIQ_T(C, q) : (typeof(x)) -1; \
         })
-#define ROUND_UP(x, y) __ROUND_UP(UNIQ, (x), (y))
+#define ROUND_UP(x, y) __ROUND_UP(UNIQ, x, y)
 
 #define  CASE_F_1(X)      case X:
 #define  CASE_F_2(X, ...) case X:  CASE_F_1( __VA_ARGS__)
