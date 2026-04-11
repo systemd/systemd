@@ -6,11 +6,13 @@
 #include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
 #include "dhcp-option.h"
+#include "dhcp-route.h"
 #include "dns-def.h"
 #include "dns-domain.h"
 #include "ether-addr-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
+#include "in-addr-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "ip-util.h"
@@ -217,6 +219,88 @@ int dhcp_message_append_option_addresses(sd_dhcp_message *message, uint8_t code,
                 return -ENOBUFS;
 
         return dhcp_message_append_option(message, code, sizeof(struct in_addr) * n_addr, addr);
+}
+
+static int dhcp_message_append_option_static_routes(sd_dhcp_message *message, size_t n_routes, const sd_dhcp_route *routes) {
+        int r;
+
+        assert(message);
+        assert(routes || n_routes == 0);
+
+        if (n_routes == 0)
+                return 0;
+
+        if (n_routes > SIZE_MAX / (2 * sizeof(struct in_addr)))
+                return -ENOBUFS;
+
+        _cleanup_free_ struct in_addr *buf = new(struct in_addr, 2 * n_routes);
+        if (!buf)
+                return -ENOMEM;
+
+        size_t count = 0;
+        FOREACH_ARRAY(route, routes, n_routes) {
+                uint8_t prefixlen;
+                r = in4_addr_default_prefixlen(&route->dst_addr, &prefixlen);
+                if (r < 0)
+                        return r;
+
+                if (prefixlen != route->dst_prefixlen)
+                        return -EINVAL;
+
+                struct in_addr dst = route->dst_addr;
+                (void) in4_addr_mask(&dst, prefixlen);
+
+                buf[count++] = dst;
+                buf[count++] = route->gw_addr;
+        }
+
+        assert(count == 2 * n_routes);
+
+        return dhcp_message_append_option_addresses(message, SD_DHCP_OPTION_STATIC_ROUTE, 2 * n_routes, buf);
+}
+
+static int dhcp_message_append_option_classless_static_routes(sd_dhcp_message *message, uint8_t code, size_t n_routes, const sd_dhcp_route *routes) {
+        assert(message);
+        assert(routes || n_routes == 0);
+        assert(IN_SET(code,
+                      SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,
+                      SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE));
+
+        if (n_routes == 0)
+                return 0;
+
+        if (n_routes > SIZE_MAX / (1 + 2 * sizeof(struct in_addr)))
+                return -ENOBUFS;
+
+        _cleanup_free_ uint8_t *buf = new(uint8_t, n_routes * (1 + 2 * sizeof(struct in_addr)));
+        if (!buf)
+                return -ENOMEM;
+
+        uint8_t *p = buf;
+        FOREACH_ARRAY(route, routes, n_routes) {
+                if (route->dst_prefixlen > sizeof(struct in_addr) * 8)
+                        return -EINVAL;
+
+                *p++ = route->dst_prefixlen;
+                struct in_addr dst = route->dst_addr;
+                (void) in4_addr_mask(&dst, route->dst_prefixlen);
+                p = mempcpy(p, &dst, DIV_ROUND_UP(route->dst_prefixlen, 8));
+                p = mempcpy(p, &route->gw_addr, sizeof(struct in_addr));
+        }
+
+        return dhcp_message_append_option(message, code, p - buf, buf);
+}
+
+int dhcp_message_append_option_routes(sd_dhcp_message *message, uint8_t code, size_t n_routes, const sd_dhcp_route *routes) {
+        switch (code) {
+        case SD_DHCP_OPTION_STATIC_ROUTE:
+                return dhcp_message_append_option_static_routes(message, n_routes, routes);
+        case SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE:
+        case SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE:
+                return dhcp_message_append_option_classless_static_routes(message, code, n_routes, routes);
+        default:
+                return -EINVAL;
+        }
 }
 
 int dhcp_message_append_option_client_id(sd_dhcp_message *message, const sd_dhcp_client_id *id) {
@@ -560,6 +644,134 @@ int dhcp_message_get_option_addresses(sd_dhcp_message *message, uint8_t code, si
         if (ret_n_addr)
                 *ret_n_addr = n;
         return 0;
+}
+
+static int dhcp_message_get_option_static_routes(sd_dhcp_message *message, size_t *ret_n_routes, sd_dhcp_route **ret_routes) {
+        int r;
+
+        assert(message);
+
+        size_t n;
+        _cleanup_free_ struct in_addr *addrs = NULL;
+        r = dhcp_message_get_option_addresses(message, SD_DHCP_OPTION_STATIC_ROUTE, &n, &addrs);
+        if (r < 0)
+                return r;
+
+        if (n % 2 != 0)
+                return -EBADMSG;
+
+        _cleanup_free_ sd_dhcp_route *routes = NULL;
+        size_t n_routes = 0;
+
+        for (size_t i = 0; i < n; i += 2) {
+                struct in_addr dst = addrs[i];
+
+                uint8_t prefixlen;
+                r = in4_addr_default_prefixlen(&dst, &prefixlen);
+                if (r < 0)
+                        return r;
+
+                (void) in4_addr_mask(&dst, prefixlen);
+
+                if (!ret_routes) {
+                        n_routes++;
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(routes, n_routes + 1))
+                        return -ENOMEM;
+
+                routes[n_routes++] = (struct sd_dhcp_route) {
+                        .dst_addr = dst,
+                        .gw_addr = addrs[i + 1],
+                        .dst_prefixlen = prefixlen,
+                };
+        }
+
+        if (n_routes == 0)
+                return -EBADMSG;
+
+        if (ret_routes)
+                *ret_routes = TAKE_PTR(routes);
+        if (ret_n_routes)
+                *ret_n_routes = n_routes;
+        return 0;
+}
+
+static int dhcp_message_get_option_classless_static_routes(sd_dhcp_message *message, uint8_t code, size_t *ret_n_routes, sd_dhcp_route **ret_routes) {
+        int r;
+
+        assert(message);
+        assert(IN_SET(code,
+                      SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,
+                      SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE));
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_message_get_option_alloc_iovec(message, code, &iov);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ sd_dhcp_route *routes = NULL;
+        size_t n_routes = 0;
+
+        for (struct iovec i = iov; iovec_is_set(&i);) {
+                uint8_t prefixlen = *(uint8_t*) i.iov_base;
+                iovec_inc(&i, 1);
+
+                if (prefixlen > 32)
+                        return -EBADMSG;
+
+                size_t n = DIV_ROUND_UP(prefixlen, 8);
+                if (n > i.iov_len)
+                        return -EBADMSG;
+
+                struct in_addr dst = {};
+                memcpy_safe(&dst, i.iov_base, n);
+                (void) in4_addr_mask(&dst, prefixlen);
+                iovec_inc(&i, n);
+
+                if (i.iov_len < 4)
+                        return -EBADMSG;
+
+                struct in_addr gw;
+                memcpy(&gw, i.iov_base, 4);
+                iovec_inc(&i, 4);
+
+                if (!ret_routes) {
+                        n_routes++;
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(routes, n_routes + 1))
+                        return -ENOMEM;
+
+                routes[n_routes++] = (struct sd_dhcp_route) {
+                        .dst_addr = dst,
+                        .gw_addr = gw,
+                        .dst_prefixlen = prefixlen,
+                };
+        }
+
+        if (n_routes == 0)
+                return -EBADMSG;
+
+        if (ret_routes)
+                *ret_routes = TAKE_PTR(routes);
+        if (ret_n_routes)
+                *ret_n_routes = n_routes;
+        return 0;
+}
+
+int dhcp_message_get_option_routes(sd_dhcp_message *message, uint8_t code, size_t *ret_n_routes, sd_dhcp_route **ret_routes) {
+        switch (code) {
+        case SD_DHCP_OPTION_STATIC_ROUTE:
+                return dhcp_message_get_option_static_routes(message, ret_n_routes, ret_routes);
+        case SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE:
+        case SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE:
+                return dhcp_message_get_option_classless_static_routes(message, code, ret_n_routes, ret_routes);
+        default:
+                return -EINVAL;
+        }
 }
 
 int dhcp_message_get_option_client_id(sd_dhcp_message *message, sd_dhcp_client_id *ret) {
