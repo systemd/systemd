@@ -219,7 +219,7 @@ REQUIREMENTS:
         libacl (optional)
         libbpf >= 0.1.0 (optional),
                >= 1.4.0 is required for using GCC as a bpf compiler
-        libfdisk >= 2.32 (from util-linux) (optional)
+        libfdisk >= 2.35 (from util-linux) (optional)
         libselinux >= 2.1.9 (optional)
         libapparmor >= 2.13 (optional)
         libxenctrl >= 4.9 (optional)
