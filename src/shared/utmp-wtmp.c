@@ -14,8 +14,12 @@
 static void init_timestamp(struct utmpx *store, usec_t t) {
         assert(store);
 
-        if (t <= 0)
+        if (t <= 0 || t == USEC_INFINITY)
                 t = now(CLOCK_REALTIME);
+        if (t == USEC_INFINITY)
+                t = 0;
+        if (t > UINT32_MAX * USEC_PER_SEC)
+                t = UINT32_MAX * USEC_PER_SEC;
 
         /* Silence static analyzers */
         assert_cc(USEC_PER_SEC > 0);
