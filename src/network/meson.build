@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 subdir('bpf/sysctl-monitor')
+subdir('bpf/clat')
 
 systemd_networkd_sources = files(
         'networkd.c'
@@ -93,6 +94,7 @@ systemd_networkd_extract_sources = files(
         'networkd-wiphy.c',
         'networkd-wwan.c',
         'networkd-wwan-bus.c',
+        'networkd-xlat.c',
         'tc/cake.c',
         'tc/codel.c',
         'tc/drr.c',
@@ -146,6 +148,10 @@ networkd_netdev_gperf_gperf = files('netdev/netdev-gperf.gperf')
 
 if conf.get('ENABLE_SYSCTL_BPF') == 1
         systemd_networkd_extract_sources += sysctl_monitor_skel_h
+endif
+
+if conf.get('ENABLE_CLAT_BPF') == 1
+        systemd_networkd_extract_sources += clat_skel_h
 endif
 
 networkd_gperf_c = custom_target(
