@@ -334,18 +334,6 @@ static int context_acquire_device_tree(Context *c) {
         return 1;
 }
 
-static bool string_is_safe_for_dbus(const char *s) {
-        assert(s);
-
-        /* Do some superficial validation: do not allow CCs and make sure D-Bus won't kick us off the bus
-         * because we send invalid UTF-8 data */
-
-        if (string_has_cc(s, /* ok= */ NULL))
-                return false;
-
-        return utf8_is_valid(s);
-}
-
 static int get_dmi_property(Context *c, const char *key, char **ret) {
         const char *s;
         int r;
@@ -361,7 +349,9 @@ static int get_dmi_property(Context *c, const char *key, char **ret) {
         if (r < 0)
                 return r;
 
-        if (!string_is_safe_for_dbus(s))
+        /* Do some superficial validation: do not allow CCs and make sure D-Bus won't kick us off the bus
+         * because we send invalid UTF-8 data */
+        if (!utf8_is_safe(s))
                 return -ENXIO;
 
         return strdup_to(ret, s);
@@ -456,7 +446,7 @@ static int get_sysattr(sd_device *device, const char *key, char **ret) {
         if (r < 0)
                 return r;
 
-        if (!string_is_safe_for_dbus(s))
+        if (!utf8_is_safe(s))
                 return -ENXIO;
 
         return strdup_to(ret, empty_to_null(s));

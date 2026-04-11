@@ -8,10 +8,28 @@
 
 bool unichar_is_valid(char32_t c) _const_;
 
-char* utf8_is_valid_n(const char *str, size_t len_bytes) _pure_;
-static inline char* utf8_is_valid(const char *str) {
-        return utf8_is_valid_n(str, SIZE_MAX);
+typedef enum UTF8SafeFlags {
+        UTF8_RELAX         = 1 << 0, /* Allow control characters (only validate encoding) */
+        UTF8_ALLOW_NEWLINE = 1 << 1,
+        UTF8_ALLOW_TAB     = 1 << 2,
+} UTF8SafeFlags;
+
+bool utf8_is_safe_full(const char *str, size_t length, UTF8SafeFlags flags) _pure_;
+static inline bool utf8_is_safe(const char *str) {
+        return utf8_is_safe_full(str, SIZE_MAX, 0);
 }
+static inline bool utf8_is_printable(const char *str, size_t length) {
+        return utf8_is_safe_full(str, length, UTF8_ALLOW_NEWLINE|UTF8_ALLOW_TAB);
+}
+static inline bool utf8_is_printable_oneline(const char *str, size_t length) {
+        return utf8_is_safe_full(str, length, UTF8_ALLOW_TAB);
+}
+
+static inline char* _utf8_is_valid_n(const char *str, size_t length) {
+        return utf8_is_safe_full(str, length, UTF8_RELAX) ? (char*) str : NULL;
+}
+#define utf8_is_valid_n(str, length) const_generic(str, _utf8_is_valid_n(str, length))
+#define utf8_is_valid(str) utf8_is_valid_n(str, SIZE_MAX)
 
 char* ascii_is_valid_n(const char *str, size_t len) _pure_;
 static inline char* ascii_is_valid(const char *str) {
@@ -19,9 +37,6 @@ static inline char* ascii_is_valid(const char *str) {
 }
 
 int utf8_to_ascii(const char *str, char replacement_char, char **ret);
-
-bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newline) _pure_;
-#define utf8_is_printable(str, length) utf8_is_printable_newline(str, length, true)
 
 char* utf8_escape_invalid(const char *s);
 char* utf8_escape_non_printable_full(const char *str, size_t console_width, bool force_ellipsis);

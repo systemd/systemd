@@ -201,7 +201,7 @@ static int get_port_specifier(sd_device *dev, char **ret) {
                         }
                 }
 
-                if (!utf8_is_valid(phys_port_name) || string_has_cc(phys_port_name, /* ok= */ NULL))
+                if (!utf8_is_safe(phys_port_name))
                         return log_invalid_device_attr(dev, "phys_port_name", phys_port_name);
 
                 /* Otherwise, use phys_port_name as is. */
@@ -308,7 +308,7 @@ static int names_pci_onboard_label(UdevEvent *event, sd_device *pci_dev, const c
         if (r < 0)
                 return log_device_debug_errno(pci_dev, r, "Failed to get PCI onboard label: %m");
 
-        if (!utf8_is_valid(label) || string_has_cc(label, /* ok= */ NULL))
+        if (!utf8_is_safe(label))
                 return log_invalid_device_attr(dev, "label", label);
 
         char str[ALTIFNAMSIZ];
@@ -1259,7 +1259,7 @@ static int names_netdevsim(UdevEvent *event, const char *prefix) {
         if (isempty(phys_port_name))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                               "The 'phys_port_name' attribute is empty.");
-        if (!utf8_is_valid(phys_port_name) || string_has_cc(phys_port_name, /* ok= */ NULL))
+        if (!utf8_is_safe(phys_port_name))
                 return log_invalid_device_attr(dev, "phys_port_name", phys_port_name);
 
         char str[ALTIFNAMSIZ];

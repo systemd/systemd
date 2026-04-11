@@ -102,51 +102,43 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
         return len;
 }
 
-bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newline) {
+bool utf8_is_safe_full(const char *str, size_t length, UTF8SafeFlags flags) {
         assert(str);
+        assert(!FLAGS_SET(flags, UTF8_RELAX) || !(flags & (UTF8_ALLOW_NEWLINE|UTF8_ALLOW_TAB)));
 
-        for (const char *p = str; length > 0;) {
+        if (length == SIZE_MAX)
+                length = strlen(str);
+
+        for (const char *p = str; length > 0; ) {
                 int encoded_len;
-                char32_t val;
+
+                if (_unlikely_(*p == '\0'))
+                        return false; /* always reject embedded NUL */
 
                 encoded_len = utf8_encoded_valid_unichar(p, length);
                 if (encoded_len < 0)
                         return false;
                 assert(encoded_len > 0 && (size_t) encoded_len <= length);
 
-                if (utf8_encoded_to_unichar(p, &val) < 0 ||
-                    unichar_is_control(val) ||
-                    (!allow_newline && val == '\n'))
-                        return false;
+                if (!FLAGS_SET(flags, UTF8_RELAX)) {
+                        char32_t val;
+
+                        if (utf8_encoded_to_unichar(p, &val) < 0)
+                                return false;
+
+                        if ((val == '\n' && !FLAGS_SET(flags, UTF8_ALLOW_NEWLINE)) ||
+                            (val == '\t' && !FLAGS_SET(flags, UTF8_ALLOW_TAB)))
+                                return false;
+
+                        if (unichar_is_control(val))
+                                return false;
+                }
 
                 length -= encoded_len;
                 p += encoded_len;
         }
 
         return true;
-}
-
-char* utf8_is_valid_n(const char *str, size_t len_bytes) {
-        /* Check if the string is composed of valid utf8 characters. If length len_bytes is given, stop after
-         * len_bytes. Otherwise, stop at NUL. */
-
-        assert(str);
-
-        for (size_t i = 0; len_bytes != SIZE_MAX ? i < len_bytes : str[i] != '\0'; ) {
-                int len;
-
-                if (_unlikely_(str[i] == '\0'))
-                        return NULL; /* embedded NUL */
-
-                len = utf8_encoded_valid_unichar(str + i,
-                                                 len_bytes != SIZE_MAX ? len_bytes - i : SIZE_MAX);
-                if (_unlikely_(len < 0))
-                        return NULL; /* invalid character */
-
-                i += len;
-        }
-
-        return (char*) str;
 }
 
 char* utf8_escape_invalid(const char *str) {

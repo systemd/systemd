@@ -291,9 +291,6 @@ bool locale_is_valid(const char *name) {
         if (strlen(name) >= 128)
                 return false;
 
-        if (!utf8_is_valid(name))
-                return false;
-
         if (!filename_is_valid(name))
                 return false;
 

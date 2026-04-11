@@ -49,10 +49,7 @@ bool image_name_is_valid(const char *s) {
         if (!filename_is_valid(s))
                 return false;
 
-        if (string_has_cc(s, NULL))
-                return false;
-
-        if (!utf8_is_valid(s))
+        if (!utf8_is_safe(s))
                 return false;
 
         /* Temporary files for atomically creating new files */

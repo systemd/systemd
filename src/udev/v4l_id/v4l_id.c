@@ -74,7 +74,7 @@ static int run(int argc, char *argv[]) {
                 int capabilities;
 
                 printf("ID_V4L_VERSION=2\n");
-                if (utf8_is_valid((char *)v2cap.card) && !string_has_cc((char *)v2cap.card, /* ok= */ NULL))
+                if (utf8_is_safe((char*) v2cap.card))
                         printf("ID_V4L_PRODUCT=%s\n", v2cap.card);
                 printf("ID_V4L_CAPABILITIES=:");
 

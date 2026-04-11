@@ -5138,13 +5138,14 @@ static void service_notify_message(
         e = strv_find_startswith(tags, "STATUS=");
         if (e) {
                 _cleanup_free_ char *t = NULL;
+                size_t len = strlen(e);
 
-                if (!isempty(e)) {
+                if (len > STATUS_TEXT_MAX)
                         /* Note that this size limit check is mostly paranoia: since the datagram size we are willing
                          * to process is already limited to NOTIFY_BUFFER_MAX, this limit here should never be hit. */
-                        if (strlen(e) > STATUS_TEXT_MAX)
-                                log_unit_warning(u, "Status message overly long (%zu > %u), ignoring.", strlen(e), STATUS_TEXT_MAX);
-                        else if (!utf8_is_valid(e))
+                        log_unit_warning(u, "Status message overly long (%zu > %u), ignoring.", len, STATUS_TEXT_MAX);
+                else if (len > 0) {
+                        if (!utf8_is_printable_oneline(e, len))
                                 log_unit_warning(u, "Status message in notification message is not UTF-8 clean, ignoring.");
                         else {
                                 t = strdup(e);
