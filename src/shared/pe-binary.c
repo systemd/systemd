@@ -403,6 +403,8 @@ int pe_hash(int fd,
         p = le32toh(pe_header->optional.SizeOfHeaders);
         if (p < q)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "SizeOfHeaders too short.");
+        if (p > (uint64_t) st.st_size)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "SizeOfHeaders exceeds file size.");
         r = hash_file(fd, mdctx, q, p - q);
         if (r < 0)
                 return r;
