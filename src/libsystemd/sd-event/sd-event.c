@@ -2048,11 +2048,12 @@ static int event_add_pressure(
                 if (errno != ENOENT)
                         return -errno;
 
-                /* We got ENOENT. Three options now: try the fallback if we have one, or return the error as
-                 * is (if based on user/env config), or return -EOPNOTSUPP (because we picked the path, and
-                 * the PSI service apparently is not supported) */
-                if (!watch_fallback)
-                        return locked ? -ENOENT : -EOPNOTSUPP;
+                /* We got ENOENT. Two options now: try the fallback if we have one, or return -EOPNOTSUPP
+                 * (because we picked the path, and the PSI service apparently is not supported) */
+                if (!watch_fallback) {
+                        assert(!locked);
+                        return -EOPNOTSUPP;
+                }
 
                 path_fd = open(watch_fallback, O_PATH|O_CLOEXEC);
                 if (path_fd < 0) {
