@@ -289,6 +289,7 @@ static int specifier_directory(
         unsigned i;
         int r;
 
+        assert(ret);
         assert_cc(ELEMENTSOF(paths_system) == ELEMENTSOF(paths_user));
         paths = arg_runtime_scope == RUNTIME_SCOPE_USER ? paths_user : paths_system;
 

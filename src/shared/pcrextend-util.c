@@ -197,6 +197,7 @@ int pcrextend_verity_word(
 
         assert(name);
         assert(iovec_is_set(root_hash));
+        assert(ret);
 
         _cleanup_free_ char *name_escaped = xescape(name, ":"); /* Avoid ambiguity around ":" */
         if (!name_escaped)

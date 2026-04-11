@@ -14,6 +14,8 @@ static int uri_set_private_class(const char *uri, char **ret_uri) {
         _cleanup_free_ char *private_uri = NULL;
         int r;
 
+        assert(ret_uri);
+
         r = uri_from_string(uri, &p11kit_uri);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PKCS#11 URI '%s': %m", uri);

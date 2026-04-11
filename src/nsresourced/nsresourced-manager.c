@@ -89,6 +89,8 @@ int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
+        assert(ret);
+
         m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;

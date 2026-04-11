@@ -194,6 +194,8 @@ static int device_allow_build_json(sd_json_variant **ret, const char *name, void
         CGroupDeviceAllow *allow = userdata;
         int r;
 
+        assert(ret);
+
         LIST_FOREACH(device_allow, a, allow) {
                 r = sd_json_variant_append_arraybo(
                                 &v,

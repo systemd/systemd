@@ -3300,7 +3300,9 @@ static int dnssec_validate_records(
         DnsResourceRecord *rr;
         int r;
 
+        assert(have_nsec);
         assert(nvalidations);
+        assert(validated);
 
         /* Returns negative on error, 0 if validation failed, 1 to restart validation, 2 when finished. */
 

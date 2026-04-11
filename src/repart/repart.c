@@ -2691,6 +2691,8 @@ static int parse_key_file(const char *filename, struct iovec *key) {
         size_t n = 0;
         int r;
 
+        assert(key);
+
         r = read_full_file_full(
                         AT_FDCWD, filename,
                         /* offset= */ UINT64_MAX,
@@ -4382,6 +4384,8 @@ static int partition_hint(const Partition *p, const char *node, char **ret) {
         _cleanup_free_ char *buf = NULL;
         const char *label;
         sd_id128_t id;
+
+        assert(ret);
 
         /* Tries really hard to find a suitable description for this partition */
 

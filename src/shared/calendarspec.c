@@ -1285,6 +1285,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
 
         assert(spec);
         assert(tm);
+        assert(usec);
 
         c = *tm;
         tm_usec = *usec;
