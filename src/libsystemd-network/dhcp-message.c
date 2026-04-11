@@ -6,6 +6,7 @@
 #include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
 #include "dhcp-protocol.h"
+#include "dns-def.h"
 #include "dns-domain.h"
 #include "errno-util.h"
 #include "ether-addr-util.h"
@@ -593,6 +594,108 @@ int dhcp_message_get_option_hostname(sd_dhcp_message *message, char **ret) {
 
         /* Then, fall back to Host Name option. */
         return dhcp_message_get_option_dns_name(message, SD_DHCP_OPTION_HOST_NAME, ret);
+}
+
+int dhcp_message_get_option_domains(sd_dhcp_message *message, uint8_t code, char ***ret) {
+        int r;
+
+        assert(message);
+
+        /* This is mostly for SD_DHCP_OPTION_DOMAIN_SEARCH. */
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_message_get_option_alloc(message, code, &iov);
+        if (r < 0)
+                return r;
+
+        const uint8_t *buf = iov.iov_base;
+        size_t len = iov.iov_len;
+
+        _cleanup_strv_free_ char **names = NULL;
+        size_t n_names = 0;
+
+        _cleanup_free_ char *name = NULL;
+        size_t n = 0;
+
+        for (size_t pos = 0, jump_barrier = 0, next_chunk = 0; pos < len;) {
+                uint8_t c = buf[pos++];
+
+                if (c == 0) {
+                        /* End of name */
+
+                        if (!string_is_safe(name, /* flags= */ 0))
+                                return -EBADMSG;
+
+                        _cleanup_free_ char *normalized = NULL;
+                        r = normalize_dns_name(name, &normalized);
+                        if (r < 0)
+                                return r;
+
+                        r = strv_consume_with_size(&names, &n_names, TAKE_PTR(normalized));
+                        if (r < 0)
+                                return r;
+
+                        if (next_chunk != 0)
+                                pos = next_chunk;
+
+                        next_chunk = 0;
+                        jump_barrier = pos;
+
+                        name = mfree(name);
+                        n = 0;
+
+                } else if (c <= 63) {
+                        /* Literal label */
+
+                        const char *label = (const char*) (buf + pos);
+                        pos += c;
+
+                        if (pos >= len)
+                                return -EBADMSG;
+
+                        if (!GREEDY_REALLOC(name, n + 1 + DNS_LABEL_ESCAPED_MAX))
+                                return -ENOMEM;
+
+                        if (n != 0)
+                                name[n++] = '.';
+
+                        r = dns_label_escape(label, c, name + n, DNS_LABEL_ESCAPED_MAX);
+                        if (r < 0)
+                                return r;
+
+                        n += r;
+
+                } else if (FLAGS_SET(c, 0xc0)) {
+                        /* Pointer */
+
+                        if (pos >= len) /* pointer is 2 bytes, hence we need to read at least one more byte. */
+                                return -EBADMSG;
+
+                        /* Save the current location so we don't end up re-parsing what's parsed so far. */
+                        if (next_chunk == 0)
+                                next_chunk = pos + 1;
+
+                        pos = ((size_t) (c & ~0xc0) << 8) | ((size_t) buf[pos]);
+
+                        /* Jumps are limited to a "prior occurrence" (RFC-1035 4.1.4) */
+                        if (pos >= jump_barrier)
+                                return -EBADMSG;
+
+                        jump_barrier = pos;
+
+                } else
+                        return -EBADMSG;
+        }
+
+        if (!isempty(name)) /* trailing garbage?? Should not happen, but for safety. */
+                return -EBADMSG;
+
+        if (strv_isempty(names))
+                return -EBADMSG;
+
+        if (ret)
+                *ret = TAKE_PTR(names);
+        return 0;
 }
 
 int dhcp_message_get_option_sub_tlv(sd_dhcp_message *message, uint8_t code, TLVFlag flags, TLV **ret) {
