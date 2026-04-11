@@ -1111,6 +1111,10 @@ TEST(usec_shift_clock) {
         mn = now(CLOCK_MONOTONIC);
         bt = now(CLOCK_BOOTTIME);
 
+        assert(rt != USEC_INFINITY);
+        assert(mn != USEC_INFINITY);
+        assert(bt != USEC_INFINITY);
+
         assert_se(usec_shift_clock(USEC_INFINITY, CLOCK_REALTIME, CLOCK_MONOTONIC) == USEC_INFINITY);
 
         /* Silence static analyzers */
