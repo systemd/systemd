@@ -689,7 +689,9 @@ static void test_float_match(sd_json_variant *v) {
 
         assert_se(sd_json_variant_is_array(v));
         assert_se(sd_json_variant_elements(v) == 11);
+        assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 0))));
         assert_se(fabs(1.0 - (DBL_MIN / sd_json_variant_real(sd_json_variant_by_index(v, 0)))) <= delta);
+        assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 1))));
         assert_se(fabs(1.0 - (DBL_MAX / sd_json_variant_real(sd_json_variant_by_index(v, 1)))) <= delta);
         assert_se(sd_json_variant_is_null(sd_json_variant_by_index(v, 2))); /* nan is not supported by json → null */
         assert_se(sd_json_variant_is_null(sd_json_variant_by_index(v, 3))); /* +inf is not supported by json → null */
