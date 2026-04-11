@@ -96,9 +96,9 @@ static EFI_STATUS bmp_parse_header(
         }
 
         size_t row_size = ((size_t) dib->depth * dib->x + 31) / 32 * 4;
-        if (file->size - file->offset <  dib->y * row_size)
+        if (dib->y == 0 || row_size > 64 * 1024 * 1024 / dib->y)
                 return EFI_INVALID_PARAMETER;
-        if (row_size * dib->y > 64 * 1024 * 1024)
+        if (file->size - file->offset < dib->y * row_size)
                 return EFI_INVALID_PARAMETER;
 
         /* check color table */
@@ -151,11 +151,19 @@ static EFI_STATUS read_channel_mask(
                 channel_shift[R] = __builtin_ctz(dib->channel_mask_r);
                 channel_shift[G] = __builtin_ctz(dib->channel_mask_g);
                 channel_shift[B] = __builtin_ctz(dib->channel_mask_b);
+                if (popcount(dib->channel_mask_r) > 31 ||
+                    popcount(dib->channel_mask_g) > 31 ||
+                    popcount(dib->channel_mask_b) > 31)
+                        return EFI_INVALID_PARAMETER;
+
                 channel_scale[R] = 0xff / ((1 << popcount(dib->channel_mask_r)) - 1);
                 channel_scale[G] = 0xff / ((1 << popcount(dib->channel_mask_g)) - 1);
                 channel_scale[B] = 0xff / ((1 << popcount(dib->channel_mask_b)) - 1);
 
                 if (dib->size >= SIZEOF_BMP_DIB_RGBA && dib->channel_mask_a != 0) {
+                        if (popcount(dib->channel_mask_a) > 31)
+                                return EFI_INVALID_PARAMETER;
+
                         channel_mask[A] = dib->channel_mask_a;
                         channel_shift[A] = __builtin_ctz(dib->channel_mask_a);
                         channel_scale[A] = 0xff / ((1 << popcount(dib->channel_mask_a)) - 1);
