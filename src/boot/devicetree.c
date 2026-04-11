@@ -141,7 +141,7 @@ static const char* devicetree_get_compatible(const void *dtb) {
         size_t size_words = struct_size / sizeof(uint32_t);
         size_t len, name_off, len_words, s;
 
-        for (size_t i = 0; i < end; i++) {
+        for (size_t i = 0; i < size_words; i++) {
                 switch (be32toh(cursor[i])) {
                 case FDT_BEGIN_NODE:
                         if (i >= size_words || cursor[++i] != 0)
