@@ -475,7 +475,9 @@ int nss_pack_group_record_shadow(
 
         assert(buffer);
 
-        p = buffer + sizeof(void*) * (n + 1); /* place member strings right after the ptr array */
+        /* n already includes trailing NULL pointers from nss_count_strv(), unlike the
+         * non-shadow nss_pack_group_record() where n does not include them. */
+        p = buffer + sizeof(void*) * n;
         array = (char**) buffer; /* place ptr array at beginning of buffer, under assumption buffer is aligned */
 
         sgrp->sg_mem = array;
