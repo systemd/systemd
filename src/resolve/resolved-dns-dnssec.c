@@ -2057,6 +2057,8 @@ static int dnssec_test_positive_wildcard_nsec(
         bool authenticated = true;
         int r;
 
+        assert(_authenticated);
+
         /* Run a positive NSEC wildcard proof. Specifically:
          *
          * A proof that there's neither a wildcard name nor a non-wildcard name that is a suffix of the name "name" and

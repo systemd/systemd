@@ -456,6 +456,9 @@ static int dhcp4_server_parse_dns_server_string_and_warn(
                 struct in_addr **addresses,
                 size_t *n_addresses) {
 
+        assert(addresses);
+        assert(n_addresses);
+
         for (;;) {
                 _cleanup_free_ char *word = NULL, *server_name = NULL;
                 union in_addr_union address;

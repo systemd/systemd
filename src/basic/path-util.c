@@ -1076,6 +1076,8 @@ int path_split_prefix_filename(const char *path, char **ret_dir, char **ret_file
         const char *c, *next = NULL;
         int r;
 
+        POINTER_MAY_BE_NULL(path);
+
         /* Split the path into dir prefix/filename pair. Returns:
          *
          * -EINVAL        → if the path is not valid

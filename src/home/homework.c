@@ -915,6 +915,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         int r;
 
         assert(h);
+        assert(ret_home);
 
         if (!h->user_name)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks user name, refusing.");

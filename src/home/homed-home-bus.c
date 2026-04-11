@@ -801,6 +801,8 @@ static int bus_home_object_find(
         Home *h;
         int r;
 
+        assert(found);
+
         r = sd_bus_path_decode(path, "/org/freedesktop/home1/home", &e);
         if (r <= 0)
                 return 0;

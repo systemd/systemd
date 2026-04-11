@@ -603,6 +603,8 @@ int bpf_firewall_compile(Unit *u) {
 }
 
 static int load_bpf_progs_from_fs_to_set(Unit *u, char **filter_paths, Set **set) {
+        assert(set);
+
         set_clear(*set);
 
         STRV_FOREACH(bpf_fs_path, filter_paths) {

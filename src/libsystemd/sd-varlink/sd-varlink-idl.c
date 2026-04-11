@@ -840,6 +840,7 @@ static int varlink_idl_subparse_field_type(
         assert(p);
         assert(*p);
         assert(line);
+        assert(column);
         assert(field);
 
         r = varlink_idl_subparse_whitespace(p, line, column);
@@ -1171,6 +1172,9 @@ _public_ int sd_varlink_idl_parse(
 
         _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *interface = NULL;
         _cleanup_(varlink_symbol_freep) sd_varlink_symbol *symbol = NULL;
+
+        POINTER_MAY_BE_NULL(ret);
+
         enum {
                 STATE_PRE_INTERFACE,
                 STATE_INTERFACE,
@@ -1406,7 +1410,8 @@ _public_ int sd_varlink_idl_parse(
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(interface);
+        if (ret)
+                *ret = TAKE_PTR(interface);
         return 0;
 }
 

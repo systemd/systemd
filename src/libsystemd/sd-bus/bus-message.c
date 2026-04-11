@@ -418,6 +418,8 @@ int bus_message_from_malloc(
         size_t sz;
         int r;
 
+        assert(ret);
+
         r = message_from_header(
                         bus,
                         buffer, length,
