@@ -1266,7 +1266,8 @@ int json_stream_read(JsonStream *s) {
 
                 add = MIN(s->buffer_max - s->input_buffer_size, s->read_chunk);
 
-                if (!FLAGS_SET(s->flags, JSON_STREAM_INPUT_SENSITIVE) && s->input_buffer_index == 0) {
+                if (s->input_buffer_index == 0 &&
+                    (!FLAGS_SET(s->flags, JSON_STREAM_INPUT_SENSITIVE) || s->input_buffer_size == 0)) {
                         if (!GREEDY_REALLOC(s->input_buffer, s->input_buffer_size + add))
                                 return -ENOMEM;
                 } else {
