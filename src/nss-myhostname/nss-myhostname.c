@@ -230,7 +230,7 @@ static enum nss_status fill_in_hostent(
         if (additional) {
                 r_alias = buffer + idx;
                 memcpy(r_alias, additional, l_additional+1);
-                idx += ALIGN(l_additional+1);
+                assert_se(INC_SAFE(&idx, ALIGN(l_additional+1)));
         }
 
         /* Second, create aliases array */
@@ -258,14 +258,14 @@ static enum nss_status fill_in_hostent(
                 }
 
                 assert(i == c);
-                idx += c*ALIGN(alen);
+                assert_se(INC_SAFE(&idx, c*ALIGN(alen)));
 
         } else if (af == AF_INET) {
                 *(uint32_t*) r_addr = local_address_ipv4;
-                idx += ALIGN(alen);
+                assert_se(INC_SAFE(&idx, ALIGN(alen)));
         } else if (socket_ipv6_is_enabled()) {
                 memcpy(r_addr, LOCALADDRESS_IPV6, FAMILY_ADDRESS_SIZE(AF_INET6));
-                idx += ALIGN(alen);
+                assert_se(INC_SAFE(&idx, ALIGN(alen)));
         }
 
         /* Fourth, add address pointer array */
@@ -277,15 +277,15 @@ static enum nss_status fill_in_hostent(
                         ((char**) r_addr_list)[i] = r_addr + i*ALIGN(alen);
 
                 ((char**) r_addr_list)[i] = NULL;
-                idx += (c+1) * sizeof(char*);
+                assert_se(INC_SAFE(&idx, (c+1) * sizeof(char*)));
 
         } else if (af == AF_INET || socket_ipv6_is_enabled()) {
                 ((char**) r_addr_list)[0] = r_addr;
                 ((char**) r_addr_list)[1] = NULL;
-                idx += 2 * sizeof(char*);
+                assert_se(INC_SAFE(&idx, 2 * sizeof(char*)));
         } else {
                 ((char**) r_addr_list)[0] = NULL;
-                idx += sizeof(char*);
+                assert_se(INC_SAFE(&idx, sizeof(char*)));
         }
 
         /* Verify the size matches */
