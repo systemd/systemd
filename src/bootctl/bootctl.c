@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <sys/stat.h>
 
 #include "sd-varlink.h"
@@ -23,12 +22,14 @@
 #include "efivars.h"
 #include "escape.h"
 #include "find-esp.h"
+#include "format-table.h"
 #include "image-policy.h"
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "openssl-util.h"
+#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
@@ -254,296 +255,270 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] COMMAND ...\n"
-               "\n%5$sControl EFI firmware boot settings and manage boot loader.%6$s\n"
-               "\n%3$sGeneric EFI Firmware/Boot Loader Commands:%4$s\n"
-               "  status               Show status of installed boot loader and EFI variables\n"
-               "  reboot-to-firmware [BOOL]\n"
-               "                       Query or set reboot-to-firmware EFI flag\n"
-               "\n%3$sBoot Loader Specification Commands:%4$s\n"
-               "  list                 List boot loader entries\n"
-               "  unlink ID            Remove boot loader entry\n"
-               "  cleanup              Remove files in ESP not referenced in any boot entry\n"
-               "\n%3$sBoot Loader Interface Commands:%4$s\n"
-               "  set-default ID       Set default boot loader entry\n"
-               "  set-oneshot ID       Set default boot loader entry, for next boot only\n"
-               "  set-sysfail ID       Set boot loader entry used in case of a system failure\n"
-               "  set-timeout SECONDS  Set the menu timeout\n"
-               "  set-timeout-oneshot SECONDS\n"
-               "                       Set the menu timeout for the next boot only\n"
-               "\n%3$ssystemd-boot Commands:%4$s\n"
-               "  install              Install systemd-boot to the ESP and EFI variables\n"
-               "  update               Update systemd-boot in the ESP and EFI variables\n"
-               "  remove               Remove systemd-boot from the ESP and EFI variables\n"
-               "  is-installed         Test whether systemd-boot is installed in the ESP\n"
-               "  random-seed          Initialize or refresh random seed in ESP and EFI\n"
-               "                       variables\n"
-               "\n%3$sKernel Image Commands:%4$s\n"
-               "  kernel-identify KERNEL-IMAGE\n"
-               "                       Identify kernel image type\n"
-               "  kernel-inspect KERNEL-IMAGE\n"
-               "                       Prints details about the kernel image\n"
-               "\n%3$sBlock Device Discovery Commands:%4$s\n"
-               "  -p --print-esp-path  Print path to the EFI System Partition mount point\n"
-               "  -x --print-boot-path Print path to the $BOOT partition mount point\n"
-               "     --print-loader-path\n"
-               "                       Print path to currently booted boot loader binary\n"
-               "     --print-stub-path Print path to currently booted unified kernel binary\n"
-               "  -R --print-root-device\n"
-               "                       Print path to the block device node backing the\n"
-               "                       root file system (returns e.g. /dev/nvme0n1p5)\n"
-               "  -RR                  Print path to the whole disk block device node\n"
-               "                       backing the root FS (returns e.g. /dev/nvme0n1)\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help            Show this help\n"
-               "     --version         Print version\n"
-               "     --esp-path=PATH   Path to the EFI System Partition (ESP)\n"
-               "     --boot-path=PATH  Path to the $BOOT partition\n"
-               "     --root=PATH       Operate on an alternate filesystem root\n"
-               "     --image=PATH      Operate on disk image as filesystem root\n"
-               "     --image-policy=POLICY\n"
-               "                       Specify disk image dissection policy\n"
-               "     --install-source=auto|image|host\n"
-               "                       Where to pick files when using --root=/--image=\n"
-               "     --variables=yes|no\n"
-               "                       Whether to modify EFI variables\n"
-               "     --random-seed=yes|no\n"
-               "                       Whether to create random-seed file during install\n"
-               "     --no-pager        Do not pipe output into a pager\n"
-               "     --graceful        Don't fail when the ESP cannot be found or EFI\n"
-               "                       variables cannot be written\n"
-               "  -q --quiet           Suppress output\n"
-               "     --make-entry-directory=yes|no|auto\n"
-               "                       Create $BOOT/ENTRY-TOKEN/ directory\n"
-               "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
-               "                       Entry token to use for this installation\n"
-               "     --json=pretty|short|off\n"
-               "                       Generate JSON output\n"
-               "     --all-architectures\n"
-               "                       Install all supported EFI architectures\n"
-               "     --efi-boot-option-description=DESCRIPTION\n"
-               "                       Description of the entry in the boot option list\n"
-               "     --efi-boot-option-description-with-device=yes\n"
-               "                       Suffix description with disk vendor/model/serial\n"
-               "     --dry-run         Dry run (unlink and cleanup)\n"
-               "     --secure-boot-auto-enroll=yes|no\n"
-               "                       Set up secure boot auto-enrollment\n"
-               "     --private-key=PATH|URI\n"
-               "                       Private key to use when setting up secure boot\n"
-               "                       auto-enrollment or an engine or provider specific\n"
-               "                       designation if --private-key-source= is used\n"
-               "     --private-key-source=file|provider:PROVIDER|engine:ENGINE\n"
-               "                       Specify how to use KEY for --private-key=. Allows\n"
-               "                       an OpenSSL engine/provider to be used when setting\n"
-               "                       up secure boot auto-enrollment\n"
-               "     --certificate=PATH|URI\n"
-               "                       PEM certificate to use when setting up Secure Boot\n"
-               "                       auto-enrollment, or a provider specific designation\n"
-               "                       if --certificate-source= is used\n"
-               "     --certificate-source=file|provider:PROVIDER\n"
-               "                       Specify how to interpret the certificate from\n"
-               "                       --certificate=. Allows the certificate to be loaded\n"
-               "                       from an OpenSSL provider\n"
-               "\nSee the %2$s for details.\n",
+        static const char *const verb_groups[] = {
+                "Generic EFI Firmware/Boot Loader Commands",
+                "Boot Loader Specification Commands",
+                "Boot Loader Interface Commands",
+                "systemd-boot Commands",
+                "Kernel Image Commands",
+        };
+
+        static const char *const option_groups[] = {
+                "Block Device Discovery Commands",
+                "Options",
+        };
+
+        _cleanup_(table_unref_many) Table *verb_tables[ELEMENTSOF(verb_groups) + 1] = {};
+        _cleanup_(table_unref_many) Table *option_tables[ELEMENTSOF(option_groups) + 1] = {};
+
+        for (size_t i = 0; i < ELEMENTSOF(verb_groups); i++) {
+                r = verbs_get_help_table_group(verb_groups[i], &verb_tables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        for (size_t i = 0; i < ELEMENTSOF(option_groups); i++) {
+                r = option_parser_get_help_table_group(option_groups[i], &option_tables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        (void) table_sync_column_widths(0,
+                                        verb_tables[0], verb_tables[1], verb_tables[2],
+                                        verb_tables[3], verb_tables[4],
+                                        option_tables[0], option_tables[1]);
+
+        printf("%s [OPTIONS...] COMMAND ...\n"
+               "\n%sControl EFI firmware boot settings and manage boot loader.%s\n",
                program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
                ansi_normal());
 
+        for (size_t i = 0; i < ELEMENTSOF(verb_groups); i++) {
+                printf("\n%s%s:%s\n", ansi_underline(), verb_groups[i], ansi_normal());
+
+                r = table_print_or_warn(verb_tables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        for (size_t i = 0; i < ELEMENTSOF(option_groups); i++) {
+                printf("\n%s%s:%s\n", ansi_underline(), option_groups[i], ansi_normal());
+
+                r = table_print_or_warn(option_tables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP(help);
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_ESP_PATH = 0x100,
-                ARG_BOOT_PATH,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_INSTALL_SOURCE,
-                ARG_VERSION,
-                ARG_VARIABLES,
-                ARG_NO_VARIABLES,
-                ARG_RANDOM_SEED,
-                ARG_NO_PAGER,
-                ARG_GRACEFUL,
-                ARG_MAKE_ENTRY_DIRECTORY,
-                ARG_ENTRY_TOKEN,
-                ARG_JSON,
-                ARG_ARCH_ALL,
-                ARG_EFI_BOOT_OPTION_DESCRIPTION,
-                ARG_EFI_BOOT_OPTION_DESCRIPTION_WITH_DEVICE,
-                ARG_DRY_RUN,
-                ARG_PRINT_LOADER_PATH,
-                ARG_PRINT_STUB_PATH,
-                ARG_SECURE_BOOT_AUTO_ENROLL,
-                ARG_CERTIFICATE,
-                ARG_CERTIFICATE_SOURCE,
-                ARG_PRIVATE_KEY,
-                ARG_PRIVATE_KEY_SOURCE,
-        };
+VERB_GROUP("Generic EFI Firmware/Boot Loader Commands");
 
-        static const struct option options[] = {
-                { "help",                                    no_argument,       NULL, 'h'                                         },
-                { "version",                                 no_argument,       NULL, ARG_VERSION                                 },
-                { "esp-path",                                required_argument, NULL, ARG_ESP_PATH                                },
-                { "path",                                    required_argument, NULL, ARG_ESP_PATH                                }, /* Compatibility alias */
-                { "boot-path",                               required_argument, NULL, ARG_BOOT_PATH                               },
-                { "root",                                    required_argument, NULL, ARG_ROOT                                    },
-                { "image",                                   required_argument, NULL, ARG_IMAGE                                   },
-                { "image-policy",                            required_argument, NULL, ARG_IMAGE_POLICY                            },
-                { "install-source",                          required_argument, NULL, ARG_INSTALL_SOURCE                          },
-                { "print-esp-path",                          no_argument,       NULL, 'p'                                         },
-                { "print-path",                              no_argument,       NULL, 'p'                                         }, /* Compatibility alias */
-                { "print-boot-path",                         no_argument,       NULL, 'x'                                         },
-                { "print-loader-path",                       no_argument,       NULL, ARG_PRINT_LOADER_PATH                       },
-                { "print-stub-path",                         no_argument,       NULL, ARG_PRINT_STUB_PATH                         },
-                { "print-root-device",                       no_argument,       NULL, 'R'                                         },
-                { "variables",                               required_argument, NULL, ARG_VARIABLES                               },
-                { "no-variables",                            no_argument,       NULL, ARG_NO_VARIABLES                            }, /* Compatibility alias */
-                { "random-seed",                             required_argument, NULL, ARG_RANDOM_SEED                             },
-                { "no-pager",                                no_argument,       NULL, ARG_NO_PAGER                                },
-                { "graceful",                                no_argument,       NULL, ARG_GRACEFUL                                },
-                { "quiet",                                   no_argument,       NULL, 'q'                                         },
-                { "make-entry-directory",                    required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY                    },
-                { "make-machine-id-directory",               required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY                    }, /* Compatibility alias */
-                { "entry-token",                             required_argument, NULL, ARG_ENTRY_TOKEN                             },
-                { "json",                                    required_argument, NULL, ARG_JSON                                    },
-                { "all-architectures",                       no_argument,       NULL, ARG_ARCH_ALL                                },
-                { "efi-boot-option-description",             required_argument, NULL, ARG_EFI_BOOT_OPTION_DESCRIPTION             },
-                { "efi-boot-option-description-with-device", required_argument, NULL, ARG_EFI_BOOT_OPTION_DESCRIPTION_WITH_DEVICE },
-                { "dry-run",                                 no_argument,       NULL, ARG_DRY_RUN                                 },
-                { "secure-boot-auto-enroll",                 required_argument, NULL, ARG_SECURE_BOOT_AUTO_ENROLL                 },
-                { "certificate",                             required_argument, NULL, ARG_CERTIFICATE                             },
-                { "certificate-source",                      required_argument, NULL, ARG_CERTIFICATE_SOURCE                      },
-                { "private-key",                             required_argument, NULL, ARG_PRIVATE_KEY                             },
-                { "private-key-source",                      required_argument, NULL, ARG_PRIVATE_KEY_SOURCE                      },
-                {}
-        };
+VERB_SCOPE(, verb_status, "status", NULL, VERB_ANY, 1, VERB_DEFAULT,
+           "Show status of installed boot loader and EFI variables");
 
-        int c, r;
+VERB_SCOPE(, verb_reboot_to_firmware, "reboot-to-firmware", "[BOOL]", VERB_ANY, 2, 0,
+           "Query or set reboot-to-firmware EFI flag");
+
+VERB_GROUP("Boot Loader Specification Commands");
+
+VERB_SCOPE_NOARG(, verb_list, "list",
+           "List boot loader entries");
+
+VERB_SCOPE(, verb_unlink, "unlink", "ID", 2, 2, 0,
+           "Remove boot loader entry");
+
+VERB_SCOPE_NOARG(, verb_cleanup, "cleanup",
+           "Remove files in ESP not referenced in any boot entry");
+
+VERB_GROUP("Boot Loader Interface Commands");
+
+VERB_SCOPE(, verb_set_efivar, "set-default", "ID", 2, 2, 0,
+           "Set default boot loader entry");
+
+VERB_SCOPE(, verb_set_efivar, "set-oneshot", "ID", 2, 2, 0,
+           "Set default boot loader entry, for next boot only");
+
+VERB_SCOPE(, verb_set_efivar, "set-sysfail", "ID", 2, 2, 0,
+           "Set boot loader entry used in case of a system failure");
+
+VERB_SCOPE(, verb_set_efivar, "set-timeout", "SECONDS", 2, 2, 0,
+           "Set the menu timeout");
+
+VERB_SCOPE(, verb_set_efivar, "set-timeout-oneshot", "SECONDS", 2, 2, 0,
+           "Set the menu timeout for the next boot only");
+
+VERB_SCOPE(, verb_set_efivar, "set-preferred", "ID", 2, 2, 0,
+           /* help= */ NULL);
+
+VERB_GROUP("systemd-boot Commands");
+
+VERB_SCOPE(, verb_install, "install", NULL, VERB_ANY, 1, 0,
+           "Install systemd-boot to the ESP and EFI variables");
+
+VERB_SCOPE(, verb_install, "update", NULL, VERB_ANY, 1, 0,
+           "Update systemd-boot in the ESP and EFI variables");
+
+VERB_SCOPE_NOARG(, verb_remove, "remove",
+           "Remove systemd-boot from the ESP and EFI variables");
+
+VERB_SCOPE_NOARG(, verb_is_installed, "is-installed",
+           "Test whether systemd-boot is installed in the ESP");
+
+VERB_SCOPE_NOARG(, verb_random_seed, "random-seed",
+           "Initialize or refresh random seed in ESP and EFI variables");
+
+VERB_GROUP("Kernel Image Commands");
+
+VERB_SCOPE(, verb_kernel_identify, "kernel-identify", "KERNEL-IMAGE", 2, 2, 0,
+           "Identify kernel image type");
+
+VERB_SCOPE(, verb_kernel_inspect, "kernel-inspect", "KERNEL-IMAGE", 2, 2, 0,
+           "Prints details about the kernel image");
+
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hpxRq", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_GROUP("Block Device Discovery Commands"):
+                        break;
+
+                OPTION('p', "print-esp-path", NULL, "Print path to the EFI System Partition mount point"): {}
+                OPTION_LONG("print-path", NULL, /* help= */ NULL):  /* Compatibility alias */
+                        arg_print_esp_path = true;
+                        break;
+
+                OPTION('x', "print-boot-path", NULL, "Print path to the $BOOT partition mount point"):
+                        arg_print_dollar_boot_path = true;
+                        break;
+
+                OPTION_LONG("print-loader-path", NULL, "Print path to currently booted boot loader binary"):
+                        arg_print_loader_path = true;
+                        break;
+
+                OPTION_LONG("print-stub-path", NULL, "Print path to currently booted unified kernel binary"):
+                        arg_print_stub_path = true;
+                        break;
+
+                OPTION('R', "print-root-device", NULL,
+                       "Print path to the block device node backing the root file system"
+                       " (returns e.g. /dev/nvme0n1p5)"): {}
+                OPTION_HELP_VERBATIM("-RR",
+                                     "Print path to the whole disk block device node backing the root FS"
+                                     " (returns e.g. /dev/nvme0n1)"):
+                        arg_print_root_device++;
+                        break;
+
+                OPTION_GROUP("Options"):
+                        break;
+
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_ESP_PATH:
-                        r = free_and_strdup(&arg_esp_path, optarg);
+                OPTION_LONG("esp-path", "PATH", "Path to the EFI System Partition (ESP)"): {}
+                OPTION_LONG("path", "PATH", /* help= */ NULL):  /* Compatibility alias */
+                        r = free_and_strdup(&arg_esp_path, arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case ARG_BOOT_PATH:
-                        r = free_and_strdup(&arg_xbootldr_path, optarg);
+                OPTION_LONG("boot-path", "PATH", "Path to the $BOOT partition"):
+                        r = free_and_strdup(&arg_xbootldr_path, arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
+                OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
+                        r = parse_path_argument(arg, /* suppress_root= */ true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
+                OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
+                        r = parse_image_policy_argument(arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_INSTALL_SOURCE: {
-                        InstallSource is = install_source_from_string(optarg);
+                OPTION_LONG("install-source", "SOURCE",
+                            "Where to pick files when using --root=/--image= (auto, image, host)"): {
+                        InstallSource is = install_source_from_string(arg);
                         if (is < 0)
-                                return log_error_errno(is, "Unexpected parameter for --install-source=: %s", optarg);
+                                return log_error_errno(is, "Unexpected parameter for --install-source=: %s", arg);
 
                         arg_install_source = is;
                         break;
                 }
 
-                case 'p':
-                        arg_print_esp_path = true;
-                        break;
-
-                case 'x':
-                        arg_print_dollar_boot_path = true;
-                        break;
-
-                case ARG_PRINT_LOADER_PATH:
-                        arg_print_loader_path = true;
-                        break;
-
-                case ARG_PRINT_STUB_PATH:
-                        arg_print_stub_path = true;
-                        break;
-
-                case 'R':
-                        arg_print_root_device++;
-                        break;
-
-                case ARG_VARIABLES:
-                        r = parse_tristate_argument_with_auto("--variables=", optarg, &arg_touch_variables);
+                OPTION_LONG("variables", "BOOL", "Whether to modify EFI variables"):
+                        r = parse_tristate_argument_with_auto("--variables=", arg, &arg_touch_variables);
                         if (r < 0)
                                 return r;
 #if !ENABLE_EFI
                         if (arg_touch_variables > 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                       "Compiled without support for EFI, --variables=%s cannot be specified.", optarg);
+                                                       "Compiled without support for EFI, --variables=%s cannot be specified.", arg);
 #endif
                         break;
 
-                case ARG_NO_VARIABLES:
+                OPTION_LONG("no-variables", NULL, /* help= */ NULL):  /* Compatibility alias */
                         arg_touch_variables = false;
                         break;
 
-                case ARG_RANDOM_SEED:
-                        r = parse_boolean_argument("--random-seed=", optarg, &arg_install_random_seed);
+                OPTION_LONG("random-seed", "BOOL", "Whether to create random-seed file during install"):
+                        r = parse_boolean_argument("--random-seed=", arg, &arg_install_random_seed);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_GRACEFUL:
+                OPTION_LONG("graceful", NULL,
+                            "Don't fail when the ESP cannot be found or EFI variables cannot be written"):
                         _arg_graceful = ARG_GRACEFUL_YES;
                         break;
 
-                case 'q':
+                OPTION('q', "quiet", NULL, "Suppress output"):
                         arg_quiet = true;
                         break;
 
-                case ARG_ENTRY_TOKEN:
-                        r = parse_boot_entry_token_type(optarg, &arg_entry_token_type, &arg_entry_token);
+                OPTION_LONG("entry-token", "TOKEN",
+                            "Entry token to use for this installation"
+                            " (machine-id, os-id, os-image-id, auto, literal:…)"):
+                        r = parse_boot_entry_token_type(arg, &arg_entry_token_type, &arg_entry_token);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_MAKE_ENTRY_DIRECTORY:
-                        if (streq(optarg, "auto"))  /* retained for backwards compatibility */
+                OPTION_LONG("make-entry-directory", "yes|no|auto", "Create $BOOT/ENTRY-TOKEN/ directory"): {}
+                OPTION_LONG("make-machine-id-directory", "BOOL", /* help= */ NULL):  /* Compatibility alias */
+                        if (streq(arg, "auto"))  /* retained for backwards compatibility */
                                 arg_make_entry_directory = -1; /* yes if machine-id is permanent */
                         else {
-                                r = parse_boolean_argument("--make-entry-directory=", optarg, NULL);
+                                r = parse_boolean_argument("--make-entry-directory=", arg, NULL);
                                 if (r < 0)
                                         return r;
 
@@ -551,95 +526,99 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
 
-                case ARG_ARCH_ALL:
+                OPTION_LONG("all-architectures", NULL, "Install all supported EFI architectures"):
                         arg_arch_all = true;
                         break;
 
-                case ARG_EFI_BOOT_OPTION_DESCRIPTION:
-                        if (isempty(optarg) || !(string_is_safe(optarg) && utf8_is_valid(optarg))) {
-                                _cleanup_free_ char *escaped = cescape(optarg);
+                OPTION_LONG("efi-boot-option-description", "DESCRIPTION",
+                            "Description of the entry in the boot option list"):
+                        if (isempty(arg) || !(string_is_safe(arg) && utf8_is_valid(arg))) {
+                                _cleanup_free_ char *escaped = cescape(arg);
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Invalid --efi-boot-option-description=: %s", strna(escaped));
                         }
-                        if (strlen(optarg) > EFI_BOOT_OPTION_DESCRIPTION_MAX)
+                        if (strlen(arg) > EFI_BOOT_OPTION_DESCRIPTION_MAX)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--efi-boot-option-description= too long: %zu > %zu",
-                                                       strlen(optarg), EFI_BOOT_OPTION_DESCRIPTION_MAX);
-                        r = free_and_strdup_warn(&arg_efi_boot_option_description, optarg);
+                                                       strlen(arg), EFI_BOOT_OPTION_DESCRIPTION_MAX);
+                        r = free_and_strdup_warn(&arg_efi_boot_option_description, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_EFI_BOOT_OPTION_DESCRIPTION_WITH_DEVICE:
-                        r = parse_boolean_argument("--efi-boot-option-description-with-device=", optarg, &arg_efi_boot_option_description_with_device);
+                OPTION_LONG("efi-boot-option-description-with-device", "BOOL",
+                            "Suffix description with disk vendor/model/serial"):
+                        r = parse_boolean_argument("--efi-boot-option-description-with-device=", arg,
+                                                   &arg_efi_boot_option_description_with_device);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_DRY_RUN:
+                OPTION_LONG("dry-run", NULL, "Dry run (unlink and cleanup)"):
                         arg_dry_run = true;
                         break;
 
-                case ARG_SECURE_BOOT_AUTO_ENROLL:
-                        r = parse_boolean_argument("--secure-boot-auto-enroll=", optarg, &arg_secure_boot_auto_enroll);
+                OPTION_LONG("secure-boot-auto-enroll", "BOOL", "Set up secure boot auto-enrollment"):
+                        r = parse_boolean_argument("--secure-boot-auto-enroll=", arg,
+                                                   &arg_secure_boot_auto_enroll);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CERTIFICATE:
-                        r = free_and_strdup_warn(&arg_certificate, optarg);
+                OPTION_LONG("private-key", "PATH|URI",
+                            "Private key for Secure Boot auto-enrollment"):
+                        r = free_and_strdup_warn(&arg_private_key, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CERTIFICATE_SOURCE:
-                        r = parse_openssl_certificate_source_argument(
-                                        optarg,
-                                        &arg_certificate_source,
-                                        &arg_certificate_source_type);
+                OPTION_LONG("private-key-source", "SOURCE",
+                            "Specify how to use the private key "
+                            "(file, provider:PROVIDER, engine:ENGINE)"):
+                        r = parse_openssl_key_source_argument(arg,
+                                                              &arg_private_key_source,
+                                                              &arg_private_key_source_type);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_PRIVATE_KEY: {
-                        r = free_and_strdup_warn(&arg_private_key, optarg);
+                OPTION_LONG("certificate", "PATH|URI",
+                            "PEM certificate to use when setting up Secure Boot auto-enrollment, "
+                            "or a provider specific designation if --certificate-source= is used"):
+                        r = free_and_strdup_warn(&arg_certificate, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("certificate-source", "SOURCE",
+                            "Specify how to interpret the certificate from --certificate=. "
+                            "Allows the certificate to be loaded from an OpenSSL provider "
+                            "(file, provider:PROVIDER)"):
+                        r = parse_openssl_certificate_source_argument(arg,
+                                                                      &arg_certificate_source,
+                                                                      &arg_certificate_source_type);
                         if (r < 0)
                                 return r;
                         break;
                 }
 
-                case ARG_PRIVATE_KEY_SOURCE:
-                        r = parse_openssl_key_source_argument(
-                                        optarg,
-                                        &arg_private_key_source,
-                                        &arg_private_key_source_type);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        char **args = option_parser_get_args(&state);
 
         if (!!arg_print_esp_path + !!arg_print_dollar_boot_path + (arg_print_root_device > 0) + arg_print_loader_path + arg_print_stub_path > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--print-esp-path/-p, --print-boot-path/-x, --print-root-device=/-R, --print-loader-path, --print-stub-path cannot be combined.");
 
-        if ((arg_root || arg_image) && argv[optind] && !STR_IN_SET(argv[optind], "status", "list",
+        if ((arg_root || arg_image) && args[0] && !STR_IN_SET(args[0], "status", "list",
                         "install", "update", "remove", "is-installed", "random-seed", "unlink", "cleanup"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Options --root= and --image= are not supported with verb %s.",
-                                       argv[optind]);
+                                       args[0]);
 
         if (arg_root && arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
@@ -647,7 +626,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_install_source != INSTALL_SOURCE_AUTO && !arg_root && !arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--install-from-host is only supported with --root= or --image=.");
 
-        if (arg_dry_run && argv[optind] && !STR_IN_SET(argv[optind], "unlink", "cleanup"))
+        if (arg_dry_run && args[0] && !STR_IN_SET(args[0], "unlink", "cleanup"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--dry-run is only supported with --unlink or --cleanup");
 
         if (arg_secure_boot_auto_enroll) {
@@ -670,34 +649,8 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_pager_flags |= PAGER_DISABLE;
         }
 
+        *ret_args = args;
         return 1;
-}
-
-static int bootctl_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "help",                VERB_ANY, VERB_ANY, 0,            verb_help                },
-                { "status",              VERB_ANY, 1,        VERB_DEFAULT, verb_status              },
-                { "install",             VERB_ANY, 1,        0,            verb_install             },
-                { "update",              VERB_ANY, 1,        0,            verb_install             },
-                { "remove",              VERB_ANY, 1,        0,            verb_remove              },
-                { "is-installed",        VERB_ANY, 1,        0,            verb_is_installed        },
-                { "kernel-identify",     2,        2,        0,            verb_kernel_identify     },
-                { "kernel-inspect",      2,        2,        0,            verb_kernel_inspect      },
-                { "list",                VERB_ANY, 1,        0,            verb_list                },
-                { "unlink",              2,        2,        0,            verb_unlink              },
-                { "cleanup",             VERB_ANY, 1,        0,            verb_cleanup             },
-                { "set-default",         2,        2,        0,            verb_set_efivar          },
-                { "set-preferred",       2,        2,        0,            verb_set_efivar          },
-                { "set-oneshot",         2,        2,        0,            verb_set_efivar          },
-                { "set-timeout",         2,        2,        0,            verb_set_efivar          },
-                { "set-timeout-oneshot", 2,        2,        0,            verb_set_efivar          },
-                { "set-sysfail",         2,        2,        0,            verb_set_efivar          },
-                { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
-                { "reboot-to-firmware",  VERB_ANY, 2,        0,            verb_reboot_to_firmware  },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 static int vl_server(void) {
@@ -740,7 +693,8 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -800,7 +754,7 @@ static int run(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        return bootctl_main(argc, argv);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
