@@ -398,6 +398,8 @@ static int get_hardware_sku(Context *c, char **ret) {
         _cleanup_free_ char *model = NULL, *sku = NULL;
         int r;
 
+        assert(ret);
+
         r = get_dmi_property(c, "ID_SKU", &sku);
         if (r < 0)
                 return r;
@@ -418,6 +420,8 @@ static int get_hardware_sku(Context *c, char **ret) {
 static int get_hardware_version(Context *c, char **ret) {
         _cleanup_free_ char *version = NULL;
         int r;
+
+        assert(ret);
 
         r = get_dmi_property(c, "ID_HARDWARE_VERSION", &version);
         if (r < 0)

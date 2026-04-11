@@ -464,6 +464,8 @@ static int manager_find_user_journal(Manager *m, uid_t uid, JournalFile **ret) {
         int r;
 
         assert(!uid_for_system_journal(uid));
+        assert(m);
+        assert(ret);
 
         f = ordered_hashmap_get(m->user_journals, UID_TO_PTR(uid));
         if (f)

@@ -278,6 +278,8 @@ int seccomp_init_for_arch(scmp_filter_ctx *ret, uint32_t arch, uint32_t default_
         _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
         int r;
 
+        assert(ret);
+
         /* Much like seccomp_init(), but initializes the filter for one specific architecture only, without affecting
          * any others. Also, turns off the NNP fiddling. */
 

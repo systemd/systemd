@@ -115,6 +115,8 @@ static int qdisc_new(QDiscKind kind, QDisc **ret) {
         _cleanup_(qdisc_unrefp) QDisc *qdisc = NULL;
         int r;
 
+        assert(ret);
+
         if (kind == _QDISC_KIND_INVALID) {
                 qdisc = new(QDisc, 1);
                 if (!qdisc)

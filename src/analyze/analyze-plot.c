@@ -87,6 +87,8 @@ static int acquire_host_info(sd_bus *bus, HostInfo **hi) {
         _cleanup_(free_host_infop) HostInfo *host = NULL;
         int r;
 
+        assert(hi);
+
         host = new0(HostInfo, 1);
         if (!host)
                 return log_oom();

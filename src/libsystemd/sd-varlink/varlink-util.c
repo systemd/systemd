@@ -175,6 +175,8 @@ int varlink_server_new(
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         int r;
 
+        assert(ret);
+
         r = sd_varlink_server_new(&s, flags|SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT);
         if (r < 0)
                 return log_debug_errno(r, "Failed to allocate varlink server object: %m");
