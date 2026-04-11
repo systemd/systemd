@@ -379,44 +379,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_FIDO2_WITH_PIN:
-                        r = parse_boolean_argument("--fido2-with-client-pin=", optarg, NULL);
+                case ARG_LIST_DEVICES:
+                        return blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_REQUIRE_LUKS,
+                                             /* ret_devices= */ NULL,
+                                             /* ret_n_devices= */ NULL);
+
+                case ARG_WIPE_SLOT:
+                        r = parse_wipe_slot(optarg);
                         if (r < 0)
                                 return r;
-
-                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_PIN, r);
-                        break;
-
-                case ARG_FIDO2_WITH_UP:
-                        r = parse_boolean_argument("--fido2-with-user-presence=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UP, r);
-                        break;
-
-                case ARG_FIDO2_WITH_UV:
-                        r = parse_boolean_argument("--fido2-with-user-verification=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UV, r);
-                        break;
-
-                case ARG_PASSWORD:
-                        if (arg_enroll_type >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple operations specified at once, refusing.");
-
-                        arg_enroll_type = ENROLL_PASSWORD;
-                        break;
-
-                case ARG_RECOVERY_KEY:
-                        if (arg_enroll_type >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple operations specified at once, refusing.");
-
-                        arg_enroll_type = ENROLL_RECOVERY;
                         break;
 
                 case ARG_UNLOCK_KEYFILE:
@@ -471,6 +442,22 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_PASSWORD:
+                        if (arg_enroll_type >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Multiple operations specified at once, refusing.");
+
+                        arg_enroll_type = ENROLL_PASSWORD;
+                        break;
+
+                case ARG_RECOVERY_KEY:
+                        if (arg_enroll_type >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Multiple operations specified at once, refusing.");
+
+                        arg_enroll_type = ENROLL_RECOVERY;
+                        break;
+
                 case ARG_PKCS11_TOKEN_URI: {
                         _cleanup_free_ char *uri = NULL;
 
@@ -498,12 +485,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_pkcs11_token_uri = TAKE_PTR(uri);
                         break;
                 }
-
-                case ARG_FIDO2_CRED_ALG:
-                        r = parse_fido2_algorithm(optarg, &arg_fido2_cred_alg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse COSE algorithm: %s", optarg);
-                        break;
 
                 case ARG_FIDO2_DEVICE: {
                         _cleanup_free_ char *device = NULL;
@@ -538,6 +519,36 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case ARG_FIDO2_CRED_ALG:
+                        r = parse_fido2_algorithm(optarg, &arg_fido2_cred_alg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse COSE algorithm: %s", optarg);
+                        break;
+
+                case ARG_FIDO2_WITH_PIN:
+                        r = parse_boolean_argument("--fido2-with-client-pin=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_PIN, r);
+                        break;
+
+                case ARG_FIDO2_WITH_UP:
+                        r = parse_boolean_argument("--fido2-with-user-presence=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UP, r);
+                        break;
+
+                case ARG_FIDO2_WITH_UV:
+                        r = parse_boolean_argument("--fido2-with-user-verification=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UV, r);
                         break;
 
                 case ARG_TPM2_DEVICE: {
@@ -631,17 +642,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         break;
-
-                case ARG_WIPE_SLOT:
-                        r = parse_wipe_slot(optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_LIST_DEVICES:
-                        return blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_REQUIRE_LUKS,
-                                             /* ret_devices= */ NULL,
-                                             /* ret_n_devices= */ NULL);
 
                 case '?':
                         return -EINVAL;
