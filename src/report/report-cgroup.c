@@ -284,6 +284,9 @@ static int io_stat_parse(const char *cgroup_path, uint64_t *ret_rbytes, uint64_t
         uint64_t rbytes = 0, rios = 0;
         int r;
 
+        assert(ret_rbytes);
+        assert(ret_rios);
+
         r = cg_get_path(cgroup_path, "io.stat", &path);
         if (r < 0)
                 return r;

@@ -2456,6 +2456,8 @@ static int event_log_load_and_process(EventLog **ret) {
         _cleanup_(event_log_freep) EventLog *el = NULL;
         int r;
 
+        assert(ret);
+
         el = event_log_new();
         if (!el)
                 return log_oom();
@@ -3613,6 +3615,7 @@ static int pcrlock_file_system_path(const char *normalized_path, char **ret) {
         _cleanup_free_ char *s = NULL;
 
         assert(normalized_path);
+        assert(ret);
 
         if (path_equal(normalized_path, "/"))
                 s = strdup(PCRLOCK_ROOT_FILE_SYSTEM_PATH);

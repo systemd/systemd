@@ -207,6 +207,8 @@ int curl_glue_new(CurlGlue **glue, sd_event *event) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         int r;
 
+        assert(glue);
+
         if (event)
                 e = sd_event_ref(event);
         else {

@@ -74,10 +74,11 @@ static int mangle_linux_fs_label(const char *s, size_t max_len, char **ret) {
 }
 
 static int mangle_fat_label(const char *s, char **ret) {
-        assert(s);
-
         _cleanup_free_ char *q = NULL;
         int r;
+
+        assert(s);
+        assert(ret);
 
         r = utf8_to_ascii(s, '_', &q);
         if (r < 0)
