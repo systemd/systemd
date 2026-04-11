@@ -266,27 +266,27 @@ static void xlat_update_transport_checksum_4to6(
                 const struct in6_addr *src6,
                 const struct in6_addr *dst6) {
 
-        uint16_t *csum_field;
+        size_t csum_offset;
         uint32_t sum;
-        uint16_t csum;
+        uint16_t csum, zero = 0;
 
         if (protocol == IPPROTO_TCP && payload_len >= sizeof(struct tcphdr))
-                csum_field = &((struct tcphdr *) payload)->th_sum;
+                csum_offset = offsetof(struct tcphdr, th_sum);
         else if (protocol == IPPROTO_UDP && payload_len >= sizeof(struct udphdr))
-                csum_field = &((struct udphdr *) payload)->uh_sum;
+                csum_offset = offsetof(struct udphdr, uh_sum);
         else
                 return;
 
         /* UDP checksum is mandatory in IPv6 - must compute if it was zero */
         sum = xlat_pseudo_header_checksum(src6, dst6, payload_len, protocol);
-        *csum_field = 0;
+        memcpy(payload + csum_offset, &zero, sizeof(zero));
         csum = xlat_compute_full_checksum(sum, payload, payload_len);
 
         /* Per RFC 768, a computed zero UDP checksum is transmitted as 0xFFFF */
         if (csum == 0 && protocol == IPPROTO_UDP)
                 csum = 0xFFFF;
 
-        *csum_field = csum;
+        memcpy(payload + csum_offset, &csum, sizeof(csum));
 }
 
 /* Adjust TCP/UDP checksum when translating IPv6->IPv4 */
@@ -297,14 +297,14 @@ static void xlat_update_transport_checksum_6to4(
                 const struct in_addr *src4,
                 const struct in_addr *dst4) {
 
-        uint16_t *csum_field;
+        size_t csum_offset;
         uint32_t sum = 0;
-        uint16_t v, csum;
+        uint16_t v, csum, zero = 0;
 
         if (protocol == IPPROTO_TCP && payload_len >= sizeof(struct tcphdr))
-                csum_field = &((struct tcphdr *) payload)->th_sum;
+                csum_offset = offsetof(struct tcphdr, th_sum);
         else if (protocol == IPPROTO_UDP && payload_len >= sizeof(struct udphdr))
-                csum_field = &((struct udphdr *) payload)->uh_sum;
+                csum_offset = offsetof(struct udphdr, uh_sum);
         else
                 return;
 
@@ -320,13 +320,13 @@ static void xlat_update_transport_checksum_6to4(
         sum += htobe16((uint16_t) protocol);
         sum += htobe16((uint16_t) payload_len);
 
-        *csum_field = 0;
+        memcpy(payload + csum_offset, &zero, sizeof(zero));
         csum = xlat_compute_full_checksum(sum, payload, payload_len);
 
         if (csum == 0 && protocol == IPPROTO_UDP)
                 csum = 0xFFFF;
 
-        *csum_field = csum;
+        memcpy(payload + csum_offset, &csum, sizeof(csum));
 }
 
 /* Translate ICMP Echo to ICMPv6 Echo (outbound) */
@@ -895,15 +895,15 @@ static int xlat_set_tun_up(Link *link) {
         return 0;
 }
 
-static int xlat_configure_address(Link *link) {
+static int xlat_configure_address_handler(Link *link, int ifindex) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         struct in_addr addr = { .s_addr = htobe32(CLAT_V4_ADDR_U32) };
         int r;
 
         assert(link);
-        assert(link->clat_ifindex > 0);
+        assert(ifindex > 0);
 
-        r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &m, link->clat_ifindex, AF_INET);
+        r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &m, ifindex, AF_INET);
         if (r < 0)
                 return log_link_error_errno(link, r,
                                             "CLAT: failed to create RTM_NEWADDR message: %m");
@@ -929,8 +929,12 @@ static int xlat_configure_address(Link *link) {
                 return log_link_error_errno(link, r,
                                             "CLAT: failed to configure address 192.0.0.1/32: %m");
 
-        log_link_debug(link, "CLAT: assigned 192.0.0.1/32 to TUN device.");
+        log_link_debug(link, "CLAT: assigned 192.0.0.1/32 to ifindex %d.", ifindex);
         return 0;
+}
+
+static int xlat_configure_address(Link *link) {
+        return xlat_configure_address_handler(link, link->clat_ifindex);
 }
 
 static int xlat_configure_route(Link *link) {
@@ -1072,40 +1076,7 @@ static int xlat_bpf_attach_tcx(int prog_fd, int ifindex, enum bpf_attach_type at
 }
 
 static int xlat_configure_address_on_link(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        struct in_addr addr = { .s_addr = htobe32(CLAT_V4_ADDR_U32) };
-        int r;
-
-        assert(link);
-
-        r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &m, link->ifindex, AF_INET);
-        if (r < 0)
-                return log_link_error_errno(link, r,
-                                            "CLAT: failed to create RTM_NEWADDR message: %m");
-
-        r = sd_rtnl_message_addr_set_prefixlen(m, 32);
-        if (r < 0)
-                return log_link_error_errno(link, r, "CLAT: failed to set prefix length: %m");
-
-        r = sd_rtnl_message_addr_set_scope(m, RT_SCOPE_UNIVERSE);
-        if (r < 0)
-                return log_link_error_errno(link, r, "CLAT: failed to set address scope: %m");
-
-        r = sd_netlink_message_append_in_addr(m, IFA_LOCAL, &addr);
-        if (r < 0)
-                return log_link_error_errno(link, r, "CLAT: failed to append IFA_LOCAL: %m");
-
-        r = sd_netlink_message_append_in_addr(m, IFA_ADDRESS, &addr);
-        if (r < 0)
-                return log_link_error_errno(link, r, "CLAT: failed to append IFA_ADDRESS: %m");
-
-        r = sd_netlink_call(link->manager->rtnl, m, 0, NULL);
-        if (r < 0)
-                return log_link_error_errno(link, r,
-                                            "CLAT: failed to configure address 192.0.0.1/32 on link: %m");
-
-        log_link_debug(link, "CLAT: assigned 192.0.0.1/32 to physical interface.");
-        return 0;
+        return xlat_configure_address_handler(link, link->ifindex);
 }
 
 static int xlat_configure_route_on_link(Link *link) {
@@ -1467,7 +1438,9 @@ int xlat_check_address(Link *link) {
                 xlat_stop(link);
                 r = xlat_start(link);
                 if (r < 0)
-                        log_link_warning_errno(link, r, "CLAT: failed to restart after source address change.");
+                        log_link_warning_errno(link, r,
+                                               "CLAT: failed to restart after source address change, "
+                                               "CLAT will remain stopped until next address change.");
                 return r;
         }
 

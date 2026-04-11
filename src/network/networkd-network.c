@@ -324,11 +324,10 @@ int network_verify(Network *network) {
                                     "CLAT will not start without a PREF64 prefix. Disabling CLAT.",
                                     network->filename);
                         network->clat = false;
-                } else if (network->ndisc < 0) {
-                        /* ndisc is tristate: -1 = unset (default), 0 = no, 1 = yes.
-                         * When unset, RA acceptance depends on other factors. Only warn
-                         * when explicitly disabled. */
                 } else if (network->ndisc == 0) {
+                        /* ndisc is tristate: -1 = unset (default), 0 = no, 1 = yes.
+                         * Only warn when explicitly disabled; when unset, RA acceptance
+                         * depends on other factors and may still work. */
                         log_warning("%s: CLAT=yes with UsePREF64=yes requires IPv6AcceptRA=yes. "
                                     "Disabling CLAT.",
                                     network->filename);

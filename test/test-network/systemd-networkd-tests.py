@@ -9471,7 +9471,7 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         self.assertEqual(pref64['PrefixLength'], 96)
 
         # Verify CLAT started by checking the log
-        self.check_networkd_log('veth-peer: Starting CLAT with PREF64 64:ff9b::/96')
+        self.check_networkd_log('veth-peer: CLAT: starting with PREF64 64:ff9b::/96')
 
         # Determine which CLAT backend is active (BPF TC or TUN fallback)
         log = read_networkd_log()

@@ -285,11 +285,23 @@ int clat_egress(struct __sk_buff *skb) {
 
         /* Handle ICMP translation before header adjustment */
         if (protocol == IPPROTO_ICMP) {
+                /* Read original type+code as 16-bit value for checksum delta */
+                __be16 old_tc;
+                if (bpf_skb_load_bytes(skb, l4_off, &old_tc, 2) < 0)
+                        return TC_ACT_OK;
+
                 if (translate_icmp_4to6(skb, l4_off) < 0)
                         return TC_ACT_OK;
-                /* Zero ICMP checksum */
-                __be16 zero = 0;
-                bpf_skb_store_bytes(skb, l4_off + 2, &zero, 2, 0);
+
+                /* Read new type+code after translation */
+                __be16 new_tc;
+                if (bpf_skb_load_bytes(skb, l4_off, &new_tc, 2) < 0)
+                        return TC_ACT_OK;
+
+                /* Incrementally update the checksum for the type byte change.
+                 * Do NOT zero the checksum — it contains the payload checksum state.
+                 * ICMPv6 pseudo-header contribution will be added after room adjustment. */
+                bpf_l4_csum_replace(skb, l4_off + 2, old_tc, new_tc, 2);
         }
 
         /* Grow packet by 20 bytes for IPv6 header */
@@ -360,7 +372,8 @@ int clat_egress(struct __sk_buff *skb) {
 
         } else if (protocol == IPPROTO_ICMP) {
                 /* ICMPv6 needs pseudo-header in checksum; ICMP doesn't.
-                 * Add the pseudo-header contribution to the zeroed checksum. */
+                 * Add the pseudo-header contribution to the existing checksum
+                 * (which already includes payload and the updated type byte). */
                 struct { __u8 s[16]; __u8 d[16]; __be32 l; __u8 z[3]; __u8 n; } ph6;
 
                 __builtin_memcpy(ph6.s, src6, 16);
@@ -430,10 +443,23 @@ int clat_ingress(struct __sk_buff *skb) {
 
         /* Handle ICMPv6 translation */
         if (nexthdr == IPPROTO_ICMPV6) {
+                /* Read original type+code as 16-bit value for checksum delta */
+                __be16 old_tc;
+                if (bpf_skb_load_bytes(skb, l4_off, &old_tc, 2) < 0)
+                        return TC_ACT_OK;
+
                 if (translate_icmp_6to4(skb, l4_off) < 0)
                         return TC_ACT_OK;
-                __be16 zero = 0;
-                bpf_skb_store_bytes(skb, l4_off + 2, &zero, 2, 0);
+
+                /* Read new type+code after translation */
+                __be16 new_tc;
+                if (bpf_skb_load_bytes(skb, l4_off, &new_tc, 2) < 0)
+                        return TC_ACT_OK;
+
+                /* Incrementally update the checksum for the type byte change.
+                 * Do NOT zero the checksum — it contains the payload + pseudo-header state.
+                 * Pseudo-header contribution will be removed after room adjustment. */
+                bpf_l4_csum_replace(skb, l4_off + 2, old_tc, new_tc, 2);
         }
 
         /* Shrink packet by 20 bytes */
