@@ -9479,6 +9479,75 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('example.com', output)
 
+    def test_clat(self):
+        copy_network_unit('25-veth.netdev', '25-ipv6ra-prefix-client-clat.network', '25-ipv6ra-prefix.network',
+                          '12-dummy.netdev', '25-ipv6ra-uplink.network')
+
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable', 'dummy98:routable')
+
+        # Verify PREF64 was discovered
+        output = networkctl_json('veth-peer')
+        check_json(output)
+        pref64 = json.loads(output)['NDisc']['PREF64'][0]
+        prefix = socket.inet_ntop(socket.AF_INET6, bytearray(pref64['Prefix']))
+        self.assertEqual(prefix, '64:ff9b::')
+        self.assertEqual(pref64['PrefixLength'], 96)
+
+        # Verify CLAT started by checking the log
+        self.check_networkd_log('veth-peer: Starting CLAT with PREF64 64:ff9b::/96')
+
+        # Determine which CLAT backend is active (BPF TC or TUN fallback)
+        log = read_networkd_log()
+        use_bpf = 'started using BPF TC translation' in log
+
+        if use_bpf:
+            print('### CLAT using BPF TC path')
+
+            # BPF path: address and route are on the physical interface
+            output = check_output('ip -4 address show dev veth-peer')
+            print(output)
+            self.assertIn('192.0.0.1/32', output)
+
+            output = check_output('ip -4 route show dev veth-peer')
+            print(output)
+            self.assertIn('default', output)
+            self.assertIn('metric 2048', output)
+
+            # No TUN device should exist
+            self.assertFalse(link_exists('cl-veth-peer'), 'TUN device should not exist in BPF mode')
+        else:
+            print('### CLAT using TUN fallback path')
+
+            # TUN path: verify TUN device was created
+            self.wait_links('cl-veth-peer')
+
+            output = check_output('ip link show cl-veth-peer')
+            print(output)
+            self.assertIn('UP', output)
+
+            # Verify CLAT IPv4 address (192.0.0.1/32 per RFC 7335)
+            output = check_output('ip -4 address show dev cl-veth-peer')
+            print(output)
+            self.assertIn('192.0.0.1/32', output)
+
+            # Verify default IPv4 route through CLAT TUN
+            output = check_output('ip -4 route show dev cl-veth-peer')
+            print(output)
+            self.assertIn('default', output)
+            self.assertIn('metric 2048', output)
+
+        # Verify CLAT is cleaned up after stopping networkd
+        stop_networkd()
+        self.assertFalse(link_exists('cl-veth-peer'), 'CLAT TUN device should be removed after stop')
+
+        if use_bpf:
+            # Verify BPF-path resources are cleaned up
+            output = check_output('ip -4 address show dev veth-peer')
+            self.assertNotIn('192.0.0.1', output, 'CLAT address should be removed after stop')
+            output = check_output('ip -4 route show dev veth-peer')
+            self.assertNotIn('default', output, 'CLAT route should be removed after stop')
+
 class NetworkdMTUTests(unittest.TestCase, Utilities):
 
     def setUp(self):
