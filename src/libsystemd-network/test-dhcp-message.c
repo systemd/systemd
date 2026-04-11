@@ -6,6 +6,7 @@
 #include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
 #include "dhcp-protocol.h"
+#include "dhcp-route.h"
 #include "ether-addr-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
@@ -105,6 +106,25 @@ static void verify_multiple_strings(sd_dhcp_message *m, char * const *expected) 
         ASSERT_STREQ(s, joined);
 }
 
+static void verify_routes(sd_dhcp_message *m, size_t n_expected, const sd_dhcp_route *expected) {
+        uint8_t code;
+        FOREACH_ARGUMENT(code,
+                         SD_DHCP_OPTION_STATIC_ROUTE,
+                         SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,
+                         SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE) {
+
+                _cleanup_free_ sd_dhcp_route *routes = NULL;
+                size_t n;
+                ASSERT_OK(dhcp_message_get_option_routes(m, code, &n, &routes));
+                ASSERT_EQ(n, n_expected);
+                for (size_t i = 0; i < n; i++) {
+                        ASSERT_EQ(routes[i].dst_addr.s_addr, expected[i].dst_addr.s_addr);
+                        ASSERT_EQ(routes[i].gw_addr.s_addr, expected[i].gw_addr.s_addr);
+                        ASSERT_EQ(routes[i].dst_prefixlen, expected[i].dst_prefixlen);
+                }
+        }
+}
+
 static void verify_client_id(sd_dhcp_message *m, const sd_dhcp_client_id *expected) {
         sd_dhcp_client_id id = {};
         ASSERT_OK(dhcp_message_get_option_client_id(m, &id));
@@ -175,6 +195,24 @@ TEST(dhcp_message) {
                 { .s_addr = htobe32(0xC0000212) },
                 { .s_addr = htobe32(0xC0000213) },
                 { .s_addr = htobe32(0xC0000214) },
+        };
+
+        struct sd_dhcp_route routes[3] = {
+                { /* class A: 10.0.0.0/8 -> 192.0.2.33 */
+                        .dst_addr = { .s_addr = htobe32(0x0A000000) },
+                        .gw_addr  = { .s_addr = htobe32(0xC0000221) },
+                        .dst_prefixlen = 8,
+                },
+                { /* class B: 172.16.0.0/16 -> 192.0.2.34 */
+                        .dst_addr = { .s_addr = htobe32(0xAC100000) },
+                        .gw_addr  = { .s_addr = htobe32(0xC0000222) },
+                        .dst_prefixlen = 16,
+                },
+                { /* class C: 192.168.0.0/24 -> 192.0.2.35 */
+                        .dst_addr = { .s_addr = htobe32(0xC0A80000) },
+                        .gw_addr  = { .s_addr = htobe32(0xC0000223) },
+                        .dst_prefixlen = 24,
+                },
         };
 
         sd_dhcp_client_id id = {
@@ -277,6 +315,12 @@ TEST(dhcp_message) {
         ASSERT_OK(dhcp_message_append_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, vendor_class));
         verify_string(m, vendor_class);
 
+        /* routes */
+        ASSERT_OK(dhcp_message_append_option_routes(m, SD_DHCP_OPTION_STATIC_ROUTE, ELEMENTSOF(routes), routes));
+        ASSERT_OK(dhcp_message_append_option_routes(m, SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE, ELEMENTSOF(routes), routes));
+        ASSERT_OK(dhcp_message_append_option_routes(m, SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE, ELEMENTSOF(routes), routes));
+        verify_routes(m, ELEMENTSOF(routes), routes);
+
         /* client ID */
         ASSERT_OK(dhcp_message_append_option_client_id(m, &id));
         verify_client_id(m, &id);
@@ -338,6 +382,7 @@ TEST(dhcp_message) {
         verify_address(m2, &addr);
         verify_addresses(m2, ELEMENTSOF(ntp), ntp, ELEMENTSOF(sip), sip);
         verify_string(m2, vendor_class);
+        verify_routes(m2, ELEMENTSOF(routes), routes);
         verify_client_id(m2, &id);
         verify_prl(m2, prl);
         verify_hostname(m2, hostname);
