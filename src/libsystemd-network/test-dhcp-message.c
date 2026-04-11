@@ -339,4 +339,127 @@ TEST(dhcp_message) {
         ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
 }
 
+TEST(search_domains) {
+        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+
+        /* simple */
+        static uint8_t simple[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                4, 'h', 'o', 'g', 'e',
+                3, 'f', 'o', 'o',
+                0,
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, ELEMENTSOF(simple), simple));
+        ASSERT_OK(dhcp_message_get_option_search_domains(m, &strv));
+        ASSERT_TRUE(strv_equal(strv, STRV_MAKE("example.com", "hoge.foo")));
+
+        strv = strv_free(strv);
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH);
+
+        /* compressed */
+        static uint8_t compressed[] = {
+                4, 'h', 'o', 'g', 'e',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                3, 'f', 'o', 'o',
+                0xc0, 5,
+                3, 'b', 'a', 'r',
+                0xc0, 18,
+                3, 'b', 'a', 'z',
+                0xc0, 0,
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, ELEMENTSOF(compressed), compressed));
+        ASSERT_OK(dhcp_message_get_option_search_domains(m, &strv));
+        ASSERT_TRUE(strv_equal(strv, STRV_MAKE("hoge.example.com", "foo.example.com", "bar.foo.example.com", "baz.hoge.example.com")));
+
+        strv = strv_free(strv);
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH);
+
+        /* compressed (in multiple TLV) */
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, 10, compressed));
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, ELEMENTSOF(compressed) - 10, compressed + 10));
+        ASSERT_OK(dhcp_message_get_option_search_domains(m, &strv));
+        ASSERT_TRUE(strv_equal(strv, STRV_MAKE("hoge.example.com", "foo.example.com", "bar.foo.example.com", "baz.hoge.example.com")));
+
+        strv = strv_free(strv);
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH);
+
+        /* invalid pointer */
+        static uint8_t invalid[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                3, 'f', 'o', 'o',
+                0xc0, 0xff,
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, ELEMENTSOF(invalid), invalid));
+        ASSERT_ERROR(dhcp_message_get_option_search_domains(m, /* ret= */ NULL), EBADMSG);
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH);
+
+        /* forward pointer */
+        static uint8_t forward[] = {
+                4, 'h', 'o', 'g', 'e',
+                0xc0, 11,
+                3, 'f', 'o', 'o',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, ELEMENTSOF(forward), forward));
+        ASSERT_ERROR(dhcp_message_get_option_search_domains(m, /* ret= */ NULL), EBADMSG);
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH);
+
+        /* infinite loop */
+        static uint8_t loop1[] = {
+                0xc0, 0x00,
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, ELEMENTSOF(loop1), loop1));
+        ASSERT_ERROR(dhcp_message_get_option_search_domains(m, /* ret= */ NULL), EBADMSG);
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH);
+
+        static uint8_t loop2[] = {
+                0xc0, 0x02,
+                0xc0, 0x00,
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, ELEMENTSOF(loop2), loop2));
+        ASSERT_ERROR(dhcp_message_get_option_search_domains(m, /* ret= */ NULL), EBADMSG);
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH);
+
+        static uint8_t loop3[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                0xc0, 0x00,
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, ELEMENTSOF(loop3), loop3));
+        ASSERT_ERROR(dhcp_message_get_option_search_domains(m, /* ret= */ NULL), EBADMSG);
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH);
+
+        /* unterminated */
+        static uint8_t unterminated[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, ELEMENTSOF(unterminated), unterminated));
+        ASSERT_ERROR(dhcp_message_get_option_search_domains(m, /* ret= */ NULL), EBADMSG);
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH);
+
+        /* truncated label */
+        static uint8_t truncated[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o',
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, ELEMENTSOF(truncated), truncated));
+        ASSERT_ERROR(dhcp_message_get_option_search_domains(m, /* ret= */ NULL), EBADMSG);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
