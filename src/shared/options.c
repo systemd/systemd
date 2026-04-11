@@ -21,8 +21,9 @@ static bool option_arg_required(const Option *opt) {
 
 static bool option_is_metadata(const Option *opt) {
         /* A metadata entry that is not a real option, like the group marker */
-        return  FLAGS_SET(ASSERT_PTR(opt)->flags, OPTION_GROUP_MARKER) ||
-                FLAGS_SET(ASSERT_PTR(opt)->flags, OPTION_HELP_ENTRY);
+        return ASSERT_PTR(opt)->flags & (OPTION_GROUP_MARKER |
+                                         OPTION_HELP_ENTRY |
+                                         OPTION_HELP_ENTRY_VERBATIM);
 }
 
 static void shift_arg(char* argv[], int target, int source) {
@@ -313,30 +314,38 @@ int _option_parser_get_help_table(
                         /* No help string — we do not show the option */
                         continue;
 
-                char sc[3] = "  ";
-                if (opt->short_code != 0)
-                        xsprintf(sc, "-%c", opt->short_code);
+                _cleanup_free_ char *s = NULL;
 
-                /* We indent the option string by two spaces. We could set the minimum cell width and
-                 * right-align for a similar result, but that'd be more work. This is only used for
-                 * display.
-                 *
-                 * "=" is shown only when a long option is defined: -l --long=ARG, --long=ARG, -s ARG.
-                 */
-                bool need_eq = option_takes_arg(opt) && opt->long_code;
-                bool need_quote = opt->metavar && strchr(opt->metavar, ' ');
-                _cleanup_free_ char *s = strjoin(
-                                "  ",
-                                sc,
-                                " ",
-                                opt->long_code ? "--" : "",
-                                strempty(opt->long_code),
-                                option_arg_optional(opt) ? "[" : "",
-                                need_eq ? "=" : "",
-                                need_quote ? "'" : "",
-                                strempty(opt->metavar),
-                                need_quote ? "'" : "",
-                                option_arg_optional(opt) ? "]" : "");
+                if (FLAGS_SET(opt->flags, OPTION_HELP_ENTRY_VERBATIM)) {
+                        assert(opt->long_code);
+
+                        s = strjoin("  ",
+                                    opt->long_code);
+                } else {
+                        char sc[3] = "  ";
+                        if (opt->short_code != 0)
+                                xsprintf(sc, "-%c", opt->short_code);
+
+                        /* We indent the option string by two spaces. We could set the minimum cell width and
+                         * right-align for a similar result, but that'd be more work. This is only used for
+                         * display.
+                         *
+                         * "=" is shown only when a long option is defined: -l --long=ARG, --long=ARG, -s ARG.
+                         */
+                        bool need_eq = option_takes_arg(opt) && opt->long_code;
+                        bool need_quote = opt->metavar && strchr(opt->metavar, ' ');
+                        s = strjoin("  ",
+                                    sc,
+                                    " ",
+                                    opt->long_code ? "--" : "",
+                                    strempty(opt->long_code),
+                                    option_arg_optional(opt) ? "[" : "",
+                                    need_eq ? "=" : "",
+                                    need_quote ? "'" : "",
+                                    strempty(opt->metavar),
+                                    need_quote ? "'" : "",
+                                    option_arg_optional(opt) ? "]" : "");
+                }
                 if (!s)
                         return log_oom();
 
