@@ -667,6 +667,7 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
         assert(ibuf);
         assert(*ibuf);
+        POINTER_MAY_BE_NULL(_isz);
 
         /* This does three things:
          *

@@ -14,6 +14,8 @@ int fido2_generate_salt(struct iovec *ret_salt) {
         _cleanup_(iovec_done) struct iovec salt = {};
         int r;
 
+        assert(ret_salt);
+
         r = crypto_random_bytes_allocate_iovec(FIDO2_SALT_SIZE, &salt);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate FIDO2 salt: %m");
@@ -26,6 +28,8 @@ int fido2_read_salt_file(const char *filename, uint64_t offset, const char *clie
         _cleanup_(iovec_done_erase) struct iovec salt = {};
         _cleanup_free_ char *bind_name = NULL;
         int r;
+
+        assert(ret_salt);
 
         /* If we read the salt via AF_UNIX, make the client recognizable */
         if (asprintf(&bind_name, "@%" PRIx64"/%s-fido2-salt/%s", random_u64(), client, node) < 0)

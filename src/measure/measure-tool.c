@@ -639,6 +639,8 @@ static int pcr_states_allocate(PcrState **ret) {
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
         size_t n = 0;
 
+        assert(ret);
+
         pcr_states = new0(PcrState, strv_length(arg_banks) + 1);
         if (!pcr_states)
                 return log_oom();

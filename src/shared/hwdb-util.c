@@ -190,6 +190,8 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                        const char *filename, uint16_t file_priority, uint32_t line_number, bool compat) {
         int r = 0;
 
+        assert(node);
+
         for (size_t i = 0;; i++) {
                 size_t p;
                 char c;

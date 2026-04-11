@@ -1853,6 +1853,8 @@ int set_consume(Set *s, void *value) {
 int hashmap_put_strdup_full(Hashmap **h, const struct hash_ops *hash_ops, const char *k, const char *v) {
         int r;
 
+        assert(h);
+
         r = hashmap_ensure_allocated(h, hash_ops);
         if (r < 0)
                 return r;
@@ -2197,6 +2199,8 @@ int _hashmap_dump_keys_sorted(HashmapBase *h, void ***ret, size_t *ret_n) {
         size_t n;
         int r;
 
+        assert(ret);
+
         r = _hashmap_dump_entries_sorted(h, &entries, &n);
         if (r < 0)
                 return r;
@@ -2215,6 +2219,8 @@ int _hashmap_dump_sorted(HashmapBase *h, void ***ret, size_t *ret_n) {
         _cleanup_free_ void **entries = NULL;
         size_t n;
         int r;
+
+        assert(ret);
 
         r = _hashmap_dump_entries_sorted(h, &entries, &n);
         if (r < 0)

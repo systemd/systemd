@@ -1519,6 +1519,7 @@ int dns_packet_read_string(DnsPacket *p, char **ret, size_t *start) {
         int r;
 
         assert(p);
+        assert(ret);
 
         r = dns_packet_read_uint8(p, &c, NULL);
         if (r < 0)
@@ -2448,6 +2449,8 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
         unsigned n;
         int r;
 
+        assert(ret_question);
+
         n = DNS_PACKET_QDCOUNT(p);
         if (n > 0) {
                 question = dns_question_new(n);
@@ -2500,6 +2503,8 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *previous = NULL;
         bool bad_opt = false;
         int r;
+
+        assert(ret_answer);
 
         n = DNS_PACKET_RRCOUNT(p);
         if (n == 0)

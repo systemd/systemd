@@ -9,6 +9,8 @@ int query_volatile_mode(VolatileMode *ret) {
         _cleanup_free_ char *mode = NULL;
         int r;
 
+        assert(ret);
+
         r = proc_cmdline_get_key("systemd.volatile", PROC_CMDLINE_VALUE_OPTIONAL, &mode);
         if (r < 0)
                 return r;

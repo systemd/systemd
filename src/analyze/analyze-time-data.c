@@ -172,6 +172,8 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
         BootTimes *t;
         int r;
 
+        assert(ret);
+
         r = acquire_boot_times(bus, /* require_finished= */ true, &t);
         if (r < 0)
                 return r;
@@ -296,6 +298,8 @@ int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out) {
         size_t c = 0;
         UnitInfo u;
         int r;
+
+        assert(out);
 
         r = acquire_boot_times(bus, require_finished, &boot_times);
         if (r < 0)
