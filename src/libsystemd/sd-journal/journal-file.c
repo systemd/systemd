@@ -1971,7 +1971,7 @@ static int maybe_decompress_payload(
                                 return 1;
                 }
 
-                r = decompress_blob(compression, payload, size, &f->compress_buffer, &rsize, 0);
+                r = decompress_blob(compression, payload, size, &f->compress_buffer, &rsize, DATA_SIZE_MAX);
                 if (r < 0)
                         return r;
 
