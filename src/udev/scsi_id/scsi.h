@@ -24,7 +24,7 @@ struct scsi_ioctl_command {
  * as this is a nice value for some devices, especially some of the usb
  * mass storage devices.
  */
-#define SCSI_INQ_BUFF_LEN 254
+#define SCSI_INQ_BUFF_LEN 254U
 
 /*
  * SCSI INQUIRY vendor and model (really product) lengths.
