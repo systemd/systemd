@@ -9,6 +9,7 @@
 #include "dhcp-route.h"
 #include "dns-def.h"
 #include "dns-domain.h"
+#include "dns-resolver-internal.h"
 #include "ether-addr-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
@@ -20,6 +21,7 @@
 #include "set.h"
 #include "sort-util.h"
 #include "string-util.h"
+#include "unaligned.h"
 #include "utf8.h"
 
 static sd_dhcp_message* dhcp_message_free(sd_dhcp_message *message) {
@@ -1127,6 +1129,169 @@ int dhcp_message_get_option_domains(sd_dhcp_message *message, uint8_t code, char
 
         if (ret)
                 *ret = TAKE_PTR(names);
+        return 0;
+}
+
+static int parse_dnr_one(const struct iovec *iov, sd_dns_resolver *ret) {
+        int r;
+
+        assert(iovec_is_set(iov));
+        assert(ret);
+
+        _cleanup_(sd_dns_resolver_done) sd_dns_resolver resolver = {};
+        struct iovec i = *iov;
+
+        /* service priority */
+        if (i.iov_len < sizeof(be16_t))
+                return -EBADMSG;
+
+        resolver.priority = unaligned_read_be16(i.iov_base);
+        iovec_inc(&i, sizeof(be16_t));
+
+        /* authentication domain name */
+        if (!iovec_is_set(&i))
+                return -EBADMSG;
+
+        size_t name_len = *(uint8_t*) i.iov_base;
+        iovec_inc(&i, 1);
+        if (i.iov_len < name_len)
+                return -EBADMSG;
+
+        const uint8_t *name_buf = i.iov_base;
+        iovec_inc(&i, name_len);
+
+        r = dns_name_from_wire_format(&name_buf, &name_len, &resolver.auth_name);
+        if (r < 0)
+                return r;
+        if (r == 0 || name_len != 0)
+                return -EBADMSG;
+
+        r = dns_name_is_valid_ldh(resolver.auth_name);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EBADMSG;
+
+        if (dns_name_is_root(resolver.auth_name))
+                return -EBADMSG;
+
+        /* RFC9463 section 3.1.6: In ADN-only mode, server omits everything after the ADN.
+         *
+         * We don't support these, but they are not invalid. */
+        if (!iovec_is_set(&i)) {
+                *ret = (sd_dns_resolver) {};
+                return 0;
+        }
+
+        /* IPv4 addresses */
+        size_t n = *(uint8_t*) i.iov_base;
+        iovec_inc(&i, 1);
+
+        if (n % sizeof(struct in_addr) != 0)
+                return -EBADMSG;
+
+        n /= sizeof(struct in_addr);
+
+        /* RFC9463 section 3.1.8: option MUST include at least one valid IP addr */
+        if (n == 0)
+                return -EBADMSG;
+
+        resolver.family = AF_INET;
+        resolver.n_addrs = n;
+        resolver.addrs = new(union in_addr_union, n);
+        if (!resolver.addrs)
+                return -ENOMEM;
+
+        for (size_t j = 0; j < n; j++) {
+                if (i.iov_len < sizeof(struct in_addr))
+                        return -EBADMSG;
+
+                struct in_addr a;
+                memcpy(&a, i.iov_base, sizeof(struct in_addr));
+                iovec_inc(&i, sizeof(struct in_addr));
+
+                /* RFC9463 section 5.2: client MUST discard multicast and host loopback addresses */
+                if (in4_addr_is_multicast(&a) || in4_addr_is_localhost(&a))
+                        return -EBADMSG;
+
+                resolver.addrs[j] = (union in_addr_union) { .in = a };
+        }
+
+        /* service params */
+        r = dnr_parse_svc_params(i.iov_base, i.iov_len, &resolver);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* We can't use this record, but it is not invalid. */
+                *ret = (sd_dns_resolver) {};
+                return 0;
+        }
+
+        *ret = TAKE_STRUCT(resolver);
+        return 1;
+}
+
+int dhcp_message_get_option_dnr(sd_dhcp_message *message, size_t *ret_n_resolvers, sd_dns_resolver **ret_resolvers) {
+        int r;
+
+        assert(message);
+
+        /* See RFC 9463 section 5.1 */
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_message_get_option_alloc_iovec(message, SD_DHCP_OPTION_V4_DNR, &iov);
+        if (r < 0)
+                return r;
+
+        if (!iovec_is_set(&iov))
+                return -EBADMSG;
+
+        /* First, split the option data into each instance data. */
+        _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
+        for (struct iovec i = iov; iovec_is_set(&i);) {
+                if (i.iov_len < sizeof(be16_t))
+                        return -EBADMSG;
+
+                size_t len = unaligned_read_be16(i.iov_base);
+                iovec_inc(&i, sizeof(be16_t));
+                if (i.iov_len < len)
+                        return -EBADMSG;
+
+                r = iovw_put(&iovw, i.iov_base, len);
+                if (r < 0)
+                        return r;
+
+                iovec_inc(&i, len);
+        }
+
+        /* Then, parse each instance data. */
+        sd_dns_resolver *resolvers = NULL;
+        size_t n_resolvers = 0;
+        CLEANUP_ARRAY(resolvers, n_resolvers, dns_resolver_free_array);
+        FOREACH_ARRAY(i, iovw.iovec, iovw.count) {
+                _cleanup_(sd_dns_resolver_done) sd_dns_resolver dnr = {};
+                r = parse_dnr_one(i, &dnr);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (!GREEDY_REALLOC(resolvers, n_resolvers + 1))
+                        return -ENOMEM;
+
+                resolvers[n_resolvers++] = TAKE_STRUCT(dnr);
+        }
+
+        if (n_resolvers == 0) /* no supported resolver */
+                return -ENODATA;
+
+        /* Sort the resolvers with their priorities. */
+        typesafe_qsort(resolvers, n_resolvers, dns_resolver_prio_compare);
+
+        if (ret_n_resolvers)
+                *ret_n_resolvers = n_resolvers;
+        if (ret_resolvers)
+                *ret_resolvers = TAKE_PTR(resolvers);
         return 0;
 }
 
