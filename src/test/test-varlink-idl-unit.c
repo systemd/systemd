@@ -1,0 +1,41 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include "cgroup.h"
+#include "tests.h"
+#include "test-varlink-idl-util.h"
+#include "unit.h"
+#include "varlink-io.systemd.Unit.h"
+
+TEST(unit_enums_idl) {
+        /* ExecContext enums */
+        TEST_IDL_ENUM(ExecInput, exec_input, vl_type_ExecInputType);
+        TEST_IDL_ENUM_TO_STRING(ExecOutput, exec_output, vl_type_ExecOutputType);
+        TEST_IDL_ENUM(ExecUtmpMode, exec_utmp_mode, vl_type_ExecUtmpMode);
+        TEST_IDL_ENUM(ExecPreserveMode, exec_preserve_mode, vl_type_ExecPreserveMode);
+        TEST_IDL_ENUM(ExecKeyringMode, exec_keyring_mode, vl_type_ExecKeyringMode);
+        TEST_IDL_ENUM(MemoryTHP, memory_thp, vl_type_MemoryTHP);
+        TEST_IDL_ENUM(ProtectProc, protect_proc, vl_type_ProtectProc);
+        TEST_IDL_ENUM(ProcSubset, proc_subset, vl_type_ProcSubset);
+        TEST_IDL_ENUM(ProtectSystem, protect_system, vl_type_ProtectSystem);
+        TEST_IDL_ENUM(ProtectHome, protect_home, vl_type_ProtectHome);
+        TEST_IDL_ENUM(PrivateTmp, private_tmp, vl_type_PrivateTmp);
+        TEST_IDL_ENUM(PrivateUsers, private_users, vl_type_PrivateUsers);
+        TEST_IDL_ENUM(ProtectHostname, protect_hostname, vl_type_ProtectHostname);
+        TEST_IDL_ENUM(ProtectControlGroups, protect_control_groups, vl_type_ProtectControlGroups);
+        TEST_IDL_ENUM(PrivatePIDs, private_pids, vl_type_PrivatePIDs);
+        TEST_IDL_ENUM(PrivateBPF, private_bpf, vl_type_PrivateBPF);
+
+        /* CGroupContext enums */
+        TEST_IDL_ENUM(CGroupDevicePolicy, cgroup_device_policy, vl_type_CGroupDevicePolicy);
+        TEST_IDL_ENUM(ManagedOOMMode, managed_oom_mode, vl_type_ManagedOOMMode);
+        TEST_IDL_ENUM(ManagedOOMPreference, managed_oom_preference, vl_type_ManagedOOMPreference);
+        TEST_IDL_ENUM(CGroupPressureWatch, cgroup_pressure_watch, vl_type_CGroupPressureWatch);
+        TEST_IDL_ENUM(CGroupController, cgroup_controller, vl_type_CGroupController);
+
+        /* UnitContext enums */
+        TEST_IDL_ENUM(CollectMode, collect_mode, vl_type_CollectMode);
+        TEST_IDL_ENUM(EmergencyAction, emergency_action, vl_type_EmergencyAction);
+        TEST_IDL_ENUM(JobMode, job_mode, vl_type_JobMode);
+}
+
+DEFINE_TEST_MAIN(LOG_DEBUG);
