@@ -2507,7 +2507,7 @@ static int tpm2_load_external(
 }
 
 static int tpm2_marshal_private(const TPM2B_PRIVATE *private, void **ret, size_t *ret_size) {
-        size_t max_size = sizeof(*private), blob_size = 0;
+        size_t max_size = SIZEOF(*private), blob_size = 0;
         _cleanup_free_ void *blob = NULL;
         TSS2_RC rc;
 
@@ -2550,7 +2550,7 @@ static int tpm2_unmarshal_private(const void *data, size_t size, TPM2B_PRIVATE *
 }
 
 int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size) {
-        size_t max_size = sizeof(*public), blob_size = 0;
+        size_t max_size = SIZEOF(*public), blob_size = 0;
         _cleanup_free_ void *blob = NULL;
         TSS2_RC rc;
 
@@ -2593,7 +2593,7 @@ static int tpm2_unmarshal_public(const void *data, size_t size, TPM2B_PUBLIC *re
 }
 
 int tpm2_marshal_nv_public(const TPM2B_NV_PUBLIC *nv_public, void **ret, size_t *ret_size) {
-        size_t max_size = sizeof(*nv_public), blob_size = 0;
+        size_t max_size = SIZEOF(*nv_public), blob_size = 0;
         _cleanup_free_ void *blob = NULL;
         TSS2_RC rc;
 
