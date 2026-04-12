@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
 "POT-Creation-Date: 2026-03-20 14:34+0000\n"
-"PO-Revision-Date: 2026-04-11 14:09+0200\n"
+"PO-Revision-Date: 2026-04-12 18:20+0200\n"
 "Last-Translator: Marko Kostić <marko.m.kostic@gmail.com>\n"
 "Language-Team: Serbian <https://translate.fedoraproject.org/projects/systemd/"
 "master/sr/>\n"
@@ -127,8 +127,7 @@ msgstr "Ažuriraj svoj lični prostor"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to update your home area."
-msgstr ""
-"Potrebno je potvrđivanje identiteta za ažuriranje svog ličnog prostora."
+msgstr "Potrebno je potvrđivanje identiteta za ažuriranje svog ličnog prostora."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -137,7 +136,7 @@ msgstr "Promeni veličinu ličnog prostora"
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr ""
-"Potrebno je potvđivanje identiteta za promenu veličine ličnog prostora "
+"Potrebno je potvrđivanje identiteta za promenu veličine ličnog prostora "
 "korisnika."
 
 #: src/home/org.freedesktop.home1.policy:73
@@ -167,8 +166,8 @@ msgstr "Upravljaj ključevima za potpisivanje ličnog direktorijuma"
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
-"Potrebno je potvrđivanje identiteta za upravljanje ključevima za "
-"potpisivanje ličnih direktorijuma."
+"Potrebno je potvrđivanje identiteta za upravljanje ključevima za potpisivanje "
+"ličnih direktorijuma."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -215,7 +214,7 @@ msgstr "Dobavi serijski broj hardvera"
 #: src/hostname/org.freedesktop.hostname1.policy:62
 msgid "Authentication is required to get hardware serial number."
 msgstr ""
-"Potrebno je potvđivanje identiteta za dobavljanje serijskog broja hardvera."
+"Potrebno je potvrđivanje identiteta za dobavljanje serijskog broja hardvera."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
@@ -385,8 +384,7 @@ msgstr ""
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
 msgstr ""
-"Dozvoli programima da spreče sistemu upravljanje dugmetom za ponovno "
-"pokretanje"
+"Dozvoli programima da spreče sistemu upravljanje dugmetom za ponovno pokretanje"
 
 #: src/login/org.freedesktop.login1.policy:118
 msgid ""
@@ -413,8 +411,8 @@ msgstr "Dozvoli neprijavljenim korisnicima da pokreću programe"
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
-"Potrebno je da se identifikujete da biste pokretali programe kao "
-"neprijavljen korisnik."
+"Potrebno je da se identifikujete da biste pokretali programe kao neprijavljen "
+"korisnik."
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
@@ -422,7 +420,7 @@ msgstr "Dozvoli kačenje uređaja na sedišta"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr "Potrebno je da se identifikujete da biste  zakačili uređaj na sedište."
+msgstr "Potrebno je da se identifikujete da biste zakačili uređaj na sedište."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
@@ -622,7 +620,7 @@ msgstr "Postavi „razlog“ ponovnog pokretanja u jezgru"
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr ""
 "Potrebno je da se identifikujete da biste postavili \"razlog\" za ponovno "
-"poretanje unutar jezgra."
+"pokretanje unutar jezgra."
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
@@ -646,8 +644,8 @@ msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
 msgstr ""
-"Potrebno je potvrđivanje identiteta za ukazivanje učitavaču podizanja "
-"sistema da prikaže izbornik za podizanje sistema."
+"Potrebno je potvrđivanje identiteta za ukazivanje učitavaču podizanja sistema "
+"da prikaže izbornik za podizanje sistema."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
@@ -658,8 +656,8 @@ msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
 msgstr ""
-"Potrebno je potvrđivanje identiteta za ukazivanje učitavaču podizanja "
-"sistema da pokrene određeni unos učitavača podizanja sistema."
+"Potrebno je potvrđivanje identiteta za ukazivanje učitavaču podizanja sistema "
+"da pokrene određeni unos učitavača podizanja sistema."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
@@ -675,7 +673,7 @@ msgstr "Promeni sesiju"
 
 #: src/login/org.freedesktop.login1.policy:407
 msgid "Authentication is required to change the virtual terminal."
-msgstr "Potrebno je potvđivanje identiteta za promenu virtuelnog terminala."
+msgstr "Potrebno je potvrđivanje identiteta za promenu virtuelnog terminala."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -755,8 +753,8 @@ msgstr "Napravi lokalnu virtuelnu mašinu ili kontejner"
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr ""
-"Potrebno je potvrđivanje identiteta za pravljenje lokalne virtuelne mašine "
-"ili kontejnera."
+"Potrebno je potvrđivanje identiteta za pravljenje lokalne virtuelne mašine ili "
+"kontejnera."
 
 #: src/machine/org.freedesktop.machine1.policy:106
 msgid "Register a local virtual machine or container"
@@ -766,8 +764,8 @@ msgstr "Registruj lokalnu virtuelnu mašinu ili kontejner"
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
-"Potrebno je potvrđivanje identiteta za registrovanje lokalne virtuelne "
-"mašine ili kontejnera."
+"Potrebno je potvrđivanje identiteta za registrovanje lokalne virtuelne mašine "
+"ili kontejnera."
 
 #: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
@@ -817,8 +815,7 @@ msgstr "Postavi podrazumevanu rutu"
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
 msgid "Authentication is required to set default route."
-msgstr ""
-"Potrebno je potvrđivanje identiteta za postavljanje podrazumevane rute."
+msgstr "Potrebno je potvrđivanje identiteta za postavljanje podrazumevane rute."
 
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
@@ -829,8 +826,7 @@ msgstr "Omogući/onemogući LLMNR"
 #: src/resolve/org.freedesktop.resolve1.policy:78
 msgid "Authentication is required to enable or disable LLMNR."
 msgstr ""
-"Potrebno je potvrđivanje identiteta za omogućavanje ili onemogućavanje LLMNR-"
-"a."
+"Potrebno je potvrđivanje identiteta za omogućavanje ili onemogućavanje LLMNR-a."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
@@ -865,8 +861,8 @@ msgstr "Omogući/onemogući DNSBEZB"
 #: src/resolve/org.freedesktop.resolve1.policy:111
 msgid "Authentication is required to enable or disable DNSSEC."
 msgstr ""
-"Potrebno je potvrđivanje identiteta za omogućavanje ili onemogućavanje "
-"DNSBEZB-a."
+"Potrebno je potvrđivanje identiteta za omogućavanje ili onemogućavanje DNSBEZB-"
+"a."
 
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
@@ -877,8 +873,8 @@ msgstr "Postavi negativne sidre poverenja za DNSBEZB"
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
 msgstr ""
-"Potrebno je potvrđivanje identiteta za postavljanje negativnih sidara "
-"poverenja za DNSBEZB."
+"Potrebno je potvrđivanje identiteta za postavljanje negativnih sidara poverenja "
+"za DNSBEZB."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -905,8 +901,8 @@ msgid ""
 "Authentication is required to send a force renew message from the DHCP "
 "server."
 msgstr ""
-"Potrebno je potvrđivanje identiteta za slanje poruke za prisilno obnavljanje "
-"sa DHCP servera."
+"Potrebno je potvrđivanje identiteta za slanje poruke za prisilno obnavljanje sa "
+"DHCP servera."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
@@ -923,8 +919,7 @@ msgstr "Ponovo učitaj mrežna podešavanja"
 #: src/network/org.freedesktop.network1.policy:166
 msgid "Authentication is required to reload network settings."
 msgstr ""
-"Potrebno je potvrđivanje identiteta za ponovno učitavanje mrežnih "
-"podešavanja."
+"Potrebno je potvrđivanje identiteta za ponovno učitavanje mrežnih podešavanja."
 
 #: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
@@ -933,8 +928,7 @@ msgstr "Ponovo podesi mrežni interfejs"
 #: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
 msgstr ""
-"Potrebno je potvrđivanje identiteta za ponovno podešavanje mrežnog "
-"interfejsa."
+"Potrebno je potvrđivanje identiteta za ponovno podešavanje mrežnog interfejsa."
 
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available"
@@ -954,8 +948,7 @@ msgstr "Upravljaj mrežnim vezama"
 
 #: src/network/org.freedesktop.network1.policy:199
 msgid "Authentication is required to manage network links."
-msgstr ""
-"Potrebno je da se identifikujete da biste ponovo učitali stanje sistem-dea."
+msgstr "Potrebno je da se identifikujete da biste upravljali mrežnim vezama."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1002,8 +995,7 @@ msgstr "Ukini registraciju DNS-SD usluge"
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service."
 msgstr ""
-"Potrebno je potvrđivanje identiteta za poništavanje registracije DNS-SD "
-"usluge."
+"Potrebno je potvrđivanje identiteta za poništavanje registracije DNS-SD usluge."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -1045,7 +1037,7 @@ msgstr "Ispiši stanje servera"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
 msgid "Authentication is required to dump server state."
-msgstr "Potrebno je potvđivanje identiteta za ispisivanje stanja servera."
+msgstr "Potrebno je potvrđivanje identiteta za ispisivanje stanja servera."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Dump statistics"
@@ -1077,7 +1069,7 @@ msgstr "Instaliraj ažuriranja sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
 msgid "Authentication is required to install system updates."
-msgstr "Potrebno je potvđivanje identiteta za instaliranje ažuriranja sistema."
+msgstr "Potrebno je potvrđivanje identiteta za instaliranje ažuriranja sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
@@ -1088,8 +1080,8 @@ msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
 msgstr ""
-"Potrebno je potvrđivanje identiteta za ažuriranje sistema na određeno "
-"(moguće staro) izdanje."
+"Potrebno je potvrđivanje identiteta za ažuriranje sistema na određeno (moguće "
+"staro) izdanje."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
@@ -1106,8 +1098,7 @@ msgstr "Upravljaj opcionim mogućnostima"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
 msgid "Authentication is required to manage optional features."
-msgstr ""
-"Potrebno je potvrđivanje identiteta za upravljanje opcionim mogućnostima."
+msgstr "Potrebno je potvrđivanje identiteta za upravljanje opcionim mogućnostima."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"

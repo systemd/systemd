@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
 "POT-Creation-Date: 2026-03-20 14:34+0000\n"
-"PO-Revision-Date: 2026-04-11 14:09+0200\n"
+"PO-Revision-Date: 2026-04-12 18:20+0200\n"
 "Last-Translator: Марко Костић <marko.m.kostic@gmail.com>\n"
 "Language-Team: Serbian <https://translate.fedoraproject.org/projects/systemd/"
 "master/sr/>\n"
@@ -136,7 +136,7 @@ msgstr "Промени величину личног простора"
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr ""
-"Потребно је потвђивање идентитета за промену величине личног простора "
+"Потребно је потврђивање идентитета за промену величине личног простора "
 "корисника."
 
 #: src/home/org.freedesktop.home1.policy:73
@@ -214,7 +214,7 @@ msgstr "Добави серијски број хардвера"
 #: src/hostname/org.freedesktop.hostname1.policy:62
 msgid "Authentication is required to get hardware serial number."
 msgstr ""
-"Потребно је потвђивање идентитета за добављање серијског броја хардвера."
+"Потребно је потврђивање идентитета за добављање серијског броја хардвера."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
@@ -420,7 +420,7 @@ msgstr "Дозволи качење уређаја на седишта"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr "Потребно је да се идентификујете да бисте  закачили уређај на седиште."
+msgstr "Потребно је да се идентификујете да бисте закачили уређај на седиште."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
@@ -620,7 +620,7 @@ msgstr "Постави „разлог“ поновног покретања у
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr ""
 "Потребно је да се идентификујете да бисте поставили \"разлог\" за поновно "
-"поретање унутар језгра."
+"покретање унутар језгра."
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
@@ -673,7 +673,7 @@ msgstr "Промени сесију"
 
 #: src/login/org.freedesktop.login1.policy:407
 msgid "Authentication is required to change the virtual terminal."
-msgstr "Потребно је потвђивање идентитета за промену виртуелног терминала."
+msgstr "Потребно је потврђивање идентитета за промену виртуелног терминала."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -948,8 +948,7 @@ msgstr "Управљај мрежним везама"
 
 #: src/network/org.freedesktop.network1.policy:199
 msgid "Authentication is required to manage network links."
-msgstr ""
-"Потребно је да се идентификујете да бисте поново учитали стање систем-деа."
+msgstr "Потребно је да се идентификујете да бисте управљали мрежним везама."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1038,7 +1037,7 @@ msgstr "Испиши стање сервера"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
 msgid "Authentication is required to dump server state."
-msgstr "Потребно је потвђивање идентитета за исписивање стања сервера."
+msgstr "Потребно је потврђивање идентитета за исписивање стања сервера."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Dump statistics"
@@ -1070,7 +1069,7 @@ msgstr "Инсталирај ажурирања система"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
 msgid "Authentication is required to install system updates."
-msgstr "Потребно је потвђивање идентитета за инсталирање ажурирања система."
+msgstr "Потребно је потврђивање идентитета за инсталирање ажурирања система."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
