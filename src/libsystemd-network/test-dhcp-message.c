@@ -125,6 +125,28 @@ static void verify_routes(sd_dhcp_message *m, size_t n_expected, const sd_dhcp_r
         }
 }
 
+static void verify_6rd(
+                sd_dhcp_message *m,
+                uint8_t expected_ipv4masklen,
+                uint8_t expected_prefixlen,
+                const struct in6_addr *expected_prefix,
+                size_t expected_n_br_addresses,
+                const struct in_addr *expected_br_addresses) {
+
+        uint8_t ipv4masklen, prefixlen;
+        struct in6_addr prefix;
+        size_t n_br_addresses;
+        _cleanup_free_ struct in_addr *br_addresses = NULL;
+
+        ASSERT_OK(dhcp_message_get_option_6rd(m, NULL, NULL, NULL, NULL, NULL));
+        ASSERT_OK(dhcp_message_get_option_6rd(m, &ipv4masklen, &prefixlen, &prefix, &n_br_addresses, &br_addresses));
+        ASSERT_EQ(ipv4masklen, expected_ipv4masklen);
+        ASSERT_EQ(prefixlen, expected_prefixlen);
+        ASSERT_TRUE(in6_addr_equal(&prefix, expected_prefix));
+        ASSERT_EQ(n_br_addresses, expected_n_br_addresses);
+        ASSERT_EQ(memcmp(br_addresses, expected_br_addresses, sizeof(struct in_addr) * n_br_addresses), 0);
+}
+
 static void verify_client_id(sd_dhcp_message *m, const sd_dhcp_client_id *expected) {
         sd_dhcp_client_id id = {};
         ASSERT_OK(dhcp_message_get_option_client_id(m, &id));
@@ -213,6 +235,17 @@ TEST(dhcp_message) {
                         .gw_addr  = { .s_addr = htobe32(0xC0000223) },
                         .dst_prefixlen = 24,
                 },
+        };
+
+        uint8_t sixrd_ipv4masklen = 24;
+        uint8_t sixrd_prefixlen = 64;
+        struct in6_addr sixrd_prefix = {
+                .s6_addr = { 0x20, 0x01, 0x0d, 0xb8, },
+        };
+        struct in_addr sixrd_br_addresses[3] = {
+                { .s_addr = htobe32(0xC0000231) },
+                { .s_addr = htobe32(0xC0000232) },
+                { .s_addr = htobe32(0xC0000233) },
         };
 
         sd_dhcp_client_id id = {
@@ -321,6 +354,16 @@ TEST(dhcp_message) {
         ASSERT_OK(dhcp_message_append_option_routes(m, SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE, ELEMENTSOF(routes), routes));
         verify_routes(m, ELEMENTSOF(routes), routes);
 
+        /* 6rd */
+        ASSERT_ERROR(dhcp_message_append_option_6rd(m, 33, sixrd_prefixlen, &sixrd_prefix, 1, sixrd_br_addresses), EINVAL);
+        ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, 127, &sixrd_prefix, 1, sixrd_br_addresses), EINVAL);
+        ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, 0, sixrd_br_addresses), EINVAL);
+        ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, SIZE_MAX, sixrd_br_addresses), ENOBUFS);
+        ASSERT_OK(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, 1, sixrd_br_addresses));
+        ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, 1, sixrd_br_addresses), EEXIST);
+        ASSERT_OK(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_6RD, ELEMENTSOF(sixrd_br_addresses) - 1, sixrd_br_addresses + 1));
+        verify_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, ELEMENTSOF(sixrd_br_addresses), sixrd_br_addresses);
+
         /* client ID */
         ASSERT_OK(dhcp_message_append_option_client_id(m, &id));
         verify_client_id(m, &id);
@@ -383,6 +426,7 @@ TEST(dhcp_message) {
         verify_addresses(m2, ELEMENTSOF(ntp), ntp, ELEMENTSOF(sip), sip);
         verify_string(m2, vendor_class);
         verify_routes(m2, ELEMENTSOF(routes), routes);
+        verify_6rd(m2, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, ELEMENTSOF(sixrd_br_addresses), sixrd_br_addresses);
         verify_client_id(m2, &id);
         verify_prl(m2, prl);
         verify_hostname(m2, hostname);
