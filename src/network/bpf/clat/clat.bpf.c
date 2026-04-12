@@ -301,7 +301,8 @@ int clat_egress(struct __sk_buff *skb) {
                 /* Incrementally update the checksum for the type byte change.
                  * Do NOT zero the checksum — it contains the payload checksum state.
                  * ICMPv6 pseudo-header contribution will be added after room adjustment. */
-                bpf_l4_csum_replace(skb, l4_off + 2, old_tc, new_tc, 2);
+                if (bpf_l4_csum_replace(skb, l4_off + 2, old_tc, new_tc, 2) < 0)
+                        return TC_ACT_OK;
         }
 
         /* Grow packet by 20 bytes for IPv6 header */
@@ -459,7 +460,8 @@ int clat_ingress(struct __sk_buff *skb) {
                 /* Incrementally update the checksum for the type byte change.
                  * Do NOT zero the checksum — it contains the payload + pseudo-header state.
                  * Pseudo-header contribution will be removed after room adjustment. */
-                bpf_l4_csum_replace(skb, l4_off + 2, old_tc, new_tc, 2);
+                if (bpf_l4_csum_replace(skb, l4_off + 2, old_tc, new_tc, 2) < 0)
+                        return TC_ACT_OK;
         }
 
         /* Shrink packet by 20 bytes */

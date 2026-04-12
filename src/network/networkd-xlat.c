@@ -895,13 +895,14 @@ static int xlat_set_tun_up(Link *link) {
         return 0;
 }
 
-static int xlat_configure_address_handler(Link *link, int ifindex) {
+static int xlat_configure_address_handler(Link *link, int ifindex, const char *description) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         struct in_addr addr = { .s_addr = htobe32(CLAT_V4_ADDR_U32) };
         int r;
 
         assert(link);
         assert(ifindex > 0);
+        assert(description);
 
         r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &m, ifindex, AF_INET);
         if (r < 0)
@@ -929,12 +930,12 @@ static int xlat_configure_address_handler(Link *link, int ifindex) {
                 return log_link_error_errno(link, r,
                                             "CLAT: failed to configure address 192.0.0.1/32: %m");
 
-        log_link_debug(link, "CLAT: assigned 192.0.0.1/32 to ifindex %d.", ifindex);
+        log_link_debug(link, "CLAT: assigned 192.0.0.1/32 to %s.", description);
         return 0;
 }
 
 static int xlat_configure_address(Link *link) {
-        return xlat_configure_address_handler(link, link->clat_ifindex);
+        return xlat_configure_address_handler(link, link->clat_ifindex, "TUN device");
 }
 
 static int xlat_configure_route(Link *link) {
@@ -1076,7 +1077,7 @@ static int xlat_bpf_attach_tcx(int prog_fd, int ifindex, enum bpf_attach_type at
 }
 
 static int xlat_configure_address_on_link(Link *link) {
-        return xlat_configure_address_handler(link, link->ifindex);
+        return xlat_configure_address_handler(link, link->ifindex, "physical interface");
 }
 
 static int xlat_configure_route_on_link(Link *link) {
