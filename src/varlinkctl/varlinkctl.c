@@ -700,8 +700,8 @@ static int varlink_call_and_upgrade(const char *url, const char *method, sd_json
                         _exit(EXIT_FAILURE);
                 }
 
-                r = exec_with_listen_fds(exec_cmdline, /* fds= */ NULL, /* n_fds= */ 0);
-                /* This is only reached on failure, otherwise we continue with exec_cmldine). */
+                (void) exec_with_listen_fds(exec_cmdline, /* fds= */ NULL, /* n_fds= */ 0);
+                /* This is only reached on failure, otherwise we continue with exec_cmdline). */
                 _exit(EXIT_FAILURE);
         }
 
@@ -993,7 +993,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                 _exit(EXIT_FAILURE);
                         }
 
-                        exec_with_listen_fds(exec_cmdline, fd_array, m);
+                        (void) exec_with_listen_fds(exec_cmdline, fd_array, m);
                         /* This is only reached on failure, otherwise we continue with exec_cmdline. */
                         _exit(EXIT_FAILURE);
                 }
