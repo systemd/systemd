@@ -8,21 +8,7 @@
 #include "iovec-wrapper.h"
 #include "time-util.h"
 
-/* Make sure not to make this smaller than the maximum coredump size.
- * See JOURNAL_SIZE_MAX in coredump.c */
-#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-#define ENTRY_SIZE_MAX (1024*1024*770u)
-#define ENTRY_SIZE_UNPRIV_MAX (1024*1024*32u)
-#define DATA_SIZE_MAX (1024*1024*768u)
-#else
-#define ENTRY_SIZE_MAX (1024*1024*13u)
-#define ENTRY_SIZE_UNPRIV_MAX (1024*1024*8u)
-#define DATA_SIZE_MAX (1024*1024*11u)
-#endif
 #define LINE_CHUNK 8*1024u
-
-/* The maximum number of fields in an entry */
-#define ENTRY_FIELD_COUNT_MAX 1024u
 
 typedef struct JournalImporter {
         int fd;
