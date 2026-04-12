@@ -79,6 +79,7 @@ int dhcp_message_get_option_hostname(sd_dhcp_message *message, char **ret);
 int dhcp_message_get_option_domains(sd_dhcp_message *message, uint8_t code, char ***ret);
 int dhcp_message_get_option_sub_tlv(sd_dhcp_message *message, uint8_t code, TLVFlag flags, TLV **ret);
 int dhcp_message_get_option_length_prefixed_data(sd_dhcp_message *message, uint8_t code, size_t length_size, struct iovec_wrapper *ret);
+int dhcp_message_get_option_dnr(sd_dhcp_message *message, size_t *ret_n_resolvers, sd_dns_resolver **ret_resolvers);
 
 int dhcp_message_parse(
                 const struct iovec *iov,
