@@ -7,6 +7,8 @@
 #include "dhcp-message.h"
 #include "dhcp-protocol.h"
 #include "dhcp-route.h"
+#include "dns-packet.h"
+#include "dns-resolver-internal.h"
 #include "ether-addr-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
@@ -573,6 +575,198 @@ TEST(domains) {
                 3, 'c', 'o',
         };
         test_domains_fail(ELEMENTSOF(truncated), truncated);
+}
+
+TEST(dnr) {
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+
+        sd_dns_resolver *resolvers = NULL;
+        size_t n_resolvers = 0;
+        CLEANUP_ARRAY(resolvers, n_resolvers, dns_resolver_free_array);
+
+        static uint8_t data[] = {
+                /* Instance 1 */
+                /* length */
+                0, 78,
+                /* priority */
+                0, 1,
+                /* authentication domain name */
+                22,
+                8, 'r', 'e', 's', 'o', 'l', 'v', 'e', 'r',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                /* addresses */
+                8,
+                192, 0, 2, 1,
+                192, 0, 2, 2,
+                /* service parameters */
+                /* ALPN */
+                0, DNS_SVC_PARAM_KEY_ALPN,
+                0, 14,
+                2, 'h', '2',
+                2, 'h', '3',
+                3, 'd', 'o', 't',
+                3, 'd', 'o', 'q',
+                /* port */
+                0, DNS_SVC_PARAM_KEY_PORT,
+                0, 2,
+                0, 42,
+                /* DoH path*/
+                0, DNS_SVC_PARAM_KEY_DOHPATH,
+                0, 16,
+                '/', 'd', 'n', 's', '-', 'q', 'u', 'e', 'r', 'y', '{', '?', 'd', 'n', 's', '}',
+
+                /* Instance 2 */
+                /* length */
+                0, 44,
+                /* priority */
+                0, 2,
+                /* authentication domain name */
+                22,
+                8, 'h', 'o', 'g', 'e', 'h', 'o', 'g', 'e',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                /* addresses */
+                4,
+                192, 0, 2, 3,
+                /* service parameters */
+                /* ALPN */
+                0, DNS_SVC_PARAM_KEY_ALPN,
+                0, 4,
+                3, 'd', 'o', 't',
+                /* port */
+                0, DNS_SVC_PARAM_KEY_PORT,
+                0, 2,
+                0, 33,
+
+                /* Instance 3 (no address, ignored) */
+                /* length */
+                0, 20,
+                /* priority */
+                0, 3,
+                /* authentication domain name */
+                17,
+                3, 'f', 'o', 'o',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+
+                /* Instance 4 (unknown alpn, ignored) */
+                /* length */
+                0, 37,
+                /* priority */
+                0, 4,
+                /* authentication domain name */
+                20,
+                6, 'b', 'a', 'r', 'b', 'a', 'z',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                /* addresses */
+                4,
+                192, 0, 2, 4,
+                /* service parameters */
+                /* ALPN */
+                0, DNS_SVC_PARAM_KEY_ALPN,
+                0, 5,
+                4, 'h', 'o', 'g', 'e',
+        };
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_V4_DNR, ELEMENTSOF(data), data));
+        ASSERT_OK(dhcp_message_get_option_dnr(m, &n_resolvers, &resolvers));
+        ASSERT_EQ(n_resolvers, 2u);
+
+        ASSERT_EQ(resolvers[0].priority, 1u);
+        ASSERT_STREQ(resolvers[0].auth_name, "resolver.example.com");
+        ASSERT_EQ(resolvers[0].family, AF_INET);
+        ASSERT_EQ(resolvers[0].n_addrs, 2u);
+        ASSERT_STREQ(IN_ADDR_TO_STRING(resolvers[0].family, &resolvers[0].addrs[0]), "192.0.2.1");
+        ASSERT_STREQ(IN_ADDR_TO_STRING(resolvers[0].family, &resolvers[0].addrs[1]), "192.0.2.2");
+        ASSERT_EQ(resolvers[0].transports, SD_DNS_ALPN_HTTP_2_TLS | SD_DNS_ALPN_HTTP_3 | SD_DNS_ALPN_DOT | SD_DNS_ALPN_DOQ);
+        ASSERT_EQ(resolvers[0].port, 42u);
+        ASSERT_STREQ(resolvers[0].dohpath, "/dns-query{?dns}");
+
+        ASSERT_EQ(resolvers[1].priority, 2u);
+        ASSERT_STREQ(resolvers[1].auth_name, "hogehoge.example.com");
+        ASSERT_EQ(resolvers[1].family, AF_INET);
+        ASSERT_EQ(resolvers[1].n_addrs, 1u);
+        ASSERT_STREQ(IN_ADDR_TO_STRING(resolvers[1].family, &resolvers[1].addrs[0]), "192.0.2.3");
+        ASSERT_EQ(resolvers[1].transports, SD_DNS_ALPN_DOT);
+        ASSERT_EQ(resolvers[1].port, 33u);
+        ASSERT_NULL(resolvers[1].dohpath);
+
+        /* missing DoH path */
+        static uint8_t invalid[] = {
+                /* length */
+                0, 35,
+                /* priority */
+                0, 5,
+                /* authentication domain name */
+                20,
+                6, 'b', 'a', 'r', 'b', 'a', 'z',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                /* addresses */
+                4,
+                192, 0, 2, 5,
+                /* service parameters */
+                /* ALPN */
+                0, DNS_SVC_PARAM_KEY_ALPN,
+                0, 3,
+                2, 'h', '2',
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_V4_DNR, ELEMENTSOF(invalid), invalid));
+        ASSERT_ERROR(dhcp_message_get_option_dnr(m, NULL, NULL), EBADMSG);
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_V4_DNR);
+
+        /* missing ALPN */
+        static uint8_t invalid2[] = {
+                /* length */
+                0, 28,
+                /* priority */
+                0, 6,
+                /* authentication domain name */
+                20,
+                6, 'b', 'a', 'r', 'b', 'a', 'z',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                /* addresses */
+                4,
+                192, 0, 2, 6,
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_V4_DNR, ELEMENTSOF(invalid2), invalid2));
+        ASSERT_ERROR(dhcp_message_get_option_dnr(m, NULL, NULL), EBADMSG);
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_V4_DNR);
+
+        /* truncated domain name */
+        static uint8_t invalid3[] = {
+                /* length */
+                0, 34,
+                /* priority */
+                0, 7,
+                /* authentication domain name */
+                18,
+                6, 'b', 'a', 'r', 'b', 'a', 'z',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o',
+                /* addresses */
+                4,
+                192, 0, 2, 7,
+                /* service parameters */
+                /* ALPN */
+                0, DNS_SVC_PARAM_KEY_ALPN,
+                0, 4,
+                3, 'd', 'o', 't',
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_V4_DNR, ELEMENTSOF(invalid3), invalid3));
+        ASSERT_ERROR(dhcp_message_get_option_dnr(m, NULL, NULL), EMSGSIZE);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
