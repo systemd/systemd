@@ -75,6 +75,8 @@ static void uid_range_coalesce(UIDRange *range) {
                         if (range->n_entries > j + 1)
                                 memmove(y, y + 1, sizeof(UIDRangeEntry) * (range->n_entries - j - 1));
 
+                        /* Silence static analyzers, n_entries > 0 since j < n_entries holds in the loop condition */
+                        assert(range->n_entries > 0);
                         range->n_entries--;
 
                         /* Silence static analyzers, j cannot be 0 here since it starts at i + 1, i.e. >= 1 */
