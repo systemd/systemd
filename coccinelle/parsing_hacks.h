@@ -61,26 +61,48 @@
 /* Coccinelle doesn't know this keyword, so just drop it, since it's not important for any of our rules. */
 #define thread_local
 
+/* Coccinelle can't handle the __attribute__((__cleanup__(x))) GCC extension used by our _cleanup_*
+ * macros. Without this, any variable declared with _cleanup_free_ or _cleanup_(foo) makes the whole
+ * function unparsable. Drop the attribute since it's not relevant for semantic checks. */
+#define _cleanup_free_
+#define _cleanup_(x)
+
 /* Coccinelle fails to parse these from the included headers, so let's just drop them. */
 #define PAM_EXTERN
 #define STACK_OF(x)
 
 /* Mark a couple of iterator explicitly as iterators, otherwise Coccinelle gets a bit confused. Coccinelle
  * can usually infer this information automagically, but in these specific cases it needs a bit of help. */
+#define FOREACH_ARGUMENT(entry, ...) YACFE_ITERATOR
 #define FOREACH_ARRAY(i, array, num) YACFE_ITERATOR
-#define FOREACH_ELEMENT(i, array) YACFE_ITERATOR
+#define FOREACH_DIRENT(de, d, on_error) YACFE_ITERATOR
 #define FOREACH_DIRENT_ALL(de, d, on_error) YACFE_ITERATOR
+#define FOREACH_DIRENT_IN_BUFFER(de, buf, sz) YACFE_ITERATOR
+#define FOREACH_ELEMENT(i, array) YACFE_ITERATOR
 #define FOREACH_STRING(x, y, ...) YACFE_ITERATOR
 #define HASHMAP_FOREACH(e, h) YACFE_ITERATOR
+#define HASHMAP_FOREACH_KEY(e, k, h) YACFE_ITERATOR
 #define LIST_FOREACH(name, i, head) YACFE_ITERATOR
+#define LIST_FOREACH_BACKWARDS(name, i, start) YACFE_ITERATOR
+#define NULSTR_FOREACH(s, l) YACFE_ITERATOR
+#define NULSTR_FOREACH_PAIR(i, j, l) YACFE_ITERATOR
 #define ORDERED_HASHMAP_FOREACH(e, h) YACFE_ITERATOR
+#define ORDERED_HASHMAP_FOREACH_KEY(e, k, h) YACFE_ITERATOR
 #define SET_FOREACH(e, s) YACFE_ITERATOR
-#define STRV_FOREACH_BACKWARDS YACFE_ITERATOR
+#define SET_FOREACH_MOVE(e, d, s) YACFE_ITERATOR
+#define STRV_FOREACH(s, l) YACFE_ITERATOR
+#define STRV_FOREACH_BACKWARDS(s, l) YACFE_ITERATOR
+#define STRV_FOREACH_PAIR(x, y, l) YACFE_ITERATOR
 
 /* Coccinelle really doesn't like multiline macros that are not in the "usual" do { ... } while(0) format, so
  * let's help it a little here by providing simplified one-line versions. */
 #define CMSG_BUFFER_TYPE(x) union { uint8_t align_check[(size) >= CMSG_SPACE(0) && (size) == CMSG_ALIGN(size) ? 1 : -1]; }
 #define SD_ID128_MAKE(...) ((const sd_id128) {})
+
+/* sizeof() does not evaluate its argument, so *ptr inside sizeof() is not a real dereference.
+ * The SIZEOF() macro is an alias for sizeof() that hides the argument from coccinelle to avoid
+ * false positives from check-pointer-deref.cocci. See assert-fundamental.h for the definition. */
+#define SIZEOF(x) 8
 
 /* Work around a bug in zlib.h parsing on Fedora (and possibly others)
  * See: https://github.com/coccinelle/coccinelle/issues/413 */

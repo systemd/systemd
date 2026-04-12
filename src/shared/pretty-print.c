@@ -127,6 +127,8 @@ int file_url_from_path(const char *path, char **ret) {
         char *url = NULL;
         int r;
 
+        assert(ret);
+
         if (uname(&u) < 0)
                 return -errno;
 
@@ -389,6 +391,12 @@ static int guess_type(const char **name, char ***ret_prefixes, bool *ret_is_coll
         _cleanup_free_ char *n = NULL;
         bool run = false, coll = false;
         const char *ext = ".conf";
+
+        assert(name);
+        assert(ret_prefixes);
+        assert(ret_is_collection);
+        assert(ret_extension);
+
         /* This is static so that the array doesn't get deallocated when we exit the function */
         static const char* const std_prefixes[] = { CONF_PATHS(""), NULL };
         static const char* const run_prefixes[] = { "/run/", NULL };

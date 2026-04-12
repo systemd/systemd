@@ -403,6 +403,8 @@ static int read_public_key_info(
                 CK_OBJECT_HANDLE object,
                 EVP_PKEY **ret_pkey) {
 
+        assert(ret_pkey);
+
         CK_ATTRIBUTE attribute = { CKA_PUBLIC_KEY_INFO, NULL_PTR, 0 };
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         CK_RV rv;
@@ -444,6 +446,8 @@ int pkcs11_token_read_public_key(
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         CK_RV rv;
         int r;
+
+        assert(ret_pkey);
 
         r = read_public_key_info(m, session, object, &pkey);
         if (r >= 0) {
@@ -667,6 +671,8 @@ int pkcs11_token_read_x509_certificate(
         _cleanup_(X509_freep) X509 *x509 = NULL;
         X509_NAME *name = NULL;
         int r;
+
+        assert(ret_cert);
 
         r = dlopen_p11kit();
         if (r < 0)
@@ -951,6 +957,9 @@ static int ecc_convert_to_compressed(
         CK_RV rv;
         int r;
 
+        assert(ret_compressed_point);
+        assert(ret_compressed_point_size);
+
         rv = m->C_GetAttributeValue(session, object, &ec_params_attr, 1);
         if (!IN_SET(rv, CKR_OK, CKR_ATTRIBUTE_TYPE_INVALID))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
@@ -1156,6 +1165,9 @@ static int pkcs11_token_decrypt_data_rsa(
         _cleanup_(erase_and_freep) CK_BYTE *dbuffer = NULL;
         CK_ULONG dbuffer_size = 0;
         CK_RV rv;
+
+        assert(ret_decrypted_data);
+        assert(ret_decrypted_data_size);
 
         rv = m->C_DecryptInit(session, (CK_MECHANISM*) &mechanism, object);
         if (rv != CKR_OK)

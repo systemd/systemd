@@ -261,6 +261,7 @@ static int escape_and_truncate_data(const void *data, size_t size, char **ret) {
         _cleanup_free_ char *safe = NULL;
 
         assert(data || size == 0);
+        assert(ret);
 
         if (size > EXTENSION_STRING_SAFE_LIMIT) {
                 safe = cescape_length(data, EXTENSION_STRING_SAFE_LIMIT);

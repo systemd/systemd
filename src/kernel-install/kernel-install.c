@@ -1128,6 +1128,7 @@ static int kernel_from_version(const char *version, char **ret_kernel) {
         int r;
 
         assert(version);
+        assert(ret_kernel);
 
         vmlinuz = path_join("/usr/lib/modules/", version, "/vmlinuz");
         if (!vmlinuz)

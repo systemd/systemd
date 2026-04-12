@@ -3658,6 +3658,8 @@ static int parse_environment_field(sd_json_variant **identity, const char *field
 static int parse_language_field(char ***languages, const char *arg) {
         int r;
 
+        assert(languages);
+
         if (isempty(arg)) {
                 r = drop_from_identity("preferredLanguage", "additionalLanguages");
                 if (r < 0)

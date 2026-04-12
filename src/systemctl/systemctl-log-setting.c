@@ -44,6 +44,8 @@ static int service_name_to_dbus(sd_bus *bus, const char *name, char **ret_dbus_n
         _cleanup_free_ char *bus_name = NULL;
         int r;
 
+        assert(ret_dbus_name);
+
         /* First, look for the BusName= property */
         _cleanup_free_ char *dbus_path = unit_dbus_path_from_name(name);
         if (!dbus_path)

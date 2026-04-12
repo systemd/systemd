@@ -189,6 +189,9 @@ static int parse_line(
         assert(line > 0);
         assert(lookup);
         assert(l);
+        assert(section);
+        assert(section_line);
+        assert(section_ignored);
 
         l = strstrip(l);
         if (isempty(l))
