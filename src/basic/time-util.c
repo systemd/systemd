@@ -49,7 +49,15 @@ usec_t now(clockid_t clock_id) {
 
         assert_se(clock_gettime(map_clock_id(clock_id), &ts) == 0);
 
-        return timespec_load(&ts);
+        usec_t n = timespec_load(&ts);
+
+        /* We use both 0 and USEC_INFINITY as niche values. If the current time collides with either, things are
+         * really weird and really broken. Let's not allow this to go through, it would break too many of our
+         * assumptions in code. */
+        assert(n > 0);
+        assert(n < USEC_INFINITY);
+
+        return n;
 }
 
 nsec_t now_nsec(clockid_t clock_id) {
@@ -57,7 +65,12 @@ nsec_t now_nsec(clockid_t clock_id) {
 
         assert_se(clock_gettime(map_clock_id(clock_id), &ts) == 0);
 
-        return timespec_load_nsec(&ts);
+        nsec_t n = timespec_load_nsec(&ts);
+
+        assert(n > 0);
+        assert(n < NSEC_INFINITY);
+
+        return n;
 }
 
 dual_timestamp* dual_timestamp_now(dual_timestamp *ts) {
