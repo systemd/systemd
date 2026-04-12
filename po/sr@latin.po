@@ -1,0 +1,1143 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Serbian translation of systemd.
+# Frantisek Sumsal <frantisek@sumsal.cz>, 2021.
+# Marko Kostić <marko.m.kostic@gmail.com>, 2026
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
+"POT-Creation-Date: 2026-03-20 14:34+0000\n"
+"PO-Revision-Date: 2026-04-12 18:20+0200\n"
+"Last-Translator: Marko Kostić <marko.m.kostic@gmail.com>\n"
+"Language-Team: Serbian <https://translate.fedoraproject.org/projects/systemd/"
+"master/sr/>\n"
+"Language: sr@latin\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"X-Generator: Poedit 3.9\n"
+
+#: src/core/org.freedesktop.systemd1.policy.in:22
+msgid "Send passphrase back to system"
+msgstr "Pošalji frazu nazad ka sistemu"
+
+#: src/core/org.freedesktop.systemd1.policy.in:23
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr ""
+"Potrebno je da se identifikujete da biste poslali frazu nazad u sistem."
+
+#: src/core/org.freedesktop.systemd1.policy.in:33
+msgid "Manage system services or other units"
+msgstr "Upravljaj sistemskim uslugama i drugim jedinicama"
+
+#: src/core/org.freedesktop.systemd1.policy.in:34
+msgid "Authentication is required to manage system services or other units."
+msgstr ""
+"Potrebno je da se identifikujete da biste upravljali sistemskim uslugama ili "
+"drugim jedinicama."
+
+#: src/core/org.freedesktop.systemd1.policy.in:43
+msgid "Manage system service or unit files"
+msgstr "Upravljaj sistemskom uslugom ili jediničnim datotekama"
+
+#: src/core/org.freedesktop.systemd1.policy.in:44
+msgid "Authentication is required to manage system service or unit files."
+msgstr ""
+"Potrebno je da se identifikujete da biste upravljali sistemskom uslugom ili "
+"jediničnim datotekama."
+
+#: src/core/org.freedesktop.systemd1.policy.in:54
+msgid "Set or unset system and service manager environment variables"
+msgstr "Menjaj promenljive okruženja na sistemu i unutar upravnika usluga"
+
+#: src/core/org.freedesktop.systemd1.policy.in:55
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"Potrebno je da se identifikujete da biste menjali promenljive okruženja na "
+"sistemu i unutar upravnika usluga."
+
+#: src/core/org.freedesktop.systemd1.policy.in:64
+msgid "Reload the systemd state"
+msgstr "Ponovo učitaj stanje sistem-dea"
+
+#: src/core/org.freedesktop.systemd1.policy.in:65
+msgid "Authentication is required to reload the systemd state."
+msgstr ""
+"Potrebno je da se identifikujete da biste ponovo učitali stanje sistem-dea."
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr "Ispiši stanje sistemd-a bez ograničenja protoka"
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za ispisivanje stanja sistemde-a bez "
+"ograničenja protoka."
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr "Napravi lični prostor"
+
+#: src/home/org.freedesktop.home1.policy:14
+msgid "Authentication is required to create a user's home area."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za pravljenje ličnog prostora korisnika."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr "Ukloni lični prostor"
+
+#: src/home/org.freedesktop.home1.policy:24
+msgid "Authentication is required to remove a user's home area."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za uklanjanje ličnog prostora korisnika."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr "Proveri akreditive ličnog prostora"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za proveru akreditiva ličnog prostora "
+"korisnika."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr "Ažuriraj lični prostor"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required to update a user's home area."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za ažuriranje ličnog prostora korisnika."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Update your home area"
+msgstr "Ažuriraj svoj lični prostor"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to update your home area."
+msgstr "Potrebno je potvrđivanje identiteta za ažuriranje svog ličnog prostora."
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Resize a home area"
+msgstr "Promeni veličinu ličnog prostora"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid "Authentication is required to resize a user's home area."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za promenu veličine ličnog prostora "
+"korisnika."
+
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Change password of a home area"
+msgstr "Promeni lozinku ličnog prostora"
+
+#: src/home/org.freedesktop.home1.policy:74
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za promenu lozinke ličnog prostora "
+"korisnika."
+
+#: src/home/org.freedesktop.home1.policy:83
+msgid "Activate a home area"
+msgstr "Aktiviraj lični prostor"
+
+#: src/home/org.freedesktop.home1.policy:84
+msgid "Authentication is required to activate a user's home area."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za aktiviranje ličnog prostora korisnika."
+
+#: src/home/org.freedesktop.home1.policy:93
+msgid "Manage Home Directory Signing Keys"
+msgstr "Upravljaj ključevima za potpisivanje ličnog direktorijuma"
+
+#: src/home/org.freedesktop.home1.policy:94
+msgid "Authentication is required to manage signing keys for home directories."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za upravljanje ključevima za potpisivanje "
+"ličnih direktorijuma."
+
+#: src/hostname/org.freedesktop.hostname1.policy:20
+msgid "Set hostname"
+msgstr "Postavi naziv mašine"
+
+#: src/hostname/org.freedesktop.hostname1.policy:21
+msgid "Authentication is required to set the local hostname."
+msgstr "Potrebno je da se identifikujete da biste postavili naziv mašine."
+
+#: src/hostname/org.freedesktop.hostname1.policy:30
+msgid "Set static hostname"
+msgstr "Postavi statički naziv mašine"
+
+#: src/hostname/org.freedesktop.hostname1.policy:31
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr ""
+"Potrebno je da se identifikujete da biste postavili statički naziv mašine i "
+"da biste postavili lep naziv mašine."
+
+#: src/hostname/org.freedesktop.hostname1.policy:41
+msgid "Set machine information"
+msgstr "Postavi podatke o mašini"
+
+#: src/hostname/org.freedesktop.hostname1.policy:42
+msgid "Authentication is required to set local machine information."
+msgstr ""
+"Potrebno je da se identifikujete da biste postavili podatke o lokalnoj "
+"mašini."
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "Dobavi UUID proizvoda"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "Potrebno je potvrđivanje identiteta za dobavljanje UUID-a proizvoda."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr "Dobavi serijski broj hardvera"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+msgid "Authentication is required to get hardware serial number."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za dobavljanje serijskog broja hardvera."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+msgid "Get system description"
+msgstr "Dobavi opis sistema"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+msgid "Authentication is required to get system description."
+msgstr "Potrebno je potvrđivanje identiteta za dobavljanje opisa sistema."
+
+#: src/import/org.freedesktop.import1.policy:22
+msgid "Import a disk image"
+msgstr "Uvezi odraz diska"
+
+#: src/import/org.freedesktop.import1.policy:23
+msgid "Authentication is required to import an image."
+msgstr "Potrebno je potvrđivanje identiteta za uvoz odraza."
+
+#: src/import/org.freedesktop.import1.policy:32
+msgid "Export a disk image"
+msgstr "Izvezi odraz diska"
+
+#: src/import/org.freedesktop.import1.policy:33
+msgid "Authentication is required to export disk image."
+msgstr "Potrebno je potvrđivanje identiteta za izvoz odraza diska."
+
+#: src/import/org.freedesktop.import1.policy:42
+msgid "Download a disk image"
+msgstr "Preuzmi odraz diska"
+
+#: src/import/org.freedesktop.import1.policy:43
+msgid "Authentication is required to download a disk image."
+msgstr "Potrebno je potvrđivanje identiteta za preuzimanje odraza diska."
+
+#: src/import/org.freedesktop.import1.policy:52
+msgid "Cancel transfer of a disk image"
+msgstr "Otkaži prenos odraza diska"
+
+#: src/import/org.freedesktop.import1.policy:53
+msgid ""
+"Authentication is required to cancel the ongoing transfer of a disk image."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za otkazivanje tekućeg prenosa odraza "
+"diska."
+
+#: src/locale/org.freedesktop.locale1.policy:22
+msgid "Set system locale"
+msgstr "Postavi osnovni jezik sistema"
+
+#: src/locale/org.freedesktop.locale1.policy:23
+msgid "Authentication is required to set the system locale."
+msgstr ""
+"Potrebno je da se identifikujete da biste postavili osnovni jezik sistema."
+
+#: src/locale/org.freedesktop.locale1.policy:33
+msgid "Set system keyboard settings"
+msgstr "Postavi podešavanje sistemske tastature"
+
+#: src/locale/org.freedesktop.locale1.policy:34
+msgid "Authentication is required to set the system keyboard settings."
+msgstr ""
+"Potrebno je da se identifikujete da biste postavili podešavanja sistemske "
+"tastature."
+
+#: src/login/org.freedesktop.login1.policy:22
+msgid "Allow applications to inhibit system shutdown"
+msgstr "Dozvoli programima da spreče gašenje sistema"
+
+#: src/login/org.freedesktop.login1.policy:23
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr ""
+"Potrebno je da se identifikujete da biste dozvolili programu da spreči "
+"gašenje sistema."
+
+#: src/login/org.freedesktop.login1.policy:33
+msgid "Allow applications to delay system shutdown"
+msgstr "Dozvoli programima da odlože gašenje sistema"
+
+#: src/login/org.freedesktop.login1.policy:34
+msgid "Authentication is required for an application to delay system shutdown."
+msgstr ""
+"Potrebno je da se identifikujete da biste dozvolili programu da odloži "
+"gašenje sistema."
+
+#: src/login/org.freedesktop.login1.policy:44
+msgid "Allow applications to inhibit system sleep"
+msgstr "Dozvoli programima da spreče spavanje sistema"
+
+#: src/login/org.freedesktop.login1.policy:45
+msgid "Authentication is required for an application to inhibit system sleep."
+msgstr ""
+"Potrebno je da se identifikujete da biste dozvolili programu da spreči "
+"spavanje sistema."
+
+#: src/login/org.freedesktop.login1.policy:55
+msgid "Allow applications to delay system sleep"
+msgstr "Dozvoli programima da odlože spavanje sistema"
+
+#: src/login/org.freedesktop.login1.policy:56
+msgid "Authentication is required for an application to delay system sleep."
+msgstr ""
+"Potrebno je da se identifikujete da biste dozvolili programu da odloži "
+"spavanje sistema."
+
+#: src/login/org.freedesktop.login1.policy:65
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr "Dozvoli programima da spreče samostalnu obustavu sistema"
+
+#: src/login/org.freedesktop.login1.policy:66
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr ""
+"Potrebno je da se identifikujete da biste dozvolili programu da spreči "
+"samostalnu obustavu sistema."
+
+#: src/login/org.freedesktop.login1.policy:75
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr "Dozvoli programima da spreče sistemu upravljanje dugmetom za napajanje"
+
+#: src/login/org.freedesktop.login1.policy:76
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr ""
+"Potrebno je da se identifikujete da biste dozvolili programu da spreči "
+"sistemu upravljanje dugmetom za napajanje."
+
+#: src/login/org.freedesktop.login1.policy:86
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr "Dozvoli programima da spreče sistemu upravljanje dugmetom za obustavu"
+
+#: src/login/org.freedesktop.login1.policy:87
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr ""
+"Potrebno je da se identifikujete da biste dozvolili programu da spreči "
+"sistemu upravljanje dugmetom za obustavu."
+
+#: src/login/org.freedesktop.login1.policy:97
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr "Dozvoli programima da spreče sistemu upravljanje dugmetom za spavanje"
+
+#: src/login/org.freedesktop.login1.policy:98
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr ""
+"Potrebno je da se identifikujete da biste dozvolili programu da spreči "
+"sistemu upravljanje dugmetom za spavanje."
+
+#: src/login/org.freedesktop.login1.policy:107
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr ""
+"Dozvoli programima da spreče sistemu da uradi bilo šta prilikom zaklapanja "
+"ekrana"
+
+#: src/login/org.freedesktop.login1.policy:108
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr ""
+"Potrebno je da se identifikujete da biste dozvolili programu da spreči "
+"sistemu da uradi bilo šta prilikom zaklapanja ekrana."
+
+#: src/login/org.freedesktop.login1.policy:117
+msgid "Allow applications to inhibit system handling of the reboot key"
+msgstr ""
+"Dozvoli programima da spreče sistemu upravljanje dugmetom za ponovno pokretanje"
+
+#: src/login/org.freedesktop.login1.policy:118
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"Potrebno je da se identifikujete da biste dozvolili programu da spreči "
+"sistemu upravljanje dugmetom za ponovno pokretanje."
+
+#: src/login/org.freedesktop.login1.policy:128
+msgid "Allow non-logged-in user to run programs"
+msgstr "Dozvoli neprijavljenim korisnicima da pokreću programe"
+
+#: src/login/org.freedesktop.login1.policy:129
+msgid "Explicit request is required to run programs as a non-logged-in user."
+msgstr ""
+"Eksplicitan zahtev je potreban da biste pokretali programe kao neprijavljen "
+"korisnik."
+
+#: src/login/org.freedesktop.login1.policy:138
+msgid "Allow non-logged-in users to run programs"
+msgstr "Dozvoli neprijavljenim korisnicima da pokreću programe"
+
+#: src/login/org.freedesktop.login1.policy:139
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr ""
+"Potrebno je da se identifikujete da biste pokretali programe kao neprijavljen "
+"korisnik."
+
+#: src/login/org.freedesktop.login1.policy:148
+msgid "Allow attaching devices to seats"
+msgstr "Dozvoli kačenje uređaja na sedišta"
+
+#: src/login/org.freedesktop.login1.policy:149
+msgid "Authentication is required to attach a device to a seat."
+msgstr "Potrebno je da se identifikujete da biste zakačili uređaj na sedište."
+
+#: src/login/org.freedesktop.login1.policy:159
+msgid "Flush device to seat attachments"
+msgstr "Isperi uređaj da bi usedištio zakačeno"
+
+#: src/login/org.freedesktop.login1.policy:160
+msgid "Authentication is required to reset how devices are attached to seats."
+msgstr ""
+"Potrebno je da se identifikujete da biste ponovo podesili kako se uređaji "
+"kače na sedišta."
+
+#: src/login/org.freedesktop.login1.policy:169
+msgid "Power off the system"
+msgstr "Isključi sistem"
+
+#: src/login/org.freedesktop.login1.policy:170
+msgid "Authentication is required to power off the system."
+msgstr "Potrebno je da se identifikujete da biste isključili sistem."
+
+#: src/login/org.freedesktop.login1.policy:180
+msgid "Power off the system while other users are logged in"
+msgstr "Isključi sistem dok su drugi korisnici prijavljeni"
+
+#: src/login/org.freedesktop.login1.policy:181
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr ""
+"Potrebno je da se identifikujete da biste isključili sistem dok su drugi "
+"korisnici prijavljeni."
+
+#: src/login/org.freedesktop.login1.policy:191
+msgid "Power off the system while an application is inhibiting this"
+msgstr "Isključi sistem iako je program zatražio da se spreči gašenje"
+
+#: src/login/org.freedesktop.login1.policy:192
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr ""
+"Potrebno je da se identifikujete da biste isključili sistem iako je program "
+"zatražio da se spreči gašenje sistema."
+
+#: src/login/org.freedesktop.login1.policy:202
+msgid "Reboot the system"
+msgstr "Ponovo pokreni sistem"
+
+#: src/login/org.freedesktop.login1.policy:203
+msgid "Authentication is required to reboot the system."
+msgstr "Potrebno je da se identifikujete da biste ponovo pokrenuli sistem."
+
+#: src/login/org.freedesktop.login1.policy:213
+msgid "Reboot the system while other users are logged in"
+msgstr "Ponovo pokreni sistem dok su drugi korisnici prijavljeni"
+
+#: src/login/org.freedesktop.login1.policy:214
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr ""
+"Potrebno je da se identifikujete da biste ponovo pokrenuli sistem dok su "
+"drugi korisnici prijavljeni."
+
+#: src/login/org.freedesktop.login1.policy:224
+msgid "Reboot the system while an application is inhibiting this"
+msgstr "Ponovo pokreni sistem iako je program zatražio da se spreči gašenje"
+
+#: src/login/org.freedesktop.login1.policy:225
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr ""
+"Potrebno je da se identifikujete da biste ponovo pokrenuli sistem iako je "
+"program zatražio da se spreči gašenje sistema."
+
+#: src/login/org.freedesktop.login1.policy:235
+msgid "Halt the system"
+msgstr "Zaustavi sistem"
+
+#: src/login/org.freedesktop.login1.policy:236
+msgid "Authentication is required to halt the system."
+msgstr "Potrebno je da se identifikujete da biste zaustavili sistem."
+
+#: src/login/org.freedesktop.login1.policy:246
+msgid "Halt the system while other users are logged in"
+msgstr "Zaustavi sistem dok su drugi korisnici prijavljeni"
+
+#: src/login/org.freedesktop.login1.policy:247
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr ""
+"Potrebno je da se identifikujete da biste zaustavili sistem dok su drugi "
+"korisnici prijavljeni."
+
+#: src/login/org.freedesktop.login1.policy:257
+msgid "Halt the system while an application is inhibiting this"
+msgstr "Zaustavi sistem iako program traži da se spreči zaustavljanje"
+
+#: src/login/org.freedesktop.login1.policy:258
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr ""
+"Potrebno je da se identifikujete da biste obustavili sistem iako je program "
+"zatražio da se spreči obustavljanje sistema."
+
+#: src/login/org.freedesktop.login1.policy:268
+msgid "Suspend the system"
+msgstr "Obustavi sistem"
+
+#: src/login/org.freedesktop.login1.policy:269
+msgid "Authentication is required to suspend the system."
+msgstr "Potrebno je da se identifikujete da biste obustavili sistem."
+
+#: src/login/org.freedesktop.login1.policy:278
+msgid "Suspend the system while other users are logged in"
+msgstr "Obustavi sistem dok su drugi korisnici prijavljeni"
+
+#: src/login/org.freedesktop.login1.policy:279
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr ""
+"Potrebno je da se identifikujete da biste obustavili sistem dok su drugi "
+"korisnici prijavljeni."
+
+#: src/login/org.freedesktop.login1.policy:289
+msgid "Suspend the system while an application is inhibiting this"
+msgstr "Obustavite sistem iako program traži da se spreči obustava"
+
+#: src/login/org.freedesktop.login1.policy:290
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr ""
+"Potrebno je da se identifikujete da biste obustavili sistem iako je program "
+"zatražio da se spreči obustava sistema."
+
+#: src/login/org.freedesktop.login1.policy:300
+msgid "Hibernate the system"
+msgstr "Uspavaj sistem"
+
+#: src/login/org.freedesktop.login1.policy:301
+msgid "Authentication is required to hibernate the system."
+msgstr "Potrebno je da se identifikujete da biste uspavali sistem."
+
+#: src/login/org.freedesktop.login1.policy:310
+msgid "Hibernate the system while other users are logged in"
+msgstr "Uspavaj sistem dok su drugi korisnici prijavljeni"
+
+#: src/login/org.freedesktop.login1.policy:311
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr ""
+"Potrebno je da se identifikujete da biste uspavali sistem dok su drugi "
+"korisnici prijavljeni."
+
+#: src/login/org.freedesktop.login1.policy:321
+msgid "Hibernate the system while an application is inhibiting this"
+msgstr "Uspavaj sistem iako je program zatražio da se spreči spavanje"
+
+#: src/login/org.freedesktop.login1.policy:322
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr ""
+"Potrebno je da se identifikujete da biste uspavali sistem iako je program "
+"zatražio da se spreči uspavljivanje sistema."
+
+#: src/login/org.freedesktop.login1.policy:332
+msgid "Manage active sessions, users and seats"
+msgstr "Upravljaj pokrenutim sesijama, korisnicima i sedištima"
+
+#: src/login/org.freedesktop.login1.policy:333
+msgid "Authentication is required to manage active sessions, users and seats."
+msgstr ""
+"Potrebno je da se identifikujete da biste upravljali pokrenutim sesijama, "
+"korisnicima i sedištima."
+
+#: src/login/org.freedesktop.login1.policy:342
+msgid "Lock or unlock active sessions"
+msgstr "Zaključaj ili otključaj pokrenute sesije"
+
+#: src/login/org.freedesktop.login1.policy:343
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr ""
+"Potrebno je da se identifikujete da biste zaključavali ili otključavali "
+"pokrenute sesije."
+
+#: src/login/org.freedesktop.login1.policy:352
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr "Postavi „razlog“ ponovnog pokretanja u jezgru"
+
+#: src/login/org.freedesktop.login1.policy:353
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr ""
+"Potrebno je da se identifikujete da biste postavili \"razlog\" za ponovno "
+"pokretanje unutar jezgra."
+
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the firmware to boot to setup interface"
+msgstr "Ukaži firmveru da pokrene sistem u interfejsu za podešavanje"
+
+#: src/login/org.freedesktop.login1.policy:364
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"Potrebno je da se identifikujete da biste napomenuli firmveru da se podigne "
+"u režimu podešavanja interfejsa."
+
+#: src/login/org.freedesktop.login1.policy:374
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr ""
+"Ukaži učitavaču podizanja sistema da prikaže izbornik za podizanje sistema"
+
+#: src/login/org.freedesktop.login1.policy:375
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za ukazivanje učitavaču podizanja sistema "
+"da prikaže izbornik za podizanje sistema."
+
+#: src/login/org.freedesktop.login1.policy:385
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr "Ukaži učitavaču podizanja sistema da pokrene određeni unos"
+
+#: src/login/org.freedesktop.login1.policy:386
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za ukazivanje učitavaču podizanja sistema "
+"da pokrene određeni unos učitavača podizanja sistema."
+
+#: src/login/org.freedesktop.login1.policy:396
+msgid "Set a wall message"
+msgstr "Postavi zidnu poruku"
+
+#: src/login/org.freedesktop.login1.policy:397
+msgid "Authentication is required to set a wall message."
+msgstr "Potrebno je potvrđivanje identiteta za postavljanje zidne poruke."
+
+#: src/login/org.freedesktop.login1.policy:406
+msgid "Change Session"
+msgstr "Promeni sesiju"
+
+#: src/login/org.freedesktop.login1.policy:407
+msgid "Authentication is required to change the virtual terminal."
+msgstr "Potrebno je potvrđivanje identiteta za promenu virtuelnog terminala."
+
+#: src/machine/org.freedesktop.machine1.policy:22
+msgid "Log into a local container"
+msgstr "Prijavi se u lokalni kontejner"
+
+#: src/machine/org.freedesktop.machine1.policy:23
+msgid "Authentication is required to log into a local container."
+msgstr ""
+"Potrebno je da se identifikujete da biste se prijavili u lokalni kontejner."
+
+#: src/machine/org.freedesktop.machine1.policy:32
+msgid "Log into the local host"
+msgstr "Prijavi se u lokalnog domaćina"
+
+#: src/machine/org.freedesktop.machine1.policy:33
+msgid "Authentication is required to log into the local host."
+msgstr ""
+"Potrebno je da se identifikujete da biste se prijavili u lokalnog domaćina."
+
+#: src/machine/org.freedesktop.machine1.policy:42
+msgid "Acquire a shell in a local container"
+msgstr "Dobij pristup školjci unutar lokalnog kontejnera"
+
+#: src/machine/org.freedesktop.machine1.policy:43
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr ""
+"Potrebno je da se identifikujete da biste dobili pristup školjci unutar "
+"lokalnog kontejnera."
+
+#: src/machine/org.freedesktop.machine1.policy:53
+msgid "Acquire a shell on the local host"
+msgstr "Dobij pristup školjci na lokalnom domaćinu"
+
+#: src/machine/org.freedesktop.machine1.policy:54
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr ""
+"Potrebno je da se identifikujete da biste dobili pristup školjci na lokalnom "
+"domaćinu."
+
+#: src/machine/org.freedesktop.machine1.policy:64
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "Dobij pristup pseudo pisaćoj mašini unutar lokalnog kontejnera"
+
+#: src/machine/org.freedesktop.machine1.policy:65
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr ""
+"Potrebno je da se identifikujete da biste dobili pristup pseudo pisaćoj "
+"mašini unutar lokalnog kontejnera."
+
+#: src/machine/org.freedesktop.machine1.policy:74
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "Dobij pristup pseudo pisaćoj mašini na lokalnom domaćinu"
+
+#: src/machine/org.freedesktop.machine1.policy:75
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr ""
+"Potrebno je da se identifikujete da biste dobili pristup pseudo pisaćoj "
+"mašini na lokalnom domaćinu."
+
+#: src/machine/org.freedesktop.machine1.policy:84
+msgid "Manage local virtual machines and containers"
+msgstr "Upravljaj lokalnim virtuelnim mašinama i kontejnerima"
+
+#: src/machine/org.freedesktop.machine1.policy:85
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr ""
+"Potrebno je da se identifikujete da biste upravljali lokalnim virtuelnim "
+"mašinama i kontejnerima."
+
+#: src/machine/org.freedesktop.machine1.policy:95
+msgid "Create a local virtual machine or container"
+msgstr "Napravi lokalnu virtuelnu mašinu ili kontejner"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za pravljenje lokalne virtuelne mašine ili "
+"kontejnera."
+
+#: src/machine/org.freedesktop.machine1.policy:106
+msgid "Register a local virtual machine or container"
+msgstr "Registruj lokalnu virtuelnu mašinu ili kontejner"
+
+#: src/machine/org.freedesktop.machine1.policy:107
+msgid ""
+"Authentication is required to register a local virtual machine or container."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za registrovanje lokalne virtuelne mašine "
+"ili kontejnera."
+
+#: src/machine/org.freedesktop.machine1.policy:116
+msgid "Manage local virtual machine and container images"
+msgstr "Upravljaj lokalnim virtuelnim mašinama i slikama kontejnera"
+
+#: src/machine/org.freedesktop.machine1.policy:117
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+"Potrebno je da se identifikujete da biste upravljali lokalnim virtuelnim "
+"mašinama i slikama kontejnera."
+
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr "Postavi NTP servere"
+
+#: src/network/org.freedesktop.network1.policy:23
+msgid "Authentication is required to set NTP servers."
+msgstr "Potrebno je potvrđivanje identiteta za postavljanje NTP servera."
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+msgid "Set DNS servers"
+msgstr "Postavi DNS servere"
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+msgid "Authentication is required to set DNS servers."
+msgstr "Potrebno je potvrđivanje identiteta za postavljanje DNS servera."
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr "Postavi domene"
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+msgid "Authentication is required to set domains."
+msgstr "Potrebno je potvrđivanje identiteta za postavljanje domena."
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr "Postavi podrazumevanu rutu"
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+msgid "Authentication is required to set default route."
+msgstr "Potrebno je potvrđivanje identiteta za postavljanje podrazumevane rute."
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr "Omogući/onemogući LLMNR"
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za omogućavanje ili onemogućavanje LLMNR-a."
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr "Omogući/onemogući multikast DNS"
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za omogućavanje ili onemogućavanje "
+"multikast DNS-a."
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr "Omogući/onemogući DNS preko TLS-a"
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za omogućavanje ili onemogućavanje DNS-a "
+"preko TLS-a."
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr "Omogući/onemogući DNSBEZB"
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za omogućavanje ili onemogućavanje DNSBEZB-"
+"a."
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr "Postavi negativne sidre poverenja za DNSBEZB"
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za postavljanje negativnih sidara poverenja "
+"za DNSBEZB."
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr "Vrati NTP podešavanja"
+
+#: src/network/org.freedesktop.network1.policy:122
+msgid "Authentication is required to reset NTP settings."
+msgstr "Potrebno je potvrđivanje identiteta za resetovanje NTP podešavanja."
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr "Vrati DNS podešavanja"
+
+#: src/network/org.freedesktop.network1.policy:133
+msgid "Authentication is required to reset DNS settings."
+msgstr "Potrebno je potvrđivanje identiteta za resetovanje DNS podešavanja."
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr "DHCP server šalje poruku za prisilno obnavljanje"
+
+#: src/network/org.freedesktop.network1.policy:144
+msgid ""
+"Authentication is required to send a force renew message from the DHCP "
+"server."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za slanje poruke za prisilno obnavljanje sa "
+"DHCP servera."
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Renew dynamic addresses"
+msgstr "Obnovi dinamičke adrese"
+
+#: src/network/org.freedesktop.network1.policy:155
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "Potrebno je potvrđivanje identiteta za obnavljanje dinamičkih adresa."
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reload network settings"
+msgstr "Ponovo učitaj mrežna podešavanja"
+
+#: src/network/org.freedesktop.network1.policy:166
+msgid "Authentication is required to reload network settings."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za ponovno učitavanje mrežnih podešavanja."
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr "Ponovo podesi mrežni interfejs"
+
+#: src/network/org.freedesktop.network1.policy:177
+msgid "Authentication is required to reconfigure network interface."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za ponovno podešavanje mrežnog interfejsa."
+
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr "Navedite da li je dostupno trajno skladište za systemd-networkd"
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za navođenje da li je dostupno trajno "
+"skladište za systemd-networkd."
+
+#: src/network/org.freedesktop.network1.policy:198
+msgid "Manage network links"
+msgstr "Upravljaj mrežnim vezama"
+
+#: src/network/org.freedesktop.network1.policy:199
+msgid "Authentication is required to manage network links."
+msgstr "Potrebno je da se identifikujete da biste upravljali mrežnim vezama."
+
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr "Pregledaj odraz prenosne usluge"
+
+#: src/portable/org.freedesktop.portable1.policy:14
+msgid "Authentication is required to inspect a portable service image."
+msgstr "Potrebno je potvrđivanje identiteta za pregled odraza prenosne usluge."
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr "Prikači ili otkači odraz prenosne usluge"
+
+#: src/portable/org.freedesktop.portable1.policy:24
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za prikačivanje ili otkačivanje odraza "
+"prenosne usluge."
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr "Obriši ili izmeni odraz prenosne usluge"
+
+#: src/portable/org.freedesktop.portable1.policy:35
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za brisanje ili izmenu odraza prenosne "
+"usluge."
+
+#: src/resolve/org.freedesktop.resolve1.policy:22
+msgid "Register a DNS-SD service"
+msgstr "Registruj DNS-SD uslugu"
+
+#: src/resolve/org.freedesktop.resolve1.policy:23
+msgid "Authentication is required to register a DNS-SD service."
+msgstr "Potrebno je potvrđivanje identiteta za registraciju DNS-SD usluge."
+
+#: src/resolve/org.freedesktop.resolve1.policy:33
+msgid "Unregister a DNS-SD service"
+msgstr "Ukini registraciju DNS-SD usluge"
+
+#: src/resolve/org.freedesktop.resolve1.policy:34
+msgid "Authentication is required to unregister a DNS-SD service."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za poništavanje registracije DNS-SD usluge."
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr "Vrati podešavanja razrešavanja naziva"
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+msgid "Authentication is required to reset name resolution settings."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za resetovanje podešavanja razrešavanja "
+"naziva."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr "Pretplati se na rezultate upita"
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+msgid "Authentication is required to subscribe query results."
+msgstr "Potrebno je potvrđivanje identiteta za pretplatu na rezultate upita."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Subscribe to DNS configuration"
+msgstr "Pretplati se na DNS podešavanja"
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+msgid "Authentication is required to subscribe to DNS configuration."
+msgstr "Potrebno je potvrđivanje identiteta za pretplatu na DNS podešavanja."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump cache"
+msgstr "Ispiši keš"
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+msgid "Authentication is required to dump cache."
+msgstr "Potrebno je potvrđivanje identiteta za ispisivanje keša."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump server state"
+msgstr "Ispiši stanje servera"
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+msgid "Authentication is required to dump server state."
+msgstr "Potrebno je potvrđivanje identiteta za ispisivanje stanja servera."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Dump statistics"
+msgstr "Ispiši statistiku"
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+msgid "Authentication is required to dump statistics."
+msgstr "Potrebno je potvrđivanje identiteta za ispisivanje statistike."
+
+#: src/resolve/org.freedesktop.resolve1.policy:198
+msgid "Reset statistics"
+msgstr "Resetuj statistiku"
+
+#: src/resolve/org.freedesktop.resolve1.policy:199
+msgid "Authentication is required to reset statistics."
+msgstr "Potrebno je potvrđivanje identiteta za resetovanje statistike."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr "Proveri ažuriranja sistema"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+msgid "Authentication is required to check for system updates."
+msgstr "Potrebno je potvrđivanje identiteta za proveru ažuriranja sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr "Instaliraj ažuriranja sistema"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+msgid "Authentication is required to install system updates."
+msgstr "Potrebno je potvrđivanje identiteta za instaliranje ažuriranja sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr "Instaliraj određeno izdanje sistema"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za ažuriranje sistema na određeno (moguće "
+"staro) izdanje."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr "Očisti stara ažuriranja sistema"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+msgid "Authentication is required to cleanup old system updates."
+msgstr ""
+"Potrebno je potvrđivanje identiteta za čišćenje starih ažuriranja sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr "Upravljaj opcionim mogućnostima"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+msgid "Authentication is required to manage optional features."
+msgstr "Potrebno je potvrđivanje identiteta za upravljanje opcionim mogućnostima."
+
+#: src/timedate/org.freedesktop.timedate1.policy:22
+msgid "Set system time"
+msgstr "Postavi sistemsko vreme"
+
+#: src/timedate/org.freedesktop.timedate1.policy:23
+msgid "Authentication is required to set the system time."
+msgstr "Potrebno je da se identifikujete da biste postavili sistemsko vreme."
+
+#: src/timedate/org.freedesktop.timedate1.policy:33
+msgid "Set system timezone"
+msgstr "Postavi sistemsku vremensku zonu"
+
+#: src/timedate/org.freedesktop.timedate1.policy:34
+msgid "Authentication is required to set the system timezone."
+msgstr ""
+"Potrebno je da se identifikujete da biste postavili sistemsku vremensku zonu."
+
+#: src/timedate/org.freedesktop.timedate1.policy:43
+msgid "Set RTC to local timezone or UTC"
+msgstr ""
+"Postavi časovnik realnog vremena na lokalnu vremensku zonu ili UTC zonu"
+
+#: src/timedate/org.freedesktop.timedate1.policy:44
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"Potrebno je da se identifikujete da biste podesili da li RTC čuva lokalno "
+"ili UTC vreme."
+
+#: src/timedate/org.freedesktop.timedate1.policy:53
+msgid "Turn network time synchronization on or off"
+msgstr "Uključi ili isključi usklađivanje vremena sa mreže"
+
+#: src/timedate/org.freedesktop.timedate1.policy:54
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"Potrebno je da se identifikujete da biste podesili da li se vreme usklađuje "
+"sa mreže."
