@@ -293,6 +293,53 @@ int dhcp_message_append_option_routes(sd_dhcp_message *message, uint8_t code, si
         }
 }
 
+int dhcp_message_append_option_6rd(
+                sd_dhcp_message *message,
+                uint8_t ipv4masklen,
+                uint8_t prefixlen,
+                const struct in6_addr *prefix,
+                size_t n_br_addresses,
+                const struct in_addr *br_addresses) {
+
+        assert(message);
+        assert(prefix);
+        assert(br_addresses);
+
+        /* See RFC 5969 Section 7.1.1 and dhcp_message_get_option_6rd() below. */
+
+        if (message_has_option(message, SD_DHCP_OPTION_6RD))
+                return -EEXIST;
+
+        if (ipv4masklen > 32)
+                return -EINVAL;
+
+        if (32 - ipv4masklen + prefixlen > 128)
+                return -EINVAL;
+
+        if (n_br_addresses == 0)
+                return -EINVAL;
+
+        if (n_br_addresses > (SIZE_MAX - 2 - sizeof(struct in6_addr)) / sizeof(struct in_addr))
+                return -ENOBUFS;
+
+        size_t buflen = 2 + sizeof(struct in6_addr) + n_br_addresses * sizeof(struct in_addr);
+        _cleanup_free_ uint8_t *buf = new(uint8_t, buflen);
+        if (!buf)
+                return -ENOMEM;
+
+        uint8_t *p = buf;
+        *p++ = ipv4masklen;
+        *p++ = prefixlen;
+
+        struct in6_addr masked = *prefix;
+        (void) in6_addr_mask(&masked, prefixlen);
+        p = mempcpy(p, &masked, sizeof(struct in6_addr));
+
+        memcpy(p, br_addresses, n_br_addresses * sizeof(struct in_addr));
+
+        return dhcp_message_append_option(message, SD_DHCP_OPTION_6RD, buflen, buf);
+}
+
 int dhcp_message_append_option_client_id(sd_dhcp_message *message, const sd_dhcp_client_id *id) {
         assert(message);
         assert(id);
@@ -759,6 +806,71 @@ int dhcp_message_get_option_routes(sd_dhcp_message *message, uint8_t code, size_
         default:
                 return -EINVAL;
         }
+}
+
+int dhcp_message_get_option_6rd(
+                sd_dhcp_message *message,
+                uint8_t *ret_ipv4masklen,
+                uint8_t *ret_prefixlen,
+                struct in6_addr *ret_prefix,
+                size_t *ret_n_br_addresses,
+                struct in_addr **ret_br_addresses) {
+
+        int r;
+
+        assert(message);
+
+        /* See RFC 5969 Section 7.1.1 */
+
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t len;
+        r = dhcp_message_get_option_alloc(message, SD_DHCP_OPTION_6RD, &len, (void**) &buf);
+        if (r < 0)
+                return r;
+
+        /* option-length: The length of the DHCP option in octets (22 octets with one BR IPv4 address). */
+        if (len < 2 + sizeof(struct in6_addr) + sizeof(struct in_addr) ||
+            (len - 2 - sizeof(struct in6_addr)) % sizeof(struct in_addr) != 0)
+                return -EINVAL;
+
+        /* IPv4MaskLen: The number of high-order bits that are identical across all CE IPv4 addresses
+         *              within a given 6rd domain. This may be any value between 0 and 32. Any value
+         *              greater than 32 is invalid. */
+        uint8_t ipv4masklen = buf[0];
+        if (ipv4masklen > 32)
+                return -EINVAL;
+
+        /* 6rdPrefixLen: The IPv6 prefix length of the SP's 6rd IPv6 prefix in number of bits. For the
+         *               purpose of bounds checking by DHCP option processing, the sum of
+         *               (32 - IPv4MaskLen) + 6rdPrefixLen MUST be less than or equal to 128. */
+        uint8_t prefixlen = buf[1];
+        if (32 - ipv4masklen + prefixlen > 128)
+                return -EINVAL;
+
+        /* 6rdPrefix: The service provider's 6rd IPv6 prefix represented as a 16-octet IPv6 address.
+         *            The bits in the prefix after the 6rdPrefixlen number of bits are reserved and
+         *            MUST be initialized to zero by the sender and ignored by the receiver. */
+        struct in6_addr prefix;
+        memcpy(&prefix, buf + 2, sizeof(struct in6_addr));
+        (void) in6_addr_mask(&prefix, prefixlen);
+
+        /* 6rdBRIPv4Address: One or more IPv4 addresses of the 6rd Border Relays for a given 6rd domain. */
+        size_t n_br_addresses = (len - 2 - sizeof(struct in6_addr)) / sizeof(struct in_addr);
+        _cleanup_free_ struct in_addr *br_addresses = newdup(struct in_addr, buf + 2 + sizeof(struct in6_addr), n_br_addresses);
+        if (!br_addresses)
+                return -ENOMEM;
+
+        if (ret_ipv4masklen)
+                *ret_ipv4masklen = ipv4masklen;
+        if (ret_prefixlen)
+                *ret_prefixlen = prefixlen;
+        if (ret_prefix)
+                *ret_prefix = prefix;
+        if (ret_n_br_addresses)
+                *ret_n_br_addresses = n_br_addresses;
+        if (ret_br_addresses)
+                *ret_br_addresses = TAKE_PTR(br_addresses);
+        return 0;
 }
 
 int dhcp_message_get_option_client_id(sd_dhcp_message *message, sd_dhcp_client_id *ret) {
