@@ -218,8 +218,7 @@ static int process_progress(int fd, FILE* console) {
 
                 /* Only update once every 50ms */
                 t = now(CLOCK_MONOTONIC);
-                assert_cc(50 * USEC_PER_MSEC <= USEC_INFINITY);
-                if (last + 50 * USEC_PER_MSEC > t)
+                if (usec_add(last, 50 * USEC_PER_MSEC) > t)
                         continue;
 
                 last = t;

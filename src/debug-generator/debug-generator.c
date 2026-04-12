@@ -101,6 +101,7 @@ static int parse_breakpoint_from_string(const char *s, uint32_t *ret_breakpoints
 
                 FOREACH_ELEMENT(i, breakpoint_info_table)
                         if (FLAGS_SET(i->validity, BREAKPOINT_DEFAULT) && breakpoint_applies(i, INT_MAX)) {
+                                assert(i->type >= 0 && i->type < _BREAKPOINT_TYPE_MAX); /* silence coverity */
                                 breakpoints |= UINT32_C(1) << i->type;
                                 found_default = true;
                                 break;

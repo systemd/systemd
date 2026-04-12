@@ -14,13 +14,19 @@
 static void init_timestamp(struct utmpx *store, usec_t t) {
         assert(store);
 
-        if (t <= 0)
+        if (t <= 0 || t == USEC_INFINITY)
                 t = now(CLOCK_REALTIME);
 
         /* Silence static analyzers */
         assert_cc(USEC_PER_SEC > 0);
-        store->ut_tv.tv_sec = t / USEC_PER_SEC;
-        store->ut_tv.tv_usec = t % USEC_PER_SEC;
+        /* Saturate the strictly 32bit utmp timestamps */
+        if (t >= UINT32_MAX * USEC_PER_SEC + USEC_PER_SEC - 1) {
+                store->ut_tv.tv_sec = UINT32_MAX;
+                store->ut_tv.tv_usec = USEC_PER_SEC - 1;
+        } else {
+                store->ut_tv.tv_sec = t / USEC_PER_SEC;
+                store->ut_tv.tv_usec = t % USEC_PER_SEC;
+        }
 }
 
 static void init_entry(struct utmpx *store, usec_t t) {
