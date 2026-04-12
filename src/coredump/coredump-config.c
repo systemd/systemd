@@ -3,6 +3,7 @@
 #include "conf-parser.h"
 #include "coredump-config.h"
 #include "format-util.h"
+#include "journal-def.h"
 #include "journal-importer.h"
 #include "log.h"
 #include "string-table.h"

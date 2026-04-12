@@ -10,6 +10,7 @@
 #include "install.h"
 #include "iterator.h"
 #include "job.h"
+#include "journal-def.h"
 #include "journal-importer.h"
 #include "list.h"
 #include "log.h"
