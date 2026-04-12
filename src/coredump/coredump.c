@@ -33,6 +33,7 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
+#include "journal-def.h"
 #include "journal-importer.h"
 #include "journal-send.h"
 #include "json-util.h"
