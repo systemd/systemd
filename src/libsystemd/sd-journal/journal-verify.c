@@ -124,7 +124,7 @@ static int hash_payload(JournalFile *f, Object *o, uint64_t offset, const uint8_
                 _cleanup_free_ void *b = NULL;
                 size_t b_size;
 
-                r = decompress_blob(c, src, size, &b, &b_size, 0);
+                r = decompress_blob(c, src, size, &b, &b_size, DATA_SIZE_MAX);
                 if (r < 0) {
                         error_errno(offset, r, "%s decompression failed: %m",
                                     compression_to_string(c));
