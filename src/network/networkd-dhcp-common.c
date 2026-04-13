@@ -18,6 +18,7 @@
 #include "hexdecoct.h"
 #include "in-addr-prefix-util.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-ipv6ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -99,6 +100,7 @@ void network_adjust_dhcp(Network *network) {
         }
 
         if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6) &&
+            !network_has_static_ipv6ll_address(network) &&
             FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV6)) {
                 log_warning("%s: DHCPv6 client is enabled but IPv6 link-local addressing is disabled. "
                             "Disabling DHCPv6 client.", network->filename);
