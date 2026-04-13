@@ -617,6 +617,22 @@ TEST(split_pair) {
         ASSERT_STREQ(b, "=");
 }
 
+TEST(empty_to_null) {
+        const char *s = "asdf";
+        char *t = (char*) "asdf";
+        const char p[] = "asdf";
+        char q[] = "asdf";
+
+        ASSERT_STREQ(empty_to_null(s), "asdf");
+        ASSERT_NULL(empty_to_null(s + 4));
+        ASSERT_STREQ(empty_to_null(t), "asdf");
+        ASSERT_NULL(empty_to_null(t + 4));
+        ASSERT_STREQ(empty_to_null(&p[0]), "asdf");
+        ASSERT_NULL(empty_to_null(&p[0] + 4));
+        ASSERT_STREQ(empty_to_null(&q[0]), "asdf");
+        ASSERT_NULL(empty_to_null(&q[0] + 4));
+}
+
 TEST(first_word) {
         assert_se(first_word("Hello", ""));
         assert_se(first_word("Hello", "Hello"));
