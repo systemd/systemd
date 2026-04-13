@@ -31,6 +31,8 @@ int fd_verify_linked(int fd);
 int stat_verify_block(const struct stat *st);
 int fd_verify_block(int fd);
 
+int stat_verify_char(const struct stat *st);
+
 int stat_verify_device_node(const struct stat *st);
 int is_device_node(const char *path);
 

@@ -225,6 +225,21 @@ int fd_verify_block(int fd) {
         return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_block, /* verify= */ true);
 }
 
+int stat_verify_char(const struct stat *st) {
+        assert(st);
+
+        if (S_ISDIR(st->st_mode))
+                return -EISDIR;
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
+
+        if (!S_ISCHR(st->st_mode))
+                return -EBADFD;
+
+        return 0;
+}
+
 int stat_verify_device_node(const struct stat *st) {
         assert(st);
 
