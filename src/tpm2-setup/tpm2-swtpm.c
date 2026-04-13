@@ -147,30 +147,34 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find 'swtpm' binary: %m");
 
-        _cleanup_free_ char *_esp = NULL;
-        const char *esp;
+        _cleanup_free_ char *state_dir = NULL;
+        _cleanup_close_ int state_fd = -EBADF;
         if (in_initrd())
                 /* The early ESP support uses only a single mount point, we do not need to search for it. */
-                esp = "/sysefi";
+                r = chase("/loader/swtpm",
+                          "/sysefi",
+                          CHASE_PREFIX_ROOT|CHASE_TRIGGER_AUTOFS|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
+                          &state_dir,
+                          &state_fd);
         else {
+                _cleanup_close_ int esp_fd = -EBADF;
                 r = find_esp_and_warn(
                                 /* root= */ NULL,
                                 /* path= */ NULL,
                                 /* unprivileged_mode= */ false,
-                                &_esp);
+                                /* ret_path= */ NULL,
+                                &esp_fd);
                 if (r == -ENOKEY) /* This one find_esp_and_warn() doesn't actually log about. */
                         return log_error_errno(r, "No ESP discovered.");
                 if (r < 0)
                         return r;
-                esp = _esp;
-        }
 
-        _cleanup_free_ char *state_dir = NULL;
-        _cleanup_close_ int state_fd = -EBADF;
-        r = chase("/loader/swtpm",
-                  esp, CHASE_PREFIX_ROOT|CHASE_TRIGGER_AUTOFS|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
-                  &state_dir,
-                  &state_fd);
+                r = chaseat(esp_fd,
+                            "/loader/swtpm",
+                            CHASE_TRIGGER_AUTOFS|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
+                            &state_dir,
+                            &state_fd);
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to open swtpm state directory in ESP: %m");
 
