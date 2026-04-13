@@ -2382,6 +2382,7 @@ static const BusProperty cgroup_properties[] = {
         { "ManagedOOMSwap",                        bus_append_string                             },
         { "ManagedOOMMemoryPressure",              bus_append_string                             },
         { "ManagedOOMPreference",                  bus_append_string                             },
+        { "OOMRules",                              bus_append_strv                               },
         { "MemoryPressureWatch",                   bus_append_string                             },
         { "CPUPressureWatch",                      bus_append_string                             },
         { "IOPressureWatch",                       bus_append_string                             },
