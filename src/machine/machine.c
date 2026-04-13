@@ -1103,11 +1103,10 @@ int machine_start_shell(
 
 char** machine_default_shell_args(const char *user) {
         _cleanup_strv_free_ char **args = NULL;
-        int r;
 
         assert(user);
 
-        args = new0(char*, 3 + 1);
+        args = new0(char*, 5 + 1);
         if (!args)
                 return NULL;
 
@@ -1119,14 +1118,19 @@ char** machine_default_shell_args(const char *user) {
         if (!args[1])
                 return NULL;
 
-        r = asprintf(&args[2],
-                     "shell=$(getent passwd %s 2>/dev/null | { IFS=: read _ _ _ _ _ _ x; echo \"$x\"; })\n"\
-                     "exec \"${shell:-/bin/sh}\" -l", /* -l is means --login */
-                     user);
-        if (r < 0) {
-                args[2] = NULL;
+        args[2] = strdup(
+                     "shell=$(getent passwd \"$1\" 2>/dev/null | { IFS=: read _ _ _ _ _ _ x; echo \"$x\"; })\n"
+                     "exec \"${shell:-/bin/sh}\" -l"); /* -l means --login */
+        if (!args[2])
                 return NULL;
-        }
+
+        args[3] = strdup("sh"); /* $0 placeholder for sh -c */
+        if (!args[3])
+                return NULL;
+
+        args[4] = strdup(user); /* becomes $1 in the script */
+        if (!args[4])
+                return NULL;
 
         return TAKE_PTR(args);
 }
