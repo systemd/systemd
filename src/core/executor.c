@@ -156,7 +156,6 @@ static int run(int argc, char *argv[]) {
         cgroup_context_init(&cgroup_context);
 
         /* We might be starting the journal itself, we'll be told by the caller what to do */
-        log_set_always_reopen_console(true);
         log_set_prohibit_ipc(true);
         log_setup();
 
@@ -165,6 +164,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         /* Now that we know the intended log target, allow IPC and open the final log target. */
+        log_set_always_reopen_console(true);
         log_set_prohibit_ipc(false);
         log_open();
 
