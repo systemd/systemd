@@ -21,6 +21,7 @@
 #include "efi-loader.h"
 #include "efivars.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "find-esp.h"
 #include "format-table.h"
 #include "image-policy.h"
@@ -103,13 +104,14 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(install_source, InstallSource);
 int acquire_esp(
                 int unprivileged_mode,
                 bool graceful,
+                int *ret_fd,
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
                 uint64_t *ret_psize,
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
-        char *np;
+        _cleanup_free_ char *np = NULL;
         int r;
 
         /* Find the ESP, and log about errors. Note that find_esp_and_warn() will log in all error cases on
@@ -118,7 +120,7 @@ int acquire_esp(
          * we simply eat up the error here, so that --list and --status work too, without noise about
          * this). */
 
-        r = find_esp_and_warn_full(arg_root, arg_esp_path, unprivileged_mode, &np, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid);
+        r = find_esp_and_warn_full(arg_root, arg_esp_path, unprivileged_mode, &np, ret_fd, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid);
         if (r == -ENOKEY) {
                 if (graceful)
                         return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_INFO, r,
@@ -139,17 +141,21 @@ int acquire_esp(
 
 int acquire_xbootldr(
                 int unprivileged_mode,
+                int *ret_fd,
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
-        char *np;
+        _cleanup_free_ char *np = NULL;
         int r;
 
-        r = find_xbootldr_and_warn_full(arg_root, arg_xbootldr_path, unprivileged_mode, &np, ret_uuid, ret_devid);
-        if (r == -ENOKEY || path_equal(np, arg_esp_path)) {
+        _cleanup_close_ int fd = -EBADF;
+        r = find_xbootldr_and_warn_full(arg_root, arg_xbootldr_path, unprivileged_mode, &np, ret_fd ? &fd : NULL, ret_uuid, ret_devid);
+        if (r == -ENOKEY || (r >= 0 && path_equal(np, arg_esp_path))) {
                 log_debug("Didn't find an XBOOTLDR partition, using the ESP as $BOOT.");
                 arg_xbootldr_path = mfree(arg_xbootldr_path);
 
+                if (ret_fd)
+                        *ret_fd = -EBADF;
                 if (ret_uuid)
                         *ret_uuid = SD_ID128_NULL;
                 if (ret_devid)
@@ -161,6 +167,9 @@ int acquire_xbootldr(
 
         free_and_replace(arg_xbootldr_path, np);
         log_debug("Using XBOOTLDR partition at %s as $BOOT.", arg_xbootldr_path);
+
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
 
         return 1;
 }
@@ -199,9 +208,14 @@ static int print_loader_or_stub_path(void) {
         }
 
         sd_id128_t esp_uuid;
-        r = acquire_esp(/* unprivileged_mode= */ false, /* graceful= */ false,
-                        /* ret_part= */ NULL, /* ret_pstart= */ NULL, /* ret_psize= */ NULL,
-                        &esp_uuid, /* ret_devid= */ NULL);
+        r = acquire_esp(/* unprivileged_mode= */ false,
+                        /* graceful= */ false,
+                        /* ret_fd= */ NULL,
+                        /* ret_part= */ NULL,
+                        /* ret_pstart= */ NULL,
+                        /* ret_psize= */ NULL,
+                        &esp_uuid,
+                        /* ret_devid= */ NULL);
         if (r < 0)
                 return r;
 
@@ -211,7 +225,10 @@ static int print_loader_or_stub_path(void) {
         else if (arg_print_stub_path) { /* In case of the stub, also look for things in the xbootldr partition */
                 sd_id128_t xbootldr_uuid;
 
-                r = acquire_xbootldr(/* unprivileged_mode= */ false, &xbootldr_uuid, /* ret_devid= */ NULL);
+                r = acquire_xbootldr(/* unprivileged_mode= */ false,
+                                     /* ret_fd= */ NULL,
+                                     &xbootldr_uuid,
+                                     /* ret_devid= */ NULL);
                 if (r < 0)
                         return r;
 

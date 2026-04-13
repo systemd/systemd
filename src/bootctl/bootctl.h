@@ -58,8 +58,8 @@ static inline const char* arg_dollar_boot_path(void) {
 
 GracefulMode arg_graceful(void);
 
-int acquire_esp(int unprivileged_mode, bool graceful, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid, dev_t *ret_devid);
-int acquire_xbootldr(int unprivileged_mode, sd_id128_t *ret_uuid, dev_t *ret_devid);
+int acquire_esp(int unprivileged_mode, bool graceful, int *ret_fd, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid, dev_t *ret_devid);
+int acquire_xbootldr(int unprivileged_mode, int *ret_fd, sd_id128_t *ret_uuid, dev_t *ret_devid);
 
 /* EFI_BOOT_OPTION_DESCRIPTION_MAX sets the maximum length for the boot option description
  * stored in NVRAM. The UEFI spec does not specify a minimum or maximum length for this
