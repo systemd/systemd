@@ -52,6 +52,14 @@ static void verify_u16(sd_dhcp_message *m, uint16_t expected) {
         ASSERT_EQ(u, expected);
 }
 
+static void verify_sec(sd_dhcp_message *m, usec_t expected) {
+        usec_t t;
+        ASSERT_OK(dhcp_message_get_option_sec(m, SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME, /* max_as_infinity= */ false, &t));
+        ASSERT_EQ(t, expected);
+        ASSERT_OK(dhcp_message_get_option_sec(m, SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME, /* max_as_infinity= */ true, &t));
+        ASSERT_EQ(t, expected);
+}
+
 static void verify_address(sd_dhcp_message *m, const struct in_addr *expected) {
         struct in_addr a;
         ASSERT_OK(dhcp_message_get_option_be32(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, &a.s_addr));
@@ -143,6 +151,8 @@ TEST(dhcp_message) {
                 .length = ETH_ALEN,
                 .ether = {{ 'A', 'B', 'C', '1', '2', '3' }},
         };
+
+        usec_t lease_time = USEC_PER_DAY;
 
         /* 192.0.2.42 */
         struct in_addr addr = { .s_addr = htobe32(0xC000022a) };
@@ -237,6 +247,10 @@ TEST(dhcp_message) {
         ASSERT_ERROR(dhcp_message_append_option_u8(m, SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE, 32), EEXIST);
         verify_u16(m, 512);
 
+        /* sec */
+        ASSERT_OK(dhcp_message_append_option_sec(m, SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME, lease_time));
+        verify_sec(m, lease_time);
+
         /* address */
         ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, addr.s_addr));
         ASSERT_ERROR(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, addr.s_addr), EEXIST);
@@ -310,6 +324,7 @@ TEST(dhcp_message) {
         verify_flag(m2);
         verify_u8(m2, DHCP_DISCOVER);
         verify_u16(m2, 512);
+        verify_sec(m2, lease_time);
         verify_address(m2, &addr);
         verify_addresses(m2, ELEMENTSOF(ntp), ntp, ELEMENTSOF(sip), sip);
         verify_client_id(m2, &id);
