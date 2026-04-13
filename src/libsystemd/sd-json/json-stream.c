@@ -60,12 +60,7 @@ static usec_t json_stream_now(const JsonStream *s) {
 #define json_stream_log_errno(s, error, fmt, ...) \
         log_debug_errno((error), "%s: " fmt, json_stream_description(s), ##__VA_ARGS__)
 
-sd_json_variant** json_stream_queue_item_get_data(JsonStreamQueueItem *q) {
-        assert(q);
-        return &q->data;
-}
-
-JsonStreamQueueItem* json_stream_queue_item_free(JsonStreamQueueItem *q) {
+static JsonStreamQueueItem* json_stream_queue_item_free(JsonStreamQueueItem *q) {
         if (!q)
                 return NULL;
 
@@ -169,10 +164,6 @@ static void json_stream_clear(JsonStream *s) {
         close_many(s->output_fds, s->n_output_fds);
         s->output_fds = mfree(s->output_fds);
         s->n_output_fds = 0;
-
-        close_many(s->pushed_fds, s->n_pushed_fds);
-        s->pushed_fds = mfree(s->pushed_fds);
-        s->n_pushed_fds = 0;
 
         LIST_CLEAR(queue, s->output_queue, json_stream_queue_item_free);
         s->output_queue_tail = NULL;
@@ -893,30 +884,6 @@ int json_stream_flush(JsonStream *s) {
         return ret;
 }
 
-int json_stream_push_fd(JsonStream *s, int fd) {
-        int i;
-
-        assert(s);
-        assert(fd >= 0);
-
-        if (s->n_pushed_fds >= SCM_MAX_FD) /* Kernel doesn't support more than 253 fds per message */
-                return -ENOBUFS;
-
-        if (!GREEDY_REALLOC(s->pushed_fds, s->n_pushed_fds + 1))
-                return -ENOMEM;
-
-        i = (int) s->n_pushed_fds;
-        s->pushed_fds[s->n_pushed_fds++] = fd;
-        return i;
-}
-
-void json_stream_reset_pushed_fds(JsonStream *s) {
-        assert(s);
-
-        close_many(s->pushed_fds, s->n_pushed_fds);
-        s->n_pushed_fds = 0;
-}
-
 int json_stream_peek_input_fd(const JsonStream *s, size_t i) {
         assert(s);
 
@@ -1070,57 +1037,26 @@ static int json_stream_format_queue(JsonStream *s) {
         return 0;
 }
 
-int json_stream_enqueue_item(JsonStream *s, JsonStreamQueueItem *q) {
-        assert(s);
-        assert(q);
-
-        if (s->n_output_queue >= s->queue_max)
-                return -ENOBUFS;
-
-        LIST_INSERT_AFTER(queue, s->output_queue, s->output_queue_tail, q);
-        s->output_queue_tail = q;
-        s->n_output_queue++;
-        return 0;
-}
-
-int json_stream_enqueue(JsonStream *s, sd_json_variant *m) {
-        JsonStreamQueueItem *q;
-
+int json_stream_enqueue_full(JsonStream *s, sd_json_variant *m, const int fds[], size_t n_fds) {
         assert(s);
         assert(m);
+        assert(fds || n_fds == 0);
 
-        /* Fast path: no fds pending and no items currently queued — append directly into the
+        /* Fast path: no fds and no items currently queued — append directly into the
          * output buffer to avoid the queue allocation. */
-        if (s->n_pushed_fds == 0 && !s->output_queue)
+        if (n_fds == 0 && !s->output_queue)
                 return json_stream_format_json(s, m);
 
         if (s->n_output_queue >= s->queue_max)
                 return -ENOBUFS;
 
-        q = json_stream_queue_item_new(m, s->pushed_fds, s->n_pushed_fds);
+        JsonStreamQueueItem *q = json_stream_queue_item_new(m, fds, n_fds);
         if (!q)
                 return -ENOMEM;
 
-        s->n_pushed_fds = 0; /* fds belong to the queue entry now */
-
-        assert_se(json_stream_enqueue_item(s, q) >= 0);
-        return 0;
-}
-
-int json_stream_make_queue_item(JsonStream *s, sd_json_variant *m, JsonStreamQueueItem **ret) {
-        JsonStreamQueueItem *q;
-
-        assert(s);
-        assert(m);
-        assert(ret);
-
-        q = json_stream_queue_item_new(m, s->pushed_fds, s->n_pushed_fds);
-        if (!q)
-                return -ENOMEM;
-
-        s->n_pushed_fds = 0; /* fds belong to the queue entry now */
-
-        *ret = q;
+        LIST_INSERT_AFTER(queue, s->output_queue, s->output_queue_tail, q);
+        s->output_queue_tail = q;
+        s->n_output_queue++;
         return 0;
 }
 
