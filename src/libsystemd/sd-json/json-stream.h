@@ -118,9 +118,6 @@ typedef struct JsonStream {
         JsonStreamQueueItem *output_queue_tail;
         size_t n_output_queue;
 
-        int *pushed_fds;
-        size_t n_pushed_fds;
-
         JsonStreamFlags flags;
 } JsonStream;
 
@@ -163,23 +160,17 @@ bool json_stream_should_disconnect(const JsonStream *s);
 int json_stream_set_allow_fd_passing_input(JsonStream *s, bool enabled, bool with_sockopt);
 int json_stream_set_allow_fd_passing_output(JsonStream *s, bool enabled);
 
-/* Output: enqueue a JSON variant. Fast path concatenates into the output buffer; if
- * pushed_fds are present or the queue is non-empty the message is queued instead, so that
- * fd-to-message boundaries are preserved. */
-int json_stream_enqueue(JsonStream *s, sd_json_variant *m);
+/* Output: enqueue a JSON variant together with an optional set of file descriptors. Fast
+ * path concatenates into the output buffer when fds is empty and the queue is empty; if fds
+ * are present or the queue is non-empty the message is queued instead, so that
+ * fd-to-message boundaries are preserved. The queue item copies the fd values; ownership
+ * of the fd values transfers to the queue item (the caller must free its array without
+ * closing the fds). */
+int json_stream_enqueue_full(JsonStream *s, sd_json_variant *m, const int fds[], size_t n_fds);
 
-/* Allocate a queue item carrying `m` and the currently pushed fds. The pushed fds are
- * transferred to the new item; on success n_pushed_fds is reset to 0. The caller may
- * later submit the item via json_stream_enqueue_item() or free it. */
-int json_stream_make_queue_item(JsonStream *s, sd_json_variant *m, JsonStreamQueueItem **ret);
-int json_stream_enqueue_item(JsonStream *s, JsonStreamQueueItem *q);
-JsonStreamQueueItem* json_stream_queue_item_free(JsonStreamQueueItem *q);
-DEFINE_TRIVIAL_CLEANUP_FUNC(JsonStreamQueueItem*, json_stream_queue_item_free);
-sd_json_variant** json_stream_queue_item_get_data(JsonStreamQueueItem *q);
-
-/* fd push/peek/take */
-int json_stream_push_fd(JsonStream *s, int fd);
-void json_stream_reset_pushed_fds(JsonStream *s);
+static inline int json_stream_enqueue(JsonStream *s, sd_json_variant *m) {
+        return json_stream_enqueue_full(s, m, NULL, 0);
+}
 
 int json_stream_peek_input_fd(const JsonStream *s, size_t i);
 int json_stream_take_input_fd(JsonStream *s, size_t i);
