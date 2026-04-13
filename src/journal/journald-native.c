@@ -10,7 +10,6 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "iovec-util.h"
-#include "journal-importer.h"
 #include "journal-internal.h"
 #include "journald-client.h"
 #include "journald-console.h"
