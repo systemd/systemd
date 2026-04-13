@@ -297,8 +297,9 @@ static int verify_fsroot_dir(
                                       (unprivileged_mode && ERRNO_IS_NEG_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR, r,
                                       "Failed to determine block device node of \"%s\": %m", path);
 
-        if (!S_ISDIR(sx.stx_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "Path \"%s\" is not a directory", path);
+        r = statx_verify_directory(&sx);
+        if (r < 0)
+                return log_error_errno(r, "Path \"%s\" is not a directory", path);
 
         if (!FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT))
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
@@ -477,8 +478,9 @@ int find_esp_and_warn_at_full(
 
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", p);
-                if (!S_ISDIR(st.st_mode))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "ESP path '%s' is not a directory.", p);
+                r = stat_verify_directory(&st);
+                if (r < 0)
+                        return log_error_errno(r, "ESP path '%s' is not a directory.", p);
 
                 if (ret_path)
                         *ret_path = TAKE_PTR(p);
@@ -829,8 +831,9 @@ int find_xbootldr_and_warn_at_full(
 
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", p);
-                if (!S_ISDIR(st.st_mode))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "XBOOTLDR path '%s' is not a directory.", p);
+                r = stat_verify_directory(&st);
+                if (r < 0)
+                        return log_error_errno(r, "XBOOTLDR path '%s' is not a directory.", p);
 
                 if (ret_path)
                         *ret_path = TAKE_PTR(p);
