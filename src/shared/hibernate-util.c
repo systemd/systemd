@@ -37,14 +37,16 @@ int read_fiemap(int fd, struct fiemap **ret) {
         uint32_t result_extents = 0;
         uint64_t fiemap_start = 0, fiemap_length;
         const size_t n_extra = DIV_ROUND_UP(sizeof(struct fiemap), sizeof(struct fiemap_extent));
+        int r;
 
         assert(fd >= 0);
         assert(ret);
 
         if (fstat(fd, &statinfo) < 0)
                 return log_debug_errno(errno, "Cannot determine file size: %m");
-        if (!S_ISREG(statinfo.st_mode))
-                return -ENOTTY;
+        r = stat_verify_regular(&statinfo);
+        if (r < 0)
+                return r;
         fiemap_length = statinfo.st_size;
 
         /* Zero this out in case we run on a file with no extents */
