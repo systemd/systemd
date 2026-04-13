@@ -35,10 +35,6 @@ struct JsonStreamQueueItem {
         int fds[];
 };
 
-static const char* json_stream_description(const JsonStream *s) {
-        return (s ? s->description : NULL) ?: "json-stream";
-}
-
 /* Returns the size of the framing delimiter in bytes: strlen(delimiter) for multi-char
  * delimiters (e.g. "\r\n"), or 1 for the default NUL-byte delimiter (delimiter == NULL). */
 static size_t json_stream_delimiter_size(const JsonStream *s) {
@@ -53,12 +49,6 @@ static usec_t json_stream_now(const JsonStream *s) {
 
         return now(CLOCK_MONOTONIC);
 }
-
-#define json_stream_log(s, fmt, ...) \
-        log_debug("%s: " fmt, json_stream_description(s), ##__VA_ARGS__)
-
-#define json_stream_log_errno(s, error, fmt, ...) \
-        log_debug_errno((error), "%s: " fmt, json_stream_description(s), ##__VA_ARGS__)
 
 sd_json_variant** json_stream_queue_item_get_data(JsonStreamQueueItem *q) {
         assert(q);
