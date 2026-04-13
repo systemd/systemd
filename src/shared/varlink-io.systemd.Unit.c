@@ -149,6 +149,36 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(no),
                 SD_VARLINK_DEFINE_ENUM_VALUE(yes));
 
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                CPUSchedulingPolicy,
+                SD_VARLINK_DEFINE_ENUM_VALUE(other),
+                SD_VARLINK_DEFINE_ENUM_VALUE(batch),
+                SD_VARLINK_DEFINE_ENUM_VALUE(idle),
+                SD_VARLINK_DEFINE_ENUM_VALUE(fifo),
+                SD_VARLINK_DEFINE_ENUM_VALUE(ext),
+                SD_VARLINK_DEFINE_ENUM_VALUE(rr));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                IOSchedulingClass,
+                SD_VARLINK_DEFINE_ENUM_VALUE(none),
+                SD_VARLINK_DEFINE_ENUM_VALUE(realtime),
+                SD_VARLINK_DEFINE_ENUM_VALUE(best_effort),
+                SD_VARLINK_DEFINE_ENUM_VALUE(idle));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                NUMAPolicy,
+                SD_VARLINK_DEFINE_ENUM_VALUE(default),
+                SD_VARLINK_DEFINE_ENUM_VALUE(preferred),
+                SD_VARLINK_DEFINE_ENUM_VALUE(bind),
+                SD_VARLINK_DEFINE_ENUM_VALUE(interleave),
+                SD_VARLINK_DEFINE_ENUM_VALUE(local));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                MountPropagationFlag,
+                SD_VARLINK_DEFINE_ENUM_VALUE(shared),
+                SD_VARLINK_DEFINE_ENUM_VALUE(slave),
+                SD_VARLINK_DEFINE_ENUM_VALUE(private));
+
 /* CGroupContext */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 CGroupTasksMax,
@@ -667,7 +697,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#Nice="),
                 SD_VARLINK_DEFINE_FIELD(Nice, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#CPUSchedulingPolicy="),
-                SD_VARLINK_DEFINE_FIELD(CPUSchedulingPolicy, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CPUSchedulingPolicy, CPUSchedulingPolicy, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#CPUSchedulingPriority="),
                 SD_VARLINK_DEFINE_FIELD(CPUSchedulingPriority, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#CPUSchedulingResetOnFork="),
@@ -675,11 +705,11 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#CPUAffinity="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CPUAffinity, CPUAffinity, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#NUMAPolicy="),
-                SD_VARLINK_DEFINE_FIELD(NUMAPolicy, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(NUMAPolicy, NUMAPolicy, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#NUMAMask="),
                 SD_VARLINK_DEFINE_FIELD(NUMAMask, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#IOSchedulingClass="),
-                SD_VARLINK_DEFINE_FIELD(IOSchedulingClass, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(IOSchedulingClass, IOSchedulingClass, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#IOSchedulingPriority="),
                 SD_VARLINK_DEFINE_FIELD(IOSchedulingPriority, SD_VARLINK_INT, 0),
 
@@ -781,7 +811,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#PrivateMounts="),
                 SD_VARLINK_DEFINE_FIELD(PrivateMounts, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#MountFlags="),
-                SD_VARLINK_DEFINE_FIELD(MountFlags, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(MountFlags, MountPropagationFlag, SD_VARLINK_NULLABLE),
 
                 /* System Call Filtering
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#System%20Call%20Filtering */
@@ -1258,6 +1288,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_ProtectControlGroups,
                 &vl_type_PrivatePIDs,
                 &vl_type_PrivateBPF,
+                &vl_type_CPUSchedulingPolicy,
+                &vl_type_IOSchedulingClass,
+                &vl_type_NUMAPolicy,
+                &vl_type_MountPropagationFlag,
                 &vl_type_WorkingDirectory,
                 &vl_type_PartitionMountOptions,
                 &vl_type_BindPath,
