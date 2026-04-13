@@ -4519,10 +4519,9 @@ const char* manager_get_confirm_spawn(Manager *m) {
                 goto fail;
         }
 
-        if (!S_ISCHR(st.st_mode)) {
-                r = -ENOTTY;
+        r = stat_verify_char(&st);
+        if (r < 0)
                 goto fail;
-        }
 
         last_errno = 0;
         return m->confirm_spawn;

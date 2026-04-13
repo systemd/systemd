@@ -218,6 +218,21 @@ int stat_verify_block(const struct stat *st) {
         return 0;
 }
 
+int stat_verify_char(const struct stat *st) {
+        assert(st);
+
+        if (S_ISDIR(st->st_mode))
+                return -EISDIR;
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
+
+        if (!S_ISCHR(st->st_mode))
+                return -EBADFD;
+
+        return 0;
+}
+
 int fd_verify_block(int fd) {
         if (IN_SET(fd, AT_FDCWD, XAT_FDROOT))
                 return -EISDIR;
