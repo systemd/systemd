@@ -2049,8 +2049,9 @@ static int copy_devnode_one(const char *dest, const char *node, bool check) {
                 log_debug_errno(errno, "Device node %s does not exist, ignoring.", from);
                 return 0;
         }
-        if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(ESTALE), "%s is not a device node.", from);
+        r = stat_verify_device_node(&st);
+        if (r < 0)
+                return log_error_errno(r, "'%s' is not a device node.", from);
 
         /* Create the parent directory of the device node. Here, we assume that the path has at most one
          * subdirectory under /dev/, e.g. /dev/net/tun. */

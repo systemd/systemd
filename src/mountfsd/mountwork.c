@@ -158,16 +158,10 @@ static int validate_image_fd(int fd, MountImageParameters *p) {
         assert(fd >= 0);
         assert(p);
 
-        struct stat st;
-        if (fstat(fd, &st) < 0)
-                return -errno;
-        /* Only support regular files and block devices. Let's use stat_verify_regular() here for the nice
-         * error numbers it generates. */
-        if (!S_ISBLK(st.st_mode)) {
-                r = stat_verify_regular(&st);
-                if (r < 0)
-                        return r;
-        }
+        /* Only support regular files and block devices. */
+        r = fd_verify_regular_or_block(fd);
+        if (r < 0)
+                return r;
 
         fl = fd_verify_safe_flags_full(fd, O_NONBLOCK);
         if (fl < 0)

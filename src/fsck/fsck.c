@@ -28,6 +28,7 @@
 #include "process-util.h"
 #include "socket-util.h"
 #include "special.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -299,10 +300,9 @@ static int run(int argc, char *argv[]) {
                 if (stat(device, &st) < 0)
                         return log_error_errno(errno, "Failed to stat %s: %m", device);
 
-                if (!S_ISBLK(st.st_mode))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "%s is not a block device.",
-                                               device);
+                r = stat_verify_block(&st);
+                if (r < 0)
+                        return log_error_errno(r, "'%s' is not a block device.", device);
 
                 r = sd_device_new_from_stat_rdev(&dev, &st);
                 if (r < 0)

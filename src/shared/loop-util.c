@@ -378,9 +378,9 @@ static int loop_configure(
 }
 
 static int fd_get_max_discard(int fd, uint64_t *ret) {
-        struct stat st;
         char sysfs_path[STRLEN("/sys/dev/block/" ":" "/queue/discard_max_bytes") + DECIMAL_STR_MAX(dev_t) * 2 + 1];
         _cleanup_free_ char *buffer = NULL;
+        struct stat st;
         int r;
 
         assert(ret);
@@ -388,8 +388,9 @@ static int fd_get_max_discard(int fd, uint64_t *ret) {
         if (fstat(ASSERT_FD(fd), &st) < 0)
                 return -errno;
 
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
+        r = stat_verify_block(&st);
+        if (r < 0)
+                return r;
 
         xsprintf(sysfs_path, "/sys/dev/block/" DEVNUM_FORMAT_STR "/queue/discard_max_bytes", DEVNUM_FORMAT_VAL(st.st_rdev));
 
@@ -401,14 +402,16 @@ static int fd_get_max_discard(int fd, uint64_t *ret) {
 }
 
 static int fd_set_max_discard(int fd, uint64_t max_discard) {
-        struct stat st;
         char sysfs_path[STRLEN("/sys/dev/block/" ":" "/queue/discard_max_bytes") + DECIMAL_STR_MAX(dev_t) * 2 + 1];
+        struct stat st;
+        int r;
 
         if (fstat(ASSERT_FD(fd), &st) < 0)
                 return -errno;
 
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
+        r = stat_verify_block(&st);
+        if (r < 0)
+                return r;
 
         xsprintf(sysfs_path, "/sys/dev/block/" DEVNUM_FORMAT_STR "/queue/discard_max_bytes", DEVNUM_FORMAT_VAL(st.st_rdev));
 
@@ -820,7 +823,6 @@ int loop_device_make_by_path_memory(
 
         _cleanup_close_ int fd = -EBADF, mfd = -EBADF;
         _cleanup_free_ char *fn = NULL;
-        struct stat st;
         int r;
 
         assert(path);
@@ -837,11 +839,9 @@ int loop_device_make_by_path_memory(
         if (fd < 0)
                 return -errno;
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISREG(st.st_mode) && !S_ISBLK(st.st_mode))
-                return -EBADF;
+        r = fd_verify_regular_or_block(fd);
+        if (r < 0)
+                return r;
 
         r = path_extract_filename(path, &fn);
         if (r < 0)

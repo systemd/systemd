@@ -18,6 +18,7 @@
 #include "socket-label.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 
 int socket_address_parse(SocketAddress *a, const char *s) {
@@ -497,8 +498,9 @@ int af_unix_get_qlen(int fd, uint32_t *ret) {
         struct stat st;
         if (fstat(fd, &st) < 0)
                 return -errno;
-        if (!S_ISSOCK(st.st_mode))
-                return -ENOTSOCK;
+        r = stat_verify_socket(&st);
+        if (r < 0)
+                return r;
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
         r = sd_sock_diag_socket_open(&nl);
