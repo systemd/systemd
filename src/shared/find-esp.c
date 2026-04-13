@@ -260,32 +260,23 @@ static int verify_esp_udev(
 }
 
 static int verify_fsroot_dir(
-                int dir_fd,
                 const char *path,
+                int fd,
                 VerifyESPFlags flags,
                 dev_t *ret_dev) {
 
         bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING),
                 unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE);
-        _cleanup_free_ char *f = NULL;
-        struct statx sx;
         int r;
 
         /* Checks if the specified directory is at the root of its file system, and returns device
          * major/minor of the device, if it is. */
 
-        assert(dir_fd >= 0);
         assert(path);
+        assert(fd >= 0);
 
-        /* We pass the full path from the root directory file descriptor so we can use it for logging, but
-         * dir_fd points to the parent directory of the final component of the given path, so we extract the
-         * filename and operate on that. */
-
-        r = path_extract_filename(path, &f);
-        if (r < 0 && r != -EADDRNOTAVAIL)
-                return log_error_errno(r, "Failed to extract filename of \"%s\": %m", path);
-
-        r = xstatx_full(dir_fd, f,
+        struct statx sx;
+        r = xstatx_full(fd, /* path= */ NULL,
                         AT_SYMLINK_NOFOLLOW,
                         /* xstatx_flags= */ 0,
                         STATX_TYPE|STATX_INO,
@@ -310,7 +301,7 @@ static int verify_fsroot_dir(
                 return 0;
 
         if (sx.stx_dev_major == 0) /* Hmm, maybe a btrfs device, and the caller asked for the backing device? Then let's try to get it. */
-                return btrfs_get_block_device_at(dir_fd, strempty(f), ret_dev);
+                return btrfs_get_block_device_at(fd, /* path= */ NULL, ret_dev);
 
         *ret_dev = makedev(sx.stx_dev_major, sx.stx_dev_minor);
         return 0;
@@ -320,6 +311,7 @@ static int verify_esp(
                 int rfd,
                 const char *path,
                 char **ret_path,
+                int *ret_fd,
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
                 uint64_t *ret_psize,
@@ -329,8 +321,6 @@ static int verify_esp(
 
         bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING),
                 unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE);
-        _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int pfd = -EBADF;
         dev_t devid = 0;
         int r;
 
@@ -347,27 +337,18 @@ static int verify_esp(
         /* Non-root user can only check the status, so if an error occurred in the following, it does not cause any
          * issues. Let's also, silence the error messages. */
 
-        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_TRIGGER_AUTOFS, &p, &pfd);
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &p, &fd);
         if (r < 0)
                 return log_full_errno((searching && r == -ENOENT) ||
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR,
                                       r, "Failed to open parent directory of \"%s\": %m", path);
 
         if (!FLAGS_SET(flags, VERIFY_ESP_SKIP_FSTYPE_CHECK)) {
-                _cleanup_free_ char *f = NULL;
+
                 struct statfs sfs;
-
-                r = path_extract_filename(p, &f);
-                if (r < 0 && r != -EADDRNOTAVAIL)
-                        return log_error_errno(r, "Failed to extract filename of \"%s\": %m", p);
-
-                /* Trigger any automounts so that xstatfsat() operates on the mount instead of the mountpoint
-                 * directory. */
-                r = trigger_automount_at(pfd, f);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to trigger automount at \"%s\": %m", p);
-
-                r = xstatfsat(pfd, strempty(f), &sfs);
+                r = RET_NERRNO(fstatfs(fd, &sfs));
                 if (r < 0)
                         /* If we are searching for the mount point, don't generate a log message if we can't find the path */
                         return log_full_errno((searching && r == -ENOENT) ||
@@ -380,7 +361,7 @@ static int verify_esp(
                                               "File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
         }
 
-        r = verify_fsroot_dir(pfd, p, flags, FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK) ? NULL : &devid);
+        r = verify_fsroot_dir(p, fd, flags, FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK) ? NULL : &devid);
         if (r < 0)
                 return r;
 
@@ -408,6 +389,8 @@ static int verify_esp(
 
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
         if (ret_devid)
                 *ret_devid = devid;
 
@@ -416,6 +399,8 @@ static int verify_esp(
 finish:
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
         if (ret_part)
                 *ret_part = 0;
         if (ret_pstart)
@@ -435,6 +420,7 @@ int find_esp_and_warn_at_full(
                 const char *path,
                 int unprivileged_mode,
                 char **ret_path,
+                int *ret_fd,
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
                 uint64_t *ret_psize,
@@ -455,7 +441,7 @@ int find_esp_and_warn_at_full(
         flags = verify_esp_flags_init(unprivileged_mode, "SYSTEMD_RELAX_ESP_CHECKS");
 
         if (path)
-                return verify_esp(rfd, path, ret_path, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid, flags);
+                return verify_esp(rfd, path, ret_path, ret_fd, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid, flags);
 
         path = getenv("SYSTEMD_ESP_PATH");
         if (path) {
@@ -484,6 +470,8 @@ int find_esp_and_warn_at_full(
 
                 if (ret_path)
                         *ret_path = TAKE_PTR(p);
+                if (ret_fd)
+                        *ret_fd = TAKE_FD(fd);
                 if (ret_part)
                         *ret_part = 0;
                 if (ret_pstart)
@@ -499,7 +487,15 @@ int find_esp_and_warn_at_full(
         }
 
         FOREACH_STRING(dir, "/efi", "/boot", "/boot/efi") {
-                r = verify_esp(rfd, dir, ret_path, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid,
+                r = verify_esp(rfd,
+                               dir,
+                               ret_path,
+                               ret_fd,
+                               ret_part,
+                               ret_pstart,
+                               ret_psize,
+                               ret_uuid,
+                               ret_devid,
                                flags | VERIFY_ESP_SEARCHING);
                 if (r >= 0)
                         return 0;
@@ -516,20 +512,16 @@ int find_esp_and_warn_full(
                 const char *path,
                 int unprivileged_mode,
                 char **ret_path,
+                int *ret_fd,
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
                 uint64_t *ret_psize,
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
-        _cleanup_close_ int rfd = -EBADF;
-        _cleanup_free_ char *p = NULL;
-        uint32_t part;
-        uint64_t pstart, psize;
-        sd_id128_t uuid;
-        dev_t devid;
         int r;
 
+        _cleanup_close_ int rfd = -EBADF;
         if (empty_or_root(root))
                 rfd = XAT_FDROOT;
         else {
@@ -538,11 +530,18 @@ int find_esp_and_warn_full(
                         return -errno;
         }
 
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+        uint32_t part;
+        uint64_t pstart, psize;
+        sd_id128_t uuid;
+        dev_t devid;
         r = find_esp_and_warn_at_full(
                         rfd,
                         path,
                         unprivileged_mode,
                         ret_path ? &p : NULL,
+                        ret_fd ? &fd : NULL,
                         ret_part ? &part : NULL,
                         ret_pstart ? &pstart : NULL,
                         ret_psize ? &psize : NULL,
@@ -556,6 +555,8 @@ int find_esp_and_warn_full(
                 if (r < 0)
                         return r;
         }
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
         if (ret_part)
                 *ret_part = part;
         if (ret_pstart)
@@ -734,11 +735,10 @@ static int verify_xbootldr(
                 const char *path,
                 VerifyESPFlags flags,
                 char **ret_path,
+                int *ret_fd,
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
-        _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int pfd = -EBADF;
         bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING),
                 unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE);
         dev_t devid = 0;
@@ -747,13 +747,15 @@ static int verify_xbootldr(
         assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(path);
 
-        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_TRIGGER_AUTOFS, &p, &pfd);
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &p, &fd);
         if (r < 0)
                 return log_full_errno((searching && r == -ENOENT) ||
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR,
-                                      r, "Failed to open parent directory of \"%s\": %m", path);
+                                      r, "Failed to open directory \"%s\": %m", path);
 
-        r = verify_fsroot_dir(pfd, p, flags, FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK) ? NULL : &devid);
+        r = verify_fsroot_dir(p, fd, flags, FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK) ? NULL : &devid);
         if (r < 0)
                 return r;
 
@@ -778,6 +780,8 @@ static int verify_xbootldr(
 
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
         if (ret_devid)
                 *ret_devid = devid;
 
@@ -786,6 +790,8 @@ static int verify_xbootldr(
 finish:
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
+        if (ret_fd)
+                *ret_fd = -EBADF;
         if (ret_uuid)
                 *ret_uuid = SD_ID128_NULL;
         if (ret_devid)
@@ -799,6 +805,7 @@ int find_xbootldr_and_warn_at_full(
                 const char *path,
                 int unprivileged_mode,
                 char **ret_path,
+                int *ret_fd,
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
@@ -812,7 +819,7 @@ int find_xbootldr_and_warn_at_full(
         flags = verify_esp_flags_init(unprivileged_mode, "SYSTEMD_RELAX_XBOOTLDR_CHECKS");
 
         if (path)
-                return verify_xbootldr(rfd, path, flags, ret_path, ret_uuid, ret_devid);
+                return verify_xbootldr(rfd, path, flags, ret_path, ret_fd, ret_uuid, ret_devid);
 
         path = getenv("SYSTEMD_XBOOTLDR_PATH");
         if (path) {
@@ -837,6 +844,8 @@ int find_xbootldr_and_warn_at_full(
 
                 if (ret_path)
                         *ret_path = TAKE_PTR(p);
+                if (ret_fd)
+                        *ret_fd = TAKE_FD(fd);
                 if (ret_uuid)
                         *ret_uuid = SD_ID128_NULL;
                 if (ret_devid)
@@ -845,7 +854,14 @@ int find_xbootldr_and_warn_at_full(
                 return 0;
         }
 
-        r = verify_xbootldr(rfd, "/boot", flags | VERIFY_ESP_SEARCHING, ret_path, ret_uuid, ret_devid);
+        r = verify_xbootldr(
+                        rfd,
+                        "/boot",
+                        flags | VERIFY_ESP_SEARCHING,
+                        ret_path,
+                        ret_fd,
+                        ret_uuid,
+                        ret_devid);
         if (r < 0) {
                 if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL, -ENOTDIR, -ENOTTY)) /* This one is not it */
                         return r;
@@ -861,15 +877,13 @@ int find_xbootldr_and_warn_full(
                 const char *path,
                 int unprivileged_mode,
                 char **ret_path,
+                int *ret_fd,
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
-        _cleanup_close_ int rfd = -EBADF;
-        _cleanup_free_ char *p = NULL;
-        sd_id128_t uuid;
-        dev_t devid;
         int r;
 
+        _cleanup_close_ int rfd = -EBADF;
         if (empty_or_root(root))
                 rfd = XAT_FDROOT;
         else {
@@ -878,11 +892,16 @@ int find_xbootldr_and_warn_full(
                         return -errno;
         }
 
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+        sd_id128_t uuid;
+        dev_t devid;
         r = find_xbootldr_and_warn_at_full(
                         rfd,
                         path,
                         unprivileged_mode,
                         ret_path ? &p : NULL,
+                        ret_fd ? &fd : NULL,
                         ret_uuid ? &uuid : NULL,
                         ret_devid ? &devid : NULL);
         if (r < 0)
@@ -893,6 +912,8 @@ int find_xbootldr_and_warn_full(
                 if (r < 0)
                         return r;
         }
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
         if (ret_uuid)
                 *ret_uuid = uuid;
         if (ret_devid)

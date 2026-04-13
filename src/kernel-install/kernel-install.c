@@ -570,7 +570,8 @@ static int context_acquire_xbootldr(Context *c) {
                         /* rfd= */ c->rfd,
                         /* path= */ arg_xbootldr_path,
                         /* unprivileged_mode= */ -1,
-                        /* ret_path= */ &c->boot_root);
+                        /* ret_path= */ &c->boot_root,
+                        /* ret_fd= */ NULL);
         if (r == -ENOKEY) {
                 log_debug_errno(r, "Couldn't find an XBOOTLDR partition.");
                 return 0;
@@ -594,7 +595,8 @@ static int context_acquire_esp(Context *c) {
                         /* rfd= */ c->rfd,
                         /* path= */ arg_esp_path,
                         /* unprivileged_mode= */ -1,
-                        /* ret_path= */ &c->boot_root);
+                        /* ret_path= */ &c->boot_root,
+                        /* ret_fd= */ NULL);
         if (r == -ENOKEY) {
                 log_debug_errno(r, "Couldn't find EFI system partition, ignoring.");
                 return 0;

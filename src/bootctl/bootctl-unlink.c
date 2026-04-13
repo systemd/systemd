@@ -3,20 +3,70 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 
+#include "sd-id128.h"
+#include "sd-json.h"
+#include "sd-varlink.h"
+
 #include "alloc-util.h"
+#include "boot-entry.h"
 #include "bootctl.h"
 #include "bootctl-unlink.h"
 #include "bootspec.h"
 #include "bootspec-util.h"
 #include "chase.h"
+#include "efi-loader.h"
 #include "errno-util.h"
+#include "find-esp.h"
+#include "fd-util.h"
 #include "hashmap.h"
+#include "id128-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "path-util.h"
+#include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 
+typedef struct UnlinkContext {
+        char *root;
+        int root_fd;
+
+        sd_id128_t machine_id;
+        BootEntryTokenType entry_token_type;
+        char *entry_token;
+
+        char *esp_path;
+        dev_t esp_devid;
+        int esp_fd;
+
+        char *xbootldr_path;
+        dev_t xbootldr_devid;
+        int xbootldr_fd;
+} UnlinkContext;
+
+#define UNLINK_CONTEXT_NULL                                             \
+        (UnlinkContext) {                                               \
+                .root_fd = -EBADF,                                      \
+                .entry_token_type = _BOOT_ENTRY_TOKEN_TYPE_INVALID,     \
+                .esp_fd = -EBADF,                                       \
+                .xbootldr_fd = -EBADF,                                  \
+        }
+
+static void unlink_context_done(UnlinkContext *c) {
+        assert(c);
+
+        c->root = mfree(c->root);
+        c->root_fd = safe_close(c->root_fd);
+
+        c->entry_token = mfree(c->entry_token);
+
+        c->esp_path = mfree(c->esp_path);
+        c->esp_fd = safe_close(c->esp_fd);
+        c->xbootldr_path = mfree(c->xbootldr_path);
+        c->xbootldr_fd = safe_close(c->xbootldr_fd);
+}
+
 static int ref_file(Hashmap **known_files, const char *fn, int increment) {
-        char *k = NULL;
         int n, r;
 
         assert(known_files);
@@ -26,13 +76,15 @@ static int ref_file(Hashmap **known_files, const char *fn, int increment) {
         if (!fn)
                 return 0;
 
+        char *k = NULL;
         n = PTR_TO_INT(hashmap_get2(*known_files, fn, (void**)&k));
-        n += increment;
+        if (!INC_SAFE(&n, increment))
+                return -EOVERFLOW;
 
         assert(n >= 0);
 
         if (n == 0) {
-                (void) hashmap_remove(*known_files, fn);
+                (void) hashmap_remove(*known_files, k);
                 free(k);
         } else if (!k) {
                 _cleanup_free_ char *t = NULL;
@@ -40,12 +92,14 @@ static int ref_file(Hashmap **known_files, const char *fn, int increment) {
                 t = strdup(fn);
                 if (!t)
                         return -ENOMEM;
+
                 r = hashmap_ensure_put(known_files, &path_hash_ops_free, t, INT_TO_PTR(n));
                 if (r < 0)
                         return r;
+
                 TAKE_PTR(t);
         } else {
-                r = hashmap_update(*known_files, fn, INT_TO_PTR(n));
+                r = hashmap_update(*known_files, k, INT_TO_PTR(n));
                 if (r < 0)
                         return r;
         }
@@ -53,53 +107,83 @@ static int ref_file(Hashmap **known_files, const char *fn, int increment) {
         return n;
 }
 
+static int boot_entry_ref_files(
+                const BootEntry *e,
+                Hashmap **known_files,
+                int increment) {
+
+        int r;
+
+        assert(e);
+        assert(known_files);
+        assert(increment != 0);
+
+        r = ref_file(known_files, e->kernel, increment);
+        if (r < 0)
+                return r;
+
+        r = ref_file(known_files, e->efi, increment);
+        if (r < 0)
+                return r;
+
+        r = ref_file(known_files, e->uki, increment);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(s, e->initrd) {
+                r = ref_file(known_files, *s, increment);
+                if (r < 0)
+                        return r;
+        }
+
+        r = ref_file(known_files, e->device_tree, increment);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(s, e->device_tree_overlay) {
+                r = ref_file(known_files, *s, increment);
+                if (r < 0)
+                        return r;
+        }
+
+        FOREACH_ARRAY(x, e->local_extras.items, e->local_extras.n_items) {
+                r = ref_file(known_files, x->location, increment);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int boot_config_count_known_files(
                 const BootConfig *config,
-                const char* root,
+                BootEntrySource source,
                 Hashmap **ret_known_files) {
 
-        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
         int r;
 
         assert(config);
         assert(ret_known_files);
 
-        for (size_t i = 0; i < config->n_entries; i++) {
-                const BootEntry *e = config->entries + i;
+        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
+        FOREACH_ARRAY(e, config->entries, config->n_entries) {
 
-                if (!path_equal(e->root, root))
+                if (e->source != source)
                         continue;
 
-                r = ref_file(&known_files, e->kernel, +1);
+                r = boot_entry_ref_files(e, &known_files, +1);
                 if (r < 0)
                         return r;
-                r = ref_file(&known_files, e->efi, +1);
-                if (r < 0)
-                        return r;
-                r = ref_file(&known_files, e->uki, +1);
-                if (r < 0)
-                        return r;
-                STRV_FOREACH(s, e->initrd) {
-                        r = ref_file(&known_files, *s, +1);
-                        if (r < 0)
-                                return r;
-                }
-                r = ref_file(&known_files, e->device_tree, +1);
-                if (r < 0)
-                        return r;
-                STRV_FOREACH(s, e->device_tree_overlay) {
-                        r = ref_file(&known_files, *s, +1);
-                        if (r < 0)
-                                return r;
-                }
         }
 
         *ret_known_files = TAKE_PTR(known_files);
-
         return 0;
 }
 
-static void deref_unlink_file(Hashmap **known_files, const char *fn, const char *root) {
+static void unref_unlink_file(
+                Hashmap **known_files,
+                int root_fd,
+                const char *fn) {
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -107,7 +191,7 @@ static void deref_unlink_file(Hashmap **known_files, const char *fn, const char 
 
         /* just gracefully ignore this. This way the caller doesn't
            have to verify whether the bootloader entry is relevant */
-        if (!fn || !root)
+        if (!fn || root_fd < 0)
                 return;
 
         r = ref_file(known_files, fn, -1);
@@ -117,7 +201,7 @@ static void deref_unlink_file(Hashmap **known_files, const char *fn, const char 
                 return;
 
         if (arg_dry_run) {
-                r = chase_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, F_OK, &path);
+                r = chase_and_accessat(root_fd, fn, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS|CHASE_MUST_BE_REGULAR, F_OK, &path);
                 if (r < 0)
                         log_info_errno(r, "Unable to determine whether \"%s\" exists, ignoring: %m", fn);
                 else
@@ -125,7 +209,7 @@ static void deref_unlink_file(Hashmap **known_files, const char *fn, const char 
                 return;
         }
 
-        r = chase_and_unlink(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, 0, &path);
+        r = chase_and_unlinkat(root_fd, fn, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS|CHASE_MUST_BE_REGULAR, /* flags= */ 0, &path);
         if (r >= 0)
                 log_info("Removed \"%s\"", path);
         else if (r != -ENOENT)
@@ -133,112 +217,348 @@ static void deref_unlink_file(Hashmap **known_files, const char *fn, const char 
 
         _cleanup_free_ char *d = NULL;
         if (path_extract_directory(fn, &d) >= 0 && !path_equal(d, "/")) {
-                r = chase_and_unlink(d, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, AT_REMOVEDIR, NULL);
+                r = chase_and_unlinkat(root_fd, d, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS|CHASE_MUST_BE_DIRECTORY, AT_REMOVEDIR, /* ret_path= */ NULL);
                 if (r < 0 && !IN_SET(r, -ENOTEMPTY, -ENOENT))
                         log_warning_errno(r, "Failed to remove directory \"%s\", ignoring: %m", d);
         }
 }
 
-static int boot_config_find_in(const BootConfig *config, const char *root, const char *id) {
-        assert(config);
+static ssize_t boot_config_find_in(
+                const BootConfig *config,
+                BootEntrySource source,
+                const char *id) {
 
-        if (!root || !id)
+        assert(config);
+        assert(source >= 0);
+        assert(source < _BOOT_ENTRY_SOURCE_MAX);
+
+        if (!id)
                 return -ENOENT;
 
         for (size_t i = 0; i < config->n_entries; i++)
-                if (path_equal(config->entries[i].root, root) &&
+                if (config->entries[i].source == source &&
                     fnmatch(id, config->entries[i].id, FNM_CASEFOLD) == 0)
-                        return i;
+                        return (ssize_t) i;
 
         return -ENOENT;
 }
 
-static int unlink_entry(const BootConfig *config, const char *root, const char *id) {
-        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
-        const BootEntry *e = NULL;
+int boot_entry_unlink(
+                const BootEntry *e,
+                int root_fd,
+                Hashmap *known_files) {
+
         int r;
 
-        assert(config);
+        assert(e);
+        assert(root_fd >= 0);
 
-        r = boot_config_count_known_files(config, root, &known_files);
-        if (r < 0)
-                return log_error_errno(r, "Failed to count files in %s: %m", root);
-
-        r = boot_config_find_in(config, root, id);
-        if (r < 0)
-                return 0; /* There is nothing to remove. */
-
-        if (r == config->default_entry)
-                log_warning("%s is the default boot entry", id);
-        if (r == config->selected_entry)
-                log_warning("%s is the selected boot entry", id);
-
-        e = &config->entries[r];
-
-        deref_unlink_file(&known_files, e->kernel, e->root);
-        deref_unlink_file(&known_files, e->efi, e->root);
-        deref_unlink_file(&known_files, e->uki, e->root);
+        unref_unlink_file(&known_files, root_fd, e->kernel);
+        unref_unlink_file(&known_files, root_fd, e->efi);
+        unref_unlink_file(&known_files, root_fd, e->uki);
         STRV_FOREACH(s, e->initrd)
-                deref_unlink_file(&known_files, *s, e->root);
-        deref_unlink_file(&known_files, e->device_tree, e->root);
+                unref_unlink_file(&known_files, root_fd, *s);
+        unref_unlink_file(&known_files, root_fd, e->device_tree);
         STRV_FOREACH(s, e->device_tree_overlay)
-                deref_unlink_file(&known_files, *s, e->root);
+                unref_unlink_file(&known_files, root_fd, *s);
+        FOREACH_ARRAY(x, e->local_extras.items, e->local_extras.n_items)
+                unref_unlink_file(&known_files, root_fd, x->location);
 
         if (arg_dry_run)
                 log_info("Would remove \"%s\"", e->path);
         else {
-                r = chase_and_unlink(e->path, root, CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, 0, NULL);
+                r = chase_and_unlinkat(root_fd, e->path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS|CHASE_MUST_BE_REGULAR, /* flags= */ 0, /* ret_path= */ NULL);
                 if (r == -ENOENT)
                         return 0; /* Already removed? */
                 if (r < 0)
                         return log_error_errno(r, "Failed to remove \"%s\": %m", e->path);
 
-                log_info("Removed %s", e->path);
+                log_info("Removed '%s'.", e->path);
         }
 
         return 0;
 }
 
-int verb_unlink(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        dev_t esp_devid = 0, xbootldr_devid = 0;
+static int unlink_entry(
+                const BootConfig *config,
+                const char *root,
+                int root_fd,
+                const char *id) {
+
         int r;
+
+        assert(config);
+
+        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
+        r = boot_config_count_known_files(config, root_fd, &known_files);
+        if (r < 0)
+                return log_error_errno(r, "Failed to count files in %s: %m", root);
+
+        ssize_t idx = boot_config_find_in(config, root_fd, id);
+        if (idx < 0)
+                return 0; /* There is nothing to remove. */
+
+        if (idx == config->default_entry)
+                log_warning("%s is the default boot entry", id);
+        if (idx == config->selected_entry)
+                log_warning("%s is the selected boot entry", id);
+
+        return boot_entry_unlink(config->entries + idx, root_fd, known_files);
+}
+
+static int unlink_context_from_cmdline(UnlinkContext *ret) {
+        int r;
+
+        assert(ret);
+
+        _cleanup_(unlink_context_done) UnlinkContext b = UNLINK_CONTEXT_NULL;
+        b.entry_token_type = arg_entry_token_type;
+
+        if (strdup_to(&b.entry_token, arg_entry_token) < 0)
+                return log_oom();
+
+        if (arg_root) {
+                b.root_fd = open(arg_root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (b.root_fd < 0)
+                        return log_error_errno(errno, "Failed to open root directory '%s': %m", arg_root);
+
+                if (strdup_to(&b.root, arg_root) < 0)
+                        return log_oom();
+        } else
+                b.root_fd = XAT_FDROOT;
 
         r = acquire_esp(/* unprivileged_mode= */ false,
                         /* graceful= */ false,
+                        &b.esp_fd,
                         /* ret_part= */ NULL,
                         /* ret_pstart= */ NULL,
                         /* ret_psize= */ NULL,
                         /* ret_uuid= */ NULL,
-                        &esp_devid);
-        if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
-                return log_error_errno(r, "Failed to determine ESP location: %m");
-        if (r < 0)
-                return r;
+                        &b.esp_devid);
+        if (r < 0 && r != -ENOKEY)
+                return r; /* About all other errors acquire_esp() logs on its own */
+        if (r > 0) {
+                if (arg_root) {
+                        const char *e = path_startswith(arg_esp_path, arg_root);
+                        if (!e)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "ESP path '%s' not below specified root '%s', refusing.", arg_esp_path, arg_root);
+
+                        r = strdup_to(&b.esp_path, e);
+                } else
+                        r = strdup_to(&b.esp_path, arg_esp_path);
+                if (r < 0)
+                        return log_oom();
+        }
 
         r = acquire_xbootldr(
                         /* unprivileged_mode= */ false,
+                        &b.xbootldr_fd,
                         /* ret_uuid= */ NULL,
-                        &xbootldr_devid);
-        if (r == -EACCES)
-                return log_error_errno(r, "Failed to determine XBOOTLDR partition: %m");
-        if (r < 0)
+                        &b.xbootldr_devid);
+        if (r < 0 && r != -ENOKEY)
                 return r;
+        if (r > 0) {
+                if (arg_root) {
+                        const char *e = path_startswith(arg_xbootldr_path, arg_root);
+                        if (!e)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "XBOOTLDR path '%s' not below specified root '%s', refusing.", arg_xbootldr_path, arg_root);
+
+                        r = strdup_to(&b.xbootldr_path, e);
+                } else
+                        r = strdup_to(&b.xbootldr_path, arg_xbootldr_path);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        /* Only if we found neither ESP nor XBOOTLDR let's fail. */
+        if (!b.xbootldr_path && !b.esp_path)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Neither ESP nor XBOOTLDR found, refusing.");
+
+        *ret = TAKE_GENERIC(b, UnlinkContext, UNLINK_CONTEXT_NULL);
+        return 0;
+}
+
+static int run_unlink(UnlinkContext *c, const char *id) {
+        int r;
+        assert(c);
 
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         r = boot_config_load_and_select(
                         &config,
-                        arg_esp_path,
-                        esp_devid,
-                        arg_xbootldr_path,
-                        xbootldr_devid);
+                        c->esp_path,
+                        c->esp_devid,
+                        c->xbootldr_path,
+                        c->xbootldr_devid);
         if (r < 0)
                 return r;
 
-        r = 0;
-        RET_GATHER(r, unlink_entry(&config, arg_esp_path, argv[1]));
+        _cleanup_free_ char *_id = NULL;
+        if (!id) {
+                r = id128_get_machine_at(c->root_fd, &c->machine_id);
+                if (r < 0 && ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                        return log_error_errno(r, "Failed to get machine-id: %m");
 
-        if (arg_xbootldr_path && xbootldr_devid != esp_devid)
-                RET_GATHER(r, unlink_entry(&config, arg_xbootldr_path, argv[1]));
+                const char *e = secure_getenv("KERNEL_INSTALL_CONF_ROOT");
+                r = boot_entry_token_ensure_at(
+                                e ? XAT_FDROOT : c->root_fd,
+                                e,
+                                c->machine_id,
+                                /* machine_id_is_random= */ false,
+                                &c->entry_token_type,
+                                &c->entry_token);
+                if (r < 0)
+                        return r;
+
+                BootEntry *oldest = boot_config_find_oldest(&config, c->entry_token, /* exclude_selected= */ true);
+                if (!oldest)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No matching non-protected boot loader entries found, refusing.");
+
+                id = oldest->id;
+        }
+
+        r = 0;
+        if (c->esp_path)
+                RET_GATHER(r, unlink_entry(&config, c->esp_path, c->esp_fd, id));
+
+        if (c->xbootldr_path && c->xbootldr_devid != c->esp_devid)
+                RET_GATHER(r, unlink_entry(&config, c->xbootldr_path, c->xbootldr_fd, id));
 
         return r;
+
+}
+
+int verb_unlink(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        int r;
+
+        assert(argc < 3);
+
+        if (arg_oldest != isempty(argv[1]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Either an entry ID or --oldest= must be specified, not both.");
+
+        const char *id = NULL;
+        if (!isempty(argv[1])) {
+                if (!efi_loader_entry_name_valid(argv[1]))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Boot entry ID is not valid: %s", argv[1]);
+
+                id = argv[1];
+        }
+
+        _cleanup_(unlink_context_done) UnlinkContext c = UNLINK_CONTEXT_NULL;
+        r = unlink_context_from_cmdline(&c);
+        if (r < 0)
+                return r;
+
+        return run_unlink(&c, id);
+}
+
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_boot_entry_token_type, BootEntryTokenType, boot_entry_token_type_from_string);
+
+typedef struct UnlinkParameters {
+        UnlinkContext context;
+        unsigned root_fd_index;
+        sd_varlink *link;
+        const char *id;
+        bool oldest;
+} UnlinkParameters;
+
+static void unlink_parameters_done(UnlinkParameters *p) {
+        assert(p);
+
+        unlink_context_done(&p->context);
+}
+
+int vl_method_unlink(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        int r;
+
+        assert(link);
+
+        _cleanup_(unlink_parameters_done) UnlinkParameters p = {
+                .context = UNLINK_CONTEXT_NULL,
+                .root_fd_index = UINT_MAX,
+                .link = link,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "rootFileDescriptor",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,               voffsetof(p, root_fd_index),            0 },
+                { "rootDirectory",        SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, context.root),             0 },
+                { "bootEntryTokenType",   SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_token_type, voffsetof(p, context.entry_token_type), 0 },
+                { "id",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,       voffsetof(p, id),                       0 },
+                { "oldest",               SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, oldest),                   0 },
+                {},
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* Only allow oldest *or* id to be set */
+        if (p.oldest == !!p.id)
+                return sd_varlink_error_invalid_parameter_name(link, "id");
+        if (!efi_loader_entry_name_valid(p.id))
+                return sd_varlink_error_invalid_parameter_name(link, "id");
+
+        if (p.root_fd_index != UINT_MAX) {
+                p.context.root_fd = sd_varlink_peek_dup_fd(link, p.root_fd_index);
+                if (p.context.root_fd < 0)
+                        return log_debug_errno(p.context.root_fd, "Failed to acquire root fd from Varlink: %m");
+
+                r = fd_verify_safe_flags_full(p.context.root_fd, O_DIRECTORY);
+                if (r < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "rootFileDescriptor");
+
+                r = fd_verify_directory(p.context.root_fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Specified file descriptor does not refer to a directory: %m");
+
+                if (!p.context.root) {
+                        r = fd_get_path(p.context.root_fd, &p.context.root);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to get path of file descriptor: %m");
+
+                        if (empty_or_root(p.context.root))
+                                p.context.root = mfree(p.context.root);
+                }
+        } else if (p.context.root) {
+                p.context.root_fd = open(p.context.root, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (p.context.root_fd < 0)
+                        return log_debug_errno(errno, "Failed to open '%s': %m", p.context.root);
+        } else
+                p.context.root_fd = XAT_FDROOT;
+
+        if (p.context.entry_token_type < 0)
+                p.context.entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
+
+        r = find_esp_and_warn_at(
+                        p.context.root_fd,
+                        /* path= */ NULL,
+                        /* unprivileged_mode= */ false,
+                        &p.context.esp_path,
+                        &p.context.esp_fd);
+        if (r < 0 && r != -ENOKEY)
+                return r;
+        r = find_xbootldr_and_warn_at(
+                        p.context.root_fd,
+                        /* path= */ NULL,
+                        /* unprivileged_mode= */ false,
+                        &p.context.xbootldr_path,
+                        &p.context.xbootldr_fd);
+        if (r < 0 && r != -ENOKEY)
+                return r;
+
+        /* Only if we found neither ESP nor XBOOTLDR let's fail. */
+        if (!p.context.xbootldr_path && !p.context.esp_path)
+                return sd_varlink_error(link, "io.systemd.BootControl.NoDollarBootFound", NULL);
+
+        r = run_unlink(&p.context, p.id);
+        if (r == -EUNATCH) /* no boot entry token is set */
+                return sd_varlink_error(link, "io.systemd.BootControl.BootEntryTokenUnavailable", NULL);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
 }
