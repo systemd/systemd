@@ -26,6 +26,7 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_class, machine_class, MachineClass);
 static BUS_DEFINE_PROPERTY_GET2(property_get_state, "s", Machine, machine_get_state, machine_state_to_string);
@@ -365,6 +366,9 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
         user = isempty(user) ? "root" : user;
+
+        if (!valid_user_group_name(user, VALID_USER_RELAX))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user name '%s'", user);
 
         /* Ensure only root can shell into the root namespace. This is to avoid unprivileged users registering
          * a process they own in the root user namespace, and then shelling in as root or another user. Note that
