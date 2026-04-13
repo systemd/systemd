@@ -145,6 +145,9 @@ int stat_verify_symlink(const struct stat *st) {
 }
 
 int fd_verify_symlink(int fd) {
+        if (IN_SET(fd, AT_FDCWD, XAT_FDROOT))
+                return -EISDIR;
+
         return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_symlink, /* verify= */ true);
 }
 
