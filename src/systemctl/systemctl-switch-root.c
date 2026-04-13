@@ -82,7 +82,16 @@ int verb_switch_root(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 
         init = empty_to_null(init);
-        if (init) {
+        if (arg_no_state) {
+                if (init)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--no-state is incompatible with an explicit init argument.");
+
+                /* When --no-state is requested, force init to the systemd binary path. This causes PID 1
+                 * to take the switch-root fallback path which skips serialization, cleans up /run/systemd,
+                 * and starts the new systemd fresh without any state from the initrd. */
+                init = SYSTEMD_BINARY_PATH;
+        } else if (init) {
                 if (!path_is_valid(init))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid path to init binary: %s", init);
                 if (!path_is_absolute(init))

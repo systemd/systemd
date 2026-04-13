@@ -96,6 +96,7 @@ extern bool arg_marked;
 extern const char *arg_drop_in;
 extern ImagePolicy *arg_image_policy;
 extern char *arg_kill_subgroup;
+extern bool arg_no_state;
 
 static inline const char* arg_job_mode(void) {
         return _arg_job_mode ?: "replace";
