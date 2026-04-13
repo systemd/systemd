@@ -879,18 +879,15 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
 
         struct btrfs_ioctl_vol_args vol_args = {};
         _cleanup_close_ int subvol_fd = -EBADF;
-        struct stat st;
         bool made_writable = false;
         int r;
 
         assert(fd >= 0);
         assert(subvolume);
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISDIR(st.st_mode))
-                return -EINVAL;
+        r = fd_verify_directory(fd);
+        if (r < 0)
+                return r;
 
         subvol_fd = openat(fd, subvolume, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         if (subvol_fd < 0)
