@@ -1294,7 +1294,7 @@ foreach ident : [
 endforeach
 
 libcurl = dependency('libcurl',
-                     version : '>= 7.32.0',
+                     version : '>= 7.85.0',
                      required : get_option('libcurl'))
 conf.set10('HAVE_LIBCURL', libcurl.found())
 conf.set10('CURL_NO_OLDIES', conf.get('BUILD_MODE_DEVELOPER') == 1)
