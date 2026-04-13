@@ -487,13 +487,14 @@ int sd_dhcp_client_set_port(
 
 int sd_dhcp_client_set_mtu(sd_dhcp_client *client, uint32_t mtu) {
         assert_return(client, -EINVAL);
-        assert_return(mtu >= DHCP_MIN_PACKET_SIZE, -ERANGE);
 
         /* MTU may be changed by the acquired lease. Hence, we cannot require that the client is stopped here.
          * Please do not add assertion for !sd_dhcp_client_is_running(client) here. */
 
-        client->mtu = mtu;
+        if (mtu < IPV4_MIN_MTU)
+                return -ERANGE;
 
+        client->mtu = mtu;
         return 0;
 }
 
@@ -1441,7 +1442,6 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .n_ref = 1,
                 .state = DHCP_STATE_STOPPED,
                 .ifindex = -1,
-                .mtu = DHCP_MIN_PACKET_SIZE,
                 .port = DHCP_PORT_CLIENT,
                 .server_port = DHCP_PORT_SERVER,
                 .anonymize = !!anonymize,
