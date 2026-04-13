@@ -41,6 +41,28 @@ int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
         return 0;
 }
 
+int iovw_append(struct iovec_wrapper *iovw, const void *data, size_t len) {
+        if (len == 0)
+                return 0;
+
+        void *c = memdup(data, len);
+        if (!c)
+                return -ENOMEM;
+
+        return iovw_put(iovw, c, len);
+}
+
+int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
+        /* Move data into iovw or free on error */
+        int r;
+
+        r = iovw_put(iovw, data, len);
+        if (r < 0)
+                free(data);
+
+        return r;
+}
+
 int iovw_put_string_field_full(struct iovec_wrapper *iovw, bool replace, const char *field, const char *value) {
         _cleanup_free_ char *x = NULL;
         int r;
@@ -103,7 +125,7 @@ size_t iovw_size(const struct iovec_wrapper *iovw) {
         return iovec_total_size(iovw->iovec, iovw->count);
 }
 
-int iovw_append(struct iovec_wrapper *target, const struct iovec_wrapper *source) {
+int iovw_append_iovw(struct iovec_wrapper *target, const struct iovec_wrapper *source) {
         size_t original_count;
         int r;
 
@@ -138,4 +160,33 @@ rollback:
 
         target->count = original_count;
         return r;
+}
+
+char* iovw_to_cstring(const struct iovec_wrapper *iovw) {
+        size_t size;
+        char *p, *ans;
+
+        assert(iovw);
+
+        /* Squish a series of iovecs into a C string. Embedded NULs are not allowed.
+         * The caller is expected to filter them out when populating the data. */
+
+        size = iovw_size(iovw);
+        if (size == SIZE_MAX)
+                return NULL;  /* Prevent theoretical overflow */
+        size ++;
+
+        p = ans = new(char, size);
+        if (!ans)
+                return NULL;
+
+        FOREACH_ARRAY(iovec, iovw->iovec, iovw->count) {
+                assert(!memchr(iovec->iov_base, 0, iovec->iov_len));
+
+                p = mempcpy(p, iovec->iov_base, iovec->iov_len);
+        }
+
+        *p = '\0';
+
+        return ans;
 }
