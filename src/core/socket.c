@@ -2026,6 +2026,7 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
         int r;
 
         assert(s);
+        assert(ret_pid);
 
         r = socket_arm_timer(s, /* relative= */ true, s->timeout_usec);
         if (r < 0)

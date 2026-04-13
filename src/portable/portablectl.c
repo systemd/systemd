@@ -132,6 +132,8 @@ static int extract_prefix(const char *path, char **ret) {
         size_t m;
         int r;
 
+        assert(ret);
+
         r = path_extract_filename(path, &bn);
         if (r < 0)
                 return r;

@@ -44,6 +44,8 @@ static int populate_uid_cache(const char *root, Hashmap **ret) {
         _cleanup_hashmap_free_ Hashmap *cache = NULL;
         int r;
 
+        assert(ret);
+
         cache = hashmap_new(&uid_gid_hash_ops);
         if (!cache)
                 return -ENOMEM;
@@ -84,6 +86,8 @@ static int populate_uid_cache(const char *root, Hashmap **ret) {
 static int populate_gid_cache(const char *root, Hashmap **ret) {
         _cleanup_hashmap_free_ Hashmap *cache = NULL;
         int r;
+
+        assert(ret);
 
         cache = hashmap_new(&uid_gid_hash_ops);
         if (!cache)

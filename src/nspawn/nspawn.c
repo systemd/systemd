@@ -450,6 +450,8 @@ static int parse_capability_spec(const char *spec, uint64_t *ret_mask) {
         uint64_t mask = 0;
         int r;
 
+        assert(ret_mask);
+
         for (;;) {
                 _cleanup_free_ char *t = NULL;
 

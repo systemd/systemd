@@ -803,6 +803,7 @@ static int crypt_device_to_evp_cipher(struct crypt_device *cd, const EVP_CIPHER 
         int r;
 
         assert(cd);
+        assert(ret);
 
         /* Let's find the right OpenSSL EVP_CIPHER object that matches the encryption settings of the LUKS
          * device */
@@ -855,6 +856,7 @@ static int luks_validate_home_record(
 
         assert(cd);
         assert(h);
+        assert(ret_luks_home_record);
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *rr = NULL;
@@ -1915,6 +1917,7 @@ static int make_partition_table(
         assert(label);
         assert(ret_offset);
         assert(ret_size);
+        assert(ret_disk_uuid);
 
         t = fdisk_new_parttype();
         if (!t)
@@ -2784,6 +2787,7 @@ static int prepare_resize_partition(
         assert(fd >= 0);
         assert(ret_disk_uuid);
         assert(ret_table);
+        assert(ret_partition);
 
         assert((partition_offset & 511) == 0);
         assert((old_partition_size & 511) == 0);

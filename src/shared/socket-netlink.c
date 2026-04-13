@@ -373,6 +373,7 @@ int in_addr_full_new(
         _cleanup_free_ char *name = NULL;
         struct in_addr_full *x;
 
+        assert(a);
         assert(ret);
 
         if (!isempty(server_name)) {

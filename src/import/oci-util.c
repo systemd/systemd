@@ -153,7 +153,8 @@ int oci_ref_normalize(char **protocol, char **registry, char **image, char **tag
 
         assert(protocol);
         assert(registry);
-        assert(image && *image);
+        assert(image);
+        assert(*image);
         assert(tag);
 
         /* OCI container reference are supposed to have the form <registry>/<name>:<tag>. Except that it's
@@ -379,6 +380,7 @@ static const char *const go_arch_table[_ARCHITECTURE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(go_arch, Architecture);
 
 char* urlescape(const char *s) {
+        POINTER_MAY_BE_NULL(s);
         size_t l = strlen_ptr(s);
 
         _cleanup_free_ char *t = new(char, l * 3 + 1);

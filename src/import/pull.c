@@ -47,6 +47,8 @@ static int normalize_local(const char *local, const char *url, char **ret) {
         _cleanup_free_ char *ll = NULL;
         int r;
 
+        assert(ret);
+
         if (arg_import_flags & IMPORT_DIRECT) {
 
                 if (!local)

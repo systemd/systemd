@@ -608,6 +608,8 @@ static void remove_dummy_interfacep(int *ifindex) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
 
+        POINTER_MAY_BE_NULL(ifindex);
+
         if (!ifindex || *ifindex <= 0)
                 return;
 

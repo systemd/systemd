@@ -470,48 +470,56 @@ static int private_bpf_delegate_commands_build_json(sd_json_variant **ret, const
         ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_free_ char *v = bpf_delegate_commands_to_string(c->bpf_delegate_commands);
 
+        assert(ret);
+
         if (!v) {
                 *ret = NULL;
                 return 0;
         }
 
-        return sd_json_variant_new_string(ASSERT_PTR(ret), v);
+        return sd_json_variant_new_string(ret, v);
 }
 
 static int private_bpf_delegate_maps_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_free_ char *v = bpf_delegate_maps_to_string(c->bpf_delegate_maps);
 
+        assert(ret);
+
         if (!v) {
                 *ret = NULL;
                 return 0;
         }
 
-        return sd_json_variant_new_string(ASSERT_PTR(ret), v);
+        return sd_json_variant_new_string(ret, v);
 }
 
 static int private_bpf_delegate_programs_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_free_ char *v = bpf_delegate_programs_to_string(c->bpf_delegate_programs);
 
+        assert(ret);
+
         if (!v) {
                 *ret = NULL;
                 return 0;
         }
 
-        return sd_json_variant_new_string(ASSERT_PTR(ret), v);
+        return sd_json_variant_new_string(ret, v);
 }
 
 static int private_bpf_delegate_attachments_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_free_ char *v = bpf_delegate_attachments_to_string(c->bpf_delegate_attachments);
 
+        assert(ret);
+
         if (!v) {
                 *ret = NULL;
                 return 0;
         }
 
-        return sd_json_variant_new_string(ASSERT_PTR(ret), v);
+        return sd_json_variant_new_string(ret, v);
 }
 
 static int syscall_filter_build_json(sd_json_variant **ret, const char *name, void *userdata) {

@@ -78,6 +78,8 @@ static int watchdog_get_pretimeout_governor(char **ret_gov) {
         _cleanup_free_ char *sys_fn = NULL;
         int r;
 
+        assert(ret_gov);
+
         r = watchdog_get_sysfs_path("pretimeout_governor", &sys_fn);
         if (r < 0)
                 return r;
