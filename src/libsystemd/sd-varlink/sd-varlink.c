@@ -590,7 +590,10 @@ static void varlink_clear_current(sd_varlink *v) {
 
         json_stream_close_input_fds(&v->stream);
 
-        v->previous = json_stream_queue_item_free(v->previous);
+        v->previous = sd_json_variant_unref(v->previous);
+        close_many(v->previous_fds, v->n_previous_fds);
+        v->previous_fds = mfree(v->previous_fds);
+        v->n_previous_fds = 0;
         if (v->sentinel != POINTER_MAX)
                 v->sentinel = mfree(v->sentinel);
         else
@@ -602,13 +605,16 @@ static void varlink_clear(sd_varlink *v) {
 
         /* Detach event sources first so the kernel no longer has epoll watches on the
          * stream's fds, then free the stream — json_stream_done() closes the input/output
-         * fds, the cached peer_pidfd, the received input fds, the queued output fds, and
-         * the pushed fds. */
+         * fds, the cached peer_pidfd, the received input fds, and the queued output fds. */
         sd_varlink_detach_event(v);
 
         varlink_clear_current(v);
 
         json_stream_done(&v->stream);
+
+        close_many(v->pushed_fds, v->n_pushed_fds);
+        v->pushed_fds = mfree(v->pushed_fds);
+        v->n_pushed_fds = 0;
 
         pidref_done_sigterm_wait(&v->exec_pidref);
 }
@@ -640,6 +646,20 @@ static int varlink_test_disconnect(sd_varlink *v) {
 
         varlink_set_state(v, VARLINK_PENDING_DISCONNECT);
         return 1;
+}
+
+static int varlink_enqueue(sd_varlink *v, sd_json_variant *m) {
+        int r;
+
+        assert(v);
+        assert(m);
+
+        r = json_stream_enqueue_full(&v->stream, m, v->pushed_fds, v->n_pushed_fds);
+        if (r >= 0)
+                v->n_pushed_fds = 0; /* fds belong to the queue entry now */
+                /* We don't free v->pushed_fds so it can be reused for the next message. */
+
+        return r;
 }
 
 static int varlink_write(sd_varlink *v) {
@@ -1098,9 +1118,11 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                         r = sd_varlink_error_errno(v, r);
                                 } else if (v->sentinel) {
                                         if (v->previous) {
-                                                r = json_stream_enqueue_item(&v->stream, v->previous);
+                                                r = json_stream_enqueue_full(&v->stream, v->previous, v->previous_fds, v->n_previous_fds);
                                                 if (r >= 0) {
-                                                        TAKE_PTR(v->previous);
+                                                        v->previous = sd_json_variant_unref(v->previous);
+                                                        v->previous_fds = mfree(v->previous_fds);
+                                                        v->n_previous_fds = 0;
                                                         varlink_set_state(v, VARLINK_PROCESSED_METHOD);
                                                 }
                                         } else {
@@ -1528,7 +1550,7 @@ _public_ int sd_varlink_send(sd_varlink *v, const char *method, sd_json_variant 
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        r = json_stream_enqueue(&v->stream, m);
+        r = varlink_enqueue(v, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
@@ -1575,7 +1597,7 @@ _public_ int sd_varlink_invoke(sd_varlink *v, const char *method, sd_json_varian
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        r = json_stream_enqueue(&v->stream, m);
+        r = varlink_enqueue(v, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
@@ -1626,7 +1648,7 @@ _public_ int sd_varlink_observe(sd_varlink *v, const char *method, sd_json_varia
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        r = json_stream_enqueue(&v->stream, m);
+        r = varlink_enqueue(v, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
@@ -1673,7 +1695,7 @@ static int varlink_call_internal(sd_varlink *v, sd_json_variant *request) {
          * that we can assign a new reply shortly. */
         varlink_clear_current(v);
 
-        r = json_stream_enqueue(&v->stream, request);
+        r = varlink_enqueue(v, request);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
@@ -1981,7 +2003,7 @@ _public_ int sd_varlink_collect_full(
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        r = json_stream_enqueue(&v->stream, m);
+        r = varlink_enqueue(v, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
@@ -2149,23 +2171,28 @@ _public_ int sd_varlink_reply(sd_varlink *v, sd_json_variant *parameters) {
 
         if (more && v->sentinel) {
                 if (v->previous) {
-                        r = sd_json_variant_set_field_boolean(json_stream_queue_item_get_data(v->previous), "continues", true);
+                        r = sd_json_variant_set_field_boolean(&v->previous, "continues", true);
                         if (r < 0)
                                 return r;
 
-                        r = json_stream_enqueue_item(&v->stream, v->previous);
+                        r = json_stream_enqueue_full(&v->stream, v->previous, v->previous_fds, v->n_previous_fds);
                         if (r < 0)
                                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+
+                        v->previous = sd_json_variant_unref(v->previous);
+                        v->previous_fds = mfree(v->previous_fds);
+                        v->n_previous_fds = 0;
                 }
 
-                r = json_stream_make_queue_item(&v->stream, m, &v->previous);
-                if (r < 0)
-                        return r;
+                v->previous = sd_json_variant_ref(m);
+                v->previous_fds = TAKE_PTR(v->pushed_fds);
+                v->n_previous_fds = v->n_pushed_fds;
+                v->n_pushed_fds = 0;
 
                 return 1;
         }
 
-        r = json_stream_enqueue(&v->stream, m);
+        r = varlink_enqueue(v, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
@@ -2245,7 +2272,7 @@ _public_ int sd_varlink_reply_and_upgrade(sd_varlink *v, sd_json_variant *parame
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        r = json_stream_enqueue(&v->stream, m);
+        r = varlink_enqueue(v, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
@@ -2279,7 +2306,8 @@ _public_ int sd_varlink_reset_fds(sd_varlink *v) {
          * rollback the fds. Note that this is implicitly called whenever an error reply is sent, see
          * below. */
 
-        json_stream_reset_pushed_fds(&v->stream);
+        close_many(v->pushed_fds, v->n_pushed_fds);
+        v->n_pushed_fds = 0;
         return 0;
 }
 
@@ -2298,18 +2326,20 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
         if (v->previous) {
-                r = sd_json_variant_set_field_boolean(json_stream_queue_item_get_data(v->previous), "continues", true);
+                r = sd_json_variant_set_field_boolean(&v->previous, "continues", true);
                 if (r < 0)
                         return r;
 
                 /* If we have a previous reply still ready make sure we queue it before the error. We only
                  * ever set "previous" if we're in a streaming method so we pass more=true unconditionally
                  * here as we know we're still going to queue an error afterwards. */
-                r = json_stream_enqueue_item(&v->stream, v->previous);
+                r = json_stream_enqueue_full(&v->stream, v->previous, v->previous_fds, v->n_previous_fds);
                 if (r < 0)
                         return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
-                TAKE_PTR(v->previous);
+                v->previous = sd_json_variant_unref(v->previous);
+                v->previous_fds = mfree(v->previous_fds);
+                v->n_previous_fds = 0;
         }
 
         /* Reset the list of pushed file descriptors before sending an error reply. We do this here to
@@ -2340,7 +2370,7 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        r = json_stream_enqueue(&v->stream, m);
+        r = varlink_enqueue(v, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
@@ -2480,7 +2510,7 @@ _public_ int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters) {
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        r = json_stream_enqueue(&v->stream, m);
+        r = varlink_enqueue(v, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
@@ -2712,7 +2742,15 @@ _public_ int sd_varlink_push_fd(sd_varlink *v, int fd) {
         if (!json_stream_flags_set(&v->stream, JSON_STREAM_ALLOW_FD_PASSING_OUTPUT))
                 return -EPERM;
 
-        return json_stream_push_fd(&v->stream, fd);
+        if (v->n_pushed_fds >= SCM_MAX_FD) /* Kernel doesn't support more than 253 fds per message, refuse early hence */
+                return -ENOBUFS;
+
+        if (!GREEDY_REALLOC(v->pushed_fds, v->n_pushed_fds + 1))
+                return -ENOMEM;
+
+        int i = (int) v->n_pushed_fds;
+        v->pushed_fds[v->n_pushed_fds++] = fd;
+        return i;
 }
 
 _public_ int sd_varlink_push_dup_fd(sd_varlink *v, int fd) {
