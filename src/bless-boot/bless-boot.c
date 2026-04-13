@@ -115,6 +115,7 @@ static int acquire_path(void) {
                         /* path= */ NULL,
                         /* unprivileged_mode= */ false,
                         &esp_path,
+                        /* ret_fd= */ NULL,
                         /* ret_part= */ NULL,
                         /* ret_pstart= */ NULL,
                         /* ret_psize= */ NULL,
@@ -128,6 +129,7 @@ static int acquire_path(void) {
                         /* path= */ NULL,
                         /* unprivileged_mode= */ false,
                         &xbootldr_path,
+                        /* ret_fd= */ NULL,
                         /* ret_uuid= */ NULL,
                         &xbootldr_devid);
         if (r < 0 && r != -ENOKEY)
