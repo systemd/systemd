@@ -4,3 +4,6 @@
 #include "sd-varlink-idl.h"
 
 extern const sd_varlink_interface vl_interface_io_systemd_Manager;
+
+extern const sd_varlink_symbol vl_type_LogTarget;
+extern const sd_varlink_symbol vl_type_OOMPolicy;
