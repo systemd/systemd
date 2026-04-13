@@ -16,6 +16,7 @@ typedef enum IPv6LinkLocalAddressGenMode {
 
 bool link_ipv6ll_enabled(Link *link);
 bool link_ipv6ll_enabled_harder(Link *link);
+bool network_has_static_ipv6ll_address(const Network *network);
 
 IPv6LinkLocalAddressGenMode link_get_ipv6ll_addrgen_mode(Link *link);
 int ipv6ll_addrgen_mode_fill_message(sd_netlink_message *message, IPv6LinkLocalAddressGenMode mode);

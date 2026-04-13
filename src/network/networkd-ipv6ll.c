@@ -42,6 +42,22 @@ bool link_ipv6ll_enabled(Link *link) {
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
 }
 
+bool network_has_static_ipv6ll_address(const Network *network) {
+        assert(network);
+
+        Address *a;
+        ORDERED_HASHMAP_FOREACH(a, network->addresses_by_section) {
+                if (a->family != AF_INET6)
+                        continue;
+                if (in6_addr_is_set(&a->in_addr_peer.in6))
+                        continue;
+                if (in6_addr_is_link_local(&a->in_addr.in6))
+                        return true;
+        }
+
+        return false;
+}
+
 bool link_ipv6ll_enabled_harder(Link *link) {
         assert(link);
 
@@ -54,17 +70,7 @@ bool link_ipv6ll_enabled_harder(Link *link) {
         if (!link->network)
                 return false;
 
-        Address *a;
-        ORDERED_HASHMAP_FOREACH(a, link->network->addresses_by_section) {
-                if (a->family != AF_INET6)
-                        continue;
-                if (in6_addr_is_set(&a->in_addr_peer.in6))
-                        continue;
-                if (in6_addr_is_link_local(&a->in_addr.in6))
-                        return true;
-        }
-
-        return false;
+        return network_has_static_ipv6ll_address(link->network);
 }
 
 IPv6LinkLocalAddressGenMode link_get_ipv6ll_addrgen_mode(Link *link) {
