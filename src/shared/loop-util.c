@@ -820,7 +820,6 @@ int loop_device_make_by_path_memory(
 
         _cleanup_close_ int fd = -EBADF, mfd = -EBADF;
         _cleanup_free_ char *fn = NULL;
-        struct stat st;
         int r;
 
         assert(path);
@@ -837,11 +836,9 @@ int loop_device_make_by_path_memory(
         if (fd < 0)
                 return -errno;
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISREG(st.st_mode) && !S_ISBLK(st.st_mode))
-                return -EBADF;
+        r = fd_verify_regular_or_block(fd);
+        if (r < 0)
+                return r;
 
         r = path_extract_filename(path, &fn);
         if (r < 0)
