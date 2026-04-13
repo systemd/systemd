@@ -225,7 +225,7 @@ static int can_clean_build_json(sd_json_variant **ret, const char *name, void *u
         }
 
         if (FLAGS_SET(mask, EXEC_CLEAN_FDSTORE)) {
-                r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_STRING("fdstore"));
+                r = sd_json_variant_append_arrayb(&v, JSON_BUILD_CONST_STRING("fdstore"));
                 if (r < 0)
                         return r;
         }
