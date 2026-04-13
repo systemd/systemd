@@ -202,16 +202,14 @@ static int probe_file_system_by_path(const char *path, char **ret_fstype, sd_id1
 }
 
 static int block_get_size_by_fd(int fd, uint64_t *ret) {
-        struct stat st;
+        int r;
 
         assert(fd >= 0);
         assert(ret);
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
+        r = fd_verify_block(fd);
+        if (r < 0)
+                return r;
 
         return blockdev_get_device_size(fd, ret);
 }
@@ -1250,10 +1248,9 @@ static int open_image_file(
 
         if (fstat(image_fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat() image file: %m");
-        if (!S_ISREG(st.st_mode) && !S_ISBLK(st.st_mode))
-                return log_error_errno(
-                                S_ISDIR(st.st_mode) ? SYNTHETIC_ERRNO(EISDIR) : SYNTHETIC_ERRNO(EBADFD),
-                                "Image file %s is not a regular file or block device.", ip);
+        r = stat_verify_regular_or_block(&st);
+        if (r < 0)
+                return log_error_errno(r, "Image file %s is not a regular file or block device.", ip);
 
         /* Locking block devices doesn't really make sense, as this might interfere with
          * udev's workings, and these locks aren't network propagated anyway, hence not what
@@ -2276,8 +2273,9 @@ int home_create_luks(
                 if (setup->image_fd < 0)
                         return setup->image_fd;
 
-                if (!S_ISBLK(st.st_mode))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Device is not a block device, refusing.");
+                r = stat_verify_block(&st);
+                if (r < 0)
+                        return log_error_errno(r, "Device is not a block device, refusing.");
 
                 if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/partition", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
                         return log_oom();

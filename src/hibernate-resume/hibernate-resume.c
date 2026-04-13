@@ -13,6 +13,7 @@
 #include "main-func.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "stat-util.h"
 #include "static-destruct.h"
 
 static HibernateInfo arg_info = {};
@@ -165,9 +166,9 @@ static int run(int argc, char *argv[]) {
         if (stat(arg_info.device, &st) < 0)
                 return log_error_errno(errno, "Failed to stat resume device '%s': %m", arg_info.device);
 
-        if (!S_ISBLK(st.st_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK),
-                                       "Resume device '%s' is not a block device.", arg_info.device);
+        r = stat_verify_block(&st);
+        if (r < 0)
+                return log_error_errno(r, "Resume device '%s' is not a block device.", arg_info.device);
 
         /* The write shall not return if a resume takes place. */
         r = write_resume_config(st.st_rdev, arg_info.offset, arg_info.device);

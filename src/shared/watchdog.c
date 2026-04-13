@@ -17,6 +17,7 @@
 #include "log.h"
 #include "path-util.h"
 #include "ratelimit.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -55,6 +56,7 @@ static int saturated_usec_to_sec(usec_t val) {
 
 static int watchdog_get_sysfs_path(const char *filename, char **ret_path) {
         struct stat st;
+        int r;
 
         if (watchdog_fd < 0)
                 return -EBADF;
@@ -62,8 +64,9 @@ static int watchdog_get_sysfs_path(const char *filename, char **ret_path) {
         if (fstat(watchdog_fd, &st))
                 return -errno;
 
-        if (!S_ISCHR(st.st_mode))
-                return -EBADF;
+        r = stat_verify_char(&st);
+        if (r < 0)
+                return r;
 
         if (asprintf(ret_path, "/sys/dev/char/"DEVNUM_FORMAT_STR"/%s", DEVNUM_FORMAT_VAL(st.st_rdev), filename) < 0)
                 return -ENOMEM;

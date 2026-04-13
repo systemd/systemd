@@ -22,6 +22,7 @@
 #include "pretty-print.h"
 #include "qcow2-util.h"
 #include "ratelimit.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
@@ -309,9 +310,9 @@ static int raw_import_open_disk(RawImport *i) {
         if (fstat(i->output_fd, &i->output_stat) < 0)
                 return log_error_errno(errno, "Failed to stat() output file: %m");
 
-        if (!S_ISREG(i->output_stat.st_mode) && !S_ISBLK(i->output_stat.st_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(EBADFD),
-                                       "Target file is not a regular file or block device");
+        r = stat_verify_regular_or_block(&i->output_stat);
+        if (r < 0)
+                return log_error_errno(r, "Target file is not a regular file or block device.");
 
         if (i->offset != UINT64_MAX) {
                 if (lseek(i->output_fd, i->offset, SEEK_SET) < 0)
