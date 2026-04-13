@@ -202,16 +202,14 @@ static int probe_file_system_by_path(const char *path, char **ret_fstype, sd_id1
 }
 
 static int block_get_size_by_fd(int fd, uint64_t *ret) {
-        struct stat st;
+        int r;
 
         assert(fd >= 0);
         assert(ret);
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
+        r = fd_verify_block(fd);
+        if (r < 0)
+                return r;
 
         return blockdev_get_device_size(fd, ret);
 }
@@ -2275,8 +2273,9 @@ int home_create_luks(
                 if (setup->image_fd < 0)
                         return setup->image_fd;
 
-                if (!S_ISBLK(st.st_mode))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Device is not a block device, refusing.");
+                r = stat_verify_block(&st);
+                if (r < 0)
+                        return log_error_errno(r, "Device is not a block device, refusing.");
 
                 if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/partition", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
                         return log_oom();

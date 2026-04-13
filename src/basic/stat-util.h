@@ -28,6 +28,9 @@ int is_socket(const char *path);
 int stat_verify_linked(const struct stat *st);
 int fd_verify_linked(int fd);
 
+int stat_verify_block(const struct stat *st);
+int fd_verify_block(int fd);
+
 int stat_verify_device_node(const struct stat *st);
 int is_device_node(const char *path);
 

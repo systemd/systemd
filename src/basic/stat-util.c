@@ -203,6 +203,28 @@ int fd_verify_linked(int fd) {
         return verify_stat_at(fd, NULL, false, stat_verify_linked, true);
 }
 
+int stat_verify_block(const struct stat *st) {
+        assert(st);
+
+        if (S_ISDIR(st->st_mode))
+                return -EISDIR;
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
+
+        if (!S_ISBLK(st->st_mode))
+                return -ENOTBLK;
+
+        return 0;
+}
+
+int fd_verify_block(int fd) {
+        if (IN_SET(fd, AT_FDCWD, XAT_FDROOT))
+                return -EISDIR;
+
+        return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_block, /* verify= */ true);
+}
+
 int stat_verify_device_node(const struct stat *st) {
         assert(st);
 
