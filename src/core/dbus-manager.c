@@ -1265,10 +1265,6 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", reterr_error);
-        if (r < 0)
-                return r;
-
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
                 return r;
@@ -1280,6 +1276,10 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
         HASHMAP_FOREACH_KEY(u, k, m->units) {
                 if (k != u->id)
                         continue;
+
+                r = mac_selinux_unit_access_check(u, message, "status", /* reterr_error= */ NULL);
+                if (r < 0)
+                        continue; /* silently skip units the caller is not allowed to see */
 
                 if (!unit_passes_filter(u, states, patterns))
                         continue;
