@@ -11,6 +11,7 @@
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "ip-util.h"
+#include "network-common.h"
 #include "set.h"
 #include "sort-util.h"
 #include "string-util.h"
@@ -161,6 +162,15 @@ int dhcp_message_append_option_be32(sd_dhcp_message *message, uint8_t code, be32
                 return -EEXIST;
 
         return dhcp_message_append_option(message, code, sizeof(be32_t), &data);
+}
+
+int dhcp_message_append_option_sec(sd_dhcp_message *message, uint8_t code, usec_t usec) {
+        assert(message);
+
+        if (message_has_option(message, code))
+                return -EEXIST;
+
+        return dhcp_message_append_option_be32(message, code, usec_to_be32_sec(usec));
 }
 
 int dhcp_message_append_option_address(sd_dhcp_message *message, uint8_t code, const struct in_addr *addr) {
@@ -479,6 +489,21 @@ int dhcp_message_get_option_u16(sd_dhcp_message *message, uint8_t code, uint16_t
 int dhcp_message_get_option_be32(sd_dhcp_message *message, uint8_t code, be32_t *ret) {
         assert(message);
         return dhcp_message_get_option(message, code, sizeof(be32_t), ret);
+}
+
+int dhcp_message_get_option_sec(sd_dhcp_message *message, uint8_t code, bool max_as_infinity, usec_t *ret) {
+        int r;
+
+        assert(message);
+
+        be32_t t;
+        r = dhcp_message_get_option_be32(message, code, &t);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = be32_sec_to_usec(t, max_as_infinity);
+        return 0;
 }
 
 int dhcp_message_get_option_address(sd_dhcp_message *message, uint8_t code, struct in_addr *ret) {
