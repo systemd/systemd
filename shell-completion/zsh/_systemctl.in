@@ -526,6 +526,7 @@ _arguments -s \
     '--system[Connect to system manager]' \
     '--user[Connect to user service manager]' \
     "--no-wall[Don't send wall message before halt/power-off/reboot]" \
+    "--no-state[Don't pass state to the new system manager when switching root]" \
     '--global[Enable/disable/mask default user unit files globally]' \
     "--no-reload[When enabling/disabling unit files, don't reload daemon configuration]" \
     '--no-ask-password[Do not ask for system passwords]' \
