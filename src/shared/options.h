@@ -60,6 +60,18 @@ typedef struct Option {
         OPTION_LONG("no-pager", NULL, "Do not start a pager")
 #define OPTION_COMMON_NO_LEGEND \
         OPTION_LONG("no-legend", NULL, "Do not show headers and footers")
+#define OPTION_COMMON_LOG_LEVEL \
+        OPTION_LONG("log-level", "LEVEL", \
+                    "Set log level (debug, info, notice, warning, err, crit, alert, emerg)")
+#define OPTION_COMMON_LOG_TARGET \
+        OPTION_LONG("log-target", "TARGET", \
+                    "Set log target (console, journal, journal-or-kmsg, kmsg, null)")
+#define OPTION_COMMON_LOG_COLOR \
+        OPTION_LONG("log-color", "BOOL", "Highlight important messages")
+#define OPTION_COMMON_LOG_LOCATION \
+        OPTION_LONG("log-location", "BOOL", "Include code location in messages")
+#define OPTION_COMMON_LOG_TIME \
+        OPTION_LONG("log-time", "BOOL", "Prefix messages with current time")
 #define OPTION_COMMON_CAT_CONFIG \
         OPTION_LONG("cat-config", NULL, "Show configuration files")
 #define OPTION_COMMON_TLDR \
