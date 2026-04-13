@@ -7,6 +7,7 @@
 #include "device-nodes.h"
 #include "path-util.h"
 #include "stdio-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "utf8.h"
 
@@ -63,6 +64,7 @@ int encode_devnode_name(const char *str, char *str_enc, size_t len) {
 
 int devnode_same(const char *a, const char *b) {
         struct stat sa, sb;
+        int r;
 
         assert(a);
         assert(b);
@@ -72,13 +74,15 @@ int devnode_same(const char *a, const char *b) {
 
         if (stat(a, &sa) < 0)
                 return -errno;
+        r = stat_verify_device_node(&sa);
+        if (r < 0)
+                return r;
+
         if (stat(b, &sb) < 0)
                 return -errno;
-
-        if (!S_ISBLK(sa.st_mode) && !S_ISCHR(sa.st_mode))
-                return -ENODEV;
-        if (!S_ISBLK(sb.st_mode) && !S_ISCHR(sb.st_mode))
-                return -ENODEV;
+        r = stat_verify_device_node(&sb);
+        if (r < 0)
+                return r;
 
         if (((sa.st_mode ^ sb.st_mode) & S_IFMT) != 0) /* both inode same device node type? */
                 return false;

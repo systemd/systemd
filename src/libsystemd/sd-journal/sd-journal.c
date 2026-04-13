@@ -2456,7 +2456,6 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
 
 _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        struct stat st;
         bool take_fd;
         int r;
 
@@ -2464,11 +2463,9 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         assert_return(fd >= 0, -EBADF);
         assert_return((flags & ~OPEN_DIRECTORY_FD_ALLOWED_FLAGS) == 0, -EINVAL);
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISDIR(st.st_mode))
-                return -EBADFD;
+        r = fd_verify_directory(fd);
+        if (r < 0)
+                return r;
 
         take_fd = FLAGS_SET(flags, SD_JOURNAL_TAKE_DIRECTORY_FD);
         j = journal_new(flags & ~SD_JOURNAL_TAKE_DIRECTORY_FD, NULL, NULL);
