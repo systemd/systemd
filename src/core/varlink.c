@@ -4,6 +4,7 @@
 
 #include "constants.h"
 #include "errno-util.h"
+#include "json-util.h"
 #include "manager.h"
 #include "metrics.h"
 #include "path-util.h"
@@ -62,7 +63,7 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, s
                 return -EINVAL;
 
         return sd_json_buildo(ret_v,
-                              SD_JSON_BUILD_PAIR_STRING("mode", mode),
+                              JSON_BUILD_PAIR_ENUM("mode", mode),
                               SD_JSON_BUILD_PAIR_STRING("path", crt->cgroup_path),
                               SD_JSON_BUILD_PAIR_STRING("property", property),
                               SD_JSON_BUILD_PAIR_CONDITION(use_limit, "limit", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit)),

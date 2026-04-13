@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "varlink-idl-common.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 
 /* Pull in vl_type_ControlGroup, since both interfaces need it */
@@ -19,6 +20,7 @@ static SD_VARLINK_DEFINE_ERROR(SubscriptionTaken);
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_ManagedOOM,
                 "io.systemd.ManagedOOM",
+                &vl_type_ManagedOOMMode,
                 &vl_method_SubscribeManagedOOMCGroups,
                 &vl_type_ControlGroup,
                 &vl_error_SubscriptionTaken);
