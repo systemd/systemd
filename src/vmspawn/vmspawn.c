@@ -2387,7 +2387,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return log_oom();
 
         /* Create our runtime directory. We need this for the QEMU config file, TPM state, virtiofsd
-         * sockets, runtime mounts, and SSH key material. */
+         * sockets, runtime mounts, and SSH key material.
+         *
+         * Use runtime_directory() (not _generic()) so that when vmspawn runs in a systemd service
+         * with RuntimeDirectory= set, we pick up $RUNTIME_DIRECTORY and place our stuff into the
+         * directory the service manager prepared for us. When the env var is unset, we fall back
+         * to /run/systemd/vmspawn/<machine>/ (or the $XDG_RUNTIME_DIR equivalent in user scope)
+         * and take care of creation and destruction ourselves. */
         _cleanup_free_ char *runtime_dir = NULL, *runtime_dir_suffix = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
 
@@ -2395,21 +2401,27 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (!runtime_dir_suffix)
                 return log_oom();
 
-        r = runtime_directory_generic(arg_runtime_scope, runtime_dir_suffix, &runtime_dir);
+        r = runtime_directory(arg_runtime_scope, runtime_dir_suffix, &runtime_dir);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine runtime directory: %m");
+        if (r > 0) {
+                /* $RUNTIME_DIRECTORY was not set, so we got the fallback path and need to create and
+                 * clean up the directory ourselves.
+                 *
+                 * If a previous vmspawn instance was killed without cleanup (e.g. SIGKILL), the directory may
+                 * already exist with stale contents. This is harmless: varlink's sockaddr_un_unlink() removes stale
+                 * sockets before bind(), and other files (QEMU config, SSH keys) are created fresh. This matches
+                 * nspawn's approach of not proactively cleaning stale runtime directories. */
+                r = mkdir_p(runtime_dir, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create runtime directory '%s': %m", runtime_dir);
 
-        /* If a previous vmspawn instance was killed without cleanup (e.g. SIGKILL), the directory may
-         * already exist with stale contents. This is harmless: varlink's sockaddr_un_unlink() removes stale
-         * sockets before bind(), and other files (QEMU config, SSH keys) are created fresh. This matches
-         * nspawn's approach of not proactively cleaning stale runtime directories. */
-        r = mkdir_p(runtime_dir, 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create runtime directory '%s': %m", runtime_dir);
-
-        runtime_dir_destroy = strdup(runtime_dir);
-        if (!runtime_dir_destroy)
-                return log_oom();
+                runtime_dir_destroy = strdup(runtime_dir);
+                if (!runtime_dir_destroy)
+                        return log_oom();
+        }
+        /* When $RUNTIME_DIRECTORY is set the service manager created the directory for us and
+         * will destroy it (or preserve it, per RuntimeDirectoryPreserve=) when the service stops. */
 
         log_debug("Using runtime directory: %s", runtime_dir);
 
