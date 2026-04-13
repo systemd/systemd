@@ -4089,6 +4089,45 @@ int config_parse_managed_oom_mem_pressure_duration_sec(
         return 0;
 }
 
+int config_parse_managed_oom_rules(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        UnitType t;
+
+        t = unit_name_to_type(unit);
+        assert(t != _UNIT_TYPE_INVALID);
+
+        if (!unit_vtable[t]->can_set_managed_oom)
+                return log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= is not supported for this unit type, ignoring.", lvalue);
+
+        /* Validate each rule name as a valid filename component, since rulesets are loaded from .oomrule files.
+         * Use the same extract flags as config_parse_strv() below so both passes tokenize identically. */
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+                int r;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                if (r == 0)
+                        break;
+                if (r < 0)
+                        return log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
+
+                if (!filename_is_valid(word))
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid rule name in %s=, ignoring: %s", lvalue, word);
+        }
+
+        return config_parse_strv(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
 int config_parse_device_allow(
                 const char *unit,
                 const char *filename,
