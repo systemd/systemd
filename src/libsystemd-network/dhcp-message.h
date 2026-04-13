@@ -34,6 +34,7 @@ int dhcp_message_append_option_flag(sd_dhcp_message *message, uint8_t code);
 int dhcp_message_append_option_u8(sd_dhcp_message *message, uint8_t code, uint8_t data);
 int dhcp_message_append_option_u16(sd_dhcp_message *message, uint8_t code, uint16_t data);
 int dhcp_message_append_option_be32(sd_dhcp_message *message, uint8_t code, be32_t data);
+int dhcp_message_append_option_sec(sd_dhcp_message *message, uint8_t code, usec_t usec);
 
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret);
 int dhcp_message_get_option_alloc(sd_dhcp_message *message, uint8_t code, struct iovec *ret);
@@ -41,6 +42,7 @@ int dhcp_message_get_option_flag(sd_dhcp_message *message, uint8_t code);
 int dhcp_message_get_option_u8(sd_dhcp_message *message, uint8_t code, uint8_t *ret);
 int dhcp_message_get_option_u16(sd_dhcp_message *message, uint8_t code, uint16_t *ret);
 int dhcp_message_get_option_be32(sd_dhcp_message *message, uint8_t code, be32_t *ret);
+int dhcp_message_get_option_sec(sd_dhcp_message *message, uint8_t code, bool max_as_infinity, usec_t *ret);
 
 int dhcp_message_parse(
                 const struct iovec *iov,
