@@ -150,6 +150,7 @@ jobs:
         with:
           # Need full history for git worktree add to work on all PR commits.
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Download PR context
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
@@ -200,8 +201,8 @@ jobs:
               "allow": [
                 "Bash",
                 "Read",
-                "Edit(//${{ github.workspace }}/**)",
-                "Write(//${{ github.workspace }}/**)",
+                "Edit(/${{ github.workspace }}/**)",
+                "Write(/${{ github.workspace }}/**)",
                 "Grep",
                 "Glob",
                 "Agent",
