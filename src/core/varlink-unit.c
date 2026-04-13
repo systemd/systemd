@@ -523,6 +523,10 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 if (k != unit->id)
                         continue;
 
+                r = mac_selinux_unit_access_check_varlink(unit, link, "status");
+                if (r < 0)
+                        continue; /* silently skip units the caller is not allowed to see */
+
                 r = list_unit_one(link, unit);
                 if (r < 0)
                         return r;
