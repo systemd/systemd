@@ -8,6 +8,12 @@
 
 #include "sparse-endian.h"
 
+/* RFC 791
+ * Fragmentation and Reassembly.
+ * Every internet destination must be able to receive a datagram of 576 octets either in one piece or in
+ * fragments to be reassembled. */
+#define IPV4_MIN_REASSEMBLY_SIZE 576
+
 #define UDP_PAYLOAD_MAX_SIZE (UINT16_MAX - sizeof(struct iphdr) - sizeof(struct udphdr))
 
 uint16_t ip_checksum(const void *buf, size_t len);
