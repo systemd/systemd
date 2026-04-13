@@ -93,6 +93,7 @@ int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         r = acquire_esp(/* unprivileged_mode= */ false,
                         /* graceful= */ false,
+                        /* ret_fd= */ NULL,
                         /* ret_part= */ NULL,
                         /* ret_pstart= */ NULL,
                         /* ret_psize= */ NULL,
@@ -105,6 +106,7 @@ int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         r = acquire_xbootldr(
                         /* unprivileged_mode= */ false,
+                        /* ret_fd= */ NULL,
                         /* ret_uuid= */ NULL,
                         &xbootldr_devid);
         if (r == -EACCES)
