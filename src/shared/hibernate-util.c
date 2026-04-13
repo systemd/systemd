@@ -209,8 +209,9 @@ static int swap_entry_get_resume_config(SwapEntry *swap) {
                 return -errno;
 
         if (!swap->swapfile) {
-                if (!S_ISBLK(st.st_mode))
-                        return -ENOTBLK;
+                r = stat_verify_block(&st);
+                if (r < 0)
+                        return r;
 
                 swap->devno = st.st_rdev;
                 swap->offset = 0;

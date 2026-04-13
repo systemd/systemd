@@ -149,8 +149,9 @@ int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
                 if (stat((char*) di.path, &st) < 0)
                         return -errno;
 
-                if (!S_ISBLK(st.st_mode))
-                        return -ENOTBLK;
+                r = stat_verify_block(&st);
+                if (r < 0)
+                        return r;
 
                 if (major(st.st_rdev) == 0)
                         return -ENODEV;
