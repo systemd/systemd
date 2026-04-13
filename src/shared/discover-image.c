@@ -1895,17 +1895,15 @@ int image_read_only(Image *i, bool b, RuntimeScope scope) {
 
         case IMAGE_BLOCK: {
                 _cleanup_close_ int fd = -EBADF;
-                struct stat st;
                 int state = b;
 
                 fd = open(i->path, O_CLOEXEC|O_RDONLY|O_NONBLOCK|O_NOCTTY);
                 if (fd < 0)
                         return -errno;
 
-                if (fstat(fd, &st) < 0)
-                        return -errno;
-                if (!S_ISBLK(st.st_mode))
-                        return -ENOTTY;
+                r = fd_verify_block(fd);
+                if (r < 0)
+                        return r;
 
                 if (ioctl(fd, BLKROSET, &state) < 0)
                         return -errno;

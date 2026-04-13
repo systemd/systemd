@@ -1413,9 +1413,9 @@ static int discover_device(void) {
         if (S_ISREG(st.st_mode))
                 return discover_loop_backing_file();
 
-        if (!S_ISBLK(st.st_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unsupported mount source type for --discover: %s", arg_mount_what);
+        r = stat_verify_block(&st);
+        if (r < 0)
+                return log_error_errno(r, "Unsupported mount source type for --discover: %s", arg_mount_what);
 
         r = sd_device_new_from_stat_rdev(&d, &st);
         if (r < 0)

@@ -3214,8 +3214,9 @@ static int home_get_image_path_seat(Home *h, char **ret) {
         if (stat(ip, &st) < 0)
                 return -errno;
 
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
+        r = stat_verify_block(&st);
+        if (r < 0)
+                return r;
 
         r = sd_device_new_from_stat_rdev(&d, &st);
         if (r < 0)

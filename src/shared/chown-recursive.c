@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "user-util.h"
 #include "xattr-util.h"
@@ -144,6 +145,7 @@ int fd_chown_recursive(
 
         int duplicated_fd = -EBADF;
         struct stat st;
+        int r;
 
         /* Note that the slightly different order of fstat() and the checks here and in
          * path_chown_recursive(). That's because when we open the directory ourselves we can specify
@@ -153,8 +155,9 @@ int fd_chown_recursive(
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        if (!S_ISDIR(st.st_mode))
-                return -ENOTDIR;
+        r = stat_verify_directory(&st);
+        if (r < 0)
+                return r;
 
         if (!uid_is_valid(uid) && !gid_is_valid(gid) && FLAGS_SET(mask, 07777))
                 return 0; /* nothing to do */

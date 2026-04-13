@@ -1861,6 +1861,8 @@ int terminal_set_cursor_position(int fd, unsigned row, unsigned column) {
 }
 
 static int terminal_verify_same(int input_fd, int output_fd) {
+        int r;
+
         assert(input_fd >= 0);
         assert(output_fd >= 0);
 
@@ -1871,15 +1873,17 @@ static int terminal_verify_same(int input_fd, int output_fd) {
                 if (fstat(input_fd, &sti) < 0)
                         return -errno;
 
-                if (!S_ISCHR(sti.st_mode)) /* TTYs are character devices */
-                        return -ENOTTY;
+                r = stat_verify_char(&sti); /* TTYs are character devices */
+                if (r < 0)
+                        return r;
 
                 struct stat sto;
                 if (fstat(output_fd, &sto) < 0)
                         return -errno;
 
-                if (!S_ISCHR(sto.st_mode))
-                        return -ENOTTY;
+                r = stat_verify_char(&sto);
+                if (r < 0)
+                        return r;
 
                 if (sti.st_rdev != sto.st_rdev)
                         return -ENOLINK;
