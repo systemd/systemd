@@ -157,11 +157,11 @@ int is_symlink(const char *path) {
 }
 
 static int mode_verify_socket(mode_t mode) {
-        if (S_ISLNK(mode))
-                return -ELOOP;
-
         if (S_ISDIR(mode))
                 return -EISDIR;
+
+        if (S_ISLNK(mode))
+                return -ELOOP;
 
         if (!S_ISSOCK(mode))
                 return -ENOTSOCK;
@@ -243,11 +243,11 @@ int stat_verify_char(const struct stat *st) {
 int stat_verify_device_node(const struct stat *st) {
         assert(st);
 
-        if (S_ISLNK(st->st_mode))
-                return -ELOOP;
-
         if (S_ISDIR(st->st_mode))
                 return -EISDIR;
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
 
         if (!S_ISBLK(st->st_mode) && !S_ISCHR(st->st_mode))
                 return -ENOTTY;
