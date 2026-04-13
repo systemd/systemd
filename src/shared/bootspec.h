@@ -105,6 +105,7 @@ DECLARE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source_description, BootEntrySo
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source, BootEntrySource);
 
 BootEntry* boot_config_find_entry(BootConfig *config, const char *id);
+BootEntry* boot_config_find_oldest(BootConfig *config, const char *prefix, bool exclude_selected, bool exclude_only);
 
 static inline const BootEntry* boot_config_default_entry(const BootConfig *config) {
         assert(config);

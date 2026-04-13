@@ -1704,6 +1704,46 @@ BootEntry* boot_config_find_entry(BootConfig *config, const char *id) {
         return NULL;
 }
 
+BootEntry* boot_config_find_oldest(
+                BootConfig *config,
+                const char *prefix,
+                bool exclude_selected,  /* if true, do not consider the currently booted entry */
+                bool exclude_only) {    /* if true, do not consider the only boot loader entry */
+
+        assert(config);
+
+        if (config->n_entries <= 0)
+                return NULL;
+
+        bool any = false;
+        for (size_t j = config->n_entries; j >= 1; j--) {
+                BootEntry *b = config->entries + (j - 1);
+
+                if (!b->id)
+                        continue;
+
+                if (prefix && !startswith(b->id, prefix))
+                        continue;
+
+                any = true; /* remember that we've seen at least one entry matching the prefix */
+
+                /* If requested skip the currently booted entry */
+                if (exclude_selected &&
+                    config->selected_entry >= 0 &&
+                    (size_t) config->selected_entry == j - 1)
+                        continue;
+
+                /* If requested skip this entry if it is the last entry and we have not seen any other entry
+                 * that matches our prefix */
+                if (exclude_only && j <= 1 && !any)
+                        continue;
+
+                return b;
+        }
+
+        return NULL;
+}
+
 static void boot_entry_file_list(
                 const char *field,
                 const char *root,
