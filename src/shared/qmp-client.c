@@ -692,33 +692,6 @@ static QmpClientArgs* qmp_client_args_close_fds(QmpClientArgs *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(QmpClientArgs*, qmp_client_args_close_fds);
 
-/* Transfer fds to the stream. On partial failure narrow args to the unstaged tail so
- * the caller's cleanup closes only the untransferred fds. */
-static int qmp_client_stage_fds(QmpClient *c, QmpClientArgs *args) {
-        int r;
-
-        assert(c);
-
-        if (!args || args->n_fds == 0)
-                return 0;
-
-        assert(args->fds_consume);
-
-        for (size_t i = 0; i < args->n_fds; i++) {
-                r = json_stream_push_fd(&c->stream, args->fds_consume[i]);
-                if (r < 0) {
-                        /* Already-staged are owned by the stream; narrow args to the rest. */
-                        json_stream_reset_pushed_fds(&c->stream);
-                        args->fds_consume = &args->fds_consume[i];
-                        args->n_fds -= i;
-                        return r;
-                }
-        }
-
-        args->n_fds = 0;
-        return 0;
-}
-
 int qmp_client_invoke(
                 QmpClient *c,
                 const char *command,
@@ -728,8 +701,8 @@ int qmp_client_invoke(
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL;
         _cleanup_free_ QmpSlot *pending = NULL;
-        /* Closes any fds in args not yet handed to the stream on every early-return path;
-         * TAKE_PTR()'d on the success path below once stage_fds has consumed them. */
+        /* Closes any fds in args on every early-return path; TAKE_PTR()'d on the success path
+         * below once json_stream_enqueue_full() has taken ownership of them. */
         _cleanup_(qmp_client_args_close_fdsp) QmpClientArgs *fds_owner = args;
         uint64_t id;
         int r;
@@ -761,16 +734,10 @@ int qmp_client_invoke(
                 return r;
         assert(r > 0);
 
-        /* Stage AFTER ensure_running() drained internal enqueues so the next enqueue is ours. */
-        r = qmp_client_stage_fds(c, args);
+        r = json_stream_enqueue_full(&c->stream, cmd,
+                                     args ? args->fds_consume : NULL,
+                                     args ? args->n_fds : 0);
         if (r < 0) {
-                set_remove(c->slots, pending);
-                return r;
-        }
-
-        r = json_stream_enqueue(&c->stream, cmd);
-        if (r < 0) {
-                json_stream_reset_pushed_fds(&c->stream);
                 set_remove(c->slots, pending);
                 return r;
         }

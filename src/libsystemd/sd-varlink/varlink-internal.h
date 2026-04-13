@@ -94,7 +94,12 @@ typedef struct sd_varlink {
         sd_varlink_reply_flags_t current_reply_flags;
         sd_varlink_symbol *current_method;
 
-        JsonStreamQueueItem *previous;
+        int *pushed_fds;
+        size_t n_pushed_fds;
+
+        sd_json_variant *previous;
+        int *previous_fds;
+        size_t n_previous_fds;
         char *sentinel;
 
         /* Per-call protocol-upgrade marker: set when the *current* method call carries the
