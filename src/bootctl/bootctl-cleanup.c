@@ -99,8 +99,6 @@ int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         /* ret_psize= */ NULL,
                         /* ret_uuid= */ NULL,
                         &esp_devid);
-        if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
-                return log_error_errno(r, "Failed to determine ESP location: %m");
         if (r < 0)
                 return r;
 
@@ -109,8 +107,6 @@ int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         /* ret_fd= */ NULL,
                         /* ret_uuid= */ NULL,
                         &xbootldr_devid);
-        if (r == -EACCES)
-                return log_error_errno(r, "Failed to determine XBOOTLDR partition: %m");
         if (r < 0)
                 return r;
 
