@@ -9,6 +9,7 @@
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "ip-util.h"
+#include "network-common.h"
 
 static sd_dhcp_message* dhcp_message_free(sd_dhcp_message *message) {
         if (!message)
@@ -161,6 +162,11 @@ int dhcp_message_append_option_be32(sd_dhcp_message *message, uint8_t code, be32
         return dhcp_message_append_option(message, code, sizeof(be32_t), &data);
 }
 
+int dhcp_message_append_option_sec(sd_dhcp_message *message, uint8_t code, usec_t usec) {
+        assert(message);
+        return dhcp_message_append_option_be32(message, code, usec_to_be32_sec(usec));
+}
+
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret) {
         int r;
 
@@ -209,6 +215,21 @@ int dhcp_message_get_option_u16(sd_dhcp_message *message, uint8_t code, uint16_t
 int dhcp_message_get_option_be32(sd_dhcp_message *message, uint8_t code, be32_t *ret) {
         assert(message);
         return dhcp_message_get_option(message, code, sizeof(be32_t), ret);
+}
+
+int dhcp_message_get_option_sec(sd_dhcp_message *message, uint8_t code, bool max_as_infinity, usec_t *ret) {
+        int r;
+
+        assert(message);
+
+        be32_t t;
+        r = dhcp_message_get_option_be32(message, code, &t);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = be32_sec_to_usec(t, max_as_infinity);
+        return 0;
 }
 
 static int dhcp_message_verify_header(
