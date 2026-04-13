@@ -4,6 +4,7 @@
 #include "tests.h"
 #include "test-varlink-idl-util.h"
 #include "unit.h"
+#include "varlink-idl-common.h"
 #include "varlink-io.systemd.Unit.h"
 
 TEST(unit_enums_idl) {
