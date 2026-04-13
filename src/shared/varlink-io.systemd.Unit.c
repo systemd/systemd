@@ -15,21 +15,6 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(file));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
-                ExecOutputType,
-                SD_VARLINK_DEFINE_ENUM_VALUE(inherit),
-                SD_VARLINK_DEFINE_ENUM_VALUE(null),
-                SD_VARLINK_DEFINE_ENUM_VALUE(tty),
-                SD_VARLINK_DEFINE_ENUM_VALUE(kmsg),
-                SD_VARLINK_DEFINE_ENUM_VALUE(kmsg_console),
-                SD_VARLINK_DEFINE_ENUM_VALUE(journal),
-                SD_VARLINK_DEFINE_ENUM_VALUE(journal_console),
-                SD_VARLINK_DEFINE_ENUM_VALUE(socket),
-                SD_VARLINK_DEFINE_ENUM_VALUE(fd),
-                SD_VARLINK_DEFINE_ENUM_VALUE(file),
-                SD_VARLINK_DEFINE_ENUM_VALUE(append),
-                SD_VARLINK_DEFINE_ENUM_VALUE(truncate));
-
-SD_VARLINK_DEFINE_ENUM_TYPE(
                 ExecUtmpMode,
                 SD_VARLINK_DEFINE_ENUM_VALUE(init),
                 SD_VARLINK_DEFINE_ENUM_VALUE(login),
@@ -119,46 +104,15 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(strict));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
-                ManagedOOMMode,
-                SD_VARLINK_DEFINE_ENUM_VALUE(auto),
-                SD_VARLINK_DEFINE_ENUM_VALUE(kill));
-
-SD_VARLINK_DEFINE_ENUM_TYPE(
                 ManagedOOMPreference,
                 SD_VARLINK_DEFINE_ENUM_VALUE(none),
                 SD_VARLINK_DEFINE_ENUM_VALUE(avoid),
                 SD_VARLINK_DEFINE_ENUM_VALUE(omit));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
-                CGroupPressureWatch,
-                SD_VARLINK_DEFINE_ENUM_VALUE(no),
-                SD_VARLINK_DEFINE_ENUM_VALUE(yes),
-                SD_VARLINK_DEFINE_ENUM_VALUE(auto),
-                SD_VARLINK_DEFINE_ENUM_VALUE(skip));
-
-SD_VARLINK_DEFINE_ENUM_TYPE(
                 CollectMode,
                 SD_VARLINK_DEFINE_ENUM_VALUE(inactive),
                 SD_VARLINK_DEFINE_ENUM_VALUE(inactive_or_failed));
-
-SD_VARLINK_DEFINE_ENUM_TYPE(
-                EmergencyAction,
-                SD_VARLINK_DEFINE_ENUM_VALUE(none),
-                SD_VARLINK_DEFINE_ENUM_VALUE(exit),
-                SD_VARLINK_DEFINE_ENUM_VALUE(exit_force),
-                SD_VARLINK_DEFINE_ENUM_VALUE(reboot),
-                SD_VARLINK_DEFINE_ENUM_VALUE(reboot_force),
-                SD_VARLINK_DEFINE_ENUM_VALUE(reboot_immediate),
-                SD_VARLINK_DEFINE_ENUM_VALUE(poweroff),
-                SD_VARLINK_DEFINE_ENUM_VALUE(poweroff_force),
-                SD_VARLINK_DEFINE_ENUM_VALUE(poweroff_immediate),
-                SD_VARLINK_DEFINE_ENUM_VALUE(soft_reboot),
-                SD_VARLINK_DEFINE_ENUM_VALUE(soft_reboot_force),
-                SD_VARLINK_DEFINE_ENUM_VALUE(kexec),
-                SD_VARLINK_DEFINE_ENUM_VALUE(kexec_force),
-                SD_VARLINK_DEFINE_ENUM_VALUE(halt),
-                SD_VARLINK_DEFINE_ENUM_VALUE(halt_force),
-                SD_VARLINK_DEFINE_ENUM_VALUE(halt_immediate));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 JobMode,
