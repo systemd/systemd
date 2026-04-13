@@ -839,9 +839,9 @@ int resource_resolve_path(
                 } else { /* boot, esp, or xbootldr */
                         r = 0;
                         if (IN_SET(rr->path_relative_to, PATH_RELATIVE_TO_BOOT, PATH_RELATIVE_TO_XBOOTLDR))
-                                r = find_xbootldr_and_warn(root, /* path= */ NULL, /* unprivileged_mode= */ -1, &relative_to);
+                                r = find_xbootldr_and_warn(root, /* path= */ NULL, /* unprivileged_mode= */ -1, &relative_to, /* ret_fd= */ NULL);
                         if (r == -ENOKEY || rr->path_relative_to == PATH_RELATIVE_TO_ESP)
-                                r = find_esp_and_warn(root, /* path= */ NULL, /* unprivileged_mode= */ -1, &relative_to);
+                                r = find_esp_and_warn(root, /* path= */ NULL, /* unprivileged_mode= */ -1, &relative_to, /* ret_fd= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to resolve $BOOT: %m");
                         log_debug("Resolved $BOOT to '%s'", relative_to);
