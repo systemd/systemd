@@ -3,6 +3,24 @@
 #include "varlink-idl-common.h"
 #include "varlink-io.systemd.Manager.h"
 
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                LogTarget,
+                SD_VARLINK_DEFINE_ENUM_VALUE(console),
+                SD_VARLINK_DEFINE_ENUM_VALUE(kmsg),
+                SD_VARLINK_DEFINE_ENUM_VALUE(journal),
+                SD_VARLINK_DEFINE_ENUM_VALUE(syslog),
+                SD_VARLINK_DEFINE_ENUM_VALUE(console_prefixed),
+                SD_VARLINK_DEFINE_ENUM_VALUE(journal_or_kmsg),
+                SD_VARLINK_DEFINE_ENUM_VALUE(syslog_or_kmsg),
+                SD_VARLINK_DEFINE_ENUM_VALUE(auto),
+                SD_VARLINK_DEFINE_ENUM_VALUE(null));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                OOMPolicy,
+                SD_VARLINK_DEFINE_ENUM_VALUE(continue),
+                SD_VARLINK_DEFINE_ENUM_VALUE(stop),
+                SD_VARLINK_DEFINE_ENUM_VALUE(kill));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 LogLevelStruct,
                 SD_VARLINK_FIELD_COMMENT("'console' target log level"),
@@ -25,13 +43,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#LogColor="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(LogLevel, LogLevelStruct, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#LogColor="),
-                SD_VARLINK_DEFINE_FIELD(LogTarget, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LogTarget, LogTarget, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#ManagerEnvironment="),
                 SD_VARLINK_DEFINE_FIELD(Environment, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultStandardOutput="),
-                SD_VARLINK_DEFINE_FIELD(DefaultStandardOutput, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultStandardOutput, ExecOutputType, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultStandardError="),
-                SD_VARLINK_DEFINE_FIELD(DefaultStandardError, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultStandardError, ExecOutputType, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#ServiceWatchdogs="),
                 SD_VARLINK_DEFINE_FIELD(ServiceWatchdogs, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultTimerAccuracySec="),
@@ -63,15 +81,15 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultMemoryPressureThresholdUSec="),
                 SD_VARLINK_DEFINE_FIELD(DefaultMemoryPressureThresholdUSec, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultMemoryPressureWatch="),
-                SD_VARLINK_DEFINE_FIELD(DefaultMemoryPressureWatch, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultMemoryPressureWatch, CGroupPressureWatch, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultCPUPressureThresholdUSec="),
                 SD_VARLINK_DEFINE_FIELD(DefaultCPUPressureThresholdUSec, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultCPUPressureWatch="),
-                SD_VARLINK_DEFINE_FIELD(DefaultCPUPressureWatch, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultCPUPressureWatch, CGroupPressureWatch, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultIOPressureThresholdUSec="),
                 SD_VARLINK_DEFINE_FIELD(DefaultIOPressureThresholdUSec, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultIOPressureWatch="),
-                SD_VARLINK_DEFINE_FIELD(DefaultIOPressureWatch, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultIOPressureWatch, CGroupPressureWatch, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#RuntimeWatchdogSec="),
                 SD_VARLINK_DEFINE_FIELD(RuntimeWatchdogUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#RebootWatchdogSec="),
@@ -87,13 +105,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#TimerSlackNSec="),
                 SD_VARLINK_DEFINE_FIELD(TimerSlackNSec, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultOOMPolicy="),
-                SD_VARLINK_DEFINE_FIELD(DefaultOOMPolicy, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultOOMPolicy, OOMPolicy, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultOOMScoreAdjust="),
                 SD_VARLINK_DEFINE_FIELD(DefaultOOMScoreAdjust, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultRestrictSUIDSGID="),
                 SD_VARLINK_DEFINE_FIELD(DefaultRestrictSUIDSGID, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#CtrlAltDelBurstAction="),
-                SD_VARLINK_DEFINE_FIELD(CtrlAltDelBurstAction, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CtrlAltDelBurstAction, EmergencyAction, 0),
                 SD_VARLINK_FIELD_COMMENT("The console on which systemd asks for confirmation when spawning processes"),
                 SD_VARLINK_DEFINE_FIELD(ConfirmSpawn, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Root of the control group hierarchy that the manager is running in"),
@@ -241,4 +259,9 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_ResourceLimit,
                 &vl_type_ResourceLimitTable,
                 &vl_type_RateLimit,
-                &vl_type_LogLevelStruct);
+                &vl_type_LogLevelStruct,
+                &vl_type_LogTarget,
+                &vl_type_OOMPolicy,
+                &vl_type_ExecOutputType,
+                &vl_type_CGroupPressureWatch,
+                &vl_type_EmergencyAction);
