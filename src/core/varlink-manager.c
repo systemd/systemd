@@ -207,6 +207,10 @@ int vl_method_describe_manager(sd_varlink *link, sd_json_variant *parameters, sd
         if (r != 0)
                 return r;
 
+        r = mac_selinux_access_check_varlink(link, "status");
+        if (r < 0)
+                return r;
+
         r = sd_json_buildo(
                         &v,
                         SD_JSON_BUILD_PAIR_CALLBACK("context", manager_context_build_json, manager),
