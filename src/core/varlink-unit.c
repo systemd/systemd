@@ -10,6 +10,7 @@
 #include "json-util.h"
 #include "manager.h"
 #include "pidref.h"
+#include "selinux-access.h"
 #include "set.h"
 #include "strv.h"
 #include "unit.h"
@@ -418,6 +419,10 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
                         continue;
 
                 if (previous) {
+                        r = mac_selinux_unit_access_check_varlink(previous, link, "status");
+                        if (r < 0)
+                                continue; /* silently skip units the caller is not allowed to see */
+
                         r = list_unit_one(link, previous, /* more = */ true);
                         if (r < 0)
                                 return r;

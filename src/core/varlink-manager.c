@@ -10,6 +10,7 @@
 #include "confidential-virt.h"
 #include "json-util.h"
 #include "manager.h"
+#include "selinux-access.h"
 #include "set.h"
 #include "strv.h"
 #include "syslog-util.h"
@@ -170,6 +171,10 @@ int vl_method_describe_manager(sd_varlink *link, sd_json_variant *parameters, sd
 
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
+                return r;
+
+        r = mac_selinux_access_check_varlink(link, "status");
+        if (r < 0)
                 return r;
 
         r = sd_json_buildo(
