@@ -254,9 +254,13 @@ int sd_radv_send(sd_radv *ra) {
 
         r = radv_send_router(ra, NULL);
         if (r < 0)
-                return log_radv_errno(ra, r, "Unable to send Router Advertisement: %m");
-
-        ra->ra_sent++;
+                /* Do not treat transient send failures (e.g. ENOBUFS while a bond is still selecting an
+                 * aggregator after a carrier flap, or ENETDOWN/EADDRNOTAVAIL during a short link bounce) as
+                 * fatal: log and reschedule so we try again instead of stopping the RA engine for good.
+                 * Solicited RAs already behave this way, see radv_process_packet(). */
+                log_radv_errno(ra, r, "Unable to send Router Advertisement, will retry later: %m");
+        else
+                ra->ra_sent++;
 
         /* RFC 4861, Section 6.2.4, sending initial Router Advertisements */
         if (ra->ra_sent <= RADV_MAX_INITIAL_RTR_ADVERTISEMENTS)
@@ -283,8 +287,12 @@ int sd_radv_send(sd_radv *ra) {
         assert(min_timeout <= max_timeout * 3 / 4);
 
         timeout = min_timeout + random_u64_range(max_timeout - min_timeout);
-        log_radv(ra, "Sent unsolicited Router Advertisement. Next advertisement will be in %s.",
-                 FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
+        if (r >= 0)
+                log_radv(ra, "Sent unsolicited Router Advertisement. Next advertisement will be in %s.",
+                         FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
+        else
+                log_radv(ra, "Next Router Advertisement attempt in %s.",
+                         FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
 
         return event_reset_time(
                         ra->event, &ra->timeout_event_source,
