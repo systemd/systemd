@@ -898,3 +898,20 @@ mode_t inode_type_from_string(const char *s) {
 
         return MODE_INVALID;
 }
+
+int vfs_free_bytes(int fd, uint64_t *ret) {
+        assert(fd >= 0);
+        assert(ret);
+
+        /* Safely returns the current available disk space (for root, i.e. including any space reserved for
+         * root) of the disk referenced by the fd, converted to bytes. */
+
+        struct statvfs sv;
+        if (fstatvfs(fd, &sv) < 0)
+                return -errno;
+
+        if (!MUL_SAFE(ret, (uint64_t) sv.f_frsize, (uint64_t) sv.f_bfree))
+                return -ERANGE;
+
+        return 0;
+}
