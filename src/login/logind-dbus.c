@@ -59,6 +59,7 @@
 #include "signal-util.h"
 #include "sleep-config.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
@@ -3602,6 +3603,11 @@ static int method_set_wall_message(
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                         "Wall message too long, maximum permitted length is %u characters.",
                         WALL_MESSAGE_MAX);
+
+        if (string_has_cc(wall_message, "\n\t"))
+                return sd_bus_error_set(error,
+                                        SD_BUS_ERROR_INVALID_ARGS,
+                                        "Wall message contains control characters, refusing.");
 
         /* Short-circuit the operation if the desired state is already in place, to
          * avoid an unnecessary polkit permission check. */
