@@ -285,19 +285,21 @@ static int verify_fsroot_dir(
         if (r < 0 && r != -EADDRNOTAVAIL)
                 return log_error_errno(r, "Failed to extract filename of \"%s\": %m", path);
 
-        if (statx(dir_fd, strempty(f),
-                  AT_SYMLINK_NOFOLLOW|(isempty(f) ? AT_EMPTY_PATH : 0),
-                  STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx) < 0)
-                return log_full_errno((searching && errno == ENOENT) ||
-                                      (unprivileged_mode && ERRNO_IS_PRIVILEGE(errno)) ? LOG_DEBUG : LOG_ERR, errno,
+        r = xstatx_full(dir_fd, f,
+                        AT_SYMLINK_NOFOLLOW,
+                        /* xstatx_flags= */ 0,
+                        STATX_TYPE|STATX_INO,
+                        /* optional_mask = */ 0,
+                        STATX_ATTR_MOUNT_ROOT,
+                        &sx);
+        if (r < 0)
+                return log_full_errno((searching && r == -ENOENT) ||
+                                      (unprivileged_mode && ERRNO_IS_NEG_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR, r,
                                       "Failed to determine block device node of \"%s\": %m", path);
 
-        if (!S_ISDIR(sx.stx_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "Path \"%s\" is not a directory", path);
-
-        r = statx_warn_mount_root(&sx, LOG_ERR);
+        r = statx_verify_directory(&sx);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Path \"%s\" is not a directory", path);
 
         if (!FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT))
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
@@ -428,7 +430,7 @@ finish:
         return 0;
 }
 
-int find_esp_and_warn_at(
+int find_esp_and_warn_at_full(
                 int rfd,
                 const char *path,
                 int unprivileged_mode,
@@ -476,8 +478,9 @@ int find_esp_and_warn_at(
 
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", p);
-                if (!S_ISDIR(st.st_mode))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "ESP path '%s' is not a directory.", p);
+                r = stat_verify_directory(&st);
+                if (r < 0)
+                        return log_error_errno(r, "ESP path '%s' is not a directory.", p);
 
                 if (ret_path)
                         *ret_path = TAKE_PTR(p);
@@ -508,7 +511,7 @@ int find_esp_and_warn_at(
         return -ENOKEY;
 }
 
-int find_esp_and_warn(
+int find_esp_and_warn_full(
                 const char *root,
                 const char *path,
                 int unprivileged_mode,
@@ -535,7 +538,7 @@ int find_esp_and_warn(
                         return -errno;
         }
 
-        r = find_esp_and_warn_at(
+        r = find_esp_and_warn_at_full(
                         rfd,
                         path,
                         unprivileged_mode,
@@ -791,7 +794,7 @@ finish:
         return 0;
 }
 
-int find_xbootldr_and_warn_at(
+int find_xbootldr_and_warn_at_full(
                 int rfd,
                 const char *path,
                 int unprivileged_mode,
@@ -828,8 +831,9 @@ int find_xbootldr_and_warn_at(
 
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", p);
-                if (!S_ISDIR(st.st_mode))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "XBOOTLDR path '%s' is not a directory.", p);
+                r = stat_verify_directory(&st);
+                if (r < 0)
+                        return log_error_errno(r, "XBOOTLDR path '%s' is not a directory.", p);
 
                 if (ret_path)
                         *ret_path = TAKE_PTR(p);
@@ -852,7 +856,7 @@ int find_xbootldr_and_warn_at(
         return 0;
 }
 
-int find_xbootldr_and_warn(
+int find_xbootldr_and_warn_full(
                 const char *root,
                 const char *path,
                 int unprivileged_mode,
@@ -874,7 +878,7 @@ int find_xbootldr_and_warn(
                         return -errno;
         }
 
-        r = find_xbootldr_and_warn_at(
+        r = find_xbootldr_and_warn_at_full(
                         rfd,
                         path,
                         unprivileged_mode,

@@ -104,8 +104,10 @@ static void request_meta_free(
                 struct MHD_Connection *connection,
                 void **connection_cls,
                 enum MHD_RequestTerminationCode toe) {
+        RequestMeta *m;
 
-        RequestMeta *m = *connection_cls;
+        assert(connection_cls);
+        m = *connection_cls;
 
         if (!m)
                 return;
@@ -812,6 +814,8 @@ static int get_virtualization(char **v) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         char *b = NULL;
         int r;
+
+        assert(v);
 
         r = sd_bus_default_system(&bus);
         if (r < 0)

@@ -5,27 +5,28 @@
 #include "alloc-util.h"
 #include "bootctl-uki.h"
 #include "kernel-image.h"
+#include "log.h"
 
-int verb_kernel_identify(int argc, char *argv[], void *userdata) {
+int verb_kernel_identify(int argc, char *argv[], uintptr_t _data, void *userdata) {
         KernelImageType t;
         int r;
 
-        r = inspect_kernel(AT_FDCWD, argv[1], &t, NULL, NULL, NULL);
+        r = inspect_kernel(AT_FDCWD, argv[1], &t);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to inspect '%s': %m", argv[1]);
 
         puts(kernel_image_type_to_string(t));
         return 0;
 }
 
-int verb_kernel_inspect(int argc, char *argv[], void *userdata) {
+int verb_kernel_inspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *cmdline = NULL, *uname = NULL, *pname = NULL;
         KernelImageType t;
         int r;
 
-        r = inspect_kernel(AT_FDCWD, argv[1], &t, &cmdline, &uname, &pname);
+        r = inspect_kernel_full(AT_FDCWD, argv[1], &t, &cmdline, &uname, &pname);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to inspect '%s': %m", argv[1]);
 
         printf("Kernel Type: %s\n", kernel_image_type_to_string(t));
         if (cmdline)

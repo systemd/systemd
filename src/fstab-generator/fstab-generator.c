@@ -221,6 +221,7 @@ static int add_swap(
 
         _cleanup_free_ char *name = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        bool is_network;
         int r;
 
         assert(what);
@@ -240,11 +241,14 @@ static int add_swap(
                 return true;
         }
 
-        log_debug("Found swap entry what=%s makefs=%s growfs=%s pcrfs=%s validatefs=%s noauto=%s nofail=%s",
+        is_network = fstab_test_option(options, "_netdev\0");
+
+        log_debug("Found swap entry what=%s makefs=%s growfs=%s pcrfs=%s validatefs=%s noauto=%s nofail=%s netdev=%s",
                   what,
                   yes_no(flags & MOUNT_MAKEFS), yes_no(flags & MOUNT_GROWFS),
                   yes_no(flags & MOUNT_PCRFS), yes_no(flags & MOUNT_VALIDATEFS),
-                  yes_no(flags & MOUNT_NOAUTO), yes_no(flags & MOUNT_NOFAIL));
+                  yes_no(flags & MOUNT_NOAUTO), yes_no(flags & MOUNT_NOFAIL),
+                  yes_no(is_network));
 
         r = unit_name_from_path(what, ".swap", &name);
         if (r < 0)
@@ -285,6 +289,12 @@ static int add_swap(
         if (r < 0)
                 return r;
 
+        if (is_network) {
+                r = generator_write_network_device_deps(arg_dest, what, /* where= */ NULL, options);
+                if (r < 0)
+                        return r;
+        }
+
         if (flags & MOUNT_MAKEFS) {
                 r = generator_hook_up_mkswap(arg_dest, what);
                 if (r < 0)
@@ -300,7 +310,8 @@ static int add_swap(
                 log_warning("%s: validating swap devices is currently unsupported.", what);
 
         if (!(flags & MOUNT_NOAUTO)) {
-                r = generator_add_symlink(arg_dest, SPECIAL_SWAP_TARGET,
+                const char *target = is_network ? SPECIAL_REMOTE_FS_TARGET : SPECIAL_SWAP_TARGET;
+                r = generator_add_symlink(arg_dest, target,
                                           (flags & MOUNT_NOFAIL) ? "wants" : "requires", name);
                 if (r < 0)
                         return r;
@@ -672,9 +683,9 @@ static int add_mount(
         }
 
         if (flags & MOUNT_PCRFS) {
-                r = efi_measured_uki(LOG_WARNING);
+                r = efi_measured_os(LOG_WARNING);
                 if (r == 0)
-                        log_debug("Kernel stub did not measure kernel image into PCR, skipping userspace measurement, too.");
+                        log_debug("OS measurements not explicitly requested and kernel stub did not measure kernel image into PCR, skipping userspace measurement, too.");
                 else if (r > 0) {
                         r = generator_hook_up_pcrfs(dest, where, target_unit);
                         if (r < 0)

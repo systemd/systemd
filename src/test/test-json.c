@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <float.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
@@ -555,6 +556,49 @@ TEST(depth) {
         fputs("\n", stdout);
 }
 
+static char *prepare_nested_json(const char *open, unsigned depth) {
+        char *s, *p;
+        size_t olen;
+
+        assert_se(open);
+
+        olen = strlen(open);
+        s = p = new(char, olen * depth + 1);
+        if (!s)
+                return NULL;
+
+        for (unsigned i = 0; i < depth; i++)
+                p = mempcpy(p, open, olen);
+        *p = '\0';
+
+        return s;
+}
+
+TEST(parse_depth) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *s = NULL;
+
+        /* Refuse parsing > DEPTH_MAX (currently 2048) levels of nested arrays */
+        s = prepare_nested_json("[", 2049);
+        ASSERT_ERROR(sd_json_parse(s, 0, &v, NULL, NULL), ELNRNG);
+        s = mfree(s);
+
+        /* Same for nested objects */
+        s = prepare_nested_json("{\"a\":", 2049);
+        ASSERT_ERROR(sd_json_parse(s, 0, &v, NULL, NULL), ELNRNG);
+        s = mfree(s);
+
+        /* <= DEPTH_MAX levels of nested arrays should be refused by EINVAL
+         * later in the parsing process */
+        s = prepare_nested_json("[", 2048);
+        ASSERT_ERROR(sd_json_parse(s, 0, &v, NULL, NULL), EINVAL);
+        s = mfree(s);
+
+        /* And the same for nested objects */
+        s = prepare_nested_json("{\"a\":", 2048);
+        ASSERT_ERROR(sd_json_parse(s, 0, &v, NULL, NULL), EINVAL);
+}
+
 TEST(normalize) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
         _cleanup_free_ char *t = NULL;
@@ -646,7 +690,9 @@ static void test_float_match(sd_json_variant *v) {
 
         assert_se(sd_json_variant_is_array(v));
         assert_se(sd_json_variant_elements(v) == 11);
+        assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 0))));
         assert_se(fabs(1.0 - (DBL_MIN / sd_json_variant_real(sd_json_variant_by_index(v, 0)))) <= delta);
+        assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 1))));
         assert_se(fabs(1.0 - (DBL_MAX / sd_json_variant_real(sd_json_variant_by_index(v, 1)))) <= delta);
         assert_se(sd_json_variant_is_null(sd_json_variant_by_index(v, 2))); /* nan is not supported by json → null */
         assert_se(sd_json_variant_is_null(sd_json_variant_by_index(v, 3))); /* +inf is not supported by json → null */
@@ -664,6 +710,7 @@ static void test_float_match(sd_json_variant *v) {
                   sd_json_variant_integer(sd_json_variant_by_index(v, 8)) == -10);
         assert_se(sd_json_variant_is_real(sd_json_variant_by_index(v, 9)) &&
                   !sd_json_variant_is_integer(sd_json_variant_by_index(v, 9)));
+        assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 9))));
         assert_se(fabs(1.0 - (DBL_MIN / 2 / sd_json_variant_real(sd_json_variant_by_index(v, 9)))) <= delta);
         assert_se(sd_json_variant_is_real(sd_json_variant_by_index(v, 10)) &&
                   !sd_json_variant_is_integer(sd_json_variant_by_index(v, 10)));
@@ -1521,6 +1568,309 @@ TEST(access_mode) {
                                   },
                                   /* flags= */ SD_JSON_ALLOW_EXTENSIONS,
                                   &mm), ERANGE);
+}
+
+static void test_json_variant_compare_one(const char *a, const char *b, int expected) {
+        int r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *aa = NULL;
+        if (!isempty(a))
+                ASSERT_OK(sd_json_parse(a, /* flags= */ 0, &aa, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *bb = NULL;
+        if (!isempty(b))
+                ASSERT_OK(sd_json_parse(b, /* flags= */ 0, &bb, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+
+        r = json_variant_compare(aa, bb);
+
+        log_debug("%s vs %s → %i (expected %i)", a, b, r, expected);
+
+        if (expected < 0)
+                ASSERT_LT(r, 0);
+        else if (expected > 0)
+                ASSERT_GT(r, 0);
+        else
+                ASSERT_EQ(r, 0);
+
+        r = json_variant_compare(bb, aa);
+
+        if (expected < 0)
+                ASSERT_GT(r, 0);
+        else if (expected > 0)
+                ASSERT_LT(r, 0);
+        else
+                ASSERT_EQ(r, 0);
+}
+
+TEST(json_variant_compare) {
+        test_json_variant_compare_one("null", "\"a\"", -1);
+        test_json_variant_compare_one(NULL, "\"a\"", -1);
+        test_json_variant_compare_one("0", "1", -1);
+        test_json_variant_compare_one("1", "0", 1);
+        test_json_variant_compare_one("0", "0", 0);
+        test_json_variant_compare_one("1", "1", 0);
+        test_json_variant_compare_one("1", "null", 1);
+        test_json_variant_compare_one("null", "1", -1);
+        test_json_variant_compare_one("null", "null", 0);
+        test_json_variant_compare_one("false", "true", -1);
+        test_json_variant_compare_one("true", "false", 1);
+        test_json_variant_compare_one("true", "true", 0);
+        test_json_variant_compare_one("false", "false", 0);
+        test_json_variant_compare_one("\"a\"", "\"b\"", -1);
+        test_json_variant_compare_one("\"b\"", "\"a\"", 1);
+        test_json_variant_compare_one("18446744073709551615", "0", 1);
+        test_json_variant_compare_one("0", "18446744073709551615", -1);
+        test_json_variant_compare_one("18446744073709551615", "18446744073709551615", 0);
+        test_json_variant_compare_one("-9223372036854775808", "18446744073709551615", -1);
+        test_json_variant_compare_one("18446744073709551615", "-9223372036854775808", 1);
+        test_json_variant_compare_one("1.1", "3.4", -1);
+        test_json_variant_compare_one("1", "3.4", -1);
+        test_json_variant_compare_one("[1,2]", "[1,2]", 0);
+        test_json_variant_compare_one("[1,2]", "[2,1]", -1);
+        test_json_variant_compare_one("[1,2]", "[1,2,3]", -1);
+        test_json_variant_compare_one("{}", "{\"a\":\"b\"}", -1);
+        test_json_variant_compare_one("{\"a\":\"b\"}", "{\"a\":\"b\"}", 0);
+        test_json_variant_compare_one("{\"a\":\"b\"}", "{\"b\":\"c\"}", 1);
+        test_json_variant_compare_one("{\"a\":\"b\",\"b\":\"c\"}", "{\"b\":\"c\",\"a\":\"b\"}", 0);
+        test_json_variant_compare_one("{\"a\":\"b\",\"b\":\"c\"}", "{\"a\":\"b\"}", 1);
+}
+
+TEST(must_be) {
+        ASSERT_OK(sd_json_parse("null", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("null", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("null", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("null", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+
+        ASSERT_OK(sd_json_parse("true", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("true", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("true", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("true", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+
+        ASSERT_OK(sd_json_parse("\"foo\"", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("\"foo\"", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("\"foo\"", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("\"foo\"", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+
+        ASSERT_OK(sd_json_parse("4711", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("4711", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("4711", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("4711", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+
+        ASSERT_OK(sd_json_parse("-4711", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("-4711", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("-4711", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("-4711", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+
+        ASSERT_OK(sd_json_parse("-4.5", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("-4.5", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("-4.5", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("-4.5", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+
+        ASSERT_OK(sd_json_parse("{}", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_OK(sd_json_parse("{}", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("{}", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_OK(sd_json_parse("{}", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+
+        ASSERT_OK(sd_json_parse("[]", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("[]", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_OK(sd_json_parse("[]", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_OK(sd_json_parse("[]", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+}
+
+TEST(json_dispatch_in_addr) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+
+        /* 192.168.1.1 = { 192, 168, 1, 1 } */
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", JSON_BUILD_IN4_ADDR(&(const struct in_addr) { .s_addr = htobe32(0xC0A80101U) })),
+                                             SD_JSON_BUILD_PAIR("null_addr", SD_JSON_BUILD_NULL))));
+
+        struct {
+                struct in_addr addr;
+                struct in_addr null_addr;
+        } data = {};
+
+        ASSERT_OK(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr",      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in_addr, offsetof(typeof(data), addr)      },
+                                        { "null_addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in_addr, offsetof(typeof(data), null_addr) },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &data));
+
+        ASSERT_EQ(be32toh(data.addr.s_addr), 0xC0A80101U);
+        ASSERT_EQ(data.null_addr.s_addr, 0U);
+
+        struct in_addr dummy = {};
+
+        /* Too few bytes (3 instead of 4) */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(192), SD_JSON_BUILD_UNSIGNED(168), SD_JSON_BUILD_UNSIGNED(1))))));
+        ASSERT_ERROR(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in_addr, 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &dummy), EINVAL);
+
+        /* Too many bytes (5 instead of 4) */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(192), SD_JSON_BUILD_UNSIGNED(168), SD_JSON_BUILD_UNSIGNED(1), SD_JSON_BUILD_UNSIGNED(1), SD_JSON_BUILD_UNSIGNED(0))))));
+        ASSERT_ERROR(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in_addr, 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &dummy), EINVAL);
+
+        /* Not an array or string */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                                SD_JSON_BUILD_PAIR("addr", SD_JSON_BUILD_BOOLEAN(true)))));
+        ASSERT_ERROR(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in_addr, 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &dummy), EINVAL);
+
+        /* A string */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", JSON_BUILD_CONST_STRING("192.168.1.1")))));
+        zero(data);
+        ASSERT_OK(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in_addr, 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &data));
+        ASSERT_EQ(be32toh(data.addr.s_addr), 0xC0A80101U);
+
+        /* Byte value out of range (> 255) */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(256), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(1))))));
+        ASSERT_ERROR(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in_addr, 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &dummy), EINVAL);
+
+        /* Negative element */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_INTEGER(-1), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(1))))));
+        ASSERT_ERROR(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in_addr, 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &dummy), EINVAL);
+}
+
+TEST(json_dispatch_in6_addr) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+
+        /* ::1 */
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", JSON_BUILD_IN6_ADDR(&(const struct in6_addr) { .s6_addr = { [15] = 1 } })),
+                                             SD_JSON_BUILD_PAIR("null_addr", SD_JSON_BUILD_NULL))));
+
+        struct {
+                struct in6_addr addr;
+                struct in6_addr null_addr;
+        } data = {};
+
+        ASSERT_OK(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr",      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in6_addr, offsetof(typeof(data), addr)      },
+                                        { "null_addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in6_addr, offsetof(typeof(data), null_addr) },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &data));
+
+        ASSERT_EQ(data.addr.s6_addr[15], 1);
+        for (size_t i = 0; i < 15; i++)
+                ASSERT_EQ(data.addr.s6_addr[i], 0);
+        for (size_t i = 0; i < 16; i++)
+                ASSERT_EQ(data.null_addr.s6_addr[i], 0);
+
+        struct in6_addr dummy = {};
+
+        /* Too few bytes (15 instead of 16) */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", SD_JSON_BUILD_ARRAY(
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0),
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0),
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0),
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(1))))));
+        ASSERT_ERROR(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in6_addr, 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &dummy), EINVAL);
+
+        /* Too many bytes (17 instead of 16) */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", SD_JSON_BUILD_ARRAY(
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0),
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0),
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0),
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(1),
+                                                                                SD_JSON_BUILD_UNSIGNED(0))))));
+        ASSERT_ERROR(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in6_addr, 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &dummy), EINVAL);
+
+        /* Not an array */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", SD_JSON_BUILD_BOOLEAN(true)))));
+        ASSERT_ERROR(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in6_addr, 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &dummy), EINVAL);
+
+        /* A string */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", JSON_BUILD_CONST_STRING("::1")))));
+
+        zero(data);
+        ASSERT_OK(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in6_addr, 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &data));
+
+        ASSERT_EQ(data.addr.s6_addr[15], 1);
+        for (size_t i = 0; i < 15; i++)
+                ASSERT_EQ(data.addr.s6_addr[i], 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

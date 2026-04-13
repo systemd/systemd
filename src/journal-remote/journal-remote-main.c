@@ -209,7 +209,7 @@ static int build_accept_encoding(char **ret) {
 
         const CompressionConfig *cc;
         ORDERED_HASHMAP_FOREACH(cc, arg_compression) {
-                const char *c = compression_lowercase_to_string(cc->algorithm);
+                const char *c = compression_to_string(cc->algorithm);
                 if (strextendf_with_separator(&buf, ",", "%s;q=%.1f", c, q) < 0)
                         return -ENOMEM;
                 q -= step;
@@ -286,7 +286,7 @@ static int process_http_upload(
                         _cleanup_free_ char *buf = NULL;
                         size_t buf_size;
 
-                        r = decompress_blob(source->compression, upload_data, *upload_data_size, (void **) &buf, &buf_size, 0);
+                        r = decompress_blob(source->compression, upload_data, *upload_data_size, (void **) &buf, &buf_size, DATA_SIZE_MAX);
                         if (r < 0)
                                 return mhd_respondf(connection, r, MHD_HTTP_BAD_REQUEST, "Decompression of received blob failed.");
 
@@ -361,7 +361,7 @@ static mhd_result request_handler(
                 RemoteSource *source = *connection_cls;
                 header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Encoding");
                 if (header) {
-                        Compression c = compression_lowercase_from_string(header);
+                        Compression c = compression_from_string_harder(header);
                         if (c <= 0 || !compression_supported(c))
                                 return mhd_respondf(connection, 0, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
                                                     "Unsupported Content-Encoding type: %s", header);
@@ -1102,6 +1102,8 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int load_certificates(char **key, char **cert, char **trust) {
         int r;
+
+        assert(trust);
 
         r = read_full_file_full(
                         AT_FDCWD, arg_key ?: PRIV_KEY_FILE, UINT64_MAX, SIZE_MAX,

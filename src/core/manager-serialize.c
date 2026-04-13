@@ -14,6 +14,7 @@
 #include "manager-serialize.h"
 #include "parse-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
@@ -171,7 +172,11 @@ int manager_serialize(
         if (r < 0)
                 return r;
 
-        r = varlink_server_serialize(m->varlink_server, f, fds);
+        r = varlink_server_serialize(m->varlink_server, /* name = */ NULL, f, fds);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_serialize(m->metrics_varlink_server, "metrics", f, fds);
         if (r < 0)
                 return r;
 
@@ -193,7 +198,50 @@ int manager_serialize(
         return 0;
 }
 
-static int manager_deserialize_one_unit(Manager *m, const char *name, FILE *f, FDSet *fds) {
+static int manager_collect_serialized_unit_names(FILE *f, Set **ret) {
+        _cleanup_set_free_ Set *serialized_units = NULL;
+        off_t offset;
+        int r;
+
+        assert(f);
+        assert(ret);
+
+        offset = ftello(f);
+        if (offset < 0)
+                return log_error_errno(errno, "Failed to determine serialization offset: %m");
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read serialization line: %m");
+                if (r == 0)
+                        break;
+
+                r = set_ensure_consume(&serialized_units, &string_hash_ops_free, TAKE_PTR(line));
+                if (r < 0)
+                        return log_oom();
+
+                r = unit_deserialize_state_skip(f);
+                if (r < 0)
+                        return r;
+        }
+
+        if (fseeko(f, offset, SEEK_SET) < 0)
+                return log_error_errno(errno, "Failed to reset serialization offset: %m");
+
+        *ret = TAKE_PTR(serialized_units);
+        return 0;
+}
+
+static int manager_deserialize_one_unit(
+                Manager *m,
+                const char *name,
+                FILE *f,
+                FDSet *fds,
+                Set *serialized_units) {
+
         Unit *u;
         int r;
 
@@ -203,17 +251,74 @@ static int manager_deserialize_one_unit(Manager *m, const char *name, FILE *f, F
         if (r < 0)
                 return log_notice_errno(r, "Failed to load unit \"%s\", skipping deserialization: %m", name);
 
+        if (!streq(u->id, name) &&
+            set_contains(serialized_units, u->id)) {
+                /*
+                 * The unit from the state file (name) resolved to a different canonical unit (u->id), and
+                 * the canonical unit also has its own state entry.
+                 *
+                 * This means the state entry for the unit name is stale. That is, when the state was
+                 * serialized, the name referred to an independent unit, but it now resolves as an alias to
+                 * the canonical unit. Deserializing it would overwrite the canonical unit's own serialized
+                 * state, and thus corrupt its live runtime state.
+                 *
+                 * It is very important to note that this only affects units that were independent when the
+                 * state file was written, but are now aliases (either because a reload created the symlink,
+                 * or the symlink existed but this is the first reload). Normal aliases that were already
+                 * aliases during the most recent serialization are filtered out in manager_serialize(), so
+                 * they never appear in the state file.
+                 *
+                 * If the canonical unit does not have its own state entry, then this is instead a rename or
+                 * canonical ID change, and this state entry is the only state we have for the unit. In that
+                 * case we must preserve it. After doing so, we insert the canonical unit's ID into the set
+                 * so that any further aliases resolving to the same unit are skipped.
+                 *
+                 * The serialized data represents the old, independent unit. Deserializing this stale state
+                 * would corrupt the canonical unit's live state, so we must discard it.
+                 *
+                 * Take as an example, a.service is running. Someone created symlink b.service -> a.service.
+                 * On first reload, the state file still has b.service as an independent dead unit (from
+                 * before the symlink existed), but b.service now resolves to a.service. We must discard
+                 * b.service's stale dead state to preserve a.service's running state.
+                 *
+                 * Note: This log message is checked in TEST-07-PID1.alias-corruption.sh, so the test case
+                 * may need adjustment if the message is changed.
+                 */
+                log_warning("Unit file for '%s' was overridden by a symlink to '%s', which also has serialized state. Skipping stale state of old unit. Any processes from the overridden unit are now abandoned!",
+                            name,
+                            u->id);
+
+                return unit_deserialize_state_skip(f);
+        }
+
         r = unit_deserialize_state(u, f, fds);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
                 return log_notice_errno(r, "Failed to deserialize unit \"%s\", skipping: %m", name);
 
+        /* If this unit was deserialized under an alias name (that is, it is a rename), record the canonical
+         * ID so that any further aliases pointing to the same unit are correctly skipped. */
+        if (!streq(u->id, name)) {
+                r = set_put_strdup(&serialized_units, u->id);
+                if (r < 0)
+                        return log_oom();
+        }
+
         return 0;
 }
 
-static int manager_deserialize_units(Manager *m, FILE *f, FDSet *fds) {
+static int manager_deserialize_units(
+                Manager *m,
+                FILE *f,
+                FDSet *fds) {
+
+        _cleanup_set_free_ Set *serialized_units = NULL;
         int r;
+
+        r = manager_collect_serialized_unit_names(f, &serialized_units);
+        if (r < 0)
+                return r;
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
@@ -225,7 +330,7 @@ static int manager_deserialize_units(Manager *m, FILE *f, FDSet *fds) {
                 if (r == 0)
                         break;
 
-                r = manager_deserialize_one_unit(m, line, f, fds);
+                r = manager_deserialize_one_unit(m, line, f, fds, serialized_units);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0) {
@@ -282,7 +387,6 @@ static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
-        bool deserialize_varlink_sockets = false;
         int r;
 
         assert(m);
@@ -490,23 +594,28 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         r = strv_extend(&m->subscribed_as_strv, val);
                         if (r < 0)
                                 return r;
-                } else if ((val = startswith(l, "varlink-server-socket-address="))) {
-                        if (!m->varlink_server) {
-                                r = manager_setup_varlink_server(m);
-                                if (r < 0) {
-                                        log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
-                                        continue;
-                                }
+                } else if ((val = startswith(l, "varlink-server-metrics-"))) {
+                        if (m->objective == MANAGER_RELOAD)
+                                /* We don't destroy varlink server on daemon-reload (in contrast to reexec) -> skip! */
+                                continue;
 
-                                deserialize_varlink_sockets = true;
-                        }
+                        r = manager_setup_varlink_metrics_server(m);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to setup metrics varlink server, ignoring: %m");
+                        else
+                                (void) varlink_server_deserialize_one(m->metrics_varlink_server, val, fds);
 
-                        /* To avoid unnecessary deserialization (i.e. during reload vs. reexec) we only deserialize
-                         * the FDs if we had to create a new m->varlink_server. The deserialize_varlink_sockets flag
-                         * is initialized outside of the loop, is flipped after the VarlinkServer is setup, and
-                         * remains set until all serialized contents are handled. */
-                        if (deserialize_varlink_sockets)
+                } else if ((val = startswith(l, "varlink-server-"))) {
+                        if (m->objective == MANAGER_RELOAD)
+                                /* We don't destroy varlink server on daemon-reload (in contrast to reexec) -> skip! */
+                                continue;
+
+                        r = manager_setup_varlink_server(m);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
+                        else
                                 (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
+
                 } else if ((val = startswith(l, "dump-ratelimit=")))
                         deserialize_ratelimit(&m->dump_ratelimit, "dump-ratelimit", val);
                 else if ((val = startswith(l, "reload-reexec-ratelimit=")))

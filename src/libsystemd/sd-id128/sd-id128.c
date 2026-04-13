@@ -138,7 +138,7 @@ _public_ int sd_id128_get_machine(sd_id128_t *ret) {
 int id128_get_machine_at(int rfd, sd_id128_t *ret) {
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
 
         r = dir_fd_is_root_or_cwd(rfd);
         if (r < 0)

@@ -13,8 +13,8 @@ Documentation=man:systemd-pcrnvdone.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-tpm2-setup-early.service systemd-tpm2-setup.service
-Before=sysinit.target shutdown.target
-ConditionSecurity=measured-uki
+Before=sysinit.target cryptsetup-pre.target cryptsetup.target shutdown.target
+ConditionSecurity=measured-os
 ConditionPathExists=!/etc/initrd-release
 FailureAction=reboot-force
 

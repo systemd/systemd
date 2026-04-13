@@ -435,6 +435,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--output=</option></term>
+
+        <listitem>
+          <para>Controls the formatting of verbose unit log output, see <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for possible values.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--on-active=</option></term>
         <term><option>--on-boot=</option></term>
         <term><option>--on-startup=</option></term>

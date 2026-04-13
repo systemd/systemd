@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "efi-string.h"
+#include "string-util-fundamental.h"
 
 #if SD_BOOT
 #  include "proto/simple-text-io.h"
@@ -348,6 +349,8 @@ static bool efi_fnmatch_prefix(const char16_t *p, const char16_t *h, const char1
 
 /* Patterns are fnmatch-compatible (with reduced feature support). */
 bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack) {
+        assert(haystack);
+
         /* Patterns can be considered as simple patterns (without '*') concatenated by '*'. By doing so we
          * simply have to make sure the very first simple pattern matches the start of haystack. Then we just
          * look for the remaining simple patterns *somewhere* within the haystack (in order) as any extra
@@ -497,7 +500,7 @@ char* line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, 
                         value++;
 
                 /* unquote */
-                if (value[0] == '"' && line[linelen - 1] == '"') {
+                if (strchr8(QUOTES, value[0]) && line[linelen - 1] == value[0]) {
                         value++;
                         line[linelen - 1] = '\0';
                 }
@@ -509,7 +512,7 @@ char* line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, 
 }
 
 char16_t *hexdump(const void *data, size_t size) {
-        static const char hex[] = "0123456789abcdef";
+        const char *hex = LOWERCASE_HEXDIGITS;
         const uint8_t *d = data;
 
         assert(data || size == 0);
@@ -675,7 +678,7 @@ static bool push_str(FormatContext *ctx, SpecifierContext *sp) {
 }
 
 static bool push_num(FormatContext *ctx, SpecifierContext *sp, uint64_t u) {
-        const char *digits = sp->lowercase ? "0123456789abcdef" : "0123456789ABCDEF";
+        const char *digits = sp->lowercase ? LOWERCASE_HEXDIGITS : UPPERCASE_HEXDIGITS;
         char16_t tmp[32];
         size_t n = 0;
 
@@ -1049,10 +1052,12 @@ char16_t *xvasprintf_status(EFI_STATUS status, const char *format, va_list ap) {
 #  undef memcmp
 #  undef memcpy
 #  undef memset
+// NOLINTBEGIN(misc-use-internal-linkage)
 _used_ void *memchr(const void *p, int c, size_t n);
 _used_ int memcmp(const void *p1, const void *p2, size_t n);
 _used_ void *memcpy(void * restrict dest, const void * restrict src, size_t n);
 _used_ void *memset(void *p, int c, size_t n);
+// NOLINTEND(misc-use-internal-linkage)
 #else
 /* And for userspace unit testing we need to give them an efi_ prefix. */
 #  undef memchr

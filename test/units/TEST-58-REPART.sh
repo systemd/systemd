@@ -380,6 +380,8 @@ $imgs/zzz7 : start=     6291416, size=      131072, type=3B8F8425-20E0-4F3B-907F
     loop="$(losetup -P --show --find "$imgs/zzz")"
     udevadm wait --timeout=60 --settle "${loop:?}p7"
 
+    cryptsetup luksDump "${loop}p7" | grep 'Flags:[[:space:]]*allow-discards' >/dev/null
+
     volume="test-repart-$RANDOM"
 
     touch "$imgs/empty-password"
@@ -396,6 +398,50 @@ $imgs/zzz7 : start=     6291416, size=      131072, type=3B8F8425-20E0-4F3B-907F
     PASSWORD="" systemd-dissect "$imgs/zzz" -M "$imgs/mount"
     udevadm info /dev/disk/by-label/schrupfel | grep ID_FS_TYPE=crypto_LUKS >/dev/null
     systemd-dissect -U "$imgs/mount"
+
+    echo "*** 7. Testing Discard=no ***"
+
+    tee "$defs/extra4.conf" <<EOF
+[Partition]
+Type=var
+Label=luks-no-discards
+UUID=329b9db2-dfd9-4f39-8ebf-53b582b05fcd
+Format=ext4
+Encrypt=yes
+CopyFiles=$defs:/def
+SizeMinBytes=48M
+Discard=no
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --size=auto \
+                   --dry-run=no \
+                   --seed="$seed" \
+                   "$imgs/zzz"
+
+    output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')
+
+    assert_eq "$output" "label: gpt
+label-id: 1D2CE291-7CCE-4F7D-BC83-FDB49AD74EBD
+device: $imgs/zzz
+unit: sectors
+first-lba: 2048
+last-lba: 6553566
+$imgs/zzz1 : start=        2048, size=      591856, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
+$imgs/zzz2 : start=      593904, size=      591856, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\", attrs=\"GUID:59\"
+$imgs/zzz3 : start=     1185760, size=      591864, type=${root_guid}, uuid=${root_uuid2}, name=\"root-${architecture}-2\", attrs=\"GUID:59\"
+$imgs/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\"
+$imgs/zzz5 : start=     1908696, size=     2285568, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=A0A1A2A3-A4A5-A6A7-A8A9-AAABACADAEAF, name=\"custom_label\"
+$imgs/zzz6 : start=     4194264, size=     2097152, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=2A1D97E1-D0A3-46CC-A26E-ADC643926617, name=\"block-copy\"
+$imgs/zzz7 : start=     6291416, size=      131072, type=3B8F8425-20E0-4F3B-907F-1A25A76F98E8, uuid=7B93D1F2-595D-4CE3-B0B9-837FBD9E63B0, name=\"luks-format-copy\", attrs=\"GUID:59\"
+$imgs/zzz8 : start=     6422488, size=      131072, type=4D21B016-B534-45C2-A9FB-5C16E091FD2D, uuid=329B9DB2-DFD9-4F39-8EBF-53B582B05FCD, name=\"luks-no-discards\", attrs=\"GUID:59\""
+
+    loop="$(losetup -P --show --find "$imgs/zzz")"
+    udevadm wait --timeout=60 --settle "${loop:?}p8"
+
+    cryptsetup luksDump "${loop}p8" | grep 'Flags:[[:space:]]*(no flags)' >/dev/null
+    losetup -d "$loop"
 }
 
 testcase_dropin() {
@@ -1208,6 +1254,18 @@ Minimize=guess
 EOF
     done
 
+    if command -v mkfs.btrfs >/dev/null; then
+        for minimize in guess best; do
+            tee "$defs/root-btrfs-${minimize}.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+Format=btrfs
+CopyFiles=${defs}
+Minimize=${minimize}
+EOF
+        done
+    fi
+
     if command -v mksquashfs >/dev/null; then
         tee "$defs/root-squashfs.conf" <<EOF
 [Partition]
@@ -1708,7 +1766,7 @@ testcase_btrfs_compression() {
     # Must not be in tmpfs due to exclusions. It also must be large and
     # compressible so that the compression check succeeds later.
     src=/etc/test-source-file
-    dd if=/dev/zero of="$src" bs=1M count=1 2>/dev/null
+    fallocate -l 1M "$src"
 
     tee "$defs/btrfs-compressed.conf" <<EOF
 [Partition]
@@ -1993,6 +2051,68 @@ EOF
     systemd-cryptsetup attach $volume "${loop}p1" "$imgs/empty-password" "fixate-volume-key=aaaaaabbbbbbccccccddddddeeeeeeffffff1111112222223333334444445555" && exit 1
     # Verify the volume is not attached
     [ ! -f "/dev/mapper/$volume" ] || exit 1
+
+    losetup -d "$loop"
+}
+
+testcase_fstab_crypttab_in_repart() {
+    local defs imgs root volume
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    root="$(mktemp --directory "/var/test-repart.root.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' '$root'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for including fstab/crypttab into repart created volume ***"
+
+    volume="test-repart-fstab-crypttab-$RANDOM"
+
+    mkdir -p "$root/etc"
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+CopyFiles=/etc
+Encrypt=key-file
+EncryptedVolume=$volume
+MountPoint=/mnt/volume
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline="$OFFLINE" \
+                   --generate-fstab="/etc/fstab" \
+                   --generate-crypttab="/etc/crypttab" \
+                   --root="$root" \
+                   "$imgs/fstabcrypttabrepart.img"
+
+    loop="$(losetup -P --show --find "$imgs/fstabcrypttabrepart.img")"
+    udevadm wait --timeout=60 --settle "${loop:?}p1"
+
+    touch "$imgs/empty-password"
+
+    mkdir -p "$imgs/mount"
+
+    systemd-cryptsetup attach "$volume" "${loop}p1" "$imgs/empty-password"
+
+    mount -t ext4 "/dev/mapper/$volume" "$imgs/mount"
+
+    echo "Testing /etc/fstab presence"
+    test -f "$imgs/mount/etc/fstab"
+    grep -q "/mnt/volume" "$imgs/mount/etc/fstab"
+
+    echo "Testing /etc/crypttab presence"
+    test -f "$imgs/mount/etc/crypttab"
+    grep -q "$volume" "$imgs/mount/etc/crypttab"
+
+    umount "$imgs/mount"
+    systemd-cryptsetup detach "$volume"
 
     losetup -d "$loop"
 }

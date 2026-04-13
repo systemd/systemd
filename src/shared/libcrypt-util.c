@@ -4,6 +4,8 @@
 #  include <crypt.h>
 #endif
 
+#include "sd-dlopen.h"
+
 #include "alloc-util.h"
 #include "dlfcn-util.h"
 #include "errno-util.h"
@@ -30,25 +32,28 @@ int dlopen_libcrypt(void) {
         if (cached < 0)
                 return cached; /* Already tried, and failed. */
 
-        /* Several distributions like Debian/Ubuntu and OpenSUSE provide libxcrypt as libcrypt.so.1,
-         * while others like Fedora/CentOS and Arch provide it as libcrypt.so.2. */
-        ELF_NOTE_DLOPEN("crypt",
+        /* Several distributions like Debian/Ubuntu and OpenSUSE provide libxcrypt as libcrypt.so.1
+         * (libcrypt.so.1.1 on some architectures), while others like Fedora/CentOS and Arch provide it as
+         * libcrypt.so.2. */
+        SD_ELF_NOTE_DLOPEN(
+                        "crypt",
                         "Support for hashing passwords",
-                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libcrypt.so.2", "libcrypt.so.1");
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        "libcrypt.so.2", "libcrypt.so.1", "libcrypt.so.1.1");
 
         _cleanup_(dlclosep) void *dl = NULL;
-        r = dlopen_safe("libcrypt.so.2", &dl, /* reterr_dlerror= */ NULL);
-        if (r < 0) {
-                const char *dle = NULL;
-                r = dlopen_safe("libcrypt.so.1", &dl, &dle);
-                if (r < 0) {
-                        log_debug_errno(r, "libcrypt.so.2/libcrypt.so.1 is not available: %s", dle ?: STRERROR(r));
-                        return (cached = -EOPNOTSUPP); /* turn into recognizable error */
+        const char *dle = NULL;
+        FOREACH_STRING(soname, "libcrypt.so.2", "libcrypt.so.1", "libcrypt.so.1.1") {
+                r = dlopen_safe(soname, &dl, &dle);
+                if (r >= 0) {
+                        log_debug("Loaded '%s' via dlopen().", soname);
+                        break;
                 }
-                log_debug("Loaded 'libcrypt.so.1' via dlopen()");
-        } else
-                log_debug("Loaded 'libcrypt.so.2' via dlopen()");
+        }
+        if (r < 0) {
+                log_debug_errno(r, "Failed to load libcrypt: %s", dle ?: STRERROR(r));
+                return (cached = -EOPNOTSUPP); /* turn into recognizable error */
+        }
 
         r = dlsym_many_or_warn(
                         dl, LOG_DEBUG,

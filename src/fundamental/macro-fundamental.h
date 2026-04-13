@@ -88,7 +88,6 @@
 #define _printf_(a, b) __attribute__((__format__(printf, a, b)))
 #define _public_ __attribute__((__visibility__("default")))
 #define _pure_ __attribute__((__pure__))
-#define _retain_ __attribute__((__retain__))
 #define _returns_nonnull_ __attribute__((__returns_nonnull__))
 #define _section_(x) __attribute__((__section__(x)))
 #define _sentinel_ __attribute__((__sentinel__))
@@ -99,16 +98,28 @@
 #define _weak_ __attribute__((__weak__))
 #define _weakref_(x) __attribute__((__weakref__(#x)))
 
-#ifdef __clang__
-#  define _alloc_(...)
-#else
+#if HAVE_ATTRIBUTE_ALLOC_SIZE
 #  define _alloc_(...) __attribute__((__alloc_size__(__VA_ARGS__)))
+#else
+#  define _alloc_(...)
 #endif
 
-#if defined(__clang__) && __clang_major__ < 10
-#  define _fallthrough_
-#else
+#if HAVE_ATTRIBUTE_FALLTHROUGH
 #  define _fallthrough_ __attribute__((__fallthrough__))
+#else
+#  define _fallthrough_
+#endif
+
+#if HAVE_ATTRIBUTE_RETAIN
+#  define _retain_ __attribute__((__retain__))
+#else
+#  define _retain_
+#endif
+
+#if HAVE_ATTRIBUTE_NO_REORDER
+#  define _no_reorder_ __attribute__((__no_reorder__))
+#else
+#  define _no_reorder_
 #endif
 
 #if __GNUC__ >= 15
@@ -160,7 +171,7 @@
 #define U64_GB (UINT64_C(1024) * U64_MB)
 
 #undef MAX
-#define MAX(a, b) __MAX(UNIQ, (a), UNIQ, (b))
+#define MAX(a, b) __MAX(UNIQ, a, UNIQ, b)
 #define __MAX(aq, a, bq, b)                             \
         ({                                              \
                 const typeof(a) UNIQ_T(A, aq) = (a);    \
@@ -216,13 +227,27 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
                 MAX(_d, a);                             \
         })
 
+#define MAX5(x, y, z, a, b)                             \
+        ({                                              \
+                const typeof(x) _e = MAX4(x, y, z, a);  \
+                MAX(_e, b);                             \
+        })
+
 #undef MIN
-#define MIN(a, b) __MIN(UNIQ, (a), UNIQ, (b))
+#define MIN(a, b) __MIN(UNIQ, a, UNIQ, b)
 #define __MIN(aq, a, bq, b)                             \
         ({                                              \
                 const typeof(a) UNIQ_T(A, aq) = (a);    \
                 const typeof(b) UNIQ_T(B, bq) = (b);    \
                 UNIQ_T(A, aq) < UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
+        })
+
+#define ABS_DIFF(a, b) __ABS_DIFF(UNIQ, a, UNIQ, b)
+#define __ABS_DIFF(aq, a, bq, b)                        \
+        ({                                              \
+                const typeof(a) UNIQ_T(A, aq) = (a);    \
+                const typeof(b) UNIQ_T(B, bq) = (b);    \
+                UNIQ_T(A, aq) < UNIQ_T(B, bq) ? UNIQ_T(B, bq) - UNIQ_T(A, aq) : UNIQ_T(A, aq) - UNIQ_T(B, bq); \
         })
 
 /* evaluates to (void) if _A or _B are not constant or of different types */
@@ -295,7 +320,7 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
         })
 
 #undef CLAMP
-#define CLAMP(x, low, high) __CLAMP(UNIQ, (x), UNIQ, (low), UNIQ, (high))
+#define CLAMP(x, low, high) __CLAMP(UNIQ, x, UNIQ, low, UNIQ, high)
 #define __CLAMP(xq, x, lowq, low, highq, high)                          \
         ({                                                              \
                 const typeof(x) UNIQ_T(X, xq) = (x);                    \
@@ -312,7 +337,7 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
  * computation should be possible in the given type. Therefore, we use
  * [x / y + !!(x % y)]. Note that on "Real CPUs" a division returns both the
  * quotient and the remainder, so both should be equally fast. */
-#define DIV_ROUND_UP(x, y) __DIV_ROUND_UP(UNIQ, (x), UNIQ, (y))
+#define DIV_ROUND_UP(x, y) __DIV_ROUND_UP(UNIQ, x, UNIQ, y)
 #define __DIV_ROUND_UP(xq, x, yq, y)                                    \
         ({                                                              \
                 const typeof(x) UNIQ_T(X, xq) = (x);                    \
@@ -324,11 +349,11 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
 #define __ROUND_UP(q, x, y)                                             \
         ({                                                              \
                 const typeof(y) UNIQ_T(A, q) = (y);                     \
-                const typeof(x) UNIQ_T(B, q) = DIV_ROUND_UP((x), UNIQ_T(A, q)); \
+                const typeof(x) UNIQ_T(B, q) = DIV_ROUND_UP(x, UNIQ_T(A, q)); \
                 typeof(x) UNIQ_T(C, q);                                 \
                 MUL_SAFE(&UNIQ_T(C, q), UNIQ_T(B, q), UNIQ_T(A, q)) ? UNIQ_T(C, q) : (typeof(x)) -1; \
         })
-#define ROUND_UP(x, y) __ROUND_UP(UNIQ, (x), (y))
+#define ROUND_UP(x, y) __ROUND_UP(UNIQ, x, y)
 
 #define  CASE_F_1(X)      case X:
 #define  CASE_F_2(X, ...) case X:  CASE_F_1( __VA_ARGS__)
@@ -351,10 +376,11 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
 #define CASE_F_19(X, ...) case X: CASE_F_18( __VA_ARGS__)
 #define CASE_F_20(X, ...) case X: CASE_F_19( __VA_ARGS__)
 #define CASE_F_21(X, ...) case X: CASE_F_20( __VA_ARGS__)
+#define CASE_F_22(X, ...) case X: CASE_F_21( __VA_ARGS__)
 
-#define GET_CASE_F(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,NAME,...) NAME
+#define GET_CASE_F(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,_22,NAME,...) NAME
 #define FOR_EACH_MAKE_CASE(...) \
-        GET_CASE_F(__VA_ARGS__,CASE_F_21,CASE_F_20,CASE_F_19,CASE_F_18,CASE_F_17,CASE_F_16,CASE_F_15,CASE_F_14,CASE_F_13,CASE_F_12, \
+        GET_CASE_F(__VA_ARGS__,CASE_F_22,CASE_F_21,CASE_F_20,CASE_F_19,CASE_F_18,CASE_F_17,CASE_F_16,CASE_F_15,CASE_F_14,CASE_F_13,CASE_F_12, \
                                CASE_F_11,CASE_F_10,CASE_F_9,CASE_F_8,CASE_F_7,CASE_F_6,CASE_F_5,CASE_F_4,CASE_F_3,CASE_F_2,CASE_F_1) \
                    (__VA_ARGS__)
 
@@ -364,7 +390,7 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
                 /* If the build breaks in the line below, you need to extend the case macros. We use typeof(+x) \
                  * here to widen the type of x if it is a bit-field as this would otherwise be illegal. */      \
                 static const typeof(+x) __assert_in_set[] _unused_ = { first, __VA_ARGS__ }; \
-                assert_cc(ELEMENTSOF(__assert_in_set) <= 21);           \
+                assert_cc(ELEMENTSOF(__assert_in_set) <= 22);           \
                 switch (x) {                                            \
                 FOR_EACH_MAKE_CASE(first, __VA_ARGS__)                  \
                         _found = true;                                  \

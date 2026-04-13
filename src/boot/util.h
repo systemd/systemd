@@ -96,6 +96,13 @@ static inline Pages xmalloc_pages(
         };
 }
 
+Pages xmalloc_aligned_pages(
+                EFI_ALLOCATE_TYPE type,
+                EFI_MEMORY_TYPE memory_type,
+                size_t n_pages,
+                size_t alignment,
+                EFI_PHYSICAL_ADDRESS addr);
+
 static inline Pages xmalloc_initrd_pages(size_t n_pages) {
         /* The original native x86 boot protocol of the Linux kernel was not 64bit safe, hence we try to
          * allocate memory for the initrds below the 4G boundary on x86, since we don't know early enough

@@ -15,11 +15,11 @@ static const char *arg_hwdb_bin_dir = NULL;
 static const char *arg_root = NULL;
 static bool arg_strict = false;
 
-static int verb_query(int argc, char *argv[], void *userdata) {
+static int verb_query(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return hwdb_query(argv[1], arg_root);
 }
 
-static int verb_update(int argc, char *argv[], void *userdata) {
+static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (hwdb_bypass())
                 return 0;
 

@@ -189,7 +189,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (optind + 1 != argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s excepts exactly one argument (the mount point).",
+                                       "%s expects exactly one argument (the mount point).",
                                        program_invocation_short_name);
 
         arg_target = argv[optind];

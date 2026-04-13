@@ -189,6 +189,10 @@ systemctl is-active app0.service
 status="$(portablectl is-attached --extension /tmp/app10.raw /usr/share/minimal_0.raw)"
 [[ "${status}" == "running-runtime" ]]
 
+# Ensure --force adds relax-extension-release-check for image extensions
+grep -q -F "ExtensionImages=" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "ExtensionImagePolicy=" /run/systemd/system.attached/app0.service.d/20-portable.conf
+
 portablectl inspect --force --cat --extension /tmp/app10.raw /usr/share/minimal_0.raw app0 | grep -F "Extension Release: /tmp/app10.raw" >/dev/null
 
 # Ensure that we can detach even when an image has been deleted already (stop the unit manually as
@@ -207,6 +211,19 @@ status="$(portablectl is-attached --extension /tmp/app0.raw --extension /tmp/con
 portablectl inspect --force --cat --extension /tmp/app0.raw --extension /tmp/conf0.raw /usr/share/minimal_0.raw app0 | grep -F "Extension Release: /tmp/conf0.raw" >/dev/null
 
 portablectl detach --now --runtime --extension /tmp/app0.raw --extension /tmp/conf0.raw /usr/share/minimal_0.raw app0
+
+# Ensure that ExtensionImages= is added to the drop-in even when the extension has no unit files
+# (all units come from the base image).
+portablectl "${ARGS[@]}" attach --force --now --runtime --extension /tmp/app-data-only.raw /usr/share/minimal_0.raw minimal-app0
+
+systemctl is-active minimal-app0.service
+status="$(portablectl is-attached --extension app-data-only minimal_0)"
+[[ "${status}" == "running-runtime" ]]
+
+grep -q -F "ExtensionImages=/tmp/app-data-only.raw" /run/systemd/system.attached/minimal-app0.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app-data-only.raw" /run/systemd/system.attached/minimal-app0.service.d/20-portable.conf
+
+portablectl detach --now --runtime --extension /tmp/app-data-only.raw /usr/share/minimal_0.raw minimal-app0
 
 # Ensure that mixed mode copies the images and units (client-owned) but symlinks the profile (OS owned)
 portablectl "${ARGS[@]}" attach --copy=mixed --runtime --extension /tmp/app0.raw /usr/share/minimal_0.raw app0
@@ -245,3 +262,19 @@ status="$(portablectl is-attached --extension app1 minimal_0)"
 [[ "${status}" == "attached-runtime" ]]
 
 portablectl detach --runtime --extension /tmp/app1.raw /usr/share/minimal_0.raw app
+
+# Ensure that when mixing directory and image extensions, ExtensionImagePolicy= is only
+# applied to image extensions and not to directory extensions
+mkdir -p /tmp/app1
+mount /tmp/app1.raw /tmp/app1
+portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime --extension /tmp/app1 --extension /tmp/app0.raw /usr/share/minimal_0.raw app0
+
+systemctl is-active app0.service
+
+grep -q -F "ExtensionDirectories=/tmp/app1" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "ExtensionImages=/tmp/app0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
+# ExtensionImagePolicy= should appear exactly once (for the image, not the directory)
+[[ "$(grep -c -F "ExtensionImagePolicy=" /run/systemd/system.attached/app0.service.d/20-portable.conf)" == "1" ]]
+
+portablectl detach --now --runtime --extension /tmp/app1 --extension /tmp/app0.raw /usr/share/minimal_0.raw app0
+umount -l /tmp/app1

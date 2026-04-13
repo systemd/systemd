@@ -69,6 +69,7 @@
         <term><varname>systemd.import_credentials=</varname></term>
         <term><varname>systemd.reload_limit_interval_sec=</varname></term>
         <term><varname>systemd.reload_limit_burst=</varname></term>
+        <term><varname>systemd.minimum_uptime_sec=</varname></term>
         <listitem>
           <para>Parameters understood by the system and service
           manager to control system behavior. For details, see
@@ -783,6 +784,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.tpm2_software_fallback=</varname></term>
+
+        <listitem><para>Controls whether to start a fallback software TPM service in case a hardware TPM is
+        not available, implemented by
+        <citerefentry><refentrytitle>systemd-tpm2-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.tpm2_measured_os=</varname></term>
+
+        <listitem><para>Controls whether to execute various boot and runtime TPM PCR measurements. Takes a
+        boolean argument. If not specified explicitly this behaviour is enabled automatically in case
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> is
+        used and it succeeded in doing pre-boot measurements of the booted UKI, and otherwise
+        disabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.factory_reset=</varname></term>
 
         <listitem><para>Controls whether to to boot into factory reset mode, implemented by
@@ -791,6 +814,35 @@
         and other tools.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.imds=</varname></term>
+        <term><varname>systemd.imds.*=</varname></term>
+
+        <listitem><para>Controls various Instance Metadata Service (IMDS) cloud aspects, see
+        <citerefentry><refentrytitle>systemd-imdsd@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        and
+        <citerefentry><refentrytitle>systemd-imds-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.sysext=</varname></term>
+        <term><varname>systemd.confext=</varname></term>
+        <term><varname>rd.systemd.sysext=</varname></term>
+        <term><varname>rd.systemd.confext=</varname></term>
+
+        <listitem><para>Take boolean arguments, default to on. Control whether system and configuration
+        extensions for the initrd (<varname>rd.systemd.sysext=</varname>, <varname>rd.systemd.confext=</varname>)
+        and for the main system (<varname>systemd.sysext=</varname>, <varname>systemd.confext=</varname>) are
+        merged automatically on boot. See
+        <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 
     </variablelist>

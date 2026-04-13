@@ -512,10 +512,19 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .ipoib_mode = _IP_OVER_INFINIBAND_MODE_INVALID,
                 .ipoib_umcast = -1,
+
+                .mm_allow_roaming = true,
+                .mm_allowed_auth = MM_BEARER_ALLOWED_AUTH_UNKNOWN,
+                .mm_ip_family = MM_BEARER_IP_FAMILY_NONE,
+                .mm_use_gateway = -1,
         };
 
-        r = config_parse_many(
-                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname, /* root= */ NULL,
+        r = config_parse_many_full(
+                        STRV_MAKE_CONST(filename),
+                        NETWORK_DIRS,
+                        dropin_dirname,
+                        /* root= */ NULL,
+                        /* root_fd= */ -EBADF,
                         "Match\0"
                         "Link\0"
                         "SR-IOV\0"
@@ -547,6 +556,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "LLDP\0"
                         "TrafficControlQueueingDiscipline\0"
                         "CAN\0"
+                        "MobileNetwork\0"
                         "QDisc\0"
                         "BFIFO\0"
                         "CAKE\0"
@@ -574,7 +584,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "StochasticFairnessQueueing\0"
                         "TokenBucketFilter\0"
                         "TrivialLinkEqualizer\0",
-                        config_item_perf_lookup, network_network_gperf_lookup,
+                        config_item_perf_lookup,
+                        network_network_gperf_lookup,
                         CONFIG_PARSE_WARN,
                         network,
                         &network->stats_by_path,
@@ -841,6 +852,13 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->sr_iov_by_section);
         hashmap_free(network->qdiscs_by_section);
         hashmap_free(network->tclasses_by_section);
+
+        /* ModemManager */
+        free(network->mm_apn);
+        free(network->mm_operator_id);
+        free(network->mm_user);
+        free(network->mm_password);
+        free(network->mm_pin);
 
         return mfree(network);
 }

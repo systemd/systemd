@@ -72,27 +72,27 @@ static int add_dmesg(sd_journal *j) {
         return sd_journal_add_conjunction(j);
 }
 
-static int add_units(sd_journal *j) {
+int journal_add_unit_matches(
+                sd_journal *j,
+                MatchUnitFlag flags,
+                UnitNameMangle mangle_flags,
+                char * const *system_units,
+                uid_t uid,
+                char * const *user_units) {
+
         _cleanup_strv_free_ char **patterns = NULL;
         bool added = false;
-        MatchUnitFlag flags = MATCH_UNIT_ALL;
         int r;
 
         assert(j);
 
-        if (strv_isempty(arg_system_units) && strv_isempty(arg_user_units))
+        if (strv_isempty(system_units) && strv_isempty(user_units))
                 return 0;
 
-        /* When --directory/-D, --root, --file/-i, or --machine/-M is specified, the opened journal file may
-         * be external, and the uid of the systemd-coredump user that generates the coredump entries may be
-         * different from the one in the current host. Let's relax the filter condition in such cases. */
-        if (arg_directory || arg_root || arg_file_stdin || arg_file || arg_machine)
-                flags &= ~MATCH_UNIT_COREDUMP_UID;
-
-        STRV_FOREACH(i, arg_system_units) {
+        STRV_FOREACH(i, system_units) {
                 _cleanup_free_ char *u = NULL;
 
-                r = unit_name_mangle(*i, UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN), &u);
+                r = unit_name_mangle(*i, UNIT_NAME_MANGLE_GLOB | mangle_flags, &u);
                 if (r < 0)
                         return r;
 
@@ -113,12 +113,12 @@ static int add_units(sd_journal *j) {
 
         if (!strv_isempty(patterns)) {
                 _cleanup_set_free_ Set *units = NULL;
-                char *u;
 
                 r = get_possible_units(j, SYSTEM_UNITS_FULL, patterns, &units);
                 if (r < 0)
                         return r;
 
+                char *u;
                 SET_FOREACH(u, units) {
                         r = add_matches_for_unit_full(j, flags, u);
                         if (r < 0)
@@ -132,10 +132,10 @@ static int add_units(sd_journal *j) {
 
         patterns = strv_free(patterns);
 
-        STRV_FOREACH(i, arg_user_units) {
+        STRV_FOREACH(i, user_units) {
                 _cleanup_free_ char *u = NULL;
 
-                r = unit_name_mangle(*i, UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN), &u);
+                r = unit_name_mangle(*i, UNIT_NAME_MANGLE_GLOB | mangle_flags, &u);
                 if (r < 0)
                         return r;
 
@@ -144,7 +144,7 @@ static int add_units(sd_journal *j) {
                         if (r < 0)
                                 return r;
                 } else {
-                        r = add_matches_for_user_unit_full(j, flags, u);
+                        r = add_matches_for_user_unit_full(j, flags, uid, u);
                         if (r < 0)
                                 return r;
                         r = sd_journal_add_disjunction(j);
@@ -156,14 +156,14 @@ static int add_units(sd_journal *j) {
 
         if (!strv_isempty(patterns)) {
                 _cleanup_set_free_ Set *units = NULL;
-                char *u;
 
                 r = get_possible_units(j, USER_UNITS_FULL, patterns, &units);
                 if (r < 0)
                         return r;
 
+                char *u;
                 SET_FOREACH(u, units) {
-                        r = add_matches_for_user_unit_full(j, flags, u);
+                        r = add_matches_for_user_unit_full(j, flags, uid, u);
                         if (r < 0)
                                 return r;
                         r = sd_journal_add_disjunction(j);
@@ -179,6 +179,22 @@ static int add_units(sd_journal *j) {
                 return -ENODATA;
 
         return sd_journal_add_conjunction(j);
+}
+
+static int add_units(sd_journal *j) {
+        MatchUnitFlag flags = MATCH_UNIT_ALL;
+
+        assert(j);
+
+        /* When --directory/-D, --root, --file/-i, or --machine/-M is specified, the opened journal file may
+         * be external, and the uid of the systemd-coredump user that generates the coredump entries may be
+         * different from the one in the current host. Let's relax the filter condition in such cases. */
+        if (arg_directory || arg_root || arg_file_stdin || arg_file || arg_machine)
+                flags &= ~MATCH_UNIT_COREDUMP_UID;
+
+        return journal_add_unit_matches(j, flags, arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
+                                        arg_system_units,
+                                        UID_INVALID, arg_user_units);
 }
 
 static int add_syslog_identifier(sd_journal *j) {

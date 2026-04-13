@@ -12,6 +12,7 @@
 #include "main-func.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "verbs.h"
@@ -20,10 +21,24 @@ static uint32_t arg_activate_flags;
 static int arg_percent;
 static usec_t arg_commit_time;
 static char *arg_existing_data_device;
-static char *arg_integrity_algorithm;
+static IntegrityAlgorithm arg_integrity_algorithm = _INTEGRITY_ALGORITHM_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_existing_data_device, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_integrity_algorithm, freep);
+
+/* Integrity algorithm names used by dm-integrity */
+static const char* const dm_integrity_algorithm_table[_INTEGRITY_ALGORITHM_MAX] = {
+        [INTEGRITY_ALGORITHM_CRC32]        = "crc32",
+        [INTEGRITY_ALGORITHM_CRC32C]       = "crc32c",
+        [INTEGRITY_ALGORITHM_XXHASH64]     = "xxhash64",
+        [INTEGRITY_ALGORITHM_SHA1]         = "sha1",
+        [INTEGRITY_ALGORITHM_SHA256]       = "sha256",
+        [INTEGRITY_ALGORITHM_HMAC_SHA256]  = "hmac(sha256)",
+        [INTEGRITY_ALGORITHM_HMAC_SHA512]  = "hmac(sha512)",
+        [INTEGRITY_ALGORITHM_PHMAC_SHA256] = "phmac(sha256)",
+        [INTEGRITY_ALGORITHM_PHMAC_SHA512] = "phmac(sha512)",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(dm_integrity_algorithm, IntegrityAlgorithm);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -72,24 +87,14 @@ static int load_key_file(
 }
 
 static const char *integrity_algorithm_select(const void *key_file_buf) {
-        /* To keep a bit of sanity for end users, the subset of integrity
-         * algorithms we support will match what is used in integritysetup */
-        if (arg_integrity_algorithm) {
-                if (streq(arg_integrity_algorithm, "hmac-sha256"))
-                        return DM_HMAC_256;
-                if (streq(arg_integrity_algorithm, "hmac-sha512"))
-                        return DM_HMAC_512;
-                if (streq(arg_integrity_algorithm, "phmac-sha256"))
-                        return DM_PHMAC_256;
-                if (streq(arg_integrity_algorithm, "phmac-sha512"))
-                        return DM_PHMAC_512;
-                return arg_integrity_algorithm;
-        } else if (key_file_buf)
-                return DM_HMAC_256;
-        return "crc32c";
+        IntegrityAlgorithm a = arg_integrity_algorithm >= 0
+                ? arg_integrity_algorithm
+                : (key_file_buf ? INTEGRITY_ALGORITHM_HMAC_SHA256 : INTEGRITY_ALGORITHM_CRC32C);
+
+        return dm_integrity_algorithm_to_string(a);
 }
 
-static int verb_attach(int argc, char *argv[], void *userdata) {
+static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         crypt_status_info status;
         _cleanup_(erase_and_freep) void *key_buf = NULL;
@@ -156,7 +161,7 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_detach(int argc, char *argv[], void *userdata) {
+static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
 

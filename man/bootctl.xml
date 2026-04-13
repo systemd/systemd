@@ -132,13 +132,17 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>set-preferred</option> <replaceable>ID</replaceable></term>
         <term><option>set-default</option> <replaceable>ID</replaceable></term>
         <term><option>set-oneshot</option> <replaceable>ID</replaceable></term>
         <term><option>set-sysfail</option> <replaceable>ID</replaceable></term>
 
         <listitem><para>Sets the default boot loader entry. Takes a single boot loader entry ID string or a glob
         pattern as argument. The <option>set-oneshot</option> command will set the default entry only for the next boot,
-        the <option>set-default</option> will set it persistently for all future boots. The <option>set-sysfail</option> command
+        <option>set-default</option> will set it persistently for all future boots,
+        <option>set-preferred</option> is like <option>set-default</option>,
+        but is aware of boot assessment and will skip boot entries that have their tries-left counter set to zero.
+        The <option>set-sysfail</option> command
         will set the boot loader entry to be used in case of a system failure. System failure (SysFail) boot entries can
         optionally modify the automatic selection order in the event of a failure, such as a boot firmware update failure with
         the failure status recorded in the EFI system table.</para>
@@ -403,10 +407,11 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--variables=yes|no</option></term>
+        <term><option>--variables=yes|no|auto</option></term>
         <listitem><para>Controls whether to touch the firmware's boot loader list stored in EFI variables,
-        and other EFI variables. If not specified defaults to no when execution in a container runtime is
-        detected, yes otherwise.</para>
+        and other EFI variables. If not specified or set to <option>auto</option>, EFI variables will not
+        be modified when execution in a container runtime is detected. <option>yes</option> may be used to
+        explicit override the check.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
@@ -522,6 +527,18 @@
         the firmware's boot option menu.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--efi-boot-option-description-with-device=</option></term>
+        <listitem><para>Takes a boolean, defaults to false. Controls whether to append disk model information
+        to the firmware boot option item description (as configured with
+        <option>--efi-boot-option-description=</option> above). This is useful when installing multiple
+        operating systems on separate disks on the same system, as it ensures the firmware boot options are discernible
+        and give a hint which disk is booted into. Note that this uses hardware model information, and hence
+        might not be too useful in case multiple disks of an identical model are used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
       <varlistentry>

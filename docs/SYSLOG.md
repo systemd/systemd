@@ -21,7 +21,7 @@ On a systemd system it is no longer OK to listen on /dev/log directly, and your 
 If you do that then you will lose logging from STDOUT/STDERR of services (as well as other stuff).
 
 Your BSD compatible logging service should alias `syslog.service` to itself (i.e. symlink) when it is _enabled_.
-That way [syslog.socket](http://cgit.freedesktop.org/systemd/systemd/plain/units/syslog.socket) will activate your service when things are logged.
+That way [syslog.socket](https://github.com/systemd/systemd/blob/main/units/syslog.socket) will activate your service when things are logged.
 Of course, only one implementation of BSD syslog can own that symlink, and hence only one implementation can be enabled at a time, but that's intended as there can only be one process listening on that socket.
 (see below for details how to manage this symlink.)
 

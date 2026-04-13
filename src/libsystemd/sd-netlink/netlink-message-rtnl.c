@@ -385,6 +385,8 @@ int sd_rtnl_message_new_addr_update(
                 int family) {
         int r;
 
+        assert_return(ret, -EINVAL);
+
         r = sd_rtnl_message_new_addr(rtnl, ret, RTM_NEWADDR, ifindex, family);
         if (r < 0)
                 return r;

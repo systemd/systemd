@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -9,12 +8,15 @@
 #include "efivars.h"
 #include "fd-util.h"
 #include "find-esp.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -25,75 +27,77 @@ static char **arg_path = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_path, strv_freep);
 
-static int help(int argc, char *argv[], void *userdata) {
+typedef enum Status {
+        STATUS_GOOD,
+        STATUS_BAD,
+        STATUS_INDETERMINATE,
+} Status;
+
+static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-bless-boot.service", "8", &link);
         if (r < 0)
                 return log_oom();
 
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, options, verbs);
+
         printf("%s [OPTIONS...] COMMAND\n"
                "\n%sMark the boot process as good or bad.%s\n"
-               "\nCommands:\n"
-               "     status          Show status of current boot loader entry\n"
-               "     good            Mark this boot as good\n"
-               "     bad             Mark this boot as bad\n"
-               "     indeterminate   Undo any marking as good or bad\n"
-               "\nOptions:\n"
-               "  -h --help          Show this help\n"
-               "     --version       Print version\n"
-               "     --path=PATH     Path to the $BOOT partition (may be used multiple times)\n"
-               "\nSee the %s for details.\n",
+               "\nCommands:\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_normal(),
-               link);
+               ansi_normal());
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
 
+        printf("\nOptions:\n");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_PATH = 0x100,
-                ARG_VERSION,
-        };
+VERB_COMMON_HELP_HIDDEN(help);
 
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "path",         required_argument, NULL, ARG_PATH         },
-                {}
-        };
-
-        int c, r;
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
+                OPTION_COMMON_HELP:
+                        return help();
 
-                case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
-
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_PATH:
-                        r = strv_extend(&arg_path, optarg);
+                OPTION_LONG("path", "PATH", "Path to the $BOOT partition (may be used multiple times)"):
+                        r = strv_extend(&arg_path, arg);
                         if (r < 0)
                                 return log_oom();
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
@@ -106,11 +110,26 @@ static int acquire_path(void) {
         if (!strv_isempty(arg_path))
                 return 0;
 
-        r = find_esp_and_warn(NULL, NULL, /* unprivileged_mode= */ false, &esp_path, NULL, NULL, NULL, NULL, &esp_devid);
+        r = find_esp_and_warn_full(
+                        /* root= */ NULL,
+                        /* path= */ NULL,
+                        /* unprivileged_mode= */ false,
+                        &esp_path,
+                        /* ret_part= */ NULL,
+                        /* ret_pstart= */ NULL,
+                        /* ret_psize= */ NULL,
+                        /* ret_uuid= */ NULL,
+                        &esp_devid);
         if (r < 0 && r != -ENOKEY) /* ENOKEY means not found, and is the only error the function won't log about on its own */
                 return r;
 
-        r = find_xbootldr_and_warn(NULL, NULL, /* unprivileged_mode= */ false, &xbootldr_path, NULL, &xbootldr_devid);
+        r = find_xbootldr_and_warn_full(
+                        /* root= */ NULL,
+                        /* path= */ NULL,
+                        /* unprivileged_mode= */ false,
+                        &xbootldr_path,
+                        /* ret_uuid= */ NULL,
+                        &xbootldr_devid);
         if (r < 0 && r != -ENOKEY)
                 return r;
 
@@ -299,7 +318,7 @@ static int make_good(const char *prefix, const char *suffix, char **ret) {
 }
 
 static int make_bad(const char *prefix, uint64_t done, const char *suffix, char **ret) {
-        _cleanup_free_ char *bad = NULL;
+        char *bad;
 
         assert(prefix);
         assert(suffix);
@@ -308,26 +327,26 @@ static int make_bad(const char *prefix, uint64_t done, const char *suffix, char 
         /* Generate the path we'd use on bad boots. Let's simply set the 'left' counter to zero, and keep the 'done'
          * counter. The information might be interesting to boot loaders, after all. */
 
-        if (done == 0) {
+        if (done == 0)
                 bad = strjoin(prefix, "+0", suffix);
-                if (!bad)
-                        return -ENOMEM;
-        } else {
-                if (asprintf(&bad, "%s+0-%" PRIu64 "%s", prefix, done, suffix) < 0)
-                        return -ENOMEM;
-        }
+        else
+                bad = asprintf_safe("%s+0-%" PRIu64 "%s", prefix, done, suffix);
+        if (!bad)
+                return -ENOMEM;
 
-        *ret = TAKE_PTR(bad);
+        *ret = bad;
         return 0;
 }
 
-static int verb_status(int argc, char *argv[], void *userdata) {
+VERB(verb_status, "status", NULL, VERB_ANY, 1, VERB_DEFAULT, "Show status of current boot loader entry");
+static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
         uint64_t left, done;
         int r;
 
         r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
-        if (r == -EUNATCH) { /* No boot count in place, then let's consider this a "clean" boot, as "good", "bad" or "indeterminate" don't apply. */
+        if (r == -EUNATCH) { /* No boot count in place, then let's consider this a "clean" boot,
+                              * since "good", "bad", or "indeterminate" don't apply. */
                 puts("clean");
                 return 0;
         }
@@ -427,11 +446,20 @@ static int rename_in_dir_idempotent(int fd, const char *from, const char *to) {
          return 1;
 }
 
-static int verb_set(int argc, char *argv[], void *userdata) {
+VERB_FULL(verb_set, "good", NULL, VERB_ANY, 1, 0, STATUS_GOOD,
+          "Mark this boot as good");
+VERB_FULL(verb_set, "bad", NULL, VERB_ANY, 1, 0, STATUS_BAD,
+          "Mark this boot as bad");
+VERB_FULL(verb_set, "indeterminate", NULL, VERB_ANY, 1, 0, STATUS_INDETERMINATE,
+          "Undo any marking as good or bad");
+static int verb_set(int argc, char *argv[], uintptr_t data, void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
         const char *target, *source1, *source2;
         uint64_t left, done;
+        Status status = data;
         int r;
+
+        assert(IN_SET(status, STATUS_GOOD, STATUS_BAD, STATUS_INDETERMINATE));
 
         r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
         if (r == -EUNATCH) /* acquire_boot_count_path() won't log on its own for this specific error */
@@ -452,23 +480,25 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         /* Figure out what rename to what */
-        if (streq(argv[0], "good")) {
+        switch (status) {
+        case STATUS_GOOD:
                 target = good;
                 source1 = path;
                 source2 = bad;      /* Maybe this boot was previously marked as 'bad'? */
-        } else if (streq(argv[0], "bad")) {
+                break;
+        case STATUS_BAD:
                 target = bad;
                 source1 = path;
                 source2 = good;     /* Maybe this boot was previously marked as 'good'? */
-        } else {
-                assert(streq(argv[0], "indeterminate"));
-
+                break;
+        case STATUS_INDETERMINATE:
                 if (left == 0)
                         return log_error_errno(r, "Current boot entry was already marked bad in a previous boot, cannot reset to indeterminate.");
 
                 target = path;
                 source1 = good;
                 source2 = bad;
+                break;
         }
 
         STRV_FOREACH(p, arg_path) {
@@ -532,20 +562,12 @@ exists:
 }
 
 static int run(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "help",          VERB_ANY, VERB_ANY, 0,            help        },
-                { "status",        VERB_ANY, 1,        VERB_DEFAULT, verb_status },
-                { "good",          VERB_ANY, 1,        0,            verb_set    },
-                { "bad",           VERB_ANY, 1,        0,            verb_set    },
-                { "indeterminate", VERB_ANY, 1,        0,            verb_set    },
-                {}
-        };
-
+        char **args = NULL;
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -557,7 +579,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Marking a boot is only supported on EFI systems.");
 
-        return dispatch_verb(argc, argv, verbs, NULL);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

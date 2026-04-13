@@ -17,6 +17,7 @@ Before=shutdown.target
 
 [Socket]
 ListenStream=/run/systemd/io.systemd.MuteConsole
+Symlinks=/run/varlink/registry/io.systemd.MuteConsole
 FileDescriptorName=varlink
 SocketMode=0600
 Accept=yes

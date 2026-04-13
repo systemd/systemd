@@ -434,7 +434,7 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
         for (sd_dhcp_lease_server_type_t i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
                 free(lease->servers[i].addr);
 
-        dns_resolver_done_many(lease->dnr, lease->n_dnr);
+        dns_resolver_free_array(lease->dnr, lease->n_dnr);
         free(lease->static_routes);
         free(lease->classless_routes);
         free(lease->vendor_specific);
@@ -642,7 +642,7 @@ static int lease_parse_dnr(const uint8_t *option, size_t len, sd_dns_resolver **
         int r;
         sd_dns_resolver *res_list = NULL;
         size_t n_resolvers = 0;
-        CLEANUP_ARRAY(res_list, n_resolvers, dns_resolver_done_many);
+        CLEANUP_ARRAY(res_list, n_resolvers, dns_resolver_free_array);
 
         assert(option || len == 0);
         assert(dnr);
@@ -747,7 +747,7 @@ static int lease_parse_dnr(const uint8_t *option, size_t len, sd_dns_resolver **
 
         typesafe_qsort(res_list, n_resolvers, dns_resolver_prio_compare);
 
-        dns_resolver_done_many(*dnr, *n_dnr);
+        dns_resolver_free_array(*dnr, *n_dnr);
         *dnr = TAKE_PTR(res_list);
         *n_dnr = n_resolvers;
 
@@ -1265,6 +1265,8 @@ int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const vo
 
 int dhcp_lease_new(sd_dhcp_lease **ret) {
         sd_dhcp_lease *lease;
+
+        assert(ret);
 
         lease = new0(sd_dhcp_lease, 1);
         if (!lease)

@@ -65,6 +65,8 @@ static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_
         const char *subsystem, *devtype, *tag;
         int r;
 
+        assert(ret);
+
         r = device_monitor_new_full(&monitor, sender, -EBADF);
         if (r < 0)
                 return log_error_errno(r, "Failed to create netlink socket: %m");
@@ -187,7 +189,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int monitor_main(int argc, char *argv[], void *userdata) {
+int verb_monitor_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *kernel_monitor = NULL, *udev_monitor = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;

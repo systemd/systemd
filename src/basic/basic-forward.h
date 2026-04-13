@@ -83,6 +83,7 @@ struct iovec_wrapper;
 union in_addr_union;
 union sockaddr_union;
 
+typedef enum Architecture Architecture;
 typedef enum CGroupFlags CGroupFlags;
 typedef enum CGroupMask CGroupMask;
 typedef enum ChaseFlags ChaseFlags;
@@ -96,6 +97,7 @@ typedef enum RuntimeScope RuntimeScope;
 typedef enum TimestampStyle TimestampStyle;
 typedef enum UnitActiveState UnitActiveState;
 typedef enum UnitDependency UnitDependency;
+typedef enum UnitNameMangle UnitNameMangle;
 typedef enum UnitType UnitType;
 typedef enum WaitFlags WaitFlags;
 

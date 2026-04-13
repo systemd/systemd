@@ -211,6 +211,9 @@ static int find_addr_records(
         DnsResourceRecord *rr;
         int ifindex, r;
 
+        assert(q);
+        POINTER_MAY_BE_NULL(canonical);
+
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
                 int family;
@@ -1214,10 +1217,7 @@ static int vl_method_browse_services(sd_varlink* link, sd_json_variant* paramete
         int r = 0;
 
         assert(link);
-
-        /* if the client didn't set the more flag, it is using us incorrectly */
-        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
 
@@ -1239,9 +1239,7 @@ static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *
         Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         int r;
 
-        /* if the client didn't set the more flag, it is using us incorrectly */
-        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         r = verify_polkit(link, parameters, "org.freedesktop.resolve1.subscribe-query-results");
         if (r <= 0)
@@ -1382,9 +1380,7 @@ static int vl_method_subscribe_dns_configuration(sd_varlink *link, sd_json_varia
         Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         int r;
 
-        /* if the client didn't set the more flag, it is using us incorrectly */
-        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         r = verify_polkit(link, parameters, "org.freedesktop.resolve1.subscribe-dns-configuration");
         if (r <= 0)

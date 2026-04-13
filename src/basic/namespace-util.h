@@ -50,6 +50,7 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
 
 int fd_is_namespace(int fd, NamespaceType type);
 int is_our_namespace(int fd, NamespaceType type);
+int are_our_namespaces(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
 int namespace_is_init(NamespaceType type);
 

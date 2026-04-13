@@ -510,6 +510,8 @@ JobType job_type_collapse(JobType t, Unit *u) {
 int job_type_merge_and_collapse(JobType *a, JobType b, Unit *u) {
         JobType t;
 
+        assert(a);
+
         t = job_type_lookup_merge(*a, b);
         if (t < 0)
                 return -EEXIST;
@@ -787,7 +789,7 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
                                 log_unit_struct(
                                         u,
                                         job_done_messages[result].log_level,
-                                        LOG_MESSAGE("%s was skipped because no trigger condition checks were met.",
+                                        LOG_MESSAGE("%s skipped, no trigger condition checks were met.",
                                                     ident),
                                         LOG_ITEM("JOB_ID=%" PRIu32, job_id),
                                         LOG_ITEM("JOB_TYPE=%s", job_type_to_string(t)),
@@ -798,7 +800,7 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
                                 log_unit_struct(
                                         u,
                                         job_done_messages[result].log_level,
-                                        LOG_MESSAGE("%s was skipped because of an unmet condition check (%s=%s%s).",
+                                        LOG_MESSAGE("%s skipped, unmet condition check %s=%s%s",
                                                     ident,
                                                     condition_type_to_string(c->type),
                                                     c->negate ? "!" : "",
@@ -1523,6 +1525,11 @@ void job_add_to_gc_queue(Job *j) {
 }
 
 static int job_compare_id(Job * const *a, Job * const *b) {
+        /* This is called from qsort()s inner loops. Correctly implemented qsort will never pass NULL so we
+           just suppress the check via POINTER_MAY_BE_NULL instead of assert() to avoid the runtime cost. */
+        POINTER_MAY_BE_NULL(a);
+        POINTER_MAY_BE_NULL(b);
+
         return CMP((*a)->id, (*b)->id);
 }
 

@@ -459,10 +459,10 @@
     <title>Files and Directories</title>
 
     <para>Portable service images are preferably stored in <filename>/var/lib/portables/</filename>, but are also
-    searched for in <filename>/etc/portables/</filename>, <filename>/run/systemd/portables/</filename>,
+    searched for in <filename>/etc/portables/</filename>, <filename>/run/portables/</filename>,
     <filename>/usr/local/lib/portables/</filename> and <filename>/usr/lib/portables/</filename>. It's recommended not
     to place image files directly in <filename>/etc/portables/</filename> or
-    <filename>/run/systemd/portables/</filename> (as these are generally not suitable for storing large or non-textual
+    <filename>/run/portables/</filename> (as these are generally not suitable for storing large or non-textual
     data), but use these directories only for linking images located elsewhere into the image search path.</para>
 
     <para>When a portable service image is attached, matching unit files are copied onto the host into the

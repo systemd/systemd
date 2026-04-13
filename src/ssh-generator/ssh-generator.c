@@ -33,9 +33,10 @@
  * The first two provide a nice way for hosts to connect to containers and VMs they invoke via the usual SSH
  * logic, but without waiting for networking or suchlike. The third allows the same for local clients. */
 
-static const char *arg_dest = NULL;
 static bool arg_auto = true;
 static char **arg_listen_extra = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_listen_extra, strv_freep);
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
@@ -355,9 +356,6 @@ static int add_extra_sockets(
         assert(sshd_binary);
         assert(generated_sshd_template_unit);
 
-        if (strv_isempty(arg_listen_extra))
-                return 0;
-
         STRV_FOREACH(i, arg_listen_extra) {
                 _cleanup_free_ char *service = NULL, *socket = NULL;
 
@@ -445,7 +443,7 @@ static int parse_credentials(void) {
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r;
 
-        assert_se(arg_dest = dest);
+        assert(dest);
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, /* flags= */ 0);
         if (r < 0)
@@ -475,7 +473,10 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return r;
 
         _cleanup_free_ char *found_sshd_template_unit = NULL;
-        r = unit_file_exists_full(RUNTIME_SCOPE_SYSTEM, &lp, "sshd@.service", &found_sshd_template_unit);
+        r = unit_file_exists_full(RUNTIME_SCOPE_SYSTEM, &lp,
+                                  SEARCH_FOLLOW_CONFIG_SYMLINKS,
+                                  "sshd@.service",
+                                  &found_sshd_template_unit);
         if (r < 0)
                 return log_error_errno(r, "Unable to detect if sshd@.service exists: %m");
 

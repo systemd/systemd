@@ -6,6 +6,7 @@
 #include "pidref.h"
 #include "set.h"
 #include "string-util.h"
+#include "varlink-internal.h"
 #include "varlink-util.h"
 #include "version.h"
 
@@ -173,6 +174,8 @@ int varlink_server_new(
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         int r;
+
+        assert(ret);
 
         r = sd_varlink_server_new(&s, flags|SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT);
         if (r < 0)

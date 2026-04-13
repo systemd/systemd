@@ -301,6 +301,18 @@ int xsetxattr_full(
         if (size == SIZE_MAX)
                 size = strlen(value);
 
+        /* Skip the write if the xattr already has the correct value, to avoid
+         * unnecessary timestamp changes on the file. Only do this for plain
+         * replace mode (xattr_flags == 0) — XATTR_CREATE callers expect
+         * -EEXIST when the xattr already exists. */
+        _cleanup_free_ char *old_value = NULL;
+        size_t old_size;
+
+        if (xattr_flags == 0 &&
+            getxattr_at_malloc(fd, path, name, at_flags, &old_value, &old_size) >= 0 &&
+            memcmp_nn(old_value, old_size, value, size) == 0)
+                return 0;
+
         if (have_xattrat && !isempty(path)) {
                 struct xattr_args args = {
                         .value = PTR_TO_UINT64(value),
@@ -419,9 +431,6 @@ int getcrtime_at(
         assert(fd >= 0 || fd == AT_FDCWD);
         assert((at_flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
 
-        if (isempty(path))
-                at_flags |= AT_EMPTY_PATH;
-
         /* So here's the deal: the creation/birth time (crtime/btime) of a file is a relatively newly supported concept
          * on Linux (or more strictly speaking: a concept that only recently got supported in the API, it was
          * implemented on various file systems on the lower level since a while, but never was accessible). However, we
@@ -432,11 +441,15 @@ int getcrtime_at(
          * concept is useful for determining how "old" a file really is, and hence using the older of the two makes
          * most sense. */
 
-        if (statx(fd, strempty(path),
-                  at_flags_normalize_nofollow(at_flags)|AT_STATX_DONT_SYNC,
-                  STATX_BTIME,
-                  &sx) >= 0 &&
-            FLAGS_SET(sx.stx_mask, STATX_BTIME) && sx.stx_btime.tv_sec != 0)
+        r = xstatx_full(fd,
+                        path,
+                        at_flags_normalize_nofollow(at_flags)|AT_STATX_DONT_SYNC,
+                        /* xstatx_flags= */ 0,
+                        /* mandatory_mask= */ 0,
+                        STATX_BTIME,
+                        /* mandatory_attributes= */ 0,
+                        &sx);
+        if (r > 0 && sx.stx_btime.tv_sec != 0) /* > 0: all optional masks are supported */
                 a = statx_timestamp_load(&sx.stx_btime);
         else
                 a = USEC_INFINITY;

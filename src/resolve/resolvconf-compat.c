@@ -14,6 +14,12 @@
 #include "string-util.h"
 #include "strv.h"
 
+typedef enum LookupType  {
+        LOOKUP_TYPE_REGULAR,
+        LOOKUP_TYPE_PRIVATE,
+        LOOKUP_TYPE_EXCLUSIVE, /* -x */
+} LookupType;
+
 static int resolvconf_help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -94,6 +100,75 @@ static int parse_search_domain(const char *string) {
         return 0;
 }
 
+static int parse_stdin(LookupType lookup_type) {
+        int r;
+
+        for (unsigned n = 0;;) {
+                _cleanup_free_ char *line = NULL;
+                const char *a;
+
+                r = read_stripped_line(stdin, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read from stdin: %m");
+                if (r == 0)
+                        break;
+                n++;
+
+                if (IN_SET(*line, '#', ';', 0))
+                        continue;
+
+                a = first_word(line, "nameserver");
+                if (a) {
+                        (void) parse_nameserver(a);
+                        continue;
+                }
+
+                a = first_word(line, "domain");
+                if (!a)
+                        a = first_word(line, "search");
+                if (a) {
+                        (void) parse_search_domain(a);
+                        continue;
+                }
+
+                log_syntax(NULL, LOG_DEBUG, "stdin", n, 0, "Ignoring resolv.conf line: %s", line);
+        }
+
+        switch (lookup_type) {
+        case LOOKUP_TYPE_REGULAR:
+                break;
+
+        case LOOKUP_TYPE_PRIVATE:
+                arg_disable_default_route = true;
+                break;
+
+        case LOOKUP_TYPE_EXCLUSIVE:
+                /* If -x mode is selected, let's preferably route non-suffixed lookups to this interface.
+                 * This somewhat matches the original -x behaviour */
+
+                r = strv_extend(&arg_set_domain, "~.");
+                if (r < 0)
+                        return log_oom();
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        if (strv_isempty(arg_set_dns))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No DNS servers specified, refusing operation.");
+
+        if (strv_isempty(arg_set_domain)) {
+                /* When no domain/search is set, clear the current domains. */
+                r = strv_extend(&arg_set_domain, "");
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
 int resolvconf_parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -114,22 +189,18 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        enum {
-                TYPE_REGULAR,
-                TYPE_PRIVATE,
-                TYPE_EXCLUSIVE, /* -x */
-        } type = TYPE_REGULAR;
-
         int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
         /* openresolv checks these environment variables */
+        LookupType lookup_type = LOOKUP_TYPE_REGULAR;
+
         if (getenv("IF_EXCLUSIVE"))
-                type = TYPE_EXCLUSIVE;
+                lookup_type = LOOKUP_TYPE_EXCLUSIVE;
         if (getenv("IF_PRIVATE"))
-                type = TYPE_PRIVATE;
+                lookup_type = LOOKUP_TYPE_PRIVATE;
 
         arg_mode = _MODE_INVALID;
 
@@ -153,11 +224,11 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
 
                 /* The exclusive/private/force stuff is an openresolv invention, we support in some skewed way */
                 case 'x':
-                        type = TYPE_EXCLUSIVE;
+                        lookup_type = LOOKUP_TYPE_EXCLUSIVE;
                         break;
 
                 case 'p':
-                        type = TYPE_PRIVATE;
+                        lookup_type = LOOKUP_TYPE_PRIVATE;
                         break;
 
                 case 'f':
@@ -215,75 +286,12 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
         r = ifname_resolvconf_mangle(argv[optind]);
         if (r <= 0)
                 return r;
-
         optind++;
 
         if (arg_mode == MODE_SET_LINK) {
-                unsigned n = 0;
-
-                for (;;) {
-                        _cleanup_free_ char *line = NULL;
-                        const char *a;
-
-                        r = read_stripped_line(stdin, LONG_LINE_MAX, &line);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to read from stdin: %m");
-                        if (r == 0)
-                                break;
-
-                        n++;
-
-                        if (IN_SET(*line, '#', ';', 0))
-                                continue;
-
-                        a = first_word(line, "nameserver");
-                        if (a) {
-                                (void) parse_nameserver(a);
-                                continue;
-                        }
-
-                        a = first_word(line, "domain");
-                        if (!a)
-                                a = first_word(line, "search");
-                        if (a) {
-                                (void) parse_search_domain(a);
-                                continue;
-                        }
-
-                        log_syntax(NULL, LOG_DEBUG, "stdin", n, 0, "Ignoring resolv.conf line: %s", line);
-                }
-
-                switch (type) {
-                case TYPE_REGULAR:
-                        break;
-
-                case TYPE_PRIVATE:
-                        arg_disable_default_route = true;
-                        break;
-
-                case TYPE_EXCLUSIVE:
-                        /* If -x mode is selected, let's preferably route non-suffixed lookups to this interface. This
-                         * somewhat matches the original -x behaviour */
-
-                        r = strv_extend(&arg_set_domain, "~.");
-                        if (r < 0)
-                                return log_oom();
-                        break;
-
-                default:
-                        assert_not_reached();
-                }
-
-                if (strv_isempty(arg_set_dns))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "No DNS servers specified, refusing operation.");
-
-                if (strv_isempty(arg_set_domain)) {
-                        /* When no domain/search is set, clear the current domains. */
-                        r = strv_extend(&arg_set_domain, "");
-                        if (r < 0)
-                                return log_oom();
-                }
+                r = parse_stdin(lookup_type);
+                if (r < 0)
+                        return r;
         }
 
         return 1; /* work to do */

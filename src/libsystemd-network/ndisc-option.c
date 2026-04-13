@@ -1376,7 +1376,7 @@ static int ndisc_option_parse_encrypted_dns(Set **options, size_t offset, size_t
                 union in_addr_union addr;
                 memcpy(&addr.in6, opt + off, sizeof(struct in6_addr));
                 if (in_addr_is_multicast(AF_INET6, &addr) ||
-                    in_addr_is_localhost(AF_INET, &addr))
+                    in_addr_is_localhost(AF_INET6, &addr))
                         return -EBADMSG;
                 res.addrs[i] = addr;
                 off += sizeof(struct in6_addr);

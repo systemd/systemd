@@ -8,13 +8,14 @@
 #include "sd-varlink-idl.h"
 
 #include "bootspec.h"
+#include "discover-image.h"
 #include "fd-util.h"
 #include "gpt.h"
-#include "json-util.h"
 #include "network-util.h"
 #include "pretty-print.h"
 #include "resolve-util.h"
 #include "tests.h"
+#include "test-varlink-idl-util.h"
 #include "varlink-idl-util.h"
 #include "varlink-io.systemd.h"
 #include "varlink-io.systemd.AskPassword.h"
@@ -23,7 +24,9 @@
 #include "varlink-io.systemd.FactoryReset.h"
 #include "varlink-io.systemd.Hostname.h"
 #include "varlink-io.systemd.Import.h"
+#include "varlink-io.systemd.InstanceMetadata.h"
 #include "varlink-io.systemd.Journal.h"
+#include "varlink-io.systemd.JournalAccess.h"
 #include "varlink-io.systemd.Login.h"
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
@@ -33,6 +36,7 @@
 #include "varlink-io.systemd.MuteConsole.h"
 #include "varlink-io.systemd.NamespaceResource.h"
 #include "varlink-io.systemd.Network.h"
+#include "varlink-io.systemd.Network.Link.h"
 #include "varlink-io.systemd.PCRExtend.h"
 #include "varlink-io.systemd.PCRLock.h"
 #include "varlink-io.systemd.Repart.h"
@@ -43,6 +47,7 @@
 #include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.oom.h"
+#include "varlink-io.systemd.oom.Prekill.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-io.systemd.sysext.h"
 #include "varlink-org.varlink.service.h"
@@ -186,7 +191,9 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_FactoryReset,
                 &vl_interface_io_systemd_Hostname,
                 &vl_interface_io_systemd_Import,
+                &vl_interface_io_systemd_InstanceMetadata,
                 &vl_interface_io_systemd_Journal,
+                &vl_interface_io_systemd_JournalAccess,
                 &vl_interface_io_systemd_Login,
                 &vl_interface_io_systemd_Machine,
                 &vl_interface_io_systemd_MachineImage,
@@ -196,6 +203,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_MuteConsole,
                 &vl_interface_io_systemd_NamespaceResource,
                 &vl_interface_io_systemd_Network,
+                &vl_interface_io_systemd_Network_Link,
                 &vl_interface_io_systemd_PCRExtend,
                 &vl_interface_io_systemd_PCRLock,
                 &vl_interface_io_systemd_Repart,
@@ -206,6 +214,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Unit,
                 &vl_interface_io_systemd_UserDatabase,
                 &vl_interface_io_systemd_oom,
+                &vl_interface_io_systemd_oom_Prekill,
                 &vl_interface_io_systemd_service,
                 &vl_interface_io_systemd_sysext,
                 &vl_interface_org_varlink_service,
@@ -327,8 +336,8 @@ TEST(validate_json) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
         assert_se(sd_json_build(&v, SD_JSON_BUILD_OBJECT(
-                                             SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_STRING("x")),
-                                             SD_JSON_BUILD_PAIR("b", SD_JSON_BUILD_UNSIGNED(44)),
+                                             SD_JSON_BUILD_PAIR_STRING("a", "x"),
+                                             SD_JSON_BUILD_PAIR_UNSIGNED("b", 44),
                                              SD_JSON_BUILD_PAIR("d", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(5), SD_JSON_BUILD_UNSIGNED(7), SD_JSON_BUILD_UNSIGNED(107))),
                                              SD_JSON_BUILD_PAIR("g", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("f", SD_JSON_BUILD_REAL(0.5f)))))) >= 0);
 
@@ -472,54 +481,6 @@ TEST(validate_method_call) {
         assert_se(pthread_join(t, NULL) == 0);
 }
 
-static void test_enum_to_string_name(const char *n, const sd_varlink_symbol *symbol) {
-        assert(n);
-        assert(symbol);
-
-        assert(symbol->symbol_type == SD_VARLINK_ENUM_TYPE);
-        _cleanup_free_ char *m = ASSERT_PTR(json_underscorify(strdup(n)));
-
-        bool found = false;
-        for (const sd_varlink_field *f = symbol->fields; f->name; f++) {
-                if (f->field_type == _SD_VARLINK_FIELD_COMMENT)
-                        continue;
-
-                assert(f->field_type == SD_VARLINK_ENUM_VALUE);
-                if (streq(m, f->name)) {
-                        found = true;
-                        break;
-                }
-        }
-
-        log_debug("'%s' found in '%s': %s", m, strna(symbol->name), yes_no(found));
-        assert(found);
-}
-
-#define TEST_IDL_ENUM_TO_STRING(type, ename, symbol)     \
-        for (type t = 0;; t++) {                         \
-                const char *n = ename##_to_string(t);    \
-                if (!n)                                  \
-                        break;                           \
-                test_enum_to_string_name(n, &(symbol));  \
-        }
-
-#define TEST_IDL_ENUM_FROM_STRING(type, ename, symbol)                  \
-        for (const sd_varlink_field *f = (symbol).fields; f->name; f++) { \
-                if (f->field_type == _SD_VARLINK_FIELD_COMMENT)         \
-                        continue;                                       \
-                assert(f->field_type == SD_VARLINK_ENUM_VALUE);         \
-                _cleanup_free_ char *m = ASSERT_PTR(json_dashify(strdup(f->name))); \
-                type t = ename##_from_string(m);                        \
-                log_debug("'%s' of '%s' translates: %s", f->name, strna((symbol).name), yes_no(t >= 0)); \
-                assert(t >= 0);                                         \
-        }
-
-#define TEST_IDL_ENUM(type, name, symbol)                       \
-        do {                                                    \
-                TEST_IDL_ENUM_TO_STRING(type, name, symbol);    \
-                TEST_IDL_ENUM_FROM_STRING(type, name, symbol);  \
-        } while (false)
-
 TEST(enums_idl) {
         TEST_IDL_ENUM(BootEntryType, boot_entry_type, vl_type_BootEntryType);
         TEST_IDL_ENUM_TO_STRING(BootEntrySource, boot_entry_source, vl_type_BootEntrySource);
@@ -535,6 +496,9 @@ TEST(enums_idl) {
 
         TEST_IDL_ENUM(DnsOverTlsMode, dns_over_tls_mode, vl_type_DNSOverTLSMode);
         TEST_IDL_ENUM(ResolveSupport, resolve_support, vl_type_ResolveSupport);
+
+        TEST_IDL_ENUM(ImageType, image_type, vl_type_ImageType);
+        TEST_IDL_ENUM_TO_STRING(ImageType, image_type, vl_type_ImageType);
 }
 
 static SD_VARLINK_DEFINE_METHOD(
@@ -568,6 +532,86 @@ TEST(any) {
         /* "any?" shall many truly any type */
         bad_field = NULL;
         ASSERT_OK(varlink_idl_validate_method_call(&vl_method_AnyTestNullable, v, /* flags= */ 0, &bad_field));
+        ASSERT_NULL(bad_field);
+}
+
+static SD_VARLINK_DEFINE_METHOD(
+                ArrayTest,
+                SD_VARLINK_DEFINE_INPUT(arr, SD_VARLINK_INT, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_METHOD(
+                MapTest,
+                SD_VARLINK_DEFINE_INPUT(m, SD_VARLINK_STRING, SD_VARLINK_MAP));
+
+TEST(null_array_element) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        /* Build an array with a null element - this should be rejected gracefully, not crash */
+        ASSERT_OK(sd_json_buildo(&v,
+                                 SD_JSON_BUILD_PAIR("arr", SD_JSON_BUILD_ARRAY(
+                                                 SD_JSON_BUILD_INTEGER(1),
+                                                 SD_JSON_BUILD_NULL,
+                                                 SD_JSON_BUILD_INTEGER(3)))));
+
+        const char *bad_field = NULL;
+        ASSERT_ERROR(varlink_idl_validate_method_call(&vl_method_ArrayTest, v, /* flags= */ 0, &bad_field), EMEDIUMTYPE);
+        ASSERT_STREQ(bad_field, "arr");
+}
+
+TEST(null_map_element) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        /* Build a map with a null value - this should be rejected gracefully, not crash */
+        ASSERT_OK(sd_json_buildo(&v,
+                                 SD_JSON_BUILD_PAIR("m", SD_JSON_BUILD_OBJECT(
+                                                 SD_JSON_BUILD_PAIR_STRING("key1", "value1"),
+                                                 SD_JSON_BUILD_PAIR_NULL("key2"),
+                                                 SD_JSON_BUILD_PAIR_STRING("key3", "value3")))));
+
+        const char *bad_field = NULL;
+        ASSERT_ERROR(varlink_idl_validate_method_call(&vl_method_MapTest, v, /* flags= */ 0, &bad_field), EMEDIUMTYPE);
+        ASSERT_STREQ(bad_field, "m");
+}
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                SupportsMoreMethod,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_DEFINE_OUTPUT(result, SD_VARLINK_STRING, 0));
+
+TEST(reply_continues_with_more_flag) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        ASSERT_OK(sd_json_buildo(&v, SD_JSON_BUILD_PAIR_STRING("result", "hello")));
+
+        const char *bad_field = NULL;
+        ASSERT_OK(varlink_idl_validate_method_reply(
+                &vl_method_SupportsMoreMethod, v, SD_VARLINK_REPLY_CONTINUES, &bad_field));
+        ASSERT_NULL(bad_field);
+
+        ASSERT_OK(varlink_idl_validate_method_reply(
+                &vl_method_SupportsMoreMethod, v, /* flags= */ 0, &bad_field));
+        ASSERT_NULL(bad_field);
+}
+
+static SD_VARLINK_DEFINE_METHOD(
+                NoMoreMethod,
+                SD_VARLINK_DEFINE_OUTPUT(result, SD_VARLINK_STRING, 0));
+
+TEST(reply_continues_without_more_flag) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        ASSERT_OK(sd_json_buildo(&v, SD_JSON_BUILD_PAIR_STRING("result", "hello")));
+
+        const char *bad_field = NULL;
+        /* Request a "continues" reply from a method without SD_VARLINK_SUPPORTS_MORE/REQUIRES_MORE - this
+         * should fail the validation with EBADE */
+        ASSERT_ERROR(varlink_idl_validate_method_reply(
+                &vl_method_NoMoreMethod, v, SD_VARLINK_REPLY_CONTINUES, &bad_field), EBADE);
+        ASSERT_NULL(bad_field);
+
+        /* Without the "continues" flag, validation should succeed */
+        ASSERT_OK(varlink_idl_validate_method_reply(
+                &vl_method_NoMoreMethod, v, /* flags= */ 0, &bad_field));
         ASSERT_NULL(bad_field);
 }
 

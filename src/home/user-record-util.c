@@ -159,7 +159,7 @@ int group_record_synthesize(GroupRecord *g, UserRecord *h) {
                         SD_JSON_BUILD_PAIR_STRING("description", description),
                         SD_JSON_BUILD_PAIR("binding", SD_JSON_BUILD_OBJECT(
                                                            SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
-                                                                                              SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(user_record_gid(h))))))),
+                                                                                              SD_JSON_BUILD_PAIR_UNSIGNED("gid", user_record_gid(h)))))),
                         SD_JSON_BUILD_PAIR_CONDITION(h->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(user_record_disposition(h)))),
                         SD_JSON_BUILD_PAIR("status", SD_JSON_BUILD_OBJECT(
                                                            SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
@@ -197,6 +197,7 @@ int user_record_reconcile(
 
         assert(host);
         assert(embedded);
+        assert(ret);
 
         /* Make sure both records are initialized */
         if (!host->json || !embedded->json)

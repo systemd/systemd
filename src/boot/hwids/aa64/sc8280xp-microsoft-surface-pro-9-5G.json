@@ -1,0 +1,18 @@
+{
+    "type": "devicetree",
+    "name": "Microsoft Corporation Surface",
+    "compatible": "microsoft,arcata",
+    "hwids": [
+        "e3d941fa-2bfa-5875-8efd-87ce997f8338",
+        "a659ee2b-502d-50f7-9921-bdbd34734e0b",
+        "5caa88bc-ea9b-5d73-a69a-89024bfff854",
+        "c0cf7078-c325-5cf6-966b-3bbbc155275b",
+        "6309fbb9-68f4-54f9-bbc9-b3ca9685b48c",
+        "9d70dcfd-f56b-58bf-b1bd-a1b8f2b0ec7e",
+        "9bac72c6-83f6-5e21-af8e-bc1f5c2b7cc8",
+        "94fb24a7-ff7a-5d70-9ac8-518a9e44ea64",
+        "009d2337-4f76-514e-b2c1-b2816447b048",
+        "3a486e6f-3b0a-5603-a483-503381d3d8c3",
+        "636b6071-7848-50d5-b0b5-6290c49e9306"
+    ]
+}

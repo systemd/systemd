@@ -26,6 +26,9 @@ static int fdopen_unlocked_at(int dfd, const char *dir, const char *name, int *s
         int fd, r;
         FILE *f;
 
+        assert(status);
+        assert(ret_file);
+
         fd = openat(dfd, name, O_RDONLY|O_CLOEXEC);
         if (fd < 0) {
                 if (*status == 0)

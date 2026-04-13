@@ -7,7 +7,7 @@
 #include "log.h"
 #include "string-util.h"
 
-int verb_compare_versions(int argc, char *argv[], void *userdata) {
+int verb_compare_versions(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char *v1 = ASSERT_PTR(argv[1]), *v2 = ASSERT_PTR(argv[argc-1]);
         int r;
 

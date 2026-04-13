@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+runlevels = conf.get('ENABLE_COMPAT_SYSV_INTERFACES') == 1
+
 units = [
         { 'file' : 'basic.target' },
         { 'file' : 'blockdev@.target' },
@@ -46,7 +48,7 @@ units = [
         { 'file' : 'getty@.service.in' },
         {
           'file' : 'graphical.target',
-          'symlinks' : ['default.target'],
+          'symlinks' : ['default.target'] + (runlevels ? ['runlevel5.target'] : []),
         },
         { 'file' : 'halt.target' },
         {
@@ -139,7 +141,10 @@ units = [
           'conditions' : ['ENABLE_MACHINED'],
         },
         { 'file' : 'modprobe@.service' },
-        { 'file' : 'multi-user.target' },
+        {
+          'file' : 'multi-user.target',
+          'symlinks' : runlevels ? ['runlevel2.target', 'runlevel3.target', 'runlevel4.target'] : [],
+        },
         {
           'file' : 'systemd-mute-console.socket',
           'symlinks' : ['sockets.target.wants/']
@@ -152,7 +157,10 @@ units = [
         { 'file' : 'nss-lookup.target' },
         { 'file' : 'nss-user-lookup.target' },
         { 'file' : 'paths.target' },
-        { 'file' : 'poweroff.target' },
+        {
+          'file' : 'poweroff.target',
+          'symlinks' : runlevels ? ['runlevel0.target'] : [],
+        },
         { 'file' : 'printer.target' },
         {
           'file' : 'proc-sys-fs-binfmt_misc.automount',
@@ -173,7 +181,7 @@ units = [
         },
         {
           'file' : 'reboot.target',
-          'symlinks' : ['ctrl-alt-del.target'],
+          'symlinks' : ['ctrl-alt-del.target'] + (runlevels ? ['runlevel6.target'] : []),
         },
         {
           'file' : 'remote-cryptsetup.target',
@@ -193,7 +201,10 @@ units = [
           'symlinks' : ['initrd-root-device.target.wants/'],
         },
         { 'file' : 'rescue.service.in' },
-        { 'file' : 'rescue.target' },
+        {
+          'file' : 'rescue.target',
+          'symlinks' : runlevels ? ['runlevel1.target'] : [],
+        },
         { 'file' : 'rpcbind.target' },
         { 'file' : 'serial-getty@.service.in' },
         { 'file' : 'shutdown.target' },
@@ -301,6 +312,10 @@ units = [
           'symlinks' : ['initrd.target.wants/'],
         },
         {
+          'file' : 'systemd-confext-sysroot.service',
+          'conditions' : ['ENABLE_INITRD', 'ENABLE_SYSEXT'],
+        },
+        {
           'file' : 'systemd-coredump.socket',
           'conditions' : ['ENABLE_COREDUMP'],
           'symlinks' : ['sockets.target.wants/', 'system-update-pre.target.wants/'],
@@ -382,6 +397,22 @@ units = [
           'conditions' : ['ENABLE_HIBERNATE'],
         },
         {
+          'file' : 'systemd-imdsd@.service.in',
+          'conditions' : ['ENABLE_IMDS'],
+        },
+        {
+          'file' : 'systemd-imdsd.socket',
+          'conditions' : ['ENABLE_IMDS'],
+        },
+        {
+          'file' : 'systemd-imds-early-network.service.in',
+          'conditions' : ['ENABLE_IMDS'],
+        },
+        {
+          'file' : 'systemd-imds-import.service.in',
+          'conditions' : ['ENABLE_IMDS'],
+        },
+        {
           'file' : 'systemd-importd.service.in',
           'conditions' : ['ENABLE_IMPORTD'],
           'symlinks' : ['dbus-org.freedesktop.import1.service'],
@@ -427,6 +458,11 @@ units = [
         {
           'file' : 'systemd-journal-upload.service.in',
           'conditions' : ['ENABLE_REMOTE', 'HAVE_LIBCURL'],
+        },
+        { 'file' : 'systemd-journalctl@.service' },
+        {
+          'file' : 'systemd-journalctl.socket',
+          'symlinks' : ['sockets.target.wants/'],
         },
         { 'file' : 'systemd-journald-audit.socket' },
         {
@@ -487,11 +523,15 @@ units = [
           'conditions' : ['ENABLE_NETWORKD'],
         },
         {
+          'file' : 'systemd-networkd-resolve-hook.socket',
+          'conditions' : ['ENABLE_NETWORKD'],
+        },
+        {
           'file' : 'systemd-networkd-varlink.socket',
           'conditions' : ['ENABLE_NETWORKD'],
         },
         {
-          'file' : 'systemd-networkd-resolve-hook.socket',
+          'file' : 'systemd-networkd-varlink-metrics.socket',
           'conditions' : ['ENABLE_NETWORKD'],
         },
         {
@@ -549,6 +589,11 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
+          'file' : 'systemd-pcrosseparator.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
           'file' : 'systemd-pcrphase-factory-reset.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
           'symlinks' : ['factory-reset.target.wants/'],
@@ -583,6 +628,8 @@ units = [
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
           'symlinks' : ['sysinit.target.wants/'],
         },
+        { 'file' : 'systemd-report-basic.socket' },
+        { 'file' : 'systemd-report-basic@.service.in' },
         {
           'file' : 'systemd-tpm2-clear.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
@@ -596,6 +643,10 @@ units = [
           'file' : 'systemd-tpm2-setup-early.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
           'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
+          'file' : 'systemd-tpm2-swtpm.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
         },
         {
           'file' : 'systemd-pcrlock-make-policy.service.in',
@@ -673,6 +724,8 @@ units = [
           'file' : 'systemd-repart@.service',
           'conditions' : ['ENABLE_REPART'],
         },
+        { 'file' : 'systemd-report-cgroup.socket' },
+        { 'file' : 'systemd-report-cgroup@.service.in' },
         {
           'file' : 'systemd-resolved.service.in',
           'conditions' : ['ENABLE_RESOLVE'],
@@ -711,6 +764,10 @@ units = [
           'file' : 'systemd-sysext-initrd.service',
           'conditions' : ['ENABLE_INITRD', 'ENABLE_SYSEXT'],
           'symlinks' : ['initrd.target.wants/'],
+        },
+        {
+          'file' : 'systemd-sysext-sysroot.service',
+          'conditions' : ['ENABLE_INITRD', 'ENABLE_SYSEXT'],
         },
         {
           'file' : 'systemd-sysext.socket',

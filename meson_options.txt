@@ -52,6 +52,8 @@ option('initrd', type : 'boolean',
        description : 'install services for use when running systemd in initrd')
 option('compat-mutable-uid-boundaries', type : 'boolean', value : false,
        description : 'look at uid boundaries in /etc/login.defs for compatibility')
+option('compat-sysv-interfaces', type : 'boolean', value : true,
+       description : 'keep legacy SysV interfaces for compatibility')
 
 option('quotaon-path', type : 'string', description : 'path to quotaon')
 option('quotacheck-path', type : 'string', description : 'path to quotacheck')
@@ -140,6 +142,10 @@ option('timedated', type : 'boolean',
        description : 'install the systemd-timedated daemon')
 option('timesyncd', type : 'boolean',
        description : 'install the systemd-timesyncd daemon')
+option('imds', type : 'feature',
+       description : 'install the systemd-imds stack')
+option('imds-network', type : 'combo', choices : ['unlocked', 'locked'],
+       description : 'whether to default to locked/unlocked IMDS network mode')
 option('journal-storage-default', type : 'combo', choices : ['persistent', 'auto', 'volatile', 'none'],
        description : 'default storage mode for journald (main namespace)')
 option('remote', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
@@ -332,6 +338,8 @@ option('systemd-resolve-uid', type : 'integer', value : 0,
        description : 'soft-static allocation for the systemd-resolve user')
 option('systemd-timesync-uid', type : 'integer', value : 0,
        description : 'soft-static allocation for the systemd-timesync user')
+option('systemd-imds-uid', type : 'integer', value : 0,
+       description : 'soft-static allocation for the systemd-imds user')
 
 option('dev-kvm-mode', type : 'string', value : '0666',
        description : '/dev/kvm access mode')
@@ -563,3 +571,6 @@ option('vmlinux-h-path', type : 'string', value : '',
 
 option('default-mountfsd-trusted-directories', type : 'boolean', value: false,
        description : 'controls whether mountfsd should apply a relaxed policy on DDIs in system DDI directories')
+
+option('default-oci-registry', type : 'string', value : 'docker.io',
+       description : 'Default OCI registry name')

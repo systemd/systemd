@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "HUAWEI MateBook E",
+    "compatible": "huawei,gaokun3",
+    "hwids": [
+        "80c86c24-c7a7-5714-abf2-4c48f348cecc",
+        "1c2effc1-1038-584d-ae8b-7c912c8e9504",
+        "6eb75906-3a4e-5de4-94c5-374d8f9723e5",
+        "4f04f31f-17f0-583f-802f-82c3a0b34128",
+        "e1b94e53-0f20-5d01-abfc-cfb348544a31",
+        "b866fc5c-261b-56d8-99e8-03ea0646af8f",
+        "d8846172-f0a0-55ba-bf41-55641f588ea7",
+        "7ea8b73b-2cbb-562b-aecc-7f0f64c42630",
+        "3eb6683b-0153-5365-81c6-cc599783e9c7",
+        "e5a0ed2b-7fed-5e2d-94ed-43dbaf0b9ccc",
+        "0c78ef16-4fe0-5e33-908e-b038949ee608",
+        "e98c95a8-b50e-5d8b-b2db-c679a39163df",
+        "13311789-793f-5d95-942c-3b6414a8ad1a"
+    ]
+}

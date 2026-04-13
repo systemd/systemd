@@ -1,0 +1,9 @@
+{
+    "userName": "reserveduser",
+    "uid": 999,
+    "gid": 999,
+    "homeDirectory": "/nonexistent",
+    "shell": "/usr/sbin/nologin",
+    "disposition": "reserved",
+    "locked": true
+}

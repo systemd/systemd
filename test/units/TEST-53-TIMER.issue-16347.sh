@@ -4,8 +4,8 @@ set -eux
 set -o pipefail
 
 # Reset host date to current time, 3 days in the past.
-date -s "-3 days"
-trap 'date -s "+3 days"' EXIT
+date --set="-3 days"
+trap 'date --set="+3 days"' EXIT
 
 # Run a timer for every 15 minutes.
 systemd-run --unit test-timer --on-calendar "*:0/15:0" true

@@ -326,6 +326,34 @@
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultCPUPressureWatch=</varname></term>
+        <term><varname>DefaultCPUPressureThresholdSec=</varname></term>
+
+        <listitem><para>Configures the default settings for the per-unit
+        <varname>CPUPressureWatch=</varname> and <varname>CPUPressureThresholdSec=</varname>
+        settings. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. Defaults to <literal>auto</literal> and <literal>200ms</literal>, respectively. This
+        also sets the CPU pressure monitoring threshold for the service manager itself.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultIOPressureWatch=</varname></term>
+        <term><varname>DefaultIOPressureThresholdSec=</varname></term>
+
+        <listitem><para>Configures the default settings for the per-unit
+        <varname>IOPressureWatch=</varname> and <varname>IOPressureThresholdSec=</varname>
+        settings. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. Defaults to <literal>auto</literal> and <literal>200ms</literal>, respectively. This
+        also sets the IO pressure monitoring threshold for the service manager itself.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -633,6 +661,22 @@
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>MinimumUptimeSec=</varname></term>
+
+        <listitem><para>Specifies the minimum uptime for the system which has to be reached before a shutdown
+        is executed. Defaults to 15s. This mechanism is introduced to avoid high frequency reboot loops, when
+        technical failures trigger an automatic shutdown during the boot process. Each reboot cycle is
+        delayed to the specified minimum time, giving the user a chance to review screen contents or
+        otherwise interact with the device before the shutdown proceeds. The delay takes place during the
+        very last phase of system shutdown, immediately before the <function>reboot()</function> system call
+        is executed. If the system is already running for longer than the specified time, this setting has no
+        effect. This logic is also skipped in container environments. Set to zero in order to disable this
+        logic.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -686,6 +730,18 @@
         specifiers.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultMemoryZSwapWriteback=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Defaults to true if unspecified. This is used as a default
+        for units which lack an explicit definition for <varname>MemoryZSwapWriteback=</varname>.
+        See <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/>
         </listitem>
       </varlistentry>
     </variablelist>

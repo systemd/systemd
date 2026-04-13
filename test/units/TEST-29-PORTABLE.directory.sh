@@ -127,6 +127,19 @@ test -L /run/systemd/system.attached/app0.service.d/10-profile.conf
 test -L /run/systemd/system.attached/app1.service.d/10-profile.conf
 portablectl detach --runtime --extension /tmp/app0 --extension /tmp/app1 /tmp/rootdir app0 app1
 
+# Ensure that --force works with directory extensions, and that ExtensionDirectories=
+# is not decorated with :x-systemd.relax-extension-release-check
+portablectl "${ARGS[@]}" attach --force --copy=symlink --now --runtime --extension /tmp/app0 /tmp/rootdir app0
+
+systemctl is-active app0.service
+status="$(portablectl is-attached --extension app0 rootdir)"
+[[ "${status}" == "running-runtime" ]]
+
+grep -q -F "ExtensionDirectories=" /run/systemd/system.attached/app0.service.d/20-portable.conf
+(! grep -q -F "x-systemd.relax-extension-release-check" /run/systemd/system.attached/app0.service.d/20-portable.conf)
+
+portablectl detach --now --runtime --extension /tmp/app0 /tmp/rootdir app0
+
 # Attempt to disable the app unit during detaching. Requires --copy=symlink to reproduce.
 # Provides coverage for https://github.com/systemd/systemd/issues/23481
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/rootdir minimal-app0

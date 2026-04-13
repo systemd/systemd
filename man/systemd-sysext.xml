@@ -20,9 +20,11 @@
     <refname>systemd-sysext</refname>
     <refname>systemd-sysext.service</refname>
     <refname>systemd-sysext-initrd.service</refname>
+    <refname>systemd-sysext-sysroot.service</refname>
     <refname>systemd-confext</refname>
     <refname>systemd-confext.service</refname>
     <refname>systemd-confext-initrd.service</refname>
+    <refname>systemd-confext-sysroot.service</refname>
     <refpurpose>Activates System Extension Images</refpurpose>
   </refnamediv>
 
@@ -114,27 +116,47 @@
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> with
     extension images found in the system's EFI System Partition.</para>
 
-    <para>During boot OS extension images are activated automatically, if the
-    <filename>systemd-sysext.service</filename> is enabled. Note that this service runs only after the
-    underlying file systems where system extensions may be located have been mounted. This means they are not
-    suitable for shipping resources that are processed by subsystems running in earliest boot. Specifically,
-    OS extension images are not suitable for shipping system services or
+    <para>During boot, system and configuration extension images are activated automatically if the
+    <filename>systemd-sysext.service</filename> and <filename>systemd-confext.service</filename> services are
+    enabled. Note that these services run only after the underlying file systems where system and configuration
+    extensions may be located have been mounted. To make it possible to ship resources that are processed by
+    subsystems running in the earliest boot stages (for example, system services or
     <citerefentry><refentrytitle>systemd-sysusers</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    definitions. See the <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> page
-    for a simple mechanism for shipping system services in disk images, in a similar fashion to OS
-    extensions. Note the different isolation on these two mechanisms: while system extension directly extend
-    the underlying OS image with additional files that appear in a way very similar to as if they were
-    shipped in the OS image itself and thus imply no security isolation, portable services imply service
-    level sandboxing in one way or another. The <filename>systemd-sysext.service</filename> service is
-    guaranteed to finish start-up before <filename>basic.target</filename> is reached; i.e. at the time
+    definitions), the <filename>systemd-sysext-sysroot.service</filename> and
+    <filename>systemd-confext-sysroot.service</filename> initrd services are provided. Currently, these
+    services cannot be used to merge system extensions from <filename>/sysroot/var/lib/extensions/</filename>
+    and configuration extensions from <filename>/sysroot/var/lib/confexts/</filename> when the
+    <filename>/var/</filename> partition is split off. These extensions are later merged by the
+    <filename>systemd-sysext.service</filename> and <filename>systemd-confext.service</filename> services
+    during the main OS boot process.</para>
+
+    <para>Also, see the <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>
+    page for a simple mechanism for shipping system services in disk images, in a similar fashion to OS
+    extensions. Note the differences in isolation between these two mechanisms: while system extensions directly extend
+    the underlying OS image with additional files that appear as if they were shipped in the OS image itself
+    and thus imply no security isolation, portable services imply service-level sandboxing in one way or another.</para>
+
+    <para>The <filename>systemd-sysext.service</filename> and <filename>systemd-confext.service</filename>
+    services are guaranteed to finish start-up before <filename>basic.target</filename> is reached; i.e., by the time
     regular services initialize (those which do not use <varname>DefaultDependencies=no</varname>), the files
-    and directories system extensions provide are available in <filename>/usr/</filename> and
-    <filename>/opt/</filename> and may be accessed.</para>
+    and directories provided by system and configuration extensions are available in <filename>/usr/</filename>,
+    <filename>/opt/</filename>, and <filename>/etc/</filename> and may be accessed.</para>
+
+    <para>System and configuration extensions can also be used to extend the initrd, and the
+    <filename>systemd-sysext-initrd.service</filename> and <filename>systemd-confext-initrd.service</filename>
+    initrd services are provided. Note that some limitations apply: resources that are used in the earliest boot
+    stages of the initrd (e.g. system services) cannot be updated.</para>
 
     <para>Note that there is no concept of enabling/disabling installed system extension images: all
     installed extension images are automatically activated at boot. However, you can place an empty directory
     named like the extension (no <filename>.raw</filename>) in <filename>/etc/extensions/</filename> to "mask"
-    an extension with the same name in a system folder with lower precedence.</para>
+    an extension with the same name in a system folder with lower precedence. It is also possible to disable
+    automatic merging altogether using the <varname>rd.systemd.sysext=</varname>, <varname>rd.systemd.confext=</varname>,
+    <varname>systemd.sysext=</varname>, and <varname>systemd.confext=</varname> kernel command line options.
+    Note that <filename>systemd-sysext-sysroot.service</filename> and
+    <filename>systemd-confext-sysroot.service</filename> are controlled by the <varname>systemd.sysext=</varname>
+    and <varname>systemd.confext=</varname> options, as these services merge system and configuration
+    extensions for the main system, not for the initrd.</para>
 
     <para>A simple mechanism for version compatibility is enforced: a system extension image must carry a
     <filename>/usr/lib/extension-release.d/extension-release.<replaceable>NAME</replaceable></filename>
@@ -369,6 +391,19 @@
         whether the version information included in the images matches the host or not.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--always-refresh=yes|no</option></term>
+
+        <listitem><para>When refreshing system extensions on <filename>/usr/</filename> and <filename>/opt/</filename>
+        for sysext and <filename>/etc/</filename> for confext, ignore when the existing merged extensions
+        already match what would be merged.
+        By default the refresh is skipped when no changes are found. Note that changes done to an extension
+        directory while it's merged are ignored without this flag (unless another extension got changed).
+        Note that changing the contents while merged is also undefined behavior in overlayfs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
       <varlistentry>

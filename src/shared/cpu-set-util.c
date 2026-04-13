@@ -159,6 +159,8 @@ int cpu_set_add(CPUSet *c, size_t i) {
         if (r < 0)
                 return r;
 
+        /* Silence static analyzers */
+        assert(i / CHAR_BIT < c->allocated);
         CPU_SET_S(i, c->allocated, c->set);
         return 0;
 }
@@ -194,6 +196,8 @@ int cpu_set_add_range(CPUSet *c, size_t start, size_t end) {
         if (r < 0)
                 return r;
 
+        /* Silence static analyzers */
+        assert(end / CHAR_BIT < c->allocated);
         for (size_t i = start; i <= end; i++)
                 CPU_SET_S(i, c->allocated, c->set);
 

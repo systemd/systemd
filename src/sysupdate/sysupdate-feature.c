@@ -101,11 +101,12 @@ int feature_read_definition(Feature *f, const char *path, const char *const *dir
         if (r < 0)
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
 
-        r = config_parse_many(
+        r = config_parse_many_full(
                         STRV_MAKE_CONST(path),
                         dirs,
                         strjoina(filename, ".d"),
                         arg_root,
+                        /* root_fd= */ -EBADF,
                         "Feature\0",
                         config_item_table_lookup, table,
                         CONFIG_PARSE_WARN,

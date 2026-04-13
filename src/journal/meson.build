@@ -41,6 +41,7 @@ journalctl_sources = files(
         'journalctl-show.c',
         'journalctl-util.c',
         'journalctl-varlink.c',
+        'journalctl-varlink-server.c',
 )
 
 if get_option('link-journalctl-shared')

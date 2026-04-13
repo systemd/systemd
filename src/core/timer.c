@@ -940,6 +940,7 @@ static int activation_details_timer_deserialize(const char *key, const char *val
 
         assert(key);
         assert(value);
+        POINTER_MAY_BE_NULL(details);
 
         if (!details || !*details)
                 return -EINVAL;

@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
+#include <sys/socket.h>
 #include <unistd.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "cgroup-setup.h"
@@ -9,12 +12,14 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "oomd-manager.h"
 #include "oomd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "set.h"
+#include "string-util.h"
 #include "tests.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
@@ -59,6 +64,103 @@ static int fork_and_sleep(unsigned sleep_min, PidRef *ret) {
         return r;
 }
 
+static int setup_local_oomd_bus(sd_bus **ret_server, sd_bus **ret_client) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *server = NULL, *client = NULL;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        int r;
+
+        assert(ret_server);
+        assert(ret_client);
+
+        r = socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, pair);
+        if (r < 0)
+                return -errno;
+
+        r = sd_bus_new(&server);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_fd(server, pair[0], pair[0]);
+        if (r < 0)
+                return r;
+        pair[0] = -EBADF;
+
+        r = sd_bus_set_server(server, true, SD_ID128_NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_anonymous(server, true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_start(server);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_new(&client);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_fd(client, pair[1], pair[1]);
+        if (r < 0)
+                return r;
+        pair[1] = -EBADF;
+
+        r = sd_bus_set_anonymous(client, true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_start(client);
+        if (r < 0)
+                return r;
+
+        *ret_server = TAKE_PTR(server);
+        *ret_client = TAKE_PTR(client);
+        return 0;
+}
+
+static int wait_for_killed_signal(sd_bus *server, sd_bus *client, const char *cgroup_path, const char *reason) {
+        int r;
+
+        assert(server);
+        assert(client);
+        assert(cgroup_path);
+        assert(reason);
+
+        for (size_t i = 0; i < 200; i++) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m_client = NULL;
+
+                r = sd_bus_process(server, NULL);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_process(client, &m_client);
+                if (r < 0)
+                        return r;
+
+                if (m_client && sd_bus_message_is_signal(m_client, "org.freedesktop.oom1.Manager", "Killed")) {
+                        const char *got_cgroup, *got_reason;
+
+                        r = sd_bus_message_read(m_client, "ss", &got_cgroup, &got_reason);
+                        if (r < 0)
+                                return r;
+
+                        if (!streq(got_cgroup, cgroup_path))
+                                return -ENOMSG;
+                        if (!streq(got_reason, reason))
+                                return -ENOMSG;
+
+                        return 0;
+                }
+
+                r = sd_bus_wait(client, 50 * USEC_PER_MSEC);
+                if (r < 0)
+                        return r;
+        }
+
+        return -ETIMEDOUT;
+}
+
 TEST(oomd_cgroup_kill) {
         _cleanup_free_ char *subcgroup = NULL;
         int r;
@@ -88,7 +190,11 @@ TEST(oomd_cgroup_kill) {
                 ASSERT_OK(fork_and_sleep(5, &two));
                 ASSERT_OK(cg_attach(subcgroup, two.pid));
 
-                ASSERT_OK_POSITIVE(oomd_cgroup_kill(subcgroup, false /* recurse */, false /* dry run */));
+                ASSERT_OK_POSITIVE(oomd_cgroup_kill(
+                                                   /* m= */ NULL,
+                                                   &(OomdCGroupContext){ .path = subcgroup },
+                                                   /* recurse= */ false,
+                                                   /* reason= */ NULL));
 
                 ASSERT_OK(cg_get_xattr(subcgroup, "user.oomd_ooms", &v, /* ret_size= */ NULL));
                 ASSERT_STREQ(v, i == 0 ? "1" : "2");
@@ -113,9 +219,57 @@ TEST(oomd_cgroup_kill) {
         ASSERT_OK(cg_trim(subcgroup, /* delete_root */ true));
 }
 
+TEST(oomd_cgroup_kill_signal_reason) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *server = NULL, *client = NULL;
+        _cleanup_free_ char *subcgroup = NULL;
+        static const char *reasons[] = {
+                "memory-used",
+                "memory-pressure",
+        };
+        Manager m = {};
+        int r;
+
+        r = enter_cgroup_root_cached();
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "Failed to enter cgroup root");
+
+        ASSERT_NOT_NULL(subcgroup = path_join(cgroup, "oomdkillsignaltest"));
+        ASSERT_OK(cg_trim(subcgroup, /* delete_root= */ true));
+        ASSERT_OK(cg_create(subcgroup));
+
+        ASSERT_OK(setup_local_oomd_bus(&server, &client));
+        m.bus = server;
+
+        for (size_t i = 0; i < ELEMENTSOF(reasons); i++) {
+                _cleanup_(pidref_done) PidRef one = PIDREF_NULL, two = PIDREF_NULL;
+                const char *reason = reasons[i];
+
+                ASSERT_OK(fork_and_sleep(5, &one));
+                ASSERT_OK(cg_attach(subcgroup, one.pid));
+                ASSERT_OK(fork_and_sleep(5, &two));
+                ASSERT_OK(cg_attach(subcgroup, two.pid));
+
+                ASSERT_OK_POSITIVE(oomd_cgroup_kill(&m, &(OomdCGroupContext) { .path = subcgroup }, /* recurse= */ false, reason));
+                ASSERT_OK(wait_for_killed_signal(server, client, subcgroup, reason));
+
+                /* Cleanup isn't instantaneous, so give it some grace */
+                bool empty = false;
+                for (size_t t = 0; t < 100; t++) {
+                        usleep_safe(100 * USEC_PER_MSEC);
+                        if (ASSERT_OK(cg_is_empty(subcgroup)) > 0) {
+                                empty = true;
+                                break;
+                        }
+                }
+                ASSERT_TRUE(empty);
+        }
+
+        ASSERT_OK(cg_trim(subcgroup, /* delete_root= */ true));
+}
+
 TEST(oomd_cgroup_context_acquire_and_insert) {
         _cleanup_hashmap_free_ Hashmap *h1 = NULL, *h2 = NULL;
-        _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
+        _cleanup_(oomd_cgroup_context_unrefp) OomdCGroupContext *ctx = NULL;
         OomdCGroupContext *c1, *c2;
         CGroupMask mask;
 
@@ -138,7 +292,7 @@ TEST(oomd_cgroup_context_acquire_and_insert) {
         ASSERT_EQ(ctx->swap_usage, 0u);
         ASSERT_EQ(ctx->last_pgscan, 0u);
         ASSERT_EQ(ctx->pgscan, 0u);
-        ASSERT_NULL(ctx = oomd_cgroup_context_free(ctx));
+        ASSERT_NULL(ctx = oomd_cgroup_context_unref(ctx));
 
         ASSERT_OK(oomd_cgroup_context_acquire("", &ctx));
         ASSERT_STREQ(ctx->path, "/");
@@ -429,7 +583,7 @@ TEST(oomd_sort_cgroups) {
 }
 
 TEST(oomd_fetch_cgroup_oom_preference) {
-        _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
+        _cleanup_(oomd_cgroup_context_unrefp) OomdCGroupContext *ctx = NULL;
         ManagedOOMPreference root_pref;
         CGroupMask mask;
         bool test_xattrs;
@@ -464,7 +618,7 @@ TEST(oomd_fetch_cgroup_oom_preference) {
                 ASSERT_FAIL(oomd_fetch_cgroup_oom_preference(ctx, NULL));
                 ASSERT_EQ(ctx->preference, MANAGED_OOM_PREFERENCE_NONE);
         }
-        ctx = oomd_cgroup_context_free(ctx);
+        ctx = oomd_cgroup_context_unref(ctx);
 
         /* also check when only avoid is set to true */
         if (test_xattrs) {
@@ -473,7 +627,7 @@ TEST(oomd_fetch_cgroup_oom_preference) {
                 ASSERT_OK(oomd_cgroup_context_acquire(cgroup, &ctx));
                 ASSERT_OK(oomd_fetch_cgroup_oom_preference(ctx, NULL));
                 ASSERT_EQ(ctx->preference, geteuid() == 0 ? MANAGED_OOM_PREFERENCE_AVOID : MANAGED_OOM_PREFERENCE_NONE);
-                ctx = oomd_cgroup_context_free(ctx);
+                ctx = oomd_cgroup_context_unref(ctx);
         }
 
         /* Test the root cgroup */
@@ -493,7 +647,7 @@ TEST(oomd_fetch_cgroup_oom_preference) {
         /* Assert that avoid/omit are not set if the cgroup and prefix are not
          * owned by the same user. */
         if (test_xattrs && !empty_or_root(cgroup) && geteuid() == 0) {
-                ctx = oomd_cgroup_context_free(ctx);
+                ctx = oomd_cgroup_context_unref(ctx);
                 ASSERT_OK(cg_set_access(cgroup, 61183, 0));
                 ASSERT_OK(oomd_cgroup_context_acquire(cgroup, &ctx));
 

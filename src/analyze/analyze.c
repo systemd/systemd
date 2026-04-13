@@ -124,6 +124,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 int acquire_bus(sd_bus **bus, bool *use_full_bus) {
         int r;
 
+        POINTER_MAY_BE_NULL(use_full_bus);
+
         if (use_full_bus && *use_full_bus) {
                 r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, bus);
                 if (IN_SET(r, 0, -EHOSTDOWN))
@@ -170,7 +172,7 @@ void time_parsing_hint(const char *p, bool calendar, bool timestamp, bool timesp
                            "Use 'systemd-analyze timespan \"%s\"' instead?", p);
 }
 
-static int verb_transient_settings(int argc, char *argv[], void *userdata) {
+static int verb_transient_settings(int argc, char *argv[], uintptr_t _data, void *userdata) {
         assert(argc >= 2);
 
         pager_open(arg_pager_flags);
@@ -193,7 +195,7 @@ static int verb_transient_settings(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL, *dot_link = NULL;
         int r;
 
@@ -258,6 +260,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  dlopen-metadata FILE       Parse and print ELF dlopen metadata\n"
                "\n%3$sTPM Operations:%4$s\n"
                "  has-tpm2                   Report whether TPM2 support is available\n"
+               "  identify-tpm2              Show TPM2 vendor information\n"
                "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
                "  nvpcrs [NVPCR...]          Show additional TPM2 PCRs stored in NV indexes\n"
                "  srk [>FILE]                Write TPM2 SRK (to FILE)\n"
@@ -310,7 +313,6 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --debugger=DEBUGGER     Use the given debugger\n"
                "  -A --debugger-arguments=ARGS\n"
                "                             Pass the given arguments to the debugger\n"
-
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -324,6 +326,10 @@ static int help(int argc, char *argv[], void *userdata) {
          * shell-completion/bash/systemd-analyze and shell-completion/zsh/_systemd-analyze too. */
 
         return 0;
+}
+
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -466,7 +472,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'h':
-                        return help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -773,7 +779,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
 
         static const Verb verbs[] = {
-                { "help",               VERB_ANY, VERB_ANY, 0,            help                         },
+                { "help",               VERB_ANY, VERB_ANY, 0,            verb_help                    },
                 { "time",               VERB_ANY, 1,        VERB_DEFAULT, verb_time                    },
                 { "blame",              VERB_ANY, 1,        0,            verb_blame                   },
                 { "critical-chain",     VERB_ANY, VERB_ANY, 0,            verb_critical_chain          },
@@ -811,6 +817,7 @@ static int run(int argc, char *argv[]) {
                 { "fdstore",            2,        VERB_ANY, 0,  verb_fdstore            },
                 { "image-policy",       2,        2,        0,  verb_image_policy       },
                 { "has-tpm2",           VERB_ANY, 1,        0,  verb_has_tpm2           },
+                { "identify-tpm2",      VERB_ANY, 1,        0,  verb_identify_tpm2      },
                 { "pcrs",               VERB_ANY, VERB_ANY, 0,  verb_pcrs               },
                 { "nvpcrs",             VERB_ANY, VERB_ANY, 0,  verb_nvpcrs             },
                 { "srk",                VERB_ANY, 1,        0,  verb_srk                },

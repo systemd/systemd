@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-dlopen.h"
+
 #include "libfido2-util.h"
 #include "log.h"
 
@@ -82,9 +84,10 @@ int dlopen_libfido2(void) {
 #if HAVE_LIBFIDO2
         int r;
 
-        ELF_NOTE_DLOPEN("fido2",
+        SD_ELF_NOTE_DLOPEN(
+                        "fido2",
                         "Support fido2 for encryption and authentication",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libfido2.so.1");
 
         r = dlopen_many_sym_or_warn(
@@ -1150,6 +1153,12 @@ static int check_device_is_fido2_with_hmac_secret(
         _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
         int r;
 
+        assert(ret_has_rk);
+        assert(ret_has_client_pin);
+        assert(ret_has_up);
+        assert(ret_has_uv);
+        assert(ret_has_always_uv);
+
         d = sym_fido_dev_new();
         if (!d)
                 return log_oom();
@@ -1238,13 +1247,11 @@ int fido2_list_devices(void) {
                 }
         }
 
-        r = table_print(t, stdout);
-        if (r < 0) {
-                log_error_errno(r, "Failed to show device table: %m");
+        r = table_print_or_warn(t);
+        if (r < 0)
                 goto finish;
-        }
 
-        if (table_get_rows(t) > 1)
+        if (!table_isempty(t))
                 printf("\n"
                        "%1$sLegend: RK        %2$s Resident key%3$s\n"
                        "%1$s        CLIENTPIN %2$s PIN request%3$s\n"

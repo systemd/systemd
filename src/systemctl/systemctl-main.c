@@ -65,8 +65,9 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "reload",                2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
                 { "restart",               2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
                 { "try-restart",           2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
+                { "enqueue-marked",        1,        1,        VERB_ONLINE_ONLY, verb_start                   },
                 { "reload-or-restart",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
-                { "reload-or-try-restart", 2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   }, /* For compatibility with old systemctl <= 228 */
+                { "reload-or-try-restart", 2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   }, /* For compatibility with systemctl <= 228 */
                 { "try-reload-or-restart", 2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
                 { "force-reload",          2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   }, /* For compatibility with SysV */
                 { "condreload",            2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   }, /* For compatibility with ALTLinux */
@@ -134,7 +135,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 {}
         };
 
-        const Verb *verb = verbs_find_verb(argv[optind], verbs);
+        const Verb *verb = verbs_find_verb(argv[optind], verbs, verbs + ELEMENTSOF(verbs) - 1);
         if (verb && (verb->flags & VERB_ONLINE_ONLY) && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Verb '%s' cannot be used with --root= or --image=.",

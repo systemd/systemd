@@ -603,6 +603,8 @@ int bpf_firewall_compile(Unit *u) {
 }
 
 static int load_bpf_progs_from_fs_to_set(Unit *u, char **filter_paths, Set **set) {
+        assert(set);
+
         set_clear(*set);
 
         STRV_FOREACH(bpf_fs_path, filter_paths) {
@@ -661,6 +663,8 @@ static int attach_custom_bpf_progs(Unit *u, const char *path, int attach_type, S
         int r;
 
         assert(u);
+        assert(set);
+        assert(set_installed);
 
         set_clear(*set_installed);
         r = set_ensure_allocated(set_installed, &bpf_program_hash_ops);

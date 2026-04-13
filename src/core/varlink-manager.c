@@ -2,19 +2,21 @@
 
 #include <sys/prctl.h>
 
+#include "sd-bus.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "architecture.h"
 #include "bitfield.h"
 #include "build.h"
+#include "bus-error.h"
 #include "bus-polkit.h"
 #include "confidential-virt.h"
-#include "dbus-job.h"
 #include "errno-util.h"
 #include "glyph-util.h"
 #include "json-util.h"
 #include "manager.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "selinux-access.h"
 #include "set.h"
@@ -104,8 +106,12 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultTasksAccounting", m->defaults.tasks_accounting),
                         SD_JSON_BUILD_PAIR_CALLBACK("DefaultLimits", rlimit_table_build_json, m->defaults.rlimit),
                         SD_JSON_BUILD_PAIR_UNSIGNED("DefaultTasksMax", cgroup_tasks_max_resolve(&m->defaults.tasks_max)),
-                        JSON_BUILD_PAIR_FINITE_USEC("DefaultMemoryPressureThresholdUSec", m->defaults.memory_pressure_threshold_usec),
-                        SD_JSON_BUILD_PAIR_STRING("DefaultMemoryPressureWatch", cgroup_pressure_watch_to_string(m->defaults.memory_pressure_watch)),
+                        JSON_BUILD_PAIR_FINITE_USEC("DefaultMemoryPressureThresholdUSec", m->defaults.pressure[PRESSURE_MEMORY].threshold_usec),
+                        SD_JSON_BUILD_PAIR_STRING("DefaultMemoryPressureWatch", cgroup_pressure_watch_to_string(m->defaults.pressure[PRESSURE_MEMORY].watch)),
+                        JSON_BUILD_PAIR_FINITE_USEC("DefaultCPUPressureThresholdUSec", m->defaults.pressure[PRESSURE_CPU].threshold_usec),
+                        SD_JSON_BUILD_PAIR_STRING("DefaultCPUPressureWatch", cgroup_pressure_watch_to_string(m->defaults.pressure[PRESSURE_CPU].watch)),
+                        JSON_BUILD_PAIR_FINITE_USEC("DefaultIOPressureThresholdUSec", m->defaults.pressure[PRESSURE_IO].threshold_usec),
+                        SD_JSON_BUILD_PAIR_STRING("DefaultIOPressureWatch", cgroup_pressure_watch_to_string(m->defaults.pressure[PRESSURE_IO].watch)),
                         JSON_BUILD_PAIR_FINITE_USEC("RuntimeWatchdogUSec", manager_get_watchdog(m, WATCHDOG_RUNTIME)),
                         JSON_BUILD_PAIR_FINITE_USEC("RebootWatchdogUSec", manager_get_watchdog(m, WATCHDOG_REBOOT)),
                         JSON_BUILD_PAIR_FINITE_USEC("KExecWatchdogUSec", manager_get_watchdog(m, WATCHDOG_KEXEC)),
@@ -117,6 +123,7 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         SD_JSON_BUILD_PAIR_INTEGER("DefaultOOMScoreAdjust", m->defaults.oom_score_adjust),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultRestrictSUIDSGID", m->defaults.restrict_suid_sgid),
                         SD_JSON_BUILD_PAIR_STRING("CtrlAltDelBurstAction", emergency_action_to_string(m->cad_burst_action)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("DefaultMemoryZSwapWriteback", m->defaults.memory_zswap_writeback),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("ConfirmSpawn", manager_get_confirm_spawn(m)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("ControlGroup", m->cgroup_root));
 }
@@ -210,8 +217,22 @@ int vl_method_describe_manager(sd_varlink *link, sd_json_variant *parameters, sd
         return sd_varlink_reply(link, v);
 }
 
-int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static void varlink_log_caller(sd_varlink *link, Manager *manager, const char *method) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
+
+        assert(link);
+        assert(manager);
+        assert(method);
+
+        r = varlink_get_peer_pidref(link, &pidref);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get peer pidref, ignoring: %m");
+
+        manager_log_caller(manager, &pidref, method);
+}
+
+int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         int r;
 
@@ -235,12 +256,7 @@ int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_v
         if (r <= 0)
                 return r;
 
-        /* We need at least the pidref, otherwise there's nothing to log about. */
-        r = varlink_get_peer_pidref(link, &pidref);
-        if (r < 0)
-                log_debug_errno(r, "Failed to get peer pidref, ignoring: %m");
-        else
-                manager_log_caller(manager, &pidref, "Reload");
+        varlink_log_caller(link, manager, "Reload");
 
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&manager->reload_reexec_ratelimit)) {
@@ -261,7 +277,6 @@ int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_v
 }
 
 int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         Manager *manager = ASSERT_PTR(userdata);
         int r;
 
@@ -285,12 +300,7 @@ int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, s
         if (r <= 0)
                 return r;
 
-        /* We need at least the pidref, otherwise there's nothing to log about. */
-        r = varlink_get_peer_pidref(link, &pidref);
-        if (r < 0)
-                log_debug_errno(r, "Failed to get peer pidref, ignoring: %m");
-        else
-                manager_log_caller(manager, &pidref, "Reexecute");
+        varlink_log_caller(link, manager, "Reexecute");
 
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&manager->reload_reexec_ratelimit)) {
@@ -303,40 +313,6 @@ int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, s
         manager->objective = MANAGER_REEXECUTE;
 
         return 1;
-}
-static int varlink_manager_queue_job_one(
-                sd_varlink *link,
-                Unit *u,
-                JobType type,
-                JobMode mode,
-                uint32_t *ret_job_id) {
-
-        int r;
-
-        assert(u);
-
-        r = unit_queue_job_check_and_mangle_type(u, &type, /* reload_if_possible= */ BIT_SET(u->markers, UNIT_MARKER_NEEDS_RELOAD));
-        if (r == -ENOENT)
-                return varlink_error_no_such_unit(link, "name");
-        if (r == -ELIBEXEC)
-                return sd_varlink_errorb(link, VARLINK_ERROR_MANAGER_ONLY_BY_DEPENDENCY);
-        if (r == -ESHUTDOWN)
-                return sd_varlink_errorb(link, VARLINK_ERROR_MANAGER_BUS_SHUTTING_DOWN);
-        if (r < 0)
-                return r;
-
-        Job *j;
-        r = manager_add_job(u->manager, type, u, mode, /* reterr_error= */ NULL, &j);
-        if (r < 0)
-                return r;
-
-        /* Before we send the method reply, force out the announcement JobNew for this job */
-        bus_job_send_pending_change_signal(j, /* including_new= */ true);
-
-        if (ret_job_id)
-                *ret_job_id = j->id;
-
-        return 0;
 }
 
 int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -363,14 +339,20 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
         if (r <= 0)
                 return r;
 
+        r = sd_varlink_set_sentinel(link, NULL);
+        if (r < 0)
+                return r;
+
         log_info("Queuing reload/restart jobs for marked units%s", glyph(GLYPH_ELLIPSIS));
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *reply = NULL;
         Unit *u;
         char *k;
         int ret = 0;
         HASHMAP_FOREACH_KEY(u, k, manager->units) {
+                _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
+                const char *error_id = NULL;
                 uint32_t job_id = 0; /* silence 'maybe-uninitialized' compiler warning */
+                JobType job;
 
                 /* ignore aliases */
                 if (u->id != k)
@@ -378,35 +360,116 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
 
                 if (u->markers == 0)
                         continue;
+                if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_STOP))
+                        job = JOB_STOP;
+                else if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_START))
+                        job = JOB_START;
+                else
+                        job = JOB_TRY_RESTART;
 
-                r = mac_selinux_unit_access_check_varlink(u, link, job_type_to_access_method(JOB_TRY_RESTART));
-                if (r >= 0)
-                        r = varlink_manager_queue_job_one(
-                                        link,
+                r = mac_selinux_unit_access_check_varlink(u, link, job_type_to_access_method(job));
+                if (r < 0)
+                        error_id = SD_VARLINK_ERROR_PERMISSION_DENIED;
+                else
+                        r = varlink_unit_queue_job_one(
                                         u,
-                                        JOB_TRY_RESTART,
+                                        job,
                                         JOB_FAIL,
-                                        &job_id);
+                                        /* reload_if_possible= */ !BIT_SET(u->markers, UNIT_MARKER_NEEDS_RESTART),
+                                        &job_id,
+                                        &bus_error);
                 if (ERRNO_IS_NEG_RESOURCE(r))
                         return r;
-                RET_GATHER(ret, r);
-                if (r >= 0) {
-                        r = sd_json_variant_append_arrayb(&array, SD_JSON_BUILD_UNSIGNED(job_id));
-                        if (r < 0)
-                                return r;
-                }
+                if (r < 0)
+                        RET_GATHER(ret, log_unit_warning_errno(u, r, "Failed to enqueue marked job: %s",
+                                                               bus_error_message(&bus_error, r)));
+
+                if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                        continue;
+
+                if (r < 0) {
+                        if (!error_id)
+                                error_id = varlink_error_id_from_bus_error(&bus_error);
+
+                        const char *error_msg = bus_error.message ?: error_id ? NULL : STRERROR(r);
+
+                        r = sd_varlink_replybo(link,
+                                               SD_JSON_BUILD_PAIR_STRING("unitID", u->id),
+                                               JSON_BUILD_PAIR_STRING_NON_EMPTY("error", error_id),
+                                               JSON_BUILD_PAIR_STRING_NON_EMPTY("errorMessage", error_msg));
+                } else
+                        r = sd_varlink_replybo(link,
+                                               SD_JSON_BUILD_PAIR_STRING("unitID", u->id),
+                                               SD_JSON_BUILD_PAIR_INTEGER("jobID", job_id));
+                if (r < 0)
+                        return r;
         }
 
-        if (ret < 0)
-                return ret;
+        return ret;
+}
 
-        /* Return parameter is not nullable, build empty array if there's nothing to return */
-        if (array)
-                r = sd_json_buildo(&reply, SD_JSON_BUILD_PAIR_VARIANT("JobIDs", array));
-        else
-                r = sd_json_buildo(&reply, SD_JSON_BUILD_PAIR_EMPTY_ARRAY("JobIDs"));
+static int manager_do_set_objective(sd_varlink *link, sd_json_variant *parameters, ManagerObjective objective, const char *selinux_permission, bool can_do_root) {
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(link));
+        _cleanup_free_ char *root = NULL;
+        int r;
+
+        assert(link);
+        assert(parameters);
+        assert(selinux_permission);
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_METHOD_NOT_IMPLEMENTED, NULL);
+
+        if (can_do_root) {
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "root", SD_JSON_VARIANT_STRING, json_dispatch_path, 0, 0 },
+                        {}
+                };
+
+                r = sd_varlink_dispatch(link, parameters, dispatch_table, &root);
+        } else
+                r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = mac_selinux_access_check_varlink(link, selinux_permission);
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, reply);
+        r = varlink_check_privileged_peer(link);
+        if (r < 0)
+                return r;
+
+        if (root) {
+                assert(can_do_root);
+                path_simplify(root);
+        }
+
+        varlink_log_caller(link, m, manager_objective_to_string(objective));
+
+        if (can_do_root)
+                free_and_replace(m->switch_root, root);
+        m->objective = objective;
+
+        return sd_varlink_reply(link, NULL);
+}
+
+int vl_method_poweroff(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return manager_do_set_objective(link, parameters, MANAGER_POWEROFF, "halt", /* can_do_root= */ false);
+}
+
+int vl_method_reboot(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return manager_do_set_objective(link, parameters, MANAGER_REBOOT, "reboot", /* can_do_root= */ false);
+}
+
+int vl_method_halt(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return manager_do_set_objective(link, parameters, MANAGER_HALT, "halt", /* can_do_root= */ false);
+}
+
+int vl_method_kexec(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return manager_do_set_objective(link, parameters, MANAGER_KEXEC, "reboot", /* can_do_root= */ false);
+}
+
+int vl_method_soft_reboot(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return manager_do_set_objective(link, parameters, MANAGER_SOFT_REBOOT, "reboot", /* can_do_root= */ true);
 }

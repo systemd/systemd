@@ -9,7 +9,7 @@
 #include "bus-util.h"
 #include "runtime-scope.h"
 
-int verb_time(int argc, char *argv[], void *userdata) {
+int verb_time(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *buf = NULL;
         int r;

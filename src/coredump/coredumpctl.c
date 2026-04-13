@@ -30,6 +30,7 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "image-policy.h"
+#include "io-util.h"
 #include "journal-internal.h"
 #include "journal-util.h"
 #include "json-util.h"
@@ -175,7 +176,7 @@ static int acquire_journal(sd_journal **ret, char **matches) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -223,6 +224,10 @@ static int verb_help(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
+}
+
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
@@ -268,7 +273,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "hA:o:F:1D:rS:U:qn:", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
-                        return verb_help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -411,6 +416,8 @@ static int retrieve(const void *data,
         size_t ident;
         char *v;
 
+        assert(var);
+
         ident = strlen(name) + 1; /* name + "=" */
 
         if (len < ident)
@@ -525,6 +532,8 @@ static int resolve_filename(const char *root, char **p) {
         char *resolved = NULL;
         int r;
 
+        assert(p);
+
         if (!*p)
                 return 0;
 
@@ -544,14 +553,14 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
         _cleanup_free_ char
                 *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL,
-                *filename = NULL, *truncated = NULL, *coredump = NULL;
+                *filename = NULL, *truncated = NULL;
         const void *d;
         size_t l;
         usec_t ts;
         int r, signal_as_int = 0;
         const char *present = NULL, *color = NULL;
         uint64_t size = UINT64_MAX;
-        bool normal_coredump;
+        bool normal_coredump, has_inline_coredump;
         uid_t uid_as_int = UID_INVALID;
         gid_t gid_as_int = GID_INVALID;
         pid_t pid_as_int = 0;
@@ -570,8 +579,10 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
                 RETRIEVE(d, l, "COREDUMP_COMM", comm);
                 RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
                 RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
-                RETRIEVE(d, l, "COREDUMP", coredump);
         }
+
+        /* Check for an inline coredump without copying the (potentially large) payload to heap. */
+        has_inline_coredump = sd_journal_get_data(j, "COREDUMP", NULL, NULL) >= 0;
 
         if (!pid || !uid || !gid || !sgnl || !comm) {
                 log_warning("Found a coredump entry without mandatory fields (PID=%s, UID=%s, GID=%s, SIGNAL=%s, COMM=%s), ignoring.",
@@ -596,7 +607,7 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
                         return r;
 
                 analyze_coredump_file(filename, &present, &color, &size);
-        } else if (coredump)
+        } else if (has_inline_coredump)
                 present = "journal";
         else if (normal_coredump) {
                 present = "none";
@@ -632,11 +643,12 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
                 *slice = NULL, *cgroup = NULL, *owner_uid = NULL,
                 *message = NULL, *timestamp = NULL, *filename = NULL,
-                *truncated = NULL, *coredump = NULL,
-                *pkgmeta_name = NULL, *pkgmeta_version = NULL, *pkgmeta_json = NULL;
+                *truncated = NULL,
+                *pkgmeta_name = NULL, *pkgmeta_version = NULL, *pkgmeta_json = NULL,
+                *tid = NULL, *thread_name = NULL;
         const void *d;
         size_t l;
-        bool normal_coredump;
+        bool normal_coredump, has_inline_coredump;
         int r;
 
         assert(file);
@@ -663,14 +675,18 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 RETRIEVE(d, l, "COREDUMP_TIMESTAMP", timestamp);
                 RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
                 RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
-                RETRIEVE(d, l, "COREDUMP", coredump);
                 RETRIEVE(d, l, "COREDUMP_PACKAGE_NAME", pkgmeta_name);
                 RETRIEVE(d, l, "COREDUMP_PACKAGE_VERSION", pkgmeta_version);
                 RETRIEVE(d, l, "COREDUMP_PACKAGE_JSON", pkgmeta_json);
+                RETRIEVE(d, l, "COREDUMP_TID", tid);
+                RETRIEVE(d, l, "COREDUMP_THREAD_NAME", thread_name);
                 RETRIEVE(d, l, "_BOOT_ID", boot_id);
                 RETRIEVE(d, l, "_MACHINE_ID", machine_id);
                 RETRIEVE(d, l, "MESSAGE", message);
         }
+
+        /* Check for an inline coredump without copying the (potentially large) payload to heap. */
+        has_inline_coredump = sd_journal_get_data(j, "COREDUMP", NULL, NULL) >= 0;
 
         if (need_space)
                 fputs("\n", file);
@@ -685,6 +701,13 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 fprintf(file,
                         "           PID: %s%s%s\n",
                         ansi_highlight(), strna(pid), ansi_normal());
+
+        if (tid) {
+                if (thread_name)
+                        fprintf(file, "           TID: %s (%s)\n", tid, thread_name);
+                else
+                        fprintf(file, "           TID: %s\n", tid);
+        }
 
         if (uid) {
                 uid_t n;
@@ -802,7 +825,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 if (size != UINT64_MAX)
                         fprintf(file, "  Size on Disk: %s\n", FORMAT_BYTES(size));
 
-        } else if (coredump)
+        } else if (has_inline_coredump)
                 fprintf(file, "       Storage: journal\n");
         else
                 fprintf(file, "       Storage: none\n");
@@ -815,7 +838,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (exe && pkgmeta_json) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                r = sd_json_parse(pkgmeta_json, 0, &v, NULL, NULL);
+                r = sd_json_parse(pkgmeta_json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                 if (r < 0) {
                         _cleanup_free_ char *esc = cescape(pkgmeta_json);
                         log_warning_errno(r, "json_parse on \"%s\" failed, ignoring: %m", strnull(esc));
@@ -879,7 +902,7 @@ static int print_entry(
                 return print_info(stdout, j, n_found > 0);
 }
 
-static int dump_list(int argc, char **argv, void *userdata) {
+static int verb_dump_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
         size_t n_found = 0;
@@ -1080,7 +1103,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                         goto error;
                 }
 
-                r = decompress_stream(filename, fdf, fd, -1);
+                r = decompress_stream_by_filename(filename, fdf, fd, -1);
                 if (r < 0) {
                         log_error_errno(r, "Failed to decompress %s: %m", filename);
                         goto error;
@@ -1091,8 +1114,6 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                 goto error;
 #endif
         } else {
-                ssize_t sz;
-
                 /* We want full data, nothing truncated. */
                 sd_journal_set_data_threshold(j, 0);
 
@@ -1104,14 +1125,9 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                 data += 9;
                 len -= 9;
 
-                sz = write(fd, data, len);
-                if (sz < 0) {
-                        r = log_error_errno(errno, "Failed to write output: %m");
-                        goto error;
-                }
-                if (sz != (ssize_t) len) {
-                        log_error("Short write to output.");
-                        r = -EIO;
+                r = loop_write(fd, data, len);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to write output: %m");
                         goto error;
                 }
         }
@@ -1130,7 +1146,7 @@ error:
         return r;
 }
 
-static int dump_core(int argc, char **argv, void *userdata) {
+static int verb_dump_core(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -1166,7 +1182,7 @@ static int dump_core(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int run_debug(int argc, char **argv, void *userdata) {
+static int verb_run_debug(int argc, char *argv[], uintptr_t _data, void *userdata) {
         static const struct sigaction sa = {
                 .sa_sigaction = sigterm_process_group_handler,
                 .sa_flags = SA_SIGINFO,
@@ -1359,12 +1375,12 @@ static int check_units_active(void) {
 static int coredumpctl_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "list",  VERB_ANY, VERB_ANY, VERB_DEFAULT, dump_list },
-                { "info",  VERB_ANY, VERB_ANY, 0,            dump_list },
-                { "dump",  VERB_ANY, VERB_ANY, 0,            dump_core },
-                { "debug", VERB_ANY, VERB_ANY, 0,            run_debug },
-                { "gdb",   VERB_ANY, VERB_ANY, 0,            run_debug },
-                { "help",  VERB_ANY, 1,        0,            verb_help },
+                { "list",  VERB_ANY, VERB_ANY, VERB_DEFAULT, verb_dump_list },
+                { "info",  VERB_ANY, VERB_ANY, 0,            verb_dump_list },
+                { "dump",  VERB_ANY, VERB_ANY, 0,            verb_dump_core },
+                { "debug", VERB_ANY, VERB_ANY, 0,            verb_run_debug },
+                { "gdb",   VERB_ANY, VERB_ANY, 0,            verb_run_debug },
+                { "help",  VERB_ANY, 1,        0,            verb_help      },
                 {}
         };
 

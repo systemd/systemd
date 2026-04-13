@@ -536,6 +536,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--grain-size=<replaceable>BYTES</replaceable></option></term>
+
+        <listitem><para>This option controls the partition alignment granularity used when placing
+        partitions. It takes a power-of-2 value that is at least the sector size. All partition start
+        offsets will be rounded up to a multiple of this value. Defaults to
+        <constant>MAX(4096, sector_size)</constant>, matching the conventional 4 KiB alignment. Setting
+        this to <literal>1M</literal> ensures proper alignment for modern storage devices even after
+        small fixed-size partitions such as a verity signature partition.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--architecture=<replaceable>ARCH</replaceable></option></term>
 
         <listitem><para>This option allows overriding the architecture used for architecture specific
@@ -705,6 +718,55 @@
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--el-torito=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Write a minimal ISO9660 header with El Torito boot catalog. That will
+        boot the ESP on EFI firmware.</para>
+
+        <para>The ISO9660 filesystem created by it will be empty. The initramfs is expected to create a
+        partitionable loop device on top of the device to change the block size and enable GPT
+        partitions.</para>
+
+        <para>The disk requires at least one partition with <varname>Type=esp</varname>. The first one will
+        be the one referenced in the boot catalog.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--el-torito-system=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>When creating an ISO9660 header, this value will be used as the system identifier.
+        This is useful for the media to be matched against osinfo db.</para>
+
+        <para>The value is limited to 32 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--el-torito-volume=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>When creating an ISO9660 header, this value will be used as volume identifier.
+        This is useful for the media to be matched against osinfo db.</para>
+
+        <para>The value is limited to 32 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--el-torito-publisher=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>When creating an ISO9660 header, this value will be used as publisher identifier.
+        This is useful for the media to be matched against osinfo db.</para>
+
+        <para>The value is limited to 128 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
@@ -819,7 +881,7 @@ systemd-repart --definitions repart.d \
   --copy-source=/tmp/tree/ \
   --empty=create --size=600M \
   --json=short \
-  /tmp/img.raw | | jq --raw-output0 .[-1].roothash &gt; /tmp/img.roothash
+  /tmp/img.raw | jq --raw-output0 ".[-1].roothash" &gt; /tmp/img.roothash
 
 openssl smime -sign -in /tmp/img.roothash \
   -inkey verity-private-key.pem \

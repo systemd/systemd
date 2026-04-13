@@ -100,6 +100,7 @@ int terminal_urlify(const char *url, const char *text, char **ret) {
         char *n;
 
         assert(url);
+        assert(ret);
 
         /* Takes a URL and a pretty string and formats it as clickable link for the terminal. See
          * https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda for details. */
@@ -125,6 +126,8 @@ int file_url_from_path(const char *path, char **ret) {
         struct utsname u;
         char *url = NULL;
         int r;
+
+        assert(ret);
 
         if (uname(&u) < 0)
                 return -errno;
@@ -388,6 +391,12 @@ static int guess_type(const char **name, char ***ret_prefixes, bool *ret_is_coll
         _cleanup_free_ char *n = NULL;
         bool run = false, coll = false;
         const char *ext = ".conf";
+
+        assert(name);
+        assert(ret_prefixes);
+        assert(ret_is_collection);
+        assert(ret_extension);
+
         /* This is static so that the array doesn't get deallocated when we exit the function */
         static const char* const std_prefixes[] = { CONF_PATHS(""), NULL };
         static const char* const run_prefixes[] = { "/run/", NULL };
@@ -485,7 +494,7 @@ int conf_files_cat(const char *root, const char *name, CatFlags flags) {
         /* Then locate the drop-ins, if any */
         ConfFile **dropins = NULL;
         size_t n_dropins = 0;
-        CLEANUP_ARRAY(dropins, n_dropins, conf_file_free_many);
+        CLEANUP_ARRAY(dropins, n_dropins, conf_file_free_array);
         r = conf_files_list_strv_full(extension, root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN, (const char* const*) dirs, &dropins, &n_dropins);
         if (r < 0)
                 return log_error_errno(r, "Failed to query file list: %m");

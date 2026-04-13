@@ -42,8 +42,6 @@ typedef struct Manager {
 int manager_add_machine(Manager *m, const char *name, Machine **ret);
 int manager_get_machine_by_pidref(Manager *m, const PidRef *pidref, Machine **ret);
 
-extern const BusObjectImplementation manager_object;
-
 int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_error *error);

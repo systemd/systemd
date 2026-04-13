@@ -20,5 +20,6 @@ Before=shutdown.target
 
 [Socket]
 ListenStream=/run/systemd/io.systemd.Import
+Symlinks=/run/varlink/registry/io.systemd.Import
 FileDescriptorName=varlink
 SocketMode=0666

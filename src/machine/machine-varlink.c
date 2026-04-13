@@ -155,6 +155,9 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         if (r != 0)
                 return r;
 
+        if (!MACHINE_CLASS_CAN_REGISTER(machine->class))
+                return sd_varlink_error_invalid_parameter_name(link, "class");
+
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 r = varlink_verify_polkit_async(
                                 link,
@@ -189,8 +192,10 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         if (r < 0)
                 return r;
 
-        /* Ensure an unprivileged user cannot claim any process they don't control as their own machine */
-        if (machine->uid != 0) {
+        /* In system scope, ensure an unprivileged user cannot claim any process they don't
+         * control as their own machine. In user scope the varlink socket is already
+         * protected by $XDG_RUNTIME_DIR permissions. */
+        if (manager->runtime_scope != RUNTIME_SCOPE_USER && machine->uid != 0) {
                 r = process_is_owned_by_uid(&machine->leader, machine->uid);
                 if (r < 0)
                         return r;
@@ -552,6 +557,25 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 return r;
 
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
+                /* Ensure only root can shell into the root namespace. This is to avoid unprivileged users
+                 * registering a process they own in the root user namespace, and then shelling in as root
+                 * or another user. Note that the shell operation is privileged and requires 'auth_admin', so we
+                 * do not need to check the caller's uid, as that will be checked by polkit, and if the machine's
+                 * and the caller's do not match, authorization will be required. It's only the case where the
+                 * caller owns the machine that will be shortcut and needs to be checked here. */
+                if (machine->uid != 0) {
+                        assert(machine->class != MACHINE_HOST);
+
+                        r = pidref_in_same_namespace(&PIDREF_MAKE_FROM_PID(1), &machine->leader, NAMESPACE_USER);
+                        if (r < 0)
+                                return log_debug_errno(
+                                                r,
+                                                "Failed to check if machine '%s' is running in the root user namespace: %m",
+                                                machine->name);
+                        if (r > 0)
+                                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                }
+
                 _cleanup_strv_free_ char **polkit_details = NULL;
 
                 polkit_details = machine_open_polkit_details(p.mode, machine->name, user, path, command_line);
@@ -638,7 +662,7 @@ static void machine_map_paramaters_done(MachineMapParameters *p) {
 
 int vl_method_map_from(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineOpenParameters),
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineMapParameters),
                 { "uid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(MachineMapParameters, uid), 0 },
                 { "gid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(MachineMapParameters, gid), 0 },
                 {}
@@ -799,7 +823,7 @@ static void machine_mount_paramaters_done(MachineMountParameters *p) {
 
 int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineOpenParameters),
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineMountParameters),
                 { "source",      SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineMountParameters, src),       SD_JSON_MANDATORY },
                 { "destination", SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineMountParameters, dest),      0                 },
                 { "readOnly",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineMountParameters, read_only), 0                 },

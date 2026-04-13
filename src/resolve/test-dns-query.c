@@ -858,7 +858,7 @@ static void exercise_dns_query_go(GoConfig *cfg, void (*check_query)(DnsQuery *q
         ASSERT_NOT_NULL(query);
         ASSERT_TRUE(dns_query_go(query));
 
-        if (check_query != NULL)
+        if (check_query)
                 check_query(query);
 }
 

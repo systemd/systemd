@@ -91,30 +91,30 @@ int print_version(void) {
         return 0;
 }
 
-static int version_main(int argc, char *argv[], void *userdata) {
+static int verb_version_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return print_version();
 }
 
-static int help_main(int argc, char *argv[], void *userdata) {
+static int verb_help_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 
 static int udevadm_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "cat",          VERB_ANY, VERB_ANY, 0, cat_main     },
-                { "info",         VERB_ANY, VERB_ANY, 0, info_main    },
-                { "trigger",      VERB_ANY, VERB_ANY, 0, trigger_main },
-                { "settle",       VERB_ANY, VERB_ANY, 0, settle_main  },
-                { "control",      VERB_ANY, VERB_ANY, 0, control_main },
-                { "monitor",      VERB_ANY, VERB_ANY, 0, monitor_main },
-                { "hwdb",         VERB_ANY, VERB_ANY, 0, hwdb_main    },
-                { "test",         VERB_ANY, VERB_ANY, 0, test_main    },
-                { "test-builtin", VERB_ANY, VERB_ANY, 0, builtin_main },
-                { "wait",         VERB_ANY, VERB_ANY, 0, wait_main    },
-                { "lock",         VERB_ANY, VERB_ANY, 0, lock_main    },
-                { "verify",       VERB_ANY, VERB_ANY, 0, verify_main  },
-                { "version",      VERB_ANY, VERB_ANY, 0, version_main },
-                { "help",         VERB_ANY, VERB_ANY, 0, help_main    },
+                { "cat",          VERB_ANY, VERB_ANY, 0, verb_cat_main     },
+                { "info",         VERB_ANY, VERB_ANY, 0, verb_info_main    },
+                { "trigger",      VERB_ANY, VERB_ANY, 0, verb_trigger_main },
+                { "settle",       VERB_ANY, VERB_ANY, 0, verb_settle_main  },
+                { "control",      VERB_ANY, VERB_ANY, 0, verb_control_main },
+                { "monitor",      VERB_ANY, VERB_ANY, 0, verb_monitor_main },
+                { "hwdb",         VERB_ANY, VERB_ANY, 0, verb_hwdb_main    },
+                { "test",         VERB_ANY, VERB_ANY, 0, verb_test_main    },
+                { "test-builtin", VERB_ANY, VERB_ANY, 0, verb_builtin_main },
+                { "wait",         VERB_ANY, VERB_ANY, 0, verb_wait_main    },
+                { "lock",         VERB_ANY, VERB_ANY, 0, verb_lock_main    },
+                { "verify",       VERB_ANY, VERB_ANY, 0, verb_verify_main  },
+                { "version",      VERB_ANY, VERB_ANY, 0, verb_version_main },
+                { "help",         VERB_ANY, VERB_ANY, 0, verb_help_main    },
                 {}
         };
 

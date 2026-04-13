@@ -190,6 +190,9 @@ static int strv_strndup_unescape_and_push(
                 const char *start,
                 const char *end) {
 
+        assert(sv);
+        assert(n);
+
         if (end == start)
                 return 0;
 
@@ -291,6 +294,9 @@ static int xdg_config_item_table_lookup(
                 void *userdata) {
 
         assert(lvalue);
+        assert(ret_func);
+        assert(ret_ltype);
+        assert(ret_data);
 
         /* Ignore any keys with [] as those are translations. */
         if (strchr(lvalue, '[')) {

@@ -38,8 +38,7 @@ static int spawn_getent(const char *database, const char *key, PidRef *ret) {
                 return r;
         }
         if (r == 0) {
-                execle("/usr/bin/getent", "getent", database, key, NULL, &(char*[1]){});
-                execle("/bin/getent", "getent", database, key, NULL, &(char*[1]){});
+                execlp("getent", "getent", database, key, NULL);
                 _exit(EXIT_FAILURE);
         }
 

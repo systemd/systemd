@@ -443,7 +443,7 @@ static int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, 
         return 1;
 }
 
-const sd_bus_vtable image_vtable[] = {
+static const sd_bus_vtable image_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Image, name), 0),
         SD_BUS_PROPERTY("Path", "s", NULL, offsetof(Image, path), 0),

@@ -1258,6 +1258,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RootHashSignaturePath", "s", NULL, offsetof(ExecContext, root_hash_sig_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootVerity", "s", NULL, offsetof(ExecContext, root_verity), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootEphemeral", "b", bus_property_get_bool, offsetof(ExecContext, root_ephemeral), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RootMStack", "s", NULL, offsetof(ExecContext, root_mstack), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ExtensionDirectories", "as", NULL, offsetof(ExecContext, extension_directories), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ExtensionImages", "a(sba(ss))", property_get_extension_images, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MountImages", "a(ssba(ss))", property_get_mount_images, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1881,6 +1882,9 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "RootImage"))
                 return bus_set_transient_path(u, name, &c->root_image, message, flags, reterr_error);
+
+        if (streq(name, "RootMStack"))
+                return bus_set_transient_path(u, name, &c->root_mstack, message, flags, reterr_error);
 
         if (streq(name, "RootImageOptions")) {
                 _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
@@ -2802,6 +2806,9 @@ int bus_exec_context_set_transient_property(
                                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Journal field is not valid UTF-8");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                if (c->n_log_extra_fields >= LOG_EXTRA_FIELDS_MAX)
+                                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Too many extra log fields.");
+
                                 if (!GREEDY_REALLOC(c->log_extra_fields, c->n_log_extra_fields + 1))
                                         return -ENOMEM;
 
@@ -4048,7 +4055,7 @@ int bus_exec_context_set_transient_property(
                 MountImage *mount_images = NULL;
                 size_t n_mount_images = 0;
 
-                CLEANUP_ARRAY(mount_images, n_mount_images, mount_image_free_many);
+                CLEANUP_ARRAY(mount_images, n_mount_images, mount_image_free_array);
 
                 r = sd_bus_message_enter_container(message, 'a', "(ssba(ss))");
                 if (r < 0)
@@ -4120,7 +4127,7 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (n_mount_images == 0) {
-                                mount_image_free_many(c->mount_images, c->n_mount_images);
+                                mount_image_free_array(c->mount_images, c->n_mount_images);
                                 c->mount_images = NULL;
                                 c->n_mount_images = 0;
 
@@ -4151,7 +4158,7 @@ int bus_exec_context_set_transient_property(
                 MountImage *extension_images = NULL;
                 size_t n_extension_images = 0;
 
-                CLEANUP_ARRAY(extension_images, n_extension_images, mount_image_free_many);
+                CLEANUP_ARRAY(extension_images, n_extension_images, mount_image_free_array);
 
                 r = sd_bus_message_enter_container(message, 'a', "(sba(ss))");
                 if (r < 0)
@@ -4213,7 +4220,7 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (n_extension_images == 0) {
-                                mount_image_free_many(c->extension_images, c->n_extension_images);
+                                mount_image_free_array(c->extension_images, c->n_extension_images);
                                 c->extension_images = NULL;
                                 c->n_extension_images = 0;
 

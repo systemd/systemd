@@ -18,8 +18,6 @@
 #include "format-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
-#include "io-util.h"
-#include "iovec-util.h"
 #include "json-util.h"
 #include "list.h"
 #include "log.h"
@@ -41,13 +39,10 @@
 #include "varlink-org.varlink.service.h"
 
 #define VARLINK_DEFAULT_CONNECTIONS_MAX 4096U
-#define VARLINK_DEFAULT_CONNECTIONS_PER_UID_MAX 1024U
+#define VARLINK_DEFAULT_CONNECTIONS_PER_UID_MAX 128U
 
 #define VARLINK_DEFAULT_TIMEOUT_USEC (45U*USEC_PER_SEC)
-#define VARLINK_BUFFER_MAX (16U*1024U*1024U)
-#define VARLINK_READ_SIZE (64U*1024U)
 #define VARLINK_COLLECT_MAX 1024U
-#define VARLINK_QUEUE_MAX (64U*1024U)
 
 static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
         [VARLINK_IDLE_CLIENT]              = "idle-client",
@@ -75,38 +70,7 @@ static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState);
 
-static int varlink_format_queue(sd_varlink *v);
 static void varlink_server_test_exit_on_idle(sd_varlink_server *s);
-
-static VarlinkJsonQueueItem* varlink_json_queue_item_free(VarlinkJsonQueueItem *q) {
-        if (!q)
-                return NULL;
-
-        sd_json_variant_unref(q->data);
-        close_many(q->fds, q->n_fds);
-
-        return mfree(q);
-}
-
-static VarlinkJsonQueueItem* varlink_json_queue_item_new(sd_json_variant *m, const int fds[], size_t n_fds) {
-        VarlinkJsonQueueItem *q;
-
-        assert(m);
-        assert(fds || n_fds == 0);
-
-        q = malloc(offsetof(VarlinkJsonQueueItem, fds) + sizeof(int) * n_fds);
-        if (!q)
-                return NULL;
-
-        *q = (VarlinkJsonQueueItem) {
-                .data = sd_json_variant_ref(m),
-                .n_fds = n_fds,
-        };
-
-        memcpy_safe(q->fds, fds, n_fds * sizeof(int));
-
-        return TAKE_PTR(q);
-}
 
 static void varlink_set_state(sd_varlink *v, VarlinkState state) {
         assert(v);
@@ -124,8 +88,40 @@ static void varlink_set_state(sd_varlink *v, VarlinkState state) {
         v->state = state;
 }
 
+/* Map the varlink state machine onto the generic transport-level "phase". The transport
+ * uses this to decide whether to ask for POLLIN, whether the connection is salvageable
+ * after a read/write disconnect, and whether the idle timeout deadline is in force. */
+static JsonStreamPhase varlink_phase(void *userdata) {
+        sd_varlink *v = ASSERT_PTR(userdata);
+
+        /* Client side reading a reply with the per-call deadline in force. */
+        if (IN_SET(v->state,
+                   VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE,
+                   VARLINK_CALLING, VARLINK_COLLECTING) &&
+            !v->current)
+                return JSON_STREAM_PHASE_AWAITING_REPLY;
+
+        /* Server side reading the next request — no deadline applies. */
+        if (v->state == VARLINK_IDLE_SERVER && !v->current)
+                return JSON_STREAM_PHASE_READING;
+
+        if (v->state == VARLINK_IDLE_CLIENT)
+                return JSON_STREAM_PHASE_IDLE_CLIENT;
+
+        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
+                return JSON_STREAM_PHASE_PENDING_OUTPUT;
+
+        return JSON_STREAM_PHASE_OTHER;
+}
+
+static int varlink_dispatch(void *userdata) {
+        sd_varlink *v = ASSERT_PTR(userdata);
+        return sd_varlink_process(v);
+}
+
 static int varlink_new(sd_varlink **ret) {
-        sd_varlink *v;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
+        int r;
 
         assert(ret);
 
@@ -135,32 +131,28 @@ static int varlink_new(sd_varlink **ret) {
 
         *v = (sd_varlink) {
                 .n_ref = 1,
-                .input_fd = -EBADF,
-                .output_fd = -EBADF,
-
                 .state = _VARLINK_STATE_INVALID,
-
-                .ucred = UCRED_INVALID,
-
-                .peer_pidfd = -EBADF,
-
-                .timestamp = USEC_INFINITY,
-                .timeout = VARLINK_DEFAULT_TIMEOUT_USEC,
-
-                .allow_fd_passing_input = -1,
-
-                .af = -1,
-
                 .exec_pidref = PIDREF_NULL,
         };
 
-        *ret = v;
+        r = json_stream_init(
+                        &v->stream,
+                        &(JsonStreamParams) {
+                                .phase = varlink_phase,
+                                .dispatch = varlink_dispatch,
+                                .userdata = v,
+                        });
+        if (r < 0)
+                return r;
+
+        json_stream_set_timeout(&v->stream, VARLINK_DEFAULT_TIMEOUT_USEC);
+
+        *ret = TAKE_PTR(v);
         return 0;
 }
 
 _public_ int sd_varlink_connect_address(sd_varlink **ret, const char *address) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
-        union sockaddr_union sockaddr;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -170,39 +162,9 @@ _public_ int sd_varlink_connect_address(sd_varlink **ret, const char *address) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        v->input_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (v->input_fd < 0)
-                return log_debug_errno(errno, "Failed to create AF_UNIX socket: %m");
-
-        v->output_fd = v->input_fd = fd_move_above_stdio(v->input_fd);
-        v->af = AF_UNIX;
-
-        r = sockaddr_un_set_path(&sockaddr.un, address);
-        if (r < 0) {
-                if (r != -ENAMETOOLONG)
-                        return log_debug_errno(r, "Failed to set socket address '%s': %m", address);
-
-                /* This is a file system path, and too long to fit into sockaddr_un. Let's connect via O_PATH
-                 * to this socket. */
-
-                r = connect_unix_path(v->input_fd, AT_FDCWD, address);
-        } else
-                r = RET_NERRNO(connect(v->input_fd, &sockaddr.sa, r));
-
-        if (r < 0) {
-                if (!IN_SET(r, -EAGAIN, -EINPROGRESS))
-                        return log_debug_errno(r, "Failed to connect to %s: %m", address);
-
-                v->connecting = true; /* We are asynchronously connecting, i.e. the connect() is being
-                                       * processed in the background. As long as that's the case the socket
-                                       * is in a special state: it's there, we can poll it for EPOLLOUT, but
-                                       * if we attempt to write() to it before we see EPOLLOUT we'll get
-                                       * ENOTCONN (and not EAGAIN, like we would for a normal connected
-                                       * socket that isn't writable at the moment). Since ENOTCONN on write()
-                                       * hence can mean two different things (i.e. connection not complete
-                                       * yet vs. already disconnected again), we store as a boolean whether
-                                       * we are still in connect(). */
-        }
+        r = json_stream_connect_address(&v->stream, address);
+        if (r < 0)
+                return r;
 
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
@@ -247,27 +209,19 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
                         /* stdio_fds= */ NULL,
                         /* except_fds= */ (int[]) { pair[1] },
                         /* n_except_fds= */ 1,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_PACK_FDS|FORK_CLOEXEC_OFF|FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE,
                         &pidref);
         if (r < 0)
                 return log_debug_errno(r, "Failed to spawn process: %m");
         if (r == 0) {
                 char spid[DECIMAL_STR_MAX(pid_t)+1];
                 const char *setenv_list[] = {
-                        "LISTEN_FDS", "1",
                         "LISTEN_PID", spid,
+                        "LISTEN_FDS", "1",
                         "LISTEN_FDNAMES", "varlink",
                         NULL, NULL,
                 };
                 /* Child */
-
-                pair[0] = -EBADF;
-
-                r = move_fd(pair[1], 3, /* cloexec= */ false);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to move file descriptor to 3: %m");
-                        _exit(EXIT_FAILURE);
-                }
 
                 xsprintf(spid, PID_FMT, pidref.pid);
 
@@ -288,7 +242,7 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
                 }
 
                 execvp(command, argv);
-                log_debug_errno(r, "Failed to invoke process '%s': %m", command);
+                log_debug_errno(errno, "Failed to invoke process '%s': %m", command);
                 _exit(EXIT_FAILURE);
         }
 
@@ -299,8 +253,11 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        v->output_fd = v->input_fd = TAKE_FD(pair[0]);
-        v->af = AF_UNIX;
+        int conn_fd = TAKE_FD(pair[0]);
+        r = json_stream_attach_fds(&v->stream, conn_fd, conn_fd);
+        if (r < 0)
+                return r;
+
         v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
@@ -364,7 +321,7 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
                         /* stdio_fds= */ (int[]) { pair[1], pair[1], STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
                         &pidref);
         if (r < 0)
                 return log_debug_errno(r, "Failed to spawn process: %m");
@@ -383,8 +340,11 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        v->output_fd = v->input_fd = TAKE_FD(pair[0]);
-        v->af = AF_UNIX;
+        int conn_fd = TAKE_FD(pair[0]);
+        r = json_stream_attach_fds(&v->stream, conn_fd, conn_fd);
+        if (r < 0)
+                return r;
+
         v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
@@ -448,7 +408,7 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
                         /* stdio_fds= */ (int[]) { input_pipe[0], output_pipe[1], STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
                         &pidref);
         if (r < 0)
                 return log_debug_errno(r, "Failed to spawn process: %m");
@@ -475,14 +435,23 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        v->input_fd = TAKE_FD(output_pipe[0]);
-        v->output_fd = TAKE_FD(input_pipe[1]);
-        v->af = AF_UNSPEC;
+        r = json_stream_attach_fds(&v->stream, TAKE_FD(output_pipe[0]), TAKE_FD(input_pipe[1]));
+        if (r < 0)
+                return r;
+
         v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
         *ret = v;
         return 0;
+}
+
+/* Do basic validation of the URL scheme (loosely following RFC 1738) */
+static bool is_valid_url_scheme(const char *s) {
+        return !isempty(s) &&
+                strchr(LOWERCASE_LETTERS, s[0]) &&
+                in_charset(s, LOWERCASE_LETTERS DIGITS "+.-") &&
+                filename_is_valid(s);
 }
 
 _public_ int sd_varlink_connect_url(sd_varlink **ret, const char *url) {
@@ -499,7 +468,7 @@ _public_ int sd_varlink_connect_url(sd_varlink **ret, const char *url) {
         assert_return(ret, -EINVAL);
         assert_return(url, -EINVAL);
 
-        // FIXME: Maybe add support for vsock: and ssh-exec: URL schemes here.
+        // FIXME: Maybe add support for vsock: URL schemes here.
 
         /* The Varlink URL scheme is a bit underdefined. We support only the spec-defined unix: transport for
          * now, plus exec:, ssh: transports we made up ourselves. Strictly speaking this shouldn't even be
@@ -514,11 +483,39 @@ _public_ int sd_varlink_connect_url(sd_varlink **ret, const char *url) {
                 scheme = SCHEME_SSH_UNIX;
         else if ((p = startswith(url, "ssh-exec:")))
                 scheme = SCHEME_SSH_EXEC;
-        else
-                return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL scheme not supported.");
+        else {
+                /* scheme is not built-in: check if we have a bridge helper binary */
+                const char *colon = strchr(url, ':');
+                if (!colon)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
+                                               "Invalid URL '%s': does not contain a ':'", url);
+
+                _cleanup_free_ char *scheme_name = strndup(url, colon - url);
+                if (!scheme_name)
+                        return log_oom_debug();
+
+                if (!is_valid_url_scheme(scheme_name))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
+                                               "URL scheme not valid as bridge name: %s", scheme_name);
+
+                const char *bridges_dir = secure_getenv("SYSTEMD_VARLINK_BRIDGES_DIR") ?: VARLINK_BRIDGES_DIR;
+                _cleanup_free_ char *bridge = path_join(bridges_dir, scheme_name);
+                if (!bridge)
+                        return log_oom_debug();
+
+                if (access(bridge, X_OK) < 0) {
+                        if (errno == ENOENT)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL scheme '%s' not supported (and no auxiliary bridge binary is available).", scheme_name);
+
+                        return log_debug_errno(errno, "Failed to look up varlink bridge binary '%s': %m", bridge);
+                }
+
+                return sd_varlink_connect_exec(ret, bridge, STRV_MAKE(bridge, url));
+        }
 
         /* The varlink.org reference C library supports more than just file system paths. We might want to
-         * support that one day too. For now simply refuse that. */
+         * support that one day too. For now simply refuse that for our built-in schemes. It is fine for
+         * external scheme handled via plugins (see above). */
         if (p[strcspn(p, ";?#")] != '\0')
                 return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL parameterization with ';', '?', '#' not supported.");
 
@@ -547,35 +544,23 @@ _public_ int sd_varlink_connect_url(sd_varlink **ret, const char *url) {
 }
 
 _public_ int sd_varlink_connect_fd_pair(sd_varlink **ret, int input_fd, int output_fd, const struct ucred *override_ucred) {
-        sd_varlink *v;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
         assert_return(input_fd >= 0, -EBADF);
         assert_return(output_fd >= 0, -EBADF);
 
-        r = fd_nonblock(input_fd, true);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to make input fd %d nonblocking: %m", input_fd);
-
-        if (input_fd != output_fd) {
-                r = fd_nonblock(output_fd, true);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to make output fd %d nonblocking: %m", output_fd);
-        }
-
         r = varlink_new(&v);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        v->input_fd = input_fd;
-        v->output_fd = output_fd;
-        v->af = -1;
+        r = json_stream_connect_fd_pair(&v->stream, input_fd, output_fd);
+        if (r < 0)
+                return r;
 
-        if (override_ucred) {
-                v->ucred = *override_ucred;
-                v->ucred_acquired = true;
-        }
+        if (override_ucred)
+                json_stream_set_peer_ucred(&v->stream, override_ucred);
 
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
@@ -586,22 +571,12 @@ _public_ int sd_varlink_connect_fd_pair(sd_varlink **ret, int input_fd, int outp
          * varlink_connect_address() above, as there we do handle asynchronous connections ourselves and
          * avoid doing write() on it before we saw EPOLLOUT for the first time. */
 
-        *ret = v;
+        *ret = TAKE_PTR(v);
         return 0;
 }
 
 _public_ int sd_varlink_connect_fd(sd_varlink **ret, int fd) {
         return sd_varlink_connect_fd_pair(ret, fd, fd, /* override_ucred= */ NULL);
-}
-
-static void varlink_detach_event_sources(sd_varlink *v) {
-        assert(v);
-
-        v->input_event_source = sd_event_source_disable_unref(v->input_event_source);
-        v->output_event_source = sd_event_source_disable_unref(v->output_event_source);
-        v->time_event_source = sd_event_source_disable_unref(v->time_event_source);
-        v->quit_event_source = sd_event_source_disable_unref(v->quit_event_source);
-        v->defer_event_source = sd_event_source_disable_unref(v->defer_event_source);
 }
 
 static void varlink_clear_current(sd_varlink *v) {
@@ -613,47 +588,29 @@ static void varlink_clear_current(sd_varlink *v) {
         v->current_method = NULL;
         v->current_reply_flags = 0;
 
-        close_many(v->input_fds, v->n_input_fds);
-        v->input_fds = mfree(v->input_fds);
-        v->n_input_fds = 0;
+        json_stream_close_input_fds(&v->stream);
+
+        v->previous = json_stream_queue_item_free(v->previous);
+        if (v->sentinel != POINTER_MAX)
+                v->sentinel = mfree(v->sentinel);
+        else
+                v->sentinel = NULL;
 }
 
 static void varlink_clear(sd_varlink *v) {
         assert(v);
 
-        varlink_detach_event_sources(v);
-
-        if (v->input_fd != v->output_fd) {
-                v->input_fd = safe_close(v->input_fd);
-                v->output_fd = safe_close(v->output_fd);
-        } else
-                v->output_fd = v->input_fd = safe_close(v->input_fd);
+        /* Detach event sources first so the kernel no longer has epoll watches on the
+         * stream's fds, then free the stream — json_stream_done() closes the input/output
+         * fds, the cached peer_pidfd, the received input fds, the queued output fds, and
+         * the pushed fds. */
+        sd_varlink_detach_event(v);
 
         varlink_clear_current(v);
 
-        v->input_buffer = v->input_sensitive ? erase_and_free(v->input_buffer) : mfree(v->input_buffer);
-        v->output_buffer = v->output_buffer_sensitive ? erase_and_free(v->output_buffer) : mfree(v->output_buffer);
-
-        v->input_control_buffer = mfree(v->input_control_buffer);
-        v->input_control_buffer_size = 0;
-
-        close_many(v->output_fds, v->n_output_fds);
-        v->output_fds = mfree(v->output_fds);
-        v->n_output_fds = 0;
-
-        close_many(v->pushed_fds, v->n_pushed_fds);
-        v->pushed_fds = mfree(v->pushed_fds);
-        v->n_pushed_fds = 0;
-
-        LIST_CLEAR(queue, v->output_queue, varlink_json_queue_item_free);
-        v->output_queue_tail = NULL;
-        v->n_output_queue = 0;
-
-        v->event = sd_event_unref(v->event);
+        json_stream_done(&v->stream);
 
         pidref_done_sigterm_wait(&v->exec_pidref);
-
-        v->peer_pidfd = safe_close(v->peer_pidfd);
 }
 
 static sd_varlink* varlink_destroy(sd_varlink *v) {
@@ -666,7 +623,6 @@ static sd_varlink* varlink_destroy(sd_varlink *v) {
 
         varlink_clear(v);
 
-        free(v->description);
         return mfree(v);
 }
 
@@ -675,358 +631,67 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_varlink, sd_varlink, varlink_destroy);
 static int varlink_test_disconnect(sd_varlink *v) {
         assert(v);
 
-        /* Tests whether we the connection has been terminated. We are careful to not stop processing it
-         * prematurely, since we want to handle half-open connections as well as possible and want to flush
-         * out and read data before we close down if we can. */
-
         /* Already disconnected? */
         if (!VARLINK_STATE_IS_ALIVE(v->state))
                 return 0;
 
-        /* Wait until connection setup is complete, i.e. until asynchronous connect() completes */
-        if (v->connecting)
+        if (!json_stream_should_disconnect(&v->stream))
                 return 0;
 
-        /* Still something to write and we can write? Stay around */
-        if (v->output_buffer_size > 0 && !v->write_disconnected)
-                return 0;
-
-        /* Both sides gone already? Then there's no need to stick around */
-        if (v->read_disconnected && v->write_disconnected)
-                goto disconnect;
-
-        /* If we are waiting for incoming data but the read side is shut down, disconnect. */
-        if (IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING, VARLINK_IDLE_SERVER) && v->read_disconnected)
-                goto disconnect;
-
-        /* Similar, if are a client that hasn't written anything yet but the write side is dead, also
-         * disconnect. We also explicitly check for POLLHUP here since we likely won't notice the write side
-         * being down if we never wrote anything. */
-        if (v->state == VARLINK_IDLE_CLIENT && (v->write_disconnected || v->got_pollhup))
-                goto disconnect;
-
-        /* We are on the server side and still want to send out more replies, but we saw POLLHUP already, and
-         * either got no buffered bytes to write anymore or already saw a write error. In that case we should
-         * shut down the varlink link. */
-        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE) && (v->write_disconnected || v->output_buffer_size == 0) && v->got_pollhup)
-                goto disconnect;
-
-        return 0;
-
-disconnect:
         varlink_set_state(v, VARLINK_PENDING_DISCONNECT);
         return 1;
 }
 
 static int varlink_write(sd_varlink *v) {
-        ssize_t n;
-        int r;
-
         assert(v);
 
         if (!VARLINK_STATE_IS_ALIVE(v->state))
                 return 0;
-        if (v->connecting) /* Writing while we are still wait for a non-blocking connect() to complete will
-                            * result in ENOTCONN, hence exit early here */
-                return 0;
-        if (v->write_disconnected)
-                return 0;
 
-        /* If needed let's convert some output queue json variants into text form */
-        r = varlink_format_queue(v);
-        if (r < 0)
-                return r;
-
-        if (v->output_buffer_size == 0)
-                return 0;
-
-        assert(v->output_fd >= 0);
-
-        if (v->n_output_fds > 0) { /* If we shall send fds along, we must use sendmsg() */
-                struct iovec iov = {
-                        .iov_base = v->output_buffer + v->output_buffer_index,
-                        .iov_len = v->output_buffer_size,
-                };
-                struct msghdr mh = {
-                        .msg_iov = &iov,
-                        .msg_iovlen = 1,
-                        .msg_controllen = CMSG_SPACE(sizeof(int) * v->n_output_fds),
-                };
-
-                mh.msg_control = alloca0(mh.msg_controllen);
-
-                struct cmsghdr *control = CMSG_FIRSTHDR(&mh);
-                control->cmsg_len = CMSG_LEN(sizeof(int) * v->n_output_fds);
-                control->cmsg_level = SOL_SOCKET;
-                control->cmsg_type = SCM_RIGHTS;
-                memcpy(CMSG_DATA(control), v->output_fds, sizeof(int) * v->n_output_fds);
-
-                n = sendmsg(v->output_fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
-        } else {
-                /* We generally prefer recv()/send() (mostly because of MSG_NOSIGNAL) but also want to be compatible
-                 * with non-socket IO, hence fall back automatically.
-                 *
-                 * Use a local variable to help gcc figure out that we set 'n' in all cases. */
-                bool prefer_write = v->prefer_write;
-                if (!prefer_write) {
-                        n = send(v->output_fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size, MSG_DONTWAIT|MSG_NOSIGNAL);
-                        if (n < 0 && errno == ENOTSOCK)
-                                prefer_write = v->prefer_write = true;
-                }
-                if (prefer_write)
-                        n = write(v->output_fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size);
-        }
-        if (n < 0) {
-                if (errno == EAGAIN)
-                        return 0;
-
-                if (ERRNO_IS_DISCONNECT(errno)) {
-                        /* If we get informed about a disconnect on write, then let's remember that, but not
-                         * act on it just yet. Let's wait for read() to report the issue first. */
-                        v->write_disconnected = true;
-                        return 1;
-                }
-
-                return -errno;
-        }
-
-        if (v->output_buffer_sensitive)
-                explicit_bzero_safe(v->output_buffer + v->output_buffer_index, n);
-
-        v->output_buffer_size -= n;
-
-        if (v->output_buffer_size == 0) {
-                v->output_buffer_index = 0;
-                v->output_buffer_sensitive = false; /* We can reset the sensitive flag once the buffer is empty */
-        } else
-                v->output_buffer_index += n;
-
-        close_many(v->output_fds, v->n_output_fds);
-        v->n_output_fds = 0;
-
-        v->timestamp = now(CLOCK_MONOTONIC);
-        return 1;
+        return json_stream_write(&v->stream);
 }
 
-#define VARLINK_FDS_MAX (16U*1024U)
-
 static int varlink_read(sd_varlink *v) {
-        struct iovec iov;
-        struct msghdr mh;
-        size_t rs;
-        ssize_t n;
-        void *p;
-
         assert(v);
 
         if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING, VARLINK_IDLE_SERVER))
                 return 0;
-        if (v->connecting) /* read() on a socket while we are in connect() will fail with EINVAL, hence exit early here */
-                return 0;
         if (v->current)
                 return 0;
-        if (v->input_buffer_unscanned > 0)
-                return 0;
-        if (v->read_disconnected)
-                return 0;
 
-        if (v->input_buffer_size >= VARLINK_BUFFER_MAX)
-                return -ENOBUFS;
-
-        assert(v->input_fd >= 0);
-
-        if (MALLOC_SIZEOF_SAFE(v->input_buffer) <= v->input_buffer_index + v->input_buffer_size) {
-                size_t add;
-
-                add = MIN(VARLINK_BUFFER_MAX - v->input_buffer_size, VARLINK_READ_SIZE);
-
-                if (v->input_buffer_index == 0) {
-
-                        if (!GREEDY_REALLOC(v->input_buffer, v->input_buffer_size + add))
-                                return -ENOMEM;
-
-                } else {
-                        char *b;
-
-                        b = new(char, v->input_buffer_size + add);
-                        if (!b)
-                                return -ENOMEM;
-
-                        memcpy(b, v->input_buffer + v->input_buffer_index, v->input_buffer_size);
-
-                        free_and_replace(v->input_buffer, b);
-                        v->input_buffer_index = 0;
-                }
-        }
-
-        p = v->input_buffer + v->input_buffer_index + v->input_buffer_size;
-        rs = MALLOC_SIZEOF_SAFE(v->input_buffer) - (v->input_buffer_index + v->input_buffer_size);
-
-        if (v->allow_fd_passing_input > 0) {
-                iov = IOVEC_MAKE(p, rs);
-
-                /* Allocate the fd buffer on the heap, since we need a lot of space potentially */
-                if (!v->input_control_buffer) {
-                        v->input_control_buffer_size = CMSG_SPACE(sizeof(int) * VARLINK_FDS_MAX);
-                        v->input_control_buffer = malloc(v->input_control_buffer_size);
-                        if (!v->input_control_buffer)
-                                return -ENOMEM;
-                }
-
-                mh = (struct msghdr) {
-                        .msg_iov = &iov,
-                        .msg_iovlen = 1,
-                        .msg_control = v->input_control_buffer,
-                        .msg_controllen = v->input_control_buffer_size,
-                };
-
-                n = recvmsg_safe(v->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        } else {
-                bool prefer_read = v->prefer_read;
-                if (!prefer_read) {
-                        n = recv(v->input_fd, p, rs, MSG_DONTWAIT);
-                        if (n < 0)
-                                n = -errno;
-                        if (n == -ENOTSOCK)
-                                prefer_read = v->prefer_read = true;
-                }
-                if (prefer_read) {
-                        n = read(v->input_fd, p, rs);
-                        if (n < 0)
-                                n = -errno;
-                }
-        }
-        if (ERRNO_IS_NEG_TRANSIENT(n))
-                return 0;
-        if (ERRNO_IS_NEG_DISCONNECT(n)) {
-                v->read_disconnected = true;
-                return 1;
-        }
-        if (n < 0)
-                return n;
-        if (n == 0) { /* EOF */
-
-                if (v->allow_fd_passing_input > 0)
-                        cmsg_close_all(&mh);
-
-                v->read_disconnected = true;
-                return 1;
-        }
-
-        if (v->allow_fd_passing_input > 0) {
-                struct cmsghdr *cmsg;
-
-                cmsg = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, (socklen_t) -1);
-                if (cmsg) {
-                        size_t add;
-
-                        /* We only allow file descriptors to be passed along with the first byte of a
-                         * message. If they are passed with any other byte this is a protocol violation. */
-                        if (v->input_buffer_size != 0) {
-                                cmsg_close_all(&mh);
-                                return -EPROTO;
-                        }
-
-                        add = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
-                        if (add > INT_MAX - v->n_input_fds) {
-                                cmsg_close_all(&mh);
-                                return -EBADF;
-                        }
-
-                        if (!GREEDY_REALLOC(v->input_fds, v->n_input_fds + add)) {
-                                cmsg_close_all(&mh);
-                                return -ENOMEM;
-                        }
-
-                        memcpy_safe(v->input_fds + v->n_input_fds, CMSG_TYPED_DATA(cmsg, int), add * sizeof(int));
-                        v->n_input_fds += add;
-                }
-        }
-
-        v->input_buffer_size += n;
-        v->input_buffer_unscanned += n;
-
-        return 1;
+        return json_stream_read(&v->stream);
 }
 
 static int varlink_parse_message(sd_varlink *v) {
-        const char *e;
-        char *begin;
-        size_t sz;
         int r;
 
         assert(v);
 
         if (v->current)
                 return 0;
-        if (v->input_buffer_unscanned <= 0)
-                return 0;
 
-        assert(v->input_buffer_unscanned <= v->input_buffer_size);
-        assert(v->input_buffer_index + v->input_buffer_size <= MALLOC_SIZEOF_SAFE(v->input_buffer));
+        r = json_stream_parse(&v->stream, &v->current);
+        if (r <= 0)
+                return r;
 
-        begin = v->input_buffer + v->input_buffer_index;
-
-        e = memchr(begin + v->input_buffer_size - v->input_buffer_unscanned, 0, v->input_buffer_unscanned);
-        if (!e) {
-                v->input_buffer_unscanned = 0;
-                return 0;
-        }
-
-        sz = e - begin + 1;
-
-        r = sd_json_parse(begin, 0, &v->current, NULL, NULL);
-        if (v->input_sensitive)
-                explicit_bzero_safe(begin, sz);
-        if (r < 0) {
-                /* If we encounter a parse failure flush all data. We cannot possibly recover from this,
-                 * hence drop all buffered data now. */
-                v->input_buffer_index = v->input_buffer_size = v->input_buffer_unscanned = 0;
-                return varlink_log_errno(v, r, "Failed to parse JSON: %m");
-        }
-
-        if (v->input_sensitive) {
+        if (json_stream_flags_set(&v->stream, JSON_STREAM_INPUT_SENSITIVE)) {
                 /* Mark the parameters subfield as sensitive right-away, if that's requested */
                 sd_json_variant *parameters = sd_json_variant_by_key(v->current, "parameters");
                 if (parameters)
                         sd_json_variant_sensitive(parameters);
         }
 
-        if (DEBUG_LOGGING) {
-                _cleanup_(erase_and_freep) char *censored_text = NULL;
-
-                /* Suppress sensitive fields in the debug output */
-                r = sd_json_variant_format(v->current, /* flags= */ SD_JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
-                if (r < 0)
-                        return r;
-
-                varlink_log(v, "Received message: %s", censored_text);
-        }
-
-        v->input_buffer_size -= sz;
-
-        if (v->input_buffer_size == 0)
-                v->input_buffer_index = 0;
-        else
-                v->input_buffer_index += sz;
-
-        v->input_buffer_unscanned = v->input_buffer_size;
         return 1;
 }
 
 static int varlink_test_timeout(sd_varlink *v) {
         assert(v);
 
-        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING))
-                return 0;
-        if (v->timeout == USEC_INFINITY)
-                return 0;
-
-        if (now(CLOCK_MONOTONIC) < usec_add(v->timestamp, v->timeout))
+        usec_t deadline = json_stream_get_timeout(&v->stream);
+        if (deadline == USEC_INFINITY || now(CLOCK_MONOTONIC) < deadline)
                 return 0;
 
         varlink_set_state(v, VARLINK_PENDING_TIMEOUT);
-
         return 1;
 }
 
@@ -1101,9 +766,8 @@ static int varlink_sanitize_incoming_parameters(sd_json_variant **v) {
 }
 
 static int varlink_dispatch_reply(sd_varlink *v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL, *error = NULL;
         sd_varlink_reply_flags_t flags = 0;
-        const char *error = NULL;
         sd_json_variant *e;
         const char *k;
         int r;
@@ -1128,7 +792,7 @@ static int varlink_dispatch_reply(sd_varlink *v) {
                         if (!sd_json_variant_is_string(e))
                                 goto invalid;
 
-                        error = sd_json_variant_string(e);
+                        error = sd_json_variant_ref(e);
                         flags |= SD_VARLINK_REPLY_ERROR;
 
                 } else if (streq(k, "parameters")) {
@@ -1170,7 +834,7 @@ static int varlink_dispatch_reply(sd_varlink *v) {
                 varlink_set_state(v, VARLINK_PROCESSING_REPLY);
 
                 if (v->reply_callback) {
-                        r = v->reply_callback(v, parameters, error, flags, v->userdata);
+                        r = v->reply_callback(v, parameters, sd_json_variant_string(error), flags, v->userdata);
                         if (r < 0)
                                 varlink_log_errno(v, r, "Reply callback returned error, ignoring: %m");
                 }
@@ -1314,7 +978,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 } else if (streq(k, "oneway")) {
 
-                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE)) != 0)
+                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
                                 goto invalid;
 
                         if (!sd_json_variant_is_boolean(e))
@@ -1325,7 +989,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 } else if (streq(k, "more")) {
 
-                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE)) != 0)
+                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
                                 goto invalid;
 
                         if (!sd_json_variant_is_boolean(e))
@@ -1333,6 +997,17 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                         if (sd_json_variant_boolean(e))
                                 flags |= SD_VARLINK_METHOD_MORE;
+
+                } else if (streq(k, "upgrade")) {
+
+                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
+                                goto invalid;
+
+                        if (!sd_json_variant_is_boolean(e))
+                                goto invalid;
+
+                        if (sd_json_variant_boolean(e))
+                                flags |= SD_VARLINK_METHOD_UPGRADE;
 
                 } else
                         goto invalid;
@@ -1350,6 +1025,15 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                                                   VARLINK_PROCESSING_METHOD);
 
         assert(v->server);
+
+        /* Reset the per-call upgrade marker on every dispatch — a previous method's
+         * UPGRADE flag must not bleed into this one. The transport-level bounded reads
+         * stay active for SD_VARLINK_SERVER_UPGRADABLE servers regardless. */
+        v->protocol_upgrade = FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE);
+        json_stream_set_flags(
+                        &v->stream,
+                        JSON_STREAM_BOUNDED_READS,
+                        v->protocol_upgrade || FLAGS_SET(v->server->flags, SD_VARLINK_SERVER_UPGRADABLE));
 
         /* First consult user supplied method implementations */
         callback = hashmap_get(v->server->methods, method);
@@ -1371,11 +1055,15 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                         r = varlink_idl_validate_method_call(v->current_method, parameters, flags, &bad_field);
                         if (r == -EBADE) {
-                                varlink_log_errno(v, r, "Method %s() called without 'more' flag, but flag needs to be set.",
-                                                  method);
+                                bool missing_upgrade = FLAGS_SET(v->current_method->symbol_flags, SD_VARLINK_REQUIRES_UPGRADE) &&
+                                                       !FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE);
+
+                                varlink_log_errno(v, r, "Method %s() called without '%s' flag, but flag needs to be set.",
+                                                  method, missing_upgrade ? "upgrade" : "more");
 
                                 if (v->state == VARLINK_PROCESSING_METHOD) {
-                                        r = sd_varlink_error(v, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                                        r = sd_varlink_error(v, missing_upgrade ? SD_VARLINK_ERROR_EXPECTED_UPGRADE
+                                                                                : SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
                                         /* If we didn't manage to enqueue an error response, then fail the
                                          * connection completely. Otherwise ignore the error from
                                          * sd_varlink_error() here, as it is synthesized from the function's
@@ -1401,16 +1089,56 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 if (!invalid) {
                         r = callback(v, parameters, flags, v->userdata);
-                        if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state)) {
-                                varlink_log_errno(v, r, "Callback for %s returned error: %m", method);
+                        if (VARLINK_STATE_WANTS_REPLY(v->state)) {
+                                if (r < 0) {
+                                        varlink_log_errno(v, r, "Callback for '%s' returned error: %m", method);
 
-                                /* We got an error back from the callback. Propagate it to the client if the
-                                 * method call remains unanswered. */
-                                r = sd_varlink_error_errno(v, r);
-                                /* If we didn't manage to enqueue an error response, then fail the connection completely. */
+                                        /* We got an error back from the callback. Propagate it to the client
+                                         * if the method call remains unanswered. */
+                                        r = sd_varlink_error_errno(v, r);
+                                } else if (v->sentinel) {
+                                        if (v->previous) {
+                                                r = json_stream_enqueue_item(&v->stream, v->previous);
+                                                if (r >= 0) {
+                                                        TAKE_PTR(v->previous);
+                                                        varlink_set_state(v, VARLINK_PROCESSED_METHOD);
+                                                }
+                                        } else {
+                                                char *sentinel = TAKE_PTR(v->sentinel);
+
+                                                /* Propagate the sentinel to the client if one was configured
+                                                 * and no replies were enqueued by the callback. */
+                                                if (sentinel == POINTER_MAX)
+                                                        r = sd_varlink_reply(v, NULL);
+                                                else
+                                                        r = sd_varlink_error(v, sentinel, NULL);
+
+                                                if (sentinel != POINTER_MAX)
+                                                        free(sentinel);
+                                        }
+                                        if (r < 0)
+                                                varlink_log_errno(v, r, "Failed to process sentinel for method '%s': %m", method);
+                                } else {
+                                        assert(!v->previous);
+
+                                        /* We're at the bare minimum referenced by sd_varlink_server and
+                                         * sd_varlink_process() */
+                                        if (v->n_ref <= 2) {
+                                                r = varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
+                                                                      "Callback for method '%s' returned without enqueuing a reply or stashing connection, failing.",
+                                                                      method);
+                                                goto fail;
+                                        }
+
+                                        r = 0;
+                                }
+
+                                /* If we didn't manage to enqueue a response, then fail the connection completely. */
                                 if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
                                         goto fail;
-                        }
+
+                        } else
+                                assert(!v->previous);
                 }
         } else if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                 r = sd_varlink_errorbo(v, SD_VARLINK_ERROR_METHOD_NOT_FOUND, SD_JSON_BUILD_PAIR_STRING("method", method));
@@ -1600,94 +1328,13 @@ _public_ int sd_varlink_get_current_parameters(sd_varlink *v, sd_json_variant **
         return 0;
 }
 
-static void handle_revents(sd_varlink *v, int revents) {
-        assert(v);
-
-        if (v->connecting) {
-                /* If we have seen POLLOUT or POLLHUP on a socket we are asynchronously waiting a connect()
-                 * to complete on, we know we are ready. We don't read the connection error here though,
-                 * we'll get the error on the next read() or write(). */
-                if ((revents & (POLLOUT|POLLHUP)) == 0)
-                        return;
-
-                varlink_log(v, "Asynchronous connection completed.");
-                v->connecting = false;
-        } else {
-                /* Note that we don't care much about POLLIN/POLLOUT here, we'll just try reading and writing
-                 * what we can. However, we do care about POLLHUP to detect connection termination even if we
-                 * momentarily don't want to read nor write anything. */
-
-                if (!FLAGS_SET(revents, POLLHUP))
-                        return;
-
-                varlink_log(v, "Got POLLHUP from socket.");
-                v->got_pollhup = true;
-        }
-}
-
 _public_ int sd_varlink_wait(sd_varlink *v, uint64_t timeout) {
-        int r, events;
-        usec_t t;
-
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
-        r = sd_varlink_get_timeout(v, &t);
-        if (r < 0)
-                return r;
-        if (t != USEC_INFINITY) {
-                usec_t n;
-
-                n = now(CLOCK_MONOTONIC);
-                if (t < n)
-                        t = 0;
-                else
-                        t = usec_sub_unsigned(t, n);
-        }
-
-        if (timeout != USEC_INFINITY &&
-            (t == USEC_INFINITY || timeout < t))
-                t = timeout;
-
-        events = sd_varlink_get_events(v);
-        if (events < 0)
-                return events;
-
-        struct pollfd pollfd[2];
-        size_t n_poll_fd = 0;
-
-        if (v->input_fd == v->output_fd) {
-                pollfd[n_poll_fd++] = (struct pollfd) {
-                        .fd = v->input_fd,
-                        .events = events,
-                };
-        } else {
-                pollfd[n_poll_fd++] = (struct pollfd) {
-                        .fd = v->input_fd,
-                        .events = events & POLLIN,
-                };
-                pollfd[n_poll_fd++] = (struct pollfd) {
-                        .fd = v->output_fd,
-                        .events = events & POLLOUT,
-                };
-        };
-
-        r = ppoll_usec(pollfd, n_poll_fd, t);
-        if (ERRNO_IS_NEG_TRANSIENT(r)) /* Treat EINTR as not a timeout, but also nothing happened, and
-                                        * the caller gets a chance to call back into us */
-                return 1;
-        if (r <= 0)
-                return r;
-
-        /* Merge the seen events into one */
-        int revents = 0;
-        FOREACH_ARRAY(p, pollfd, n_poll_fd)
-                revents |= p->revents;
-
-        handle_revents(v, revents);
-        return 1;
+        return json_stream_wait(&v->stream, timeout);
 }
 
 _public_ int sd_varlink_is_idle(sd_varlink *v) {
@@ -1708,68 +1355,55 @@ _public_ int sd_varlink_is_connected(sd_varlink *v) {
 }
 
 _public_ int sd_varlink_get_fd(sd_varlink *v) {
-
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
-        if (v->input_fd != v->output_fd)
+
+        int input_fd = v->stream.input_fd;
+        int output_fd = v->stream.output_fd;
+
+        if (input_fd != output_fd)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF), "Separate file descriptors for input/output set.");
-        if (v->input_fd < 0)
+        if (input_fd < 0)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF), "No valid fd.");
 
-        return v->input_fd;
+        return input_fd;
 }
 
 _public_ int sd_varlink_get_input_fd(sd_varlink *v) {
-
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
-        if (v->input_fd < 0)
+
+        int input_fd = v->stream.input_fd;
+        if (input_fd < 0)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF), "No valid input fd.");
 
-        return v->input_fd;
+        return input_fd;
 }
 
 _public_ int sd_varlink_get_output_fd(sd_varlink *v) {
-
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
-        if (v->output_fd < 0)
+
+        int output_fd = v->stream.output_fd;
+        if (output_fd < 0)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF), "No valid output fd.");
 
-        return v->output_fd;
+        return output_fd;
 }
 
 _public_ int sd_varlink_get_events(sd_varlink *v) {
-        int ret = 0;
-
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
-        if (v->connecting) /* When processing an asynchronous connect(), we only wait for EPOLLOUT, which
-                            * tells us that the connection is now complete. Before that we should neither
-                            * write() or read() from the fd. */
-                return EPOLLOUT;
-
-        if (!v->read_disconnected &&
-            IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING, VARLINK_IDLE_SERVER) &&
-            !v->current &&
-            v->input_buffer_unscanned <= 0)
-                ret |= EPOLLIN;
-
-        if (!v->write_disconnected &&
-            (v->output_queue ||
-             v->output_buffer_size > 0))
-                ret |= EPOLLOUT;
-
-        return ret;
+        return json_stream_get_events(&v->stream);
 }
 
 _public_ int sd_varlink_get_timeout(sd_varlink *v, uint64_t *ret) {
@@ -1778,51 +1412,21 @@ _public_ int sd_varlink_get_timeout(sd_varlink *v, uint64_t *ret) {
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
-        if (IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING) &&
-            v->timeout != USEC_INFINITY) {
-                if (ret)
-                        *ret = usec_add(v->timestamp, v->timeout);
-                return 1;
-        } else {
-                if (ret)
-                        *ret = USEC_INFINITY;
-                return 0;
-        }
+        usec_t deadline = json_stream_get_timeout(&v->stream);
+
+        if (ret)
+                *ret = deadline;
+
+        return deadline != USEC_INFINITY;
 }
 
 _public_ int sd_varlink_flush(sd_varlink *v) {
-        int ret = 0, r;
-
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
-        for (;;) {
-                if (v->output_buffer_size == 0)
-                        break;
-                if (v->write_disconnected)
-                        return -ECONNRESET;
-
-                r = varlink_write(v);
-                if (r < 0)
-                        return r;
-                if (r > 0) {
-                        ret = 1;
-                        continue;
-                }
-
-                r = fd_wait_for_event(v->output_fd, POLLOUT, USEC_INFINITY);
-                if (ERRNO_IS_NEG_TRANSIENT(r))
-                        continue;
-                if (r < 0)
-                        return varlink_log_errno(v, r, "Poll failed on fd: %m");
-                assert(r > 0);
-
-                handle_revents(v, r);
-        }
-
-        return ret;
+        return json_stream_flush(&v->stream);
 }
 
 static void varlink_detach_server(sd_varlink *v) {
@@ -1833,18 +1437,22 @@ static void varlink_detach_server(sd_varlink *v) {
         if (!v->server)
                 return;
 
+        /* Only touch by_uid for connections we already counted in count_connection() —
+         * those are exactly the ones for which the ucred was acquired or injected during
+         * sd_varlink_server_add_connection_pair(). Don't trigger an acquire from here. */
+        struct ucred ucred;
         if (v->server->by_uid &&
-            v->ucred_acquired &&
-            uid_is_valid(v->ucred.uid)) {
+            json_stream_get_peer_ucred(&v->stream, &ucred) >= 0 &&
+            uid_is_valid(ucred.uid)) {
                 unsigned c;
 
-                c = PTR_TO_UINT(hashmap_get(v->server->by_uid, UID_TO_PTR(v->ucred.uid)));
+                c = PTR_TO_UINT(hashmap_get(v->server->by_uid, UID_TO_PTR(ucred.uid)));
                 assert(c > 0);
 
                 if (c == 1)
-                        (void) hashmap_remove(v->server->by_uid, UID_TO_PTR(v->ucred.uid));
+                        (void) hashmap_remove(v->server->by_uid, UID_TO_PTR(ucred.uid));
                 else
-                        (void) hashmap_replace(v->server->by_uid, UID_TO_PTR(v->ucred.uid), UINT_TO_PTR(c - 1));
+                        (void) hashmap_replace(v->server->by_uid, UID_TO_PTR(ucred.uid), UINT_TO_PTR(c - 1));
         }
 
         assert(v->server->n_connections > 0);
@@ -1898,141 +1506,6 @@ _public_ sd_varlink* sd_varlink_flush_close_unref(sd_varlink *v) {
         return sd_varlink_close_unref(v);
 }
 
-static int varlink_format_json(sd_varlink *v, sd_json_variant *m) {
-        _cleanup_(erase_and_freep) char *text = NULL;
-        int sz, r;
-
-        assert(v);
-        assert(m);
-
-        sz = sd_json_variant_format(m, /* flags= */ 0, &text);
-        if (sz < 0)
-                return sz;
-        assert(text[sz] == '\0');
-
-        if (v->output_buffer_size + sz + 1 > VARLINK_BUFFER_MAX)
-                return -ENOBUFS;
-
-        if (DEBUG_LOGGING) {
-                _cleanup_(erase_and_freep) char *censored_text = NULL;
-
-                /* Suppress sensitive fields in the debug output */
-                r = sd_json_variant_format(m, SD_JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
-                if (r < 0)
-                        return r;
-
-                varlink_log(v, "Sending message: %s", censored_text);
-        }
-
-        if (v->output_buffer_size == 0) {
-
-                free_and_replace(v->output_buffer, text);
-
-                v->output_buffer_size = sz + 1;
-                v->output_buffer_index = 0;
-
-        } else if (v->output_buffer_index == 0) {
-
-                if (!GREEDY_REALLOC(v->output_buffer, v->output_buffer_size + sz + 1))
-                        return -ENOMEM;
-
-                memcpy(v->output_buffer + v->output_buffer_size, text, sz + 1);
-                v->output_buffer_size += sz + 1;
-        } else {
-                char *n;
-                const size_t new_size = v->output_buffer_size + sz + 1;
-
-                n = new(char, new_size);
-                if (!n)
-                        return -ENOMEM;
-
-                memcpy(mempcpy(n, v->output_buffer + v->output_buffer_index, v->output_buffer_size), text, sz + 1);
-
-                free_and_replace(v->output_buffer, n);
-                v->output_buffer_size = new_size;
-                v->output_buffer_index = 0;
-        }
-
-        if (sd_json_variant_is_sensitive_recursive(m))
-                v->output_buffer_sensitive = true; /* Propagate sensitive flag */
-        else
-                text = mfree(text); /* No point in the erase_and_free() destructor declared above */
-
-        return 0;
-}
-
-static int varlink_enqueue_json(sd_varlink *v, sd_json_variant *m) {
-        VarlinkJsonQueueItem *q;
-
-        assert(v);
-        assert(m);
-
-        /* If there are no file descriptors to be queued and no queue entries yet we can shortcut things and
-         * append this entry directly to the output buffer */
-        if (v->n_pushed_fds == 0 && !v->output_queue)
-                return varlink_format_json(v, m);
-
-        if (v->n_output_queue >= VARLINK_QUEUE_MAX)
-                return -ENOBUFS;
-
-        /* Otherwise add a queue entry for this */
-        q = varlink_json_queue_item_new(m, v->pushed_fds, v->n_pushed_fds);
-        if (!q)
-                return -ENOMEM;
-
-        v->n_pushed_fds = 0; /* fds now belong to the queue entry */
-
-        LIST_INSERT_AFTER(queue, v->output_queue, v->output_queue_tail, q);
-        v->output_queue_tail = q;
-        v->n_output_queue++;
-        return 0;
-}
-
-static int varlink_format_queue(sd_varlink *v) {
-        int r;
-
-        assert(v);
-
-        /* Takes entries out of the output queue and formats them into the output buffer. But only if this
-         * would not corrupt our fd message boundaries */
-
-        while (v->output_queue) {
-                _cleanup_free_ int *array = NULL;
-
-                assert(v->n_output_queue > 0);
-
-                VarlinkJsonQueueItem *q = v->output_queue;
-
-                if (v->n_output_fds > 0) /* unwritten fds? if we'd add more we'd corrupt the fd message boundaries, hence wait */
-                        return 0;
-
-                if (q->n_fds > 0) {
-                        array = newdup(int, q->fds, q->n_fds);
-                        if (!array)
-                                return -ENOMEM;
-                }
-
-                r = varlink_format_json(v, q->data);
-                if (r < 0)
-                        return r;
-
-                /* Take possession of the queue element's fds */
-                free(v->output_fds);
-                v->output_fds = TAKE_PTR(array);
-                v->n_output_fds = q->n_fds;
-                q->n_fds = 0;
-
-                LIST_REMOVE(queue, v->output_queue, q);
-                if (!v->output_queue)
-                        v->output_queue_tail = NULL;
-                v->n_output_queue--;
-
-                varlink_json_queue_item_free(q);
-        }
-
-        return 0;
-}
-
 _public_ int sd_varlink_send(sd_varlink *v, const char *method, sd_json_variant *parameters) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
@@ -2055,12 +1528,12 @@ _public_ int sd_varlink_send(sd_varlink *v, const char *method, sd_json_variant 
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        r = varlink_enqueue_json(v, m);
+        r = json_stream_enqueue(&v->stream, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
         /* No state change here, this is one-way only after all */
-        v->timestamp = now(CLOCK_MONOTONIC);
+        json_stream_mark_activity(&v->stream);
         return 0;
 }
 
@@ -2102,13 +1575,13 @@ _public_ int sd_varlink_invoke(sd_varlink *v, const char *method, sd_json_varian
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        r = varlink_enqueue_json(v, m);
+        r = json_stream_enqueue(&v->stream, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
         varlink_set_state(v, VARLINK_AWAITING_REPLY);
         v->n_pending++;
-        v->timestamp = now(CLOCK_MONOTONIC);
+        json_stream_mark_activity(&v->stream);
 
         return 0;
 }
@@ -2153,13 +1626,13 @@ _public_ int sd_varlink_observe(sd_varlink *v, const char *method, sd_json_varia
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        r = varlink_enqueue_json(v, m);
+        r = json_stream_enqueue(&v->stream, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
         varlink_set_state(v, VARLINK_AWAITING_REPLY_MORE);
         v->n_pending++;
-        v->timestamp = now(CLOCK_MONOTONIC);
+        json_stream_mark_activity(&v->stream);
 
         return 0;
 }
@@ -2181,19 +1654,13 @@ _public_ int sd_varlink_observeb(sd_varlink *v, const char *method, ...) {
         return sd_varlink_observe(v, method, parameters);
 }
 
-_public_ int sd_varlink_call_full(
-                sd_varlink *v,
-                const char *method,
-                sd_json_variant *parameters,
-                sd_json_variant **ret_parameters,
-                const char **ret_error_id,
-                sd_varlink_reply_flags_t *ret_flags) {
-
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+/* On success v->state will equal VARLINK_CALLED, the caller is responsible to adjust the state further if
+ * needed */
+static int varlink_call_internal(sd_varlink *v, sd_json_variant *request) {
         int r;
 
-        assert_return(v, -EINVAL);
-        assert_return(method, -EINVAL);
+        assert(v);
+        assert(request);
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
@@ -2206,20 +1673,13 @@ _public_ int sd_varlink_call_full(
          * that we can assign a new reply shortly. */
         varlink_clear_current(v);
 
-        r = sd_json_buildo(
-                        &m,
-                        SD_JSON_BUILD_PAIR_STRING("method", method),
-                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to build json message: %m");
-
-        r = varlink_enqueue_json(v, m);
+        r = json_stream_enqueue(&v->stream, request);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
         varlink_set_state(v, VARLINK_CALLING);
         v->n_pending++;
-        v->timestamp = now(CLOCK_MONOTONIC);
+        json_stream_mark_activity(&v->stream);
 
         while (v->state == VARLINK_CALLING) {
                 r = sd_varlink_process(v);
@@ -2235,29 +1695,9 @@ _public_ int sd_varlink_call_full(
 
         switch (v->state) {
 
-        case VARLINK_CALLED: {
+        case VARLINK_CALLED:
                 assert(v->current);
-
-                varlink_set_state(v, VARLINK_IDLE_CLIENT);
-                assert(v->n_pending == 1);
-                v->n_pending--;
-
-                sd_json_variant *e = sd_json_variant_by_key(v->current, "error"),
-                        *p = sd_json_variant_by_key(v->current, "parameters");
-
-                /* If caller doesn't ask for the error string, then let's return an error code in case of failure */
-                if (!ret_error_id && e)
-                        return sd_varlink_error_to_errno(sd_json_variant_string(e), p);
-
-                if (ret_parameters)
-                        *ret_parameters = p;
-                if (ret_error_id)
-                        *ret_error_id = e ? sd_json_variant_string(e) : NULL;
-                if (ret_flags)
-                        *ret_flags = v->current_reply_flags;
-
-                return 1;
-        }
+                return 0;
 
         case VARLINK_PENDING_DISCONNECT:
         case VARLINK_DISCONNECTED:
@@ -2271,6 +1711,52 @@ _public_ int sd_varlink_call_full(
         }
 }
 
+_public_ int sd_varlink_call_full(
+                sd_varlink *v,
+                const char *method,
+                sd_json_variant *parameters,
+                sd_json_variant **ret_parameters,
+                const char **ret_error_id,
+                sd_varlink_reply_flags_t *ret_flags) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+
+        r = sd_json_buildo(
+                        &m,
+                        SD_JSON_BUILD_PAIR_STRING("method", method),
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        r = varlink_call_internal(v, m);
+        if (r < 0)
+                return r;
+
+        varlink_set_state(v, VARLINK_IDLE_CLIENT);
+        assert(v->n_pending == 1);
+        v->n_pending--;
+
+        sd_json_variant *e = sd_json_variant_by_key(v->current, "error"),
+                *p = sd_json_variant_by_key(v->current, "parameters");
+
+        /* If caller doesn't ask for the error string, then let's return an error code in case of failure */
+        if (!ret_error_id && e)
+                return sd_varlink_error_to_errno(sd_json_variant_string(e), p);
+
+        if (ret_parameters)
+                *ret_parameters = p;
+        if (ret_error_id)
+                *ret_error_id = e ? sd_json_variant_string(e) : NULL;
+        if (ret_flags)
+                *ret_flags = v->current_reply_flags;
+
+        return 1;
+}
+
 _public_ int sd_varlink_call(
                 sd_varlink *v,
                 const char *method,
@@ -2279,6 +1765,133 @@ _public_ int sd_varlink_call(
                 const char **ret_error_id) {
 
         return sd_varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
+}
+
+static int varlink_handle_upgrade_fds(sd_varlink *v, int *ret_input_fd, int *ret_output_fd) {
+        int r;
+
+        assert(v);
+        assert(ret_input_fd || ret_output_fd);
+
+        /* Ensure no post-upgrade data was consumed into our input buffer (we ensure this via MSG_PEEK or
+         * byte-to-byte) and refuse the upgrade rather than silently losing the data. */
+        if (json_stream_has_buffered_input(&v->stream))
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
+                                         "Unexpected buffered data during protocol upgrade, refusing.");
+
+        _cleanup_close_ int input_fd = TAKE_FD(v->stream.input_fd),
+                            output_fd = TAKE_FD(v->stream.output_fd);
+
+        /* Pass the connection fds to the caller, it owns them now. Reset to blocking mode
+         * since callers of the upgraded protocol will generally expect normal blocking
+         * semantics. For bidirectional sockets (input_fd == output_fd), dup the fd so that
+         * callers always get two independent fds they can close separately. */
+        if (input_fd == output_fd) {
+                output_fd = fcntl(input_fd, F_DUPFD_CLOEXEC, 3);
+                if (output_fd < 0)
+                        return varlink_log_errno(v, errno, "Failed to dup upgraded connection fd: %m");
+        } else {
+                r = fd_nonblock(output_fd, false);
+                if (r < 0)
+                        return varlink_log_errno(v, r, "Failed to set output fd to blocking mode: %m");
+        }
+
+        r = fd_nonblock(input_fd, false);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to set input fd to blocking mode: %m");
+
+        /* Hand out requested fds, shut down unwanted directions. */
+        if (ret_input_fd)
+                *ret_input_fd = TAKE_FD(input_fd);
+        else
+                (void) shutdown(input_fd, SHUT_RD);
+
+        if (ret_output_fd)
+                *ret_output_fd = TAKE_FD(output_fd);
+        else
+                (void) shutdown(output_fd, SHUT_WR);
+
+        return 0;
+}
+
+_public_ int sd_varlink_call_and_upgrade(
+                sd_varlink *v,
+                const char *method,
+                sd_json_variant *parameters,
+                sd_json_variant **ret_parameters,
+                const char **ret_error_id,
+                int *ret_input_fd,
+                int *ret_output_fd) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+        assert_return(ret_input_fd || ret_output_fd, -EINVAL);
+
+        r = sd_json_buildo(
+                        &m,
+                        SD_JSON_BUILD_PAIR_STRING("method", method),
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("upgrade", true));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        v->protocol_upgrade = true;
+        json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, true);
+        r = varlink_call_internal(v, m);
+        if (r < 0) {
+                v->protocol_upgrade = false;
+                json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, false);
+                return r;
+        }
+
+        /* ensure we did not consume any data from the upgraded protocol */
+        assert(!json_stream_has_buffered_input(&v->stream));
+
+        sd_json_variant *e = sd_json_variant_by_key(v->current, "error"),
+                *p = sd_json_variant_by_key(v->current, "parameters");
+
+        /* don't steal the fd on server error */
+        if (e) {
+                if (ret_error_id) {
+                        *ret_error_id = sd_json_variant_string(e);
+                        if (ret_parameters)
+                                *ret_parameters = p;
+                        r = 0;
+                } else
+                        r = sd_varlink_error_to_errno(sd_json_variant_string(e), p);
+
+                varlink_set_state(v, VARLINK_IDLE_CLIENT);
+                goto finish;
+        }
+
+        /* Even if setting up the fds fails we must disconnect: the server already accepted the
+         * upgrade, so the other side is speaking raw protocol while we expect JSON. */
+        r = varlink_handle_upgrade_fds(v, ret_input_fd, ret_output_fd);
+        if (r < 0) {
+                varlink_set_state(v, VARLINK_DISCONNECTED);
+                goto finish;
+        }
+
+        varlink_set_state(v, VARLINK_DISCONNECTED);
+        assert(v->n_pending == 1);
+        v->n_pending--;
+
+        if (ret_parameters)
+                *ret_parameters = p;
+        if (ret_error_id)
+                *ret_error_id = NULL;
+
+        return 1;
+
+finish:
+        v->protocol_upgrade = false;
+        json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, false);
+        assert(v->n_pending == 1);
+        v->n_pending--;
+        return r;
 }
 
 _public_ int sd_varlink_callb_ap(
@@ -2368,13 +1981,13 @@ _public_ int sd_varlink_collect_full(
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        r = varlink_enqueue_json(v, m);
+        r = json_stream_enqueue(&v->stream, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
         varlink_set_state(v, VARLINK_COLLECTING);
         v->n_pending++;
-        v->timestamp = now(CLOCK_MONOTONIC);
+        json_stream_mark_activity(&v->stream);
 
         for (;;) {
                 while (v->state == VARLINK_COLLECTING) {
@@ -2501,34 +2114,58 @@ _public_ int sd_varlink_collectb(
 }
 
 _public_ int sd_varlink_reply(sd_varlink *v, sd_json_variant *parameters) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+
         if (!IN_SET(v->state,
                     VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE,
                     VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
-                return -EBUSY;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        bool more = IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE);
 
         /* Validate parameters BEFORE sanitization */
         if (v->current_method) {
                 const char *bad_field = NULL;
 
-                r = varlink_idl_validate_method_reply(v->current_method, parameters, /* flags= */ 0, &bad_field);
-                if (r < 0)
+                r = varlink_idl_validate_method_reply(v->current_method, parameters, more && v->sentinel ? SD_VARLINK_REPLY_CONTINUES : 0, &bad_field);
+                if (r == -EBADE)
+                        varlink_log_errno(v, r, "Method reply for %s() has 'continues' flag set, but IDL structure doesn't allow that, ignoring: %m",
+                                          v->current_method->name);
+                else if (r < 0)
                         /* Please adjust test/units/end.sh when updating the log message. */
                         varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
                                           v->current_method->name, strna(bad_field));
         }
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         r = sd_json_buildo(&m, JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        r = varlink_enqueue_json(v, m);
+        if (more && v->sentinel) {
+                if (v->previous) {
+                        r = sd_json_variant_set_field_boolean(json_stream_queue_item_get_data(v->previous), "continues", true);
+                        if (r < 0)
+                                return r;
+
+                        r = json_stream_enqueue_item(&v->stream, v->previous);
+                        if (r < 0)
+                                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+                }
+
+                r = json_stream_make_queue_item(&v->stream, m, &v->previous);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        r = json_stream_enqueue(&v->stream, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
@@ -2563,6 +2200,77 @@ _public_ int sd_varlink_replyb(sd_varlink *v, ...) {
         return sd_varlink_reply(v, parameters);
 }
 
+_public_ int sd_varlink_reply_and_upgrade(sd_varlink *v, sd_json_variant *parameters, int *ret_input_fd, int *ret_output_fd) {
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(ret_input_fd || ret_output_fd, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+
+        if (!IN_SET(v->state,
+                    VARLINK_PROCESSING_METHOD,
+                    VARLINK_PENDING_METHOD))
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        /* Verify the client actually requested a protocol upgrade */
+        if (!v->protocol_upgrade)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
+                                         "Method call did not request a protocol upgrade.");
+
+        /* Ensure we did not buffer any data beyond the upgrade request. Check this before sending the
+         * reply so that we can return a normal error (the framework will send an error reply to the
+         * client). In normal operation this cannot happen because the client waits for our reply before
+         * sending raw data, and we set protocol_upgrade=true in dispatch to limit subsequent reads to
+         * single bytes. But a misbehaving client could pipeline data early. */
+        if (json_stream_has_buffered_input(&v->stream))
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADMSG),
+                                         "Unexpected buffered data from client during protocol upgrade.");
+
+        /* Validate parameters BEFORE sanitization (same validation as sd_varlink_reply(), but upgrade
+         * replies never carry the 'continues' flag so we always pass flags=0) */
+        if (v->current_method) {
+                const char *bad_field = NULL;
+
+                r = varlink_idl_validate_method_reply(v->current_method, parameters, /* flags= */ 0, &bad_field);
+                if (r < 0)
+                        /* Please adjust test/units/end.sh when updating the log message. */
+                        varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
+                                          v->current_method->name, strna(bad_field));
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        r = sd_json_buildo(&m, JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        r = json_stream_enqueue(&v->stream, m);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+
+        /* Flush the reply to the socket before stealing the fds. The reply must be fully written
+         * before the caller starts speaking the upgraded protocol. */
+        r = json_stream_flush(&v->stream);
+        if (r < 0) {
+                varlink_log_errno(v, r, "Failed to flush reply before protocol upgrade: %m");
+                goto disconnect;
+        }
+
+        /* Detach from the event loop before stealing the fds */
+        sd_varlink_detach_event(v);
+
+        /* Now hand the original FDs over to the caller, from this point on we have nothing to do with the
+         * connection anymore, it's up to the caller and we close the connection below */
+        r = varlink_handle_upgrade_fds(v, ret_input_fd, ret_output_fd);
+
+disconnect:
+        /* This also sets the connection state to VARLINK_DISCONNECTED */
+        sd_varlink_close(v);
+
+        return r < 0 ? r : 1;
+}
+
 _public_ int sd_varlink_reset_fds(sd_varlink *v) {
         assert_return(v, -EINVAL);
 
@@ -2571,8 +2279,7 @@ _public_ int sd_varlink_reset_fds(sd_varlink *v) {
          * rollback the fds. Note that this is implicitly called whenever an error reply is sent, see
          * below. */
 
-        close_many(v->output_fds, v->n_output_fds);
-        v->n_output_fds = 0;
+        json_stream_reset_pushed_fds(&v->stream);
         return 0;
 }
 
@@ -2589,6 +2296,21 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
                     VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE,
                     VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        if (v->previous) {
+                r = sd_json_variant_set_field_boolean(json_stream_queue_item_get_data(v->previous), "continues", true);
+                if (r < 0)
+                        return r;
+
+                /* If we have a previous reply still ready make sure we queue it before the error. We only
+                 * ever set "previous" if we're in a streaming method so we pass more=true unconditionally
+                 * here as we know we're still going to queue an error afterwards. */
+                r = json_stream_enqueue_item(&v->stream, v->previous);
+                if (r < 0)
+                        return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+
+                TAKE_PTR(v->previous);
+        }
 
         /* Reset the list of pushed file descriptors before sending an error reply. We do this here to
          * simplify code that puts together a complex reply message with fds, and half-way something
@@ -2618,7 +2340,7 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        r = varlink_enqueue_json(v, m);
+        r = json_stream_enqueue(&v->stream, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
@@ -2669,7 +2391,7 @@ _public_ int sd_varlink_error_invalid_parameter(sd_varlink *v, sd_json_variant *
         if (sd_json_variant_is_string(parameters)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters_obj = NULL;
 
-                r = sd_json_buildo(&parameters_obj,SD_JSON_BUILD_PAIR_VARIANT("parameter", parameters));
+                r = sd_json_buildo(&parameters_obj, SD_JSON_BUILD_PAIR_VARIANT("parameter", parameters));
                 if (r < 0)
                         return r;
 
@@ -2721,6 +2443,11 @@ _public_ int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters) {
 
         assert_return(v, -EINVAL);
 
+        if (v->sentinel)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EINVAL), "Cannot use sd_varlink_notify() on method with sentinel set");
+
+        assert(!v->previous);
+
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
@@ -2753,7 +2480,7 @@ _public_ int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters) {
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        r = varlink_enqueue_json(v, m);
+        r = json_stream_enqueue(&v->stream, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
@@ -2825,99 +2552,60 @@ _public_ void* sd_varlink_get_userdata(sd_varlink *v) {
         return v->userdata;
 }
 
-static int varlink_acquire_ucred(sd_varlink *v) {
-        int r;
+_public_ int sd_varlink_set_sentinel(sd_varlink *v, const char *error_id) {
+        assert_return(v, -EINVAL);
 
-        assert(v);
-
-        if (v->ucred_acquired)
+        /* If the caller doesn't want a reply, then don't set a sentinel. */
+        if (v->state == VARLINK_PROCESSING_METHOD_ONEWAY)
                 return 0;
 
-        /* If we are connected asymmetrically, let's refuse, since it's not clear if caller wants to know
-         * peer on read or write fd */
-        if (v->input_fd != v->output_fd)
-                return -EBADF;
+        /* This has to be called during a callback, and not after it has exited. */
+        assert_return(IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE),
+                      -EUCLEAN);
 
-        r = getpeercred(v->input_fd, &v->ucred);
-        if (r < 0)
-                return r;
+        char *s = NULL;
+        if (strdup_to(&s, error_id) < 0)
+                return log_oom_debug();
 
-        v->ucred_acquired = true;
+        if (v->sentinel != POINTER_MAX)
+                free(v->sentinel);
+
+        v->sentinel = s ?: POINTER_MAX;
         return 0;
 }
 
 _public_ int sd_varlink_get_peer_uid(sd_varlink *v, uid_t *ret) {
-        int r;
-
         assert_return(v, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = varlink_acquire_ucred(v);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to acquire credentials: %m");
-
-        if (!uid_is_valid(v->ucred.uid))
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer UID is invalid.");
-
-        *ret = v->ucred.uid;
-        return 0;
+        return json_stream_acquire_peer_uid(&v->stream, ret);
 }
 
 _public_ int sd_varlink_get_peer_gid(sd_varlink *v, gid_t *ret) {
-        int r;
-
         assert_return(v, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = varlink_acquire_ucred(v);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to acquire credentials: %m");
-
-        if (!gid_is_valid(v->ucred.gid))
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer GID is invalid.");
-
-        *ret = v->ucred.gid;
-        return 0;
+        return json_stream_acquire_peer_gid(&v->stream, ret);
 }
 
 _public_ int sd_varlink_get_peer_pid(sd_varlink *v, pid_t *ret) {
-        int r;
-
         assert_return(v, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = varlink_acquire_ucred(v);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to acquire credentials: %m");
-
-        if (!pid_is_valid(v->ucred.pid))
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer uid is invalid.");
-
-        *ret = v->ucred.pid;
-        return 0;
+        return json_stream_acquire_peer_pid(&v->stream, ret);
 }
 
 _public_ int sd_varlink_get_peer_pidfd(sd_varlink *v) {
         assert_return(v, -EINVAL);
 
-        if (v->peer_pidfd >= 0)
-                return v->peer_pidfd;
-
-        if (v->input_fd != v->output_fd)
-                return -EBADF;
-
-        v->peer_pidfd = getpeerpidfd(v->input_fd);
-        if (v->peer_pidfd < 0)
-                return varlink_log_errno(v, v->peer_pidfd, "Failed to acquire pidfd of peer: %m");
-
-        return v->peer_pidfd;
+        return json_stream_acquire_peer_pidfd(&v->stream);
 }
 
 _public_ int sd_varlink_set_relative_timeout(sd_varlink *v, uint64_t timeout) {
         assert_return(v, -EINVAL);
 
         /* If set to 0, reset to default value */
-        v->timeout = timeout == 0 ? VARLINK_DEFAULT_TIMEOUT_USEC : timeout;
+        json_stream_set_timeout(&v->stream, timeout == 0 ? VARLINK_DEFAULT_TIMEOUT_USEC : timeout);
         return 0;
 }
 
@@ -2930,33 +2618,13 @@ _public_ sd_varlink_server *sd_varlink_get_server(sd_varlink *v) {
 _public_ int sd_varlink_set_description(sd_varlink *v, const char *description) {
         assert_return(v, -EINVAL);
 
-        return free_and_strdup(&v->description, description);
+        return json_stream_set_description(&v->stream, description);
 }
 
 _public_ const char* sd_varlink_get_description(sd_varlink *v) {
         assert_return(v, NULL);
 
-        return v->description;
-}
-
-static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        sd_varlink *v = ASSERT_PTR(userdata);
-
-        assert(s);
-
-        handle_revents(v, revents);
-        (void) sd_varlink_process(v);
-
-        return 1;
-}
-
-static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_varlink *v = ASSERT_PTR(userdata);
-
-        assert(s);
-
-        (void) sd_varlink_process(v);
-        return 1;
+        return json_stream_get_description(&v->stream);
 }
 
 static int defer_callback(sd_event_source *s, void *userdata) {
@@ -2965,47 +2633,6 @@ static int defer_callback(sd_event_source *s, void *userdata) {
         assert(s);
 
         (void) sd_varlink_process(v);
-        return 1;
-}
-
-static int prepare_callback(sd_event_source *s, void *userdata) {
-        sd_varlink *v = ASSERT_PTR(userdata);
-        int r, e;
-        usec_t until;
-        bool have_timeout;
-
-        assert(s);
-
-        e = sd_varlink_get_events(v);
-        if (e < 0)
-                return e;
-
-        if (v->input_event_source == v->output_event_source)
-                /* Same fd for input + output */
-                r = sd_event_source_set_io_events(v->input_event_source, e);
-        else {
-                r = sd_event_source_set_io_events(v->input_event_source, e & EPOLLIN);
-                if (r >= 0)
-                        r = sd_event_source_set_io_events(v->output_event_source, e & EPOLLOUT);
-        }
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to set source events: %m");
-
-        r = sd_varlink_get_timeout(v, &until);
-        if (r < 0)
-                return r;
-        have_timeout = r > 0;
-
-        if (have_timeout) {
-                r = sd_event_source_set_time(v->time_event_source, until);
-                if (r < 0)
-                        return varlink_log_errno(v, r, "Failed to set source time: %m");
-        }
-
-        r = sd_event_source_set_enabled(v->time_event_source, have_timeout ? SD_EVENT_ON : SD_EVENT_OFF);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to enable event source: %m");
-
         return 1;
 }
 
@@ -3024,27 +2651,15 @@ _public_ int sd_varlink_attach_event(sd_varlink *v, sd_event *e, int64_t priorit
         int r;
 
         assert_return(v, -EINVAL);
-        assert_return(!v->event, -EBUSY);
+        assert_return(!json_stream_get_event(&v->stream), -EBUSY);
 
-        if (e)
-                v->event = sd_event_ref(e);
-        else {
-                r = sd_event_default(&v->event);
-                if (r < 0)
-                        return varlink_log_errno(v, r, "Failed to create event source: %m");
-        }
-
-        r = sd_event_add_time(v->event, &v->time_event_source, CLOCK_MONOTONIC, 0, 0, time_callback, v);
+        r = json_stream_attach_event(&v->stream, e, priority);
         if (r < 0)
-                goto fail;
+                return r;
 
-        r = sd_event_source_set_priority(v->time_event_source, priority);
-        if (r < 0)
-                goto fail;
+        sd_event *event = json_stream_get_event(&v->stream);
 
-        (void) sd_event_source_set_description(v->time_event_source, "varlink-time");
-
-        r = sd_event_add_exit(v->event, &v->quit_event_source, quit_callback, v);
+        r = sd_event_add_exit(event, &v->quit_event_source, quit_callback, v);
         if (r < 0)
                 goto fail;
 
@@ -3054,35 +2669,7 @@ _public_ int sd_varlink_attach_event(sd_varlink *v, sd_event *e, int64_t priorit
 
         (void) sd_event_source_set_description(v->quit_event_source, "varlink-quit");
 
-        r = sd_event_add_io(v->event, &v->input_event_source, v->input_fd, 0, io_callback, v);
-        if (r < 0)
-                goto fail;
-
-        r = sd_event_source_set_prepare(v->input_event_source, prepare_callback);
-        if (r < 0)
-                goto fail;
-
-        r = sd_event_source_set_priority(v->input_event_source, priority);
-        if (r < 0)
-                goto fail;
-
-        (void) sd_event_source_set_description(v->input_event_source, "varlink-input");
-
-        if (v->input_fd == v->output_fd)
-                v->output_event_source = sd_event_source_ref(v->input_event_source);
-        else {
-                r = sd_event_add_io(v->event, &v->output_event_source, v->output_fd, 0, io_callback, v);
-                if (r < 0)
-                        goto fail;
-
-                r = sd_event_source_set_priority(v->output_event_source, priority);
-                if (r < 0)
-                        goto fail;
-
-                (void) sd_event_source_set_description(v->output_event_source, "varlink-output");
-        }
-
-        r = sd_event_add_defer(v->event, &v->defer_event_source, defer_callback, v);
+        r = sd_event_add_defer(event, &v->defer_event_source, defer_callback, v);
         if (r < 0)
                 goto fail;
 
@@ -3104,38 +2691,28 @@ _public_ void sd_varlink_detach_event(sd_varlink *v) {
         if (!v)
                 return;
 
-        varlink_detach_event_sources(v);
-
-        v->event = sd_event_unref(v->event);
+        v->quit_event_source = sd_event_source_disable_unref(v->quit_event_source);
+        v->defer_event_source = sd_event_source_disable_unref(v->defer_event_source);
+        json_stream_detach_event(&v->stream);
 }
 
 _public_ sd_event* sd_varlink_get_event(sd_varlink *v) {
         assert_return(v, NULL);
 
-        return v->event;
+        return json_stream_get_event(&v->stream);
 }
 
 _public_ int sd_varlink_push_fd(sd_varlink *v, int fd) {
-        int i;
-
         assert_return(v, -EINVAL);
         assert_return(fd >= 0, -EBADF);
 
         /* Takes an fd to send along with the *next* varlink message sent via this varlink connection. This
          * takes ownership of the specified fd. Use varlink_dup_fd() below to duplicate the fd first. */
 
-        if (!v->allow_fd_passing_output)
+        if (!json_stream_flags_set(&v->stream, JSON_STREAM_ALLOW_FD_PASSING_OUTPUT))
                 return -EPERM;
 
-        if (v->n_pushed_fds >= SCM_MAX_FD) /* Kernel doesn't support more than 253 fds per message, refuse early hence */
-                return -ENOBUFS;
-
-        if (!GREEDY_REALLOC(v->pushed_fds, v->n_pushed_fds + 1))
-                return -ENOMEM;
-
-        i = (int) v->n_pushed_fds;
-        v->pushed_fds[v->n_pushed_fds++] = fd;
-        return i;
+        return json_stream_push_fd(&v->stream, fd);
 }
 
 _public_ int sd_varlink_push_dup_fd(sd_varlink *v, int fd) {
@@ -3165,13 +2742,10 @@ _public_ int sd_varlink_peek_fd(sd_varlink *v, size_t i) {
         /* Returns one of the file descriptors that were received along with the current message. This does
          * not duplicate the fd nor invalidate it, it hence remains in our possession. */
 
-        if (v->allow_fd_passing_input <= 0)
+        if (!json_stream_flags_set(&v->stream, JSON_STREAM_ALLOW_FD_PASSING_INPUT))
                 return -EPERM;
 
-        if (i >= v->n_input_fds)
-                return -ENXIO;
-
-        return v->input_fds[i];
+        return json_stream_peek_input_fd(&v->stream, i);
 }
 
 _public_ int sd_varlink_peek_dup_fd(sd_varlink *v, size_t i) {
@@ -3191,113 +2765,42 @@ _public_ int sd_varlink_take_fd(sd_varlink *v, size_t i) {
          * we'll invalidate the reference to it under our possession. If called twice in a row will return
          * -EBADF */
 
-        if (v->allow_fd_passing_input <= 0)
+        if (!json_stream_flags_set(&v->stream, JSON_STREAM_ALLOW_FD_PASSING_INPUT))
                 return -EPERM;
 
-        if (i >= v->n_input_fds)
-                return -ENXIO;
-
-        return TAKE_FD(v->input_fds[i]);
+        return json_stream_take_input_fd(&v->stream, i);
 }
 
 _public_ int sd_varlink_get_n_fds(sd_varlink *v) {
         assert_return(v, -EINVAL);
 
-        if (v->allow_fd_passing_input <= 0)
+        if (!json_stream_flags_set(&v->stream, JSON_STREAM_ALLOW_FD_PASSING_INPUT))
                 return -EPERM;
 
-        return (int) v->n_input_fds;
-}
-
-static int verify_unix_socket(sd_varlink *v) {
-        assert(v);
-
-        /* Returns:
-         *    • 0 if this is an AF_UNIX socket
-         *    • -ENOTSOCK if this is not a socket at all
-         *    • -ENOMEDIUM if this is a socket, but not an AF_UNIX socket
-         *
-         * Reminder:
-         *    • v->af is < 0 if we haven't checked what kind of address family the thing is yet.
-         *    • v->af == AF_UNSPEC if we checked but it's not a socket
-         *    • otherwise: v->af contains the address family we determined */
-
-        if (v->af < 0) {
-                /* If we have distinct input + output fds, we don't consider ourselves to be connected via a regular
-                 * AF_UNIX socket. */
-                if (v->input_fd != v->output_fd) {
-                        v->af = AF_UNSPEC;
-                        return -ENOTSOCK;
-                }
-
-                struct stat st;
-
-                if (fstat(v->input_fd, &st) < 0)
-                        return -errno;
-                if (!S_ISSOCK(st.st_mode)) {
-                        v->af = AF_UNSPEC;
-                        return -ENOTSOCK;
-                }
-
-                v->af = socket_get_family(v->input_fd);
-                if (v->af < 0)
-                        return v->af;
-        }
-
-        return v->af == AF_UNIX ? 0 :
-                v->af == AF_UNSPEC ? -ENOTSOCK : -ENOMEDIUM;
+        return (int) json_stream_get_n_input_fds(&v->stream);
 }
 
 _public_ int sd_varlink_set_allow_fd_passing_input(sd_varlink *v, int b) {
-        int r;
-
         assert_return(v, -EINVAL);
 
-        if (v->allow_fd_passing_input >= 0 && (v->allow_fd_passing_input > 0) == !!b)
-                return 0;
+        /* Server connections that haven't opted into FD_PASSING_INPUT_STRICT skip the
+         * per-connection SO_PASSRIGHTS setsockopt — the listening server already configured
+         * the socket option once at listen time. */
+        bool with_sockopt = !v->server || FLAGS_SET(v->server->flags, SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT);
 
-        r = verify_unix_socket(v);
-        if (r < 0) {
-                assert(v->allow_fd_passing_input <= 0);
-
-                if (!b) {
-                        v->allow_fd_passing_input = false;
-                        return 0;
-                }
-
-                return r;
-        }
-
-        if (!v->server || FLAGS_SET(v->server->flags, SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT)) {
-                r = setsockopt_int(v->input_fd, SOL_SOCKET, SO_PASSRIGHTS, !!b);
-                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        log_debug_errno(r, "Failed to set SO_PASSRIGHTS socket option: %m");
-        }
-
-        v->allow_fd_passing_input = !!b;
-        return 1;
+        return json_stream_set_allow_fd_passing_input(&v->stream, !!b, with_sockopt);
 }
 
 _public_ int sd_varlink_set_allow_fd_passing_output(sd_varlink *v, int b) {
-        int r;
-
         assert_return(v, -EINVAL);
 
-        if (v->allow_fd_passing_output == !!b)
-                return 0;
-
-        r = verify_unix_socket(v);
-        if (r < 0)
-                return r;
-
-        v->allow_fd_passing_output = !!b;
-        return 1;
+        return json_stream_set_allow_fd_passing_output(&v->stream, !!b);
 }
 
 _public_ int sd_varlink_set_input_sensitive(sd_varlink *v) {
         assert_return(v, -EINVAL);
 
-        v->input_sensitive = true;
+        json_stream_set_flags(&v->stream, JSON_STREAM_INPUT_SENSITIVE, true);
         return 0;
 }
 
@@ -3315,7 +2818,8 @@ _public_ int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_fl
                                  SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT|
                                  SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT|
                                  SD_VARLINK_SERVER_HANDLE_SIGINT|
-                                 SD_VARLINK_SERVER_HANDLE_SIGTERM)) == 0, -EINVAL);
+                                 SD_VARLINK_SERVER_HANDLE_SIGTERM|
+                                 SD_VARLINK_SERVER_UPGRADABLE)) == 0, -EINVAL);
 
         s = new(sd_varlink_server, 1);
         if (!s)
@@ -3426,8 +2930,8 @@ static int validate_connection(sd_varlink_server *server, const struct ucred *uc
 
                 c = PTR_TO_UINT(hashmap_get(server->by_uid, UID_TO_PTR(ucred->uid)));
                 if (c >= server->connections_per_uid_max) {
-                        varlink_server_log(server, "Per-UID connection limit of %u reached, refusing.",
-                                           server->connections_per_uid_max);
+                        varlink_server_log(server, "Per-UID connection limit of %u for '" UID_FMT "' reached, refusing.",
+                                           server->connections_per_uid_max, ucred->uid);
                         return 0;
                 }
         }
@@ -3441,8 +2945,6 @@ static int count_connection(sd_varlink_server *server, const struct ucred *ucred
 
         assert(server);
         assert(ucred);
-
-        server->n_connections++;
 
         if (FLAGS_SET(server->flags, SD_VARLINK_SERVER_ACCOUNT_UID)) {
                 assert(uid_is_valid(ucred->uid));
@@ -3460,6 +2962,8 @@ static int count_connection(sd_varlink_server *server, const struct ucred *ucred
                 if (r < 0)
                         return varlink_server_log_errno(server, r, "Failed to increment counter in UID hash table: %m");
         }
+
+        server->n_connections++;
 
         return 0;
 }
@@ -3480,7 +2984,7 @@ _public_ int sd_varlink_server_add_connection_pair(
         assert_return(input_fd >= 0, -EBADF);
         assert_return(output_fd >= 0, -EBADF);
 
-        if ((server->flags & (SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_ACCOUNT_UID)) != 0) {
+        if ((server->flags & (SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY|SD_VARLINK_SERVER_ACCOUNT_UID)) != 0) {
 
                 if (override_ucred)
                         ucred = *override_ucred;
@@ -3517,19 +3021,24 @@ _public_ int sd_varlink_server_add_connection_pair(
         v->server = sd_varlink_server_ref(server);
         sd_varlink_ref(v);
 
-        v->input_fd = input_fd;
-        v->output_fd = output_fd;
+        r = json_stream_attach_fds(&v->stream, input_fd, output_fd);
+        if (r < 0)
+                return r;
+
         if (server->flags & SD_VARLINK_SERVER_INHERIT_USERDATA)
                 v->userdata = server->userdata;
 
-        if (ucred_acquired) {
-                v->ucred = ucred;
-                v->ucred_acquired = true;
-        }
+        /* If the server might receive a protocol upgrade method, switch the input path to
+         * byte-bounded reads so we don't accidentally consume post-upgrade bytes. */
+        if (FLAGS_SET(server->flags, SD_VARLINK_SERVER_UPGRADABLE))
+                json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, true);
+
+        if (ucred_acquired)
+                json_stream_set_peer_ucred(&v->stream, &ucred);
 
         _cleanup_free_ char *desc = NULL;
         if (asprintf(&desc, "%s-%i-%i", varlink_server_description(server), input_fd, output_fd) >= 0)
-                v->description = TAKE_PTR(desc);
+                json_stream_set_description(&v->stream, desc);
 
         (void) sd_varlink_set_allow_fd_passing_input(v, FLAGS_SET(server->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
         (void) sd_varlink_set_allow_fd_passing_output(v, FLAGS_SET(server->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT));
@@ -3540,8 +3049,12 @@ _public_ int sd_varlink_server_add_connection_pair(
                 r = sd_varlink_attach_event(v, server->event, server->event_priority);
                 if (r < 0) {
                         varlink_log_errno(v, r, "Failed to attach new connection: %m");
-                        TAKE_FD(v->input_fd); /* take the fd out of the connection again */
-                        TAKE_FD(v->output_fd);
+                        /* Detach the fds from the connection so the caller (the connect callback)
+                         * can decide what to do with them. The original fd value(s) the caller
+                         * passed in are still owned by the caller; we just stop the connection
+                         * from closing them on shutdown. */
+                        TAKE_FD(v->stream.input_fd);
+                        TAKE_FD(v->stream.output_fd);
                         sd_varlink_close(v);
                         return r;
                 }
@@ -3622,11 +3135,7 @@ static int varlink_server_create_listen_fd_socket(sd_varlink_server *s, int fd, 
         };
 
         if (s->event) {
-                r = sd_event_add_io(s->event, &ss->event_source, fd, EPOLLIN, connect_callback, ss);
-                if (r < 0)
-                        return r;
-
-                r = sd_event_source_set_priority(ss->event_source, s->event_priority);
+                r = varlink_server_add_socket_event_source(s, ss);
                 if (r < 0)
                         return r;
         }
@@ -3938,8 +3447,10 @@ _public_ int sd_varlink_server_shutdown(sd_varlink_server *s) {
 static void varlink_server_test_exit_on_idle(sd_varlink_server *s) {
         assert(s);
 
-        if (s->exit_on_idle && s->event && s->n_connections == 0)
+        if (s->exit_on_idle && s->event && s->n_connections == 0) {
+                varlink_server_log(s, "Exit-on-idle triggered.");
                 (void) sd_event_exit(s->event, 0);
+        }
 }
 
 _public_ int sd_varlink_server_set_exit_on_idle(sd_varlink_server *s, int b) {
@@ -3950,13 +3461,14 @@ _public_ int sd_varlink_server_set_exit_on_idle(sd_varlink_server *s, int b) {
         return 0;
 }
 
-int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSocket *ss, int64_t priority) {
+int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSocket *ss) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL;
         int r;
 
         assert(s);
         assert(s->event);
         assert(ss);
+        assert(ss->server == s);
         assert(ss->fd >= 0);
         assert(!ss->event_source);
 
@@ -3964,7 +3476,7 @@ int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSo
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(es, priority);
+        r = sd_event_source_set_priority(es, s->event_priority);
         if (r < 0)
                 return r;
 
@@ -3986,13 +3498,14 @@ _public_ int sd_varlink_server_attach_event(sd_varlink_server *s, sd_event *e, i
                         return r;
         }
 
+        s->event_priority = priority;
+
         LIST_FOREACH(sockets, ss, s->sockets) {
-                r = varlink_server_add_socket_event_source(s, ss, priority);
+                r = varlink_server_add_socket_event_source(s, ss);
                 if (r < 0)
                         goto fail;
         }
 
-        s->event_priority = priority;
         return 0;
 
 fail:
@@ -4163,20 +3676,16 @@ _public_ int sd_varlink_server_add_interface_many_internal(sd_varlink_server *s,
 }
 
 _public_ unsigned sd_varlink_server_connections_max(sd_varlink_server *s) {
-        int dts;
 
         /* If a server is specified, return the setting for that server, otherwise the default value */
         if (s)
                 return s->connections_max;
 
-        dts = getdtablesize();
+        int dts = getdtablesize();
         assert_se(dts > 0);
 
         /* Make sure we never use up more than ¾th of RLIMIT_NOFILE for IPC */
-        if (VARLINK_DEFAULT_CONNECTIONS_MAX > (unsigned) dts / 4 * 3)
-                return dts / 4 * 3;
-
-        return VARLINK_DEFAULT_CONNECTIONS_MAX;
+        return MIN(VARLINK_DEFAULT_CONNECTIONS_MAX, (unsigned) dts / 4 * 3);
 }
 
 _public_ unsigned sd_varlink_server_connections_per_uid_max(sd_varlink_server *s) {
@@ -4276,6 +3785,7 @@ _public_ int sd_varlink_error_to_errno(const char *error, sd_json_variant *param
                 { SD_VARLINK_ERROR_INVALID_PARAMETER,      -EINVAL        },
                 { SD_VARLINK_ERROR_PERMISSION_DENIED,      -EACCES        },
                 { SD_VARLINK_ERROR_EXPECTED_MORE,          -EBADE         },
+                { SD_VARLINK_ERROR_EXPECTED_UPGRADE,       -EPROTOTYPE    },
         };
 
         int r;

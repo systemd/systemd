@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
-
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "build.h"
 #include "confidential-virt.h"
+#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "pretty-print.h"
 #include "string-table.h"
 #include "virt.h"
@@ -23,109 +24,78 @@ static enum {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-detect-virt", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n\n"
-               "Detect execution in a virtualized environment.\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "  -c --container        Only detect whether we are run in a container\n"
-               "  -v --vm               Only detect whether we are run in a VM\n"
-               "  -r --chroot           Detect whether we are run in a chroot() environment\n"
-               "     --private-users    Only detect whether we are running in a user namespace\n"
-               "     --cvm              Only detect whether we are run in a confidential VM\n"
-               "  -q --quiet            Don't output anything, just set return value\n"
-               "     --list             List all known and detectable types of virtualization\n"
-               "     --list-cvm         List all known and detectable types of confidential \n"
-               "                        virtualization\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               link);
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
 
+        printf("%s [OPTIONS...]\n"
+               "\n%sDetect execution in a virtualized environment.%s\n"
+               "\nOptions:\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal());
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_PRIVATE_USERS,
-                ARG_LIST,
-                ARG_CVM,
-                ARG_LIST_CVM,
-        };
-
-        static const struct option options[] = {
-                { "help",          no_argument, NULL, 'h'               },
-                { "version",       no_argument, NULL, ARG_VERSION       },
-                { "container",     no_argument, NULL, 'c'               },
-                { "vm",            no_argument, NULL, 'v'               },
-                { "chroot",        no_argument, NULL, 'r'               },
-                { "private-users", no_argument, NULL, ARG_PRIVATE_USERS },
-                { "quiet",         no_argument, NULL, 'q'               },
-                { "cvm",           no_argument, NULL, ARG_CVM           },
-                { "list",          no_argument, NULL, ARG_LIST          },
-                { "list-cvm",      no_argument, NULL, ARG_LIST_CVM      },
-                {}
-        };
-
-        int c;
-
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hqcvr", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
-
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case 'q':
+                OPTION('q', "quiet", NULL, "Don't output anything, just set return value"):
                         arg_quiet = true;
                         break;
 
-                case 'c':
+                OPTION('c', "container", NULL, "Only detect whether we are run in a container"):
                         arg_mode = ONLY_CONTAINER;
                         break;
 
-                case ARG_PRIVATE_USERS:
+                OPTION_LONG("private-users", NULL, "Only detect whether we are running in a user namespace"):
                         arg_mode = ONLY_PRIVATE_USERS;
                         break;
 
-                case 'v':
+                OPTION('v', "vm", NULL, "Only detect whether we are run in a VM"):
                         arg_mode = ONLY_VM;
                         break;
 
-                case 'r':
+                OPTION('r', "chroot", NULL, "Detect whether we are run in a chroot() environment"):
                         arg_mode = ONLY_CHROOT;
                         break;
 
-                case ARG_LIST:
+                OPTION_LONG("list", NULL, "List all known and detectable types of virtualization"):
                         return DUMP_STRING_TABLE(virtualization, Virtualization, _VIRTUALIZATION_MAX);
 
-                case ARG_CVM:
+                OPTION_LONG("cvm", NULL, "Only detect whether we are run in a confidential VM"):
                         arg_mode = ONLY_CVM;
                         return 1;
 
-                case ARG_LIST_CVM:
+                OPTION_LONG("list-cvm", NULL, "List all known and detectable types of confidential virtualization"):
                         return DUMP_STRING_TABLE(confidential_virtualization, ConfidentialVirtualization, _CONFIDENTIAL_VIRTUALIZATION_MAX);
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        if (optind < argc)
+        if (option_parser_get_n_args(&state) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s takes no arguments.",
                                        program_invocation_short_name);

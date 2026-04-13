@@ -1,0 +1,17 @@
+{
+    "type": "devicetree",
+    "name": "LENOVO Miix 630",
+    "compatible": "lenovo,miix-630",
+    "hwids": [
+        "16a55446-eba9-5f97-80e3-5e39d8209bc3",
+        "c4c9a6be-5383-5de7-af35-c2de505edec8",
+        "14f581d2-d059-5cb2-9f8b-56d8be7932c9",
+        "a51054fb-5eef-594a-a5a0-cd87632d0aea",
+        "307ab358-ed84-57fe-bf05-e9195a28198d",
+        "7e613574-5445-5797-9567-2d0ed86e6ffa",
+        "b0f4463c-f851-5ec3-b031-2ccb873a609a",
+        "08b75d1f-6643-52a1-9bdd-071052860b33",
+        "34df58d6-b605-50aa-9313-9b34f5c4b6fc",
+        "e0a96696-f0a6-5466-a6db-207fbe8bae3c"
+    ]
+}

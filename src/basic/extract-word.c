@@ -204,6 +204,9 @@ int extract_first_word_and_warn(
         const char *save;
         int r;
 
+        assert(p);
+        assert(ret);
+
         save = *p;
         r = extract_first_word(p, ret, separators, flags);
         if (r >= 0)

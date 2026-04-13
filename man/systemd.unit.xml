@@ -957,8 +957,11 @@
         <literal>isolate</literal>,
         <literal>flush</literal>,
         <literal>ignore-dependencies</literal> or
-        <literal>ignore-requirements</literal>. Defaults to
-        <literal>replace</literal>. Specifies how the units listed in
+        <literal>ignore-requirements</literal>.
+        <literal>OnFailureJobMode=</literal> defaults to
+        <literal>replace</literal>,
+        <literal>OnSuccessJobMode=</literal> defaults to
+        <literal>fail</literal>. Specifies how the units listed in
         <varname>OnSuccess=</varname>/<varname>OnFailure=</varname> will be enqueued. See
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <option>--job-mode=</option> option for details on the
@@ -1078,6 +1081,11 @@
         not necessary. Note that if this mode is used unit results (such as exit codes, exit signals, consumed
         resources, …) are flushed out immediately after the unit completed, except for what is stored in the logging
         subsystem. Defaults to <option>inactive</option>.</para>
+
+        <para>Since v261, if <varname>FileDescriptorStorePreserve=</varname> is set to <option>yes</option>,
+        and the unit has file descriptors stored, garbage collection will be disabled until the unit is
+        removed, the service manager exits, or the file descriptors get <constant>EPOLLHUP</constant> or
+        <constant>EPOLLERR</constant>.</para>
 
         <xi:include href="version-info.xml" xpointer="v236"/>
         </listitem>
@@ -1602,6 +1610,10 @@
                   <entry>measured-uki</entry>
                   <entry>Unified Kernel Image with PCR 11 Measurements, as per <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>. <xi:include href="version-info.xml" xpointer="v255"/></entry>
                 </row>
+                <row>
+                  <entry>measured-os</entry>
+                  <entry>OS PCR measurements enabled. This is typically equivalent to <varname>measured-uki</varname>, however may also be set explicitly via the <varname>systemd.tpm2_measured_os=</varname> kernel command line switch, see <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details. The various system services doing boot and runtime measurements are conditioned on this flag. <xi:include href="version-info.xml" xpointer="v261"/></entry>
+                </row>
               </tbody>
             </tgroup>
           </table>
@@ -1791,6 +1803,17 @@
           detected. It is not detected whether the file system backing the loopback block device is encrypted.</para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>ConditionPathIsSocket=</varname></term>
+
+          <listitem><para><varname>ConditionPathIsSocket=</varname> is similar to
+          <varname>ConditionPathExists=</varname> but verifies that a certain path exists and is a
+          socket.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
           </listitem>
         </varlistentry>
 
@@ -2049,6 +2072,7 @@
           <term><varname>AssertPathIsMountPoint=</varname></term>
           <term><varname>AssertPathIsReadWrite=</varname></term>
           <term><varname>AssertPathIsEncrypted=</varname></term>
+          <term><varname>AssertPathIsSocket=</varname></term>
           <term><varname>AssertDirectoryNotEmpty=</varname></term>
           <term><varname>AssertFileNotEmpty=</varname></term>
           <term><varname>AssertFileIsExecutable=</varname></term>

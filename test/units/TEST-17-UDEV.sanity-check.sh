@@ -25,7 +25,7 @@ netdev=hoge
 ip link add $netdev type dummy
 
 blk="$(mktemp)"
-dd if=/dev/zero of="$blk" bs=1M count=1
+truncate -s 1M "$blk"
 loopdev="$(losetup --show -f "$blk")"
 
 # Wait for devices created in the above being processed.

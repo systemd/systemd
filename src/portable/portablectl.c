@@ -13,8 +13,6 @@
 #include "bus-wait-for-jobs.h"
 #include "chase.h"
 #include "env-file.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "format-table.h"
 #include "fs-util.h"
 #include "install.h"
@@ -58,6 +56,8 @@ static bool is_portable_managed(const char *unit) {
 
 static int determine_image(const char *image, bool permit_non_existing, char **ret) {
         int r;
+
+        assert(ret);
 
         /* If the specified name is a valid image name, we pass it as-is to portabled, which will search for it in the
          * usual search directories. Otherwise we presume it's a path, and will normalize it on the client's side
@@ -132,6 +132,8 @@ static int extract_prefix(const char *path, char **ret) {
         size_t m;
         int r;
 
+        assert(ret);
+
         r = path_extract_filename(path, &bn);
         if (r < 0)
                 return r;
@@ -142,7 +144,7 @@ static int extract_prefix(const char *path, char **ret) {
         else {
                 const char *e;
 
-                e = endswith(bn, ".raw");
+                e = ENDSWITH_SET(bn, ".raw.v", ".raw", ".v");
                 if (!e)
                         e = strchr(bn, 0);
 
@@ -155,7 +157,7 @@ static int extract_prefix(const char *path, char **ret) {
 
         /* A slightly reduced version of what's permitted in unit names. With ':' and '\' are removed, as well as '_'
          * which we use as delimiter for the second part of the image string, which we ignore for now. */
-        if (!in_charset(name, DIGITS LETTERS "-."))
+        if (!in_charset(name, ALPHANUMERICAL "-."))
                 return -EINVAL;
 
         if (!filename_is_valid(name))
@@ -237,6 +239,8 @@ static int acquire_bus(sd_bus **bus) {
 static int maybe_reload(sd_bus **bus) {
         int r;
 
+        assert(bus);
+
         if (!arg_reload)
                 return 0;
 
@@ -288,7 +292,7 @@ static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd
         return 0;
 }
 
-static int inspect_image(int argc, char *argv[], void *userdata) {
+static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_strv_free_ char **matches = NULL;
@@ -332,15 +336,12 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                 nl = true;
         } else {
                 _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
 
-                f = fmemopen_unlocked((void*) data, sz, "r");
-                if (!f)
-                        return log_error_errno(errno, "Failed to open /etc/os-release buffer: %m");
-
-                r = parse_env_file(f, "/etc/os-release",
-                                   "PORTABLE_PRETTY_NAME", &pretty_portable,
-                                   "PRETTY_NAME", &pretty_os);
+                r = parse_env_data(
+                                data, sz,
+                                "/etc/os-release",
+                                "PORTABLE_PRETTY_NAME", &pretty_portable,
+                                "PRETTY_NAME", &pretty_os);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse /etc/os-release: %m");
 
@@ -396,33 +397,30 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                                                     *confext_version_id = NULL, *confext_scope = NULL,
                                                     *confext_image_id = NULL, *confext_image_version = NULL,
                                                     *confext_build_id = NULL;
-                                _cleanup_fclose_ FILE *f = NULL;
 
-                                f = fmemopen_unlocked((void*) data, sz, "r");
-                                if (!f)
-                                        return log_error_errno(errno, "Failed to open extension-release buffer: %m");
-
-                                r = parse_env_file(f, name,
-                                                   "SYSEXT_ID", &sysext_id,
-                                                   "SYSEXT_VERSION_ID", &sysext_version_id,
-                                                   "SYSEXT_BUILD_ID", &sysext_build_id,
-                                                   "SYSEXT_IMAGE_ID", &sysext_image_id,
-                                                   "SYSEXT_IMAGE_VERSION", &sysext_image_version,
-                                                   "SYSEXT_SCOPE", &sysext_scope,
-                                                   "SYSEXT_LEVEL", &sysext_level,
-                                                   "SYSEXT_PRETTY_NAME", &sysext_pretty_os,
-                                                   "CONFEXT_ID", &confext_id,
-                                                   "CONFEXT_VERSION_ID", &confext_version_id,
-                                                   "CONFEXT_BUILD_ID", &confext_build_id,
-                                                   "CONFEXT_IMAGE_ID", &confext_image_id,
-                                                   "CONFEXT_IMAGE_VERSION", &confext_image_version,
-                                                   "CONFEXT_SCOPE", &confext_scope,
-                                                   "CONFEXT_LEVEL", &confext_level,
-                                                   "CONFEXT_PRETTY_NAME", &confext_pretty_os,
-                                                   "ID", &id,
-                                                   "VERSION_ID", &version_id,
-                                                   "PORTABLE_PRETTY_NAME", &pretty_portable,
-                                                   "PORTABLE_PREFIXES", &portable_prefixes);
+                                r = parse_env_data(
+                                                data, sz,
+                                                name,
+                                                "SYSEXT_ID", &sysext_id,
+                                                "SYSEXT_VERSION_ID", &sysext_version_id,
+                                                "SYSEXT_BUILD_ID", &sysext_build_id,
+                                                "SYSEXT_IMAGE_ID", &sysext_image_id,
+                                                "SYSEXT_IMAGE_VERSION", &sysext_image_version,
+                                                "SYSEXT_SCOPE", &sysext_scope,
+                                                "SYSEXT_LEVEL", &sysext_level,
+                                                "SYSEXT_PRETTY_NAME", &sysext_pretty_os,
+                                                "CONFEXT_ID", &confext_id,
+                                                "CONFEXT_VERSION_ID", &confext_version_id,
+                                                "CONFEXT_BUILD_ID", &confext_build_id,
+                                                "CONFEXT_IMAGE_ID", &confext_image_id,
+                                                "CONFEXT_IMAGE_VERSION", &confext_image_version,
+                                                "CONFEXT_SCOPE", &confext_scope,
+                                                "CONFEXT_LEVEL", &confext_level,
+                                                "CONFEXT_PRETTY_NAME", &confext_pretty_os,
+                                                "ID", &id,
+                                                "VERSION_ID", &version_id,
+                                                "PORTABLE_PRETTY_NAME", &pretty_portable,
+                                                "PORTABLE_PREFIXES", &portable_prefixes);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse extension release from '%s': %m", name);
 
@@ -958,15 +956,15 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
         return 0;
 }
 
-static int attach_image(int argc, char *argv[], void *userdata) {
+static int verb_attach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) && !arg_force ? "AttachImage" : "AttachImageWithExtensions");
 }
 
-static int reattach_image(int argc, char *argv[], void *userdata) {
+static int verb_reattach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) && !arg_force ? "ReattachImage" : "ReattachImageWithExtensions");
 }
 
-static int detach_image(int argc, char *argv[], void *userdata) {
+static int verb_detach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1020,7 +1018,7 @@ static int detach_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int list_images(int argc, char *argv[], void *userdata) {
+static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1079,9 +1077,9 @@ static int list_images(int argc, char *argv[], void *userdata) {
 
                 table_set_header(table, arg_legend);
 
-                r = table_print(table, NULL);
+                r = table_print_or_warn(table);
                 if (r < 0)
-                        return table_log_print_error(r);
+                        return r;
         }
 
         if (arg_legend) {
@@ -1094,7 +1092,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int remove_image(int argc, char *argv[], void *userdata) {
+static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, i;
 
@@ -1125,7 +1123,7 @@ static int remove_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int read_only_image(int argc, char *argv[], void *userdata) {
+static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int b = true, r;
@@ -1149,7 +1147,7 @@ static int read_only_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int set_limit(int argc, char *argv[], void *userdata) {
+static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         uint64_t limit;
@@ -1182,7 +1180,7 @@ static int set_limit(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int is_image_attached(int argc, char *argv[], void *userdata) {
+static int verb_is_image_attached(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1257,7 +1255,7 @@ static int dump_profiles(void) {
         return 0;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -1319,6 +1317,10 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -1375,7 +1377,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        return help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -1493,16 +1495,16 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",        VERB_ANY, VERB_ANY, 0,            help              },
-                { "list",        VERB_ANY, 1,        VERB_DEFAULT, list_images       },
-                { "attach",      2,        VERB_ANY, 0,            attach_image      },
-                { "detach",      2,        VERB_ANY, 0,            detach_image      },
-                { "inspect",     2,        VERB_ANY, 0,            inspect_image     },
-                { "is-attached", 2,        2,        0,            is_image_attached },
-                { "read-only",   2,        3,        0,            read_only_image   },
-                { "remove",      2,        VERB_ANY, 0,            remove_image      },
-                { "set-limit",   3,        3,        0,            set_limit         },
-                { "reattach",    2,        VERB_ANY, 0,            reattach_image    },
+                { "help",        VERB_ANY, VERB_ANY, 0,            verb_help              },
+                { "list",        VERB_ANY, 1,        VERB_DEFAULT, verb_list_images       },
+                { "attach",      2,        VERB_ANY, 0,            verb_attach_image      },
+                { "detach",      2,        VERB_ANY, 0,            verb_detach_image      },
+                { "inspect",     2,        VERB_ANY, 0,            verb_inspect_image     },
+                { "is-attached", 2,        2,        0,            verb_is_image_attached },
+                { "read-only",   2,        3,        0,            verb_read_only_image   },
+                { "remove",      2,        VERB_ANY, 0,            verb_remove_image      },
+                { "set-limit",   3,        3,        0,            verb_set_limit         },
+                { "reattach",    2,        VERB_ANY, 0,            verb_reattach_image    },
                 {}
         };
 

@@ -21,6 +21,8 @@ if [[ ! -x "$SYSUPDATE" ]]; then
     exit 77
 fi
 
+have_updatectl=$([[ -x "$SYSUPDATED" ]] && command -v updatectl)
+
 # Loopback devices may not be supported. They are used because sfdisk cannot
 # change the sector size of a file, and we want to test both 512 and 4096 byte
 # sectors. If loopback devices are not supported, we can only test one sector
@@ -92,11 +94,37 @@ new_version() {
 }
 
 update_now() {
+    local update_type="${1:?}"
+
     # Update to newest version. First there should be an update ready, then we
     # do the update, and then there should not be any ready anymore
+    #
+    # The update can either be done monolithically (by calling the `update`
+    # verb) or split (`acquire` then `update`). Both options are allowed for
+    # most updates in the test suite, so the test suite can be run to test both
+    # modes. Some updates in the test suite need to be monolithic (e.g. when
+    # repairing an installation), so that can be overridden via the local.
 
     "$SYSUPDATE" --verify=no check-new
-    "$SYSUPDATE" --verify=no update
+    if [[ "$update_type" == "monolithic" ]]; then
+        "$SYSUPDATE" --verify=no update
+    elif [[ "$update_type" == "split-offline" ]]; then
+        "$SYSUPDATE" --verify=no acquire
+        "$SYSUPDATE" --verify=no update --offline
+    elif [[ "$update_type" == "split" ]]; then
+        "$SYSUPDATE" --verify=no acquire
+        "$SYSUPDATE" --verify=no update
+    elif [[ "$update_type" == "updatectl" ]]; then
+        if $have_updatectl; then
+            systemctl start systemd-sysupdated
+            updatectl update
+        else
+            # Gracefully fall back to sysupdate
+            "$SYSUPDATE" --verify=no update
+        fi
+    else
+        exit 1
+    fi
     (! "$SYSUPDATE" --verify=no check-new)
 }
 
@@ -134,7 +162,14 @@ verify_version_current() {
     cmp "$WORKDIR/source/dir-$version/bar.txt" "$WORKDIR/dirs/current/bar.txt"
 }
 
+verify_object_fields() {
+    local updatectl_output="${1:?}"
+
+    [[ "${updatectl_output}" != *"Unrecognized object field"* ]] || exit 1
+}
+
 for sector_size in "${SECTOR_SIZES[@]}"; do
+for update_type in monolithic split-offline split updatectl; do
     # Disk size of:
     # - 1MB for GPT
     # - 4 partitions of 2048 sectors each
@@ -187,7 +222,7 @@ MatchPattern=part2-@v.raw.gz
 [Target]
 Type=partition
 Path=$blockdev
-MatchPattern=part2-@v
+MatchPattern=a-very-long-partition-name-@v
 MatchPartitionType=root-x86-64-verity
 EOF
 
@@ -267,18 +302,18 @@ EOF
 
     # Install initial version and verify
     new_version "$sector_size" v1
-    update_now
+    update_now "$update_type"
     verify_version_current "$blockdev" "$sector_size" v1 1
 
     # Create second version, update and verify that it is added
     new_version "$sector_size" v2
-    update_now
+    update_now "$update_type"
     verify_version "$blockdev" "$sector_size" v1 1
     verify_version_current "$blockdev" "$sector_size" v2 2
 
     # Create third version, update and verify it replaced the first version
     new_version "$sector_size" v3
-    update_now
+    update_now "$update_type"
     verify_version_current "$blockdev" "$sector_size" v3 1
     verify_version "$blockdev" "$sector_size" v2 2
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v1+3-0.efi"
@@ -295,16 +330,17 @@ EOF
     # Create a fifth version, that's complete on the server side. We should
     # completely skip the incomplete v4 and install v5 instead.
     new_version "$sector_size" v5
-    update_now
+    update_now "$update_type"
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
 
     # Make the local installation of v5 incomplete by deleting a file, then make
     # sure that sysupdate still recognizes the installation and can complete it
     # in place
+    # Always do this as a monolithic update for the repair to work.
     rm -r "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d"
     "$SYSUPDATE" --offline list v5 | grep "incomplete" >/dev/null
-    update_now
+    update_now "monolithic"
     "$SYSUPDATE" --offline list v5 | grep -v "incomplete" >/dev/null
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
@@ -316,7 +352,7 @@ EOF
     mkdir "$CONFIGDIR/optional.feature.d"
     echo -e "[Feature]\nEnabled=true" > "$CONFIGDIR/optional.feature.d/enable.conf"
     "$SYSUPDATE" --offline list v5 | grep "incomplete" >/dev/null
-    update_now
+    update_now "$update_type"
     "$SYSUPDATE" --offline list v5 | grep -v "incomplete" >/dev/null
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
@@ -334,13 +370,13 @@ EOF
     # Create sixth version, update using updatectl and verify it replaced the
     # correct version
     new_version "$sector_size" v6
-    if [[ -x "$SYSUPDATED" ]] && command -v updatectl; then
+    if $have_updatectl; then
         systemctl start systemd-sysupdated
         "$SYSUPDATE" --verify=no check-new
         updatectl update
     else
         # If no updatectl, gracefully fall back to systemd-sysupdate
-        update_now
+        update_now "$update_type"
     fi
     # User-facing updatectl returns 0 if there's no updates, so use the low-level
     # utility to make sure we did upgrade
@@ -352,12 +388,12 @@ EOF
     # testing for specific output, but this will at least catch obvious crashes
     # and allow updatectl to run under the various sanitizers. We create a
     # component so that updatectl has multiple targets to list.
-    if [[ -x "$SYSUPDATED" ]] && command -v updatectl; then
+    if $have_updatectl; then
         mkdir -p /run/sysupdate.test.d/
         cp "$CONFIGDIR/01-first.transfer" /run/sysupdate.test.d/01-first.transfer
-        updatectl list
-        updatectl list host
-        updatectl list host@v6
+        verify_object_fields "$(updatectl list 2>&1)"
+        verify_object_fields "$(updatectl list host 2>&1)"
+        verify_object_fields "$(updatectl list host@v6 2>&1)"
         updatectl check
         rm -r /run/sysupdate.test.d
     fi
@@ -379,7 +415,7 @@ MatchPattern=part2-@v.raw.gz
 [Target]
 Type=partition
 Path=$blockdev
-MatchPattern=part2-@v
+MatchPattern=a-very-long-partition-name-@v
 MatchPartitionType=root-x86-64-verity
 EOF
 
@@ -397,7 +433,7 @@ MatchPattern=dir-@v
 InstancesMax=3
 EOF
 
-    update_now
+    update_now "$update_type"
     verify_version "$blockdev" "$sector_size" v6 1
     verify_version_current "$blockdev" "$sector_size" v7 2
 
@@ -420,13 +456,14 @@ EOF
     # (what .transfer files were called before v257)
     for i in "$CONFIGDIR/"*.conf; do echo mv "$i" "${i%.conf}.transfer"; done
     new_version "$sector_size" v8
-    update_now
+    update_now "$update_type"
     verify_version_current "$blockdev" "$sector_size" v8 1
     verify_version "$blockdev" "$sector_size" v7 2
 
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
     rm "$BACKING_FILE"
+done
 done
 
 touch /testok

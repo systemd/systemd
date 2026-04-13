@@ -17,8 +17,7 @@
 
 /* Characters valid in a unit name. */
 #define VALID_CHARS                             \
-        DIGITS                                  \
-        LETTERS                                 \
+        ALPHANUMERICAL                          \
         ":-_.\\"
 
 /* The same, but also permits the single @ character that may appear */
@@ -346,6 +345,7 @@ int unit_name_unescape(const char *f, char **ret) {
         char *t;
 
         assert(f);
+        assert(ret);
 
         r = strdup(f);
         if (!r)
@@ -547,6 +547,8 @@ int unit_name_hash_long(const char *name, char **ret) {
         const char *suffix;
         le64_t h;
         size_t len;
+
+        assert(ret);
 
         if (strlen(name) < UNIT_NAME_MAX)
                 return -EMSGSIZE;

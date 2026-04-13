@@ -37,8 +37,9 @@ static int patch_dirfd_mode(
 
         if (fstat(dfd, &st) < 0)
                 return -errno;
-        if (!S_ISDIR(st.st_mode))
-                return -ENOTDIR;
+        r = stat_verify_directory(&st);
+        if (r < 0)
+                return r;
 
         if (FLAGS_SET(st.st_mode, 0700)) { /* Already set? */
                 if (refuse_already_set)
@@ -268,6 +269,8 @@ typedef struct TodoEntry {
 } TodoEntry;
 
 static void free_todo_entries(TodoEntry **todos) {
+        assert(todos);
+
         for (TodoEntry *x = *todos; x && x->dir; x++) {
                 closedir(x->dir);
                 free(x->dirname);

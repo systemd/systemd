@@ -396,7 +396,8 @@ static void pe_locate_sections(
 
                         EFI_STATUS err = chid_match(hwids, hwids_section[0].memory_size, DEVICE_TYPE_DEVICETREE, &device);
                         if (err != EFI_SUCCESS) {
-                                log_error_status(err, "HWID matching failed, no DT blob will be selected: %m");
+                                log_full(err, err == EFI_NOT_FOUND ? LOG_DEBUG : LOG_ERR,
+                                         "HWID matching failed, no DT blob will be selected: %m");
                                 hwids = NULL;
                         }
                 }
@@ -459,7 +460,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         return 0;
 }
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t *ret_compat_entry_point, uint64_t *ret_image_base, size_t *ret_size_in_memory) {
+EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t *ret_compat_entry_point, size_t *ret_size_in_memory) {
         assert(base);
 
         const DosFileHeader *dos = (const DosFileHeader *) base;
@@ -469,18 +470,6 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t 
         const PeFileHeader *pe = (const PeFileHeader *) ((const uint8_t *) base + dos->ExeHeader);
         if (!verify_pe(dos, pe, /* allow_compatibility= */ true))
                 return EFI_LOAD_ERROR;
-
-        uint64_t image_base;
-        switch (pe->OptionalHeader.Magic) {
-        case OPTHDR32_MAGIC:
-                image_base = pe->OptionalHeader.ImageBase32;
-                break;
-        case OPTHDR64_MAGIC:
-                image_base = pe->OptionalHeader.ImageBase64;
-                break;
-        default:
-                assert_not_reached();
-        }
 
         /* When allocating we need to also consider the virtual/uninitialized data sections, so parse it out
          * of the SizeOfImage field in the PE header and return it */
@@ -495,8 +484,6 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t 
                         *ret_entry_point = pe->OptionalHeader.AddressOfEntryPoint;
                 if (ret_compat_entry_point)
                         *ret_compat_entry_point = 0;
-                if (ret_image_base)
-                        *ret_image_base = image_base;
                 if (ret_size_in_memory)
                         *ret_size_in_memory = size_in_memory;
                 return EFI_SUCCESS;
@@ -511,8 +498,6 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t 
                 *ret_entry_point = 0;
         if (ret_compat_entry_point)
                 *ret_compat_entry_point = compat_entry_point;
-        if (ret_image_base)
-                *ret_image_base = image_base;
         if (ret_size_in_memory)
                 *ret_size_in_memory = size_in_memory;
 
@@ -585,8 +570,14 @@ EFI_STATUS pe_section_table_from_base(
         if (!verify_pe(dos, pe, /* allow_compatibility= */ false))
                 return EFI_LOAD_ERROR;
 
+        assert_cc(sizeof(pe->FileHeader.NumberOfSections) == sizeof(uint16_t)); /* multiplication below cannot overflow */
+
+        size_t n_section_table = pe->FileHeader.NumberOfSections;
+        if (n_section_table * sizeof(PeSectionHeader) > SECTION_TABLE_BYTES_MAX)
+                return EFI_OUT_OF_RESOURCES;
+
         *ret_section_table = (const PeSectionHeader*) ((const uint8_t*) base + section_table_offset(dos, pe));
-        *ret_n_section_table = pe->FileHeader.NumberOfSections;
+        *ret_n_section_table = n_section_table;
 
         return EFI_SUCCESS;
 }

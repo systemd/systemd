@@ -95,7 +95,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ISSUE_PATH:
-                        if (isempty(optarg) || streq(optarg, "-")) {
+                        if (empty_or_dash(optarg)) {
                                 arg_issue_path = mfree(arg_issue_path);
                                 arg_issue_stdout = true;
                                 break;

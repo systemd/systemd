@@ -68,9 +68,7 @@ int mhd_respondf_internal(
         assert(connection);
         assert(format);
 
-        if (error < 0)
-                error = -error;
-        errno = -error;
+        errno = ERRNO_VALUE(error);
         va_start(ap, format);
         r = vasprintf(&m, format, ap);
         va_end(ap);
@@ -232,6 +230,8 @@ static int get_auth_dn(gnutls_x509_crt_t client_cert, char **buf) {
 }
 
 static void gnutls_x509_crt_deinitp(gnutls_x509_crt_t *p) {
+        assert(p);
+
         gnutls_x509_crt_deinit(*p);
 }
 

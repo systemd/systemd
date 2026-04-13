@@ -105,8 +105,6 @@ static inline int find_executable(const char *name, char **ret_filename) {
         return find_executable_full(name, /* root= */ NULL, NULL, true, ret_filename, NULL);
 }
 
-bool paths_check_timestamp(const char* const* paths, usec_t *paths_ts_usec, bool update);
-
 int fsck_exists(void);
 int fsck_exists_for_fstype(const char *fstype);
 
@@ -135,8 +133,15 @@ int fsck_exists_for_fstype(const char *fstype);
 int path_find_first_component(const char **p, bool accept_dot_dot, const char **ret);
 int path_find_last_component(const char *path, bool accept_dot_dot, const char **next, const char **ret);
 const char* last_path_component(const char *path);
-int path_extract_filename(const char *path, char **ret);
-int path_extract_directory(const char *path, char **ret);
+
+int path_split_prefix_filename(const char *path, char **ret_dir, char **ret_filename);
+static inline int path_extract_filename(const char *path, char **ret) {
+        return path_split_prefix_filename(path, NULL, ret);
+}
+static inline int path_extract_directory(const char *path, char **ret) {
+        int r = path_split_prefix_filename(path, ret, NULL);
+        return r < 0 ? r : 0; /* suppress O_DIRECTORY */
+}
 
 bool filename_part_is_valid(const char *p) _pure_;
 bool filename_is_valid(const char *p) _pure_;

@@ -30,6 +30,8 @@ extern DLSYM_PROTOTYPE(crypt_keyslot_destroy);
 extern DLSYM_PROTOTYPE(crypt_keyslot_max);
 extern DLSYM_PROTOTYPE(crypt_load);
 extern DLSYM_PROTOTYPE(crypt_metadata_locking);
+extern DLSYM_PROTOTYPE(crypt_persistent_flags_get);
+extern DLSYM_PROTOTYPE(crypt_persistent_flags_set);
 extern DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase);
 extern DLSYM_PROTOTYPE(crypt_reencrypt_run);
 extern DLSYM_PROTOTYPE(crypt_resize);

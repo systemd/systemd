@@ -4,377 +4,465 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#if HAVE_LZ4
-#include <lz4.h>
-#endif
-
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "compress.h"
-#include "dlfcn-util.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
-#if HAVE_XZ
-# define XZ_OK 0
-#else
-# define XZ_OK -EPROTONOSUPPORT
-#endif
-
-#if HAVE_LZ4
-# define LZ4_OK 0
-#else
-# define LZ4_OK -EPROTONOSUPPORT
-#endif
-
 #define HUGE_SIZE (4096*1024)
 
-typedef int (compress_blob_t)(const void *src, uint64_t src_size,
-                              void *dst, size_t dst_alloc_size, size_t *dst_size, int level);
-typedef int (decompress_blob_t)(const void *src, uint64_t src_size,
-                                void **dst,
-                                size_t* dst_size, size_t dst_max);
-typedef int (decompress_sw_t)(const void *src, uint64_t src_size,
-                              void **buffer,
-                              const void *prefix, size_t prefix_len,
-                              uint8_t extra);
+static const char text[] =
+        "text\0foofoofoofoo AAAA aaaaaaaaa ghost busters barbarbar FFF"
+        "foofoofoofoo AAAA aaaaaaaaa ghost busters barbarbar FFF";
+static char data[512] = "random\0";
+static char *huge = NULL;
+static const char *srcfile;
 
-typedef int (compress_stream_t)(int fdf, int fdt, uint64_t max_bytes, uint64_t *uncompressed_size);
-typedef int (decompress_stream_t)(int fdf, int fdt, uint64_t max_size);
-
-#if HAVE_COMPRESSION
-_unused_ static void test_compress_decompress(
-                const char *compression,
-                compress_blob_t compress,
-                decompress_blob_t decompress,
-                const char *data,
-                size_t data_len,
-                bool may_fail) {
-
-        char compressed[512];
-        size_t csize;
-        _cleanup_free_ char *decompressed = NULL;
-        int r;
-
-        log_info("/* testing %s %s blob compression/decompression */",
-                 compression, data);
-
-        r = compress(data, data_len, compressed, sizeof(compressed), &csize, /* level= */ -1);
-        if (r == -ENOBUFS) {
-                log_info_errno(r, "compression failed: %m");
-                assert_se(may_fail);
-        } else {
-                assert_se(r >= 0);
-                r = decompress(compressed, csize,
-                               (void **) &decompressed, &csize, 0);
-                assert_se(r == 0);
-                assert_se(decompressed);
-                assert_se(memcmp(decompressed, data, data_len) == 0);
+static const char* cat_for_compression(Compression c) {
+        switch (c) {
+        case COMPRESSION_XZ:    return "xzcat";
+        case COMPRESSION_LZ4:   return "lz4cat";
+        case COMPRESSION_ZSTD:  return "zstdcat";
+        case COMPRESSION_GZIP:  return "zcat";
+        case COMPRESSION_BZIP2: return "bzcat";
+        default:                return NULL;
         }
-
-        r = decompress("garbage", 7,
-                       (void **) &decompressed, &csize, 0);
-        assert_se(r < 0);
-
-        /* make sure to have the minimal lz4 compressed size */
-        r = decompress("00000000\1g", 9,
-                       (void **) &decompressed, &csize, 0);
-        assert_se(r < 0);
-
-        r = decompress("\100000000g", 9,
-                       (void **) &decompressed, &csize, 0);
-        assert_se(r < 0);
-
-        explicit_bzero_safe(decompressed, MALLOC_SIZEOF_SAFE(decompressed));
 }
 
-_unused_ static void test_decompress_startswith(const char *compression,
-                                                compress_blob_t compress,
-                                                decompress_sw_t decompress_sw,
-                                                const char *data,
-                                                size_t data_len,
-                                                bool may_fail) {
+TEST(compress_decompress_blob) {
+        for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
+                if (c == COMPRESSION_NONE || !compression_supported(c))
+                        continue;
 
-        char *compressed;
-        _cleanup_free_ char *compressed1 = NULL, *compressed2 = NULL, *decompressed = NULL;
-        size_t csize, len;
-        int r;
+                const char *label = compression_to_string(c);
 
-        log_info("/* testing decompress_startswith with %s on %.20s text */",
-                 compression, data);
+                for (size_t t = 0; t < 2; t++) {
+                        const char *input = t == 0 ? text : data;
+                        size_t input_len = t == 0 ? sizeof(text) : sizeof(data);
+                        bool may_fail = t == 1;
 
-#define BUFSIZE_1 512
-#define BUFSIZE_2 20000
+                        char compressed[512];
+                        size_t csize;
+                        _cleanup_free_ char *decompressed = NULL;
+                        int r;
 
-        compressed = compressed1 = malloc(BUFSIZE_1);
-        assert_se(compressed1);
-        r = compress(data, data_len, compressed, BUFSIZE_1, &csize, /* level= */ -1);
-        if (r == -ENOBUFS) {
-                log_info_errno(r, "compression failed: %m");
-                assert_se(may_fail);
+                        log_info("/* testing %s %s blob compression/decompression */", label, input);
 
-                compressed = compressed2 = malloc(BUFSIZE_2);
-                assert_se(compressed2);
-                r = compress(data, data_len, compressed, BUFSIZE_2, &csize, /* level= */ -1);
+                        r = compress_blob(c, input, input_len, compressed, sizeof(compressed), &csize, -1);
+                        if (r == -ENOBUFS) {
+                                log_info_errno(r, "compression failed: %m");
+                                ASSERT_TRUE(may_fail);
+                        } else {
+                                ASSERT_OK(r);
+                                ASSERT_OK_ZERO(decompress_blob(c, compressed, csize, (void **) &decompressed, &csize, 0));
+                                ASSERT_NOT_NULL(decompressed);
+                                ASSERT_EQ(memcmp(decompressed, input, input_len), 0);
+                        }
+
+                        ASSERT_FAIL(decompress_blob(c, "garbage", 7, (void **) &decompressed, &csize, 0));
+                }
         }
-        assert_se(r >= 0);
-
-        len = strlen(data);
-
-        r = decompress_sw(compressed, csize, (void **) &decompressed, data, len, '\0');
-        assert_se(r > 0);
-        r = decompress_sw(compressed, csize, (void **) &decompressed, data, len, 'w');
-        assert_se(r == 0);
-        r = decompress_sw(compressed, csize, (void **) &decompressed, "barbarbar", 9, ' ');
-        assert_se(r == 0);
-        r = decompress_sw(compressed, csize, (void **) &decompressed, data, len - 1, data[len-1]);
-        assert_se(r > 0);
-        r = decompress_sw(compressed, csize, (void **) &decompressed, data, len - 1, 'w');
-        assert_se(r == 0);
-        r = decompress_sw(compressed, csize, (void **) &decompressed, data, len, '\0');
-        assert_se(r > 0);
 }
 
-_unused_ static void test_decompress_startswith_short(const char *compression,
-                                                      compress_blob_t compress,
-                                                      decompress_sw_t decompress_sw) {
+TEST(decompress_startswith) {
+        for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
+                if (c == COMPRESSION_NONE || !compression_supported(c))
+                        continue;
 
+                const char *label = compression_to_string(c);
+
+                struct { const char *buf; size_t len; bool may_fail; } inputs[] = {
+                        { text, sizeof(text), false },
+                        { data, sizeof(data), true  },
+                        { huge, HUGE_SIZE,    true  },
+                };
+
+                for (size_t t = 0; t < ELEMENTSOF(inputs); t++) {
+                        char *compressed;
+                        _cleanup_free_ char *compressed1 = NULL, *compressed2 = NULL, *decompressed = NULL;
+                        size_t csize, len;
+                        int r;
+
+                        log_info("/* testing decompress_startswith with %s on %.20s */", label, inputs[t].buf);
+
+                        compressed = compressed1 = malloc(512);
+                        ASSERT_NOT_NULL(compressed1);
+                        r = compress_blob(c, inputs[t].buf, inputs[t].len, compressed, 512, &csize, -1);
+                        if (r == -ENOBUFS) {
+                                log_info_errno(r, "compression failed: %m");
+                                ASSERT_TRUE(inputs[t].may_fail);
+
+                                compressed = compressed2 = malloc(20000);
+                                ASSERT_NOT_NULL(compressed2);
+                                r = compress_blob(c, inputs[t].buf, inputs[t].len, compressed, 20000, &csize, -1);
+                        }
+                        if (r == -ENOBUFS) {
+                                log_info_errno(r, "compression failed again: %m");
+                                ASSERT_TRUE(inputs[t].may_fail);
+                                continue;
+                        }
+                        ASSERT_OK(r);
+
+                        len = strlen(inputs[t].buf);
+
+                        ASSERT_OK_POSITIVE(decompress_startswith(c, compressed, csize, (void **) &decompressed, inputs[t].buf, len, '\0'));
+                        ASSERT_OK_ZERO(decompress_startswith(c, compressed, csize, (void **) &decompressed, inputs[t].buf, len, 'w'));
+                        ASSERT_OK_POSITIVE(decompress_startswith(c, compressed, csize, (void **) &decompressed, inputs[t].buf, len - 1, inputs[t].buf[len-1]));
+                        ASSERT_OK_ZERO(decompress_startswith(c, compressed, csize, (void **) &decompressed, inputs[t].buf, len - 1, 'w'));
+                }
+        }
+}
+
+TEST(decompress_startswith_large) {
+        /* Test decompress_startswith with large data to exercise the buffer growth path. */
+
+        _cleanup_free_ char *large = NULL;
+        size_t large_size = 8 * 1024;
+
+        ASSERT_NOT_NULL(large = malloc(large_size));
+        for (size_t i = 0; i < large_size; i++)
+                large[i] = 'A' + (i % 26);
+
+        for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
+                if (c == COMPRESSION_NONE || !compression_supported(c))
+                        continue;
+
+                _cleanup_free_ char *compressed = NULL;
+                size_t csize;
+
+                log_info("/* decompress_startswith_large with %s */", compression_to_string(c));
+
+                ASSERT_NOT_NULL(compressed = malloc(large_size));
+                int r = compress_blob(c, large, large_size, compressed, large_size, &csize, -1);
+                if (r == -ENOBUFS) {
+                        log_info_errno(r, "compression failed: %m");
+                        continue;
+                }
+                ASSERT_OK(r);
+
+                _cleanup_free_ void *buf = NULL;
+
+                ASSERT_OK_POSITIVE(decompress_startswith(c, compressed, csize, &buf, large, 1, large[1]));
+                ASSERT_OK_ZERO(decompress_startswith(c, compressed, csize, &buf, large, 1, 0xff));
+                ASSERT_OK_POSITIVE(decompress_startswith(c, compressed, csize, &buf, large, 512, large[512]));
+                ASSERT_OK_ZERO(decompress_startswith(c, compressed, csize, &buf, large, 512, 0xff));
+                ASSERT_OK_POSITIVE(decompress_startswith(c, compressed, csize, &buf, large, 4096, large[4096]));
+                ASSERT_OK_ZERO(decompress_startswith(c, compressed, csize, &buf, large, 4096, 0xff));
+        }
+}
+
+TEST(decompress_startswith_short) {
 #define TEXT "HUGE=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
-        char buf[1024];
-        size_t csize;
-        int r;
+        for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
+                if (c == COMPRESSION_NONE || !compression_supported(c))
+                        continue;
 
-        log_info("/* %s with %s */", __func__, compression);
+                char buf[1024];
+                size_t csize;
 
-        r = compress(TEXT, sizeof TEXT, buf, sizeof buf, &csize, /* level= */ -1);
-        assert_se(r >= 0);
+                log_info("/* decompress_startswith_short with %s */", compression_to_string(c));
 
-        for (size_t i = 1; i < strlen(TEXT); i++) {
-                _cleanup_free_ void *buf2 = NULL;
+                ASSERT_OK(compress_blob(c, TEXT, sizeof TEXT, buf, sizeof buf, &csize, -1));
 
-                assert_se(buf2 = malloc(i));
+                for (size_t i = 1; i < strlen(TEXT); i++) {
+                        _cleanup_free_ void *buf2 = NULL;
 
-                assert_se(decompress_sw(buf, csize, &buf2, TEXT, i, TEXT[i]) == 1);
-                assert_se(decompress_sw(buf, csize, &buf2, TEXT, i, 'y') == 0);
+                        ASSERT_NOT_NULL(buf2 = malloc(i));
+
+                        ASSERT_OK_POSITIVE(decompress_startswith(c, buf, csize, &buf2, TEXT, i, TEXT[i]));
+                        ASSERT_OK_ZERO(decompress_startswith(c, buf, csize, &buf2, TEXT, i, 'y'));
+                }
+        }
+#undef TEXT
+}
+
+TEST(compress_decompress_stream) {
+        for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
+                if (c == COMPRESSION_NONE || !compression_supported(c))
+                        continue;
+
+                const char *cat = cat_for_compression(c);
+                if (!cat)
+                        continue;
+
+                int r = find_executable(cat, NULL);
+                if (r < 0) {
+                        log_error_errno(r, "Skipping %s, could not find %s binary: %m",
+                                        compression_to_string(c), cat);
+                        continue;
+                }
+
+                _cleanup_close_ int src = -EBADF, dst = -EBADF, dst2 = -EBADF;
+                _cleanup_(unlink_tempfilep) char
+                        pattern[] = "/tmp/systemd-test.compressed.XXXXXX",
+                        pattern2[] = "/tmp/systemd-test.compressed.XXXXXX";
+                _cleanup_free_ char *cmd = NULL, *cmd2 = NULL;
+                struct stat st = {};
+                uint64_t uncompressed_size;
+
+                log_debug("/* testing %s stream compression */", compression_to_string(c));
+
+                ASSERT_OK(src = open(srcfile, O_RDONLY|O_CLOEXEC));
+                ASSERT_OK(dst = mkostemp_safe(pattern));
+
+                ASSERT_OK(compress_stream(c, src, dst, -1, &uncompressed_size));
+
+                ASSERT_OK_POSITIVE(asprintf(&cmd, "%s %s | diff '%s' -", cat, pattern, srcfile));
+                ASSERT_OK_ZERO(system(cmd));
+
+                ASSERT_OK(dst2 = mkostemp_safe(pattern2));
+
+                ASSERT_OK_ZERO_ERRNO(stat(srcfile, &st));
+                ASSERT_EQ((uint64_t) st.st_size, uncompressed_size);
+
+                ASSERT_OK_ERRNO(lseek(dst, 0, SEEK_SET));
+                ASSERT_OK_ZERO(decompress_stream(c, dst, dst2, st.st_size));
+
+                ASSERT_OK_POSITIVE(asprintf(&cmd2, "diff '%s' %s", srcfile, pattern2));
+                ASSERT_OK_ZERO(system(cmd2));
+
+                log_debug("/* test faulty decompression */");
+
+                ASSERT_OK_ERRNO(lseek(dst, 1, SEEK_SET));
+                r = decompress_stream(c, dst, dst2, st.st_size);
+                ASSERT_TRUE(IN_SET(r, 0, -EBADMSG));
+
+                ASSERT_OK_ERRNO(lseek(dst, 0, SEEK_SET));
+                ASSERT_OK_ERRNO(lseek(dst2, 0, SEEK_SET));
+                ASSERT_ERROR(decompress_stream(c, dst, dst2, st.st_size - 1), EFBIG);
         }
 }
 
-_unused_ static void test_compress_stream(const char *compression,
-                                          const char *cat,
-                                          compress_stream_t compress,
-                                          decompress_stream_t decompress,
-                                          const char *srcfile) {
+struct decompressor_test_data {
+        uint8_t *buf;
+        size_t size;
+};
 
-        _cleanup_close_ int src = -EBADF, dst = -EBADF, dst2 = -EBADF;
-        _cleanup_(unlink_tempfilep) char
-                pattern[] = "/tmp/systemd-test.compressed.XXXXXX",
-                pattern2[] = "/tmp/systemd-test.compressed.XXXXXX";
-        int r;
-        _cleanup_free_ char *cmd = NULL, *cmd2 = NULL;
-        struct stat st = {};
-        uint64_t uncompressed_size;
+static int test_decompressor_callback(const void *p, size_t size, void *userdata) {
+        struct decompressor_test_data *d = ASSERT_PTR(userdata);
 
-        r = find_executable(cat, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Skipping %s, could not find %s binary: %m", __func__, cat);
-                return;
-        }
+        if (!GREEDY_REALLOC(d->buf, d->size + size))
+                return -ENOMEM;
 
-        log_debug("/* testing %s compression */", compression);
-
-        log_debug("/* create source from %s */", srcfile);
-
-        ASSERT_OK(src = open(srcfile, O_RDONLY|O_CLOEXEC));
-
-        log_debug("/* test compression */");
-
-        assert_se((dst = mkostemp_safe(pattern)) >= 0);
-
-        ASSERT_OK(compress(src, dst, -1, &uncompressed_size));
-
-        if (cat) {
-                assert_se(asprintf(&cmd, "%s %s | diff '%s' -", cat, pattern, srcfile) > 0);
-                assert_se(system(cmd) == 0);
-        }
-
-        log_debug("/* test decompression */");
-
-        assert_se((dst2 = mkostemp_safe(pattern2)) >= 0);
-
-        assert_se(stat(srcfile, &st) == 0);
-        assert_se((uint64_t)st.st_size == uncompressed_size);
-
-        assert_se(lseek(dst, 0, SEEK_SET) == 0);
-        r = decompress(dst, dst2, st.st_size);
-        assert_se(r == 0);
-
-        assert_se(asprintf(&cmd2, "diff '%s' %s", srcfile, pattern2) > 0);
-        assert_se(system(cmd2) == 0);
-
-        log_debug("/* test faulty decompression */");
-
-        assert_se(lseek(dst, 1, SEEK_SET) == 1);
-        r = decompress(dst, dst2, st.st_size);
-        assert_se(IN_SET(r, 0, -EBADMSG));
-
-        assert_se(lseek(dst, 0, SEEK_SET) == 0);
-        assert_se(lseek(dst2, 0, SEEK_SET) == 0);
-        r = decompress(dst, dst2, st.st_size - 1);
-        assert_se(r == -EFBIG);
+        memcpy(d->buf + d->size, p, size);
+        d->size += size;
+        return 0;
 }
-#endif
 
-#if HAVE_LZ4
-extern DLSYM_PROTOTYPE(LZ4_compress_default);
-extern DLSYM_PROTOTYPE(LZ4_decompress_safe);
-extern DLSYM_PROTOTYPE(LZ4_decompress_safe_partial);
-extern DLSYM_PROTOTYPE(LZ4_versionNumber);
+TEST(decompress_stream_sparse) {
+        for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
+                if (c == COMPRESSION_NONE || !compression_supported(c))
+                        continue;
 
-static void test_lz4_decompress_partial(void) {
-        char buf[20000], buf2[100];
-        size_t buf_size = sizeof(buf), compressed;
-        int r;
-        _cleanup_free_ char *huge = NULL;
+                _cleanup_close_ int src = -EBADF, compressed = -EBADF, decompressed = -EBADF;
+                _cleanup_(unlink_tempfilep) char
+                        pattern_src[] = "/tmp/systemd-test.sparse-src.XXXXXX",
+                        pattern_compressed[] = "/tmp/systemd-test.sparse-compressed.XXXXXX",
+                        pattern_decompressed[] = "/tmp/systemd-test.sparse-decompressed.XXXXXX";
+                /* Create a sparse-like input: 4K of data, 64K of zeros, 4K of data, 64K trailing zeros.
+                 * Total apparent size: 136K, but most of it is zeros. */
+                uint8_t data_block[4096];
+                struct stat st_src, st_decompressed;
+                uint64_t uncompressed_size;
 
-        log_debug("/* %s */", __func__);
+                log_debug("/* testing %s sparse decompression */", compression_to_string(c));
 
-        assert_se(huge = malloc(HUGE_SIZE));
+                random_bytes(data_block, sizeof(data_block));
+
+                ASSERT_OK(src = mkostemp_safe(pattern_src));
+
+                /* Write: 4K data, 64K zeros, 4K data, 64K zeros */
+                ASSERT_OK(loop_write(src, data_block, sizeof(data_block)));
+                ASSERT_OK_ERRNO(ftruncate(src, sizeof(data_block) + 65536));
+                ASSERT_OK_ERRNO(lseek(src, sizeof(data_block) + 65536, SEEK_SET));
+                ASSERT_OK(loop_write(src, data_block, sizeof(data_block)));
+                ASSERT_OK_ERRNO(ftruncate(src, 2 * sizeof(data_block) + 2 * 65536));
+                ASSERT_EQ(lseek(src, 0, SEEK_SET), (off_t) 0);
+
+                ASSERT_OK_ERRNO(fstat(src, &st_src));
+                ASSERT_EQ(st_src.st_size, 2 * (off_t) sizeof(data_block) + 2 * 65536);
+
+                /* Compress */
+                ASSERT_OK(compressed = mkostemp_safe(pattern_compressed));
+                ASSERT_OK(compress_stream(c, src, compressed, -1, &uncompressed_size));
+                ASSERT_EQ((uint64_t) st_src.st_size, uncompressed_size);
+
+                /* Decompress to a regular file (sparse writes auto-detected) */
+                ASSERT_OK(decompressed = mkostemp_safe(pattern_decompressed));
+                ASSERT_EQ(lseek(compressed, 0, SEEK_SET), (off_t) 0);
+                ASSERT_OK_ZERO(decompress_stream(c, compressed, decompressed, st_src.st_size));
+
+                /* Verify apparent size matches */
+                ASSERT_OK_ERRNO(fstat(decompressed, &st_decompressed));
+                ASSERT_EQ(st_decompressed.st_size, st_src.st_size);
+
+                /* Verify content matches by comparing bytes */
+                ASSERT_EQ(lseek(src, 0, SEEK_SET), (off_t) 0);
+                ASSERT_EQ(lseek(decompressed, 0, SEEK_SET), (off_t) 0);
+
+                for (off_t offset = 0; offset < st_src.st_size;) {
+                        uint8_t buf_src[4096], buf_dst[4096];
+                        size_t to_read = MIN((size_t) (st_src.st_size - offset), sizeof(buf_src));
+
+                        ASSERT_EQ(loop_read(src, buf_src, to_read, true), (ssize_t) to_read);
+                        ASSERT_EQ(loop_read(decompressed, buf_dst, to_read, true), (ssize_t) to_read);
+                        ASSERT_EQ(memcmp(buf_src, buf_dst, to_read), 0);
+                        offset += to_read;
+                }
+
+                /* Verify the decompressed file is actually sparse (uses less disk than apparent size).
+                 * st_blocks is in 512-byte units. The file has 128K of zeros, so disk usage should be
+                 * noticeably less than the apparent size if sparse writes worked.
+                 * Only assert if the filesystem supports holes (SEEK_HOLE). */
+                log_debug("%s sparse decompression: apparent=%jd disk=%jd",
+                          compression_to_string(c),
+                          (intmax_t) st_decompressed.st_size,
+                          (intmax_t) st_decompressed.st_blocks * 512);
+                if (lseek(decompressed, 0, SEEK_HOLE) < st_decompressed.st_size)
+                        ASSERT_LT(st_decompressed.st_blocks * 512, st_decompressed.st_size);
+                else
+                        log_debug("Filesystem does not support holes, skipping sparsity check");
+
+                /* Test all-zeros input: entire output should be a hole */
+                log_debug("/* testing %s sparse decompression of all-zeros */", compression_to_string(c));
+                {
+                        _cleanup_close_ int zsrc = -EBADF, zcompressed = -EBADF, zdecompressed = -EBADF;
+                        _cleanup_(unlink_tempfilep) char
+                                zp_src[] = "/tmp/systemd-test.sparse-zero-src.XXXXXX",
+                                zp_compressed[] = "/tmp/systemd-test.sparse-zero-compressed.XXXXXX",
+                                zp_decompressed[] = "/tmp/systemd-test.sparse-zero-decompressed.XXXXXX";
+                        struct stat zst;
+                        uint64_t zsize;
+                        uint8_t zeros[65536] = {};
+
+                        ASSERT_OK(zsrc = mkostemp_safe(zp_src));
+                        ASSERT_OK(loop_write(zsrc, zeros, sizeof(zeros)));
+                        ASSERT_EQ(lseek(zsrc, 0, SEEK_SET), (off_t) 0);
+
+                        ASSERT_OK(zcompressed = mkostemp_safe(zp_compressed));
+                        ASSERT_OK(compress_stream(c, zsrc, zcompressed, -1, &zsize));
+                        ASSERT_EQ(zsize, (uint64_t) sizeof(zeros));
+
+                        ASSERT_OK(zdecompressed = mkostemp_safe(zp_decompressed));
+                        ASSERT_EQ(lseek(zcompressed, 0, SEEK_SET), (off_t) 0);
+                        ASSERT_OK_ZERO(decompress_stream(c, zcompressed, zdecompressed, sizeof(zeros)));
+
+                        ASSERT_OK_ERRNO(fstat(zdecompressed, &zst));
+                        ASSERT_EQ(zst.st_size, (off_t) sizeof(zeros));
+                        /* All zeros — disk usage should be minimal */
+                        log_debug("%s all-zeros sparse: apparent=%jd disk=%jd",
+                                  compression_to_string(c), (intmax_t) zst.st_size, (intmax_t) zst.st_blocks * 512);
+                        if (lseek(zdecompressed, 0, SEEK_HOLE) < zst.st_size)
+                                ASSERT_LT(zst.st_blocks * 512, zst.st_size);
+                        else
+                                log_debug("Filesystem does not support holes, skipping sparsity check");
+                }
+
+                /* Test data ending with non-zero bytes: ftruncate should be a no-op */
+                log_debug("/* testing %s sparse decompression ending with data */", compression_to_string(c));
+                {
+                        _cleanup_close_ int dsrc = -EBADF, dcompressed = -EBADF, ddecompressed = -EBADF;
+                        _cleanup_(unlink_tempfilep) char
+                                dp_src[] = "/tmp/systemd-test.sparse-end-src.XXXXXX",
+                                dp_compressed[] = "/tmp/systemd-test.sparse-end-compressed.XXXXXX",
+                                dp_decompressed[] = "/tmp/systemd-test.sparse-end-decompressed.XXXXXX";
+                        struct stat dst;
+                        uint64_t dsize;
+                        uint8_t zeros[65536] = {};
+
+                        /* 64K zeros followed by 4K random data */
+                        ASSERT_OK(dsrc = mkostemp_safe(dp_src));
+                        ASSERT_OK(loop_write(dsrc, zeros, sizeof(zeros)));
+                        ASSERT_OK(loop_write(dsrc, data_block, sizeof(data_block)));
+                        ASSERT_EQ(lseek(dsrc, 0, SEEK_SET), (off_t) 0);
+
+                        ASSERT_OK(dcompressed = mkostemp_safe(dp_compressed));
+                        ASSERT_OK(compress_stream(c, dsrc, dcompressed, -1, &dsize));
+                        ASSERT_EQ(dsize, (uint64_t)(sizeof(zeros) + sizeof(data_block)));
+
+                        ASSERT_OK(ddecompressed = mkostemp_safe(dp_decompressed));
+                        ASSERT_EQ(lseek(dcompressed, 0, SEEK_SET), (off_t) 0);
+                        ASSERT_OK_ZERO(decompress_stream(c, dcompressed, ddecompressed, dsize));
+
+                        ASSERT_OK_ERRNO(fstat(ddecompressed, &dst));
+                        ASSERT_EQ(dst.st_size, (off_t)(sizeof(zeros) + sizeof(data_block)));
+                }
+        }
+}
+
+TEST(compressor_decompressor_push_api) {
+        for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
+                if (c == COMPRESSION_NONE || !compression_supported(c))
+                        continue;
+
+                log_info("/* testing %s Compressor/Decompressor push API */", compression_to_string(c));
+
+                _cleanup_(compressor_freep) Compressor *compressor = NULL;
+                _cleanup_(compressor_freep) Decompressor *decompressor = NULL;
+                _cleanup_free_ void *compressed = NULL, *finish_buf = NULL;
+                size_t compressed_size = 0, compressed_alloc = 0;
+                size_t finish_size = 0, finish_alloc = 0;
+
+                /* Compress */
+                ASSERT_OK(compressor_new(&compressor, c));
+                ASSERT_EQ(compressor_type(compressor), c);
+
+                ASSERT_OK(compressor_start(compressor, text, sizeof(text), &compressed, &compressed_size, &compressed_alloc));
+                ASSERT_OK(compressor_finish(compressor, &finish_buf, &finish_size, &finish_alloc));
+
+                size_t total_compressed = compressed_size + finish_size;
+                _cleanup_free_ void *full_compressed = malloc(total_compressed);
+                ASSERT_NOT_NULL(full_compressed);
+                memcpy(full_compressed, compressed, compressed_size);
+                if (finish_size > 0)
+                        memcpy((uint8_t*) full_compressed + compressed_size, finish_buf, finish_size);
+
+                compressor = compressor_free(compressor);
+
+                /* Decompress via detect + push and verify content */
+                ASSERT_OK_POSITIVE(decompressor_detect(&decompressor, full_compressed, total_compressed));
+                ASSERT_EQ(compressor_type(decompressor), c);
+
+                struct decompressor_test_data result = {};
+                ASSERT_OK(decompressor_push(decompressor, full_compressed, total_compressed, test_decompressor_callback, &result));
+                ASSERT_EQ(result.size, sizeof(text));
+                ASSERT_EQ(memcmp(result.buf, text, sizeof(text)), 0);
+                free(result.buf);
+
+                decompressor = compressor_free(decompressor);
+        }
+
+        /* Test compressor_type on NULL */
+        ASSERT_EQ(compressor_type(NULL), _COMPRESSION_INVALID);
+
+        /* Test decompressor_force_off */
+        _cleanup_(compressor_freep) Decompressor *d = NULL;
+        ASSERT_OK(decompressor_force_off(&d));
+        ASSERT_EQ(compressor_type(d), COMPRESSION_NONE);
+        d = compressor_free(d);
+
+        /* Test decompressor_detect returning 0 on too-small input */
+        ASSERT_OK_ZERO(decompressor_detect(&d, "x", 1));
+        ASSERT_NULL(d);
+}
+
+static int intro(void) {
+        srcfile = saved_argc > 1 ? saved_argv[1] : saved_argv[0];
+
+        ASSERT_NOT_NULL(huge = malloc(HUGE_SIZE));
         memcpy(huge, "HUGE=", STRLEN("HUGE="));
         memset(&huge[STRLEN("HUGE=")], 'x', HUGE_SIZE - STRLEN("HUGE=") - 1);
         huge[HUGE_SIZE - 1] = '\0';
-
-        r = sym_LZ4_compress_default(huge, buf, HUGE_SIZE, buf_size);
-        assert_se(r >= 0);
-        compressed = r;
-        log_info("Compressed %i → %zu", HUGE_SIZE, compressed);
-
-        r = sym_LZ4_decompress_safe(buf, huge, r, HUGE_SIZE);
-        assert_se(r >= 0);
-        log_info("Decompressed → %i", r);
-
-        r = sym_LZ4_decompress_safe_partial(buf, huge,
-                                        compressed,
-                                        12, HUGE_SIZE);
-        assert_se(r >= 0);
-        log_info("Decompressed partial %i/%i → %i", 12, HUGE_SIZE, r);
-
-        for (size_t size = 1; size < sizeof(buf2); size++) {
-                /* This failed in older lz4s but works in newer ones. */
-                r = sym_LZ4_decompress_safe_partial(buf, buf2, compressed, size, size);
-                log_info("Decompressed partial %zu/%zu → %i (%s)", size, size, r,
-                                                                   r < 0 ? "bad" : "good");
-                if (r >= 0 && sym_LZ4_versionNumber() >= 10803)
-                        /* lz4 <= 1.8.2 should fail that test, let's only check for newer ones */
-                        assert_se(memcmp(buf2, huge, r) == 0);
-        }
-}
-#endif
-
-int main(int argc, char *argv[]) {
-#if HAVE_COMPRESSION
-        _unused_ const char text[] =
-                "text\0foofoofoofoo AAAA aaaaaaaaa ghost busters barbarbar FFF"
-                "foofoofoofoo AAAA aaaaaaaaa ghost busters barbarbar FFF";
-
-        /* The file to test compression on can be specified as the first argument */
-        const char *srcfile = argc > 1 ? argv[1] : argv[0];
-
-        char data[512] = "random\0";
-
-        _cleanup_free_ char *huge = NULL;
-
-        assert_se(huge = malloc(HUGE_SIZE));
-        memcpy(huge, "HUGE=", STRLEN("HUGE="));
-        memset(&huge[STRLEN("HUGE=")], 'x', HUGE_SIZE - STRLEN("HUGE=") - 1);
-        huge[HUGE_SIZE - 1] = '\0';
-
-        test_setup_logging(LOG_DEBUG);
 
         random_bytes(data + 7, sizeof(data) - 7);
 
-#if HAVE_XZ
-        test_compress_decompress("XZ", compress_blob_xz, decompress_blob_xz,
-                                 text, sizeof(text), false);
-        test_compress_decompress("XZ", compress_blob_xz, decompress_blob_xz,
-                                 data, sizeof(data), true);
-
-        test_decompress_startswith("XZ",
-                                   compress_blob_xz, decompress_startswith_xz,
-                                   text, sizeof(text), false);
-        test_decompress_startswith("XZ",
-                                   compress_blob_xz, decompress_startswith_xz,
-                                   data, sizeof(data), true);
-        test_decompress_startswith("XZ",
-                                   compress_blob_xz, decompress_startswith_xz,
-                                   huge, HUGE_SIZE, true);
-
-        test_compress_stream("XZ", "xzcat",
-                             compress_stream_xz, decompress_stream_xz, srcfile);
-
-        test_decompress_startswith_short("XZ", compress_blob_xz, decompress_startswith_xz);
-
-#else
-        log_info("/* XZ test skipped */");
-#endif
-
-#if HAVE_LZ4
-        if (dlopen_lz4() >= 0) {
-                test_compress_decompress("LZ4", compress_blob_lz4, decompress_blob_lz4,
-                                         text, sizeof(text), false);
-                test_compress_decompress("LZ4", compress_blob_lz4, decompress_blob_lz4,
-                                         data, sizeof(data), true);
-
-                test_decompress_startswith("LZ4",
-                                           compress_blob_lz4, decompress_startswith_lz4,
-                                           text, sizeof(text), false);
-                test_decompress_startswith("LZ4",
-                                           compress_blob_lz4, decompress_startswith_lz4,
-                                           data, sizeof(data), true);
-                test_decompress_startswith("LZ4",
-                                           compress_blob_lz4, decompress_startswith_lz4,
-                                           huge, HUGE_SIZE, true);
-
-                test_compress_stream("LZ4", "lz4cat",
-                                     compress_stream_lz4, decompress_stream_lz4, srcfile);
-
-                test_lz4_decompress_partial();
-
-                test_decompress_startswith_short("LZ4", compress_blob_lz4, decompress_startswith_lz4);
-        } else
-                log_error("/* Can't load liblz4 */");
-#else
-        log_info("/* LZ4 test skipped */");
-#endif
-
-#if HAVE_ZSTD
-        test_compress_decompress("ZSTD", compress_blob_zstd, decompress_blob_zstd,
-                                 text, sizeof(text), false);
-        test_compress_decompress("ZSTD", compress_blob_zstd, decompress_blob_zstd,
-                                 data, sizeof(data), true);
-
-        test_decompress_startswith("ZSTD",
-                                   compress_blob_zstd, decompress_startswith_zstd,
-                                   text, sizeof(text), false);
-        test_decompress_startswith("ZSTD",
-                                   compress_blob_zstd, decompress_startswith_zstd,
-                                   data, sizeof(data), true);
-        test_decompress_startswith("ZSTD",
-                                   compress_blob_zstd, decompress_startswith_zstd,
-                                   huge, HUGE_SIZE, true);
-
-        test_compress_stream("ZSTD", "zstdcat",
-                             compress_stream_zstd, decompress_stream_zstd, srcfile);
-
-        test_decompress_startswith_short("ZSTD", compress_blob_zstd, decompress_startswith_zstd);
-#else
-        log_info("/* ZSTD test skipped */");
-#endif
-
         return 0;
-#else
-        return log_tests_skipped("no compression algorithm supported");
-#endif
 }
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

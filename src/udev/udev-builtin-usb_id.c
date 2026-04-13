@@ -168,7 +168,7 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
                 desc = (struct usb_interface_descriptor *) (buf + pos);
                 if (desc->bLength < 3)
                         break;
-                if (desc->bLength > size - sizeof(struct usb_interface_descriptor))
+                if (desc->bLength > (size_t) size - pos)
                         return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EIO),
                                                       "Corrupt data read from \"%s\"", filename);
                 pos += desc->bLength;

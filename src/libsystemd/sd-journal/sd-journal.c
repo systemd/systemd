@@ -2456,7 +2456,6 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
 
 _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        struct stat st;
         bool take_fd;
         int r;
 
@@ -2464,11 +2463,9 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         assert_return(fd >= 0, -EBADF);
         assert_return((flags & ~OPEN_DIRECTORY_FD_ALLOWED_FLAGS) == 0, -EINVAL);
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISDIR(st.st_mode))
-                return -EBADFD;
+        r = fd_verify_directory(fd);
+        if (r < 0)
+                return r;
 
         take_fd = FLAGS_SET(flags, SD_JOURNAL_TAKE_DIRECTORY_FD);
         j = journal_new(flags & ~SD_JOURNAL_TAKE_DIRECTORY_FD, NULL, NULL);
@@ -2822,8 +2819,6 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
         assert_return(field, -EINVAL);
-        assert_return(ret_data, -EINVAL);
-        assert_return(ret_size, -EINVAL);
         assert_return(field_is_valid(field), -EINVAL);
 
         f = j->current_file;
@@ -2846,7 +2841,8 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 size_t l;
 
                 p = journal_file_entry_item_object_offset(f, o, i);
-                r = journal_file_data_payload(f, NULL, p, field, field_length, j->data_threshold, &d, &l);
+                r = journal_file_data_payload(f, NULL, p, field, field_length, j->data_threshold,
+                                              ret_data ? &d : NULL, ret_size ? &l : NULL);
                 if (r == 0)
                         continue;
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
@@ -2856,8 +2852,10 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 if (r < 0)
                         return r;
 
-                *ret_data = d;
-                *ret_size = l;
+                if (ret_data)
+                        *ret_data = d;
+                if (ret_size)
+                        *ret_size = l;
 
                 return 0;
         }

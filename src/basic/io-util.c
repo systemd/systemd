@@ -248,6 +248,8 @@ int fd_wait_for_event(int fd, int event, usec_t timeout) {
 static size_t nul_length(const uint8_t *p, size_t sz) {
         size_t n = 0;
 
+        assert(p);
+
         while (sz > 0) {
                 if (*p != 0)
                         break;

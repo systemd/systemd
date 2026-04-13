@@ -32,8 +32,6 @@
  * message.
  */
 
-struct iovec;
-
 typedef struct LogContext {
         unsigned n_ref;
         /* Depending on which destructor is used (log_context_free() or log_context_detach()) the memory

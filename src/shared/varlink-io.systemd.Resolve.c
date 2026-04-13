@@ -274,6 +274,8 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(negativeTrustAnchors, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DNSSEC mode."),
                 SD_VARLINK_DEFINE_FIELD(dnssec, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Indicates if the current DNS server supports DNSSEC. Always false if DNSSEC mode is \"no\"."),
+                SD_VARLINK_DEFINE_FIELD(dnssecSupported, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DNSOverTLS mode."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(dnsOverTLS, DNSOverTLSMode, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("LLMNR support."),
@@ -298,7 +300,7 @@ static SD_VARLINK_DEFINE_METHOD(
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 BrowseServices,
-                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_REQUIRES_MORE,
                 SD_VARLINK_FIELD_COMMENT("The domain to browse for services. If null, the default browsing domain local is used."),
                 SD_VARLINK_DEFINE_INPUT(domain, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The service type to browse for (e.g., '_http._tcp')."),
@@ -343,6 +345,7 @@ static SD_VARLINK_DEFINE_ERROR(ResourceRecordTypeInvalidForQuery);
 static SD_VARLINK_DEFINE_ERROR(ZoneTransfersNotPermitted);
 static SD_VARLINK_DEFINE_ERROR(ResourceRecordTypeObsolete);
 static SD_VARLINK_DEFINE_ERROR(InconsistentServiceRecords);
+static SD_VARLINK_DEFINE_ERROR(ServiceNotProvided);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve,
@@ -413,4 +416,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_ZoneTransfersNotPermitted,
                 &vl_error_ResourceRecordTypeObsolete,
                 SD_VARLINK_SYMBOL_COMMENT("The DNS resource records of the specified service are not consistent (e.g. lacks a DNS-SD service type when resolved)."),
-                &vl_error_InconsistentServiceRecords);
+                &vl_error_InconsistentServiceRecords,
+                SD_VARLINK_SYMBOL_COMMENT("The service is explicitly not provided on the queried domain (RFC 2782 root domain SRV record)."),
+                &vl_error_ServiceNotProvided);

@@ -64,6 +64,14 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(DefaultMemoryPressureThresholdUSec, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultMemoryPressureWatch="),
                 SD_VARLINK_DEFINE_FIELD(DefaultMemoryPressureWatch, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultCPUPressureThresholdUSec="),
+                SD_VARLINK_DEFINE_FIELD(DefaultCPUPressureThresholdUSec, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultCPUPressureWatch="),
+                SD_VARLINK_DEFINE_FIELD(DefaultCPUPressureWatch, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultIOPressureThresholdUSec="),
+                SD_VARLINK_DEFINE_FIELD(DefaultIOPressureThresholdUSec, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultIOPressureWatch="),
+                SD_VARLINK_DEFINE_FIELD(DefaultIOPressureWatch, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#RuntimeWatchdogSec="),
                 SD_VARLINK_DEFINE_FIELD(RuntimeWatchdogUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#RebootWatchdogSec="),
@@ -89,7 +97,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The console on which systemd asks for confirmation when spawning processes"),
                 SD_VARLINK_DEFINE_FIELD(ConfirmSpawn, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Root of the control group hierarchy that the manager is running in"),
-                SD_VARLINK_DEFINE_FIELD(ControlGroup, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(ControlGroup, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultMemoryZSwapWriteback="),
+                SD_VARLINK_DEFINE_FIELD(DefaultMemoryZSwapWriteback, SD_VARLINK_BOOL, 0));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ManagerRuntime,
@@ -181,16 +191,28 @@ static SD_VARLINK_DEFINE_METHOD(
 static SD_VARLINK_DEFINE_METHOD(
                 Reload);
 
-static SD_VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD_FULL(
                 EnqueueMarkedJobs,
-                SD_VARLINK_FIELD_COMMENT("IDs of enqueued jobs"),
-                SD_VARLINK_DEFINE_OUTPUT(JobIDs, SD_VARLINK_INT, SD_VARLINK_ARRAY));
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("Enqueued unit ID"),
+                SD_VARLINK_DEFINE_OUTPUT(unitID, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("ID of enqueued job (if successful)"),
+                SD_VARLINK_DEFINE_OUTPUT(jobID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Varlink error ID (on failure)"),
+                SD_VARLINK_DEFINE_OUTPUT(error, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Job enqueue error message (on failure)"),
+                SD_VARLINK_DEFINE_OUTPUT(errorMessage, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(PowerOff);
+static SD_VARLINK_DEFINE_METHOD(Reboot);
+static SD_VARLINK_DEFINE_METHOD(Halt);
+static SD_VARLINK_DEFINE_METHOD(KExec);
+static SD_VARLINK_DEFINE_METHOD(
+                SoftReboot,
+                SD_VARLINK_FIELD_COMMENT("New root directory for the soft reboot"),
+                SD_VARLINK_DEFINE_INPUT(root, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(RateLimitReached);
-
-static SD_VARLINK_DEFINE_ERROR(OnlyByDependency);
-
-static SD_VARLINK_DEFINE_ERROR(BusShuttingDown);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Manager,
@@ -202,11 +224,17 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Reload,
                 SD_VARLINK_SYMBOL_COMMENT("Enqueue all marked jobs"),
                 &vl_method_EnqueueMarkedJobs,
+                SD_VARLINK_SYMBOL_COMMENT("Power off the system"),
+                &vl_method_PowerOff,
+                SD_VARLINK_SYMBOL_COMMENT("Reboot the system"),
+                &vl_method_Reboot,
+                SD_VARLINK_SYMBOL_COMMENT("Halt the system"),
+                &vl_method_Halt,
+                SD_VARLINK_SYMBOL_COMMENT("Reboot the system via kexec"),
+                &vl_method_KExec,
+                SD_VARLINK_SYMBOL_COMMENT("Soft-reboot the userspace"),
+                &vl_method_SoftReboot,
                 &vl_error_RateLimitReached,
-                SD_VARLINK_SYMBOL_COMMENT("Unit operation may be requested by dependency only"),
-                &vl_error_OnlyByDependency,
-                SD_VARLINK_SYMBOL_COMMENT("Operation refused, the bus is shutting down"),
-                &vl_error_BusShuttingDown,
                 &vl_type_ManagerContext,
                 &vl_type_ManagerRuntime,
                 &vl_type_Timestamp,

@@ -33,6 +33,8 @@
 #include "time-util.h"
 
 static void cleanup_clear_loop_close(int *fd) {
+        assert(fd);
+
         if (*fd < 0)
                 return;
 
@@ -376,9 +378,9 @@ static int loop_configure(
 }
 
 static int fd_get_max_discard(int fd, uint64_t *ret) {
-        struct stat st;
         char sysfs_path[STRLEN("/sys/dev/block/" ":" "/queue/discard_max_bytes") + DECIMAL_STR_MAX(dev_t) * 2 + 1];
         _cleanup_free_ char *buffer = NULL;
+        struct stat st;
         int r;
 
         assert(ret);
@@ -386,8 +388,9 @@ static int fd_get_max_discard(int fd, uint64_t *ret) {
         if (fstat(ASSERT_FD(fd), &st) < 0)
                 return -errno;
 
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
+        r = stat_verify_block(&st);
+        if (r < 0)
+                return r;
 
         xsprintf(sysfs_path, "/sys/dev/block/" DEVNUM_FORMAT_STR "/queue/discard_max_bytes", DEVNUM_FORMAT_VAL(st.st_rdev));
 
@@ -399,18 +402,47 @@ static int fd_get_max_discard(int fd, uint64_t *ret) {
 }
 
 static int fd_set_max_discard(int fd, uint64_t max_discard) {
-        struct stat st;
         char sysfs_path[STRLEN("/sys/dev/block/" ":" "/queue/discard_max_bytes") + DECIMAL_STR_MAX(dev_t) * 2 + 1];
+        struct stat st;
+        int r;
 
         if (fstat(ASSERT_FD(fd), &st) < 0)
                 return -errno;
 
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
+        r = stat_verify_block(&st);
+        if (r < 0)
+                return r;
 
         xsprintf(sysfs_path, "/sys/dev/block/" DEVNUM_FORMAT_STR "/queue/discard_max_bytes", DEVNUM_FORMAT_VAL(st.st_rdev));
 
         return write_string_filef(sysfs_path, WRITE_STRING_FILE_DISABLE_BUFFER, "%" PRIu64, max_discard);
+}
+
+static int probe_sector_size_harder(int fd, uint32_t *ret) {
+        _cleanup_close_ int non_direct_io_fd = -EBADF;
+        int probe_fd, f_flags;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        /* Wraps probe_sector_size() but handles O_DIRECT: if the fd is opened with O_DIRECT there are
+         * strict alignment requirements for reads, so we temporarily reopen it without O_DIRECT for the
+         * probing logic. */
+
+        f_flags = fcntl(fd, F_GETFL);
+        if (f_flags < 0)
+                return -errno;
+
+        if (FLAGS_SET(f_flags, O_DIRECT)) {
+                non_direct_io_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (non_direct_io_fd < 0)
+                        return non_direct_io_fd;
+
+                probe_fd = non_direct_io_fd;
+        } else
+                probe_fd = fd;
+
+        return probe_sector_size(probe_fd, ret);
 }
 
 static int loop_device_make_internal(
@@ -435,6 +467,11 @@ static int loop_device_make_internal(
         assert(open_flags < 0 || IN_SET(open_flags, O_RDWR, O_RDONLY));
         assert(ret);
 
+        /* sector_size interpretation:
+         *   0          → use device sector size for block devices, 512 for regular files
+         *   UINT32_MAX → probe GPT header to find the right sector size, fall back to 0 behavior
+         *   other      → use the specified sector size explicitly */
+
         f_flags = fcntl(fd, F_GETFL);
         if (f_flags < 0)
                 return -errno;
@@ -449,19 +486,45 @@ static int loop_device_make_internal(
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADFD), "Access mode of image file is write only (?)");
         }
 
+        if (sector_size == UINT32_MAX) {
+                /* If sector size is specified as UINT32_MAX, we'll try to probe the right sector size
+                 * by looking for the GPT partition header at various offsets. This of course only works
+                 * if the image already has a disk label. */
+
+                r = probe_sector_size_harder(fd, &sector_size);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        sector_size = 0; /* If we can't probe anything, use default sector size. */
+        }
+
         if (fstat(fd, &st) < 0)
                 return -errno;
 
         if (S_ISBLK(st.st_mode)) {
-                if (offset == 0 && IN_SET(size, 0, UINT64_MAX))
+                uint32_t device_ssz;
+                r = blockdev_get_sector_size(fd, &device_ssz);
+                if (r < 0)
+                        return r;
+
+                if (sector_size == 0)
+                        sector_size = device_ssz;
+
+                if (offset == 0 && IN_SET(size, 0, UINT64_MAX) && sector_size == device_ssz)
                         /* If this is already a block device and we are supposed to cover the whole of it
-                         * then store an fd to the original open device node — and do not actually create an
-                         * unnecessary loopback device for it. */
+                         * then store an fd to the original open device node — and do not actually create
+                         * an unnecessary loopback device for it. If an explicit sector size was requested
+                         * that differs from the device sector size, or if the probed GPT sector size
+                         * differs (e.g. CD-ROMs with 2048-byte blocks but a 512-byte sector GPT), create
+                         * a real loop device to change the sector size. */
                         return loop_device_open_from_fd(fd, open_flags, lock_op, ret);
         } else {
                 r = stat_verify_regular(&st);
                 if (r < 0)
                         return r;
+
+                if (sector_size == 0)
+                        sector_size = 512;
         }
 
         if (path) {
@@ -500,53 +563,26 @@ static int loop_device_make_internal(
         if (control < 0)
                 return -errno;
 
-        if (sector_size == 0)
-                /* If no sector size is specified, default to the classic default */
-                sector_size = 512;
-        else if (sector_size == UINT32_MAX) {
-
-                if (S_ISBLK(st.st_mode))
-                        /* If the sector size is specified as UINT32_MAX we'll propagate the sector size of
-                         * the underlying block device. */
-                        r = blockdev_get_sector_size(fd, &sector_size);
-                else {
-                        _cleanup_close_ int non_direct_io_fd = -EBADF;
-                        int probe_fd;
-
-                        assert(S_ISREG(st.st_mode));
-
-                        /* If sector size is specified as UINT32_MAX, we'll try to probe the right sector
-                         * size of the image in question by looking for the GPT partition header at various
-                         * offsets. This of course only works if the image already has a disk label.
-                         *
-                         * So here we actually want to read the file contents ourselves. This is quite likely
-                         * not going to work if we managed to enable O_DIRECT, because in such a case there
-                         * are some pretty strict alignment requirements to offset, size and target, but
-                         * there's no way to query what alignment specifically is actually required. Hence,
-                         * let's avoid the mess, and temporarily open an fd without O_DIRECT for the probing
-                         * logic. */
-
-                        if (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO)) {
-                                non_direct_io_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-                                if (non_direct_io_fd < 0)
-                                        return non_direct_io_fd;
-
-                                probe_fd = non_direct_io_fd;
-                        } else
-                                probe_fd = fd;
-
-                        r = probe_sector_size(probe_fd, &sector_size);
-                }
-                if (r < 0)
-                        return r;
-        }
+        /* Strip LO_FLAGS_PARTSCAN from LOOP_CONFIGURE and enable it afterwards via
+         * LOOP_SET_STATUS64 to work around a kernel race: LOOP_CONFIGURE sends a uevent with
+         * GD_NEED_PART_SCAN set before calling loop_reread_partitions(). If udev opens the device in
+         * response, blkdev_get_whole() triggers a first scan, then loop_reread_partitions() does a
+         * second scan that briefly drops all partitions. By configuring without partscan,
+         * GD_SUPPRESS_PART_SCAN stays set, making any concurrent open harmless. LOOP_SET_STATUS64
+         * doesn't call disk_force_media_change() so it doesn't set GD_NEED_PART_SCAN.
+         *
+         * See: https://lore.kernel.org/linux-block/20260330081819.652890-1-daan@amutable.com/T/#u
+         * Drop this workaround once the kernel fix is widely available. */
+        bool deferred_partscan = FLAGS_SET(loop_flags, LO_FLAGS_PARTSCAN);
 
         config = (struct loop_config) {
                 .fd = fd,
                 .block_size = sector_size,
                 .info = {
                         /* Use the specified flags, but configure the read-only flag from the open flags, and force autoclear */
-                        .lo_flags = (loop_flags & ~LO_FLAGS_READ_ONLY) | ((open_flags & O_ACCMODE_STRICT) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) | LO_FLAGS_AUTOCLEAR,
+                        .lo_flags = ((loop_flags & ~(LO_FLAGS_READ_ONLY|LO_FLAGS_PARTSCAN)) |
+                                     ((open_flags & O_ACCMODE_STRICT) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) |
+                                     LO_FLAGS_AUTOCLEAR),
                         .lo_offset = offset,
                         .lo_sizelimit = size == UINT64_MAX ? 0 : size,
                 },
@@ -636,6 +672,24 @@ static int loop_device_make_internal(
                         if (r < 0)
                                 log_debug_errno(r, "Failed to write 'discard_max_bytes' of loop device, ignoring: %m");
                 }
+        }
+
+        if (deferred_partscan) {
+                /* Open+close to drain GD_NEED_PART_SCAN harmlessly (GD_SUPPRESS_PART_SCAN is still
+                 * set so no partitions appear). Then enable partscan via LOOP_SET_STATUS64. */
+                int tmp_fd = fd_reopen(d->fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (tmp_fd < 0)
+                        return log_debug_errno(tmp_fd, "Failed to reopen loop device to drain partscan flag: %m");
+                safe_close(tmp_fd);
+
+                struct loop_info64 info;
+                if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
+                        return log_debug_errno(errno, "Failed to get loop device status: %m");
+
+                info.lo_flags |= LO_FLAGS_PARTSCAN;
+
+                if (ioctl(d->fd, LOOP_SET_STATUS64, &info) < 0)
+                        return log_debug_errno(errno, "Failed to enable partscan on loop device: %m");
         }
 
         d->backing_file = TAKE_PTR(backing_file);
@@ -769,12 +823,15 @@ int loop_device_make_by_path_memory(
 
         _cleanup_close_ int fd = -EBADF, mfd = -EBADF;
         _cleanup_free_ char *fn = NULL;
-        struct stat st;
         int r;
 
         assert(path);
-        assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
+        assert(open_flags < 0 || IN_SET(open_flags, O_RDWR, O_RDONLY));
         assert(ret);
+
+        /* memfds are always writable, so default to O_RDWR when auto-detecting. */
+        if (open_flags < 0)
+                open_flags = O_RDWR;
 
         loop_flags &= ~LO_FLAGS_DIRECT_IO; /* memfds don't support O_DIRECT, hence LO_FLAGS_DIRECT_IO can't be used either */
 
@@ -782,11 +839,9 @@ int loop_device_make_by_path_memory(
         if (fd < 0)
                 return -errno;
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISREG(st.st_mode) && !S_ISBLK(st.st_mode))
-                return -EBADF;
+        r = fd_verify_regular_or_block(fd);
+        if (r < 0)
+                return r;
 
         r = path_extract_filename(path, &fn);
         if (r < 0)
@@ -1177,6 +1232,9 @@ int loop_device_set_autoclear(LoopDevice *d, bool autoclear) {
         struct loop_info64 info;
 
         assert(d);
+
+        if (LOOP_DEVICE_IS_FOREIGN(d))
+                return 0;
 
         if (ioctl(ASSERT_FD(d->fd), LOOP_GET_STATUS64, &info) < 0)
                 return -errno;

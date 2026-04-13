@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "sd-dlopen.h"
+
 #include "alloc-util.h"
 #include "dlfcn-util.h"
 #include "errno-util.h"
@@ -18,14 +20,14 @@
 
 static void *pwquality_dl = NULL;
 
-DLSYM_PROTOTYPE(pwquality_check) = NULL;
-DLSYM_PROTOTYPE(pwquality_default_settings) = NULL;
-DLSYM_PROTOTYPE(pwquality_free_settings) = NULL;
-DLSYM_PROTOTYPE(pwquality_generate) = NULL;
-DLSYM_PROTOTYPE(pwquality_get_str_value) = NULL;
-DLSYM_PROTOTYPE(pwquality_read_config) = NULL;
-DLSYM_PROTOTYPE(pwquality_set_int_value) = NULL;
-DLSYM_PROTOTYPE(pwquality_strerror) = NULL;
+static DLSYM_PROTOTYPE(pwquality_check) = NULL;
+static DLSYM_PROTOTYPE(pwquality_default_settings) = NULL;
+static DLSYM_PROTOTYPE(pwquality_free_settings) = NULL;
+static DLSYM_PROTOTYPE(pwquality_generate) = NULL;
+static DLSYM_PROTOTYPE(pwquality_get_str_value) = NULL;
+static DLSYM_PROTOTYPE(pwquality_read_config) = NULL;
+static DLSYM_PROTOTYPE(pwquality_set_int_value) = NULL;
+static DLSYM_PROTOTYPE(pwquality_strerror) = NULL;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(pwquality_settings_t*, sym_pwquality_free_settings, pwquality_free_settingsp, NULL);
 
@@ -153,9 +155,10 @@ int check_password_quality(const char *password, const char *old, const char *us
 
 int dlopen_pwquality(void) {
 #if HAVE_PWQUALITY
-        ELF_NOTE_DLOPEN("pwquality",
+        SD_ELF_NOTE_DLOPEN(
+                        "pwquality",
                         "Support for password quality checks",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libpwquality.so.1");
 
         return dlopen_many_sym_or_warn(

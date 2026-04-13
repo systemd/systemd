@@ -5,7 +5,7 @@ set -eux
 set -o pipefail
 
 DISTRO="${DISTRO:-debian}"
-RELEASE="${RELEASE:-bookworm}"
+RELEASE="${RELEASE:-trixie}"
 SALSA_URL="${SALSA_URL:-https://salsa.debian.org/systemd-team/systemd.git}"
 BRANCH="${BRANCH:-debian/master}"
 ARCH="${ARCH:-amd64}"

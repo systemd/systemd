@@ -24,7 +24,7 @@ int bus_message_read_secret(sd_bus_message *m, UserRecord **ret, sd_bus_error *e
         if (r < 0)
                 return r;
 
-        r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE|SD_JSON_PARSE_MUST_BE_OBJECT, &v, &line, &column);
         if (r < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse JSON secret record at %u:%u: %m", line, column);
 
@@ -57,7 +57,7 @@ int bus_message_read_home_record(sd_bus_message *m, UserRecordLoadFlags flags, U
         if (r < 0)
                 return r;
 
-        r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE|SD_JSON_PARSE_MUST_BE_OBJECT, &v, &line, &column);
         if (r < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse JSON identity record at %u:%u: %m", line, column);
 

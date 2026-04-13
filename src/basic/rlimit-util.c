@@ -170,6 +170,9 @@ static int rlimit_parse_nice(const char *val, rlim_t *ret) {
         uint64_t rl;
         int r;
 
+        assert(val);
+        assert(ret);
+
         /* So, Linux is weird. The range for RLIMIT_NICE is 40..1, mapping to the nice levels -20..19. However, the
          * RLIMIT_NICE limit defaults to 0 by the kernel, i.e. a value that maps to nice level 20, which of course is
          * bogus and does not exist. In order to permit parsing the RLIMIT_NICE of 0 here we hence implement a slight
@@ -289,26 +292,25 @@ int rlimit_parse(int resource, const char *val, struct rlimit *ret) {
 }
 
 int rlimit_format(const struct rlimit *rl, char **ret) {
-        _cleanup_free_ char *s = NULL;
-        int r;
+        char *s;
 
         assert(rl);
         assert(ret);
 
         if (rl->rlim_cur >= RLIM_INFINITY && rl->rlim_max >= RLIM_INFINITY)
-                r = free_and_strdup(&s, "infinity");
+                s = strdup("infinity");
         else if (rl->rlim_cur >= RLIM_INFINITY)
-                r = asprintf(&s, "infinity:" RLIM_FMT, rl->rlim_max);
+                s = asprintf_safe("infinity:" RLIM_FMT, rl->rlim_max);
         else if (rl->rlim_max >= RLIM_INFINITY)
-                r = asprintf(&s, RLIM_FMT ":infinity", rl->rlim_cur);
+                s = asprintf_safe(RLIM_FMT ":infinity", rl->rlim_cur);
         else if (rl->rlim_cur == rl->rlim_max)
-                r = asprintf(&s, RLIM_FMT, rl->rlim_cur);
+                s = asprintf_safe(RLIM_FMT, rl->rlim_cur);
         else
-                r = asprintf(&s, RLIM_FMT ":" RLIM_FMT, rl->rlim_cur, rl->rlim_max);
-        if (r < 0)
+                s = asprintf_safe(RLIM_FMT ":" RLIM_FMT, rl->rlim_cur, rl->rlim_max);
+        if (!s)
                 return -ENOMEM;
 
-        *ret = TAKE_PTR(s);
+        *ret = s;
         return 0;
 }
 

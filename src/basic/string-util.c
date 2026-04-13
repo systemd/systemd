@@ -174,6 +174,9 @@ char* ascii_strlower_n(char *s, size_t n) {
 
 int ascii_strcasecmp_n(const char *a, const char *b, size_t n) {
 
+        assert(a);
+        assert(b);
+
         for (; n > 0; a++, b++, n--) {
                 int x, y;
 
@@ -267,13 +270,19 @@ static size_t ansi_sequence_length(const char *s, size_t len) {
 static bool string_has_ansi_sequence(const char *s, size_t len) {
         const char *t = s;
 
-        while ((t = memchr(s, 0x1B, len - (t - s))))
+        while ((t = memchr(t, 0x1B, len - (t - s)))) {
                 if (ansi_sequence_length(t, len - (t - s)) > 0)
                         return true;
+                t++;
+        }
         return false;
 }
 
 static size_t previous_ansi_sequence(const char *s, size_t length, const char **ret_where) {
+
+        assert(s);
+        assert(ret_where);
+
         /* Locate the previous ANSI sequence and save its start in *ret_where and return length. */
 
         for (size_t i = length - 2; i > 0; i--) {  /* -2 because at least two bytes are needed */
@@ -658,6 +667,7 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
         assert(ibuf);
         assert(*ibuf);
+        POINTER_MAY_BE_NULL(_isz);
 
         /* This does three things:
          *
@@ -1131,6 +1141,7 @@ int string_truncate_lines(const char *s, size_t n_lines, char **ret) {
         size_t n = 0;
 
         assert(s);
+        assert(ret);
 
         /* Truncate after the specified number of lines. Returns > 0 if a truncation was applied or == 0 if
          * there were fewer lines in the string anyway. Trailing newlines on input are ignored, and not
@@ -1184,6 +1195,8 @@ int string_truncate_lines(const char *s, size_t n_lines, char **ret) {
 int string_extract_line(const char *s, size_t i, char **ret) {
         const char *p = s;
         size_t c = 0;
+
+        assert(ret);
 
         /* Extract the i'nth line from the specified string. Returns > 0 if there are more lines after that,
          * and == 0 if we are looking at the last line or already beyond the last line. As special

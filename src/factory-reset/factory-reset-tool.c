@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
-
 #include "sd-json.h"
 #include "sd-varlink.h"
 
@@ -12,9 +10,11 @@
 #include "efivars.h"
 #include "errno-util.h"
 #include "factory-reset.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "json-util.h"
 #include "main-func.h"
+#include "options.h"
 #include "os-util.h"
 #include "pretty-print.h"
 #include "udev-util.h"
@@ -28,76 +28,66 @@ static bool arg_varlink = false;
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-factory-reset", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] COMMAND\n"
-               "\n%5$sQuery, request, cancel factory reset operation.%6$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "  status             Report current factory reset status\n"
-               "  request            Request a factory reset on next boot\n"
-               "  cancel             Cancel a prior factory reset request for next boot\n"
-               "  complete           Mark a factory reset as complete\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help          Show this help\n"
-               "     --version       Print version\n"
-               "     --retrigger     Retrigger block devices\n"
-               "  -q --quiet         Suppress output\n"
-               "\nSee the %2$s for details.\n",
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, options, verbs);
+
+        printf("%s [OPTIONS...] COMMAND\n"
+               "\n%sQuery, request, cancel factory reset operation.%s\n"
+               "\nCommands:\n",
                program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
                ansi_normal());
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
 
+        printf("\nOptions:\n");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_RETRIGGER,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument, NULL, 'h'           },
-                { "version",   no_argument, NULL, ARG_VERSION   },
-                { "retrigger", no_argument, NULL, ARG_RETRIGGER },
-                { "quiet",     no_argument, NULL, 'q'           },
-                {}
-        };
-
-        int r, c;
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hq", options, NULL)) >= 0)
-                switch (c) {
+        OptionParser state = { argc, argv };
+        const char *arg;
 
-                case 'h':
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+                switch (c) {
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_RETRIGGER:
+                OPTION_LONG("retrigger", NULL, "Retrigger block devices"):
                         arg_retrigger = true;
                         break;
 
-                case 'q':
+                OPTION('q', "quiet", NULL, "Suppress output"):
                         arg_quiet = true;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
@@ -106,10 +96,12 @@ static int parse_argv(int argc, char *argv[]) {
         if (r > 0)
                 arg_varlink = true;
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
-static int verb_status(int argc, char *argv[], void *userdata) {
+VERB(verb_status, "status", NULL, VERB_ANY, 1, VERB_DEFAULT, "Report current factory reset status");
+static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         static const int exit_status_table[_FACTORY_RESET_MODE_MAX] = {
                 /* Report current mode also as via exit status, but only return a subset of states */
                 [FACTORY_RESET_UNSUPPORTED] = EXIT_SUCCESS,
@@ -130,7 +122,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         return exit_status_table[f];
 }
 
-static int verb_request(int argc, char *argv[], void *userdata) {
+VERB_NOARG(verb_request, "request", "Request a factory reset on next boot");
+static int verb_request(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         FactoryResetMode f = factory_reset_mode();
@@ -197,7 +190,8 @@ static int verb_request(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_cancel(int argc, char *argv[], void *userdata) {
+VERB_NOARG(verb_cancel, "cancel", "Cancel a prior factory reset request for next boot");
+static int verb_cancel(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         FactoryResetMode f = factory_reset_mode();
@@ -269,7 +263,8 @@ static int retrigger_block_devices(void) {
         return 0;
 }
 
-static int verb_complete(int argc, char *argv[], void *userdata) {
+VERB_NOARG(verb_complete, "complete", "Mark a factory reset as complete");
+static int verb_complete(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         FactoryResetMode f = factory_reset_mode();
@@ -359,26 +354,19 @@ static int varlink_service(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "status",   VERB_ANY, 1, VERB_DEFAULT, verb_status   },
-                { "request",  VERB_ANY, 1, 0,            verb_request  },
-                { "cancel",   VERB_ANY, 1, 0,            verb_cancel   },
-                { "complete", VERB_ANY, 1, 0,            verb_complete },
-                {}
-        };
-
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
         if (arg_varlink)
                 return varlink_service();
 
-        return dispatch_verb(argc, argv, verbs, /* userdata= */ NULL);
+        return dispatch_verb_with_args(args, /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

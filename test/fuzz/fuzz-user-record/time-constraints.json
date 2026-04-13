@@ -1,0 +1,13 @@
+{
+    "userName": "timeuser",
+    "realName": "Time Constraints User",
+    "uid": 3018,
+    "gid": 3018,
+    "homeDirectory": "/home/timeuser",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "notBeforeUSec": 1609459200000000,
+    "notAfterUSec": 1924905600000000,
+    "lastChangeUSec": 1700000000000000,
+    "locked": false
+}

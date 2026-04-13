@@ -10,7 +10,7 @@
 #include "terminal-util.h"
 #include "tpm2-util.h"
 
-int verb_srk(int argc, char *argv[], void *userdata) {
+int verb_srk(int argc, char *argv[], uintptr_t _data, void *userdata) {
 #if HAVE_TPM2
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;

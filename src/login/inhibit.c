@@ -153,8 +153,6 @@ static int print_inhibitors(sd_bus *bus) {
                 if (r < 0)
                         return table_log_sort_error(r);
 
-                table_set_header(table, arg_legend);
-
                 r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
                         return r;

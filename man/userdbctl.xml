@@ -256,7 +256,7 @@
 
       <varlistentry>
         <term><option>--from-file=PATH</option></term>
-        <term><option>-f</option></term>
+        <term><option>-F</option></term>
 
         <listitem><para>When used with the <command>user</command> or <command>group</command> command, read
         the user definition in JSON format from the specified file, instead of querying it from the

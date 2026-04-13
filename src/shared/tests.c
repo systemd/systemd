@@ -71,6 +71,8 @@ int get_testdata_dir(const char *suffix, char **ret) {
         const char *dir;
         char *p;
 
+        assert(ret);
+
         load_testdata_env();
 
         /* if the env var is set, use that */

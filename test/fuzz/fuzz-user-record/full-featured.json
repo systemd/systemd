@@ -1,0 +1,245 @@
+{
+    "userName": "fuzzuser",
+    "realm": "example.com",
+    "aliases": ["fuzz", "fuzzer", "testfuzz"],
+    "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "blobDirectory": "/var/cache/systemd/homed/fuzzuser/",
+    "blobManifest": {
+        "avatar": "c0636851d25a62d817ff7da4e081d1e646e42c74d0ecb53425f75fcf1ba43b52",
+        "login-background": "da7ad0222a6edbc6cd095149c72d38d92fd3114f606e4b57469857ef47fade18",
+        "custom-file": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    },
+    "realName": "Fuzz Test User",
+    "emailAddress": "fuzzuser@example.com",
+    "iconName": "user-available",
+    "location": "Fuzzing Lab, Room 42",
+    "disposition": "regular",
+    "lastChangeUSec": 1700000000000000,
+    "lastPasswordChangeUSec": 1699000000000000,
+    "shell": "/bin/bash",
+    "umask": 22,
+    "environment": [
+        "EDITOR=vim",
+        "PAGER=less",
+        "LANG=en_US.UTF-8",
+        "FUZZ_VAR=test_value"
+    ],
+    "timeZone": "Europe/Berlin",
+    "preferredLanguage": "en_US.UTF-8",
+    "additionalLanguages": ["de_DE.UTF-8", "fr_FR.UTF-8", "es_ES.UTF-8"],
+    "niceLevel": 5,
+    "resourceLimits": {
+        "RLIMIT_NOFILE": { "cur": 1024, "max": 65536 },
+        "RLIMIT_NPROC": { "cur": 4096, "max": 8192 },
+        "RLIMIT_MEMLOCK": { "cur": 65536, "max": 131072 },
+        "RLIMIT_AS": { "cur": 4294967296, "max": 8589934592 },
+        "RLIMIT_FSIZE": { "cur": 1073741824, "max": 2147483648 },
+        "RLIMIT_STACK": { "cur": 8388608, "max": 16777216 },
+        "RLIMIT_CORE": { "cur": 0, "max": 0 },
+        "RLIMIT_RSS": { "cur": 4294967296, "max": 8589934592 },
+        "RLIMIT_CPU": { "cur": 3600, "max": 7200 },
+        "RLIMIT_DATA": { "cur": 4294967296, "max": 8589934592 },
+        "RLIMIT_NICE": { "cur": 0, "max": 0 },
+        "RLIMIT_RTPRIO": { "cur": 0, "max": 0 },
+        "RLIMIT_RTTIME": { "cur": 1000000, "max": 2000000 },
+        "RLIMIT_SIGPENDING": { "cur": 128, "max": 256 },
+        "RLIMIT_MSGQUEUE": { "cur": 819200, "max": 1638400 },
+        "RLIMIT_LOCKS": { "cur": 1024, "max": 2048 }
+    },
+    "locked": false,
+    "notBeforeUSec": 1600000000000000,
+    "notAfterUSec": 1900000000000000,
+    "storage": "luks",
+    "diskSize": 107374182400,
+    "diskSizeRelative": 2147483648,
+    "skeletonDirectory": "/etc/skel",
+    "accessMode": 448,
+    "tasksMax": 4096,
+    "memoryHigh": 4294967296,
+    "memoryMax": 8589934592,
+    "cpuWeight": 100,
+    "ioWeight": 100,
+    "mountNoDevices": true,
+    "mountNoSuid": true,
+    "mountNoExecute": false,
+    "cifsDomain": "WORKGROUP",
+    "cifsUserName": "fuzzuser",
+    "cifsService": "//server.example.com/homes/fuzzuser",
+    "cifsExtraMountOptions": "vers=3.0,seal",
+    "imagePath": "/home/fuzzuser.home",
+    "homeDirectory": "/home/fuzzuser",
+    "uid": 60001,
+    "gid": 60001,
+    "memberOf": ["wheel", "users", "audio", "video", "docker", "libvirt"],
+    "capabilityBoundingSet": ["CAP_NET_ADMIN", "CAP_SYS_PTRACE", "CAP_SETUID", "CAP_SETGID"],
+    "capabilityAmbientSet": ["CAP_NET_BIND_SERVICE"],
+    "fileSystemType": "ext4",
+    "partitionUuid": "41f9ce04-c827-4b74-a981-c669f93eb4dc",
+    "luksUuid": "e63581ba-79fb-4226-b9de-1888393f7573",
+    "fileSystemUuid": "758e88c8-5851-4a2a-b88f-e7474279c111",
+    "luksDiscard": true,
+    "luksOfflineDiscard": false,
+    "luksCipher": "aes",
+    "luksCipherMode": "xts-plain64",
+    "luksVolumeKeySize": 64,
+    "luksPbkdfHashAlgorithm": "sha512",
+    "luksPbkdfType": "argon2id",
+    "luksPbkdfForceIterations": 1000,
+    "luksPbkdfTimeCostUSec": 1000000,
+    "luksPbkdfMemoryCost": 1073741824,
+    "luksPbkdfParallelThreads": 4,
+    "luksSectorSize": 4096,
+    "luksExtraMountOptions": "discard,noatime",
+    "dropCaches": true,
+    "autoResizeMode": "shrink-and-grow",
+    "rebalanceWeight": 100,
+    "service": "io.systemd.Home",
+    "rateLimitIntervalUSec": 60000000,
+    "rateLimitBurst": 5,
+    "enforcePasswordPolicy": true,
+    "autoLogin": false,
+    "preferredSessionType": "wayland",
+    "preferredSessionLauncher": "gnome",
+    "stopDelayUSec": 180000000,
+    "killProcesses": true,
+    "passwordChangeMinUSec": 86400000000,
+    "passwordChangeMaxUSec": 7776000000000,
+    "passwordChangeWarnUSec": 1209600000000,
+    "passwordChangeInactiveUSec": 2592000000000,
+    "passwordChangeNow": false,
+    "pkcs11TokenUri": [
+        "pkcs11:model=PKCS%2315%20emulated;manufacturer=piv_II;serial=00000000;token=fuzzuser"
+    ],
+    "fido2HmacCredential": [
+        "AQIDBA=="
+    ],
+    "recoveryKeyType": ["modhex64"],
+    "selfModifiableFields": [
+        "realName",
+        "emailAddress",
+        "iconName",
+        "location",
+        "preferredLanguage",
+        "additionalLanguages",
+        "timeZone",
+        "preferredSessionType",
+        "preferredSessionLauncher"
+    ],
+    "selfModifiableBlobs": ["avatar", "login-background"],
+    "selfModifiablePrivileged": ["passwordHint"],
+    "tmpLimit": 1073741824,
+    "tmpLimitScale": 858993459,
+    "devShmLimit": 536870912,
+    "devShmLimitScale": 429496729,
+    "defaultArea": "work",
+    "privileged": {
+        "passwordHint": "Your favorite fuzzing target",
+        "hashedPassword": [
+            "$6$rounds=656000$somesalt$hashedpassworddata1234567890abcdefghijklmnopqrstuvwxyz",
+            "$y$j9T$somesalt$yescrypthash1234567890"
+        ],
+        "sshAuthorizedKeys": [
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG7FVK5YkKL3IYQr7Z6UDYqvB8S8bM7b8vNjVp4S6Y9Y fuzzuser@example.com",
+            "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC0123456789abcdef fuzzuser@backup"
+        ],
+        "pkcs11EncryptedKey": [
+            {
+                "uri": "pkcs11:model=PKCS%2315%20emulated;manufacturer=piv_II;serial=00000000;token=fuzzuser",
+                "data": "SGVsbG8gV29ybGQhIFRoaXMgaXMgYSB0ZXN0IGVuY3J5cHRlZCBrZXku",
+                "hashedPassword": "$6$rounds=656000$somesalt$encryptedkeyhash"
+            }
+        ],
+        "fido2HmacSalt": [
+            {
+                "credential": "AQIDBA==",
+                "salt": "c29tZXNhbHRmb3JmaWRvMg==",
+                "hashedPassword": "$6$rounds=656000$fidosalt$fidohashedpassword",
+                "up": true,
+                "uv": true,
+                "clientPin": false
+            }
+        ],
+        "recoveryKey": [
+            {
+                "type": "modhex64",
+                "hashedPassword": "$6$rounds=656000$recoverysalt$recoverykeyhash"
+            }
+        ]
+    },
+    "perMachine": [
+        {
+            "matchMachineId": "15e19cf24e004b949ddaac60c74aa165",
+            "diskSize": 214748364800,
+            "memoryMax": 17179869184,
+            "cpuWeight": 200
+        },
+        {
+            "matchHostname": "workstation",
+            "shell": "/bin/zsh",
+            "niceLevel": 0,
+            "autoLogin": true
+        },
+        {
+            "matchNotMachineId": "00000000000000000000000000000000",
+            "matchNotHostname": "server",
+            "locked": false
+        }
+    ],
+    "binding": {
+        "15e19cf24e004b949ddaac60c74aa165": {
+            "blobDirectory": "/var/cache/systemd/homed/fuzzuser/",
+            "imagePath": "/home/fuzzuser.home",
+            "homeDirectory": "/home/fuzzuser",
+            "partitionUuid": "41f9ce04-c827-4b74-a981-c669f93eb4dc",
+            "luksUuid": "e63581ba-79fb-4226-b9de-1888393f7573",
+            "fileSystemUuid": "758e88c8-5851-4a2a-b88f-e7474279c111",
+            "uid": 60001,
+            "gid": 60001,
+            "storage": "luks",
+            "fileSystemType": "ext4",
+            "luksCipher": "aes",
+            "luksCipherMode": "xts-plain64",
+            "luksVolumeKeySize": 64
+        }
+    },
+    "status": {
+        "15e19cf24e004b949ddaac60c74aa165": {
+            "aliases": ["fuzz-status-alias"],
+            "diskUsage": 53687091200,
+            "diskFree": 53687091200,
+            "diskSize": 107374182400,
+            "diskCeiling": 214748364800,
+            "diskFloor": 1073741824,
+            "state": "active",
+            "service": "io.systemd.Home",
+            "signedLocally": true,
+            "goodAuthenticationCounter": 42,
+            "badAuthenticationCounter": 3,
+            "lastGoodAuthenticationUSec": 1700000000000000,
+            "lastBadAuthenticationUSec": 1699999000000000,
+            "rateLimitBeginUSec": 1699999500000000,
+            "rateLimitCount": 1,
+            "removable": false,
+            "accessMode": 448,
+            "fileSystemType": "ext4",
+            "fallbackShell": "/bin/sh",
+            "fallbackHomeDirectory": "/",
+            "useFallback": false,
+            "defaultArea": "work"
+        }
+    },
+    "signature": [
+        {
+            "data": "TFUvSGVWclBaU3ppM01KMFBWSHdENW0veGY1MVhEWUNyU3BiRFJOQmR0RjRmRFZock4wdDJJMk9xSC8xeVhpQmlkWGxWMHB0TXVRVnE4S1ZJQ2RFRHE9PQ==",
+            "key": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA/QT6kQWOAMhDJf56jBmszEQQpJHqDsGDMZOdiptBgRk=\n-----END PUBLIC KEY-----\n"
+        }
+    ],
+    "secret": {
+        "password": ["testpassword123", "alternatepassword456"],
+        "tokenPin": ["1234", "5678"],
+        "pkcs11Pin": ["0000"],
+        "pkcs11ProtectedAuthenticationPathPermitted": true,
+        "fido2UserPresencePermitted": true,
+        "fido2UserVerificationPermitted": true
+    }
+}

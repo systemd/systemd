@@ -12,9 +12,11 @@
 #include "nspawn-mount.h"
 #include "nspawn-network.h"
 #include "nspawn-settings.h"
+#include "parse-helpers.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
+#include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -137,6 +139,7 @@ Settings* settings_free(Settings *s) {
         rlimit_free_all(s->rlimit);
         free(s->hostname);
         cpu_set_done(&s->cpu_set);
+        set_free(s->restrict_address_families);
         strv_free(s->bind_user);
         free(s->bind_user_shell);
 
@@ -1051,6 +1054,35 @@ int config_parse_bind_user_shell(
         free_and_replace(settings->bind_user_shell, sh);
         settings->bind_user_shell_copy = copy;
         settings->bind_user_shell_set = true;
+
+        return 0;
+}
+
+int config_parse_restrict_address_families(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        r = parse_address_families(rvalue, &settings->restrict_address_families, &settings->restrict_address_families_is_allowlist);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse address family, ignoring: %s", rvalue);
+                return 0;
+        }
 
         return 0;
 }

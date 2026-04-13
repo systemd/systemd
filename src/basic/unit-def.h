@@ -62,6 +62,8 @@ typedef enum FreezerState {
 typedef enum UnitMarker {
         UNIT_MARKER_NEEDS_RELOAD,
         UNIT_MARKER_NEEDS_RESTART,
+        UNIT_MARKER_NEEDS_STOP,
+        UNIT_MARKER_NEEDS_START,
         _UNIT_MARKER_MAX,
         _UNIT_MARKER_INVALID = -EINVAL,
 } UnitMarker;
@@ -132,6 +134,7 @@ typedef enum ServiceState {
         SERVICE_RUNNING,
         SERVICE_EXITED,                 /* Nothing is running anymore, but RemainAfterExit is true hence this is OK */
         SERVICE_REFRESH_EXTENSIONS,     /* Refreshing extensions for a reload request */
+        SERVICE_REFRESH_CREDENTIALS,    /* ditto, but for credentials */
         SERVICE_RELOAD,                 /* Reloading via ExecReload= */
         SERVICE_RELOAD_SIGNAL,          /* Reloading via SIGHUP requested */
         SERVICE_RELOAD_NOTIFY,          /* Waiting for READY=1 after RELOADING=1 notify */

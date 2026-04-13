@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 #include <locale.h>
+#include <unistd.h>
 
 #include "sd-event.h"
 
@@ -22,30 +23,15 @@
 #include "verbs.h"
 
 static ImportFlags arg_import_flags = 0;
-static ImportCompressType arg_compress = IMPORT_COMPRESS_UNKNOWN;
+static Compression arg_compress = _COMPRESSION_INVALID;
 static ImageClass arg_class = IMAGE_MACHINE;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 static void determine_compression_from_filename(const char *p) {
-
-        if (arg_compress != IMPORT_COMPRESS_UNKNOWN)
+        if (arg_compress >= 0)
                 return;
 
-        if (!p) {
-                arg_compress = IMPORT_COMPRESS_UNCOMPRESSED;
-                return;
-        }
-
-        if (endswith(p, ".xz"))
-                arg_compress = IMPORT_COMPRESS_XZ;
-        else if (endswith(p, ".gz"))
-                arg_compress = IMPORT_COMPRESS_GZIP;
-        else if (endswith(p, ".bz2"))
-                arg_compress = IMPORT_COMPRESS_BZIP2;
-        else if (endswith(p, ".zst"))
-                arg_compress = IMPORT_COMPRESS_ZSTD;
-        else
-                arg_compress = IMPORT_COMPRESS_UNCOMPRESSED;
+        arg_compress = p ? compression_from_filename(p) : COMPRESSION_NONE;
 }
 
 static void on_tar_finished(TarExport *export, int error, void *userdata) {
@@ -58,7 +44,7 @@ static void on_tar_finished(TarExport *export, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int export_tar(int argc, char *argv[], void *userdata) {
+static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(tar_export_unrefp) TarExport *export = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
@@ -91,7 +77,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 
                 fd = open_fd;
 
-                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, path, import_compress_type_to_string(arg_compress));
+                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, path, compression_to_string(arg_compress));
         } else {
                 _cleanup_free_ char *pretty = NULL;
 
@@ -101,7 +87,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
                 fd = STDOUT_FILENO;
 
                 (void) fd_get_path(fd, &pretty);
-                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), import_compress_type_to_string(arg_compress));
+                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), compression_to_string(arg_compress));
         }
 
         r = import_allocate_event_with_signals(&event);
@@ -139,7 +125,7 @@ static void on_raw_finished(RawExport *export, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int export_raw(int argc, char *argv[], void *userdata) {
+static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(raw_export_unrefp) RawExport *export = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
@@ -172,14 +158,14 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 
                 fd = open_fd;
 
-                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, path, import_compress_type_to_string(arg_compress));
+                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, path, compression_to_string(arg_compress));
         } else {
                 _cleanup_free_ char *pretty = NULL;
 
                 fd = STDOUT_FILENO;
 
                 (void) fd_get_path(fd, &pretty);
-                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), import_compress_type_to_string(arg_compress));
+                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), compression_to_string(arg_compress));
         }
 
         r = import_allocate_event_with_signals(&event);
@@ -202,7 +188,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         return -r;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         printf("%1$s [OPTIONS...] {COMMAND} ...\n"
                "\n%4$sExport disk images.%5$s\n"
                "\n%2$sCommands:%3$s\n"
@@ -223,6 +209,10 @@ static int help(int argc, char *argv[], void *userdata) {
                ansi_normal());
 
         return 0;
+}
+
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -255,14 +245,14 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        return help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
 
                 case ARG_FORMAT:
-                        arg_compress = import_compress_type_from_string(optarg);
-                        if (arg_compress < 0 || arg_compress == IMPORT_COMPRESS_UNKNOWN)
+                        arg_compress = compression_from_string_harder(optarg);
+                        if (arg_compress < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown format: %s", optarg);
                         break;
@@ -297,9 +287,9 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int export_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0, help       },
-                { "tar",  2,        3,        0, export_tar },
-                { "raw",  2,        3,        0, export_raw },
+                { "help", VERB_ANY, VERB_ANY, 0, verb_help       },
+                { "tar",  2,        3,        0, verb_export_tar },
+                { "raw",  2,        3,        0, verb_export_raw },
                 {}
         };
 

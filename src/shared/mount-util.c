@@ -1748,14 +1748,7 @@ static void sub_mount_clear(SubMount *s) {
         s->mount_fd = safe_close(s->mount_fd);
 }
 
-void sub_mount_array_free(SubMount *s, size_t n) {
-        assert(s || n == 0);
-
-        for (size_t i = 0; i < n; i++)
-                sub_mount_clear(s + i);
-
-        free(s);
-}
+DEFINE_ARRAY_FREE_FUNC(sub_mount_array_free, SubMount, sub_mount_clear);
 
 #if HAVE_LIBMOUNT
 static int sub_mount_compare(const SubMount *a, const SubMount *b) {
@@ -1830,13 +1823,11 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                         continue;
                 }
 
-                mount_fd = open(path, O_CLOEXEC|O_PATH);
-                if (mount_fd < 0) {
-                        if (errno == ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
-                                continue;
-
-                        return log_debug_errno(errno, "Failed to open subtree of mounted filesystem '%s': %m", path);
-                }
+                mount_fd = RET_NERRNO(open_tree(AT_FDCWD, path, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE));
+                if (mount_fd == -ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
+                        continue;
+                if (mount_fd < 0)
+                        return log_debug_errno(mount_fd, "Failed to open subtree of mounted filesystem '%s': %m", path);
 
                 p = strdup(path);
                 if (!p)
@@ -1905,9 +1896,7 @@ int bind_mount_submounts(
                         continue;
                 }
 
-                r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(m->mount_fd), t, NULL, MS_BIND|MS_REC, NULL);
-                if (r < 0 && ret == 0)
-                        ret = r;
+                RET_GATHER(ret, RET_NERRNO(move_mount(m->mount_fd, "", AT_FDCWD, t, MOVE_MOUNT_F_EMPTY_PATH)));
         }
 
         return ret;
@@ -1992,10 +1981,19 @@ int fsmount_credentials_fs(int *ret_fsfd) {
         if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
                 return -errno;
 
-        int mfd = fsmount(fs_fd, FSMOUNT_CLOEXEC,
-                          ms_flags_to_mount_attr(credentials_fs_mount_flags(/* ro= */ false)));
+        unsigned mount_attrs = ms_flags_to_mount_attr(credentials_fs_mount_flags(/* ro = */ false));
+
+        int mfd = RET_NERRNO(fsmount(fs_fd, FSMOUNT_CLOEXEC, mount_attrs));
+        if (mfd == -EINVAL) {
+                /* MS_NOSYMFOLLOW was added in kernel 5.10, but the new mount API counterpart was missing
+                 * until 5.14 (c.f. https://github.com/torvalds/linux/commit/dd8b477f9a3d8edb136207acb3652e1a34a661b7).
+                 *
+                 * TODO: drop this once our baseline is raised to 5.14 */
+                assert(FLAGS_SET(mount_attrs, MOUNT_ATTR_NOSYMFOLLOW));
+                mfd = RET_NERRNO(fsmount(fs_fd, FSMOUNT_CLOEXEC, mount_attrs & ~MOUNT_ATTR_NOSYMFOLLOW));
+        }
         if (mfd < 0)
-                return -errno;
+                return mfd;
 
         if (ret_fsfd)
                 *ret_fsfd = TAKE_FD(fs_fd);
@@ -2062,7 +2060,7 @@ int make_fsmount(
 
                 r = extract_first_word(&p, &word, ",", EXTRACT_KEEP_QUOTE);
                 if (r < 0)
-                        return log_full_errno(error_log_level, r, "Failed to parse mount option string \"%s\": %m", o);
+                        return log_full_errno(error_log_level, r, "Failed to parse mount option string \"%s\": %m", strempty(o));
                 if (r == 0)
                         break;
 

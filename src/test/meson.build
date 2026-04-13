@@ -149,11 +149,14 @@ simple_tests += files(
         'test-mkdir.c',
         'test-modhex.c',
         'test-mountpoint-util.c',
+        'test-mstack.c',
+        'test-namespace-util.c',
         'test-net-naming-scheme.c',
         'test-notify-recv.c',
         'test-nsresource.c',
         'test-nulstr-util.c',
         'test-open-file.c',
+        'test-options.c',
         'test-ordered-set.c',
         'test-os-util.c',
         'test-osc-context.c',
@@ -344,6 +347,10 @@ executables += [
                 'dependencies' : libm,
         },
         test_template + {
+                'sources' : files('test-kexec.c'),
+                'link_with' : [libshared],
+        },
+        test_template + {
                 'sources' : files('test-libcrypt-util.c'),
                 'conditions' : ['HAVE_LIBCRYPT'],
                 'timeout' : 120,
@@ -365,7 +372,7 @@ executables += [
                 'dependencies' : libm,
         },
         test_template + {
-                'sources' : files('test-mempress.c'),
+                'sources' : files('test-pressure.c'),
                 'dependencies' : threads,
         },
         test_template + {
@@ -401,6 +408,11 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-openssl.c'),
+                'dependencies' : libopenssl,
+                'conditions' : ['HAVE_OPENSSL'],
+        },
+        test_template + {
+                'sources' : files('test-pkcs7-util.c'),
                 'dependencies' : libopenssl,
                 'conditions' : ['HAVE_OPENSSL'],
         },
@@ -484,6 +496,9 @@ executables += [
         test_template + {
                 'sources' : files('test-varlink-idl.c'),
                 'dependencies' : threads,
+        },
+        core_test_template + {
+                'sources' : files('test-varlink-idl-unit.c'),
         },
         test_template + {
                 'sources' : files('test-watchdog.c'),
@@ -572,7 +587,7 @@ executables += [
                 'dependencies' : common_test_dependencies,
         },
         core_test_template + {
-                'sources' : files('test-loop-block.c'),
+                'sources' : files('test-loop-util.c'),
                 'dependencies' : [threads],
                 'parallel' : false,
         },

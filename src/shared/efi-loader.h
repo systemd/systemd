@@ -15,6 +15,7 @@ int efi_loader_get_features(uint64_t *ret);
 int efi_stub_get_features(uint64_t *ret);
 
 int efi_measured_uki(int log_level);
+int efi_measured_os(int log_level);
 
 int efi_loader_get_config_timeout_one_shot(usec_t *ret);
 int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat);

@@ -47,8 +47,10 @@ int dlsym_many_or_warn_sentinel(void *dl, int log_level, ...) {
         return r;
 }
 
-int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_level, ...) {
+int dlopen_verbose(void **dlp, const char *filename) {
         int r;
+
+        assert(dlp);
 
         if (*dlp)
                 return 0; /* Already loaded */
@@ -62,6 +64,22 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
         }
 
         log_debug("Loaded shared library '%s' via dlopen().", filename);
+        *dlp = TAKE_PTR(dl);
+        return 1;
+}
+
+int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_level, ...) {
+        int r;
+
+        assert(dlp);
+
+        if (*dlp)
+                return 0; /* Already loaded */
+
+        _cleanup_(dlclosep) void *dl = NULL;
+        r = dlopen_verbose(&dl, filename);
+        if (r < 0)
+                return r;
 
         va_list ap;
         va_start(ap, log_level);

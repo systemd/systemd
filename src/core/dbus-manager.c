@@ -652,6 +652,12 @@ static int method_get_unit_by_control_group(sd_bus_message *message, void *userd
         if (r < 0)
                 return r;
 
+        if (!path_is_absolute(cgroup))
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Control group path is not absolute: %s", cgroup);
+
+        if (!path_is_normalized(cgroup))
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Control group path is not normalized: %s", cgroup);
+
         u = manager_get_unit_by_cgroup(m, cgroup);
         if (!u)
                 return sd_bus_error_setf(reterr_error, BUS_ERROR_NO_SUCH_UNIT,
@@ -1537,17 +1543,20 @@ static int method_refuse_snapshot(sd_bus_message *message, void *userdata, sd_bu
 static void log_caller(sd_bus_message *message, Manager *manager, const char *method) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
 
         assert(message);
         assert(manager);
         assert(method);
 
-        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_AUGMENT, &creds) < 0)
-                return;
-
-        /* We need at least the PID, otherwise there's nothing to log, the rest is optional. */
-        if (bus_creds_get_pidref(creds, &pidref) < 0)
-                return;
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_AUGMENT, &creds);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get dbus sender creds, ignoring: %m");
+        else {
+                r = bus_creds_get_pidref(creds, &pidref);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get peer pidref, ignoring: %m");
+        }
 
         manager_log_caller(manager, &pidref, method);
 }
@@ -1684,6 +1693,7 @@ static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_er
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_NOT_SUPPORTED,
                                         "Soft reboot is only supported by system manager.");
 
+        /* Keep the checks in sync with varlink-manager.c:vl_method_soft_reboot_manager() */
         r = mac_selinux_access_check(message, "reboot", reterr_error);
         if (r < 0)
                 return r;
@@ -2132,17 +2142,26 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
                         continue;
 
                 BusUnitQueueFlags flags;
-                if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_RESTART))
+                JobType job;
+                if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_RESTART)) {
                         flags = 0;
-                else if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_RELOAD))
+                        job = JOB_TRY_RESTART;
+                } else if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_RELOAD)) {
                         flags = BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE;
-                else
+                        job = JOB_TRY_RESTART;
+                } else if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_STOP)) {
+                        flags = 0;
+                        job = JOB_STOP;
+                } else if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_START)) {
+                        flags = 0;
+                        job = JOB_START;
+                } else
                         continue;
 
-                r = mac_selinux_unit_access_check(u, message, "start", &error);
+                r = mac_selinux_unit_access_check(u, message, job_type_to_access_method(job), &error);
                 if (r >= 0)
                         r = bus_unit_queue_job_one(message, u,
-                                                   JOB_TRY_RESTART, JOB_FAIL, flags,
+                                                   job, JOB_FAIL, flags,
                                                    reply, &error);
                 if (ERRNO_IS_NEG_RESOURCE(r))
                         return r;
@@ -2961,14 +2980,19 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultLimitRTTIME", "t", bus_property_get_rlimit, offsetof(Manager, defaults.rlimit[RLIMIT_RTTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultLimitRTTIMESoft", "t", bus_property_get_rlimit, offsetof(Manager, defaults.rlimit[RLIMIT_RTTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultTasksMax", "t", bus_property_get_tasks_max, offsetof(Manager, defaults.tasks_max), 0),
-        SD_BUS_PROPERTY("DefaultMemoryPressureThresholdUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.memory_pressure_threshold_usec), 0),
-        SD_BUS_PROPERTY("DefaultMemoryPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(Manager, defaults.memory_pressure_watch), 0),
+        SD_BUS_PROPERTY("DefaultMemoryPressureThresholdUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.pressure[PRESSURE_MEMORY].threshold_usec), 0),
+        SD_BUS_PROPERTY("DefaultMemoryPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(Manager, defaults.pressure[PRESSURE_MEMORY].watch), 0),
+        SD_BUS_PROPERTY("DefaultCPUPressureThresholdUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.pressure[PRESSURE_CPU].threshold_usec), 0),
+        SD_BUS_PROPERTY("DefaultCPUPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(Manager, defaults.pressure[PRESSURE_CPU].watch), 0),
+        SD_BUS_PROPERTY("DefaultIOPressureThresholdUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.pressure[PRESSURE_IO].threshold_usec), 0),
+        SD_BUS_PROPERTY("DefaultIOPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(Manager, defaults.pressure[PRESSURE_IO].watch), 0),
         SD_BUS_PROPERTY("TimerSlackNSec", "t", property_get_timer_slack_nsec, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMPolicy", "s", bus_property_get_oom_policy, offsetof(Manager, defaults.oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultRestrictSUIDSGID", "b", bus_property_get_bool, offsetof(Manager, defaults.restrict_suid_sgid), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CtrlAltDelBurstAction", "s", bus_property_get_emergency_action, offsetof(Manager, cad_burst_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SoftRebootsCount", "u", bus_property_get_unsigned, offsetof(Manager, soft_reboots_count), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultMemoryZSwapWriteback", "b", bus_property_get_bool, offsetof(Manager, defaults.memory_zswap_writeback), SD_BUS_VTABLE_PROPERTY_CONST),
 
         /* deprecated cgroup v1 property */
         SD_BUS_PROPERTY("DefaultBlockIOAccounting", "b", bus_property_get_bool_false, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),

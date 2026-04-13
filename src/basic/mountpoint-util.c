@@ -17,6 +17,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unaligned.h"
 
 /* This is the original MAX_HANDLE_SZ definition from the kernel, when the API was introduced. We use that in place of
  * any more currently defined value to future-proof things: if the size is increased in the API headers, and our code
@@ -49,9 +50,10 @@ int name_to_handle_at_loop(
                 const char *path,
                 struct file_handle **ret_handle,
                 int *ret_mnt_id,
+                uint64_t *ret_unique_mnt_id,
                 int flags) {
 
-        size_t n = ORIGINAL_MAX_HANDLE_SZ;
+        int r;
 
         assert(fd >= 0 || fd == AT_FDCWD);
         assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH|AT_HANDLE_FID)) == 0);
@@ -61,11 +63,19 @@ int name_to_handle_at_loop(
          * start value, it is not an upper bound on the buffer size required.
          *
          * This improves on raw name_to_handle_at() also in one other regard: ret_handle and ret_mnt_id can be passed
-         * as NULL if there's no interest in either. */
+         * as NULL if there's no interest in either.
+         *
+         * If unique mount id is requested via ret_unique_mnt_id, try AT_HANDLE_MNT_ID_UNIQUE flag first
+         * (needs kernel v6.12), and fall back to statx() if not supported. If neither worked, and caller
+         * also specifies ret_mnt_id, then the old-style mount id is returned, -EUNATCH otherwise. */
 
-        for (;;) {
+        if (isempty(path)) {
+                flags |= AT_EMPTY_PATH;
+                path = "";
+        }
+
+        for (size_t n = ORIGINAL_MAX_HANDLE_SZ;;) {
                 _cleanup_free_ struct file_handle *h = NULL;
-                int mnt_id = -1;
 
                 h = malloc0(offsetof(struct file_handle, f_handle) + n);
                 if (!h)
@@ -73,7 +83,57 @@ int name_to_handle_at_loop(
 
                 h->handle_bytes = n;
 
-                if (name_to_handle_at(fd, strempty(path), h, &mnt_id, flags) >= 0) {
+                if (ret_unique_mnt_id) {
+                        uint64_t mnt_id;
+
+                        /* The kernel will still use this as uint64_t pointer */
+                        r = name_to_handle_at(fd, path, h, (int *) &mnt_id, flags|AT_HANDLE_MNT_ID_UNIQUE);
+                        if (r >= 0) {
+                                if (ret_handle)
+                                        *ret_handle = TAKE_PTR(h);
+
+                                *ret_unique_mnt_id = mnt_id;
+
+                                if (ret_mnt_id)
+                                        *ret_mnt_id = -1;
+
+                                return 1;
+                        }
+                        if (errno == EOVERFLOW)
+                                goto grow;
+                        if (errno != EINVAL)
+                                return -errno;
+                }
+
+                int mnt_id;
+                r = name_to_handle_at(fd, path, h, &mnt_id, flags);
+                if (r >= 0) {
+                        if (ret_unique_mnt_id) {
+                                /* Hmm, AT_HANDLE_MNT_ID_UNIQUE is not supported? Let's try to acquire
+                                 * the unique mount id from statx() then, which has a slightly lower
+                                 * kernel version requirement (6.8 vs 6.12). */
+
+                                struct statx sx;
+                                r = xstatx(fd, path,
+                                           at_flags_normalize_nofollow(flags & (AT_SYMLINK_FOLLOW|AT_EMPTY_PATH))|AT_STATX_DONT_SYNC,
+                                           STATX_MNT_ID_UNIQUE,
+                                           &sx);
+                                if (r >= 0) {
+                                        if (ret_handle)
+                                                *ret_handle = TAKE_PTR(h);
+
+                                        *ret_unique_mnt_id = sx.stx_mnt_id;
+
+                                        if (ret_mnt_id)
+                                                *ret_mnt_id = -1;
+
+                                        return 1;
+                                }
+                                if (r != -EUNATCH || !ret_mnt_id)
+                                        return r;
+
+                                *ret_unique_mnt_id = 0;
+                        }
 
                         if (ret_handle)
                                 *ret_handle = TAKE_PTR(h);
@@ -86,16 +146,7 @@ int name_to_handle_at_loop(
                 if (errno != EOVERFLOW)
                         return -errno;
 
-                if (!ret_handle && ret_mnt_id && mnt_id >= 0) {
-
-                        /* As it appears, name_to_handle_at() fills in mnt_id even when it returns EOVERFLOW when the
-                         * buffer is too small, but that's undocumented. Hence, let's make use of this if it appears to
-                         * be filled in, and the caller was interested in only the mount ID an nothing else. */
-
-                        *ret_mnt_id = mnt_id;
-                        return 0;
-                }
-
+        grow:
                 /* If name_to_handle_at() didn't increase the byte size, then this EOVERFLOW is caused by
                  * something else (apparently EOVERFLOW is returned for untriggered nfs4 autofs mounts
                  * sometimes), not by the too small buffer. In that case propagate EOVERFLOW */
@@ -116,6 +167,7 @@ int name_to_handle_at_try_fid(
                 const char *path,
                 struct file_handle **ret_handle,
                 int *ret_mnt_id,
+                uint64_t *ret_unique_mnt_id,
                 int flags) {
 
         int r;
@@ -126,11 +178,32 @@ int name_to_handle_at_try_fid(
          * we'll try without the flag, in order to support older kernels that didn't have AT_HANDLE_FID
          * (i.e. older than Linux 6.5). */
 
-        r = name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, flags | AT_HANDLE_FID);
+        r = name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, ret_unique_mnt_id, flags | AT_HANDLE_FID);
         if (r >= 0 || is_name_to_handle_at_fatal_error(r))
                 return r;
 
-        return name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, flags & ~AT_HANDLE_FID);
+        return name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, ret_unique_mnt_id, flags & ~AT_HANDLE_FID);
+}
+
+int name_to_handle_at_u64(int fd, const char *path, uint64_t *ret) {
+        _cleanup_free_ struct file_handle *h = NULL;
+        int r;
+
+        assert(fd >= 0 || fd == AT_FDCWD);
+
+        /* This provides the first 64bit of the file handle. */
+
+        r = name_to_handle_at_loop(fd, path, &h, /* ret_mnt_id= */ NULL, /* ret_unique_mnt_id= */ NULL, /* flags= */ 0);
+        if (r < 0)
+                return r;
+        if (h->handle_bytes < sizeof(uint64_t))
+                return -EBADMSG;
+
+        if (ret)
+                /* Note, "struct file_handle" is 32bit aligned usually, but we need to read a 64bit value from it */
+                *ret = unaligned_read_ne64(h->f_handle);
+
+        return 0;
 }
 
 bool file_handle_equal(const struct file_handle *a, const struct file_handle *b) {
@@ -144,34 +217,44 @@ bool file_handle_equal(const struct file_handle *a, const struct file_handle *b)
         return memcmp_nn(a->f_handle, a->handle_bytes, b->f_handle, b->handle_bytes) == 0;
 }
 
+struct file_handle* file_handle_dup(const struct file_handle *fh) {
+        _cleanup_free_ struct file_handle *fh_copy = NULL;
+
+        assert(fh);
+
+        fh_copy = malloc0(offsetof(struct file_handle, f_handle) + fh->handle_bytes);
+        if (!fh_copy)
+                return NULL;
+
+        fh_copy->handle_bytes = fh->handle_bytes;
+        fh_copy->handle_type = fh->handle_type;
+        memcpy(fh_copy->f_handle, fh->f_handle, fh->handle_bytes);
+
+        return TAKE_PTR(fh_copy);
+}
+
 int is_mount_point_at(int dir_fd, const char *path, int flags) {
         int r;
 
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
         assert((flags & ~AT_SYMLINK_FOLLOW) == 0);
 
         if (path_equal(path, "/"))
                 return true;
 
-        if (isempty(path)) {
-                if (dir_fd == AT_FDCWD)
-                        path = ".";
-                else {
-                        flags |= AT_EMPTY_PATH;
-                        path = "";
-                }
-        }
+        if (dir_fd == XAT_FDROOT && isempty(path))
+                return true;
 
-        struct statx sx = {}; /* explicitly initialize the struct to make msan silent. */
-        if (statx(dir_fd, path,
-                  at_flags_normalize_nofollow(flags) |
-                  AT_NO_AUTOMOUNT |            /* don't trigger automounts – mounts are a local concept, hence no need to trigger automounts to determine STATX_ATTR_MOUNT_ROOT */
-                  AT_STATX_DONT_SYNC,          /* don't go to the network for this – for similar reasons */
-                  STATX_TYPE|STATX_INO,
-                  &sx) < 0)
-                return -errno;
-
-        r = statx_warn_mount_root(&sx, LOG_DEBUG);
+        struct statx sx;
+        r = xstatx_full(dir_fd, path,
+                        at_flags_normalize_nofollow(flags) |
+                        AT_NO_AUTOMOUNT |            /* don't trigger automounts – mounts are a local concept, hence no need to trigger automounts to determine STATX_ATTR_MOUNT_ROOT */
+                        AT_STATX_DONT_SYNC,          /* don't go to the network for this – for similar reasons */
+                        /* xstatx_flags = */ 0,
+                        STATX_TYPE|STATX_INO,
+                        /* optional_mask = */ 0,
+                        STATX_ATTR_MOUNT_ROOT,
+                        &sx);
         if (r < 0)
                 return r;
 
@@ -181,9 +264,14 @@ int is_mount_point_at(int dir_fd, const char *path, int flags) {
         /* When running on chroot environment, the root may not be a mount point, but we unconditionally
          * return true when the input is "/" in the above, but the shortcut may not work e.g. when the path
          * is relative. */
-        struct statx sx2 = {}; /* explicitly initialize the struct to make msan silent. */
-        if (statx(AT_FDCWD, "/", AT_STATX_DONT_SYNC, STATX_TYPE|STATX_INO, &sx2) < 0)
-                return -errno;
+        struct statx sx2;
+        r = xstatx(AT_FDCWD,
+                   "/",
+                   AT_STATX_DONT_SYNC,
+                   STATX_TYPE|STATX_INO,
+                   &sx2);
+        if (r < 0)
+                return r;
 
         return statx_inode_same(&sx, &sx2);
 }
@@ -208,28 +296,43 @@ int path_is_mount_point_full(const char *path, const char *root, int flags) {
         return is_mount_point_at(dir_fd, /* path= */ NULL, flags);
 }
 
-int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
+static int path_get_mnt_id_at_internal(int dir_fd, const char *path, bool unique, uint64_t *ret) {
         struct statx sx;
         int r;
 
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
         assert(ret);
 
-        if (statx(dir_fd,
-                  strempty(path),
-                  (isempty(path) ? AT_EMPTY_PATH : AT_SYMLINK_NOFOLLOW) |
-                  AT_NO_AUTOMOUNT |    /* don't trigger automounts, mnt_id is a local concept */
-                  AT_STATX_DONT_SYNC,  /* don't go to the network, mnt_id is a local concept */
-                  STATX_MNT_ID,
-                  &sx) < 0)
-                return -errno;
-
-        r = statx_warn_mount_id(&sx, LOG_DEBUG);
+        r = xstatx(dir_fd, path,
+                   AT_SYMLINK_NOFOLLOW |
+                   AT_NO_AUTOMOUNT |    /* don't trigger automounts, mnt_id is a local concept */
+                   AT_STATX_DONT_SYNC,  /* don't go to the network, mnt_id is a local concept */
+                   unique ? STATX_MNT_ID_UNIQUE : STATX_MNT_ID,
+                   &sx);
         if (r < 0)
                 return r;
 
         *ret = sx.stx_mnt_id;
         return 0;
+}
+
+int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
+        uint64_t mnt_id;
+        int r;
+
+        assert(ret);
+
+        r = path_get_mnt_id_at_internal(dir_fd, path, /* unique = */ false, &mnt_id);
+        if (r < 0)
+                return r;
+
+        assert(mnt_id <= INT_MAX);
+        *ret = (int) mnt_id;
+        return 0;
+}
+
+int path_get_unique_mnt_id_at(int dir_fd, const char *path, uint64_t *ret) {
+        return path_get_mnt_id_at_internal(dir_fd, path, /* unique = */ true, ret);
 }
 
 bool fstype_is_network(const char *fstype) {
@@ -291,8 +394,7 @@ bool fstype_is_api_vfs(const char *fstype) {
         /* Filesystems not present in the internal database */
         return STR_IN_SET(fstype,
                           "autofs",
-                          "cpuset",
-                          "devtmpfs");
+                          "cpuset");
 }
 
 bool fstype_is_blockdev_backed(const char *fstype) {
@@ -302,7 +404,7 @@ bool fstype_is_blockdev_backed(const char *fstype) {
         if (x)
                 fstype = x;
 
-        return !streq(fstype, "9p") && !fstype_is_network(fstype) && !fstype_is_api_vfs(fstype);
+        return !STR_IN_SET(fstype, "9p", "overlay") && !fstype_is_network(fstype) && !fstype_is_api_vfs(fstype);
 }
 
 bool fstype_is_ro(const char *fstype) {
@@ -497,6 +599,9 @@ const char* mount_propagation_flag_to_string(unsigned long flags) {
 
 int mount_propagation_flag_from_string(const char *name, unsigned long *ret) {
 
+        POINTER_MAY_BE_NULL(name);
+        assert(ret);
+
         if (isempty(name))
                 *ret = 0;
         else if (streq(name, "shared"))
@@ -521,7 +626,7 @@ bool mount_new_api_supported(void) {
         if (cache >= 0)
                 return cache;
 
-        /* This is the newer API among the ones we use, so use it as boundary */
+        /* This is the newest API among the ones we use, so use it as boundary */
         r = RET_NERRNO(mount_setattr(-EBADF, NULL, 0, NULL, 0));
         if (r == 0 || ERRNO_IS_NOT_SUPPORTED(r)) /* This should return an error if it is working properly */
                 return (cache = false);

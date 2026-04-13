@@ -29,7 +29,12 @@ mkdir -p "$D/sources"
 echo 'buzy image' >"$D/sources/linux"
 echo 'the initrd' >"$D/sources/initrd"
 echo 'the-token' >"$D/sources/entry-token"
-echo 'opt1 opt2' >"$D/sources/cmdline"
+
+cat >"$D/sources/cmdline" <<EOF
+opt1
+# commented line
+opt2
+EOF
 
 cat >"$D/sources/install.conf" <<EOF
 layout=bls

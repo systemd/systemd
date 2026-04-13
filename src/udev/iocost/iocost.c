@@ -280,11 +280,11 @@ static int query_solutions_for_path(const char *path) {
         return 0;
 }
 
-static int verb_query(int argc, char *argv[], void *userdata) {
+static int verb_query(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return query_solutions_for_path(ASSERT_PTR(argv[1]));
 }
 
-static int verb_apply(int argc, char *argv[], void *userdata) {
+static int verb_apply(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return apply_solution_for_path(
                         ASSERT_PTR(argv[1]),
                         argc > 2 ? ASSERT_PTR(argv[2]) : NULL);

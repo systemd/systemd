@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-int link_up_down(int argc, char *argv[], void *userdata);
-int link_delete(int argc, char *argv[], void *userdata);
-int link_renew(int argc, char *argv[], void *userdata);
-int link_force_renew(int argc, char *argv[], void *userdata);
-int verb_reload(int argc, char *argv[], void *userdata);
-int verb_reconfigure(int argc, char *argv[], void *userdata);
-int verb_persistent_storage(int argc, char *argv[], void *userdata);
+#include "shared-forward.h"
+
+int verb_link_delete(int argc, char *argv[], uintptr_t _data, void *userdata);
+int verb_link_varlink_simple_method(int argc, char *argv[], uintptr_t _data, void *userdata);
+int verb_reload(int argc, char *argv[], uintptr_t _data, void *userdata);
+int verb_persistent_storage(int argc, char *argv[], uintptr_t _data, void *userdata);

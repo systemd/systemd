@@ -32,4 +32,4 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=oneshot
-ExecStart=-/sbin/modprobe -abq %i
+ExecStart=-modprobe -abq %i

@@ -137,7 +137,7 @@ int pidref_set_pid_and_pidfd_id(
 
         if (pidfd_id > 0) {
                 r = pidref_acquire_pidfd_id(&n);
-                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                if (r < 0)
                         return r;
 
                 if (n.fd_id != pidfd_id)

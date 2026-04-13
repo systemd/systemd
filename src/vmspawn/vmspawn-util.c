@@ -18,6 +18,7 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "random-util.h"
+#include "set.h"
 #include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -107,15 +108,61 @@ int qemu_check_vsock_support(void) {
         return -errno;
 }
 
+typedef struct FirmwareTarget {
+        char *architecture;
+        char **machines;
+} FirmwareTarget;
+
+static FirmwareTarget* firmware_target_free(FirmwareTarget *t) {
+        if (!t)
+                return NULL;
+
+        free(t->architecture);
+        strv_free(t->machines);
+
+        return mfree(t);
+}
+
+static FirmwareTarget** firmware_target_free_many(FirmwareTarget **targets, size_t n) {
+        FOREACH_ARRAY(t, targets, n)
+                firmware_target_free(*t);
+
+        return mfree(targets);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(FirmwareTarget*, firmware_target_free);
+
 /* holds the data retrieved from the QEMU firmware interop JSON data */
 typedef struct FirmwareData {
+        char **interface_types;
         char **features;
         char *firmware;
         char *firmware_format;
         char *vars;
         char *vars_format;
-        char **architectures;
+        FirmwareTarget **targets;
+        size_t n_targets;
 } FirmwareData;
+
+static bool firmware_data_matches_machine(const FirmwareData *fwd, const char *arch, const char *machine) {
+        assert(fwd);
+
+        FOREACH_ARRAY(t, fwd->targets, fwd->n_targets) {
+                if (!streq((*t)->architecture, arch))
+                        continue;
+
+                /* The machine types in firmware descriptions are glob patterns such as "pc-q35-*", but
+                 * we pass the short alias (e.g. "q35") as the machine type to QEMU as it always points to
+                 * the latest version. We can't use fnmatch() here because "q35" doesn't match the
+                 * "pc-q35-*" glob, so instead we use substring matching to check if our machine type
+                 * appears in the pattern. */
+                STRV_FOREACH(m, (*t)->machines)
+                        if (strstr(*m, machine))
+                                return true;
+        }
+
+        return false;
+}
 
 static bool firmware_data_supports_sb(const FirmwareData *fwd) {
         assert(fwd);
@@ -127,12 +174,13 @@ static FirmwareData* firmware_data_free(FirmwareData *fwd) {
         if (!fwd)
                 return NULL;
 
+        strv_free(fwd->interface_types);
         strv_free(fwd->features);
         free(fwd->firmware);
         free(fwd->firmware_format);
         free(fwd->vars);
         free(fwd->vars_format);
-        strv_free(fwd->architectures);
+        firmware_target_free_many(fwd->targets, fwd->n_targets);
 
         return mfree(fwd);
 }
@@ -162,34 +210,37 @@ static int firmware_mapping(const char *name, sd_json_variant *v, sd_json_dispat
         static const sd_json_dispatch_field table[] = {
                 { "device",         SD_JSON_VARIANT_STRING, NULL,                    0, SD_JSON_MANDATORY },
                 { "executable",     SD_JSON_VARIANT_OBJECT, firmware_executable,     0, SD_JSON_MANDATORY },
-                { "nvram-template", SD_JSON_VARIANT_OBJECT, firmware_nvram_template, 0, SD_JSON_MANDATORY },
+                { "nvram-template", SD_JSON_VARIANT_OBJECT, firmware_nvram_template, 0, 0                 },
                 {}
         };
 
         return sd_json_dispatch(v, table, flags, userdata);
 }
 
-static int target_architecture(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
-        int r;
+static int dispatch_targets(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
+        FirmwareData *fwd = ASSERT_PTR(userdata);
         sd_json_variant *e;
-        char ***supported_architectures = ASSERT_PTR(userdata);
+        int r;
 
         static const sd_json_dispatch_field table[] = {
-                { "architecture", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_MANDATORY },
-                { "machines",     SD_JSON_VARIANT_ARRAY,  NULL,                    0, SD_JSON_MANDATORY },
+                { "architecture", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareTarget, architecture), SD_JSON_MANDATORY },
+                { "machines",     SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,   offsetof(FirmwareTarget, machines),     SD_JSON_MANDATORY },
                 {}
         };
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
-                _cleanup_free_ char *arch = NULL;
+                _cleanup_(firmware_target_freep) FirmwareTarget *t = new0(FirmwareTarget, 1);
+                if (!t)
+                        return -ENOMEM;
 
-                r = sd_json_dispatch(e, table, flags, &arch);
+                r = sd_json_dispatch(e, table, flags, t);
                 if (r < 0)
                         return r;
 
-                r = strv_consume(supported_architectures, TAKE_PTR(arch));
-                if (r < 0)
-                        return r;
+                if (!GREEDY_REALLOC(fwd->targets, fwd->n_targets + 1))
+                        return -ENOMEM;
+
+                fwd->targets[fwd->n_targets++] = TAKE_PTR(t);
         }
 
         return 0;
@@ -243,7 +294,7 @@ int list_ovmf_config(char ***ret) {
         return 0;
 }
 
-static int load_firmware_data(const char *path, FirmwareData **ret) {
+static int load_firmware_data(const char *path, FirmwareData **ret, sd_json_variant **ret_json) {
         int r;
 
         assert(path);
@@ -253,7 +304,7 @@ static int load_firmware_data(const char *path, FirmwareData **ret) {
         r = sd_json_parse_file(
                         /* f= */ NULL,
                         path,
-                        /* flags= */ 0,
+                        /* flags= */ SD_JSON_PARSE_MUST_BE_OBJECT,
                         &json,
                         /* reterr_line= */ NULL,
                         /* ret_column= */ NULL);
@@ -261,12 +312,12 @@ static int load_firmware_data(const char *path, FirmwareData **ret) {
                 return r;
 
         static const sd_json_dispatch_field table[] = {
-                { "description",     SD_JSON_VARIANT_STRING, NULL,                  0,                                     SD_JSON_MANDATORY },
-                { "interface-types", SD_JSON_VARIANT_ARRAY,  NULL,                  0,                                     SD_JSON_MANDATORY },
-                { "mapping",         SD_JSON_VARIANT_OBJECT, firmware_mapping,      0,                                     SD_JSON_MANDATORY },
-                { "targets",         SD_JSON_VARIANT_ARRAY,  target_architecture,   offsetof(FirmwareData, architectures), SD_JSON_MANDATORY },
-                { "features",        SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv, offsetof(FirmwareData, features),      SD_JSON_MANDATORY },
-                { "tags",            SD_JSON_VARIANT_ARRAY,  NULL,                  0,                                     SD_JSON_MANDATORY },
+                { "description",     SD_JSON_VARIANT_STRING, NULL,                  0,                                          SD_JSON_MANDATORY },
+                { "interface-types", SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv, offsetof(FirmwareData, interface_types),    SD_JSON_MANDATORY },
+                { "mapping",         SD_JSON_VARIANT_OBJECT, firmware_mapping,      0,                                          SD_JSON_MANDATORY },
+                { "targets",         SD_JSON_VARIANT_ARRAY,  dispatch_targets,      0,                                          SD_JSON_MANDATORY },
+                { "features",        SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv, offsetof(FirmwareData, features),           SD_JSON_MANDATORY },
+                { "tags",            SD_JSON_VARIANT_ARRAY,  NULL,                  0,                                          SD_JSON_MANDATORY },
                 {}
         };
 
@@ -280,6 +331,45 @@ static int load_firmware_data(const char *path, FirmwareData **ret) {
                 return r;
 
         *ret = TAKE_PTR(fwd);
+
+        if (ret_json)
+                *ret_json = TAKE_PTR(json);
+
+        return 0;
+}
+
+int list_ovmf_firmware_features(char ***ret) {
+        _cleanup_strv_free_ char **conf_files = NULL;
+        _cleanup_set_free_ Set *feature_set = NULL;
+        int r;
+
+        assert(ret);
+
+        r = list_ovmf_config(&conf_files);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(file, conf_files) {
+                _cleanup_(firmware_data_freep) FirmwareData *fwd = NULL;
+
+                r = load_firmware_data(*file, &fwd, /* ret_json= */ NULL);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to load JSON file '%s', skipping: %m", *file);
+                        continue;
+                }
+
+                r = set_put_strdupv(&feature_set, fwd->features);
+                if (r < 0)
+                        return log_oom_debug();
+        }
+
+        _cleanup_strv_free_ char **features = set_to_strv(&feature_set);
+        if (!features)
+                return log_oom_debug();
+
+        strv_sort(features);
+
+        *ret = TAKE_PTR(features);
         return 0;
 }
 
@@ -311,14 +401,18 @@ int load_ovmf_config(const char *path, OvmfConfig **ret) {
         assert(path);
         assert(ret);
 
-        r = load_firmware_data(path, &fwd);
+        r = load_firmware_data(path, &fwd, /* ret_json= */ NULL);
         if (r < 0)
                 return r;
 
         return ovmf_config_make(fwd, ret);
 }
 
-int find_ovmf_config(int search_sb, OvmfConfig **ret) {
+int find_ovmf_config(
+                Set *features_include,
+                Set *features_exclude,
+                OvmfConfig **ret,
+                sd_json_variant **ret_firmware_json) {
         _cleanup_(ovmf_config_freep) OvmfConfig *config = NULL;
         _cleanup_strv_free_ char **conf_files = NULL;
         const char* native_arch_qemu;
@@ -344,27 +438,62 @@ int find_ovmf_config(int search_sb, OvmfConfig **ret) {
 
         STRV_FOREACH(file, conf_files) {
                 _cleanup_(firmware_data_freep) FirmwareData *fwd = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
-                r = load_firmware_data(*file, &fwd);
+                r = load_firmware_data(*file, &fwd, ret_firmware_json ? &json : NULL);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to load JSON file '%s', skipping: %m", *file);
                         continue;
                 }
 
-                if (strv_contains(fwd->features, "enrolled-keys")) {
-                        log_debug("Skipping %s, firmware has enrolled keys which has been known to cause issues.", *file);
+                if (!strv_contains(fwd->interface_types, "uefi")) {
+                        log_debug("Skipping %s, firmware is not a UEFI firmware.", *file);
                         continue;
                 }
 
-                if (!strv_contains(fwd->architectures, native_arch_qemu)) {
-                        log_debug("Skipping %s, firmware doesn't support the native architecture.", *file);
+                if (!fwd->vars) {
+                        log_debug("Skipping %s, firmware does not have an NVRAM template.", *file);
                         continue;
                 }
 
-                /* exclude firmware which doesn't match our Secure Boot requirements */
-                if (search_sb >= 0 && !!search_sb != firmware_data_supports_sb(fwd)) {
-                        log_debug("Skipping %s, firmware doesn't fit required Secure Boot configuration.", *file);
+                /* Check if any target matches our architecture and machine type. Machine
+                 * patterns in firmware descriptions use globs like "pc-q35-*", so we do a
+                 * substring check to see if our machine type (e.g. "q35") appears in any of
+                 * the glob patterns. */
+                if (!firmware_data_matches_machine(fwd, native_arch_qemu, QEMU_MACHINE_TYPE)) {
+                        log_debug("Skipping %s, firmware doesn't support the native architecture or machine type.", *file);
                         continue;
+                }
+
+                /* Skip firmware that doesn't have all required features */
+                if (!set_isempty(features_include)) {
+                        const char *feature;
+                        bool skip = false;
+
+                        SET_FOREACH(feature, features_include)
+                                if (!strv_contains(fwd->features, feature)) {
+                                        log_debug("Skipping %s, firmware is missing required feature '%s'.", *file, feature);
+                                        skip = true;
+                                }
+
+                        if (skip)
+                                continue;
+                }
+
+                /* Skip firmware that has any excluded features (include wins over exclude) */
+                if (!set_isempty(features_exclude)) {
+                        const char *feature;
+                        bool skip = false;
+
+                        SET_FOREACH(feature, features_exclude)
+                                if (strv_contains(fwd->features, feature) &&
+                                    !set_contains(features_include, feature)) {
+                                        log_debug("Skipping %s, firmware has excluded feature '%s'.", *file, feature);
+                                        skip = true;
+                                }
+
+                        if (skip)
+                                continue;
                 }
 
                 r = ovmf_config_make(fwd, &config);
@@ -372,6 +501,10 @@ int find_ovmf_config(int search_sb, OvmfConfig **ret) {
                         return r;
 
                 log_debug("Selected firmware definition %s.", *file);
+
+                if (ret_firmware_json)
+                        *ret_firmware_json = TAKE_PTR(json);
+
                 break;
         }
 
@@ -395,7 +528,7 @@ int find_qemu_binary(char **ret_qemu_binary) {
          * If the native architecture is not supported by qemu -EOPNOTSUPP will be returned;
          */
 
-        FOREACH_STRING(s, "qemu", "qemu-kvm") {
+        FOREACH_STRING(s, "qemu", "qemu-kvm", "/usr/libexec/qemu-kvm") {
                 r = find_executable(s, ret_qemu_binary);
                 if (r == 0)
                         return 0;

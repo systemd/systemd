@@ -2,6 +2,7 @@
 
 #include <sys/syslog.h>
 
+#include "sd-dlopen.h"
 #include "sd-id128.h"
 
 #include "blkid-util.h"
@@ -49,9 +50,10 @@ DLSYM_PROTOTYPE(blkid_probe_set_superblocks_flags) = NULL;
 DLSYM_PROTOTYPE(blkid_safe_string) = NULL;
 
 int dlopen_libblkid(void) {
-        ELF_NOTE_DLOPEN("blkid",
+        SD_ELF_NOTE_DLOPEN(
+                        "blkid",
                         "Support for block device identification",
-                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
                         "libblkid.so.1");
 
         return dlopen_many_sym_or_warn(

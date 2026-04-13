@@ -36,3 +36,4 @@ EFI_STATUS console_key_read(uint64_t *ret_key, uint64_t timeout_usec);
 EFI_STATUS console_set_mode(int64_t mode);
 EFI_STATUS console_query_mode(size_t *x_max, size_t *y_max);
 EFI_STATUS query_screen_resolution(uint32_t *ret_width, uint32_t *ret_height);
+void cmdline_append_console(char16_t **cmdline);

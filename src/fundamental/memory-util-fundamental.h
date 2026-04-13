@@ -9,8 +9,7 @@
 #  include <string.h>
 #endif
 
-#include "assert-fundamental.h"
-#include "cleanup-fundamental.h"
+#include "assert-fundamental.h" /* IWYU pragma: keep */
 #include "macro-fundamental.h"
 
 #define memzero(x, l)                                           \
@@ -148,3 +147,7 @@ static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
                 assert(((uintptr_t) _p) % alignof(t) == 0); \
                 (t *) _p;                                       \
         })
+
+bool memeqbyte(uint8_t byte, const void *data, size_t length) _nonnull_if_nonzero_(2, 3);
+#define memeqzero(data, length) memeqbyte(0x00, data, length)
+#define eqzero(x) memeqzero(x, sizeof(x))

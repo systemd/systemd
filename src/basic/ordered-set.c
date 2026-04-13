@@ -9,6 +9,8 @@
 #include "strv.h"
 
 int ordered_set_ensure_allocated(OrderedSet **s, const struct hash_ops *ops) {
+        assert(s);
+
         if (*s)
                 return 0;
 
@@ -21,6 +23,8 @@ int ordered_set_ensure_allocated(OrderedSet **s, const struct hash_ops *ops) {
 
 int ordered_set_ensure_put(OrderedSet **s, const struct hash_ops *ops, void *p) {
         int r;
+
+        assert(s);
 
         r = ordered_set_ensure_allocated(s, ops);
         if (r < 0)

@@ -423,6 +423,7 @@ static int radv_find_uplink(Link *link, Link **ret) {
         int r;
 
         assert(link);
+        assert(ret);
 
         if (link->network->router_uplink_name)
                 return link_get_by_name(link->manager, link->network->router_uplink_name, ret);

@@ -1,0 +1,18 @@
+{
+    "type": "devicetree",
+    "name": "Microsoft Corporation Surface",
+    "compatible": "microsoft,blackrock",
+    "hwids": [
+        "69ba0503-ca94-5fa3-b78c-5fa21a66c620",
+        "ad2ee931-a048-5253-b350-98c482670765",
+        "5bd24fc5-5edb-51f6-82e6-31a9ef954c5b",
+        "d67e799e-2ba7-555a-a874-a0523a8b3b11",
+        "813677fa-6d11-5756-a44d-dde0f552d3f6",
+        "ce83144b-b123-59e5-8a9a-0c1a13643fc4",
+        "53b87f48-fc47-54e9-ade5-f1a95e885681",
+        "046fefee-341b-5c40-b0a3-1c647d31b500",
+        "f59639f4-4970-5706-9a75-519dd059f69e",
+        "08f06457-aa19-51c5-be4c-0087ce4fa2ed",
+        "11b80238-dbee-57bc-8b26-83c9e5b4057d"
+    ]
+}

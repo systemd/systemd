@@ -65,6 +65,7 @@ local -a opts=(
     '--no-pager[Do not pipe output to a pager]'
     '--more[Request multiple responses]'
     '--collect[Collect multiple responses in a JSON array]'
+    '--upgrade[Upgrade connection to raw protocol after method call]'
     {-j+,--json=}'[Output as json]:json-mode:(pretty short)'
 )
 _arguments -S $opts '*:: := _varlinkctl_command'

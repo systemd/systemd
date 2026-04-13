@@ -10,6 +10,8 @@
 #include "tests.h"
 
 static void dns_scope_freep(DnsScope **s) {
+        POINTER_MAY_BE_NULL(s);
+
         if (s != NULL && *s != NULL)
                 dns_scope_free(*s);
 }

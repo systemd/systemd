@@ -40,7 +40,7 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-enum {
+static enum {
         ACTION_DEFAULT,
         ACTION_MOUNT,
         ACTION_AUTOMOUNT,
@@ -141,7 +141,8 @@ static int help(void) {
                "     --fsck=no                    Don't run file system check before mount\n"
                "     --description=TEXT           Description for unit\n"
                "  -p --property=NAME=VALUE        Set mount unit property\n"
-               "  -A --automount=BOOL             Create an auto-mount point\n"
+               "     --automount=BOOL             Create an automount point\n"
+               "  -A                              Same as --automount=yes\n"
                "     --timeout-idle-sec=SEC       Specify automount idle timeout\n"
                "     --automount-property=NAME=VALUE\n"
                "                                  Set automount unit property\n"
@@ -347,6 +348,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse timeout: %s", optarg);
 
+                        arg_timeout_idle_set = true;
                         break;
 
                 case ARG_AUTOMOUNT_PROPERTY:
@@ -1320,10 +1322,8 @@ static int acquire_removable(sd_device *d) {
                         return r;
 
                 r = device_in_subsystem(d, "block");
-                if (r < 0)
+                if (r <= 0)
                         return r;
-                if (r == 0)
-                        return 0;
         }
 
         if (parse_boolean(v) <= 0)
@@ -1413,9 +1413,9 @@ static int discover_device(void) {
         if (S_ISREG(st.st_mode))
                 return discover_loop_backing_file();
 
-        if (!S_ISBLK(st.st_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unsupported mount source type for --discover: %s", arg_mount_what);
+        r = stat_verify_block(&st);
+        if (r < 0)
+                return log_error_errno(r, "Unsupported mount source type for --discover: %s", arg_mount_what);
 
         r = sd_device_new_from_stat_rdev(&d, &st);
         if (r < 0)

@@ -63,7 +63,7 @@ static void free_sections(char*(*sections)[_UNIFIED_SECTION_MAX]) {
 
 STATIC_DESTRUCTOR_REGISTER(arg_sections, free_sections);
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -125,6 +125,10 @@ static int help(int argc, char *argv[], void *userdata) {
                glyph(GLYPH_ARROW_RIGHT));
 
         return 0;
+}
+
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
 }
 
 static char *normalize_phase(const char *s) {
@@ -218,8 +222,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -636,6 +639,8 @@ static int pcr_states_allocate(PcrState **ret) {
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
         size_t n = 0;
 
+        assert(ret);
+
         pcr_states = new0(PcrState, strv_length(arg_banks) + 1);
         if (!pcr_states)
                 return log_oom();
@@ -706,7 +711,7 @@ static void pcr_states_restore(PcrState *pcr_states, size_t n) {
         }
 }
 
-static int verb_calculate(int argc, char *argv[], void *userdata) {
+static int verb_calculate(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
         int r;
@@ -817,13 +822,9 @@ static int build_policy_digest(bool sign) {
         assert(!strv_isempty(arg_phase));
 
         if (arg_append) {
-                r = sd_json_parse_file(NULL, arg_append, 0, &v, NULL, NULL);
+                r = sd_json_parse_file(/* f= */ NULL, arg_append, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse '%s': %m", arg_append);
-
-                if (!sd_json_variant_is_object(v))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "File '%s' is not a valid JSON object, refusing.", arg_append);
+                        return log_error_errno(r, "Failed to parse JSON object '%s': %m", arg_append);
         }
 
         /* When signing/building digest we only support JSON output */
@@ -935,7 +936,10 @@ static int build_policy_digest(bool sign) {
                         _cleanup_free_ void *sig = NULL;
                         size_t ss = 0;
                         if (privkey) {
-                                r = digest_and_sign(p->md, privkey, pcr_policy_digest.buffer, pcr_policy_digest.size, &sig, &ss);
+                                /* We always use SHA256 for signing currently. Regardless of the bank. */
+                                const EVP_MD *sha256 = ASSERT_PTR(EVP_get_digestbyname("sha256"));
+
+                                r = digest_and_sign(sha256, privkey, pcr_policy_digest.buffer, pcr_policy_digest.size, &sig, &ss);
                                 if (r == -EADDRNOTAVAIL)
                                         return log_error_errno(r, "Hash algorithm '%s' not available while signing. (Maybe OS security policy disables this algorithm?)", EVP_MD_name(p->md));
                                 if (r < 0)
@@ -988,11 +992,11 @@ static int build_policy_digest(bool sign) {
         return 0;
 }
 
-static int verb_sign(int argc, char *argv[], void *userdata) {
+static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return build_policy_digest(/* sign= */ true);
 }
 
-static int verb_policy_digest(int argc, char *argv[], void *userdata) {
+static int verb_policy_digest(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return build_policy_digest(/* sign= */ false);
 }
 
@@ -1061,7 +1065,7 @@ static int validate_stub(void) {
         return 0;
 }
 
-static int verb_status(int argc, char *argv[], void *userdata) {
+static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
@@ -1147,7 +1151,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
 static int measure_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",          VERB_ANY, VERB_ANY, 0,            help               },
+                { "help",          VERB_ANY, VERB_ANY, 0,            verb_help          },
                 { "status",        VERB_ANY, 1,        VERB_DEFAULT, verb_status        },
                 { "calculate",     VERB_ANY, 1,        0,            verb_calculate     },
                 { "policy-digest", VERB_ANY, 1,        0,            verb_policy_digest },

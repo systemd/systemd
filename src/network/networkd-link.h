@@ -108,6 +108,7 @@ typedef struct Link {
         unsigned set_link_messages;
         unsigned set_flags_messages;
         unsigned create_stacked_netdev_messages;
+        unsigned bearer_messages;
 
         Set *addresses;
         Set *neighbors;
@@ -141,6 +142,7 @@ typedef struct Link {
         bool master_set:1;
         bool stacked_netdevs_created:1;
         bool bridge_vlan_set:1;
+        bool bearer_configured:1;
 
         sd_dhcp_server *dhcp_server;
 
@@ -227,6 +229,7 @@ void link_check_ready(Link *link);
 void link_update_operstate(Link *link, bool also_update_master);
 
 bool link_has_carrier(Link *link);
+bool link_is_up(Link *link);
 bool link_multicast_enabled(Link *link);
 
 bool link_ipv6_enabled(Link *link);
@@ -240,9 +243,9 @@ DECLARE_STRING_TABLE_LOOKUP(link_state, LinkState);
 int link_request_stacked_netdevs(Link *link, NetDevLocalAddressType type);
 
 int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags);
-int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_message *message, unsigned *counter);
+int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_message *message, sd_varlink *varlink, unsigned *counter);
 static inline int link_reconfigure(Link *link, LinkReconfigurationFlag flags) {
-        return link_reconfigure_full(link, flags, NULL, NULL);
+        return link_reconfigure_full(link, flags, NULL, NULL, NULL);
 }
 
 int link_check_initialized(Link *link);

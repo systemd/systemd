@@ -571,7 +571,7 @@ static int read_identity_file(int root_fd, sd_json_variant **ret) {
                 return log_oom();
 
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file(identity_file, ".identity", SD_JSON_PARSE_SENSITIVE, ret, &line, &column);
+        r = sd_json_parse_file(identity_file, ".identity", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, ret, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "[.identity:%u:%u] Failed to parse JSON data: %m", line, column);
 
@@ -915,6 +915,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         int r;
 
         assert(h);
+        assert(ret_home);
 
         if (!h->user_name)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks user name, refusing.");
@@ -2025,7 +2026,7 @@ static int run(int argc, char *argv[]) {
         }
 
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file(json_file, json_path, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse_file(json_file, json_path, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON data: %m", json_path, line, column);
 

@@ -28,7 +28,7 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 
-const char * const catalog_file_dirs[] = {
+static const char * const catalog_file_dirs[] = {
         "/usr/local/lib/systemd/catalog/",
         "/usr/lib/systemd/catalog/",
         NULL
@@ -451,7 +451,7 @@ int catalog_update(const char *database, const char *root, const char* const *di
         ConfFile **files = NULL;
         size_t n_files = 0;
 
-        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
         r = conf_files_list_strv_full(".catalog", root,
                                       CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,

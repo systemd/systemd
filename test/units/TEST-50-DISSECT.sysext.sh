@@ -1307,6 +1307,374 @@ run_systemd_sysext "$fake_root" unmerge
 extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
 )
 
+# A couple of symlink tests follow below
+
+( init_trap
+: "Check if following a relative extension directory symlink works with and without --root="
+fake_root=${roots_dir:+"$roots_dir/follow-relative-dir-symlink"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+mv -T "$fake_root/var/lib/extensions/test-extension" "$fake_root/var/othername-extension"
+ln -s "../../othername-extension" "$fake_root/var/lib/extensions/test-extension"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/othername-extension"
+)
+
+( init_trap
+: "Check if following an absolute extension directory symlink works with and without --root="
+fake_root=${roots_dir:+"$roots_dir/follow-absolute-dir-symlink"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+mv -T "$fake_root/var/lib/extensions/test-extension" "$fake_root/var/othername-extension"
+ln -s "/var/othername-extension" "$fake_root/var/lib/extensions/test-extension"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/othername-extension"
+)
+
+( init_trap
+: "Check if following a relative extension image symlink works with and without --root="
+fake_root=${roots_dir:+"$roots_dir/follow-relative-image-symlink"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_raw "$fake_root" "$hierarchy"
+mv "$fake_root/var/lib/extensions/test-extension.raw" "$fake_root/var/othername-extension.raw"
+ln -s "../../othername-extension.raw" "$fake_root/var/lib/extensions/test-extension.raw"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/othername-extension.raw"
+)
+
+( init_trap
+: "Check if following an absolute extension image symlink works with and without --root="
+fake_root=${roots_dir:+"$roots_dir/follow-absolute-image-symlink"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_raw "$fake_root" "$hierarchy"
+mv "$fake_root/var/lib/extensions/test-extension.raw" "$fake_root/var/othername-extension.raw"
+ln -s "/var/othername-extension.raw" "$fake_root/var/lib/extensions/test-extension.raw"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/othername-extension.raw"
+)
+
+# And now a couple of vpick tests, including following symlinks
+
+( init_trap
+: "Check if vpick works for directory extensions"
+fake_root=${roots_dir:+"$roots_dir/vpick-dir"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+mkdir -p "$fake_root/var/lib/extensions/test-extension.v"
+mv -T "$fake_root/var/lib/extensions/test-extension" "$fake_root/var/lib/extensions/test-extension.v/test-extension_1.0"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/lib/extensions/test-extension.v"
+)
+
+( init_trap
+: "Check if vpick works for image extensions"
+fake_root=${roots_dir:+"$roots_dir/vpick-image"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_raw "$fake_root" "$hierarchy"
+mkdir -p "$fake_root/var/lib/extensions/test-extension.raw.v"
+mv "$fake_root/var/lib/extensions/test-extension.raw" "$fake_root/var/lib/extensions/test-extension.raw.v/test-extension_1.0.raw"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/lib/extensions/test-extension.raw.v"
+)
+
+( init_trap
+: "Check if vpick works for directory extensions if .v is a relative symlink"
+fake_root=${roots_dir:+"$roots_dir/vpick-dir-relative-symlink"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+mkdir -p "$fake_root/var/test-extension-vpick"
+mv -T "$fake_root/var/lib/extensions/test-extension" "$fake_root/var/test-extension-vpick/test-extension_1.0"
+ln -s "../../test-extension-vpick" "$fake_root/var/lib/extensions/test-extension.v"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/lib/extensions/test-extension.v" "$fake_root/var/test-extension-vpick"
+)
+
+( init_trap
+: "Check if vpick works for directory extensions if .v is an absolute symlink"
+fake_root=${roots_dir:+"$roots_dir/vpick-dir-absolute-symlink"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+mkdir -p "$fake_root/var/test-extension-vpick"
+mv -T "$fake_root/var/lib/extensions/test-extension" "$fake_root/var/test-extension-vpick/test-extension_1.0"
+ln -s "/var/test-extension-vpick" "$fake_root/var/lib/extensions/test-extension.v"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/lib/extensions/test-extension.v" "$fake_root/var/test-extension-vpick"
+)
+
+( init_trap
+: "Check if vpick works for image extensions if .v is a relative symlink"
+fake_root=${roots_dir:+"$roots_dir/vpick-image-relative-symlink"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_raw "$fake_root" "$hierarchy"
+mkdir -p "$fake_root/var/test-extension-vpick"
+mv "$fake_root/var/lib/extensions/test-extension.raw" "$fake_root/var/test-extension-vpick/test-extension_1.0.raw"
+ln -s "../../test-extension-vpick" "$fake_root/var/lib/extensions/test-extension.raw.v"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/lib/extensions/test-extension.raw.v" "$fake_root/var/test-extension-vpick"
+)
+
+( init_trap
+: "Check if vpick works for image extensions if .v is an absolute symlink"
+fake_root=${roots_dir:+"$roots_dir/vpick-image-absolute-symlink"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_raw "$fake_root" "$hierarchy"
+mkdir -p "$fake_root/var/test-extension-vpick"
+mv "$fake_root/var/lib/extensions/test-extension.raw" "$fake_root/var/test-extension-vpick/test-extension_1.0.raw"
+ln -s "/var/test-extension-vpick" "$fake_root/var/lib/extensions/test-extension.raw.v"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/lib/extensions/test-extension.raw.v" "$fake_root/var/test-extension-vpick"
+)
+
+( init_trap
+: "Check if vpick works for directory extensions if inside a .v there is a relative symlink"
+fake_root=${roots_dir:+"$roots_dir/vpick-dir-relative-symlink-inside"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+mv -T "$fake_root/var/lib/extensions/test-extension" "$fake_root/var/othername-extension"
+mkdir -p "$fake_root/var/lib/extensions/test-extension.v"
+ln -s "../../../othername-extension" "$fake_root/var/lib/extensions/test-extension.v/test-extension_1.0"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/lib/extensions/test-extension.v" "$fake_root/var/othername-extension"
+)
+
+( init_trap
+: "Check if vpick works for directory extensions if inside a .v there is an absolute symlink"
+fake_root=${roots_dir:+"$roots_dir/vpick-dir-absolute-symlink-inside"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+mv -T "$fake_root/var/lib/extensions/test-extension" "$fake_root/var/othername-extension"
+mkdir -p "$fake_root/var/lib/extensions/test-extension.v"
+ln -s "/var/othername-extension" "$fake_root/var/lib/extensions/test-extension.v/test-extension_1.0"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/lib/extensions/test-extension.v" "$fake_root/var/othername-extension"
+)
+
+( init_trap
+: "Check if vpick works for image extensions if inside a .v there is a relative symlink"
+fake_root=${roots_dir:+"$roots_dir/vpick-image-relative-symlink-inside"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_raw "$fake_root" "$hierarchy"
+mv "$fake_root/var/lib/extensions/test-extension.raw" "$fake_root/var/othername-extension.raw"
+mkdir -p "$fake_root/var/lib/extensions/test-extension.raw.v"
+ln -s "../../../othername-extension.raw" "$fake_root/var/lib/extensions/test-extension.raw.v/test-extension_1.0.raw"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/lib/extensions/test-extension.raw.v" "$fake_root/var/othername-extension.raw"
+)
+
+( init_trap
+: "Check if vpick works for image extensions if inside a .v there is an absolute symlink"
+fake_root=${roots_dir:+"$roots_dir/vpick-image-absolute-symlink-inside"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_raw "$fake_root" "$hierarchy"
+mv "$fake_root/var/lib/extensions/test-extension.raw" "$fake_root/var/othername-extension.raw"
+mkdir -p "$fake_root/var/lib/extensions/test-extension.raw.v"
+ln -s "/var/othername-extension.raw" "$fake_root/var/lib/extensions/test-extension.raw.v/test-extension_1.0.raw"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/lib/extensions/test-extension.raw.v" "$fake_root/var/othername-extension.raw"
+)
+
+# Done with the above vpick symlink tests for --root= and without
+
+( init_trap
+: "Check if refresh skips correctly"
+fake_root=${roots_dir:+"$roots_dir/refresh-skip"}
+hierarchy=/opt
+
+findmnt --kernel=listmount >/dev/null || {
+    echo >&2 "Can't run test on old kernel, skipping test."
+    exit 0
+}
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+prepare_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+# The mountinfo ID gets reused and is useless here, we require a unique ID from listmount
+MOUNTID1=$(findmnt --kernel=listmount -o UNIQ-ID --raw --noheadings --target "$fake_root$hierarchy")
+run_systemd_sysext "$fake_root" refresh
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+MOUNTID2=$(findmnt --kernel=listmount -o UNIQ-ID --raw --noheadings --target "$fake_root$hierarchy")
+if [ "$MOUNTID1" != "$MOUNTID2" ]; then
+    echo >&2 "Unexpected remount with 'refresh'"
+    exit 1
+fi
+rm -rf "$fake_root/var/lib/extensions/test-extension2"
+cp -ar "$fake_root/var/lib/extensions/test-extension" "$fake_root/var/lib/extensions/test-extension2"
+rm -rf "$fake_root/var/lib/extensions/test-extension"
+mv "$fake_root/var/lib/extensions/test-extension2" "$fake_root/var/lib/extensions/test-extension"
+run_systemd_sysext "$fake_root" refresh
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+MOUNTID3=$(findmnt --kernel=listmount -o UNIQ-ID --raw --noheadings --target "$fake_root$hierarchy")
+if [ "$MOUNTID2" = "$MOUNTID3" ]; then
+    echo >&2 "Unexpected skip with 'refresh'"
+    exit 1
+fi
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+)
+
+( init_trap
+: "Check that refresh does a skip if verity image changes file handle but has same hash"
+fake_root=${roots_dir:+"$roots_dir/refresh-skip-verity-filehandle-same-hash"}
+hierarchy=/opt
+
+# On OpenSUSE Tumbleweed EROFS is not supported
+if [ -e /usr/lib/modprobe.d/60-blacklist_fs-erofs.conf ]; then
+    echo >&2 "Skipping test due to missing erofs support"
+    exit 0
+fi
+
+findmnt --kernel=listmount >/dev/null || {
+    echo >&2 "Can't run test on old kernel, skipping test."
+    exit 0
+}
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_raw_verity "$fake_root" "$hierarchy"
+prepare_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+# The mountinfo ID gets reused and is useless here, we require a unique ID from listmount
+MOUNTID1=$(findmnt --kernel=listmount -o UNIQ-ID --raw --noheadings --target "$fake_root$hierarchy")
+run_systemd_sysext "$fake_root" refresh
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+MOUNTID2=$(findmnt --kernel=listmount -o UNIQ-ID --raw --noheadings --target "$fake_root$hierarchy")
+if [ "$MOUNTID1" != "$MOUNTID2" ]; then
+    echo >&2 "Unexpected remount with 'refresh'"
+    exit 1
+fi
+# Force a new file handle (get a new inode)
+mv "$fake_root/var/lib/extensions/test-extension.raw" "$fake_root/var/lib/extensions/test-extension2.raw"
+cp "$fake_root/var/lib/extensions/test-extension2.raw" "$fake_root/var/lib/extensions/test-extension.raw"
+rm "$fake_root/var/lib/extensions/test-extension2.raw"
+run_systemd_sysext "$fake_root" refresh
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+MOUNTID3=$(findmnt --kernel=listmount -o UNIQ-ID --raw --noheadings --target "$fake_root$hierarchy")
+if [ "$MOUNTID2" != "$MOUNTID3" ]; then
+    echo >&2 "Unexpected remount with 'refresh' after verity image file handle changed"
+    exit 1
+fi
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+)
+
 } # End of run_sysext_tests
 
 

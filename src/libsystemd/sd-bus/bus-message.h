@@ -153,6 +153,10 @@ static inline uint64_t BUS_MESSAGE_COOKIE(sd_bus_message *m) {
 }
 
 static inline size_t BUS_MESSAGE_SIZE(sd_bus_message *m) {
+        /* Silence static analyzers, fields_size is validated at message creation */
+        assert(ALIGN8(m->fields_size) != SIZE_MAX);
+        assert(ALIGN8(m->fields_size) <= SIZE_MAX - sizeof(BusMessageHeader));
+        assert(m->body_size <= SIZE_MAX - sizeof(BusMessageHeader) - ALIGN8(m->fields_size));
         return
                 sizeof(BusMessageHeader) +
                 ALIGN8(m->fields_size) +
@@ -160,6 +164,9 @@ static inline size_t BUS_MESSAGE_SIZE(sd_bus_message *m) {
 }
 
 static inline size_t BUS_MESSAGE_BODY_BEGIN(sd_bus_message *m) {
+        /* Silence static analyzers, fields_size is validated at message creation */
+        assert(ALIGN8(m->fields_size) != SIZE_MAX);
+        assert(ALIGN8(m->fields_size) <= SIZE_MAX - sizeof(BusMessageHeader));
         return
                 sizeof(BusMessageHeader) +
                 ALIGN8(m->fields_size);
@@ -177,6 +184,7 @@ int bus_message_from_malloc(
                 size_t length,
                 int *fds,
                 size_t n_fds,
+                bool got_ctrunc,
                 const char *label,
                 sd_bus_message **ret);
 

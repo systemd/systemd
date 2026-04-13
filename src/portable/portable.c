@@ -6,6 +6,7 @@
 
 #include "sd-bus.h"
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "bus-common-errors.h"
 #include "bus-error.h"
@@ -136,6 +137,9 @@ PortableMetadata *portable_metadata_unref(PortableMetadata *i) {
 }
 
 static int compare_metadata(PortableMetadata *const *x, PortableMetadata *const *y) {
+        assert(x);
+        assert(y);
+
         return strcmp((*x)->name, (*y)->name);
 }
 
@@ -144,6 +148,8 @@ int portable_metadata_hashmap_to_sorted_array(Hashmap *unit_files, PortableMetad
         _cleanup_free_ PortableMetadata **sorted = NULL;
         PortableMetadata *item;
         size_t k = 0;
+
+        assert(ret);
 
         sorted = new(PortableMetadata*, hashmap_size(unit_files));
         if (!sorted)
@@ -380,7 +386,7 @@ static int extract_now(
                                 continue;
 
                         /* Filter out duplicates */
-                        if (hashmap_get(unit_files, de->d_name))
+                        if (hashmap_contains(unit_files, de->d_name))
                                 continue;
 
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
@@ -470,7 +476,7 @@ static int portable_extract_by_path(
 
         _cleanup_close_ int rfd = open(path, O_PATH|O_CLOEXEC);
         if (rfd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", path);
+                return log_debug_errno(errno, "Failed to open '%s': %m", path);
 
         struct stat st;
         if (fstat(rfd, &st) < 0)
@@ -480,17 +486,25 @@ static int portable_extract_by_path(
                 _cleanup_free_ char *image_name = NULL;
                 r = path_extract_filename(path, &image_name);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to extract image name from path '%s': %m", path);
+                        return log_debug_errno(r, "Failed to extract image name from path '%s': %m", path);
 
                 if (scope == RUNTIME_SCOPE_USER && uid_is_foreign(st.st_uid)) {
-                        _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K);
+                        _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+                                        /* vl= */ NULL,
+                                        /* name= */ NULL,
+                                        NSRESOURCE_UIDS_64K);
                         if (userns_fd < 0)
                                 return log_debug_errno(userns_fd, "Failed to allocate user namespace: %m");
 
                         _cleanup_close_ int mfd = -EBADF;
-                        r = mountfsd_mount_directory_fd(rfd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &mfd);
+                        r = mountfsd_mount_directory_fd(
+                                        /* vl= */ NULL,
+                                        rfd,
+                                        userns_fd,
+                                        DISSECT_IMAGE_FOREIGN_UID,
+                                        &mfd);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to open '%s' via mountfsd: %m", path);
+                                return r;
 
                         _cleanup_close_pair_ int seq[2] = EBADF_PAIR;
                         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, seq) < 0)
@@ -510,7 +524,7 @@ static int portable_extract_by_path(
                                 seq[0] = safe_close(seq[0]);
                                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                                if (setns(CLONE_NEWUSER, userns_fd) < 0) {
+                                if (setns(userns_fd, CLONE_NEWUSER) < 0) {
                                         r = log_debug_errno(errno, "Failed to join userns: %m");
                                         report_errno_and_exit(errno_pipe_fd[1], r);
                                 }
@@ -587,7 +601,7 @@ static int portable_extract_by_path(
                                 /* root_hash_path= */ NULL,
                                 /* root_hash_sig_path= */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read verity artifacts for %s: %m", path);
+                        return log_debug_errno(r, "Failed to read verity artifacts for %s: %m", path);
 
                 if (verity.data_path)
                         flags |= DISSECT_IMAGE_NO_PARTITION_TABLE;
@@ -604,11 +618,15 @@ static int portable_extract_by_path(
                         return log_debug_errno(r, "Failed to create temporary directory: %m");
 
                 if (scope == RUNTIME_SCOPE_USER) {
-                        userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K);
+                        userns_fd = nsresource_allocate_userns(
+                                        /* vl= */ NULL,
+                                        /* name= */ NULL,
+                                        NSRESOURCE_UIDS_64K);
                         if (userns_fd < 0)
                                 return log_debug_errno(userns_fd, "Failed to allocate user namespace: %m");
 
                         r = mountfsd_mount_image_fd(
+                                        /* vl= */ NULL,
                                         rfd,
                                         userns_fd,
                                         /* options= */ NULL,
@@ -1253,25 +1271,45 @@ static int portable_changes_add_with_prefix(
         return portable_changes_add(changes, n_changes, type_or_errno, path, source);
 }
 
-void portable_changes_free(PortableChange *changes, size_t n_changes) {
-        size_t i;
-
-        assert(changes || n_changes == 0);
-
-        for (i = 0; i < n_changes; i++) {
-                free(changes[i].path);
-                free(changes[i].source);
-        }
-
-        free(changes);
+static void portable_change_done(PortableChange *change) {
+        assert(change);
+        change->path = mfree(change->path);
+        change->source = mfree(change->source);
 }
 
+DEFINE_ARRAY_FREE_FUNC(portable_changes_free, PortableChange, portable_change_done);
+
 static const char *root_setting_from_image(ImageType type) {
-        return IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) ? "RootDirectory=" : "RootImage=";
+        switch (type) {
+        case IMAGE_DIRECTORY:
+        case IMAGE_SUBVOLUME:
+                return "RootDirectory=";
+
+        case IMAGE_RAW:
+        case IMAGE_BLOCK:
+                return "RootImage=";
+
+        case IMAGE_MSTACK:
+                return "RootMStack=";
+
+        default:
+                return NULL;
+        }
 }
 
 static const char *extension_setting_from_image(ImageType type) {
-        return IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) ? "ExtensionDirectories=" : "ExtensionImages=";
+        switch (type) {
+        case IMAGE_DIRECTORY:
+        case IMAGE_SUBVOLUME:
+                return "ExtensionDirectories=";
+
+        case IMAGE_RAW:
+        case IMAGE_BLOCK:
+                return "ExtensionImages=";
+
+        default:
+                return NULL;
+        }
 }
 
 static int make_marker_text(const char *image_path, OrderedHashmap *extension_images, char **ret_text) {
@@ -1344,9 +1382,19 @@ static int append_release_log_fields(
 
         /* Find an ID first, in order of preference from more specific to less specific: IMAGE_ID -> ID */
         id = strv_find_first_field((char *const *)field_ids[type], fields);
+        if (id && string_has_cc(id, /* ok= */ NULL)) {
+                log_debug("os-release file '%s' contains control characters in the ID field, skipping.",
+                          release->name);
+                id = NULL;
+        }
 
         /* Then the version, same logic, prefer the more specific one */
         version = strv_find_first_field((char *const *)field_versions[type], fields);
+        if (version && string_has_cc(version, /* ok= */ NULL)) {
+                log_debug("os-release file '%s' contains control characters in the version field, skipping.",
+                          release->name);
+                version = NULL;
+        }
 
         /* If there's no valid version to be found, simply omit it. */
         if (!id && !version)
@@ -1401,6 +1449,8 @@ static int install_chroot_dropin(
                 Image *ext;
 
                 root_type = root_setting_from_image(type);
+                if (!root_type)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Image type '%s' not supported as portable service.", image_type_to_string(type));
 
                 r = path_extract_filename(m->image_path ?: image_path, &base_name);
                 if (r < 0)
@@ -1451,61 +1501,64 @@ static int install_chroot_dropin(
                 if (r < 0)
                         return r;
 
-                if (m->image_path && !path_equal(m->image_path, image_path))
-                        ORDERED_HASHMAP_FOREACH(ext, extension_images) {
-                                _cleanup_free_ char *extension_base_name = NULL;
+                ORDERED_HASHMAP_FOREACH(ext, extension_images) {
 
-                                r = path_extract_filename(ext->path, &extension_base_name);
+                        const char *extension_setting = extension_setting_from_image(ext->type);
+                        if (!extension_setting)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Image type '%s' not supported for extensions: %m", image_type_to_string(ext->type));
+
+                        _cleanup_free_ char *extension_base_name = NULL;
+                        r = path_extract_filename(ext->path, &extension_base_name);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract basename from '%s': %m", ext->path);
+
+                        if (!strextend(&text,
+                                       "\n",
+                                       extension_setting,
+                                       ext->path,
+                                       /* With --force tell PID1 to avoid enforcing that the image <name> and
+                                        * extension-release.<name> have to match. */
+                                       !IN_SET(ext->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) &&
+                                           FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION) ?
+                                               ":x-systemd.relax-extension-release-check\n" :
+                                               "\n",
+                                       /* In PORTABLE= we list the 'main' image name for this unit
+                                        * (the image where the unit was extracted from), but we are
+                                        * stacking multiple images, so list those too. */
+                                       "LogExtraFields=PORTABLE_EXTENSION=", extension_base_name, "\n"))
+                                return -ENOMEM;
+
+                        if (pinned_ext_image_policy && !IN_SET(ext->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME)) {
+                                _cleanup_free_ char *policy_str = NULL;
+
+                                r = image_policy_to_string(pinned_ext_image_policy, /* simplify= */ true, &policy_str);
                                 if (r < 0)
-                                        return log_debug_errno(r, "Failed to extract basename from '%s': %m", ext->path);
+                                        return log_debug_errno(r, "Failed to serialize pinned image policy: %m");
 
                                 if (!strextend(&text,
-                                               "\n",
-                                               extension_setting_from_image(ext->type),
-                                               ext->path,
-                                               /* With --force tell PID1 to avoid enforcing that the image <name> and
-                                                * extension-release.<name> have to match. */
-                                               !IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) &&
-                                                   FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION) ?
-                                                       ":x-systemd.relax-extension-release-check\n" :
-                                                       "\n",
-                                               /* In PORTABLE= we list the 'main' image name for this unit
-                                                * (the image where the unit was extracted from), but we are
-                                                * stacking multiple images, so list those too. */
-                                               "LogExtraFields=PORTABLE_EXTENSION=", extension_base_name, "\n"))
+                                               "ExtensionImagePolicy=", policy_str, "\n"))
                                         return -ENOMEM;
-
-                                if (pinned_ext_image_policy) {
-                                        _cleanup_free_ char *policy_str = NULL;
-
-                                        r = image_policy_to_string(pinned_ext_image_policy, /* simplify= */ true, &policy_str);
-                                        if (r < 0)
-                                                return log_debug_errno(r, "Failed to serialize pinned image policy: %m");
-
-                                        if (!strextend(&text,
-                                                       "ExtensionImagePolicy=", policy_str, "\n"))
-                                                return -ENOMEM;
-                                }
-
-                                /* Look for image/version identifiers in the extension release files. We
-                                 * look for all possible IDs, but typically only 1 or 2 will be set, so
-                                 * the number of fields added shouldn't be too large. We prefix the DDI
-                                 * name to the value, so that we can add the same field multiple times and
-                                 * still be able to identify what applies to what. */
-                                r = append_release_log_fields(&text,
-                                                              ordered_hashmap_get(extension_releases, ext->name),
-                                                              IMAGE_SYSEXT,
-                                                              "PORTABLE_EXTENSION_NAME_AND_VERSION");
-                                if (r < 0)
-                                        return r;
-
-                                r = append_release_log_fields(&text,
-                                                              ordered_hashmap_get(extension_releases, ext->name),
-                                                              IMAGE_CONFEXT,
-                                                              "PORTABLE_EXTENSION_NAME_AND_VERSION");
-                                if (r < 0)
-                                        return r;
                         }
+
+                        /* Look for image/version identifiers in the extension release files. We
+                         * look for all possible IDs, but typically only 1 or 2 will be set, so
+                         * the number of fields added shouldn't be too large. We prefix the DDI
+                         * name to the value, so that we can add the same field multiple times and
+                         * still be able to identify what applies to what. */
+                        r = append_release_log_fields(&text,
+                                                      ordered_hashmap_get(extension_releases, ext->name),
+                                                      IMAGE_SYSEXT,
+                                                      "PORTABLE_EXTENSION_NAME_AND_VERSION");
+                        if (r < 0)
+                                return r;
+
+                        r = append_release_log_fields(&text,
+                                                      ordered_hashmap_get(extension_releases, ext->name),
+                                                      IMAGE_CONFEXT,
+                                                      "PORTABLE_EXTENSION_NAME_AND_VERSION");
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_SYNC);
@@ -1777,33 +1830,46 @@ static int install_image(
 
         if (flags & PORTABLE_MIXED_COPY_LINK) {
                 if (scope == RUNTIME_SCOPE_USER) {
-                        _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K);
+                        _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+                                        /* vl= */ NULL,
+                                        /* name= */ NULL,
+                                        NSRESOURCE_UIDS_64K);
                         if (userns_fd < 0)
                                 return log_debug_errno(userns_fd, "Failed to allocate user namespace: %m");
 
                         _cleanup_close_ int fd = open(image_path, O_DIRECTORY|O_CLOEXEC);
                         if (fd < 0)
-                                return log_error_errno(errno, "Failed to open '%s': %m", image_path);
+                                return log_debug_errno(errno, "Failed to open '%s': %m", image_path);
 
                         struct stat st;
                         if (fstat(fd, &st) < 0)
-                                return log_error_errno(errno, "Failed to stat '%s': %m", image_path);
+                                return log_debug_errno(errno, "Failed to stat '%s': %m", image_path);
+
+                        _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
+                        r = mountfsd_connect(&mountfsd_link);
+                        if (r < 0)
+                                return r;
 
                         _cleanup_close_ int tree_fd = -EBADF;
                         if (uid_is_foreign(st.st_uid)) {
-                                r = mountfsd_mount_directory_fd(fd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &tree_fd);
+                                r = mountfsd_mount_directory_fd(
+                                                mountfsd_link,
+                                                fd,
+                                                userns_fd,
+                                                DISSECT_IMAGE_FOREIGN_UID,
+                                                &tree_fd);
                                 if (r < 0)
                                         return r;
                         } else
                                 tree_fd = TAKE_FD(fd);
 
                         _cleanup_close_ int directory_fd = -EBADF;
-                        r = mountfsd_make_directory(target, MODE_INVALID, /* flags= */ 0, &directory_fd);
+                        r = mountfsd_make_directory(mountfsd_link, target, MODE_INVALID, /* flags= */ 0, &directory_fd);
                         if (r < 0)
                                 return r;
 
                         _cleanup_close_ int copy_fd = -EBADF;
-                        r = mountfsd_mount_directory_fd(directory_fd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &copy_fd);
+                        r = mountfsd_mount_directory_fd(mountfsd_link, directory_fd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &copy_fd);
                         if (r < 0)
                                 return r;
 
@@ -2047,7 +2113,7 @@ int portable_attach(
 
         if (!FLAGS_SET(flags, PORTABLE_REATTACH) && !FLAGS_SET(flags, PORTABLE_FORCE_ATTACH))
                 HASHMAP_FOREACH(item, unit_files) {
-                        r = unit_file_exists(scope, &paths, item->name);
+                        r = unit_file_exists_full(scope, &paths, SEARCH_IGNORE_TEMPLATE, item->name, /* ret_path= */ NULL);
                         if (r < 0)
                                 return sd_bus_error_set_errnof(error, r, "Failed to determine whether unit '%s' exists on the host: %m", item->name);
                         if (r > 0)

@@ -266,7 +266,7 @@ static int list_sessions_table_add_fallback(Table *table, sd_bus_message *reply,
         return 0;
 }
 
-static int list_sessions(int argc, char *argv[], void *userdata) {
+static int verb_list_sessions(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -308,7 +308,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         return list_table_print(table, "sessions");
 }
 
-static int list_users(int argc, char *argv[], void *userdata) {
+static int verb_list_users(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         static const struct bus_properties_map property_map[] = {
                 { "Linger", "b", NULL, offsetof(UserStatusInfo, linger) },
@@ -384,7 +384,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
         return list_table_print(table, "users");
 }
 
-static int list_seats(int argc, char *argv[], void *userdata) {
+static int verb_list_seats(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -716,9 +716,9 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         /* We don't use the table to show the header, in order to make the width of the column stable. */
         printf("%s%s - %s (" UID_FMT ")%s\n", ansi_highlight(), i.id, i.name, i.uid, ansi_normal());
 
-        r = table_print(table, NULL);
+        r = table_print_or_warn(table);
         if (r < 0)
-                return table_log_print_error(r);
+                return r;
 
         if (i.scope) {
                 show_unit_cgroup(bus, i.scope, i.leader, /* prefix= */ strrepa(" ", STRLEN("Display: ")));
@@ -821,9 +821,9 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
 
         printf("%s%s (" UID_FMT ")%s\n", ansi_highlight(), i.name, i.uid, ansi_normal());
 
-        r = table_print(table, NULL);
+        r = table_print_or_warn(table);
         if (r < 0)
-                return table_log_print_error(r);
+                return r;
 
         if (i.slice) {
                 show_unit_cgroup(bus, i.slice, /* leader= */ 0, /* prefix= */ strrepa(" ", STRLEN("Sessions: ")));
@@ -896,9 +896,9 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
 
         printf("%s%s%s\n", ansi_highlight(), i.id, ansi_normal());
 
-        r = table_print(table, NULL);
+        r = table_print_or_warn(table);
         if (r < 0)
-                return table_log_print_error(r);
+                return r;
 
         if (arg_transport == BUS_TRANSPORT_LOCAL) {
                 unsigned c = MAX(LESS_BY(columns(), 21U), 10U);
@@ -1038,7 +1038,7 @@ static int get_bus_path_by_id(
         return strdup_to(ret, path);
 }
 
-static int show_session(int argc, char *argv[], void *userdata) {
+static int verb_show_session(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         bool properties;
         int r;
@@ -1084,7 +1084,7 @@ static int show_session(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int show_user(int argc, char *argv[], void *userdata) {
+static int verb_show_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         bool properties;
         int r;
@@ -1135,7 +1135,7 @@ static int show_user(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int show_seat(int argc, char *argv[], void *userdata) {
+static int verb_show_seat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         bool properties;
         int r;
@@ -1181,7 +1181,7 @@ static int show_seat(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int activate(int argc, char *argv[], void *userdata) {
+static int verb_activate(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1224,7 +1224,7 @@ static int activate(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int kill_session(int argc, char *argv[], void *userdata) {
+static int verb_kill_session(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1250,7 +1250,7 @@ static int kill_session(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int enable_linger(int argc, char *argv[], void *userdata) {
+static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         char* short_argv[3];
@@ -1298,7 +1298,7 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int terminate_user(int argc, char *argv[], void *userdata) {
+static int verb_terminate_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1328,7 +1328,7 @@ static int terminate_user(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int kill_user(int argc, char *argv[], void *userdata) {
+static int verb_kill_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1366,7 +1366,7 @@ static int kill_user(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int attach(int argc, char *argv[], void *userdata) {
+static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1390,7 +1390,7 @@ static int attach(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int flush_devices(int argc, char *argv[], void *userdata) {
+static int verb_flush_devices(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1406,7 +1406,7 @@ static int flush_devices(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int lock_sessions(int argc, char *argv[], void *userdata) {
+static int verb_lock_sessions(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1427,7 +1427,7 @@ static int lock_sessions(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int terminate_seat(int argc, char *argv[], void *userdata) {
+static int verb_terminate_seat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1446,7 +1446,7 @@ static int terminate_seat(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -1519,6 +1519,10 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
+}
+
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
@@ -1560,7 +1564,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        return help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -1669,30 +1673,30 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int loginctl_main(int argc, char *argv[], sd_bus *bus) {
         static const Verb verbs[] = {
-                { "help",              VERB_ANY, VERB_ANY, 0,            help              },
-                { "list-sessions",     VERB_ANY, 1,        VERB_DEFAULT, list_sessions     },
-                { "session-status",    VERB_ANY, VERB_ANY, 0,            show_session      },
-                { "show-session",      VERB_ANY, VERB_ANY, 0,            show_session      },
-                { "activate",          VERB_ANY, 2,        0,            activate          },
-                { "lock-session",      VERB_ANY, VERB_ANY, 0,            activate          },
-                { "unlock-session",    VERB_ANY, VERB_ANY, 0,            activate          },
-                { "lock-sessions",     VERB_ANY, 1,        0,            lock_sessions     },
-                { "unlock-sessions",   VERB_ANY, 1,        0,            lock_sessions     },
-                { "terminate-session", 2,        VERB_ANY, 0,            activate          },
-                { "kill-session",      2,        VERB_ANY, 0,            kill_session      },
-                { "list-users",        VERB_ANY, 1,        0,            list_users        },
-                { "user-status",       VERB_ANY, VERB_ANY, 0,            show_user         },
-                { "show-user",         VERB_ANY, VERB_ANY, 0,            show_user         },
-                { "enable-linger",     VERB_ANY, VERB_ANY, 0,            enable_linger     },
-                { "disable-linger",    VERB_ANY, VERB_ANY, 0,            enable_linger     },
-                { "terminate-user",    2,        VERB_ANY, 0,            terminate_user    },
-                { "kill-user",         2,        VERB_ANY, 0,            kill_user         },
-                { "list-seats",        VERB_ANY, 1,        0,            list_seats        },
-                { "seat-status",       VERB_ANY, VERB_ANY, 0,            show_seat         },
-                { "show-seat",         VERB_ANY, VERB_ANY, 0,            show_seat         },
-                { "attach",            3,        VERB_ANY, 0,            attach            },
-                { "flush-devices",     VERB_ANY, 1,        0,            flush_devices     },
-                { "terminate-seat",    2,        VERB_ANY, 0,            terminate_seat    },
+                { "help",              VERB_ANY, VERB_ANY, 0,            verb_help           },
+                { "list-sessions",     VERB_ANY, 1,        VERB_DEFAULT, verb_list_sessions  },
+                { "session-status",    VERB_ANY, VERB_ANY, 0,            verb_show_session   },
+                { "show-session",      VERB_ANY, VERB_ANY, 0,            verb_show_session   },
+                { "activate",          VERB_ANY, 2,        0,            verb_activate       },
+                { "lock-session",      VERB_ANY, VERB_ANY, 0,            verb_activate       },
+                { "unlock-session",    VERB_ANY, VERB_ANY, 0,            verb_activate       },
+                { "lock-sessions",     VERB_ANY, 1,        0,            verb_lock_sessions  },
+                { "unlock-sessions",   VERB_ANY, 1,        0,            verb_lock_sessions  },
+                { "terminate-session", 2,        VERB_ANY, 0,            verb_activate       },
+                { "kill-session",      2,        VERB_ANY, 0,            verb_kill_session   },
+                { "list-users",        VERB_ANY, 1,        0,            verb_list_users     },
+                { "user-status",       VERB_ANY, VERB_ANY, 0,            verb_show_user      },
+                { "show-user",         VERB_ANY, VERB_ANY, 0,            verb_show_user      },
+                { "enable-linger",     VERB_ANY, VERB_ANY, 0,            verb_enable_linger  },
+                { "disable-linger",    VERB_ANY, VERB_ANY, 0,            verb_enable_linger  },
+                { "terminate-user",    2,        VERB_ANY, 0,            verb_terminate_user },
+                { "kill-user",         2,        VERB_ANY, 0,            verb_kill_user      },
+                { "list-seats",        VERB_ANY, 1,        0,            verb_list_seats     },
+                { "seat-status",       VERB_ANY, VERB_ANY, 0,            verb_show_seat      },
+                { "show-seat",         VERB_ANY, VERB_ANY, 0,            verb_show_seat      },
+                { "attach",            3,        VERB_ANY, 0,            verb_attach         },
+                { "flush-devices",     VERB_ANY, 1,        0,            verb_flush_devices  },
+                { "terminate-seat",    2,        VERB_ANY, 0,            verb_terminate_seat },
                 {}
         };
 

@@ -12,8 +12,6 @@ typedef void (*free_func_t)(void *p);
  * variables declared in .so's, as the list is private to the same linking unit. But maybe that's a good thing. */
 
 #define _common_static_destruct_attrs_                                  \
-        /* Older compilers don't know "retain" attribute. */            \
-        _Pragma("GCC diagnostic ignored \"-Wattributes\"")              \
         /* The actual destructor structure we place in a special section to find it. */ \
         _section_("SYSTEMD_STATIC_DESTRUCT")                            \
         /* Use pointer alignment, since that is apparently what gcc does for static variables. */ \

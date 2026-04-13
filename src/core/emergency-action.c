@@ -240,6 +240,8 @@ int parse_emergency_action(
 
         EmergencyAction x;
 
+        assert(ret);
+
         x = emergency_action_from_string(value);
         if (x < 0)
                 return -EINVAL;

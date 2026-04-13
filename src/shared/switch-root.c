@@ -54,7 +54,7 @@ int switch_root(const char *new_root,
         if (new_root_fd < 0)
                 return log_error_errno(errno, "Failed to open target directory '%s': %m", new_root);
 
-        r = fds_are_same_mount(old_root_fd, new_root_fd); /* checks if referenced inodes and mounts match */
+        r = fds_inode_and_mount_same(old_root_fd, new_root_fd); /* checks if referenced inodes and mounts match */
         if (r < 0)
                 return log_error_errno(r, "Failed to check if old and new root directory/mount are the same: %m");
         if (r > 0) {

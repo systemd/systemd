@@ -12,14 +12,6 @@
 #define RANDOM_MAX_SIZE_MIN (32U)
 #define RANDOM_MAX_SIZE_MAX (32U*1024U)
 
-struct linux_efi_random_seed {
-        uint32_t size;
-        uint8_t seed[];
-};
-
-#define LINUX_EFI_RANDOM_SEED_TABLE_GUID \
-        { 0x1ce1e5bc, 0x7ceb, 0x42f2, { 0x81, 0xe5, 0x8a, 0xad, 0xf1, 0x80, 0xf5, 0x7b } }
-
 /* SHA256 gives us 256/8=32 bytes */
 #define HASH_VALUE_SIZE 32
 
@@ -193,46 +185,66 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                 explicit_bzero_safe(system_token, size);
         }
 
+        bool created = false;
         err = root_dir->Open(
                         root_dir,
                         &handle,
                         (char16_t *) u"\\loader\\random-seed",
                         EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE,
                         0);
+        if (err == EFI_NOT_FOUND && seeded_by_efi) {
+                /* If the file does not exist, but we are reasonably well seeded, create the seed file */
+                created = true;
+                err = root_dir->Open(
+                                root_dir,
+                                &handle,
+                                (char16_t *) u"\\loader\\random-seed",
+                                EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE,
+                                0);
+        }
         if (err != EFI_SUCCESS) {
                 if (!IN_SET(err, EFI_NOT_FOUND, EFI_WRITE_PROTECTED))
                         log_error_status(err, "Failed to open random seed file: %m");
                 return err;
         }
 
-        err = get_file_info(handle, &info, NULL);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to get file info for random seed: %m");
+        if (!created) {
+                err = get_file_info(handle, &info, /* ret_size= */ NULL);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to get file info for random seed: %m");
 
-        size = info->FileSize;
-        if (size < RANDOM_MAX_SIZE_MIN)
-                return log_error_status(EFI_INVALID_PARAMETER, "Random seed file is too short.");
-
-        if (size > RANDOM_MAX_SIZE_MAX)
-                return log_error_status(EFI_INVALID_PARAMETER, "Random seed file is too large.");
-
-        seed = xmalloc(size);
-        rsize = size;
-        err = handle->Read(handle, &rsize, seed);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to read random seed file: %m");
-        if (rsize != size) {
-                explicit_bzero_safe(seed, rsize);
-                return log_error_status(EFI_PROTOCOL_ERROR, "Short read on random seed file.");
+                /* Treat a short file just like a freshly created one for robustness reasons: consider a case
+                 * where in a previous run a file was just created and the system was then powered off. In
+                 * such a case the file will already exist, but be too short. */
+                created = info->FileSize < RANDOM_MAX_SIZE_MIN;
         }
 
-        sha256_process_bytes(&size, sizeof(size), &hash);
-        sha256_process_bytes(seed, size, &hash);
-        explicit_bzero_safe(seed, size);
+        if (created) {
+                size = 0;
+                sha256_process_bytes(&size, sizeof(size), &hash);
+        } else {
+                size = info->FileSize;
+                if (size > RANDOM_MAX_SIZE_MAX)
+                        return log_error_status(EFI_INVALID_PARAMETER, "Random seed file is too large.");
 
-        err = handle->SetPosition(handle, 0);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to seek to beginning of random seed file: %m");
+                seed = xmalloc(size);
+                rsize = size;
+                err = handle->Read(handle, &rsize, seed);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to read random seed file: %m");
+                if (rsize != size) {
+                        explicit_bzero_safe(seed, rsize);
+                        return log_error_status(EFI_PROTOCOL_ERROR, "Short read on random seed file.");
+                }
+
+                sha256_process_bytes(&size, sizeof(size), &hash);
+                sha256_process_bytes(seed, size, &hash);
+                explicit_bzero_safe(seed, size);
+
+                err = handle->SetPosition(handle, 0);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to seek to beginning of random seed file: %m");
+        }
 
         /* Let's also include the UEFI monotonic counter (which is supposedly increasing on every single
          * boot) in the hash, so that even if the changes to the ESP for some reason should not be
@@ -261,7 +273,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
 
         size = sizeof(random_bytes);
         /* If the file size is too large, zero out the remaining bytes on disk. */
-        if (size < info->FileSize) {
+        if (!created && size < info->FileSize) {
                 err = handle->SetPosition(handle, size);
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Failed to seek to offset of random seed file: %m");

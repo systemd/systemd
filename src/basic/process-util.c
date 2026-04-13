@@ -25,13 +25,11 @@
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "dlfcn-util.h"
-#include "env-file.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "hostname-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "locale-util.h"
@@ -53,6 +51,7 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "user-util.h"
 
@@ -346,47 +345,6 @@ int pidref_get_cmdline_strv(const PidRef *pid, ProcessCmdlineFlags flags, char *
         if (ret)
                 *ret = TAKE_PTR(args);
 
-        return 0;
-}
-
-int container_get_leader(const char *machine, pid_t *pid) {
-        _cleanup_free_ char *s = NULL, *class = NULL;
-        const char *p;
-        pid_t leader;
-        int r;
-
-        assert(machine);
-        assert(pid);
-
-        if (streq(machine, ".host")) {
-                *pid = 1;
-                return 0;
-        }
-
-        if (!hostname_is_valid(machine, 0))
-                return -EINVAL;
-
-        p = strjoina("/run/systemd/machines/", machine);
-        r = parse_env_file(NULL, p,
-                           "LEADER", &s,
-                           "CLASS", &class);
-        if (r == -ENOENT)
-                return -EHOSTDOWN;
-        if (r < 0)
-                return r;
-        if (!s)
-                return -EIO;
-
-        if (!streq_ptr(class, "container"))
-                return -EIO;
-
-        r = parse_pid(s, &leader);
-        if (r < 0)
-                return r;
-        if (leader <= 1)
-                return -EIO;
-
-        *pid = leader;
         return 0;
 }
 
@@ -1128,10 +1086,6 @@ bool is_main_thread(void) {
         return cached;
 }
 
-bool oom_score_adjust_is_valid(int oa) {
-        return oa >= OOM_SCORE_ADJ_MIN && oa <= OOM_SCORE_ADJ_MAX;
-}
-
 unsigned long personality_from_string(const char *s) {
         Architecture architecture;
 
@@ -1197,6 +1151,8 @@ int safe_personality(unsigned long p) {
 int opinionated_personality(unsigned long *ret) {
         int current;
 
+        assert(ret);
+
         /* Returns the current personality, or PERSONALITY_INVALID if we can't determine it. This function is a bit
          * opinionated though, and ignores all the finer-grained bits and exotic personalities, only distinguishing the
          * two most relevant personalities: PER_LINUX and PER_LINUX32. */
@@ -1237,6 +1193,9 @@ void valgrind_summary_hack(void) {
 
 int pid_compare_func(const pid_t *a, const pid_t *b) {
         /* Suitable for usage in qsort() */
+        assert(a);
+        assert(b);
+
         return CMP(*a, *b);
 }
 
@@ -1854,7 +1813,7 @@ int namespace_fork_full(
                         return 0;
                 }
 
-                log_close();
+                log_forget_fds();
                 log_set_open_when_needed(true);
 
                 (void) close_all_fds(&pidref_inner.fd, 1);
@@ -1881,6 +1840,10 @@ int namespace_fork_full(
                 pidref_done(&pidref_outer); /* disarm sigkill_wait */
 
         return 1;
+}
+
+bool oom_score_adjust_is_valid(int oa) {
+        return oa >= OOM_SCORE_ADJ_MIN && oa <= OOM_SCORE_ADJ_MAX;
 }
 
 int set_oom_score_adjust(int value) {

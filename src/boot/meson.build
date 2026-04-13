@@ -29,12 +29,15 @@ efi_fuzz_template = fuzz_template + efitest_base
 
 if conf.get('ENABLE_UKIFY') == 1
         test_hwids_section_c = custom_target(
-                input : ['hwids/device1.json', 'hwids/device2.json', 'hwids/device3.json', 'hwids/device4.json'],
+                input : ['hwids/test/device1.json', 'hwids/test/device2.json', 'hwids/test/device3.json', 'hwids/test/device4.json'],
                 output : 'test-hwids-section.c',
                 command : [files('generate-hwids-section.py'),
-                           meson.current_source_dir()/'hwids'],
+                           meson.current_source_dir()/'hwids/test'],
                 capture : true,
                 build_by_default : want_tests != 'false')
+        install_subdir('hwids',
+                       install_dir : libexecdir / 'boot/',
+                       exclude_directories : ['test'])
 else
         test_hwids_section_c = []
 endif
@@ -77,8 +80,14 @@ endif
 efi_conf = configuration_data()
 
 # import several configs from userspace
-foreach name : ['HAVE_WARNING_ZERO_LENGTH_BOUNDS', 'HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT']
-        efi_conf.set10(name, conf.get(name) == 1)
+foreach name : ['HAVE_WARNING_ZERO_LENGTH_BOUNDS',
+                'HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT']
+        efi_conf.set(name, conf.get(name))
+endforeach
+
+foreach attr : possible_c_attributes
+        name = 'HAVE_ATTRIBUTE_' + attr.to_upper()
+        efi_conf.set(name, conf.get(name))
 endforeach
 
 efi_conf.set10('ENABLE_TPM', get_option('tpm'))
@@ -331,6 +340,7 @@ systemd_boot_sources = files(
 )
 
 stub_sources = files(
+        'boot-secret.c',
         'cpio.c',
         'linux.c',
         'splash.c',

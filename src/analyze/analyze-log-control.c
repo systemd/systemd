@@ -8,7 +8,7 @@
 #include "runtime-scope.h"
 #include "verb-log-control.h"
 
-int verb_log_control(int argc, char *argv[], void *userdata) {
+int verb_log_control(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 

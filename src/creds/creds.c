@@ -305,7 +305,7 @@ static int add_credentials_to_table(Table *t, bool encrypted) {
         return 1; /* Creds dir set */
 }
 
-static int verb_list(int argc, char **argv, void *userdata) {
+static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
         int r, q;
 
@@ -398,8 +398,6 @@ static int transcode(
 }
 
 static int print_newline(FILE *f, const char *data, size_t l) {
-        int fd;
-
         assert(f);
         assert(data || l == 0);
 
@@ -411,12 +409,14 @@ static int print_newline(FILE *f, const char *data, size_t l) {
         if (l > 0 && data[l-1] == '\n')
                 return 0;
 
-        /* Don't bother unless this is a tty */
-        fd = fileno(f);
-        if (fd >= 0 && !isatty_safe(fd))
-                return 0;
+        /* If not explicitly requested, don't bother if the output is not a tty */
+        if (arg_newline < 0) {
+                int fd = fileno(f);
+                if (fd >= 0 && !isatty_safe(fd))
+                        return 0;
+        }
 
-        if (fputc('\n', f) != '\n')
+        if (fputc('\n', f) == EOF)
                 return log_error_errno(errno, "Failed to write trailing newline: %m");
 
         return 1;
@@ -465,14 +465,14 @@ static int write_blob(FILE *f, const void *data, size_t size) {
         return 0;
 }
 
-static int verb_cat(int argc, char **argv, void *userdata) {
+static int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         usec_t timestamp;
         int r, ret = 0;
 
         timestamp = arg_timestamp != USEC_INFINITY ? arg_timestamp : now(CLOCK_REALTIME);
 
         STRV_FOREACH(cn, strv_skip(argv, 1)) {
-                _cleanup_(erase_and_freep) void *data = NULL;
+                _cleanup_(erase_and_freep) void *content = NULL;
                 size_t size = 0;
                 int encrypted;
 
@@ -500,7 +500,7 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                                         UINT64_MAX, SIZE_MAX,
                                         flags,
                                         NULL,
-                                        (char**) &data, &size);
+                                        (char**) &content, &size);
                         if (r == -ENOENT) /* Not found */
                                 continue;
                         if (r >= 0) /* Found */
@@ -522,7 +522,7 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                                                 *cn,
                                                 timestamp,
                                                 uid_is_valid(arg_uid) ? arg_uid : getuid(),
-                                                &IOVEC_MAKE(data, size),
+                                                &IOVEC_MAKE(content, size),
                                                 arg_credential_flags | CREDENTIAL_ANY_SCOPE,
                                                 &plaintext);
                         else
@@ -532,18 +532,18 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                                                 arg_tpm2_device,
                                                 arg_tpm2_signature,
                                                 uid_is_valid(arg_uid) ? arg_uid : getuid(),
-                                                &IOVEC_MAKE(data, size),
+                                                &IOVEC_MAKE(content, size),
                                                 arg_credential_flags | CREDENTIAL_ANY_SCOPE,
                                                 &plaintext);
                         if (r < 0)
                                 return r;
 
-                        erase_and_free(data);
-                        data = TAKE_PTR(plaintext.iov_base);
+                        erase_and_free(content);
+                        content = TAKE_PTR(plaintext.iov_base);
                         size = plaintext.iov_len;
                 }
 
-                r = write_blob(stdout, data, size);
+                r = write_blob(stdout, content, size);
                 if (r < 0)
                         return r;
         }
@@ -551,7 +551,7 @@ static int verb_cat(int argc, char **argv, void *userdata) {
         return ret;
 }
 
-static int verb_encrypt(int argc, char **argv, void *userdata) {
+static int verb_encrypt(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(iovec_done_erase) struct iovec plaintext = {}, output = {};
         _cleanup_free_ char *base64_buf = NULL, *fname = NULL;
         const char *input_path, *output_path, *name;
@@ -659,7 +659,7 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
         return EXIT_SUCCESS;
 }
 
-static int verb_decrypt(int argc, char **argv, void *userdata) {
+static int verb_decrypt(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(iovec_done_erase) struct iovec input = {}, plaintext = {};
         _cleanup_free_ char *fname = NULL;
         _cleanup_fclose_ FILE *output_file = NULL;
@@ -741,7 +741,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
         return EXIT_SUCCESS;
 }
 
-static int verb_setup(int argc, char **argv, void *userdata) {
+static int verb_setup(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(iovec_done_erase) struct iovec host_key = {};
         int r;
 
@@ -754,14 +754,14 @@ static int verb_setup(int argc, char **argv, void *userdata) {
         return EXIT_SUCCESS;
 }
 
-static int verb_has_tpm2(int argc, char **argv, void *userdata) {
+static int verb_has_tpm2(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!arg_quiet)
                 log_notice("The 'systemd-creds %1$s' command has been replaced by 'systemd-analyze %1$s'. Redirecting invocation.", argv[optind]);
 
         return verb_has_tpm2_generic(arg_quiet);
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -823,6 +823,10 @@ static int verb_help(int argc, char **argv, void *userdata) {
                ansi_normal());
 
         return 0;
+}
+
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -889,7 +893,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        return verb_help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -936,15 +940,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NEWLINE:
-                        if (isempty(optarg) || streq(optarg, "auto"))
-                                arg_newline = -1;
-                        else {
-                                r = parse_boolean_argument("--newline=", optarg, NULL);
-                                if (r < 0)
-                                        return r;
-
-                                arg_newline = r;
-                        }
+                        r = parse_tristate_argument_with_auto("--newline=", optarg, &arg_newline);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'p':

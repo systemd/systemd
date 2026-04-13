@@ -5,6 +5,11 @@ set -o pipefail
 
 export SYSTEMD_LOG_LEVEL=debug
 
+if ! systemd-analyze has-tpm2; then
+    echo "Full TPM2 support not available, skipping the test"
+    exit 0
+fi
+
 bootctl
 
 CURRENT_UKI=$(bootctl --print-stub-path)

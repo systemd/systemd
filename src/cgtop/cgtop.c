@@ -285,16 +285,11 @@ static int process_cpu(Group *g, unsigned iteration) {
                 if (r < 0)
                         return r;
         } else {
-                _cleanup_free_ char *val = NULL;
                 uint64_t u;
 
-                r = cg_get_keyed_attribute(g->path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
+                r = cg_get_keyed_attribute_uint64(g->path, "cpu.stat", "usage_usec", &u);
                 if (IN_SET(r, -ENOENT, -ENXIO))
                         return 0;
-                if (r < 0)
-                        return r;
-
-                r = safe_atou64(val, &u);
                 if (r < 0)
                         return r;
 
@@ -509,7 +504,7 @@ static int refresh(
 }
 
 static int group_compare(Group * const *a, Group * const *b) {
-        const Group *x = *a, *y = *b;
+        const Group *x = *ASSERT_PTR(a), *y = *ASSERT_PTR(b);
         int r;
 
         if (arg_order != ORDER_TASKS || arg_recursive) {
@@ -702,13 +697,18 @@ static int help(void) {
                "Show top control groups by their resource usage.\n\n"
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
-               "  -p --order=path     Order by path\n"
-               "  -t --order=tasks    Order by number of tasks/processes\n"
-               "  -c --order=cpu      Order by CPU load (default)\n"
-               "  -m --order=memory   Order by memory load\n"
-               "  -i --order=io       Order by IO load\n"
+
+               "     --order=path|tasks|cpu|memory|io\n"
+               "                      Order by specified property\n"
+               "  -p                  Same as --order=path, order by path\n"
+               "  -t                  Same as --order=tasks, order by number of\n"
+               "                      tasks/processes\n"
+               "  -c                  Same as --order=cpu, order by CPU load\n"
+               "  -m                  Same as --order=memory, order by memory load\n"
+               "  -i                  Same as --order=io, order by IO load\n"
                "  -r --raw            Provide raw (not human-readable) numbers\n"
-               "     --cpu=percentage Show CPU usage as percentage (default)\n"
+               "     --cpu[=percentage]\n"
+               "                      Show CPU usage as percentage (default)\n"
                "     --cpu=time       Show CPU usage as time\n"
                "  -P                  Count userspace processes instead of tasks (excl. kernel)\n"
                "  -k                  Count all processes instead of tasks (incl. kernel)\n"

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-varlink-idl.h"
-
 #include "varlink-io.systemd.FactoryReset.h"
 
 static SD_VARLINK_DEFINE_ENUM_TYPE(

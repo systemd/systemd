@@ -69,28 +69,28 @@ static const struct group root_group = {
         .gr_name = (char*) "root",
         .gr_gid = 0,
         .gr_passwd = (char*) PASSWORD_SEE_SHADOW,
-        .gr_mem = (char*[]) { NULL },
+        .gr_mem = STRV_EMPTY,
 };
 
 static const struct sgrp root_sgrp = {
         .sg_namp = (char*) "root",
         .sg_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
-        .sg_adm = (char*[]) { NULL },
-        .sg_mem = (char*[]) { NULL },
+        .sg_adm = STRV_EMPTY,
+        .sg_mem = STRV_EMPTY,
 };
 
 static const struct group nobody_group = {
         .gr_name = (char*) NOBODY_GROUP_NAME,
         .gr_gid = GID_NOBODY,
         .gr_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
-        .gr_mem = (char*[]) { NULL },
+        .gr_mem = STRV_EMPTY,
 };
 
 static const struct sgrp nobody_sgrp = {
         .sg_namp = (char*) NOBODY_GROUP_NAME,
         .sg_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
-        .sg_adm = (char*[]) { NULL },
-        .sg_mem = (char*[]) { NULL },
+        .sg_adm = STRV_EMPTY,
+        .sg_mem = STRV_EMPTY,
 };
 
 typedef struct GetentData {
@@ -149,6 +149,7 @@ static enum nss_status copy_synthesized_passwd(
 
         assert(dest);
         assert(src);
+        assert(errnop);
         assert(src->pw_name);
         assert(src->pw_passwd);
         assert(src->pw_gecos);
@@ -191,6 +192,7 @@ static enum nss_status copy_synthesized_spwd(
 
         assert(dest);
         assert(src);
+        assert(errnop);
         assert(src->sp_namp);
         assert(src->sp_pwdp);
 
@@ -223,6 +225,7 @@ static enum nss_status copy_synthesized_group(
 
         assert(dest);
         assert(src);
+        assert(errnop);
         assert(src->gr_name);
         assert(src->gr_passwd);
         assert(src->gr_mem);
@@ -259,6 +262,7 @@ static enum nss_status copy_synthesized_sgrp(
 
         assert(dest);
         assert(src);
+        assert(errnop);
         assert(src->sg_namp);
         assert(src->sg_passwd);
         assert(src->sg_adm);

@@ -273,6 +273,7 @@ static int vl_method_mute(
         int r;
 
         assert(link);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         _cleanup_free_ Context *nc = new(Context, 1);
         if (!nc)
@@ -293,9 +294,6 @@ static int vl_method_mute(
         r = sd_varlink_dispatch(link, parameters, dispatch_table, nc);
         if (r != 0)
                 return r;
-
-        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
         r = sd_varlink_server_bind_disconnect(sd_varlink_get_server(link), vl_on_disconnect);
         if (r < 0)

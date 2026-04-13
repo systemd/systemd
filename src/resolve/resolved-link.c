@@ -890,6 +890,7 @@ int link_address_new(Link *l,
 
         assert(l);
         assert(in_addr);
+        assert(in_addr_broadcast);
 
         a = new(LinkAddress, 1);
         if (!a)

@@ -95,10 +95,17 @@ static EFI_STATUS bmp_parse_header(
                 return EFI_UNSUPPORTED;
         }
 
-        size_t row_size = ((size_t) dib->depth * dib->x + 31) / 32 * 4;
-        if (file->size - file->offset <  dib->y * row_size)
+        if (dib->x == 0 || dib->y == 0)
                 return EFI_INVALID_PARAMETER;
-        if (row_size * dib->y > 64 * 1024 * 1024)
+
+        /* Bound dimensions before computing row_size to prevent overflow
+         * in the (size_t) dib->depth * dib->x multiplication on 32-bit. */
+        if (dib->x > (size_t) 64 * 1024 * 1024 / dib->depth ||
+            dib->y > (size_t) 64 * 1024 * 1024 / dib->depth / dib->x)
+                return EFI_INVALID_PARAMETER;
+
+        size_t row_size = ((size_t) dib->depth * dib->x + 31) / 32 * 4;
+        if (file->size - file->offset < dib->y * row_size)
                 return EFI_INVALID_PARAMETER;
 
         /* check color table */
@@ -119,6 +126,12 @@ static EFI_STATUS bmp_parse_header(
                         return EFI_INVALID_PARAMETER;
         }
 
+        /* Ensure there can be no OOB accesses in bmp_to_blt() due to malformed images (e.g.: color depth 8
+         * but smaller color map) via map[*in]. */
+        if (IN_SET(dib->depth, 1, 4, 8) &&
+            file->offset - (sizeof(struct bmp_file) + dib->size) < sizeof(struct bmp_map) * (1U << dib->depth))
+                return EFI_INVALID_PARAMETER;
+
         *ret_map = map;
         *ret_dib = dib;
         *pixmap = bmp + file->offset;
@@ -127,7 +140,7 @@ static EFI_STATUS bmp_parse_header(
 }
 
 enum Channels { R, G, B, A, _CHANNELS_MAX };
-static void read_channel_maks(
+static EFI_STATUS read_channel_mask(
                 const struct bmp_dib *dib,
                 uint32_t channel_mask[static _CHANNELS_MAX],
                 uint8_t channel_shift[static _CHANNELS_MAX],
@@ -136,20 +149,34 @@ static void read_channel_maks(
         assert(dib);
 
         if (IN_SET(dib->depth, 16, 32) && dib->size >= SIZEOF_BMP_DIB_RGB) {
+                if (dib->channel_mask_r == 0 || dib->channel_mask_g == 0 || dib->channel_mask_b == 0)
+                        return EFI_INVALID_PARAMETER;
+
+                /* Reject masks where all bits are set (popcount == 32), since
+                 * 1U << 32 is undefined behavior and causes division by zero
+                 * on architectures where it evaluates to zero. */
+                if (popcount(dib->channel_mask_r) >= 32 ||
+                    popcount(dib->channel_mask_g) >= 32 ||
+                    popcount(dib->channel_mask_b) >= 32)
+                        return EFI_INVALID_PARAMETER;
+
                 channel_mask[R] = dib->channel_mask_r;
                 channel_mask[G] = dib->channel_mask_g;
                 channel_mask[B] = dib->channel_mask_b;
                 channel_shift[R] = __builtin_ctz(dib->channel_mask_r);
                 channel_shift[G] = __builtin_ctz(dib->channel_mask_g);
                 channel_shift[B] = __builtin_ctz(dib->channel_mask_b);
-                channel_scale[R] = 0xff / ((1 << popcount(dib->channel_mask_r)) - 1);
-                channel_scale[G] = 0xff / ((1 << popcount(dib->channel_mask_g)) - 1);
-                channel_scale[B] = 0xff / ((1 << popcount(dib->channel_mask_b)) - 1);
+                channel_scale[R] = 0xff / ((1U << popcount(dib->channel_mask_r)) - 1);
+                channel_scale[G] = 0xff / ((1U << popcount(dib->channel_mask_g)) - 1);
+                channel_scale[B] = 0xff / ((1U << popcount(dib->channel_mask_b)) - 1);
 
                 if (dib->size >= SIZEOF_BMP_DIB_RGBA && dib->channel_mask_a != 0) {
+                        if (popcount(dib->channel_mask_a) >= 32)
+                                return EFI_INVALID_PARAMETER;
+
                         channel_mask[A] = dib->channel_mask_a;
                         channel_shift[A] = __builtin_ctz(dib->channel_mask_a);
-                        channel_scale[A] = 0xff / ((1 << popcount(dib->channel_mask_a)) - 1);
+                        channel_scale[A] = 0xff / ((1U << popcount(dib->channel_mask_a)) - 1);
                 } else {
                         channel_mask[A] = 0;
                         channel_shift[A] = 0;
@@ -170,6 +197,8 @@ static void read_channel_maks(
                 channel_scale[B] = bpp16 ? 0x08 : 0x1;
                 channel_scale[A] = bpp16 ? 0x00 : 0x0;
         }
+
+        return EFI_SUCCESS;
 }
 
 static EFI_STATUS bmp_to_blt(
@@ -187,7 +216,10 @@ static EFI_STATUS bmp_to_blt(
 
         uint32_t channel_mask[_CHANNELS_MAX];
         uint8_t channel_shift[_CHANNELS_MAX], channel_scale[_CHANNELS_MAX];
-        read_channel_maks(dib, channel_mask, channel_shift, channel_scale);
+
+        EFI_STATUS status = read_channel_mask(dib, channel_mask, channel_shift, channel_scale);
+        if (status != EFI_SUCCESS)
+                return status;
 
         /* transform and copy pixels */
         in = pixmap;

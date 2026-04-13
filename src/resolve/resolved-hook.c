@@ -49,7 +49,7 @@ static Hook* hook_free(Hook *h) {
         if (!h)
                 return NULL;
 
-        mfree(h->socket_path);
+        free(h->socket_path);
         sd_varlink_unref(h->filter_link);
         set_free(h->idle_links);
 
@@ -328,7 +328,7 @@ static void manager_gc_hooks(Manager *m, usec_t seen_usec) {
         }
 }
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 hook_hash_ops,
                 char, string_hash_func, string_compare_func,
                 Hook, hook_unlink);
@@ -391,19 +391,6 @@ static int manager_hook_discover(Manager *m) {
 
         usec_t seen_usec = now(CLOCK_MONOTONIC);
 
-        struct stat st;
-        if (stat(dp, &st) < 0) {
-                if (errno == ENOENT)
-                        r = 0;
-                else
-                        r = log_warning_errno(errno, "Failed to stat %s/: %m", dp);
-
-                goto finish;
-        }
-
-        if (stat_inode_unmodified(&st, &m->hook_stat))
-                return 0;
-
         d = opendir(dp);
         if (!d) {
                 if (errno == ENOENT)
@@ -413,6 +400,15 @@ static int manager_hook_discover(Manager *m) {
 
                 goto finish;
         }
+
+        struct stat st;
+        if (fstat(dirfd(d), &st) < 0) {
+                r = log_warning_errno(errno, "Failed to fstat %s/: %m", dp);
+                goto finish;
+        }
+
+        if (stat_inode_unmodified(&st, &m->hook_stat))
+                return 0;
 
         for (;;) {
                 errno = 0;

@@ -119,6 +119,8 @@ typedef struct sd_varlink_field sd_varlink_field;
 typedef struct sd_varlink_symbol sd_varlink_symbol;
 typedef struct sd_varlink_interface sd_varlink_interface;
 
+typedef int (*sd_varlink_method_t)(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+
 typedef struct sd_journal sd_journal;
 
 typedef struct sd_resolve sd_resolve;

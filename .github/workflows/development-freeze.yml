@@ -25,14 +25,15 @@ jobs:
     steps:
       - id: artifact
         name: Download Pull Request Metadata artifact
-        uses: redhat-plumbers-in-action/download-artifact@103e5f882470b59e9d71c80ecb2d0a0b91a7c43b
+        uses: redhat-plumbers-in-action/download-artifact@03d5b806a9dca9928eb5628833fe81a0558f23bb
         with:
           name: Pull Request Metadata
 
       - name: Repository checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Development Freezer
         uses: redhat-plumbers-in-action/devel-freezer@ad766eafd555b28d2cb8e27937835983f9c3d173

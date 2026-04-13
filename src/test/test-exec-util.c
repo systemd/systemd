@@ -231,7 +231,7 @@ static int gather_stdout_three(int fd, void *arg) {
         return 0;
 }
 
-const gather_stdout_callback_t gather_stdouts[] = {
+static const gather_stdout_callback_t gather_stdouts[] = {
         gather_stdout_one,
         gather_stdout_two,
         gather_stdout_three,

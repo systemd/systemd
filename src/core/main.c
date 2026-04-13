@@ -163,6 +163,7 @@ static void *arg_random_seed;
 static size_t arg_random_seed_size;
 static usec_t arg_reload_limit_interval_sec;
 static unsigned arg_reload_limit_burst;
+static usec_t arg_minimum_uptime_usec;
 
 /* A copy of the original environment block */
 static char **saved_env = NULL;
@@ -554,6 +555,17 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
                 }
 
+        } else if (proc_cmdline_key_streq(key, "systemd.minimum_uptime_sec")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = parse_sec(value, &arg_minimum_uptime_usec);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse systemd.minimum_uptime_sec= argument '%s', ignoring: %m", value);
+                        return 0;
+                }
+
         } else if (streq(key, "quiet") && !value) {
 
                 if (arg_show_status == _SHOW_STATUS_INVALID)
@@ -735,88 +747,93 @@ static int config_parse_crash_reboot(
 
 static int parse_config_file(void) {
         const ConfigTableItem items[] = {
-                { "Manager", "LogLevel",                     config_parse_level2,                0,                        NULL                              },
-                { "Manager", "LogTarget",                    config_parse_target,                0,                        NULL                              },
-                { "Manager", "LogColor",                     config_parse_color,                 0,                        NULL                              },
-                { "Manager", "LogLocation",                  config_parse_location,              0,                        NULL                              },
-                { "Manager", "LogTime",                      config_parse_time,                  0,                        NULL                              },
-                { "Manager", "DumpCore",                     config_parse_bool,                  0,                        &arg_dump_core                    },
-                { "Manager", "CrashChVT", /* legacy */       config_parse_crash_chvt,            0,                        &arg_crash_chvt                   },
-                { "Manager", "CrashChangeVT",                config_parse_crash_chvt,            0,                        &arg_crash_chvt                   },
-                { "Manager", "CrashShell",                   config_parse_bool,                  0,                        &arg_crash_shell                  },
-                { "Manager", "CrashReboot",                  config_parse_crash_reboot,          0,                        &arg_crash_action                 },
-                { "Manager", "CrashAction",                  config_parse_crash_action,          0,                        &arg_crash_action                 },
-                { "Manager", "ShowStatus",                   config_parse_show_status,           0,                        &arg_show_status                  },
-                { "Manager", "StatusUnitFormat",             config_parse_status_unit_format,    0,                        &arg_status_unit_format           },
-                { "Manager", "CPUAffinity",                  config_parse_cpu_set,               0,                        &arg_cpu_affinity                 },
-                { "Manager", "NUMAPolicy",                   config_parse_numa_policy,           0,                        &arg_numa_policy.type             },
-                { "Manager", "NUMAMask",                     config_parse_numa_mask,             0,                        &arg_numa_policy.nodes            },
-                { "Manager", "JoinControllers",              config_parse_warn_compat,           DISABLED_LEGACY,          NULL                              },
-                { "Manager", "RuntimeWatchdogSec",           config_parse_watchdog_sec,          0,                        &arg_runtime_watchdog             },
-                { "Manager", "RuntimeWatchdogPreSec",        config_parse_watchdog_sec,          0,                        &arg_pretimeout_watchdog          },
-                { "Manager", "RebootWatchdogSec",            config_parse_watchdog_sec,          0,                        &arg_reboot_watchdog              },
-                { "Manager", "ShutdownWatchdogSec",          config_parse_watchdog_sec,          0,                        &arg_reboot_watchdog              }, /* obsolete alias */
-                { "Manager", "KExecWatchdogSec",             config_parse_watchdog_sec,          0,                        &arg_kexec_watchdog               },
-                { "Manager", "WatchdogDevice",               config_parse_path,                  0,                        &arg_watchdog_device              },
-                { "Manager", "RuntimeWatchdogPreGovernor",   config_parse_string,                CONFIG_PARSE_STRING_SAFE, &arg_watchdog_pretimeout_governor },
-                { "Manager", "CapabilityBoundingSet",        config_parse_capability_set,        0,                        &arg_capability_bounding_set      },
-                { "Manager", "NoNewPrivileges",              config_parse_bool,                  0,                        &arg_no_new_privs                 },
-                { "Manager", "ProtectSystem",                config_parse_protect_system_pid1,   0,                        &arg_protect_system               },
+                { "Manager", "LogLevel",                          config_parse_level2,                0,                        NULL                                                   },
+                { "Manager", "LogTarget",                         config_parse_target,                0,                        NULL                                                   },
+                { "Manager", "LogColor",                          config_parse_color,                 0,                        NULL                                                   },
+                { "Manager", "LogLocation",                       config_parse_location,              0,                        NULL                                                   },
+                { "Manager", "LogTime",                           config_parse_time,                  0,                        NULL                                                   },
+                { "Manager", "DumpCore",                          config_parse_bool,                  0,                        &arg_dump_core                                         },
+                { "Manager", "CrashChVT", /* legacy */            config_parse_crash_chvt,            0,                        &arg_crash_chvt                                        },
+                { "Manager", "CrashChangeVT",                     config_parse_crash_chvt,            0,                        &arg_crash_chvt                                        },
+                { "Manager", "CrashShell",                        config_parse_bool,                  0,                        &arg_crash_shell                                       },
+                { "Manager", "CrashReboot",                       config_parse_crash_reboot,          0,                        &arg_crash_action                                      },
+                { "Manager", "CrashAction",                       config_parse_crash_action,          0,                        &arg_crash_action                                      },
+                { "Manager", "ShowStatus",                        config_parse_show_status,           0,                        &arg_show_status                                       },
+                { "Manager", "StatusUnitFormat",                  config_parse_status_unit_format,    0,                        &arg_status_unit_format                                },
+                { "Manager", "CPUAffinity",                       config_parse_cpu_set,               0,                        &arg_cpu_affinity                                      },
+                { "Manager", "NUMAPolicy",                        config_parse_numa_policy,           0,                        &arg_numa_policy.type                                  },
+                { "Manager", "NUMAMask",                          config_parse_numa_mask,             0,                        &arg_numa_policy.nodes                                 },
+                { "Manager", "JoinControllers",                   config_parse_warn_compat,           DISABLED_LEGACY,          NULL                                                   },
+                { "Manager", "RuntimeWatchdogSec",                config_parse_watchdog_sec,          0,                        &arg_runtime_watchdog                                  },
+                { "Manager", "RuntimeWatchdogPreSec",             config_parse_watchdog_sec,          0,                        &arg_pretimeout_watchdog                               },
+                { "Manager", "RebootWatchdogSec",                 config_parse_watchdog_sec,          0,                        &arg_reboot_watchdog                                   },
+                { "Manager", "ShutdownWatchdogSec",               config_parse_watchdog_sec,          0,                        &arg_reboot_watchdog                                   }, /* obsolete alias */
+                { "Manager", "KExecWatchdogSec",                  config_parse_watchdog_sec,          0,                        &arg_kexec_watchdog                                    },
+                { "Manager", "WatchdogDevice",                    config_parse_path,                  0,                        &arg_watchdog_device                                   },
+                { "Manager", "RuntimeWatchdogPreGovernor",        config_parse_string,                CONFIG_PARSE_STRING_SAFE, &arg_watchdog_pretimeout_governor                      },
+                { "Manager", "CapabilityBoundingSet",             config_parse_capability_set,        0,                        &arg_capability_bounding_set                           },
+                { "Manager", "NoNewPrivileges",                   config_parse_bool,                  0,                        &arg_no_new_privs                                      },
+                { "Manager", "ProtectSystem",                     config_parse_protect_system_pid1,   0,                        &arg_protect_system                                    },
 #if HAVE_SECCOMP
-                { "Manager", "SystemCallArchitectures",      config_parse_syscall_archs,         0,                        &arg_syscall_archs                },
+                { "Manager", "SystemCallArchitectures",           config_parse_syscall_archs,         0,                        &arg_syscall_archs                                     },
 #else
-                { "Manager", "SystemCallArchitectures",      config_parse_warn_compat,           DISABLED_CONFIGURATION,   NULL                              },
-
+                { "Manager", "SystemCallArchitectures",           config_parse_warn_compat,           DISABLED_CONFIGURATION,   NULL                                                   },
 #endif
-                { "Manager", "TimerSlackNSec",               config_parse_nsec,                  0,                        &arg_timer_slack_nsec             },
-                { "Manager", "DefaultTimerAccuracySec",      config_parse_sec,                   0,                        &arg_defaults.timer_accuracy_usec },
-                { "Manager", "DefaultStandardOutput",        config_parse_output_restricted,     0,                        &arg_defaults.std_output          },
-                { "Manager", "DefaultStandardError",         config_parse_output_restricted,     0,                        &arg_defaults.std_error           },
-                { "Manager", "DefaultTimeoutStartSec",       config_parse_sec,                   0,                        &arg_defaults.timeout_start_usec  },
-                { "Manager", "DefaultTimeoutStopSec",        config_parse_sec,                   0,                        &arg_defaults.timeout_stop_usec   },
-                { "Manager", "DefaultTimeoutAbortSec",       config_parse_default_timeout_abort, 0,                        NULL                              },
-                { "Manager", "DefaultDeviceTimeoutSec",      config_parse_sec,                   0,                        &arg_defaults.device_timeout_usec },
-                { "Manager", "DefaultRestartSec",            config_parse_sec,                   0,                        &arg_defaults.restart_usec        },
-                { "Manager", "DefaultStartLimitInterval",    config_parse_sec,                   0,                        &arg_defaults.start_limit.interval}, /* obsolete alias */
-                { "Manager", "DefaultStartLimitIntervalSec", config_parse_sec,                   0,                        &arg_defaults.start_limit.interval},
-                { "Manager", "DefaultStartLimitBurst",       config_parse_unsigned,              0,                        &arg_defaults.start_limit.burst   },
-                { "Manager", "DefaultRestrictSUIDSGID",      config_parse_bool,                  0,                        &arg_defaults.restrict_suid_sgid  },
-                { "Manager", "DefaultEnvironment",           config_parse_environ,               arg_runtime_scope,        &arg_default_environment          },
-                { "Manager", "ManagerEnvironment",           config_parse_environ,               arg_runtime_scope,        &arg_manager_environment          },
-                { "Manager", "DefaultLimitCPU",              config_parse_rlimit,                RLIMIT_CPU,               arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitFSIZE",            config_parse_rlimit,                RLIMIT_FSIZE,             arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitDATA",             config_parse_rlimit,                RLIMIT_DATA,              arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitSTACK",            config_parse_rlimit,                RLIMIT_STACK,             arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitCORE",             config_parse_rlimit,                RLIMIT_CORE,              arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitRSS",              config_parse_rlimit,                RLIMIT_RSS,               arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitNOFILE",           config_parse_rlimit,                RLIMIT_NOFILE,            arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitAS",               config_parse_rlimit,                RLIMIT_AS,                arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitNPROC",            config_parse_rlimit,                RLIMIT_NPROC,             arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitMEMLOCK",          config_parse_rlimit,                RLIMIT_MEMLOCK,           arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitLOCKS",            config_parse_rlimit,                RLIMIT_LOCKS,             arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitSIGPENDING",       config_parse_rlimit,                RLIMIT_SIGPENDING,        arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitMSGQUEUE",         config_parse_rlimit,                RLIMIT_MSGQUEUE,          arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitNICE",             config_parse_rlimit,                RLIMIT_NICE,              arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitRTPRIO",           config_parse_rlimit,                RLIMIT_RTPRIO,            arg_defaults.rlimit               },
-                { "Manager", "DefaultLimitRTTIME",           config_parse_rlimit,                RLIMIT_RTTIME,            arg_defaults.rlimit               },
-                { "Manager", "DefaultCPUAccounting",         config_parse_warn_compat,           DISABLED_LEGACY,          NULL                              },
-                { "Manager", "DefaultIOAccounting",          config_parse_bool,                  0,                        &arg_defaults.io_accounting       },
-                { "Manager", "DefaultIPAccounting",          config_parse_bool,                  0,                        &arg_defaults.ip_accounting       },
-                { "Manager", "DefaultBlockIOAccounting",     config_parse_warn_compat,           DISABLED_LEGACY,          NULL                              },
-                { "Manager", "DefaultMemoryAccounting",      config_parse_bool,                  0,                        &arg_defaults.memory_accounting   },
-                { "Manager", "DefaultTasksAccounting",       config_parse_bool,                  0,                        &arg_defaults.tasks_accounting    },
-                { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0,                        &arg_defaults.tasks_max           },
-                { "Manager", "DefaultMemoryPressureThresholdSec", config_parse_sec,              0,                        &arg_defaults.memory_pressure_threshold_usec },
-                { "Manager", "DefaultMemoryPressureWatch",   config_parse_memory_pressure_watch, 0,                        &arg_defaults.memory_pressure_watch },
-                { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      arg_runtime_scope,        &arg_cad_burst_action             },
-                { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0,                        &arg_defaults.oom_policy          },
-                { "Manager", "DefaultOOMScoreAdjust",        config_parse_oom_score_adjust,      0,                        NULL                              },
-                { "Manager", "ReloadLimitIntervalSec",       config_parse_sec,                   0,                        &arg_reload_limit_interval_sec    },
-                { "Manager", "ReloadLimitBurst",             config_parse_unsigned,              0,                        &arg_reload_limit_burst           },
+                { "Manager", "TimerSlackNSec",                    config_parse_nsec,                  0,                        &arg_timer_slack_nsec                                  },
+                { "Manager", "DefaultTimerAccuracySec",           config_parse_sec,                   0,                        &arg_defaults.timer_accuracy_usec                      },
+                { "Manager", "DefaultStandardOutput",             config_parse_output_restricted,     0,                        &arg_defaults.std_output                               },
+                { "Manager", "DefaultStandardError",              config_parse_output_restricted,     0,                        &arg_defaults.std_error                                },
+                { "Manager", "DefaultTimeoutStartSec",            config_parse_sec,                   0,                        &arg_defaults.timeout_start_usec                       },
+                { "Manager", "DefaultTimeoutStopSec",             config_parse_sec,                   0,                        &arg_defaults.timeout_stop_usec                        },
+                { "Manager", "DefaultTimeoutAbortSec",            config_parse_default_timeout_abort, 0,                        NULL                                                   },
+                { "Manager", "DefaultDeviceTimeoutSec",           config_parse_sec,                   0,                        &arg_defaults.device_timeout_usec                      },
+                { "Manager", "DefaultRestartSec",                 config_parse_sec,                   0,                        &arg_defaults.restart_usec                             },
+                { "Manager", "DefaultStartLimitInterval",         config_parse_sec,                   0,                        &arg_defaults.start_limit.interval                     }, /* obsolete alias */
+                { "Manager", "DefaultStartLimitIntervalSec",      config_parse_sec,                   0,                        &arg_defaults.start_limit.interval                     },
+                { "Manager", "DefaultStartLimitBurst",            config_parse_unsigned,              0,                        &arg_defaults.start_limit.burst                        },
+                { "Manager", "DefaultRestrictSUIDSGID",           config_parse_bool,                  0,                        &arg_defaults.restrict_suid_sgid                       },
+                { "Manager", "DefaultEnvironment",                config_parse_environ,               arg_runtime_scope,        &arg_default_environment                               },
+                { "Manager", "ManagerEnvironment",                config_parse_environ,               arg_runtime_scope,        &arg_manager_environment                               },
+                { "Manager", "DefaultLimitCPU",                   config_parse_rlimit,                RLIMIT_CPU,               arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitFSIZE",                 config_parse_rlimit,                RLIMIT_FSIZE,             arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitDATA",                  config_parse_rlimit,                RLIMIT_DATA,              arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitSTACK",                 config_parse_rlimit,                RLIMIT_STACK,             arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitCORE",                  config_parse_rlimit,                RLIMIT_CORE,              arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitRSS",                   config_parse_rlimit,                RLIMIT_RSS,               arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitNOFILE",                config_parse_rlimit,                RLIMIT_NOFILE,            arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitAS",                    config_parse_rlimit,                RLIMIT_AS,                arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitNPROC",                 config_parse_rlimit,                RLIMIT_NPROC,             arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitMEMLOCK",               config_parse_rlimit,                RLIMIT_MEMLOCK,           arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitLOCKS",                 config_parse_rlimit,                RLIMIT_LOCKS,             arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitSIGPENDING",            config_parse_rlimit,                RLIMIT_SIGPENDING,        arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitMSGQUEUE",              config_parse_rlimit,                RLIMIT_MSGQUEUE,          arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitNICE",                  config_parse_rlimit,                RLIMIT_NICE,              arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitRTPRIO",                config_parse_rlimit,                RLIMIT_RTPRIO,            arg_defaults.rlimit                                    },
+                { "Manager", "DefaultLimitRTTIME",                config_parse_rlimit,                RLIMIT_RTTIME,            arg_defaults.rlimit                                    },
+                { "Manager", "DefaultCPUAccounting",              config_parse_warn_compat,           DISABLED_LEGACY,          NULL                                                   },
+                { "Manager", "DefaultIOAccounting",               config_parse_bool,                  0,                        &arg_defaults.io_accounting                            },
+                { "Manager", "DefaultIPAccounting",               config_parse_bool,                  0,                        &arg_defaults.ip_accounting                            },
+                { "Manager", "DefaultBlockIOAccounting",          config_parse_warn_compat,           DISABLED_LEGACY,          NULL                                                   },
+                { "Manager", "DefaultMemoryAccounting",           config_parse_bool,                  0,                        &arg_defaults.memory_accounting                        },
+                { "Manager", "DefaultTasksAccounting",            config_parse_bool,                  0,                        &arg_defaults.tasks_accounting                         },
+                { "Manager", "DefaultTasksMax",                   config_parse_tasks_max,             0,                        &arg_defaults.tasks_max                                },
+                { "Manager", "DefaultMemoryPressureThresholdSec", config_parse_sec,                   0,                        &arg_defaults.pressure[PRESSURE_MEMORY].threshold_usec },
+                { "Manager", "DefaultMemoryPressureWatch",        config_parse_pressure_watch,        0,                        &arg_defaults.pressure[PRESSURE_MEMORY].watch          },
+                { "Manager", "DefaultCPUPressureThresholdSec",    config_parse_sec,                   0,                        &arg_defaults.pressure[PRESSURE_CPU].threshold_usec    },
+                { "Manager", "DefaultCPUPressureWatch",           config_parse_pressure_watch,        0,                        &arg_defaults.pressure[PRESSURE_CPU].watch             },
+                { "Manager", "DefaultIOPressureThresholdSec",     config_parse_sec,                   0,                        &arg_defaults.pressure[PRESSURE_IO].threshold_usec     },
+                { "Manager", "DefaultIOPressureWatch",            config_parse_pressure_watch,        0,                        &arg_defaults.pressure[PRESSURE_IO].watch              },
+                { "Manager", "CtrlAltDelBurstAction",             config_parse_emergency_action,      arg_runtime_scope,        &arg_cad_burst_action                                  },
+                { "Manager", "DefaultOOMPolicy",                  config_parse_oom_policy,            0,                        &arg_defaults.oom_policy                               },
+                { "Manager", "DefaultOOMScoreAdjust",             config_parse_oom_score_adjust,      0,                        NULL                                                   },
+                { "Manager", "ReloadLimitIntervalSec",            config_parse_sec,                   0,                        &arg_reload_limit_interval_sec                         },
+                { "Manager", "ReloadLimitBurst",                  config_parse_unsigned,              0,                        &arg_reload_limit_burst                                },
+                { "Manager", "DefaultMemoryZSwapWriteback",       config_parse_bool,                  0,                        &arg_defaults.memory_zswap_writeback                   },
+                { "Manager", "MinimumUptimeSec",                  config_parse_sec,                   0,                        &arg_minimum_uptime_usec                               },
 #if ENABLE_SMACK
-                { "Manager", "DefaultSmackProcessLabel",     config_parse_string,                0,                        &arg_defaults.smack_process_label },
+                { "Manager", "DefaultSmackProcessLabel",          config_parse_string,                0,                        &arg_defaults.smack_process_label                      },
 #else
-                { "Manager", "DefaultSmackProcessLabel",     config_parse_warn_compat,           DISABLED_CONFIGURATION,   NULL                              },
+                { "Manager", "DefaultSmackProcessLabel",          config_parse_warn_compat,           DISABLED_CONFIGURATION,   NULL                                                   },
 #endif
                 {}
         };
@@ -842,11 +859,10 @@ static int parse_config_file(void) {
                                 (const char* const*) files,
                                 (const char* const*) dirs,
                                 "user.conf.d",
-                                /* root= */ NULL,
                                 "Manager\0",
                                 config_item_table_lookup, items,
                                 CONFIG_PARSE_WARN,
-                                NULL, NULL, NULL);
+                                /* userdata= */ NULL);
         }
 
         /* Traditionally "0" was used to turn off the default unit timeouts. Fix this up so that we use
@@ -1741,6 +1757,9 @@ static int become_shutdown(int objective, int retval) {
         if (arg_watchdog_device)
                 (void) strv_extendf(&env_block, "WATCHDOG_DEVICE=%s", arg_watchdog_device);
 
+        if (arg_minimum_uptime_usec != USEC_INFINITY)
+                (void) strv_extendf(&env_block, "MINIMUM_UPTIME_USEC=" USEC_FMT, arg_minimum_uptime_usec);
+
         (void) write_boot_or_shutdown_osc("shutdown");
 
         execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
@@ -2633,6 +2652,8 @@ static int do_queue_default_job(
         Unit *target;
         int r;
 
+        assert(ret_error_message);
+
         if (arg_default_unit)
                 unit = arg_default_unit;
         else if (in_initrd())
@@ -2831,6 +2852,8 @@ static void reset_arguments(void) {
 
         arg_reload_limit_interval_sec = 0;
         arg_reload_limit_burst = 0;
+
+        arg_minimum_uptime_usec = USEC_INFINITY;
 }
 
 static void determine_default_oom_score_adjust(void) {

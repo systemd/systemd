@@ -8,6 +8,7 @@
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -307,6 +308,30 @@ int efi_measured_uki(int log_level) {
                                       pcr_nr, TPM2_PCR_KERNEL_BOOT);
 
         return (cached = 1);
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without support for EFI");
+#endif
+}
+
+int efi_measured_os(int log_level) {
+#if ENABLE_EFI
+        static int cached = -1;
+        int r;
+
+        /* Returns if we shall enable our measurement machinery */
+
+        if (cached >= 0)
+                return cached;
+
+        bool b;
+        r = proc_cmdline_get_bool("systemd.tpm2_measured_os", /* flags= */ 0, &b);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse systemd.tpm2_measured_os= kernel command line argument, ignoring: %m");
+        else if (r > 0)
+                return (cached = b);
+
+        /* If nothing is explicitly configured, just assume that if we booted with a measured UKI we also want a measured OS */
+        return (cached = efi_measured_uki(log_level));
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without support for EFI");
 #endif

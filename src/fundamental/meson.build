@@ -8,6 +8,7 @@ fundamental_sources = files(
         'edid-fundamental.c',
         'efivars-fundamental.c',
         'iovec-util-fundamental.h',
+        'memory-util-fundamental.c',
         'sha1-fundamental.c',
         'sha256-fundamental.c',
         'string-util-fundamental.c',

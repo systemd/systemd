@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+LLDP=no
+LinkLocalAddressing=no
+IPv6AcceptRA=no
+
+[MobileNetwork]
+APN=internet.test
+IPFamily=both

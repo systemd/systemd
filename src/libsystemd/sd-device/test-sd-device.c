@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "capability-util.h"
@@ -350,6 +351,9 @@ static void test_sd_device_enumerator_filter_subsystem_one(
         unsigned n_new_dev = 0, n_removed_dev = 0;
         sd_device *dev;
 
+        assert(ret_n_new_dev);
+        assert(ret_n_removed_dev);
+
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, subsystem, true));
         exclude_problematic_devices(e);
@@ -465,6 +469,10 @@ TEST(sd_device_enumerator_filter_subsystem) {
                 ASSERT_TRUE(test_sd_device_enumerator_filter_subsystem_trial_many());
                 return;
         }
+
+        /* The rest of this test depends on a full booted system with a working udev and so on */
+        if (!sd_booted())
+                return (void) log_tests_skipped("Test requires fully booted system with udev/etc, skipping to avoid hanging forever.");
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         ASSERT_OK(sd_event_default(&event));
@@ -834,6 +842,54 @@ TEST(devname_from_devnum) {
                 test_devname_from_devnum_one("/run/systemd/inaccessible/chr");
                 test_devname_from_devnum_one("/run/systemd/inaccessible/blk");
         }
+}
+
+TEST(device_add_property) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        const char *val;
+
+        ASSERT_OK(sd_device_new_from_syspath(&dev, "/sys/class/net/lo"));
+
+        /* add a property */
+        ASSERT_OK(device_add_property(dev, "hoge", "foo"));
+        ASSERT_OK(sd_device_get_property_value(dev, "hoge", &val));
+        ASSERT_STREQ(val, "foo");
+
+        /* update an existing property */
+        ASSERT_OK(device_add_property(dev, "hoge", "bar"));
+        ASSERT_OK(sd_device_get_property_value(dev, "hoge", &val));
+        ASSERT_STREQ(val, "bar");
+
+        /* remove an existing property */
+        ASSERT_OK(device_add_property(dev, "hoge", NULL));
+        ASSERT_ERROR(sd_device_get_property_value(dev, "hoge", &val), ENOENT);
+
+        /* add a property again */
+        ASSERT_OK(device_add_property(dev, "hoge", "foo"));
+        ASSERT_OK(sd_device_get_property_value(dev, "hoge", &val));
+        ASSERT_STREQ(val, "foo");
+
+        /* remove it with an empty string */
+        ASSERT_OK(device_add_property(dev, "hoge", ""));
+        ASSERT_ERROR(sd_device_get_property_value(dev, "hoge", &val), ENOENT);
+
+        /* check internal property (starting with dot) */
+        ASSERT_OK(device_add_property(dev, ".hoge", "baz"));
+        ASSERT_OK(sd_device_get_property_value(dev, ".hoge", &val));
+        ASSERT_STREQ(val, "baz");
+
+        /* refuse invalid property names */
+        ASSERT_ERROR(device_add_property(dev, "hoge-hoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge=hoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge hoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge\nhoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge\rhoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge\thoge", "aaa"), EINVAL);
+
+        /* refuse invalid property values */
+        ASSERT_ERROR(device_add_property(dev, "hoge", "aaa\naaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge", "aaa\raaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge", "aaa\taaa"), EINVAL);
 }
 
 static int intro(void) {

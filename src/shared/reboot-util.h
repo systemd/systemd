@@ -26,5 +26,8 @@ int reboot_with_parameter(RebootFlags flags);
 bool shall_restore_state(void);
 
 bool kexec_loaded(void);
+int kexec(void);
+
+int kexec_maybe_decompress_kernel(const char *path, int fd, int *ret_kernel_fd, int *ret_initrd_fd);
 
 int create_shutdown_run_nologin_or_warn(void);

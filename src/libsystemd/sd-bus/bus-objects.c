@@ -1704,6 +1704,10 @@ typedef enum {
 static bool names_are_valid(const char *signature, const char **names, names_flags *flags) {
         int r;
 
+        assert(signature);
+        assert(names);
+        assert(flags);
+
         if ((*flags & NAMES_FIRST_PART || *flags & NAMES_SINGLE_PART) && **names != '\0')
                 *flags |= NAMES_PRESENT;
 
@@ -2401,7 +2405,7 @@ static int object_added_append_all_prefix(
                          * skip it on any of its parents. The child vtables
                          * always fully override any conflicting vtables of
                          * any parent node. */
-                        if (ordered_set_get(s, c->interface))
+                        if (ordered_set_contains(s, c->interface))
                                 continue;
 
                         r = ordered_set_put(s, c->interface);
@@ -2616,7 +2620,7 @@ static int object_removed_append_all_prefix(
                  * skip it on any of its parents. The child vtables
                  * always fully override any conflicting vtables of
                  * any parent node. */
-                if (ordered_set_get(s, c->interface))
+                if (ordered_set_contains(s, c->interface))
                         continue;
 
                 r = node_vtable_get_userdata(bus, path, c, &u, &error);

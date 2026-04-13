@@ -59,6 +59,7 @@ systemd_networkd_extract_sources = files(
         'networkd-ipv6ll.c',
         'networkd-json.c',
         'networkd-link-bus.c',
+        'networkd-link-varlink.c',
         'networkd-link.c',
         'networkd-lldp-rx.c',
         'networkd-lldp-tx.c',
@@ -87,8 +88,11 @@ systemd_networkd_extract_sources = files(
         'networkd-state-file.c',
         'networkd-sysctl.c',
         'networkd-util.c',
+        'networkd-varlink-metrics.c',
         'networkd-wifi.c',
         'networkd-wiphy.c',
+        'networkd-wwan.c',
+        'networkd-wwan-bus.c',
         'tc/cake.c',
         'tc/codel.c',
         'tc/drr.c',
@@ -116,7 +120,6 @@ systemd_networkd_extract_sources = files(
 )
 
 systemd_networkd_wait_online_sources = files(
-        'wait-online/dns-configuration.c',
         'wait-online/wait-online-link.c',
         'wait-online/wait-online-manager.c',
         'wait-online/wait-online.c',
@@ -254,6 +257,12 @@ executables += [
         },
         network_test_template + {
                 'sources' : files('test-networkd-util.c'),
+        },
+        test_template + {
+                'sources' : files('test-modem-manager-mock.c'),
+                'conditions' : ['ENABLE_NETWORKD'],
+                'link_with' : [libshared],
+                'type' : 'manual',
         },
         network_fuzz_template + {
                 'sources' : files('fuzz-netdev-parser.c'),

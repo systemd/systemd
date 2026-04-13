@@ -4,13 +4,13 @@
 # Slimane Selyan Amiri <selyan.kab@gmail.com>, 2021.
 # ButterflyOfFire <butterflyoffire@protonmail.com>, 2024.
 # ButterflyOfFire <butterflyoffire@users.noreply.translate.fedoraproject.org>, 2025.
+# Massii Aqvayli <massiin@proton.me>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-08-05 01:30+0000\n"
-"Last-Translator: ButterflyOfFire "
-"<butterflyoffire@users.noreply.translate.fedoraproject.org>\n"
+"POT-Creation-Date: 2026-03-06 03:46+0900\n"
+"PO-Revision-Date: 2026-03-25 21:58+0000\n"
+"Last-Translator: Massii Aqvayli <massiin@proton.me>\n"
 "Language-Team: Kabyle <https://translate.fedoraproject.org/projects/systemd/"
 "main/kab/>\n"
 "Language: kab\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.12.2\n"
+"X-Generator: Weblate 5.16.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -27,50 +27,52 @@ msgstr "Azen tafyirt n uɛeddi ɣer unagraw"
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
-msgstr ""
+msgstr "Asesteb yettwasra i tuzzna n tefyirt n uɛeddi i teskecmeḍ ɣer unagraw."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
-msgstr ""
+msgstr "Sefrek imeẓla n unagraw neɣ iferdisen-nniḍen"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr ""
+msgstr "Asesteb yettwasra i usefrek n imeẓla n unagraw neɣ iferdisen-nniḍen."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
-msgstr ""
+msgstr "Sefrek ifuyla n umeẓlu neɣ aferdis unagraw"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
-msgstr ""
+msgstr "Asesteb yettwasra i usefrek n umeẓlu unagraw neɣ ifuyla n uferdis."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
-msgstr ""
+msgstr "Sbadu neɣ kkes imuttiyen n twennaṭ seg umsefrak n unagraw akked imeẓla"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
+"Ilaq usesteb i usbadu neɣ tukksa n yimuttiyen n twennaṭ seg umsefrak n "
+"unagraw akked imeẓla."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
-msgstr ""
+msgstr "Ales asali n waddad n systemd"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr ""
+msgstr "Asesteb yettwasra i wallus usali n waddad n unagraw."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "Silem addad n systemd war tilisa n watug"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
-msgstr ""
+msgstr "Asesteb yesra i usillem n waddad n systemd war tilisa n watug."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -78,32 +80,34 @@ msgstr "Rnu tmennaḍt agejdan"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr ""
+msgstr "Asesteb yettwasra i tmerna n temnaḍt tagejdant n useqdac."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "Kkes tamnaḍt tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr ""
+msgstr "Asesteb yettwasra i tukksa n temnaḍt tagejdant n useqdac."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "Selken talɣut n usesteb n temnaḍt tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
+"Asesteb yettwasra i uselken n talɣut n usesteb deg temnaḍt tagejdant n "
+"useqdac."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "Leqqem tamnaḍt tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
-msgstr ""
+msgstr "Asesteb yettwasera i uleqqem n tamnaḍt tagejdant n useqdac."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Update your home area"
@@ -111,24 +115,25 @@ msgstr "Mucced tamnaḍt-ik·im tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to update your home area."
-msgstr ""
+msgstr "Asesteb yettwasera i uleqqem n tamnaḍt tagejdant."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
-msgstr ""
+msgstr "Ales tiddi n temnaḍt n tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
-msgstr ""
+msgstr "Asesteb yettwasera i wales tiddi n temnaḍt tagejdant n useqdac."
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
-msgstr ""
+msgstr "Snifel awal n uɛeddi n temnaḍt tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
+"Asesteb yettwasera i usnifel n wawal n uɛeddi n temnaḍt tagejdant n useqdac."
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
@@ -136,168 +141,184 @@ msgstr "Rmed tamnaḍṭ-ik·im tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
-msgstr ""
+msgstr "Asesteb yettwasera i wesermed n temnaḍt tagejdant n useqdac."
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Sefrek tisura uzmul n ukaram agejdan"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr ""
+msgstr "Asesteb yettwasera i usefrek n tisura uzmul n ikaramen igejdanen."
 
-#: src/home/pam_systemd_home.c:333
+#: src/home/pam_systemd_home.c:330
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
+"Agejdan n useqdac %s ulac-it akka tura, ttxil-k·m, qqen ibenk n usekles "
+"ilaqen neɣ anagraw n ufaylu i yellan deg-s."
 
-#: src/home/pam_systemd_home.c:338
+#: src/home/pam_systemd_home.c:335
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
+msgstr "Ddeqs n uɛraḍ n tuqqna ɣer useqdac %s, ɛreḍ tikelt nniḍen ticki."
 
-#: src/home/pam_systemd_home.c:350
+#: src/home/pam_systemd_home.c:347
 msgid "Password: "
 msgstr "Awal n uɛeddi: "
 
-#: src/home/pam_systemd_home.c:352
+#: src/home/pam_systemd_home.c:349
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
+msgstr "Awal n uɛeddi d armeɣtu neɣ ur yekfa ara i usesteb n useqdac %s."
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:350
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Suref-aɣ, ɛreḍ tikkelt nniḍen: "
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:372
 msgid "Recovery key: "
-msgstr ""
+msgstr "Tasarut n tririt: "
 
-#: src/home/pam_systemd_home.c:377
+#: src/home/pam_systemd_home.c:374
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr ""
+"Awal n uɛeddi/tasarut n tririt d armeɣtu neɣ ur yekfa ara i usesteb n "
+"useqdac %s."
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:375
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Suref-aɣ, sekcem tikelt nniḍen tasarutt n tririt: "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:395
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "Tasarutt n tɣellist n useqdac %s ur tettwasekcem ara."
 
-#: src/home/pam_systemd_home.c:399 src/home/pam_systemd_home.c:402
+#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
 msgid "Try again with password: "
 msgstr "Ɛreḍ tikelt nniḍen s wawal n uɛeddi: "
 
-#: src/home/pam_systemd_home.c:401
+#: src/home/pam_systemd_home.c:398
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr ""
+"Awal n uɛeddi d armeɣtu neɣ ur yekfa ara, u tasarut n tasarutt n tɣellist n "
+"useqdac %s ur tettwasekcam ara."
 
-#: src/home/pam_systemd_home.c:421
+#: src/home/pam_systemd_home.c:418
 msgid "Security token PIN: "
-msgstr ""
+msgstr "PIN n tsarut n tɣellist: "
 
-#: src/home/pam_systemd_home.c:438
+#: src/home/pam_systemd_home.c:435
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "Ma ulac aɣilif, sesteb s useqdec n tsarut n tɣellist n useqdac %s."
 
-#: src/home/pam_systemd_home.c:449
+#: src/home/pam_systemd_home.c:446
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "Ma ulac aɣilif, sentem tilin-ik·im ɣef tsarut n tɣellist useqdac %s."
 
-#: src/home/pam_systemd_home.c:460
+#: src/home/pam_systemd_home.c:457
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
+msgstr "Ma ulac aɣilif, sentem aseqdac ɣef tsarutt n tɣellist n useqdac %s."
 
-#: src/home/pam_systemd_home.c:469
+#: src/home/pam_systemd_home.c:466
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
+"Tangalt PIN n tsarut n tɣellist tettusekkeṛ, ttxil-k·m kkes-as asekkeṛ deg "
+"tazwara. (Amatar: Tukksa akked walus n taguri yezmer ad d-yekfu.)"
 
-#: src/home/pam_systemd_home.c:477
+#: src/home/pam_systemd_home.c:474
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "Tangalt PIN n tsarutt n tɣellist mačči d tameɣtut i useqdac %s."
 
-#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
-#: src/home/pam_systemd_home.c:516
+#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
+#: src/home/pam_systemd_home.c:513
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "Suref-aɣ, sekcem tikelt nniḍen tangalt PIN n tsarut n tɣellist: "
 
-#: src/home/pam_systemd_home.c:496
+#: src/home/pam_systemd_home.c:493
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
+"Tangalt PIN n tsarut n tɣellist n useqdac %s d tarmeɣtut (kra n yineɛruḍen "
+"kan i d-yegran!)"
 
-#: src/home/pam_systemd_home.c:515
+#: src/home/pam_systemd_home.c:512
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
+"Tangalt PIN n tsarut n tɣellist n useqdac %s d tarmeɣtut (yiwen kan n uɛraḍ "
+"i d-yeqqimen!)"
 
-#: src/home/pam_systemd_home.c:682
+#: src/home/pam_systemd_home.c:679
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
+"Akaram agejdan n useqdac %s ur yermid ara akka tura, ttxil-k·m qqen s wudem "
+"adigan deg tazwara."
 
-#: src/home/pam_systemd_home.c:684
+#: src/home/pam_systemd_home.c:681
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
+"Akaram agejdan n useqdac %s isekkeṛ akka tura, ttxil-k·m kkes asekkeṛ s "
+"wudem adigan deg tazwara."
 
-#: src/home/pam_systemd_home.c:718
+#: src/home/pam_systemd_home.c:715
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr ""
+msgstr "Ddeqs n uɛraḍ n tuqqna ur neddi ara i useqdac %s, yugi."
 
-#: src/home/pam_systemd_home.c:1017
+#: src/home/pam_systemd_home.c:1012
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "Yewḥel usekles n useqdac, yegdel anekcum."
 
-#: src/home/pam_systemd_home.c:1021
+#: src/home/pam_systemd_home.c:1016
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
+msgstr "Asekles n useqdac mačči d ameɣtu akka tura, anekcum yettwagdel."
 
-#: src/home/pam_systemd_home.c:1025
+#: src/home/pam_systemd_home.c:1020
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
+msgstr "Asekles n useqdac ur d-yiqqim ara d ameɣtu, anekcum yettwagdel."
 
-#: src/home/pam_systemd_home.c:1030 src/home/pam_systemd_home.c:1079
+#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
 msgid "User record not valid, prohibiting access."
-msgstr ""
+msgstr "Asekles n useqdac mačči d ameɣtu, anekcum yettwagdel."
 
-#: src/home/pam_systemd_home.c:1040
+#: src/home/pam_systemd_home.c:1035
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "Ddeqs n tuqqniwin, ɛreḍ tikelt nniḍen di %s."
 
-#: src/home/pam_systemd_home.c:1051
+#: src/home/pam_systemd_home.c:1046
 msgid "Password change required."
 msgstr "Asnifel n wawal n uɛeddi yettwasra."
 
-#: src/home/pam_systemd_home.c:1055
+#: src/home/pam_systemd_home.c:1050
 msgid "Password expired, change required."
-msgstr ""
+msgstr "Awal n uɛeddi yemmut, asnifel yettwasra."
 
-#: src/home/pam_systemd_home.c:1061
+#: src/home/pam_systemd_home.c:1056
 msgid "Password is expired, but can't change, refusing login."
-msgstr ""
+msgstr "Awal n uɛeddi yemmut, yerna ur izmir ara ad ibeddel, tuqqna tettwagi."
 
-#: src/home/pam_systemd_home.c:1065
+#: src/home/pam_systemd_home.c:1060
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "Ur yettɛeṭṭil ara ad yemmet wawal n uɛeddi, ma ulac aɣilif, snifel-it."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -305,11 +326,11 @@ msgstr "Sbadu isem n usenneftaɣ"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
-msgstr ""
+msgstr "Asesteb yettwasra i usbadu n yisem n usenneftaɣ adigan."
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
-msgstr ""
+msgstr "Sbadu isem n usenneftaɣ udmis"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
@@ -323,64 +344,64 @@ msgstr "Sbadu talɣut n tmacint"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr ""
+msgstr "Asesteb yettwasra i usbadu n telɣut n tmacint tadigant."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr ""
+msgstr "Awi-d UUID n ufaris"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
-msgstr ""
+msgstr "Asesteb yettwasra i wawway n UUID n ufaris."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Awi-d uṭṭun n umazrar n warrum"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
 msgid "Authentication is required to get hardware serial number."
-msgstr ""
+msgstr "Asesteb yettwasra akken ad tawiḍ uṭṭun n umazrar n warrum."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
-msgstr ""
+msgstr "Awi-d aglam n unagraw"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
 msgid "Authentication is required to get system description."
-msgstr ""
+msgstr "Asesteb yettwasra i wawway n uglam n unagraw."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a disk image"
-msgstr ""
+msgstr "Kter tugna n uḍebsi"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import an image."
-msgstr ""
+msgstr "Asesteb yettwasra i ukter n tugna n uḍebsi."
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a disk image"
-msgstr ""
+msgstr "Sifeḍ tugna n uḍebsi"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export disk image."
-msgstr ""
+msgstr "Asesteb yettwasra i wesifeḍ n tugna n uḍebsi."
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a disk image"
-msgstr ""
+msgstr "Sider tugna n uḍebsi"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a disk image."
-msgstr ""
+msgstr "Asesteb yettwasra i usider n tugna n uḍebsi."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "Sefsex asiweḍ n tugna n uḍebsi"
 
 #: src/import/org.freedesktop.import1.policy:53
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
-msgstr ""
+msgstr "Asesteb yettwasra i wessefsex n usiweḍ itteddun n tugna n uḍebsi."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -388,32 +409,34 @@ msgstr "Sbedd tutlayt n unagraw"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
-msgstr ""
+msgstr "Asesteb yettwasra i usbadu n tutlayt tadigant n unagraw."
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
-msgstr ""
+msgstr "Sbadu iɣewwaṛen n unasiw n unagraw"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr ""
+msgstr "Asesteb yettwasra i usbadu n yiɣewwaṛen n unasiw n unagraw."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
-msgstr ""
+msgstr "Sireg isnasen ad sḥebsen asexsi n unagraw"
 
 #: src/login/org.freedesktop.login1.policy:23
 msgid ""
 "Authentication is required for an application to inhibit system shutdown."
 msgstr ""
+"Asesteb yettwasra akken ad isireg asnas ad yezmer i useḥbes n usexsi n "
+"unagraw."
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
-msgstr ""
+msgstr "Sireg i yisnasen ad izmiren ad smezgren asexsi n unagraw"
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr ""
+msgstr "Asesteb yettwasra i usnas akken ad yesmezger asexsi n unagraw."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
@@ -493,7 +516,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
-msgstr ""
+msgstr "Sireg aseqdac aruqqin i uselkem n wahilen"
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
@@ -501,7 +524,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
-msgstr ""
+msgstr "Sireg iseqdacen ur yeqqinen ara i wakken ad slekmen ahilen"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
@@ -880,22 +903,22 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
 msgid "Enable/disable DNS over TLS"
-msgstr ""
+msgstr "Sermed/sens DNS ɣef TLS"
 
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr ""
+msgstr "Asesteb yettwasra akken ad tremdeḍ neɣ ad tsenseḍ DNS ɣef TLS."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
 msgid "Enable/disable DNSSEC"
-msgstr ""
+msgstr "Sermed/Sens DNSSEC"
 
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
 msgid "Authentication is required to enable or disable DNSSEC."
-msgstr ""
+msgstr "Asesteb yettwasra akken ad tremdeḍ neɣ ad tsenseḍ DNSSEC."
 
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
@@ -928,7 +951,9 @@ msgid "DHCP server sends force renew message"
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:144
-msgid "Authentication is required to send force renew message."
+msgid ""
+"Authentication is required to send a force renew message from the DHCP "
+"server."
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:154
@@ -963,6 +988,14 @@ msgstr ""
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:198
+msgid "Manage network links"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:199
+msgid "Authentication is required to manage network links."
 msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:13
@@ -1141,49 +1174,49 @@ msgid ""
 "shall be enabled."
 msgstr ""
 
-#: src/core/dbus-unit.c:371
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to start '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:372
+#: src/core/dbus-unit.c:373
 msgid "Authentication is required to stop '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:373
+#: src/core/dbus-unit.c:374
 msgid "Authentication is required to reload '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:374 src/core/dbus-unit.c:375
+#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
 msgid "Authentication is required to restart '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:567
+#: src/core/dbus-unit.c:568
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:620
+#: src/core/dbus-unit.c:621
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:648
+#: src/core/dbus-unit.c:649
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:678
+#: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:775
+#: src/core/dbus-unit.c:776
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:812
+#: src/core/dbus-unit.c:813
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

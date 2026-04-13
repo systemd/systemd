@@ -5,8 +5,8 @@
 
 #include "sd-json.h"
 
-#include "sd-forward.h"
 #include "log.h"
+#include "sd-forward.h"
 #include "string-util.h"        /* IWYU pragma: keep */
 
 #define JSON_VARIANT_REPLACE(v, q)        \
@@ -115,6 +115,7 @@ int json_dispatch_user_group_name(const char *name, sd_json_variant *variant, sd
 int json_dispatch_const_user_group_name(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_const_unit_name(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_in_addr(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+int json_dispatch_in6_addr(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_const_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_strv_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
@@ -175,9 +176,9 @@ enum {
         _JSON_BUILD_PAIR_VARIANT_NON_EMPTY,
         /* _SD_JSON_BUILD_PAIR_VARIANT_ARRAY_NON_EMPTY, */
         _JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY,
-        _JSON_BUILD_PAIR_IN4_ADDR_NON_NULL,
-        _JSON_BUILD_PAIR_IN6_ADDR_NON_NULL,
         _JSON_BUILD_PAIR_IN_ADDR_NON_NULL,
+        _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING,
+        _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL,
         _JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL,
         _JSON_BUILD_PAIR_HW_ADDR_NON_NULL,
         _JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL,
@@ -200,7 +201,7 @@ enum {
 #define JSON_BUILD_CONST_STRING(s) _SD_JSON_BUILD_VARIANT, JSON_VARIANT_STRING_CONST(s)
 #define JSON_BUILD_IN4_ADDR(v) SD_JSON_BUILD_BYTE_ARRAY((const struct in_addr*) { v }, sizeof(struct in_addr))
 #define JSON_BUILD_IN6_ADDR(v) SD_JSON_BUILD_BYTE_ARRAY((const struct in6_addr*) { v }, sizeof(struct in6_addr))
-#define JSON_BUILD_IN_ADDR(v, f) SD_JSON_BUILD_BYTE_ARRAY(((const union in_addr_union*) { v })->bytes, FAMILY_ADDRESS_SIZE_SAFE(f))
+#define JSON_BUILD_IN_ADDR(f, v) SD_JSON_BUILD_BYTE_ARRAY(((const union in_addr_union*) { v })->bytes, FAMILY_ADDRESS_SIZE_SAFE(f))
 #define JSON_BUILD_ETHER_ADDR(v) SD_JSON_BUILD_BYTE_ARRAY(((const struct ether_addr*) { v })->ether_addr_octet, sizeof(struct ether_addr))
 #define JSON_BUILD_HW_ADDR(v) _JSON_BUILD_HW_ADDR, (const struct hw_addr_data*) { v }
 #define JSON_BUILD_STRING_SET(s) _JSON_BUILD_STRING_SET, (Set *) { s }
@@ -223,9 +224,15 @@ enum {
 #define JSON_BUILD_PAIR_VARIANT_NON_NULL(name, v) _JSON_BUILD_PAIR_VARIANT_NON_NULL, (const char*) { name }, (sd_json_variant*) { v }
 #define JSON_BUILD_PAIR_VARIANT_NON_EMPTY(name, v) _JSON_BUILD_PAIR_VARIANT_NON_EMPTY, (const char*) { name }, (sd_json_variant*) { v }
 #define JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY(name, v, n) _JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY, (const char*) { name }, (const void*) { v }, (size_t) { n }
-#define JSON_BUILD_PAIR_IN4_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_IN4_ADDR_NON_NULL, (const char*) { name }, (const struct in_addr*) { v }
-#define JSON_BUILD_PAIR_IN6_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_IN6_ADDR_NON_NULL, (const char*) { name }, (const struct in6_addr*) { v }
-#define JSON_BUILD_PAIR_IN_ADDR_NON_NULL(name, v, f) _JSON_BUILD_PAIR_IN_ADDR_NON_NULL, (const char*) { name }, (const union in_addr_union*) { v }, (int) { f }
+#define JSON_BUILD_PAIR_IN_ADDR_NON_NULL(name, f, v) _JSON_BUILD_PAIR_IN_ADDR_NON_NULL, (const char*) { name }, (int) { f }, (const union in_addr_union*) { v }
+#define JSON_BUILD_PAIR_IN4_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_IN_ADDR_NON_NULL, (const char*) { name }, AF_INET, &(union in_addr_union) { .in = *(v) }
+#define JSON_BUILD_PAIR_IN6_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_IN_ADDR_NON_NULL, (const char*) { name }, AF_INET6, &(union in_addr_union) { .in6 = *(v) }
+#define JSON_BUILD_PAIR_IN_ADDR_WITH_STRING(name, f, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING, (const char*) { name }, (int) { f }, (const union in_addr_union*) { v }
+#define JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING(name, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING, (const char*) { name }, AF_INET, &(union in_addr_union) { .in = *(v) }
+#define JSON_BUILD_PAIR_IN6_ADDR_WITH_STRING(name, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING, (const char*) { name }, AF_INET6, &(union in_addr_union) { .in6 = *(v) }
+#define JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL(name, f, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL, (const char*) { name }, (int) { f }, (const union in_addr_union*) { v }
+#define JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING_NON_NULL(name, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL, (const char*) { name }, AF_INET, &(union in_addr_union) { .in = *(v) }
+#define JSON_BUILD_PAIR_IN6_ADDR_WITH_STRING_NON_NULL(name, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL, (const char*) { name }, AF_INET6, &(union in_addr_union) { .in6 = *(v) }
 #define JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL, (const char*) { name }, (const struct ether_addr*) { v }
 #define JSON_BUILD_PAIR_HW_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_HW_ADDR_NON_NULL, (const char*) { name }, (const struct hw_addr_data*) { v }
 #define JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL(name, t) _JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL, (const char*) { name }, (dual_timestamp*) { t }
@@ -242,7 +249,7 @@ enum {
 #define JSON_BUILD_PAIR_IOVEC_HEX(name, iov) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IOVEC_HEX(iov))
 #define JSON_BUILD_PAIR_IN4_ADDR(name, v) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IN4_ADDR(v))
 #define JSON_BUILD_PAIR_IN6_ADDR(name, v) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IN6_ADDR(v))
-#define JSON_BUILD_PAIR_IN_ADDR(name, v, f) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IN_ADDR(v, f))
+#define JSON_BUILD_PAIR_IN_ADDR(name, f, v) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IN_ADDR(f, v))
 #define JSON_BUILD_PAIR_ETHER_ADDR(name, v) SD_JSON_BUILD_PAIR(name, JSON_BUILD_ETHER_ADDR(v))
 #define JSON_BUILD_PAIR_HW_ADDR(name, v) SD_JSON_BUILD_PAIR(name, JSON_BUILD_HW_ADDR(v))
 #define JSON_BUILD_PAIR_STRING_SET(name, s) SD_JSON_BUILD_PAIR(name, JSON_BUILD_STRING_SET(s))
@@ -252,12 +259,15 @@ enum {
 #define JSON_BUILD_PAIR_TRISTATE(name, i) SD_JSON_BUILD_PAIR(name, JSON_BUILD_TRISTATE(i))
 #define JSON_BUILD_PAIR_PIDREF(name, p) SD_JSON_BUILD_PAIR(name, JSON_BUILD_PIDREF(p))
 #define JSON_BUILD_PAIR_DEVNUM(name, d) SD_JSON_BUILD_PAIR(name, JSON_BUILD_DEVNUM(d))
+#define JSON_BUILD_PAIR_ENUM(name, s) SD_JSON_BUILD_PAIR(name, JSON_BUILD_STRING_UNDERSCORIFY(s))
 #define JSON_BUILD_PAIR_YES_NO(name, b) SD_JSON_BUILD_PAIR(name, SD_JSON_BUILD_STRING(yes_no(b)))
 
 #define JSON_BUILD_PAIR_CONDITION_UNSIGNED(condition, name, value) \
         SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_UNSIGNED(value))
 #define JSON_BUILD_PAIR_CONDITION_BOOLEAN(condition, name, value) \
         SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_BOOLEAN(value))
+#define JSON_BUILD_PAIR_CONDITION_STRV(condition, name, value) \
+        SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_STRV(value))
 
 int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref);
 int json_variant_new_devnum(sd_json_variant **ret, dev_t devnum);
@@ -265,3 +275,5 @@ int json_variant_new_fd_info(sd_json_variant **ret, int fd);
 
 char *json_underscorify(char *p);
 char *json_dashify(char *p);
+
+int json_variant_compare(sd_json_variant *a, sd_json_variant *b);

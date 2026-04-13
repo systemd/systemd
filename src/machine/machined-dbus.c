@@ -26,6 +26,7 @@
 #include "machine.h"
 #include "machine-dbus.h"
 #include "machined.h"
+#include "machined-dbus.h"
 #include "namespace-util.h"
 #include "operation.h"
 #include "os-util.h"
@@ -255,6 +256,9 @@ static int machine_add_from_params(
         assert(manager);
         assert(message);
         assert(name);
+        assert(c == _MACHINE_CLASS_INVALID || MACHINE_CLASS_CAN_REGISTER(c));
+        assert(leader_pidref);
+        assert(supervisor_pidref);
         assert(ret);
 
         if (leader_pidref->pid == 1)
@@ -315,10 +319,8 @@ static int machine_add_from_params(
                                 details,
                                 &manager->polkit_registry,
                                 error);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 0; /* Will call us back */
+                if (r <= 0)
+                        return r; /* 0 means Polkit will call us back, see method_create_machine() */
         }
 
         r = manager_add_machine(manager, name, &m);
@@ -434,7 +436,7 @@ static int method_create_or_register_machine(
                 c = _MACHINE_CLASS_INVALID;
         else {
                 c = machine_class_from_string(class);
-                if (c < 0)
+                if (c < 0 || !MACHINE_CLASS_CAN_REGISTER(c))
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine class parameter");
         }
 
@@ -464,7 +466,7 @@ static int method_create_or_register_machine(
                         supervisor_pidref = TAKE_PIDREF(client_pidref);
         }
 
-        if (hashmap_get(manager->machines, name))
+        if (hashmap_contains(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
 
         return machine_add_from_params(
@@ -480,7 +482,7 @@ static int method_create_or_register_machine(
                         root_directory,
                         netif,
                         n_netif,
-                        /* cid= */ 0,
+                        /* cid= */ VMADDR_CID_ANY,
                         /* ssh_address= */ NULL,
                         /* ssh_private_key_path= */ NULL,
                         ret,
@@ -609,14 +611,14 @@ static int method_create_or_register_machine_ex(
                 c = _MACHINE_CLASS_INVALID;
         else {
                 c = machine_class_from_string(class);
-                if (c < 0)
+                if (c < 0 || !MACHINE_CLASS_CAN_REGISTER(c))
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine class parameter");
         }
 
         if (!isempty(root_directory) && (!path_is_absolute(root_directory) || !path_is_valid(root_directory)))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
 
-        if (hashmap_get(manager->machines, name))
+        if (hashmap_contains(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
 
         /* If a PID is specified that's the leader, but if the client process is different from it, than that's the supervisor */
@@ -1219,7 +1221,7 @@ static int method_map_to_machine_group(sd_bus_message *message, void *userdata, 
         return sd_bus_reply_method_return(message, "sou", machine->name, o, (uint32_t) converted);
 }
 
-const sd_bus_vtable manager_vtable[] = {
+static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("PoolPath", "s", property_get_pool_path, 0, 0),
@@ -1451,8 +1453,8 @@ const BusObjectImplementation manager_object = {
         "/org/freedesktop/machine1",
         "org.freedesktop.machine1.Manager",
         .vtables = BUS_VTABLES(manager_vtable),
-        .children = BUS_IMPLEMENTATIONS( &machine_object,
-                                         &image_object ),
+        .children = BUS_IMPLEMENTATIONS(&machine_object,
+                                        &image_object),
 };
 
 int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1642,6 +1644,12 @@ int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *ret
         assert(manager);
         assert(unit);
 
+        r = sd_bus_is_ready(manager->api_bus);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOTCONN;
+
         path = unit_dbus_path_from_name(unit);
         if (!path)
                 return -ENOMEM;
@@ -1681,6 +1689,12 @@ int manager_job_is_active(Manager *manager, const char *path, sd_bus_error *rete
 
         assert(manager);
         assert(path);
+
+        r = sd_bus_is_ready(manager->api_bus);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOTCONN;
 
         r = sd_bus_get_property(
                         manager->api_bus,

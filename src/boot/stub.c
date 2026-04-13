@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "boot-secret.h"
+#include "console.h"
 #include "cpio.h"
 #include "device-path-util.h"
 #include "devicetree.h"
 #include "efi-efivars.h"
 #include "efi-log.h"
+#include "efi-string.h"
 #include "export-vars.h"
 #include "graphics.h"
 #include "iovec-util-fundamental.h"
@@ -45,6 +48,7 @@ enum {
         INITRD_PCRPKEY,
         INITRD_OSREL,
         INITRD_PROFILE,
+        INITRD_BOOT_SECRET,
         _INITRD_MAX,
 };
 
@@ -408,14 +412,7 @@ static void named_addon_done(NamedAddon *a) {
         iovec_done(&a->blob);
 }
 
-static void named_addon_free_many(NamedAddon *a, size_t n) {
-        assert(a || n == 0);
-
-        FOREACH_ARRAY(i, a, n)
-                named_addon_done(i);
-
-        free(a);
-}
+static DEFINE_ARRAY_FREE_FUNC(named_addon_free_array, NamedAddon, named_addon_done);
 
 static void install_addon_devicetrees(
                 struct devicetree_state *dt_state,
@@ -978,6 +975,29 @@ static void generate_embedded_initrds(
         }
 }
 
+static void generate_boot_secret_initrd(
+                const uint8_t boot_secret[static BOOT_SECRET_SIZE],
+                struct iovec initrds[static _INITRD_MAX]) {
+
+        assert(initrds);
+
+        /* All zero means: no boot secret acquired */
+        if (memeqzero(boot_secret, BOOT_SECRET_SIZE))
+                return;
+
+        (void) pack_cpio_literal(
+                        boot_secret,
+                        BOOT_SECRET_SIZE,
+                        ".extra",
+                        u"boot-secret",
+                        /* dir_mode= */ 0555,
+                        /* access_mode= */ 0400,
+                        /* tpm_pcr= */ UINT32_MAX,
+                        /* tpm_description= */ NULL,
+                        initrds + INITRD_BOOT_SECRET,
+                        /* ret_measured= */ NULL);
+}
+
 static void lookup_embedded_initrds(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
@@ -1232,6 +1252,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
         unsigned profile = 0;
         EFI_STATUS err;
 
+        log_set_max_level_from_smbios();
+
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
@@ -1254,6 +1276,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         refresh_random_seed(loaded_image);
 
+        uint8_t boot_secret[BOOT_SECRET_SIZE] = {}; /* all zeroes means: not acquired */
+        CLEANUP_ERASE(boot_secret);
+        (void) prepare_boot_secret(loaded_image, sections + UNIFIED_SECTION_OSREL, boot_secret);
+
         uname = pe_section_to_str8(loaded_image, sections + UNIFIED_SECTION_UNAME);
 
         /* Let's now check if we actually want to use the command line, measure it if it was passed in. */
@@ -1261,9 +1287,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
-        CLEANUP_ARRAY(dt_addons, n_dt_addons, named_addon_free_many);
-        CLEANUP_ARRAY(initrd_addons, n_initrd_addons, named_addon_free_many);
-        CLEANUP_ARRAY(ucode_addons, n_ucode_addons, named_addon_free_many);
+        CLEANUP_ARRAY(dt_addons, n_dt_addons, named_addon_free_array);
+        CLEANUP_ARRAY(initrd_addons, n_initrd_addons, named_addon_free_array);
+        CLEANUP_ARRAY(ucode_addons, n_ucode_addons, named_addon_free_array);
         load_all_addons(image, loaded_image, uname, &cmdline_addons, &dt_addons, &n_dt_addons, &initrd_addons, &n_initrd_addons, &ucode_addons, &n_ucode_addons);
 
         /* If we have any extra command line to add via PE addons, load them now and append, and measure the
@@ -1272,6 +1298,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * image-specific ones later, for the same reason. */
         cmdline_append_and_measure_addons(cmdline_addons, &cmdline, &parameters_measured);
         cmdline_append_and_measure_smbios(&cmdline, &parameters_measured);
+
+        cmdline_append_console(&cmdline);
 
         export_common_variables(loaded_image);
         export_stub_variables(loaded_image, profile);
@@ -1283,6 +1311,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         /* Generate & find all initrds */
         generate_sidecar_initrds(loaded_image, initrds, &parameters_measured, &sysext_measured, &confext_measured);
         generate_embedded_initrds(loaded_image, sections, initrds);
+        generate_boot_secret_initrd(boot_secret, initrds);
         lookup_embedded_initrds(loaded_image, sections, initrds);
 
         /* Add initrds in the right order. Generally, later initrds can overwrite files in earlier ones,
@@ -1325,4 +1354,5 @@ static EFI_STATUS run(EFI_HANDLE image) {
         return err;
 }
 
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 DEFINE_EFI_MAIN_FUNCTION(run, "systemd-stub", /* wait_for_debugger= */ false);

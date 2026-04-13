@@ -23,6 +23,7 @@
 #include "networkd-network.h"
 #include "networkd-ntp.h"
 #include "networkd-state-file.h"
+#include "networkd-wwan.h"
 #include "ordered-set.h"
 #include "set.h"
 #include "string-util.h"
@@ -109,6 +110,14 @@ static int link_put_dns(Link *link, OrderedSet **s) {
         if (r < 0)
                 return r;
 
+        Bearer *b;
+
+        if (link_get_bearer(link, &b) >= 0) {
+                r = ordered_set_put_dns_servers(s, link->ifindex, b->dns, b->n_dns);
+                if (r < 0)
+                        return r;
+        }
+
         if (link->dhcp_lease && link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP4)) {
                 const struct in_addr *addresses;
 
@@ -127,7 +136,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 if (r >= 0) {
                         struct in_addr_full **dot_servers;
                         size_t n = 0;
-                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
+                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_free_array);
 
                         r = dns_resolvers_to_dot_addrs(resolvers, r, &dot_servers, &n);
                         if (r < 0)
@@ -156,7 +165,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 if (r >= 0) {
                         struct in_addr_full **dot_servers;
                         size_t n = 0;
-                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
+                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_free_array);
 
                         r = dns_resolvers_to_dot_addrs(resolvers, r, &dot_servers, &n);
                         if (r < 0)
@@ -184,7 +193,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 SET_FOREACH(a, link->ndisc_dnr) {
                         struct in_addr_full **dot_servers = NULL;
                         size_t n = 0;
-                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
+                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_free_array);
 
                         r = dns_resolvers_to_dot_addrs(&a->resolver, 1, &dot_servers, &n);
                         if (r < 0)
@@ -801,6 +810,11 @@ static int link_save(Link *link) {
                         space = false;
                         link_save_dns(link, f, link->network->dns, link->network->n_dns, &space);
 
+                        Bearer *b;
+
+                        if (link_get_bearer(link, &b) >= 0)
+                                link_save_dns(link, f, b->dns, b->n_dns, &space);
+
                         /* DNR resolvers are not required to provide Do53 service, however resolved doesn't
                          * know how to handle such a server so for now Do53 service is required, and
                          * assumed. */
@@ -984,6 +998,12 @@ void link_dirty(Link *link) {
 
         /* Also mark manager dirty as link is dirty */
         link->manager->dirty = true;
+
+        /* The interface has been already removed, and the state file for the interface has been or will be
+         * removed. The file should not be recreated. Note, even in that case, we may need to recreate the
+         * manager state file. Hence the dirty flag for the manager should be set in the above. */
+        if (link->state == LINK_STATE_LINGER)
+                return;
 
         if (set_ensure_put(&link->manager->dirty_links, &link_hash_ops, link) <= 0)
                 return; /* Ignore allocation errors and don't take another ref if the link was already dirty */

@@ -250,13 +250,10 @@ static AsyncPolkitQuery* async_polkit_query_free(AsyncPolkitQuery *q) {
 DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(AsyncPolkitQuery, async_polkit_query, async_polkit_query_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(AsyncPolkitQuery*, async_polkit_query_unref);
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 async_polkit_query_hash_ops,
-                void,
-                trivial_hash_func,
-                trivial_compare_func,
-                AsyncPolkitQuery,
-                async_polkit_query_unref);
+                void, trivial_hash_func, trivial_compare_func,
+                AsyncPolkitQuery, async_polkit_query_unref);
 
 static int async_polkit_defer(sd_event_source *s, void *userdata) {
         AsyncPolkitQuery *q = ASSERT_PTR(userdata);
@@ -286,9 +283,7 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
         a = ASSERT_PTR(TAKE_PTR(q->action));
 
         if (sd_bus_message_is_method_error(reply, NULL)) {
-                const sd_bus_error *e;
-
-                e = sd_bus_message_get_error(reply);
+                const sd_bus_error *e = ASSERT_PTR(sd_bus_message_get_error(reply));
 
                 if (bus_error_is_unknown_service(e)) {
                         /* If PK is absent, then store this away, as it depends on the callers flags whether
@@ -573,18 +568,18 @@ int bus_verify_polkit_async_full(
                         return r;
                 }
         }
-#endif
 
         if (!FLAGS_SET(flags, POLKIT_ALWAYS_QUERY)) {
+#endif
                 /* Don't query PK if client is privileged */
                 r = sd_bus_query_sender_privilege(call, /* capability= */ -1);
                 if (r < 0)
                         return r;
                 if (r > 0)
                         return 1;
+#if ENABLE_POLKIT
         }
 
-#if ENABLE_POLKIT
         int c = sd_bus_message_get_allow_interactive_authorization(call);
         if (c < 0)
                 return c;
@@ -783,13 +778,15 @@ int varlink_verify_polkit_async_full(
         if (r != 0)
                 return r;
 
+#if ENABLE_POLKIT
         if (!FLAGS_SET(flags, POLKIT_ALWAYS_QUERY)) {
+#endif
                 r = varlink_check_peer_privilege(link);
                 if (r != 0)
                         return r;
+#if ENABLE_POLKIT
         }
 
-#if ENABLE_POLKIT
         _cleanup_(async_polkit_query_unrefp) AsyncPolkitQuery *q = NULL;
 
         q = async_polkit_query_ref(hashmap_get(*registry, link));

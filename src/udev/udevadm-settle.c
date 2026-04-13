@@ -184,7 +184,7 @@ static int on_inotify(sd_event_source *s, const struct inotify_event *event, voi
         return 0;
 }
 
-int settle_main(int argc, char *argv[], void *userdata) {
+int verb_settle_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
 

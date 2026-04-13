@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-varlink-idl.h"
-
 #include "bus-polkit.h"
 #include "varlink-io.systemd.MachineImage.h"
 
@@ -95,7 +93,7 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 CleanPool,
-                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_REQUIRES_MORE,
                 VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("Allows removing all or only hidden images"),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, CleanPoolMode, 0),

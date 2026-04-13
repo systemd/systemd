@@ -669,19 +669,22 @@ static int do_shovel(PTYForward *f) {
 
                                 f->stdin_event_source = sd_event_source_unref(f->stdin_event_source);
                         } else {
-                                /* Check if ^] has been pressed three times within one second. If we get this we quite
-                                 * immediately. */
-                                RequestOperation q = look_for_escape(f, f->in_buffer + f->in_buffer_full, k);
-                                f->in_buffer_full += (size_t) k;
-                                if (q < 0)
-                                        return q;
-                                if (q == REQUEST_EXIT)
-                                        return -ECANCELED;
-                                if (q >= REQUEST_HOTKEY_A && q <= REQUEST_HOTKEY_Z && f->hotkey_handler) {
-                                        r = f->hotkey_handler(f, q - REQUEST_HOTKEY_BASE, f->hotkey_userdata);
-                                        if (r < 0)
-                                                return r;
-                                }
+                                if (!FLAGS_SET(f->flags, PTY_FORWARD_TRANSPARENT)) {
+                                        /* Check if ^] has been pressed three times within one second. If we get this we quit
+                                         * immediately. */
+                                        RequestOperation q = look_for_escape(f, f->in_buffer + f->in_buffer_full, k);
+                                        f->in_buffer_full += (size_t) k;
+                                        if (q < 0)
+                                                return q;
+                                        if (q == REQUEST_EXIT)
+                                                return -ECANCELED;
+                                        if (q >= REQUEST_HOTKEY_A && q <= REQUEST_HOTKEY_Z && f->hotkey_handler) {
+                                                r = f->hotkey_handler(f, q - REQUEST_HOTKEY_BASE, f->hotkey_userdata);
+                                                if (r < 0)
+                                                        return r;
+                                        }
+                                } else
+                                        f->in_buffer_full += (size_t) k;
                         }
 
                         did_something = true;

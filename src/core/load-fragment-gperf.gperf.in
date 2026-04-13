@@ -11,6 +11,7 @@
 {{type}}.RootHashSignature,                   config_parse_exec_root_hash_sig,                    0,                                  offsetof({{type}}, exec_context)
 {{type}}.RootVerity,                          config_parse_unit_path_printf,                      true,                               offsetof({{type}}, exec_context.root_verity)
 {{type}}.RootEphemeral,                       config_parse_bool,                                  0,                                  offsetof({{type}}, exec_context.root_ephemeral)
+{{type}}.RootMStack,                          config_parse_unit_path_printf,                      true,                               offsetof({{type}}, exec_context.root_mstack)
 {{type}}.ExtensionDirectories,                config_parse_namespace_path_strv,                   0,                                  offsetof({{type}}, exec_context.extension_directories)
 {{type}}.ExtensionImages,                     config_parse_extension_images,                      0,                                  offsetof({{type}}, exec_context)
 {{type}}.ExtensionImagePolicy,                config_parse_image_policy,                          0,                                  offsetof({{type}}, exec_context.extension_image_policy)
@@ -275,8 +276,12 @@
 {{type}}.SocketBindAllow,                     config_parse_cgroup_socket_bind,                    0,                                  offsetof({{type}}, cgroup_context.socket_bind_allow)
 {{type}}.SocketBindDeny,                      config_parse_cgroup_socket_bind,                    0,                                  offsetof({{type}}, cgroup_context.socket_bind_deny)
 {{type}}.RestrictNetworkInterfaces,           config_parse_restrict_network_interfaces,           0,                                  offsetof({{type}}, cgroup_context)
-{{type}}.MemoryPressureThresholdSec,          config_parse_sec,                                   0,                                  offsetof({{type}}, cgroup_context.memory_pressure_threshold_usec)
-{{type}}.MemoryPressureWatch,                 config_parse_memory_pressure_watch,                 0,                                  offsetof({{type}}, cgroup_context.memory_pressure_watch)
+{{type}}.MemoryPressureThresholdSec,          config_parse_sec,                                   0,                                  offsetof({{type}}, cgroup_context.pressure[PRESSURE_MEMORY].threshold_usec)
+{{type}}.MemoryPressureWatch,                 config_parse_pressure_watch,                        0,                                  offsetof({{type}}, cgroup_context.pressure[PRESSURE_MEMORY].watch)
+{{type}}.CPUPressureThresholdSec,             config_parse_sec,                                   0,                                  offsetof({{type}}, cgroup_context.pressure[PRESSURE_CPU].threshold_usec)
+{{type}}.CPUPressureWatch,                    config_parse_pressure_watch,                        0,                                  offsetof({{type}}, cgroup_context.pressure[PRESSURE_CPU].watch)
+{{type}}.IOPressureThresholdSec,              config_parse_sec,                                   0,                                  offsetof({{type}}, cgroup_context.pressure[PRESSURE_IO].threshold_usec)
+{{type}}.IOPressureWatch,                     config_parse_pressure_watch,                        0,                                  offsetof({{type}}, cgroup_context.pressure[PRESSURE_IO].watch)
 {{type}}.NFTSet,                              config_parse_cgroup_nft_set,                        NFT_SET_PARSE_CGROUP,               offsetof({{type}}, cgroup_context)
 {{type}}.CoredumpReceive,                     config_parse_bool,                                  0,                                  offsetof({{type}}, cgroup_context.coredump_receive)
 {{type}}.BindNetworkInterface,                config_parse_bind_network_interface,                0,                                  offsetof({{type}}, cgroup_context)
@@ -365,6 +370,7 @@ Unit.ConditionPathIsSymbolicLink,             config_parse_unit_condition_path, 
 Unit.ConditionPathIsMountPoint,               config_parse_unit_condition_path,                   CONDITION_PATH_IS_MOUNT_POINT,      offsetof(Unit, conditions)
 Unit.ConditionPathIsReadWrite,                config_parse_unit_condition_path,                   CONDITION_PATH_IS_READ_WRITE,       offsetof(Unit, conditions)
 Unit.ConditionPathIsEncrypted,                config_parse_unit_condition_path,                   CONDITION_PATH_IS_ENCRYPTED,        offsetof(Unit, conditions)
+Unit.ConditionPathIsSocket,                   config_parse_unit_condition_path,                   CONDITION_PATH_IS_SOCKET,           offsetof(Unit, conditions)
 Unit.ConditionDirectoryNotEmpty,              config_parse_unit_condition_path,                   CONDITION_DIRECTORY_NOT_EMPTY,      offsetof(Unit, conditions)
 Unit.ConditionFileNotEmpty,                   config_parse_unit_condition_path,                   CONDITION_FILE_NOT_EMPTY,           offsetof(Unit, conditions)
 Unit.ConditionFileIsExecutable,               config_parse_unit_condition_path,                   CONDITION_FILE_IS_EXECUTABLE,       offsetof(Unit, conditions)
@@ -400,6 +406,7 @@ Unit.AssertPathIsSymbolicLink,                config_parse_unit_condition_path, 
 Unit.AssertPathIsMountPoint,                  config_parse_unit_condition_path,                   CONDITION_PATH_IS_MOUNT_POINT,      offsetof(Unit, asserts)
 Unit.AssertPathIsReadWrite,                   config_parse_unit_condition_path,                   CONDITION_PATH_IS_READ_WRITE,       offsetof(Unit, asserts)
 Unit.AssertPathIsEncrypted,                   config_parse_unit_condition_path,                   CONDITION_PATH_IS_ENCRYPTED,        offsetof(Unit, asserts)
+Unit.AssertPathIsSocket,                      config_parse_unit_condition_path,                   CONDITION_PATH_IS_SOCKET,           offsetof(Unit, asserts)
 Unit.AssertDirectoryNotEmpty,                 config_parse_unit_condition_path,                   CONDITION_DIRECTORY_NOT_EMPTY,      offsetof(Unit, asserts)
 Unit.AssertFileNotEmpty,                      config_parse_unit_condition_path,                   CONDITION_FILE_NOT_EMPTY,           offsetof(Unit, asserts)
 Unit.AssertFileIsExecutable,                  config_parse_unit_condition_path,                   CONDITION_FILE_IS_EXECUTABLE,       offsetof(Unit, asserts)
@@ -479,6 +486,7 @@ Service.USBFunctionStrings,                   config_parse_unit_path_printf,    
 Service.OOMPolicy,                            config_parse_oom_policy,                            0,                                  offsetof(Service, oom_policy)
 Service.OpenFile,                             config_parse_open_file,                             0,                                  offsetof(Service, open_files)
 Service.ReloadSignal,                         config_parse_signal,                                0,                                  offsetof(Service, reload_signal)
+Service.RefreshOnReload,                      config_parse_service_refresh_on_reload,             0,                                  0
 {{ EXEC_CONTEXT_CONFIG_ITEMS('Service') }}
 {{ CGROUP_CONTEXT_CONFIG_ITEMS('Service') }}
 {{ KILL_CONTEXT_CONFIG_ITEMS('Service') }}

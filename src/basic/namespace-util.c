@@ -8,6 +8,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "capability-util.h"
 #include "dlfcn-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -67,6 +68,11 @@ static int pidref_namespace_open_by_type_internal(const PidRef *pidref, Namespac
 
         if (pidref->fd >= 0) {
                 r = pidfd_get_namespace(pidref->fd, namespace_info[type].pidfd_get_ns_ioctl_cmd);
+                if (r == -ENOPKG)
+                        return log_debug_errno(
+                                        r,
+                                        "Cannot open %s namespace for PID "PID_FMT" as the namespace type is not supported by the kernel",
+                                        namespace_info[type].proc_name, pidref->pid);
                 if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         return r;
         }
@@ -82,10 +88,17 @@ static int pidref_namespace_open_by_type_internal(const PidRef *pidref, Namespac
         if (nsfd == -ENOENT) {
                 r = proc_mounted();
                 if (r == 0)
-                        return -ENOSYS;  /* /proc/ is not available or not set up properly, we're most likely
-                                            in some chroot environment. */
+                        /* /proc/ is not available or not set up properly, we're most likely in some chroot environment. */
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(ENOSYS),
+                                        "Cannot open %s namespace for PID "PID_FMT" as /proc is not mounted",
+                                        namespace_info[type].proc_name, pidref->pid);
                 if (r > 0)
-                        return -ENOPKG;  /* If /proc/ is definitely around then this means the namespace type is not supported */
+                        /* If /proc/ is definitely around then this means the namespace type is not supported */
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(ENOPKG),
+                                        "Cannot open %s namespace for PID "PID_FMT" via /proc as the namespace type is not supported by the kernel",
+                                        namespace_info[type].proc_name, pidref->pid);
 
                 /* can't determine? then propagate original error */
         }
@@ -221,6 +234,33 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
         /* Block dlopen() now, to avoid us inadvertently loading shared library from another namespace */
         block_dlopen();
 
+         /* Join namespaces, but only if we're not part of them already. This is important if we don't
+          * necessarily own the namespace in question, as kernel would unconditionally return EPERM otherwise. */
+
+        if (pidns_fd >= 0) {
+                r = is_our_namespace(pidns_fd, NAMESPACE_PID);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        pidns_fd = -EBADF;
+        }
+
+        if (mntns_fd >= 0) {
+                r = is_our_namespace(mntns_fd, NAMESPACE_MOUNT);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        mntns_fd = -EBADF;
+        }
+
+        if (netns_fd >= 0) {
+                r = is_our_namespace(netns_fd, NAMESPACE_NET);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        netns_fd = -EBADF;
+        }
+
         if (userns_fd >= 0) {
                 /* Can't setns to your own userns, since then you could escalate from non-root to root in
                  * your own namespace, so check if namespaces are equal before attempting to enter. */
@@ -230,6 +270,27 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                         return r;
                 if (r > 0)
                         userns_fd = -EBADF;
+        }
+
+        r = have_effective_cap(CAP_SYS_ADMIN);
+        if (r < 0)
+                return r;
+
+        bool have_cap_sys_admin = r > 0;
+
+        if (!have_cap_sys_admin) {
+                /* If we don't have CAP_SYS_ADMIN in our own user namespace, our best bet is to enter the
+                 * user namespace first (if we got one) to get CAP_SYS_ADMIN within the child user namespace,
+                 * and then hope the other namespaces are owned by the child user namespace. If they aren't,
+                 * we'll just get an EPERM later on when trying to setns() to them. */
+
+                if (userns_fd < 0)
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(EPERM),
+                                        "Need CAP_SYS_ADMIN or a child user namespace to enter namespaces.");
+
+                if (setns(userns_fd, CLONE_NEWUSER) < 0)
+                        return -errno;
         }
 
         if (pidns_fd >= 0)
@@ -244,7 +305,7 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                 if (setns(netns_fd, CLONE_NEWNET) < 0)
                         return -errno;
 
-        if (userns_fd >= 0)
+        if (userns_fd >= 0 && have_cap_sys_admin)
                 if (setns(userns_fd, CLONE_NEWUSER) < 0)
                         return -errno;
 
@@ -256,8 +317,13 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                         return -errno;
         }
 
-        if (userns_fd >= 0)
-                return reset_uid_gid();
+        if (userns_fd >= 0) {
+                /* Try to become root in the user namespace but don't error out if we can't, since it's not
+                 * uncommon to have user namespaces without a root user in them. */
+                r = reset_uid_gid();
+                if (r < 0)
+                        log_debug_errno(r, "Unable to drop auxiliary groups or reset UID/GID, ignoring: %m");
+        }
 
         return 0;
 }
@@ -305,6 +371,42 @@ int is_our_namespace(int fd, NamespaceType type) {
                 return our_ns;
 
         return fd_inode_same(fd, our_ns);
+}
+
+int are_our_namespaces(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {
+        int r;
+
+        if (pidns_fd >= 0) {
+                r = is_our_namespace(pidns_fd, NAMESPACE_PID);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (mntns_fd >= 0) {
+                r = is_our_namespace(mntns_fd, NAMESPACE_MOUNT);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (netns_fd >= 0) {
+                r = is_our_namespace(netns_fd, NAMESPACE_NET);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (userns_fd >= 0) {
+                r = is_our_namespace(userns_fd, NAMESPACE_USER);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (root_fd >= 0) {
+                r = dir_fd_is_root(root_fd);
+                if (r <= 0)
+                        return r;
+        }
+
+        return true;
 }
 
 int namespace_is_init(NamespaceType type) {
@@ -618,7 +720,7 @@ int userns_enter_and_pin(int userns_fd, PidRef *ret) {
                         "(sd-pinuserns)",
                         /* stdio_fds= */ NULL,
                         (int[]) { pfd[1], userns_fd }, 2,
-                        FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL,
+                        FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_DEATHSIG_SIGKILL,
                         &pidref);
         if (r < 0)
                 return r;
@@ -702,16 +804,19 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
         uid_t process_uid;
         r = pidref_get_uid(pidref, &process_uid);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to get UID of process " PID_FMT ": %m", pidref->pid);
         if (process_uid == uid)
                 return true;
+
+        log_debug("Process " PID_FMT " has UID " UID_FMT ", which doesn't match expected UID " UID_FMT ", checking user namespace ownership.",
+                  pidref->pid, process_uid, uid);
 
         _cleanup_close_ int userns_fd = -EBADF;
         userns_fd = pidref_namespace_open_by_type(pidref, NAMESPACE_USER);
         if (userns_fd == -ENOPKG) /* If userns is not supported, then they don't matter for ownership */
                 return false;
         if (userns_fd < 0)
-                return userns_fd;
+                return log_debug_errno(userns_fd, "Failed to open user namespace of process " PID_FMT ": %m", pidref->pid);
 
         for (unsigned iteration = 0;; iteration++) {
                 uid_t ns_uid;
@@ -720,14 +825,21 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
                  * themselves matter. */
                 r = is_our_namespace(userns_fd, NAMESPACE_USER);
                 if (r < 0)
-                        return r;
-                if (r > 0)
+                        return log_debug_errno(r, "Failed to check if user namespace of process " PID_FMT " is our own (iteration %u): %m", pidref->pid, iteration);
+                if (r > 0) {
+                        log_debug("User namespace of process " PID_FMT " is our own namespace (iteration %u), not owned by expected UID.", pidref->pid, iteration);
                         return false;
+                }
 
                 if (ioctl(userns_fd, NS_GET_OWNER_UID, &ns_uid) < 0)
-                        return -errno;
-                if (ns_uid == uid)
+                        return log_debug_errno(errno, "Failed to get owner UID of user namespace of process " PID_FMT " (iteration %u): %m", pidref->pid, iteration);
+                if (ns_uid == uid) {
+                        log_debug("User namespace of process " PID_FMT " is owned by UID " UID_FMT " (iteration %u), ownership check passed.", pidref->pid, uid, iteration);
                         return true;
+                }
+
+                log_debug("User namespace of process " PID_FMT " is owned by UID " UID_FMT ", expected UID " UID_FMT " (iteration %u), going up the tree.",
+                          pidref->pid, ns_uid, uid, iteration);
 
                 /* Paranoia check */
                 if (iteration > 16)
@@ -736,10 +848,12 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
                 /* Go up the tree */
                 _cleanup_close_ int parent_fd = ioctl(userns_fd, NS_GET_USERNS);
                 if (parent_fd < 0) {
-                        if (errno == EPERM) /* EPERM means we left our own userns */
+                        if (errno == EPERM) { /* EPERM means we left our own userns */
+                                log_debug("NS_GET_USERNS ioctl returned EPERM for process " PID_FMT " (iteration %u), left our own userns.", pidref->pid, iteration);
                                 return false;
+                        }
 
-                        return -errno;
+                        return log_debug_errno(errno, "NS_GET_USERNS ioctl failed for process " PID_FMT " (iteration %u): %m", pidref->pid, iteration);
                 }
 
                 close_and_replace(userns_fd, parent_fd);

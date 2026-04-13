@@ -129,7 +129,7 @@ static void maybe_insert_empty_line(void) {
         fputs("\n", stderr);
 }
 
-int test_main(int argc, char *argv[], void *userdata) {
+int verb_test_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
         _cleanup_(udev_event_unrefp) UdevEvent *event = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;

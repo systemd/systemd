@@ -43,7 +43,7 @@ _varlinkctl() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
         [STANDALONE]='-h --help --version --no-pager -q --quiet --no-ask-password
-                      --oneway --collect --more --exec -j -E'
+                      --oneway --collect --more --exec --upgrade -j -E'
         [ARG]='--graceful --timeout --push-fd --json'
     )
 
@@ -63,7 +63,7 @@ _varlinkctl() {
     fi
 
     local -A VERBS=(
-        [STANDALONE]='help'
+        [STANDALONE]='help list-registry'
         [CALL]='call'
         [FILE]='info list-interfaces validate-idl'
         [ADDRESS_INTERFACES]='list-methods introspect'

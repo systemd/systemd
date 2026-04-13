@@ -57,6 +57,7 @@ The following exceptions apply:
  * the following sources are licensed under the **MIT-0** license:
    - all examples under man/
    - config files and examples under /network
+   - src/systemd/sd-dlopen.h
  * the following sources are under **Public Domain** (LicenseRef-murmurhash2-public-domain):
    - src/basic/MurmurHash2.c
    - src/basic/MurmurHash2.h

@@ -30,6 +30,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "unit.h"
 
 static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         _cleanup_free_ char *disable_controllers_str = NULL, *delegate_controllers_str = NULL,
@@ -278,7 +279,15 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_item(f, "exec-cgroup-context-memory-pressure-watch", cgroup_pressure_watch_to_string(c->memory_pressure_watch));
+        r = serialize_item(f, "exec-cgroup-context-memory-pressure-watch", cgroup_pressure_watch_to_string(c->pressure[PRESSURE_MEMORY].watch));
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-cgroup-context-cpu-pressure-watch", cgroup_pressure_watch_to_string(c->pressure[PRESSURE_CPU].watch));
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-cgroup-context-io-pressure-watch", cgroup_pressure_watch_to_string(c->pressure[PRESSURE_IO].watch));
         if (r < 0)
                 return r;
 
@@ -286,8 +295,20 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        if (c->memory_pressure_threshold_usec != USEC_INFINITY) {
-                r = serialize_usec(f, "exec-cgroup-context-memory-pressure-threshold-usec", c->memory_pressure_threshold_usec);
+        if (c->pressure[PRESSURE_MEMORY].threshold_usec != USEC_INFINITY) {
+                r = serialize_usec(f, "exec-cgroup-context-memory-pressure-threshold-usec", c->pressure[PRESSURE_MEMORY].threshold_usec);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->pressure[PRESSURE_CPU].threshold_usec != USEC_INFINITY) {
+                r = serialize_usec(f, "exec-cgroup-context-cpu-pressure-threshold-usec", c->pressure[PRESSURE_CPU].threshold_usec);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->pressure[PRESSURE_IO].threshold_usec != USEC_INFINITY) {
+                r = serialize_usec(f, "exec-cgroup-context-io-pressure-threshold-usec", c->pressure[PRESSURE_IO].threshold_usec);
                 if (r < 0)
                         return r;
         }
@@ -620,15 +641,31 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-memory-pressure-watch="))) {
-                        c->memory_pressure_watch = cgroup_pressure_watch_from_string(val);
-                        if (c->memory_pressure_watch < 0)
+                        c->pressure[PRESSURE_MEMORY].watch = cgroup_pressure_watch_from_string(val);
+                        if (c->pressure[PRESSURE_MEMORY].watch < 0)
+                                return -EINVAL;
+                } else if ((val = startswith(l, "exec-cgroup-context-cpu-pressure-watch="))) {
+                        c->pressure[PRESSURE_CPU].watch = cgroup_pressure_watch_from_string(val);
+                        if (c->pressure[PRESSURE_CPU].watch < 0)
+                                return -EINVAL;
+                } else if ((val = startswith(l, "exec-cgroup-context-io-pressure-watch="))) {
+                        c->pressure[PRESSURE_IO].watch = cgroup_pressure_watch_from_string(val);
+                        if (c->pressure[PRESSURE_IO].watch < 0)
                                 return -EINVAL;
                 } else if ((val = startswith(l, "exec-cgroup-context-delegate-subgroup="))) {
                         r = free_and_strdup(&c->delegate_subgroup, val);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-memory-pressure-threshold-usec="))) {
-                        r = deserialize_usec(val, &c->memory_pressure_threshold_usec);
+                        r = deserialize_usec(val, &c->pressure[PRESSURE_MEMORY].threshold_usec);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-cpu-pressure-threshold-usec="))) {
+                        r = deserialize_usec(val, &c->pressure[PRESSURE_CPU].threshold_usec);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-io-pressure-threshold-usec="))) {
+                        r = deserialize_usec(val, &c->pressure[PRESSURE_IO].threshold_usec);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-device-allow="))) {
@@ -1633,6 +1670,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_item_escaped(f, "exec-context-root-mstack", c->root_mstack);
+        if (r < 0)
+                return r;
+
         r = serialize_item_format(f, "exec-context-umask", "%04o", c->umask);
         if (r < 0)
                 return r;
@@ -2568,6 +2609,14 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->root_ephemeral = r;
+                } else if ((val = startswith(l, "exec-context-root-mstack="))) {
+                        ssize_t k;
+                        char *p;
+
+                        k = cunescape(val, 0, &p);
+                        if (k < 0)
+                                return k;
+                        free_and_replace(c->root_mstack, p);
                 } else if ((val = startswith(l, "exec-context-umask="))) {
                         r = parse_mode(val, &c->umask);
                         if (r < 0)
@@ -3092,12 +3141,19 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-log-extra-fields="))) {
+                        if (c->n_log_extra_fields >= LOG_EXTRA_FIELDS_MAX) {
+                                log_warning("Too many extra log fields, ignoring.");
+                                continue;
+                        }
+
                         if (!GREEDY_REALLOC(c->log_extra_fields, c->n_log_extra_fields + 1))
                                 return log_oom_debug();
 
-                        c->log_extra_fields[c->n_log_extra_fields++].iov_base = strdup(val);
-                        if (!c->log_extra_fields[c->n_log_extra_fields-1].iov_base)
+                        char *field = strdup(val);
+                        if (!field)
                                 return log_oom_debug();
+
+                        c->log_extra_fields[c->n_log_extra_fields++] = IOVEC_MAKE_STRING(field);
                 } else if ((val = startswith(l, "exec-context-log-namespace="))) {
                         r = free_and_strdup(&c->log_namespace, val);
                         if (r < 0)

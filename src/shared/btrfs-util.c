@@ -149,8 +149,9 @@ int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
                 if (stat((char*) di.path, &st) < 0)
                         return -errno;
 
-                if (!S_ISBLK(st.st_mode))
-                        return -ENOTBLK;
+                r = stat_verify_block(&st);
+                if (r < 0)
+                        return r;
 
                 if (major(st.st_rdev) == 0)
                         return -ENODEV;
@@ -878,18 +879,15 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
 
         struct btrfs_ioctl_vol_args vol_args = {};
         _cleanup_close_ int subvol_fd = -EBADF;
-        struct stat st;
         bool made_writable = false;
         int r;
 
         assert(fd >= 0);
         assert(subvolume);
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISDIR(st.st_mode))
-                return -EINVAL;
+        r = fd_verify_directory(fd);
+        if (r < 0)
+                return r;
 
         subvol_fd = openat(fd, subvolume, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         if (subvol_fd < 0)
@@ -1480,6 +1478,8 @@ int btrfs_subvol_snapshot_at_full(
                 r = copy_directory_at_full(
                                 dir_fdf, from,
                                 new_fd, subvolume,
+                                /* override_uid= */ UID_INVALID,
+                                /* override_gid= */ GID_INVALID,
                                 COPY_MERGE_EMPTY|
                                 COPY_REFLINK|
                                 COPY_SAME_MOUNT|

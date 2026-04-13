@@ -13,6 +13,6 @@ Documentation=man:systemd-machined.service(8)
 
 [Socket]
 ListenStream=%t/systemd/machine/io.systemd.Machine
-ListenStream=%t/systemd/machine/io.systemd.MachineImage
+Symlinks=%t/systemd/machine/io.systemd.MachineImage %t/varlink/registry/io.systemd.Machine %t/varlink/registry/io.systemd.MachineImage
 FileDescriptorName=varlink
 SocketMode=0600

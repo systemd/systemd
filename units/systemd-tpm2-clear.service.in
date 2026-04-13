@@ -22,7 +22,7 @@ ConditionPathExists=/sys/class/tpm/tpm0/ppi/request
 # derive here from the fact that UKIs are used. Because if they do they are OK
 # with our SRK initialization and our PCR measurements, and hence should also
 # be OK with our TPM resets.
-ConditionSecurity=measured-uki
+ConditionSecurity=measured-os
 
 [Service]
 Type=oneshot

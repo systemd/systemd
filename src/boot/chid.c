@@ -99,6 +99,8 @@ static EFI_STATUS populate_board_chids(EFI_GUID ret_chids[static CHID_TYPES_MAX]
 EFI_STATUS chid_match(const void *hwid_buffer, size_t hwid_length, uint32_t match_type, const Device **ret_device) {
         EFI_STATUS status;
 
+        assert(ret_device);
+
         if ((uintptr_t) hwid_buffer % alignof(Device) != 0)
                 return EFI_INVALID_PARAMETER;
 

@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "bus-polkit.h"
 #include "env-util.h"
 #include "json-util.h"
 #include "log.h"
@@ -11,7 +12,9 @@
 
 static SD_VARLINK_DEFINE_METHOD(Ping);
 
-static SD_VARLINK_DEFINE_METHOD(Reload);
+static SD_VARLINK_DEFINE_METHOD(
+                Reload,
+                VARLINK_DEFINE_POLKIT_INPUT);
 
 static SD_VARLINK_DEFINE_METHOD(
                 SetLogLevel,

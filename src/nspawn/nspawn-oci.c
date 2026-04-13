@@ -22,6 +22,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "user-util.h"
 
 /* TODO:
  * OCI runtime tool implementation
@@ -684,6 +685,10 @@ static int oci_uid_gid_mappings(const char *name, sd_json_variant *v, sd_json_di
         r = oci_dispatch(e, table, flags, &data);
         if (r < 0)
                 return r;
+
+        /* Silence static analyzers, sd_json_dispatch_uid_gid() already validates */
+        assert(uid_is_valid(data.host_id));
+        assert(uid_is_valid(data.container_id));
 
         if (data.range > UINT32_MAX - data.host_id ||
             data.range > UINT32_MAX - data.container_id)
@@ -1489,6 +1494,8 @@ static int oci_resources(const char *name, sd_json_variant *v, sd_json_dispatch_
 static bool sysctl_key_valid(const char *s) {
         bool dot = true;
 
+        POINTER_MAY_BE_NULL(s);
+
         /* Note that we are a bit stricter here than in systemd-sysctl, as that inherited semantics from the old sysctl
          * tool, which were really weird (as it swaps / and . in both ways) */
 
@@ -1546,7 +1553,6 @@ static int oci_sysctl(const char *name, sd_json_variant *v, sd_json_dispatch_fla
 
 #if HAVE_SECCOMP
 static int oci_seccomp_action_from_string(const char *name, uint32_t *ret) {
-
         static const struct {
                 const char *name;
                 uint32_t action;
@@ -1563,6 +1569,8 @@ static int oci_seccomp_action_from_string(const char *name, uint32_t *ret) {
                  * here */
         };
 
+        assert(ret);
+
         FOREACH_ELEMENT(i, table)
                 if (streq_ptr(name, i->name)) {
                         *ret = i->action;
@@ -1573,7 +1581,6 @@ static int oci_seccomp_action_from_string(const char *name, uint32_t *ret) {
 }
 
 static int oci_seccomp_arch_from_string(const char *name, uint32_t *ret) {
-
         static const struct {
                 const char *name;
                 uint32_t arch;
@@ -1605,6 +1612,8 @@ static int oci_seccomp_arch_from_string(const char *name, uint32_t *ret) {
                 { "SCMP_ARCH_X86_64",      SCMP_ARCH_X86_64      },
         };
 
+        assert(ret);
+
         FOREACH_ELEMENT(i, table)
                 if (streq_ptr(i->name, name)) {
                         *ret = i->arch;
@@ -1615,7 +1624,6 @@ static int oci_seccomp_arch_from_string(const char *name, uint32_t *ret) {
 }
 
 static int oci_seccomp_compare_from_string(const char *name, enum scmp_compare *ret) {
-
         static const struct {
                 const char *name;
                 enum scmp_compare op;
@@ -1628,6 +1636,8 @@ static int oci_seccomp_compare_from_string(const char *name, enum scmp_compare *
                 { "SCMP_CMP_GT",        SCMP_CMP_GT        },
                 { "SCMP_CMP_MASKED_EQ", SCMP_CMP_MASKED_EQ },
         };
+
+        assert(ret);
 
         FOREACH_ELEMENT(i, table)
                 if (streq_ptr(i->name, name)) {
@@ -2072,6 +2082,7 @@ int oci_load(FILE *f, const char *bundle, Settings **ret) {
         int r;
 
         assert_se(bundle);
+        assert(ret);
 
         path = strjoina(bundle, "/config.json");
 

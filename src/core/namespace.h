@@ -70,6 +70,7 @@ typedef enum PrivateUsers {
         PRIVATE_USERS_SELF,
         PRIVATE_USERS_IDENTITY,
         PRIVATE_USERS_FULL,
+        PRIVATE_USERS_MANAGED,
         _PRIVATE_USERS_MAX,
         _PRIVATE_USERS_INVALID = -EINVAL,
 } PrivateUsers;
@@ -89,6 +90,24 @@ typedef enum PrivatePIDs {
         _PRIVATE_PIDS_MAX,
         _PRIVATE_PIDS_INVALID = -EINVAL,
 } PrivatePIDs;
+
+typedef struct PinnedResource {
+        /* Pins a disk image, directory or mstack by file descriptors. The paths are stored too, but they are
+         * intended to be decoration only, to enhance log messages and should not be load-bearing
+         * otherwise. */
+        int directory_fd;
+        char *directory;
+        int image_fd;
+        char *image;
+        MStack *mstack_loaded;
+        char *mstack;
+} PinnedResource;
+
+#define PINNED_RESOURCE_NULL                    \
+        (PinnedResource) {                      \
+                .directory_fd = -EBADF,         \
+                .image_fd = -EBADF,             \
+        }
 
 typedef struct BindMount {
         char *source;
@@ -127,9 +146,7 @@ typedef struct MountImage {
 typedef struct NamespaceParameters {
         RuntimeScope runtime_scope;
 
-        int root_directory_fd;
-        const char *root_directory;
-        const char *root_image;
+        const PinnedResource *rootfs;
         const MountOptions *root_image_options;
         const ImagePolicy *root_image_policy;
 
@@ -199,10 +216,13 @@ typedef struct NamespaceParameters {
         PrivateTmp private_tmp;
         PrivateTmp private_var_tmp;
         PrivatePIDs private_pids;
+        PrivateUsers private_users;
 
         PidRef *bpffs_pidref;
         int bpffs_socket_fd;
         int bpffs_errno_pipe;
+
+        sd_varlink *mountfsd_link;
 } NamespaceParameters;
 
 int setup_namespace(const NamespaceParameters *p, char **reterr_path);
@@ -212,10 +232,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path);
 char* namespace_cleanup_tmpdir(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, namespace_cleanup_tmpdir);
 
-int setup_tmp_dirs(
-                const char *id,
-                char **tmp_dir,
-                char **var_tmp_dir);
+int setup_tmp_dir_one(const char *id, const char *prefix, char **ret_path);
 
 int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag);
 int open_shareable_ns_path(int netns_storage_socket[static 2], const char *path, unsigned long nsflag);
@@ -286,7 +303,7 @@ DECLARE_STRING_TABLE_LOOKUP(private_pids, PrivatePIDs);
 void bind_mount_free_many(BindMount *b, size_t n);
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);
 
-void mount_image_free_many(MountImage *m, size_t n);
+void mount_image_free_array(MountImage *array, size_t n);
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item);
 
 void temporary_filesystem_free_many(TemporaryFileSystem *t, size_t n);
@@ -300,3 +317,6 @@ int refresh_extensions_in_namespace(
                 const PidRef *target,
                 const char *hierarchy_env,
                 const NamespaceParameters *p);
+
+void pinned_resource_done(PinnedResource *p);
+bool pinned_resource_is_set(const PinnedResource *p);

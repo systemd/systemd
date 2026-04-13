@@ -407,7 +407,7 @@ static int table_add_uid_map(
         return n_added;
 }
 
-static int display_user(int argc, char *argv[], void *userdata) {
+static int verb_display_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         bool draw_separator = false;
         int ret = 0, r;
@@ -750,7 +750,7 @@ static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
         return 2;
 }
 
-static int display_group(int argc, char *argv[], void *userdata) {
+static int verb_display_group(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         bool draw_separator = false;
         int ret = 0, r;
@@ -951,7 +951,7 @@ static int show_membership(const char *user, const char *group, Table *table) {
         return 0;
 }
 
-static int display_memberships(int argc, char *argv[], void *userdata) {
+static int verb_display_memberships(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int ret = 0, r;
 
@@ -1047,7 +1047,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int display_services(int argc, char *argv[], void *userdata) {
+static int verb_display_services(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         int r;
@@ -1114,7 +1114,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
+static int verb_ssh_authorized_keys(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         char **chain_invocation;
         int r;
@@ -1260,7 +1260,7 @@ static int load_credential_one(
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file_at(NULL, credential_dir_fd, name, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse_file_at(/* f= */ NULL, credential_dir_fd, name, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse credential '%s' as JSON at %u:%u: %m", name, line, column);
 
@@ -1497,7 +1497,7 @@ static int load_credential_one(
         return 0;
 }
 
-static int load_credentials(int argc, char *argv[], void *userdata) {
+static int verb_load_credentials(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         _cleanup_close_ int credential_dir_fd = open_credentials_dir();
@@ -1532,7 +1532,7 @@ static int load_credentials(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -1588,6 +1588,10 @@ static int help(int argc, char *argv[], void *userdata) {
                link);
 
         return 0;
+}
+
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1670,7 +1674,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        return help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -1840,7 +1844,7 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                         const char *fn = streq(optarg, "-") ? NULL : optarg;
                         unsigned line = 0;
-                        r = sd_json_parse_file(fn ? NULL : stdin, fn ?: "<stdin>", SD_JSON_PARSE_SENSITIVE, &v, &line, /* reterr_column= */ NULL);
+                        r = sd_json_parse_file(fn ? NULL : stdin, fn ?: "<stdin>", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, /* reterr_column= */ NULL);
                         if (r < 0)
                                 return log_syntax(/* unit= */ NULL, LOG_ERR, fn ?: "<stdin>", line, r, "JSON parse failure.");
 
@@ -1872,14 +1876,14 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",                VERB_ANY, VERB_ANY, 0,            help                },
-                { "user",                VERB_ANY, VERB_ANY, VERB_DEFAULT, display_user        },
-                { "group",               VERB_ANY, VERB_ANY, 0,            display_group       },
-                { "users-in-group",      VERB_ANY, VERB_ANY, 0,            display_memberships },
-                { "groups-of-user",      VERB_ANY, VERB_ANY, 0,            display_memberships },
-                { "services",            VERB_ANY, 1,        0,            display_services    },
-                { "ssh-authorized-keys", 2,        VERB_ANY, 0,            ssh_authorized_keys },
-                { "load-credentials",    VERB_ANY, 1,        0,            load_credentials    },
+                { "help",                VERB_ANY, VERB_ANY, 0,            verb_help                },
+                { "user",                VERB_ANY, VERB_ANY, VERB_DEFAULT, verb_display_user        },
+                { "group",               VERB_ANY, VERB_ANY, 0,            verb_display_group       },
+                { "users-in-group",      VERB_ANY, VERB_ANY, 0,            verb_display_memberships },
+                { "groups-of-user",      VERB_ANY, VERB_ANY, 0,            verb_display_memberships },
+                { "services",            VERB_ANY, 1,        0,            verb_display_services    },
+                { "ssh-authorized-keys", 2,        VERB_ANY, 0,            verb_ssh_authorized_keys },
+                { "load-credentials",    VERB_ANY, 1,        0,            verb_load_credentials    },
                 {}
         };
 

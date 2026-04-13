@@ -101,7 +101,7 @@ int block_device_get_whole_disk(sd_device *dev, sd_device **ret) {
         return 0;
 }
 
-int block_device_get_originating(sd_device *dev, sd_device **ret) {
+static int block_device_get_originating_one(sd_device *dev, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *first_found = NULL;
         const char *suffix;
         dev_t devnum = 0;  /* avoid false maybe-uninitialized warning */
@@ -148,6 +148,39 @@ int block_device_get_originating(sd_device *dev, sd_device **ret) {
         return 0;
 }
 
+int block_device_get_originating(sd_device *dev, sd_device **ret, bool recursive) {
+        _cleanup_(sd_device_unrefp) sd_device *current = NULL;
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        if (!recursive)
+                return block_device_get_originating_one(dev, ret);
+
+        current = sd_device_ref(dev);
+
+        for (;;) {
+                sd_device *origin;
+
+                r = block_device_get_originating_one(current, &origin);
+                if (r == -ENOENT)
+                        break;
+                if (r < 0)
+                        return r;
+
+                sd_device_unref(current);
+                current = origin;
+        }
+
+        if (current == dev)
+                return -ENOENT;
+
+        *ret = TAKE_PTR(current);
+
+        return 0;
+}
+
 int block_device_new_from_fd(int fd, BlockDeviceLookupFlags flags, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         dev_t devnum;
@@ -172,7 +205,7 @@ int block_device_new_from_fd(int fd, BlockDeviceLookupFlags flags, sd_device **r
                 if (r < 0)
                         return r;
 
-                r = block_device_get_originating(dev_whole_disk, &dev_origin);
+                r = block_device_get_originating(dev_whole_disk, &dev_origin, /* recursive= */ false);
                 if (r >= 0)
                         device_unref_and_replace(dev, dev_origin);
                 else if (r != -ENOENT)
@@ -290,7 +323,7 @@ int get_block_device(const char *path, dev_t *ret) {
         return get_block_device_fd(fd, ret);
 }
 
-int block_get_originating(dev_t dt, dev_t *ret) {
+int block_get_originating(dev_t dt, dev_t *ret, bool recursive) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL, *origin = NULL;
         int r;
 
@@ -300,7 +333,7 @@ int block_get_originating(dev_t dt, dev_t *ret) {
         if (r < 0)
                 return r;
 
-        r = block_device_get_originating(dev, &origin);
+        r = block_device_get_originating(dev, &origin, recursive);
         if (r < 0)
                 return r;
 
@@ -313,14 +346,14 @@ int get_block_device_harder_fd(int fd, dev_t *ret) {
         assert(fd >= 0);
         assert(ret);
 
-        /* Gets the backing block device for a file system, and handles LUKS encrypted file systems, looking for its
-         * immediate parent, if there is one. */
+        /* Gets the backing block device for a file system, and handles LUKS encrypted file systems, looking
+         * for its underlying physical device, if there is one. */
 
         r = get_block_device_fd(fd, ret);
         if (r <= 0)
                 return r;
 
-        r = block_get_originating(*ret, ret);
+        r = block_get_originating(*ret, ret, /* recursive= */ true);
         if (r < 0)
                 log_debug_errno(r, "Failed to chase block device, ignoring: %m");
 
@@ -889,6 +922,7 @@ int blockdev_get_root(int level, dev_t *ret) {
 }
 
 int partition_node_of(const char *node, unsigned nr, char **ret) {
+        _cleanup_free_ char *fn = NULL, *dn = NULL;
         int r;
 
         assert(node);
@@ -898,17 +932,11 @@ int partition_node_of(const char *node, unsigned nr, char **ret) {
         /* Given a device node path to a block device returns the device node path to the partition block
          * device of the specified partition */
 
-        _cleanup_free_ char *fn = NULL;
-        r = path_extract_filename(node, &fn);
+        r = path_split_prefix_filename(node, &dn, &fn);
         if (r < 0)
                 return r;
         if (r == O_DIRECTORY)
                 return -EISDIR;
-
-        _cleanup_free_ char *dn = NULL;
-        r = path_extract_directory(node, &dn);
-        if (r < 0 && r != -EDESTADDRREQ) /* allow if only filename is specified */
-                return r;
 
         size_t l = strlen(fn);
         assert(l > 0); /* underflow check for the subtraction below */

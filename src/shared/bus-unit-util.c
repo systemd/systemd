@@ -160,7 +160,7 @@ static int bus_append_string(sd_bus_message *m, const char *field, const char *e
         return 1;
 }
 
-static int bus_append_strv_full(sd_bus_message *m, const char *field, const char *eq, ExtractFlags flags) {
+static int bus_append_strv_full(sd_bus_message *m, const char *field, const char *eq, const char *separators, ExtractFlags flags) {
         int r;
 
         assert(m);
@@ -185,7 +185,7 @@ static int bus_append_strv_full(sd_bus_message *m, const char *field, const char
         for (const char *p = eq;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, /* separators= */ NULL, flags);
+                r = extract_first_word(&p, &word, separators, flags);
                 if (r < 0)
                         return parse_log_error(r, field, eq);
                 if (r == 0)
@@ -212,11 +212,16 @@ static int bus_append_strv_full(sd_bus_message *m, const char *field, const char
 }
 
 static int bus_append_strv(sd_bus_message *m, const char *field, const char *eq) {
-        return bus_append_strv_full(m, field, eq, EXTRACT_UNQUOTE);
+        return bus_append_strv_full(m, field, eq, /* separators= */ NULL, EXTRACT_UNQUOTE);
 }
 
 static int bus_append_strv_cunescape(sd_bus_message *m, const char *field, const char *eq) {
-        return bus_append_strv_full(m, field, eq, EXTRACT_UNQUOTE | EXTRACT_CUNESCAPE);
+        return bus_append_strv_full(m, field, eq, /* separators= */ NULL, EXTRACT_UNQUOTE | EXTRACT_CUNESCAPE);
+}
+
+static int bus_append_strv_colon(sd_bus_message *m, const char *field, const char *eq) {
+        /* This also accepts colon as the separator. */
+        return bus_append_strv_full(m, field, eq, ":" WHITESPACE, EXTRACT_UNQUOTE);
 }
 
 static int bus_append_byte_array(sd_bus_message *m, const char *field, const void *buf, size_t n) {
@@ -1167,6 +1172,58 @@ static int bus_append_import_credential(sd_bus_message *m, const char *field, co
         return 1;
 }
 
+static int bus_append_refresh_on_reload(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        assert(eq);
+
+        r = sd_bus_message_open_container(m, 'r', "sv");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_basic(m, 's', field);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'v', "a(bs)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "(bs)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        bool invert = *eq == '~';
+
+        for (const char *p = eq + invert;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0)
+                        return parse_log_error(r, field, eq);
+                if (r == 0)
+                        break;
+
+                r = sd_bus_message_append(m, "(bs)", invert, word);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_log_extra_fields(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
@@ -1250,7 +1307,8 @@ static int bus_append_standard_input_text(sd_bus_message *m, const char *field, 
         /* Note that we don't expand specifiers here, but that should be OK, as this is a
          * programmatic interface anyway */
 
-        return bus_append_byte_array(m, field, unescaped, l + 1);
+        /* The server side does not have StandardInputText, using StandardInputData instead. */
+        return bus_append_byte_array(m, "StandardInputData", unescaped, l + 1);
 }
 
 static int bus_append_standard_input_data(sd_bus_message *m, const char *field, const char *eq) {
@@ -2327,6 +2385,8 @@ static const BusProperty cgroup_properties[] = {
         { "ManagedOOMMemoryPressure",              bus_append_string                             },
         { "ManagedOOMPreference",                  bus_append_string                             },
         { "MemoryPressureWatch",                   bus_append_string                             },
+        { "CPUPressureWatch",                      bus_append_string                             },
+        { "IOPressureWatch",                       bus_append_string                             },
         { "DelegateSubgroup",                      bus_append_string                             },
         { "ManagedOOMMemoryPressureLimit",         bus_append_parse_permyriad                    },
         { "MemoryAccounting",                      bus_append_parse_boolean                      },
@@ -2365,6 +2425,8 @@ static const BusProperty cgroup_properties[] = {
         { "SocketBindAllow",                       bus_append_socket_filter                      },
         { "SocketBindDeny",                        bus_append_socket_filter                      },
         { "MemoryPressureThresholdSec",            bus_append_parse_sec_rename                   },
+        { "CPUPressureThresholdSec",               bus_append_parse_sec_rename                   },
+        { "IOPressureThresholdSec",                bus_append_parse_sec_rename                   },
         { "NFTSet",                                bus_append_nft_set                            },
         { "BindNetworkInterface",                  bus_append_string                             },
 
@@ -2412,6 +2474,7 @@ static const BusProperty execute_properties[] = {
         { "SELinuxContext",                        bus_append_string                             },
         { "RootImage",                             bus_append_string                             },
         { "RootVerity",                            bus_append_string                             },
+        { "RootMStack",                            bus_append_string                             },
         { "RuntimeDirectoryPreserve",              bus_append_string                             },
         { "Personality",                           bus_append_string                             },
         { "KeyringMode",                           bus_append_string                             },
@@ -2465,7 +2528,7 @@ static const BusProperty execute_properties[] = {
         { "InaccessiblePaths",                     bus_append_strv                               },
         { "ExecPaths",                             bus_append_strv                               },
         { "NoExecPaths",                           bus_append_strv                               },
-        { "ExecSearchPath",                        bus_append_strv                               },
+        { "ExecSearchPath",                        bus_append_strv_colon                         },
         { "ExtensionDirectories",                  bus_append_strv                               },
         { "ConfigurationDirectory",                bus_append_strv                               },
         { "SupplementaryGroups",                   bus_append_strv                               },
@@ -2659,6 +2722,7 @@ static const BusProperty service_properties[] = {
         { "SuccessExitStatus",                     bus_append_exit_status                        },
         { "OpenFile",                              bus_append_open_file                          },
         { "ReloadSignal",                          bus_append_signal_from_string                 },
+        { "RefreshOnReload",                       bus_append_refresh_on_reload                  },
         {}
 };
 

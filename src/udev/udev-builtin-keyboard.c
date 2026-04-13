@@ -90,6 +90,8 @@ static const char* parse_token(const char *current, int32_t *val_out) {
         char *next;
         int32_t val;
 
+        assert(val_out);
+
         if (!current)
                 return NULL;
 

@@ -9,11 +9,52 @@
 #include "string-util.h"
 #include "sysupdate-partition.h"
 
+/* App-specific IDs used as HMAC keys to derive "partial" and "pending" partition type UUIDs from the
+ * original partition type UUID. This way we can indicate sysupdate transfer state via a separate GPT
+ * partition type UUID instead of using a label prefix, saving precious label space. */
+#define GPT_SYSUPDATE_PARTIAL_APP_ID SD_ID128_MAKE(ac,cf,a0,c2,da,24,46,0a,9f,c9,0b,b8,fc,78,52,19)
+#define GPT_SYSUPDATE_PENDING_APP_ID SD_ID128_MAKE(80,f3,d6,1e,23,83,43,b9,81,f5,ce,37,93,f4,7d,4c)
+
+int gpt_partition_type_uuid_for_sysupdate_partial(sd_id128_t type, sd_id128_t *ret) {
+        return sd_id128_get_app_specific(type, GPT_SYSUPDATE_PARTIAL_APP_ID, ret);
+}
+
+int gpt_partition_type_uuid_for_sysupdate_pending(sd_id128_t type, sd_id128_t *ret) {
+        return sd_id128_get_app_specific(type, GPT_SYSUPDATE_PENDING_APP_ID, ret);
+}
+
 void partition_info_destroy(PartitionInfo *p) {
         assert(p);
 
         p->label = mfree(p->label);
         p->device = mfree(p->device);
+}
+
+int partition_info_copy(PartitionInfo *dest, const PartitionInfo *src) {
+        int r;
+
+        assert(dest);
+        assert(src);
+
+        r = free_and_strdup_warn(&dest->label, src->label);
+        if (r < 0)
+                return r;
+
+        r = free_and_strdup_warn(&dest->device, src->device);
+        if (r < 0)
+                return r;
+
+        dest->partno = src->partno;
+        dest->start = src->start;
+        dest->size = src->size;
+        dest->flags = src->flags;
+        dest->type = src->type;
+        dest->uuid = src->uuid;
+        dest->no_auto = src->no_auto;
+        dest->read_only = src->read_only;
+        dest->growfs = src->growfs;
+
+        return 0;
 }
 
 int read_partition_info(
@@ -117,6 +158,7 @@ int find_suitable_partition(
         int r;
 
         assert(device);
+        POINTER_MAY_BE_NULL(partition_type);
         assert(ret);
 
         r = fdisk_new_context_at(AT_FDCWD, device, /* read_only= */ true, /* sector_size= */ UINT32_MAX, &c);
@@ -213,6 +255,22 @@ int patch_partition(
                 r = fdisk_partition_set_uuid(pa, SD_ID128_TO_UUID_STRING(info->uuid));
                 if (r < 0)
                         return log_error_errno(r, "Failed to update partition UUID: %m");
+        }
+
+        if (change & PARTITION_TYPE) {
+                _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *pt = NULL;
+
+                pt = fdisk_new_parttype();
+                if (!pt)
+                        return log_oom();
+
+                r = fdisk_parttype_set_typestr(pt, SD_ID128_TO_UUID_STRING(info->type));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to initialize partition type: %m");
+
+                r = fdisk_partition_set_type(pa, pt);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update partition type: %m");
         }
 
         type = gpt_partition_type_from_uuid(info->type);

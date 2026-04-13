@@ -113,3 +113,10 @@ typedef struct {
 } _packed_ GptHeader;
 
 bool gpt_header_has_signature(const GptHeader *p) _pure_;
+
+ssize_t gpt_probe(
+                int fd,
+                GptHeader *ret_header,
+                void **ret_entries,
+                uint32_t *ret_n_entries,
+                uint32_t *ret_entry_size);

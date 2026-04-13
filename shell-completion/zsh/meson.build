@@ -30,12 +30,14 @@ foreach item : [
         ['_run0',                     ''],
         ['_sd_bus_address',           ''],
         ['_sd_hosts_or_user_at_host', ''],
-        ['_sd_machines',              ''],
+        ['_sd_machines',              'ENABLE_MACHINED'],
         ['_sd_outputmodes',           ''],
         ['_sd_unit_files',            ''],
         ['_systemd',                  ''],
         ['_systemd-analyze',          ''],
         ['_systemd-delta',            ''],
+        ['_systemd-hwdb',             'ENABLE_HWDB'],
+        ['_systemd-id128',            ''],
         ['_systemd-inhibit',          'ENABLE_LOGIND'],
         ['_systemd-nspawn',           ''],
         ['_systemd-path',             ''],
@@ -43,6 +45,7 @@ foreach item : [
         ['_systemd-tmpfiles',         'ENABLE_TMPFILES'],
         ['_timedatectl',              'ENABLE_TIMEDATED'],
         ['_udevadm',                  ''],
+        ['_userdbctl',                ''],
         ['_varlinkctl',               ''],
 ]
 

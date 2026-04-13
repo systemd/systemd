@@ -7,12 +7,15 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
+#include "io-util.h"
+#include "iovec-util.h"
 #include "label.h"
 #include "log.h"
 #include "mkdir.h"
@@ -1367,6 +1370,8 @@ int read_timestamp_file(const char *fn, usec_t *ret) {
         uint64_t t;
         int r;
 
+        assert(ret);
+
         r = read_one_line_file(fn, &ln);
         if (r < 0)
                 return r;
@@ -1653,5 +1658,64 @@ int warn_file_is_world_accessible(const char *filename, struct stat *st, const c
         else
                 log_warning("%s has %04o mode that is too permissive, please adjust the ownership and access mode.",
                             filename, st->st_mode & 07777);
+        return 0;
+}
+
+int write_data_file_atomic_at(
+                int dir_fd,
+                const char *path,
+                const struct iovec *iovec,
+                WriteDataFileFlags flags) {
+
+        int r;
+
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+
+        /* This is a cousin of write_string_file_atomic(), but operates with arbitrary struct iovec binary
+         * data (rather than strings), works without FILE* streams, and does direct syscalls instead. */
+
+        _cleanup_free_ char *dn = NULL, *fn = NULL;
+        r = path_split_prefix_filename(path, &dn, &fn);
+        if (IN_SET(r, -EADDRNOTAVAIL, O_DIRECTORY))
+                return -EISDIR; /* path refers to "." or "/" (which are dirs, which we cannot write), or is suffixed with "/" */
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int mfd = -EBADF;
+        if (dn) {
+                /* If there's a directory component, readjust our position */
+                r = chaseat(dir_fd,
+                            dn,
+                            FLAGS_SET(flags, WRITE_DATA_FILE_MKDIR_0755) ? CHASE_MKDIR_0755 : 0,
+                            /* ret_path= */ NULL,
+                            &mfd);
+                if (r < 0)
+                        return r;
+
+                dir_fd = mfd;
+        }
+
+        _cleanup_free_ char *t = NULL;
+        _cleanup_close_ int fd = open_tmpfile_linkable_at(dir_fd, fn, O_WRONLY|O_CLOEXEC, &t);
+        if (fd < 0)
+                return fd;
+
+        CLEANUP_TMPFILE_AT(dir_fd, t);
+
+        if (iovec_is_set(iovec)) {
+                r = loop_write(fd, iovec->iov_base, iovec->iov_len);
+                if (r < 0)
+                        return r;
+        }
+
+        r = fchmod_umask(fd, FLAGS_SET(flags, WRITE_DATA_FILE_MODE_0400) ? 0400 : 0644);
+        if (r < 0)
+                return r;
+
+        r = link_tmpfile_at(fd, dir_fd, t, fn, LINK_TMPFILE_REPLACE);
+        if (r < 0)
+                return r;
+
+        t = mfree(t); /* disarm CLEANUP_TMPFILE_AT */
         return 0;
 }

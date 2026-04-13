@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <limits.h>
 #include <time.h>
 
 #include "basic-forward.h"
@@ -113,6 +114,7 @@ struct timespec* timespec_store(struct timespec *ts, usec_t u);
 struct timespec* timespec_store_nsec(struct timespec *ts, nsec_t n);
 
 #define TIMESPEC_STORE(u) timespec_store(&(struct timespec) {}, (u))
+#define TIMESPEC_STORE_NSEC(n) timespec_store_nsec(&(struct timespec) {}, (n))
 
 usec_t timeval_load(const struct timeval *tv) _pure_;
 struct timeval* timeval_store(struct timeval *tv, usec_t u);
@@ -180,6 +182,23 @@ const char* etc_localtime(void);
 
 int mktime_or_timegm_usec(struct tm *tm, bool utc, usec_t *ret);
 int localtime_or_gmtime_usec(usec_t t, bool utc, struct tm *ret);
+
+int parse_calendar_date_full(const char *s, bool allow_pre_epoch, usec_t *ret_usec, struct tm *ret_tm);
+
+static inline int parse_calendar_date(const char *s, usec_t *ret) {
+        return parse_calendar_date_full(s, /* allow_pre_epoch= */ false, ret, NULL);
+}
+
+#define BIRTH_DATE_UNSET                        \
+        (const struct tm) {                     \
+                .tm_year = INT_MIN,             \
+        }
+
+#define BIRTH_DATE_IS_SET(tm) ((tm).tm_year != INT_MIN)
+
+static inline int parse_birth_date(const char *s, struct tm *ret) {
+        return parse_calendar_date_full(s, /* allow_pre_epoch= */ true, NULL, ret);
+}
 
 uint32_t usec_to_jiffies(usec_t usec);
 usec_t jiffies_to_usec(uint32_t jiffies);

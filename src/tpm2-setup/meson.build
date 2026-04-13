@@ -22,6 +22,15 @@ executables += [
                         'HAVE_TPM2',
                 ],
         },
+        libexec_template + {
+                'name' : 'systemd-tpm2-swtpm',
+                'sources' : files('tpm2-swtpm.c'),
+                'conditions' : [
+                        'ENABLE_BOOTLOADER',
+                        'HAVE_OPENSSL',
+                        'HAVE_TPM2',
+                ],
+        },
         generator_template + {
                 'name' : 'systemd-tpm2-generator',
                 'sources' : files('tpm2-generator.c'),
@@ -31,12 +40,12 @@ executables += [
                         'HAVE_TPM2',
                 ],
         },
-
 ]
 
 if conf.get('ENABLE_BOOTLOADER') == 1 and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_TPM2') == 1
         nvpcrs = [ 'cryptsetup',
-                   'hardware' ]
+                   'hardware',
+                   'verity']
         foreach n : nvpcrs
                 custom_target(
                         input : 'nvpcr/' + n + '.nvpcr.in',

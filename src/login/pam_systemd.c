@@ -205,7 +205,7 @@ static int acquire_user_record(pam_handle_t *pamh, UserRecord **ret_record) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                 /* Parse cached record */
-                r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, NULL, NULL);
+                r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                 if (r < 0)
                         return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to parse JSON user record: %m");
 
@@ -279,7 +279,7 @@ static int socket_from_display(const char *display) {
         if (!display_is_local(display))
                 return -EINVAL;
 
-        k = strspn(display+1, "0123456789");
+        k = strspn(display + 1, DIGITS);
 
         /* Try abstract socket first. */
         f = new(char, STRLEN("@/tmp/.X11-unix/X") + k + 1);
@@ -814,6 +814,7 @@ typedef struct SessionContext {
         uint32_t vtnr;
         const char *tty;
         const char *display;
+        char **extra_device_access;
         bool remote;
         const char *remote_user;
         const char *remote_host;
@@ -825,6 +826,10 @@ typedef struct SessionContext {
         const char *area;
         bool incomplete;
 } SessionContext;
+
+static void session_context_done(SessionContext *c) {
+        strv_free(c->extra_device_access);
+}
 
 static int create_session_message(
                 sd_bus *bus,
@@ -1148,7 +1153,8 @@ static int register_session(
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("Display", c->display),
                                         SD_JSON_BUILD_PAIR_BOOLEAN("Remote", c->remote),
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteUser", c->remote_user),
-                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteHost", c->remote_host));
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteHost", c->remote_host),
+                                        JSON_BUILD_PAIR_CONDITION_STRV(!strv_isempty(c->extra_device_access), "ExtraDeviceAccess", c->extra_device_access));
                         if (r < 0)
                                 return pam_syslog_errno(pamh, LOG_ERR, r,
                                                         "Failed to issue io.systemd.Login.CreateSession varlink call: %m");
@@ -1312,6 +1318,14 @@ static int register_session(
                 return r;
 
         r = update_environment(pamh, "XDG_SESSION_DESKTOP", c->desktop);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        _cleanup_free_ char *extra_devices = strv_join(c->extra_device_access, ":");
+        if (!extra_devices)
+                return pam_log_oom(pamh);
+
+        r = update_environment(pamh, "XDG_SESSION_EXTRA_DEVICE_ACCESS", extra_devices);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1763,7 +1777,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        SessionContext c = {};
+        _cleanup_(session_context_done) SessionContext c = {};
         r = pam_get_item_many(
                         pamh,
                         PAM_SERVICE,  &c.service,
@@ -1781,6 +1795,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         c.desktop = getenv_harder(pamh, "XDG_SESSION_DESKTOP", desktop_pam);
         c.area = getenv_harder(pamh, "XDG_AREA", area_pam);
         c.incomplete = getenv_harder_bool(pamh, "XDG_SESSION_INCOMPLETE", false);
+
+        const char *extra_device_access = getenv_harder(pamh, "XDG_SESSION_EXTRA_DEVICE_ACCESS", NULL);
+        if (extra_device_access) {
+                c.extra_device_access = strv_split(extra_device_access, ":");
+                if (!c.extra_device_access)
+                        return pam_log_oom(pamh);
+        }
 
         r = pam_get_data_many(
                         pamh,

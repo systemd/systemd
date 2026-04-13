@@ -73,7 +73,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return r;
         }
 
-        bool up = link && FLAGS_SET(link->flags, IFF_UP);
+        bool up = link && link_is_up(link);
         bool has_slaves = link && !set_isempty(link->slaves);
 
         if (b->mode != _NETDEV_BOND_MODE_INVALID && !up && !has_slaves) {

@@ -30,6 +30,7 @@
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, service_type, ServiceType);
@@ -98,6 +99,29 @@ static int property_get_extra_file_descriptors(
         }
 
         return sd_bus_message_close_container(reply);
+}
+
+static int property_get_refresh_on_reload(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *reterr_error) {
+
+        Service *s = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = service_refresh_on_reload_to_strv(s->refresh_on_reload_flags, &l);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_append_strv(reply, l);
 }
 
 static int property_get_exit_status_set(
@@ -373,6 +397,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("OpenFile", "a(sst)", property_get_open_files, offsetof(Service, open_files), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ExtraFileDescriptorNames", "as", property_get_extra_file_descriptors, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReloadSignal", "i", bus_property_get_int, offsetof(Service, reload_signal), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RefreshOnReload", "as", property_get_refresh_on_reload, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         BUS_EXEC_STATUS_VTABLE("ExecMain", offsetof(Service, main_exec_status), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecCondition", offsetof(Service, exec_command[SERVICE_EXEC_CONDITION]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
@@ -835,6 +860,47 @@ static int bus_service_set_transient_property(
                         /* We're closing our own clone here, which shouldn't need an asynchronous_close(). */
                         close_and_replace(s->root_directory_fd, fd_clone);
                         s->exec_context.root_directory_as_fd = true;
+                }
+
+                return 1;
+        }
+
+        if (streq(name, "RefreshOnReload")) {
+                const char *t;
+                int invert;
+
+                r = sd_bus_message_enter_container(message, 'a', "(bs)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(bs)", &invert, &t)) > 0) {
+                        ServiceRefreshOnReload f;
+
+                        f = service_refresh_on_reload_flag_from_string(t);
+                        if (f < 0)
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid RefreshOnReload= value: %s", t);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                if (!s->refresh_on_reload_set)
+                                        s->refresh_on_reload_flags = invert ? (SERVICE_REFRESH_ON_RELOAD_DEFAULT & ~f) : f;
+                                else
+                                        SET_FLAG(s->refresh_on_reload_flags, f, !invert);
+
+                                s->refresh_on_reload_set = true;
+                                unit_write_settingf(u, flags, name, "%s=%s%s", name, invert ? "~" : "", t);
+                        }
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags) && !s->refresh_on_reload_set) { /* empty array? */
+                        s->refresh_on_reload_flags = 0;
+                        s->refresh_on_reload_set = true;
+                        unit_write_settingf(u, flags, name, "%s=no", name);
                 }
 
                 return 1;

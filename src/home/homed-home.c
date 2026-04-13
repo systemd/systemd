@@ -589,7 +589,7 @@ static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
         }
 
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file(f, "stdout", SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse_file(f, "stdout", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse identity at %u:%u: %m", line, column);
 
@@ -2690,7 +2690,7 @@ int home_augment_status(
         r = sd_json_buildo(&status,
                            SD_JSON_BUILD_PAIR_STRING("state", home_state_to_string(state)),
                            SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")),
-                           SD_JSON_BUILD_PAIR("useFallback", SD_JSON_BUILD_BOOLEAN(!HOME_STATE_IS_ACTIVE(state))),
+                           SD_JSON_BUILD_PAIR_BOOLEAN("useFallback", !HOME_STATE_IS_ACTIVE(state)),
                            SD_JSON_BUILD_PAIR("fallbackShell", JSON_BUILD_CONST_STRING(BINDIR "/systemd-home-fallback-shell")),
                            SD_JSON_BUILD_PAIR("fallbackHomeDirectory", JSON_BUILD_CONST_STRING("/")),
                            SD_JSON_BUILD_PAIR_CONDITION(disk_size != UINT64_MAX, "diskSize", SD_JSON_BUILD_UNSIGNED(disk_size)),
@@ -3214,8 +3214,9 @@ static int home_get_image_path_seat(Home *h, char **ret) {
         if (stat(ip, &st) < 0)
                 return -errno;
 
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
+        r = stat_verify_block(&st);
+        if (r < 0)
+                return r;
 
         r = sd_device_new_from_stat_rdev(&d, &st);
         if (r < 0)

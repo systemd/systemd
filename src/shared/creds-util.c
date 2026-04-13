@@ -129,6 +129,8 @@ int open_credentials_dir(void) {
 int get_system_credentials_dir(const char **ret) {
         int r;
 
+        assert(ret);
+
         /* Note that for system credentials the environment variable we honour is just for debugging purpose
          * (unlike for the per-service credential path env var where it's key part of the protocol). */
         r = get_credentials_dir_internal("SYSTEMD_SYSTEM_CREDENTIALS_DIRECTORY", ret);
@@ -141,6 +143,8 @@ int get_system_credentials_dir(const char **ret) {
 
 int get_encrypted_system_credentials_dir(const char **ret) {
         int r;
+
+        assert(ret);
 
         r = get_credentials_dir_internal("SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY", ret);
         if (r >= 0 || r != -ENXIO)
@@ -271,6 +275,8 @@ int read_credential_strings_many_internal(
         bool all = true;
         int r, ret = 0;
 
+        assert(first_value);
+
         /* Reads a bunch of credentials into the specified buffers. If the specified buffers are already
          * non-NULL frees them if a credential is found. Only supports string-based credentials
          * (i.e. refuses embedded NUL bytes).
@@ -333,6 +339,9 @@ int get_credential_user_password(const char *username, char **ret_password, bool
         _cleanup_(erase_and_freep) char *creds_password = NULL;
         _cleanup_free_ char *cn = NULL;
         int r;
+
+        assert(ret_password);
+        assert(ret_is_hashed);
 
         /* Try to pick up the password for this account via the credentials logic */
         cn = strjoin("passwd.hashed-password.", username);
@@ -480,14 +489,13 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
                 if (!path_is_absolute(e))
                         return -EINVAL;
 
-                r = path_extract_directory(e, &_dirname);
+                r = path_split_prefix_filename(e, &_dirname, &_filename);
                 if (r < 0)
                         return r;
+                if (r == O_DIRECTORY)
+                        return -EINVAL;
 
-                r = path_extract_filename(e, &_filename);
-                if (r < 0)
-                        return r;
-
+                /* We validate that the path is absolute above, hence dirname must be extractable. */
                 dirname = _dirname;
                 filename = _filename;
         } else {
@@ -498,7 +506,8 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
         assert(dirname);
         assert(filename);
 
-        mkdir_parents(dirname, 0755);
+        (void) mkdir_parents(dirname, 0755);
+
         dfd = open_mkdir(dirname, O_CLOEXEC, 0755);
         if (dfd < 0)
                 return log_debug_errno(dfd, "Failed to create or open directory '%s': %m", dirname);
@@ -840,6 +849,8 @@ int encrypt_credential_and_warn(
         /* Only one of these two flags may be set at the same time */
         assert(!FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL) || !FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL));
 
+        CLEANUP_ERASE(md);
+
         if (!CRED_KEY_IS_VALID(with_key) && !CRED_KEY_IS_AUTO(with_key))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid key type: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(with_key));
 
@@ -892,14 +903,17 @@ int encrypt_credential_and_warn(
                  * container tpm2_support will detect this, and will return a different flag combination of
                  * TPM2_SUPPORT_FULL, effectively skipping the use of TPM2 when inside one. */
 
-                try_tpm2 = tpm2_is_fully_supported();
+                try_tpm2 = tpm2_is_mostly_supported();
                 if (!try_tpm2)
                         log_debug("System lacks TPM2 support or running in a container, not attempting to use TPM2.");
         } else
                 try_tpm2 = CRED_KEY_REQUIRES_TPM2(with_key);
 
         if (try_tpm2) {
-                if (CRED_KEY_WANTS_TPM2_PK(with_key) || CRED_KEY_REQUIRES_TPM2_PK(with_key)) {
+                /* If the firmware does not support TPMs, then UKI measurements are not going to work, hence
+                 * PCR 11 public key stuff cannot work. Because of that, if PK is only wanted (but not
+                 * required) we won't try it. */
+                if ((CRED_KEY_WANTS_TPM2_PK(with_key) && tpm2_is_fully_supported()) || CRED_KEY_REQUIRES_TPM2_PK(with_key)) {
 
                         /* Load public key for PCR policies, if one is specified, or explicitly requested */
 
@@ -923,6 +937,8 @@ int encrypt_credential_and_warn(
                 r = tpm2_get_best_pcr_bank(tpm2_context, tpm2_hash_pcr_mask | tpm2_pubkey_pcr_mask, &tpm2_pcr_bank);
                 if (r < 0)
                         return log_error_errno(r, "Could not find best pcr bank: %m");
+
+                log_debug("Selected literal PCR mask: 0x%x, PK PCR mask: 0x%x", tpm2_hash_pcr_mask, tpm2_pubkey_pcr_mask);
 
                 TPML_PCR_SELECTION tpm2_hash_pcr_selection;
                 tpm2_tpml_pcr_selection_from_mask(tpm2_hash_pcr_mask, tpm2_pcr_bank, &tpm2_hash_pcr_selection);
@@ -1061,6 +1077,8 @@ int encrypt_credential_and_warn(
                 ALIGN8(offsetof(struct metadata_credential_header, name) + strlen_ptr(name)) +
                 input->iov_len + 2U * (size_t) bsz +
                 tsz;
+        /* Silence static analyzers */
+        assert(output.iov_len >= input->iov_len);
 
         output.iov_base = malloc0(output.iov_len);
         if (!output.iov_base)
@@ -1203,6 +1221,8 @@ int decrypt_credential_and_warn(
 
         /* Only one of these two flags may be set at the same time */
         assert(!FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL) || !FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL));
+
+        CLEANUP_ERASE(md);
 
         /* Relevant error codes:
          *
@@ -1689,9 +1709,7 @@ int get_global_boot_credentials_path(char **ret) {
                         /* root= */ NULL,
                         /* path= */ NULL,
                         /* unprivileged_mode= */ false,
-                        &path,
-                        /* ret_uuid= */ NULL,
-                        /* ret_devid= */ NULL);
+                        &path);
         if (r < 0) {
                 if (r != -ENOKEY)
                         return log_error_errno(r, "Failed to find XBOOTLDR partition: %m");
@@ -1700,12 +1718,7 @@ int get_global_boot_credentials_path(char **ret) {
                                 /* root= */ NULL,
                                 /* path= */ NULL,
                                 /* unprivileged_mode= */ false,
-                                &path,
-                                /* ret_part= */ NULL,
-                                /* ret_pstart= */ NULL,
-                                /* ret_psize= */ NULL,
-                                /* ret_uuid= */ NULL,
-                                /* ret_devid= */ NULL);
+                                &path);
                 if (r < 0) {
                         if (r != -ENOKEY)
                                 return log_error_errno(r, "Failed to find ESP partition: %m");

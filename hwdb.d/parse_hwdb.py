@@ -100,13 +100,14 @@ TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
 # Patterns that are used to set general properties on a device
 GENERAL_MATCHES = {'acpi',
                    'bluetooth',
-                   'usb',
+                   'dmi',
+                   'ieee1394',
+                   'OUI',
                    'pci',
                    'sdio',
+                   'tpm2',
+                   'usb',
                    'vmbus',
-                   'OUI',
-                   'ieee1394',
-                   'dmi',
                    }
 
 def upperhex_word(length):
@@ -124,7 +125,7 @@ def hwdb_grammar():
     matchline = (matchline_typed | matchline_general) + EOL
 
     propertyline = (White(' ', exact=1).suppress() +
-                    Combine(UDEV_TAG - '=' - Optional(Word(alphanums + '_=:@*.!-;, "/'))
+                    Combine(UDEV_TAG - '=' - Optional(Word(alphanums + '_=:@*.!-;, "/?&'))
                             - Optional(pythonStyleComment)) +
                     EOL)
     propertycomment = White(' ', exact=1) + pythonStyleComment + EOL
@@ -147,6 +148,7 @@ def property_grammar():
     mount_matrix = Group(mount_matrix_row + ';' + mount_matrix_row + ';' + mount_matrix_row)('MOUNT_MATRIX')
     xkb_setting = Optional(Word(alphanums + '+-/@._'))
     id_input_setting = Optional(Or((Literal('0'), Literal('1'))))
+    zero_one = Or((Literal('0'), Literal('1')))
 
     # Although this set doesn't cover all of characters in database entries, it's enough for test targets.
     name_literal = Word(printables + ' ')
@@ -156,13 +158,13 @@ def property_grammar():
              ('MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL', INTEGER),
              ('MOUSE_WHEEL_CLICK_COUNT', INTEGER),
              ('MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL', INTEGER),
-             ('ID_INPUT_3D_MOUSE', Or((Literal('0'), Literal('1')))),
-             ('ID_AUTOSUSPEND', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT_3D_MOUSE', zero_one),
+             ('ID_AUTOSUSPEND', zero_one),
              ('ID_AUTOSUSPEND_DELAY_MS', INTEGER),
-             ('ID_AV_PRODUCTION_CONTROLLER', Or((Literal('0'), Literal('1')))),
-             ('ID_AV_LIGHTS', Or((Literal('0'), Literal('1')))),
-             ('ID_PERSIST', Or((Literal('0'), Literal('1')))),
-             ('ID_PDA', Or((Literal('0'), Literal('1')))),
+             ('ID_AV_PRODUCTION_CONTROLLER', zero_one),
+             ('ID_AV_LIGHTS', zero_one),
+             ('ID_PERSIST', zero_one),
+             ('ID_PDA', zero_one),
              ('ID_INPUT', id_input_setting),
              ('ID_INPUT_ACCELEROMETER', id_input_setting),
              ('ID_INPUT_JOYSTICK', id_input_setting),
@@ -176,14 +178,14 @@ def property_grammar():
              ('ID_INPUT_TOUCHPAD', id_input_setting),
              ('ID_INPUT_TOUCHSCREEN', id_input_setting),
              ('ID_INPUT_TRACKBALL', id_input_setting),
-             ('ID_SIGNAL_ANALYZER', Or((Literal('0'), Literal('1')))),
-             ('ID_MAKER_TOOL', Or((Literal('0'), Literal('1')))),
-             ('ID_HARDWARE_WALLET', Or((Literal('0'), Literal('1')))),
-             ('ID_SOFTWARE_RADIO', Or((Literal('0'), Literal('1')))),
-             ('ID_MM_DEVICE_IGNORE', Or((Literal('0'), Literal('1')))),
-             ('ID_NET_AUTO_LINK_LOCAL_ONLY', Or((Literal('0'), Literal('1')))),
+             ('ID_SIGNAL_ANALYZER', zero_one),
+             ('ID_MAKER_TOOL', zero_one),
+             ('ID_HARDWARE_WALLET', zero_one),
+             ('ID_SOFTWARE_RADIO', zero_one),
+             ('ID_MM_DEVICE_IGNORE', zero_one),
+             ('ID_NET_AUTO_LINK_LOCAL_ONLY', zero_one),
              ('POINTINGSTICK_SENSITIVITY', INTEGER),
-             ('ID_INPUT_JOYSTICK_INTEGRATION', Or(('internal', 'external'))),
+             ('ID_INTEGRATION', Or(('internal', 'external'))),
              ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
              ('XKB_FIXED_LAYOUT', xkb_setting),
              ('XKB_FIXED_VARIANT', xkb_setting),
@@ -193,25 +195,44 @@ def property_grammar():
              ('ACCEL_MOUNT_MATRIX', mount_matrix),
              ('ACCEL_LOCATION', Or(('display', 'base'))),
              ('PROXIMITY_NEAR_LEVEL', INTEGER),
-             ('IEEE1394_UNIT_FUNCTION_MIDI', Or((Literal('0'), Literal('1')))),
-             ('IEEE1394_UNIT_FUNCTION_AUDIO', Or((Literal('0'), Literal('1')))),
-             ('IEEE1394_UNIT_FUNCTION_VIDEO', Or((Literal('0'), Literal('1')))),
+             ('IEEE1394_UNIT_FUNCTION_MIDI', zero_one),
+             ('IEEE1394_UNIT_FUNCTION_AUDIO', zero_one),
+             ('IEEE1394_UNIT_FUNCTION_VIDEO', zero_one),
              ('ID_VENDOR_FROM_DATABASE', name_literal),
              ('ID_MODEL_FROM_DATABASE', name_literal),
              ('ID_TAG_MASTER_OF_SEAT', Literal('1')),
-             ('ID_INFRARED_CAMERA', Or((Literal('0'), Literal('1')))),
+             ('ID_INFRARED_CAMERA', zero_one),
              ('ID_CAMERA_DIRECTION', Or(('front', 'rear'))),
              ('SOUND_FORM_FACTOR', Or(('internal', 'webcam', 'speaker', 'headphone', 'headset', 'handset', 'microphone'))),
-             ('ID_SYS_VENDOR_IS_RUBBISH', Or((Literal('0'), Literal('1')))),
-             ('ID_PRODUCT_NAME_IS_RUBBISH', Or((Literal('0'), Literal('1')))),
-             ('ID_PRODUCT_VERSION_IS_RUBBISH', Or((Literal('0'), Literal('1')))),
-             ('ID_BOARD_VERSION_IS_RUBBISH', Or((Literal('0'), Literal('1')))),
-             ('ID_PRODUCT_SKU_IS_RUBBISH', Or((Literal('0'), Literal('1')))),
-             ('ID_CHASSIS_ASSET_TAG_IS_RUBBISH', Or((Literal('0'), Literal('1')))),
+             ('ID_SYS_VENDOR_IS_RUBBISH', zero_one),
+             ('ID_PRODUCT_NAME_IS_RUBBISH', zero_one),
+             ('ID_PRODUCT_VERSION_IS_RUBBISH', zero_one),
+             ('ID_BOARD_VERSION_IS_RUBBISH', zero_one),
+             ('ID_PRODUCT_SKU_IS_RUBBISH', zero_one),
+             ('ID_CHASSIS_ASSET_TAG_IS_RUBBISH', zero_one),
              ('ID_CHASSIS', name_literal),
              ('ID_SYSFS_ATTRIBUTE_MODEL', name_literal),
              ('ID_NET_NAME_FROM_DATABASE', name_literal),
-             ('ID_NET_NAME_INCLUDE_DOMAIN', Or((Literal('0'), Literal('1')))),
+             ('ID_NET_NAME_INCLUDE_DOMAIN', zero_one),
+             ('TPM2_BROKEN_NVPCR', zero_one),
+             ('IMDS_VENDOR', name_literal),
+             ('IMDS_TOKEN_URL', name_literal),
+             ('IMDS_REFRESH_HEADER_NAME', name_literal),
+             ('IMDS_DATA_URL', name_literal),
+             ('IMDS_DATA_URL_SUFFIX', name_literal),
+             ('IMDS_TOKEN_HEADER_NAME', name_literal),
+             ('IMDS_EXTRA_HEADER', name_literal),
+             ('IMDS_ADDRESS_IPV4', name_literal),
+             ('IMDS_ADDRESS_IPV6', name_literal),
+             ('IMDS_KEY_HOSTNAME', name_literal),
+             ('IMDS_KEY_REGION', name_literal),
+             ('IMDS_KEY_ZONE', name_literal),
+             ('IMDS_KEY_IPV4_PUBLIC', name_literal),
+             ('IMDS_KEY_IPV6_PUBLIC', name_literal),
+             ('IMDS_KEY_SSH_KEY', name_literal),
+             ('IMDS_KEY_USERDATA', name_literal),
+             ('IMDS_KEY_USERDATA_BASE', name_literal),
+             ('IMDS_KEY_USERDATA_BASE64', name_literal),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
@@ -253,7 +274,7 @@ def check_matches(groups):
     matches = sum((group[0] for group in groups), [])
 
     # This is a partial check. The other cases could be also done, but those
-    # two are most commonly wrong.
+    # three are the most commonly wrong.
     grammars = {
         'bluetooth' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4) + Optional(':')) + '*',
         'usb' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4) + Optional(':')) + '*',
@@ -262,16 +283,15 @@ def check_matches(groups):
 
     for match in matches:
         prefix, rest = match.split(':', maxsplit=1)
-        gr = grammars.get(prefix)
-        if gr:
+        if gr := grammars.get(prefix):
             # we check this first to provide an easy error message
             if rest[-1] not in '*:':
-                error('Pattern {} does not end with "*" or ":"', match)
+                error('Pattern {!r} does not end with "*" or ":"', match)
 
             try:
                 gr.parseString(rest)
             except ParseBaseException as e:
-                error('Pattern {} is invalid: {}', match, e)
+                error('Pattern {!r} is invalid: {}', match, e)
                 continue
 
     matches.sort()
@@ -350,15 +370,14 @@ def print_summary(fname, groups):
     print(f'{fname}: {len(groups)} match groups, {n_matches} matches, {n_props} properties')
 
     if n_matches == 0 or n_props == 0:
-        error(f'{fname}: no matches or props')
+        print(f'{fname}: no matches or props')
 
 if __name__ == '__main__':
-    args = sys.argv[1:] or sorted(
-        [
-            os.path.dirname(sys.argv[0]) + '/20-dmi-id.hwdb',
-            os.path.dirname(sys.argv[0]) + '/20-net-ifname.hwdb',
-        ] + glob.glob(os.path.dirname(sys.argv[0]) + '/[678][0-9]-*.hwdb')
-    )
+    args = sys.argv[1:] or sorted([
+        os.path.dirname(sys.argv[0]) + '/20-dmi-id.hwdb',
+        os.path.dirname(sys.argv[0]) + '/20-net-ifname.hwdb',
+        *glob.glob(os.path.dirname(sys.argv[0]) + '/[678][0-9]-*.hwdb'),
+    ])
 
     for fname in args:
         groups = parse(fname)

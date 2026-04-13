@@ -950,6 +950,9 @@ int log_format_iovec(
                 const char *format,
                 va_list ap) {
 
+        assert(iovec);
+        assert(n);
+
         while (format && *n + 1 < iovec_len) {
                 va_list aq;
                 char *m;

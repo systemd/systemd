@@ -45,6 +45,14 @@
     for it yet. The latter might be useful in environments where a suitable TPM2 driver for the available
     hardware is not available.</para>
 
+    <para>The <option>systemd.tpm2_software_fallback=</option> kernel command line option (which takes a
+    boolean argument, defaulting to false) may be used to enable an automatic software TPM fallback in case a
+    hardware TPM is not detected and
+    <citerefentry><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
+    available. This pulls in the
+    <citerefentry><refentrytitle>systemd-tpm2-swtpm.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    service.</para>
+
     <para><command>systemd-tpm2-generator</command> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
@@ -55,6 +63,7 @@
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-tpm2-swtpm.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 </refentry>

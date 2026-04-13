@@ -40,6 +40,8 @@ int net_get_type_string(sd_device *device, uint16_t iftype, char **ret) {
         const char *t;
         char *p;
 
+        assert(ret);
+
         if (device &&
             sd_device_get_devtype(device, &t) >= 0 &&
             !isempty(t))

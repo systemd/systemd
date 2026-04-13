@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "LENOVO IdeaPad Slim 5 14Q8X9 (OLED)",
+    "compatible": "lenovo,ideapad-slim5x-oled",
+    "hwids": [
+        "6dede08b-32e0-520f-b3b5-6a8da842a919",
+        "bf1bc4fc-ddc8-5c48-8e31-8f8ff2418596",
+        "c1734f8b-41a9-5397-ae31-522795aaec18",
+        "28fc3712-01ae-5662-af6c-1d5eaed5f3db",
+        "eaa30ed1-62b1-51e2-9d1f-8308a1202657",
+        "8996d12b-d951-5792-92b5-4a8ac7593ec9",
+        "035da45a-624c-54a8-871d-a26f23330491",
+        "9c8eb132-0805-5a67-acae-5e24dcf34fa3",
+        "0ee69b2b-77f1-5424-a81a-f0f47ddf5dce",
+        "9b4980e7-d4d9-5f2f-9462-11dce522e7d3",
+        "f4fb1cdf-5465-57ef-9328-e1dec46b22ee",
+        "5c96e271-228e-573f-8d54-81ddc8df357f",
+        "3dc089c0-edd4-5ab2-bd70-537fb1acd96a"
+    ]
+}

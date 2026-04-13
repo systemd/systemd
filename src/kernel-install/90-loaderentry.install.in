@@ -115,8 +115,14 @@ if [ -f "$TRIES_FILE" ]; then
     if [ -f "$LOADER_ENTRY" ]; then
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Removing previous loader entry '$LOADER_ENTRY' without boot counting." >&2
-        rm -f "$LOADER_ENTRY" "${LOADER_ENTRY%.conf}+"*.conf
+        rm -f "$LOADER_ENTRY"
     fi
+    for loaderentry in "${LOADER_ENTRY%.conf}+"*.conf; do
+        [ "$loaderentry" = "${LOADER_ENTRY%.conf}+*.conf" ] && break
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing previous loader entry '$loaderentry' that has not yet booted successfully." >&2
+        rm -f "$loaderentry"
+    done
     LOADER_ENTRY="${LOADER_ENTRY%.conf}+$TRIES.conf"
 fi
 

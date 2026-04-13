@@ -9,7 +9,7 @@
  * processor features, models, generations or even ABIs. Hence we
  * focus on general family, and distinguish word width and endianness. */
 
-typedef enum {
+typedef enum Architecture {
         ARCHITECTURE_ALPHA,
         ARCHITECTURE_ARC,
         ARCHITECTURE_ARC_BE,

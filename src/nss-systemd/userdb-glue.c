@@ -415,6 +415,9 @@ enum nss_status userdb_getgrgid(
  * string vector strv and stores amount of pointers in n and total
  * length of all contained strings including NUL bytes in len. */
 static void nss_count_strv(char * const *strv, size_t *n, size_t *len) {
+        assert(n);
+        assert(len);
+
         STRV_FOREACH(str, strv) {
                 (*len) += sizeof(char*);  /* space for array entry */
                 (*len) += strlen(*str) + 1;
@@ -472,7 +475,9 @@ int nss_pack_group_record_shadow(
 
         assert(buffer);
 
-        p = buffer + sizeof(void*) * (n + 1); /* place member strings right after the ptr array */
+        /* n already includes trailing NULL pointers from nss_count_strv(), unlike the
+         * non-shadow nss_pack_group_record() where n does not include them. */
+        p = buffer + sizeof(void*) * n;
         array = (char**) buffer; /* place ptr array at beginning of buffer, under assumption buffer is aligned */
 
         sgrp->sg_mem = array;

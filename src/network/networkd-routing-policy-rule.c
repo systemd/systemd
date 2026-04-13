@@ -99,6 +99,8 @@ DEFINE_SECTION_CLEANUP_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_unref);
 static int routing_policy_rule_new(RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;
 
+        assert(ret);
+
         rule = new(RoutingPolicyRule, 1);
         if (!rule)
                 return -ENOMEM;

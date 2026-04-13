@@ -175,7 +175,7 @@ static void notify_bus_error(const sd_bus_error *error) {
         (void) sd_notifyf(/* unset_environment= */ false, "BUSERROR=%s", error->name);
 }
 
-static int list_bus_names(int argc, char **argv, void *userdata) {
+static int verb_list_bus_names(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_strv_free_ char **acquired = NULL, **activatable = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_hashmap_free_ Hashmap *names = NULL;
@@ -393,6 +393,8 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
 }
 
 static void print_subtree(const char *prefix, const char *path, char **l) {
+        assert(l);
+
         /* We assume the list is sorted. Let's first skip over the
          * entry we are looking at. */
         for (;;) {
@@ -535,7 +537,7 @@ static int tree_one(sd_bus *bus, const char *service) {
         return r;
 }
 
-static int tree(int argc, char **argv, void *userdata) {
+static int verb_tree(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -994,7 +996,7 @@ static int members_flags_to_string(const Member *m, char **ret) {
         return 0;
 }
 
-static int introspect(int argc, char **argv, void *userdata) {
+static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         static const XMLIntrospectOps ops = {
                 .on_interface = on_interface,
                 .on_method = on_method,
@@ -1186,13 +1188,7 @@ static int introspect(int argc, char **argv, void *userdata) {
                         return table_log_add_error(r);
         }
 
-        pager_open(arg_pager_flags);
-
-        r = table_print(table, NULL);
-        if (r < 0)
-                return table_log_print_error(r);
-
-        return 0;
+        return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
 static int message_dump(sd_bus_message *m, FILE *f) {
@@ -1381,11 +1377,11 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         }
 }
 
-static int verb_monitor(int argc, char **argv, void *userdata) {
+static int verb_monitor(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return monitor(argc, argv, sd_json_format_enabled(arg_json_format_flags) ? message_json : message_dump);
 }
 
-static int verb_capture(int argc, char **argv, void *userdata) {
+static int verb_capture(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *osname = NULL;
         static const char info[] =
                 "busctl (systemd) " PROJECT_VERSION_FULL " (Git " GIT_VERSION ")";
@@ -1412,7 +1408,7 @@ static int verb_capture(int argc, char **argv, void *userdata) {
         return r;
 }
 
-static int status(int argc, char **argv, void *userdata) {
+static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         pid_t pid;
@@ -1782,7 +1778,7 @@ static int bus_message_dump(sd_bus_message *m, uint64_t flags) {
         return 0;
 }
 
-static int call(int argc, char **argv, void *userdata) {
+static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
@@ -1849,7 +1845,7 @@ static int call(int argc, char **argv, void *userdata) {
         return bus_message_dump(reply, /* flags= */ 0);
 }
 
-static int emit_signal(int argc, char **argv, void *userdata) {
+static int verb_emit_signal(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
@@ -1894,7 +1890,7 @@ static int emit_signal(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int get_property(int argc, char **argv, void *userdata) {
+static int verb_get_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -1952,7 +1948,7 @@ static int on_bus_signal(sd_bus_message *msg, void *userdata, sd_bus_error *ret_
         return 0;
 }
 
-static int wait_signal(int argc, char **argv, void *userdata) {
+static int verb_wait_signal(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
@@ -2000,7 +1996,7 @@ static int wait_signal(int argc, char **argv, void *userdata) {
         return sd_event_loop(e);
 }
 
-static int set_property(int argc, char **argv, void *userdata) {
+static int verb_set_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2131,7 +2127,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 
@@ -2405,18 +2401,18 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int busctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "list",         VERB_ANY, 1,        VERB_DEFAULT, list_bus_names },
-                { "status",       VERB_ANY, 2,        0,            status         },
-                { "monitor",      VERB_ANY, VERB_ANY, 0,            verb_monitor   },
-                { "capture",      VERB_ANY, VERB_ANY, 0,            verb_capture   },
-                { "tree",         VERB_ANY, VERB_ANY, 0,            tree           },
-                { "introspect",   3,        4,        0,            introspect     },
-                { "call",         5,        VERB_ANY, 0,            call           },
-                { "emit",         4,        VERB_ANY, 0,            emit_signal    },
-                { "wait",         4,        5,        0,            wait_signal    },
-                { "get-property", 5,        VERB_ANY, 0,            get_property   },
-                { "set-property", 6,        VERB_ANY, 0,            set_property   },
-                { "help",         VERB_ANY, VERB_ANY, 0,            verb_help      },
+                { "list",         VERB_ANY, 1,        VERB_DEFAULT, verb_list_bus_names },
+                { "status",       VERB_ANY, 2,        0,            verb_status         },
+                { "monitor",      VERB_ANY, VERB_ANY, 0,            verb_monitor        },
+                { "capture",      VERB_ANY, VERB_ANY, 0,            verb_capture        },
+                { "tree",         VERB_ANY, VERB_ANY, 0,            verb_tree           },
+                { "introspect",   3,        4,        0,            verb_introspect     },
+                { "call",         5,        VERB_ANY, 0,            verb_call           },
+                { "emit",         4,        VERB_ANY, 0,            verb_emit_signal    },
+                { "wait",         4,        5,        0,            verb_wait_signal    },
+                { "get-property", 5,        VERB_ANY, 0,            verb_get_property   },
+                { "set-property", 6,        VERB_ANY, 0,            verb_set_property   },
+                { "help",         VERB_ANY, VERB_ANY, 0,            verb_help           },
                 {}
         };
 

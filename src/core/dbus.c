@@ -39,7 +39,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
-#include "selinux-access.h"
+#include "selinux-access.h"     /* IWYU pragma: keep */
 #include "serialize.h"
 #include "set.h"
 #include "special.h"
@@ -229,6 +229,7 @@ static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_
         assert(m);
         assert(bus);
         assert(path);
+        assert(unit);
 
         if (streq(path, "/org/freedesktop/systemd1/unit/self")) {
                 _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;

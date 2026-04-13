@@ -56,6 +56,11 @@ units = [
         },
         { 'file' : 'systemd-ask-password@.service' },
         { 'file' : 'systemd-exit.service' },
+        { 'file' : 'systemd-journalctl@.service' },
+        {
+          'file' : 'systemd-journalctl.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
         { 'file' : 'systemd-tmpfiles-clean.service' },
         { 'file' : 'systemd-tmpfiles-clean.timer' },
         { 'file' : 'systemd-tmpfiles-setup.service' },

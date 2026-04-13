@@ -273,7 +273,7 @@ class UkifyConfig:
     devicetree: Path
     devicetree_auto: list[Path]
     efi_arch: str
-    hwids: Path
+    hwids: Union[str, Path, None]
     initrd: list[Path]
     efifw: list[Path]
     join_profiles: list[Path]
@@ -1397,8 +1397,14 @@ def make_uki(opts: UkifyConfig) -> None:
 
     hwids = None
 
-    if opts.hwids is not None:
-        hwids = parse_hwid_dir(opts.hwids)
+    if opts.hwids != '':
+        if opts.hwids is not None:
+            hwids = parse_hwid_dir(Path(opts.hwids))
+        else:
+            hwids_dir = Path(f'/tmp/s/usr/lib/systemd/boot/hwids/{opts.efi_arch}')
+            if hwids_dir.is_dir():
+                print(f'Automatically building .hwids section from {hwids_dir}', file=sys.stderr)
+                hwids = parse_hwid_dir(hwids_dir)
 
     sections = [
         # name,      content,         measure?
@@ -1994,7 +2000,6 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--hwids',
         metavar='DIR',
-        type=Path,
         help='Directory with HWID text files [.hwids section]',
         config_key='UKI/HWIDs',
     ),

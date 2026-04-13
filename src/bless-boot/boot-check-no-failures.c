@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
 
 #include "sd-bus.h"
@@ -8,63 +7,53 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "bus-error.h"
+#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "pretty-print.h"
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-boot-check-no-failures.service", "8", &link);
         if (r < 0)
                 return log_oom();
 
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
         printf("%s [OPTIONS...]\n"
-               "\n%sVerify system operational state.%s\n\n"
-               "  -h --help          Show this help\n"
-               "     --version       Print version\n"
-               "\nSee the %s for details.\n",
+               "\n%sVerify system operational state.%s\n\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_normal(),
-               link);
+               ansi_normal());
 
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_PATH = 0x100,
-                ARG_VERSION,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                {}
-        };
-
-        int c;
-
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+
+        FOREACH_OPTION(&state, c, /* ret_a= */ NULL, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
-                        help();
-                        return 0;
+                OPTION_COMMON_HELP:
+                        return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         return 1;

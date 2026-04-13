@@ -16,6 +16,9 @@
 #define DEFAULT_RECURSION_MAX 100
 
 static int sort_func(struct dirent * const *a, struct dirent * const *b) {
+        assert(a);
+        assert(b);
+
         return strcmp((*a)->d_name, (*b)->d_name);
 }
 
@@ -41,6 +44,8 @@ int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret) {
          * Start with space for up to 8 directory entries. We expect at least 2 ("." + ".."), hence hopefully
          * 8 will cover most cases comprehensively. (Note that most likely a lot more entries will actually
          * fit in the buffer, given we calculate maximum file name length here.) */
+        /* Silence static analyzers */
+        assert_cc(offsetof(DirectoryEntries, buffer) <= SIZE_MAX - DIRENT_SIZE_MAX * 8);
         de = malloc(offsetof(DirectoryEntries, buffer) + DIRENT_SIZE_MAX * 8);
         if (!de)
                 return -ENOMEM;
@@ -50,6 +55,8 @@ int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret) {
                 size_t bs;
                 ssize_t n;
 
+                /* Silence static analyzers, MALLOC_SIZEOF_SAFE is at least as large as the allocation */
+                assert(MALLOC_SIZEOF_SAFE(de) >= offsetof(DirectoryEntries, buffer));
                 bs = MIN(MALLOC_SIZEOF_SAFE(de) - offsetof(DirectoryEntries, buffer), (size_t) SSIZE_MAX);
                 assert(bs > de->buffer_size);
 

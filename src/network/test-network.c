@@ -128,7 +128,7 @@ TEST(route_tables) {
         test_route_tables_one(manager, "bbb", 11111);
         test_route_tables_one(manager, "ccc", 22222);
 
-        ASSERT_NULL(hashmap_get(manager->route_table_numbers_by_name, "ddd"));
+        ASSERT_FALSE(hashmap_contains(manager->route_table_numbers_by_name, "ddd"));
 
         test_route_tables_one(manager, "default", 253);
         test_route_tables_one(manager, "main", 254);

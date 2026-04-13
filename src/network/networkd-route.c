@@ -234,7 +234,7 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 route_compare_func,
                 route_unref);
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 route_section_hash_ops,
                 ConfigSection,
                 config_section_hash_func,
@@ -244,6 +244,8 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 
 int route_new(Route **ret) {
         _cleanup_(route_unrefp) Route *route = NULL;
+
+        assert(ret);
 
         route = new(Route, 1);
         if (!route)
@@ -1201,7 +1203,7 @@ static int process_route_one(
                         route_forget(manager, route, "Forgetting removed");
                 else
                         log_route_debug(tmp,
-                                        manager->manage_foreign_routes ? "Kernel removed unknown" : "Ignoring received",
+                                        manager->manage_foreign_routes ? "Kernel removed unknown" : "Ignoring removed",
                                         manager);
                 break;
 
@@ -1641,7 +1643,7 @@ int link_drop_routes(Link *link, bool only_static) {
 void link_forget_routes(Link *link) {
         assert(link);
         assert(link->ifindex > 0);
-        assert(!FLAGS_SET(link->flags, IFF_UP));
+        assert(!link_is_up(link));
 
         /* When an interface went down, IPv4 non-local routes bound to the interface are silently removed by
          * the kernel, without any notifications. Let's forget them in that case. Otherwise, when the link

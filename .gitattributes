@@ -1,4 +1,5 @@
 *.[ch] whitespace=tab-in-indent,trailing-space
+src/include/uapi/**/*.[ch] whitespace=trailing-space
 *.gpg  binary generated
 *.bmp  binary
 *.base64 generated

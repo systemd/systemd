@@ -34,6 +34,7 @@
 #include "ip-protocol-list.h"
 #include "limits-util.h"
 #include "manager.h"
+#include "mountpoint-util.h"
 #include "netlink-internal.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
@@ -184,8 +185,11 @@ void cgroup_context_init(CGroupContext *c) {
                  * moom_mem_pressure_duration_usec is set to infinity. */
                 .moom_mem_pressure_duration_usec = USEC_INFINITY,
 
-                .memory_pressure_watch = _CGROUP_PRESSURE_WATCH_INVALID,
-                .memory_pressure_threshold_usec = USEC_INFINITY,
+                .pressure = {
+                        [PRESSURE_MEMORY] = { .watch = _CGROUP_PRESSURE_WATCH_INVALID, .threshold_usec = USEC_INFINITY },
+                        [PRESSURE_CPU]    = { .watch = _CGROUP_PRESSURE_WATCH_INVALID, .threshold_usec = USEC_INFINITY },
+                        [PRESSURE_IO]     = { .watch = _CGROUP_PRESSURE_WATCH_INVALID, .threshold_usec = USEC_INFINITY },
+                },
         };
 }
 
@@ -312,6 +316,8 @@ static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_
          * - ret_kernel_value will contain the actual value presented by the kernel. */
 
         assert(u);
+        assert(ret_unit_value);
+        assert(ret_kernel_value);
 
         /* The root slice doesn't have any controller files, so we can't compare anything. */
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
@@ -525,6 +531,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sManagedOOMMemoryPressureLimit: " PERMYRIAD_AS_PERCENT_FORMAT_STR "\n"
                 "%sManagedOOMPreference: %s\n"
                 "%sMemoryPressureWatch: %s\n"
+                "%sCPUPressureWatch: %s\n"
+                "%sIOPressureWatch: %s\n"
                 "%sCoredumpReceive: %s\n",
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->memory_accounting),
@@ -560,7 +568,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
                 prefix, PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(c->moom_mem_pressure_limit)),
                 prefix, managed_oom_preference_to_string(c->moom_preference),
-                prefix, cgroup_pressure_watch_to_string(c->memory_pressure_watch),
+                prefix, cgroup_pressure_watch_to_string(c->pressure[PRESSURE_MEMORY].watch),
+                prefix, cgroup_pressure_watch_to_string(c->pressure[PRESSURE_CPU].watch),
+                prefix, cgroup_pressure_watch_to_string(c->pressure[PRESSURE_IO].watch),
                 prefix, yes_no(c->coredump_receive));
 
         if (c->delegate_subgroup)
@@ -571,9 +581,17 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 fprintf(f, "%sBindNetworkInterface: %s\n",
                         prefix, c->bind_network_interface);
 
-        if (c->memory_pressure_threshold_usec != USEC_INFINITY)
+        if (c->pressure[PRESSURE_MEMORY].threshold_usec != USEC_INFINITY)
                 fprintf(f, "%sMemoryPressureThresholdSec: %s\n",
-                        prefix, FORMAT_TIMESPAN(c->memory_pressure_threshold_usec, 1));
+                        prefix, FORMAT_TIMESPAN(c->pressure[PRESSURE_MEMORY].threshold_usec, 1));
+
+        if (c->pressure[PRESSURE_CPU].threshold_usec != USEC_INFINITY)
+                fprintf(f, "%sCPUPressureThresholdSec: %s\n",
+                        prefix, FORMAT_TIMESPAN(c->pressure[PRESSURE_CPU].threshold_usec, 1));
+
+        if (c->pressure[PRESSURE_IO].threshold_usec != USEC_INFINITY)
+                fprintf(f, "%sIOPressureThresholdSec: %s\n",
+                        prefix, FORMAT_TIMESPAN(c->pressure[PRESSURE_IO].threshold_usec, 1));
 
         if (c->moom_mem_pressure_duration_usec != USEC_INFINITY)
                 fprintf(f, "%sManagedOOMMemoryPressureDurationSec: %s\n",
@@ -973,8 +991,7 @@ static int lookup_block_device(const char *p, dev_t *ret) {
         }
 
         /* If this is a LUKS/DM device, recursively try to get the originating block device */
-        while (block_get_originating(*ret, ret) >= 0)
-                ;
+        (void) block_get_originating(*ret, ret, /* recursive= */ true);
 
         /* If this is a partition, try to get the originating block device */
         (void) block_get_whole_disk(*ret, ret);
@@ -2070,13 +2087,14 @@ static int unit_update_cgroup(
 
         uint64_t cgroup_id = 0;
         r = cg_get_path(crt->cgroup_path, /* suffix= */ NULL, &cgroup_full_path);
-        if (r == 0) {
-                r = cg_path_get_cgroupid(cgroup_full_path, &cgroup_id);
+        if (r < 0)
+                log_unit_warning_errno(u, r, "Failed to get full cgroup path on cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
+        else {
+                r = path_to_handle_u64(cgroup_full_path, &cgroup_id);
                 if (r < 0)
                         log_unit_full_errno(u, ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                             "Failed to get cgroup ID of cgroup %s, ignoring: %m", cgroup_full_path);
-        } else
-                log_unit_warning_errno(u, r, "Failed to get full cgroup path on cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
+        }
 
         crt->cgroup_id = cgroup_id;
 
@@ -2104,22 +2122,24 @@ static int unit_update_cgroup(
         cgroup_context_apply(u, target_mask, state);
         cgroup_xattr_apply(u);
 
-        /* For most units we expect that memory monitoring is set up before the unit is started and we won't
-         * touch it after. For PID 1 this is different though, because we couldn't possibly do that given
-         * that PID 1 runs before init.scope is even set up. Hence, whenever init.scope is realized, let's
-         * try to open the memory pressure interface anew. */
+        /* For most units we expect that pressure monitoring is set up before the unit is started and we
+         * won't touch it after. For PID 1 this is different though, because we couldn't possibly do that
+         * given that PID 1 runs before init.scope is even set up. Hence, whenever init.scope is realized,
+         * let's try to open the pressure interfaces anew. */
         if (unit_has_name(u, SPECIAL_INIT_SCOPE))
-                (void) manager_setup_memory_pressure_event_source(u->manager);
+                for (PressureResource t = 0; t < _PRESSURE_RESOURCE_MAX; t++)
+                        (void) manager_setup_pressure_event_source(u->manager, t);
 
         return 0;
 }
 
-static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suffix_path) {
+static int unit_attach_pid_to_cgroup_via_bus(Unit *u, const char *cgroup_path, pid_t pid) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char *pp;
         int r;
 
         assert(u);
+        assert(cgroup_path);
+        assert(pid_is_valid(pid));
 
         if (MANAGER_IS_SYSTEM(u->manager))
                 return -EINVAL;
@@ -2127,17 +2147,12 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
         if (!u->manager->system_bus)
                 return -EIO;
 
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
-                return -EOWNERDEAD;
-
         /* Determine this unit's cgroup path relative to our cgroup root */
-        pp = path_startswith(crt->cgroup_path, u->manager->cgroup_root);
+        const char *pp = path_startswith_full(cgroup_path,
+                                              u->manager->cgroup_root,
+                                              PATH_STARTSWITH_RETURN_LEADING_SLASH|PATH_STARTSWITH_REFUSE_DOT_DOT);
         if (!pp)
                 return -EINVAL;
-
-        pp = strjoina("/", pp, suffix_path);
-        path_simplify(pp);
 
         r = bus_call_method(u->manager->system_bus,
                             bus_systemd_mgr,
@@ -2171,8 +2186,10 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         CGroupRuntime *crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
 
         if (isempty(suffix_path))
-                p = crt->cgroup_path;
+                p = empty_to_root(crt->cgroup_path);
         else {
+                assert(path_is_absolute(suffix_path));
+
                 joined = path_join(crt->cgroup_path, suffix_path);
                 if (!joined)
                         return -ENOMEM;
@@ -2188,7 +2205,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                  * before we use it */
                 r = pidref_verify(pid);
                 if (r < 0) {
-                        log_unit_info_errno(u, r, "PID " PID_FMT " vanished before we could move it to target cgroup '%s', skipping: %m", pid->pid, empty_to_root(p));
+                        log_unit_info_errno(u, r, "PID " PID_FMT " vanished before we could move it to target cgroup '%s', skipping: %m", pid->pid, p);
                         continue;
                 }
 
@@ -2198,7 +2215,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
 
                         log_unit_full_errno(u, again ? LOG_DEBUG : LOG_INFO,  r,
                                             "Couldn't move process "PID_FMT" to%s requested cgroup '%s': %m",
-                                            pid->pid, again ? " directly" : "", empty_to_root(p));
+                                            pid->pid, again ? " directly" : "", p);
 
                         if (again) {
                                 int z;
@@ -2208,11 +2225,11 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                                  * Since it's more privileged it might be able to move the process across the
                                  * leaves of a subtree whose top node is not owned by us. */
 
-                                z = unit_attach_pid_to_cgroup_via_bus(u, pid->pid, suffix_path);
+                                z = unit_attach_pid_to_cgroup_via_bus(u, p, pid->pid);
                                 if (z >= 0)
                                         goto success;
 
-                                log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid->pid, empty_to_root(p));
+                                log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid->pid, p);
                         }
 
                         RET_GATHER(ret, r);
@@ -2979,9 +2996,8 @@ int unit_check_oomd_kill(Unit *u) {
 }
 
 int unit_check_oom(Unit *u) {
-        _cleanup_free_ char *oom_kill = NULL;
         bool increased;
-        uint64_t c;
+        uint64_t c = 0;
         int r;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
@@ -2996,31 +3012,23 @@ int unit_check_oom(Unit *u) {
          * back to reading oom_kill if we can't find the file or field. */
 
         if (ctx->memory_oom_group) {
-                r = cg_get_keyed_attribute(
+                r = cg_get_keyed_attribute_uint64(
                                 crt->cgroup_path,
                                 "memory.events.local",
-                                STRV_MAKE("oom_group_kill"),
-                                &oom_kill);
+                                "oom_group_kill",
+                                &c);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                         return log_unit_debug_errno(u, r, "Failed to read oom_group_kill field of memory.events.local cgroup attribute, ignoring: %m");
         }
 
-        if (isempty(oom_kill)) {
-                r = cg_get_keyed_attribute(
+        if (!ctx->memory_oom_group || r < 0) {
+                r = cg_get_keyed_attribute_uint64(
                                 crt->cgroup_path,
                                 "memory.events",
-                                STRV_MAKE("oom_kill"),
-                                &oom_kill);
+                                "oom_kill",
+                                &c);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                         return log_unit_debug_errno(u, r, "Failed to read oom_kill field of memory.events cgroup attribute: %m");
-        }
-
-        if (!oom_kill)
-                c = 0;
-        else {
-                r = safe_atou64(oom_kill, &c);
-                if (r < 0)
-                        return log_unit_debug_errno(u, r, "Failed to parse memory.events cgroup oom field: %m");
         }
 
         increased = c > crt->oom_kill_last;
@@ -3189,6 +3197,8 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
 static int cg_bpf_mask_supported(CGroupMask *ret) {
         CGroupMask mask = 0;
         int r;
+
+        assert(ret);
 
         /* BPF-based firewall, device access control, and pinned foreign prog */
         if (bpf_program_supported() > 0)
@@ -3566,14 +3576,9 @@ static int unit_get_cpu_usage_raw(const Unit *u, const CGroupRuntime *crt, nsec_
         if (unit_has_host_root_cgroup(u))
                 return procfs_cpu_get_usage(ret);
 
-        _cleanup_free_ char *val = NULL;
         uint64_t us;
 
-        r = cg_get_keyed_attribute(crt->cgroup_path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
-        if (r < 0)
-                return r;
-
-        r = safe_atou64(val, &us);
+        r = cg_get_keyed_attribute_uint64(crt->cgroup_path, "cpu.stat", "usage_usec", &us);
         if (r < 0)
                 return r;
 
@@ -3981,6 +3986,29 @@ bool unit_cgroup_delegate(Unit *u) {
                 return false;
 
         return c->delegate;
+}
+
+void unit_cgroup_disable_all_controllers(Unit *u) {
+        int r;
+
+        assert(u);
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt || !crt->cgroup_path)
+                return;
+
+        if (!unit_cgroup_delegate(u))
+                return;
+
+        /* For delegated units, the previous payload may have enabled controllers (e.g. "pids") in
+         * cgroup.subtree_control. These persist after the service stops and turn the cgroup into an
+         * "internal node", causing clone3(CLONE_INTO_CGROUP) to fail with EBUSY. Clear them now, right
+         * before the new start, so that resource control is preserved for lingering processes as long as
+         * possible. Ignore errors — if sub-cgroups still have live processes the write will fail, but so
+         * will the upcoming spawn. */
+        r = cg_enable(u->manager->cgroup_supported, /* mask= */ 0, crt->cgroup_path, &crt->cgroup_enabled_mask);
+        if (r < 0)
+                log_unit_debug_errno(u, r, "Failed to disable controllers on cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
 }
 
 void manager_invalidate_startup_units(Manager *m) {

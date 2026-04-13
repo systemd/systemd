@@ -201,6 +201,10 @@ static int fix_xattr(int fd, const CoredumpContext *context) {
         RET_GATHER(r, fix_xattr_one(fd, "user.coredump.hostname", context->hostname));
         RET_GATHER(r, fix_xattr_one(fd, "user.coredump.comm", context->comm));
         RET_GATHER(r, fix_xattr_one(fd, "user.coredump.exe", context->exe));
+        if (context->tid > 0) {
+                RET_GATHER(r, fix_xattr_format(fd, "user.coredump.tid", PID_FMT, context->tid));
+                RET_GATHER(r, fix_xattr_one(fd, "user.coredump.thread_name", context->thread_name));
+        }
 
         return r;
 }
@@ -369,7 +373,7 @@ static int save_external_coredump(
                 if (fd_compressed < 0)
                         return log_error_errno(fd_compressed, "Failed to create temporary file for coredump %s: %m", fn_compressed);
 
-                r = compress_stream(fd, fd_compressed, max_size, &uncompressed_size);
+                r = compress_stream(DEFAULT_COMPRESSION, fd, fd_compressed, max_size, &uncompressed_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to compress %s: %m", coredump_tmpfile_name(tmp_compressed));
 
@@ -382,7 +386,7 @@ static int save_external_coredump(
                         tmp = unlink_and_free(tmp);
                         fd = safe_close(fd);
 
-                        r = compress_stream(context->input_fd, fd_compressed, max_size, &partial_uncompressed_size);
+                        r = compress_stream(DEFAULT_COMPRESSION, context->input_fd, fd_compressed, max_size, &partial_uncompressed_size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to compress %s: %m", coredump_tmpfile_name(tmp_compressed));
                         uncompressed_size += partial_uncompressed_size;

@@ -80,7 +80,7 @@ static int normalize_names(char **names) {
         return 0;
 }
 
-int verb_enable(int argc, char *argv[], void *userdata) {
+int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
         const char *verb = ASSERT_PTR(argv[0]);
         _cleanup_strv_free_ char **names = NULL;
         int carries_install_info = -1;
@@ -258,7 +258,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 else
                         assert_not_reached();
 
-                install_changes_dump(r, verb, changes, n_changes, arg_quiet);
+                r = install_changes_dump(r, verb, changes, n_changes, arg_quiet);
                 if (r < 0)
                         return r;
         }
@@ -402,7 +402,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                                 return log_oom();
                 }
 
-                return verb_start(strv_length(new_args), new_args, userdata);
+                return verb_start(strv_length(new_args), new_args, data, userdata);
         }
 
         return 0;

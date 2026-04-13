@@ -3,14 +3,17 @@
 #include "hashmap.h"
 #include "tests.h"
 
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 unsigned custom_counter = 0;
 static void custom_destruct(void* p) {
         custom_counter--;
         free(p);
 }
 
+// NOLINTBEGIN(misc-use-internal-linkage)
 DEFINE_HASH_OPS_FULL(boring_hash_ops, char, string_hash_func, string_compare_func, free, char, free);
 DEFINE_HASH_OPS_FULL(custom_hash_ops, char, string_hash_func, string_compare_func, custom_destruct, char, custom_destruct);
+// NOLINTEND(misc-use-internal-linkage)
 
 TEST(ordered_hashmap_next) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *m = NULL;
@@ -154,6 +157,7 @@ TEST(hashmap_put_strdup_null) {
  * they don't apply to ordered hashmaps. */
 
 /* This variable allows us to assert that the tests from different compilation units were actually run. */
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 int n_extern_tests_run = 0;
 
 static int intro(void) {

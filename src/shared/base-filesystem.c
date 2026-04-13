@@ -5,7 +5,7 @@
 #include <syslog.h>
 #include <unistd.h>
 
-#ifdef ARCH_MIPS
+#ifdef __mips__
 #include <asm/sgidefs.h>
 #endif
 

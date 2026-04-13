@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/kexec.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -8,6 +9,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "efivars.h"
+#include "fd-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -23,9 +25,6 @@
 #include "systemctl-util.h"
 
 static int load_kexec_kernel(void) {
-        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
-        _cleanup_free_ char *kernel = NULL, *initrd = NULL, *options = NULL;
-        const BootEntry *e;
         int r;
 
         if (kexec_loaded()) {
@@ -33,9 +32,7 @@ static int load_kexec_kernel(void) {
                 return 0;
         }
 
-        if (access(KEXEC, X_OK) < 0)
-                return log_error_errno(errno, KEXEC" is not available: %m");
-
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         r = boot_config_load_auto(&config, NULL, NULL);
         if (r == -ENOKEY)
                 /* The call doesn't log about ENOKEY, let's do so here. */
@@ -51,7 +48,7 @@ static int load_kexec_kernel(void) {
         if (r < 0)
                 return r;
 
-        e = boot_config_default_entry(&config);
+        const BootEntry *e = boot_config_default_entry(&config);
         if (!e)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "No boot loader entry suitable as default, refusing to guess.");
@@ -65,28 +62,81 @@ static int load_kexec_kernel(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Boot entry specifies multiple initrds, which is not supported currently.");
 
+        _cleanup_free_ char *kernel = NULL;
         kernel = path_join(e->root, e->kernel);
         if (!kernel)
                 return log_oom();
 
+        _cleanup_free_ char *initrd = NULL;
         if (!strv_isempty(e->initrd)) {
                 initrd = path_join(e->root, e->initrd[0]);
                 if (!initrd)
                         return log_oom();
         }
 
-        options = strv_join(e->options, " ");
+        _cleanup_free_ char *options = strv_join(e->options, " ");
         if (!options)
                 return log_oom();
 
         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
-                 "%s "KEXEC" --load \"%s\" --append \"%s\"%s%s%s",
-                 arg_dry_run ? "Would run" : "Running",
+                 "%s %s kernel=\"%s\" cmdline=\"%s\"%s%s%s",
+                 arg_dry_run ? "Would call" : "Calling",
+                 HAVE_KEXEC_FILE_LOAD_SYSCALL ? "kexec_file_load()" : "kexec",
                  kernel,
                  options,
-                 initrd ? " --initrd \"" : NULL, strempty(initrd), initrd ? "\"" : "");
+                 initrd ? " initrd=\"" : "", strempty(initrd), initrd ? "\"" : "");
         if (arg_dry_run)
                 return 0;
+
+#if HAVE_KEXEC_FILE_LOAD_SYSCALL
+        _cleanup_close_ int kernel_fd = open(kernel, O_RDONLY|O_CLOEXEC);
+        if (kernel_fd < 0)
+                return log_error_errno(errno, "Failed to open kernel '%s': %m", kernel);
+
+        _cleanup_close_ int initrd_fd = -EBADF;
+        if (initrd) {
+                initrd_fd = open(initrd, O_RDONLY|O_CLOEXEC);
+                if (initrd_fd < 0)
+                        return log_error_errno(errno, "Failed to open initrd '%s': %m", initrd);
+        }
+
+        unsigned long flags = initrd ? 0 : KEXEC_FILE_NO_INITRAMFS;
+
+        if (kexec_file_load(kernel_fd, initrd_fd, strlen(options) + 1, options, flags) >= 0)
+                return 0;
+
+        int saved_errno = errno;
+
+        if (saved_errno == ENOEXEC) {
+                /* The kernel didn't recognize the image format. Try decompressing or extracting the
+                 * kernel (e.g. compressed Image, ZBOOT PE, or UKI) and loading again. */
+                log_debug_errno(saved_errno, "Kernel rejected image, trying decompression/extraction: %m");
+
+                _cleanup_close_ int extracted_kernel_fd = -EBADF, extracted_initrd_fd = -EBADF;
+                r = kexec_maybe_decompress_kernel(
+                                kernel, kernel_fd, &extracted_kernel_fd,
+                                initrd_fd >= 0 ? NULL : &extracted_initrd_fd);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to decompress/extract kernel image, ignoring: %m");
+                else if (r > 0) {
+                        int final_initrd_fd = initrd_fd >= 0 ? initrd_fd : extracted_initrd_fd;
+                        unsigned long final_flags = final_initrd_fd >= 0 ? 0 : KEXEC_FILE_NO_INITRAMFS;
+
+                        if (kexec_file_load(extracted_kernel_fd, final_initrd_fd, strlen(options) + 1, options, final_flags) >= 0)
+                                return 0;
+
+                        saved_errno = errno;
+                }
+        }
+
+        log_debug_errno(saved_errno, "kexec_file_load() failed, falling back to " KEXEC " binary: %m");
+#endif
+
+        /* Fall back to kexec binary for architectures without kexec_file_load() or when the
+         * syscall fails (e.g. the kernel's kexec handler doesn't support this image format
+         * but kexec-tools might via the older kexec_load() code path). */
+        if (access(KEXEC, X_OK) < 0)
+                return log_error_errno(errno, KEXEC " is not available: %m");
 
         r = pidref_safe_fork(
                         "(kexec)",
@@ -127,7 +177,7 @@ static int set_exit_code(uint8_t code) {
         return 0;
 }
 
-int verb_start_special(int argc, char *argv[], void *userdata) {
+int verb_start_special(int argc, char *argv[], uintptr_t data, void *userdata) {
         bool termination_action; /* An action that terminates the system, can be performed also by signal. */
         enum action a;
         int r;
@@ -198,7 +248,7 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
 
         if (arg_force >= 1 &&
             (termination_action || IN_SET(a, ACTION_KEXEC, ACTION_EXIT)))
-                r = verb_trivial_method(argc, argv, userdata);
+                r = verb_trivial_method(argc, argv, data, userdata);
         else {
                 /* First try logind, to allow authentication with polkit */
                 switch (a) {
@@ -255,7 +305,7 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                         ;
                 }
 
-                r = verb_start(argc, argv, userdata);
+                r = verb_start(argc, argv, data, userdata);
         }
 
         if (termination_action && arg_force < 2 &&
@@ -265,7 +315,7 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-int verb_start_system_special(int argc, char *argv[], void *userdata) {
+int verb_start_system_special(int argc, char *argv[], uintptr_t data, void *userdata) {
         /* Like start_special above, but raises an error when running in user mode */
 
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
@@ -273,5 +323,5 @@ int verb_start_system_special(int argc, char *argv[], void *userdata) {
                                        "Bad action for %s mode.",
                                        runtime_scope_cmdline_option_to_string(arg_runtime_scope));
 
-        return verb_start_special(argc, argv, userdata);
+        return verb_start_special(argc, argv, data, userdata);
 }

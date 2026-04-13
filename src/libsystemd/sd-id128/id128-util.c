@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "bus-container.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hash-funcs.h"
@@ -13,6 +14,7 @@
 #include "namespace-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "sha256.h"
 #include "siphash24.h"
 #include "string-util.h"
@@ -197,6 +199,8 @@ int id128_write_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t id) {
 }
 
 void id128_hash_func(const sd_id128_t *p, struct siphash *state) {
+        assert(p);
+
         siphash24_compress_typesafe(*p, state);
 }
 
@@ -287,7 +291,7 @@ int id128_get_boot_for_machine(const char *machine, sd_id128_t *ret) {
         if (isempty(machine))
                 return sd_id128_get_boot(ret);
 
-        r = container_get_leader(machine, &pid);
+        r = container_get_leader(RUNTIME_SCOPE_SYSTEM, machine, &pid);
         if (r < 0)
                 return r;
 

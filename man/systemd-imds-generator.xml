@@ -1,0 +1,107 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-imds-generator" conditional='ENABLE_IMDS'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-imds-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-imds-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-imds-generator</refname>
+    <refpurpose>Generator to automatically enable IMDS on supporting environments</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-imds-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-imds-generator</command> is a generator that enables IMDS (Instance Metadata
+    Service) functionality at boot on systems that support it. Specifically it does three things:</para>
+
+    <itemizedlist>
+      <listitem><para>It pulls the <filename>systemd-imdsd.socket</filename> unit (which activates
+      <citerefentry><refentrytitle>systemd-imdsd@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+      into the initial transaction, which provides IMDS access to local applications via Varlink
+      IPC.</para></listitem>
+
+      <listitem><para>It pulls the <filename>systemd-imds-early-network.service</filename> unit into the
+      initial transaction, which generates a suitable
+      <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      network configuration file that allows early-boot network access to the IMDS
+      functionality.</para></listitem>
+
+      <listitem><para>It pulls the <filename>systemd-imds-import.service</filename> unit into the initial
+      transaction, which automatically imports various credentials from IMDS into the local system, storing
+      them in <filename>/run/credstore/</filename>.</para></listitem>
+    </itemizedlist>
+
+    <para>By default, whether to pull in these services or not is decided based on
+    <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry> information,
+    that detects various IMDS environments automatically. However, this logic may be overridden via
+    <varname>systemd.imds=</varname>, see below.</para>
+
+    <para><command>systemd-imds-generator</command> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><command>systemd-imds-generator</command> understands the following kernel command line
+    parameters:</para>
+
+    <variablelist class='kernel-commandline-options'>
+
+      <varlistentry>
+        <term><varname>systemd.imds=</varname></term>
+        <listitem>
+          <para>Takes a boolean argument or the special value <literal>auto</literal>, and may be used to
+          enable or disable the IMDS logic. Note that this controls only whether the relevant services (as
+          listed above) are automatically pulled into the initial transaction, it has no effect if some other
+          unit or the user explicitly activates the relevant units. If this option is not used (or set to
+          <literal>auto</literal>) automatic detection of IMDS is used, see above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="systemd-imdsd@.service.xml" xpointer="kernel-cmdline-imds-network"/>
+
+      <varlistentry>
+        <term><varname>systemd.imds.import=</varname></term>
+        <listitem>
+          <para>Takes a boolean argument. If false the <filename>systemd-imds-import.service</filename> (see
+          above) is not pulled into the initial transaction, i.e. no credentials are imported from
+          IMDS. Defaults to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-imds</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-imdsd@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

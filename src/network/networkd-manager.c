@@ -44,8 +44,10 @@
 #include "networkd-serialize.h"
 #include "networkd-speed-meter.h"
 #include "networkd-state-file.h"
+#include "networkd-varlink-metrics.h"
 #include "networkd-wifi.h"
 #include "networkd-wiphy.h"
+#include "networkd-wwan-bus.h"
 #include "ordered-set.h"
 #include "qdisc.h"
 #include "set.h"
@@ -96,6 +98,8 @@ static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *r
         if (m->product_uuid_requested)
                 (void) manager_request_product_uuid(m);
 
+        (void) manager_notify_mm_bus_connected(m);
+
         return 0;
 }
 
@@ -144,6 +148,8 @@ static int manager_connect_bus(Manager *m) {
                         match_prepare_for_sleep, NULL, m);
         if (r < 0)
                 log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
+
+        (void) manager_match_mm_signals(m);
 
         return 0;
 }
@@ -207,13 +213,14 @@ static int manager_connect_udev(Manager *m) {
         return 0;
 }
 
-static int manager_listen_fds(Manager *m, int *ret_rtnl_fd, int *ret_varlink_fd, int *ret_resolve_hook_fd) {
+static int manager_listen_fds(Manager *m, int *ret_rtnl_fd, int *ret_varlink_fd, int *ret_varlink_metrics_fd, int *ret_resolve_hook_fd) {
         _cleanup_strv_free_ char **names = NULL;
-        int n, rtnl_fd = -EBADF, varlink_fd = -EBADF, resolve_hook_fd = -EBADF;
+        int n, rtnl_fd = -EBADF, varlink_fd = -EBADF, varlink_metrics_fd = -EBADF, resolve_hook_fd = -EBADF;
 
         assert(m);
         assert(ret_rtnl_fd);
         assert(ret_varlink_fd);
+        assert(ret_varlink_metrics_fd);
         assert(ret_resolve_hook_fd);
 
         n = sd_listen_fds_with_names(/* unset_environment= */ true, &names);
@@ -238,6 +245,11 @@ static int manager_listen_fds(Manager *m, int *ret_rtnl_fd, int *ret_varlink_fd,
                         continue;
                 }
 
+                if (streq(names[i], "varlink-metrics")) {
+                        varlink_metrics_fd = fd;
+                        continue;
+                }
+
                 if (streq(names[i], "resolve-hook")) {
                         resolve_hook_fd = fd;
                         continue;
@@ -258,6 +270,7 @@ static int manager_listen_fds(Manager *m, int *ret_rtnl_fd, int *ret_varlink_fd,
 
         *ret_rtnl_fd = rtnl_fd;
         *ret_varlink_fd = varlink_fd;
+        *ret_varlink_metrics_fd = varlink_metrics_fd;
         *ret_resolve_hook_fd = resolve_hook_fd;
 
         return 0;
@@ -520,7 +533,7 @@ static int signal_restart_callback(sd_event_source *s, const struct signalfd_sig
 static int signal_reload_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
-        (void) manager_reload(m, /* message= */ NULL);
+        (void) manager_reload(m, /* message= */ NULL, /* varlink= */ NULL);
 
         return 0;
 }
@@ -552,7 +565,7 @@ static int manager_set_keep_configuration(Manager *m) {
 }
 
 int manager_setup(Manager *m) {
-        _cleanup_close_ int rtnl_fd = -EBADF, varlink_fd = -EBADF, resolve_hook_fd = -EBADF;
+        _cleanup_close_ int rtnl_fd = -EBADF, varlink_fd = -EBADF, varlink_metrics_fd = -EBADF, resolve_hook_fd = -EBADF;
         int r;
 
         assert(m);
@@ -576,7 +589,7 @@ int manager_setup(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = manager_listen_fds(m, &rtnl_fd, &varlink_fd, &resolve_hook_fd);
+        r = manager_listen_fds(m, &rtnl_fd, &varlink_fd, &varlink_metrics_fd, &resolve_hook_fd);
         if (r < 0)
                 return r;
 
@@ -596,6 +609,10 @@ int manager_setup(Manager *m) {
                 return 0;
 
         r = manager_varlink_init(m, TAKE_FD(varlink_fd));
+        if (r < 0)
+                return r;
+
+        r = manager_varlink_metrics_init(m, TAKE_FD(varlink_metrics_fd));
         if (r < 0)
                 return r;
 
@@ -659,6 +676,8 @@ static int persistent_storage_open(void) {
 
 int manager_new(Manager **ret, bool test_mode) {
         _cleanup_(manager_freep) Manager *m = NULL;
+
+        assert(ret);
 
         m = new(Manager, 1);
         if (!m)
@@ -733,6 +752,9 @@ Manager* manager_free(Manager *m) {
 
         set_free(m->rules);
 
+        sd_bus_slot_unref(m->slot_mm);
+        hashmap_free(m->modems_by_path);
+
         sd_netlink_unref(m->rtnl);
         sd_netlink_unref(m->genl);
         sd_netlink_unref(m->nfnl);
@@ -752,6 +774,7 @@ Manager* manager_free(Manager *m) {
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->varlink_resolve_hook_server = sd_varlink_server_unref(m->varlink_resolve_hook_server);
+        m->varlink_metrics_server = sd_varlink_server_unref(m->varlink_metrics_server);
         m->query_filter_subscriptions = set_free(m->query_filter_subscriptions);
         hashmap_free(m->polkit_registry);
         sd_bus_flush_close_unref(m->bus);
@@ -1236,11 +1259,12 @@ int manager_set_timezone(Manager *m, const char *tz) {
         return 0;
 }
 
-int manager_reload(Manager *m, sd_bus_message *message) {
+int manager_reload(Manager *m, sd_bus_message *message, sd_varlink *varlink) {
         Link *link;
         int r;
 
         assert(m);
+        assert(!message || !varlink); /* D-Bus and Varlink callers are mutually exclusive */
 
         log_debug("Reloading...");
         (void) notify_reloading();
@@ -1258,8 +1282,12 @@ int manager_reload(Manager *m, sd_bus_message *message) {
         }
 
         HASHMAP_FOREACH(link, m->links_by_index)
-                (void) link_reconfigure_full(link, /* flags= */ 0, message,
-                                             /* counter= */ message ? &m->reloading : NULL);
+                (void) link_reconfigure_full(
+                                link,
+                                /* flags= */ 0,
+                                message,
+                                varlink,
+                                /* counter= */ (message || varlink) ? &m->reloading : NULL);
 
         log_debug("Reloaded.");
         r = 0;

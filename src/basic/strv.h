@@ -104,10 +104,6 @@ static inline const char* STRV_IFNOTNULL(const char *x) {
         return x ?: STRV_IGNORE;
 }
 
-static inline bool strv_isempty(char * const *l) {
-        return !l || !*l;
-}
-
 int strv_split_full(char ***t, const char *s, const char *separators, ExtractFlags flags);
 char** strv_split(const char *s, const char *separators);
 
@@ -221,3 +217,9 @@ int string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const c
 int strv_rebreak_lines(char **l, size_t width, char ***ret);
 
 char** strv_filter_prefix(char * const *l, const char *prefix);
+
+/* whenever we need to initialize something with a constant non-NULL, but empty strv, we can use this shared
+ * one */
+extern const char* const strv_empty[1];
+
+#define STRV_EMPTY ((char**) strv_empty)

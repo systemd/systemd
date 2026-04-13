@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <fnmatch.h>
-#include <getopt.h>
 #include <sys/file.h>
 #include <sysexits.h>
 #include <time.h>
@@ -31,6 +30,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
@@ -45,6 +45,7 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "offline-passwd.h"
+#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -199,6 +200,7 @@ typedef enum {
 
 static CatFlags arg_cat_flags = CAT_CONFIG_OFF;
 static bool arg_dry_run = false;
+static bool arg_inline = false;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static OperationMask arg_operation = 0;
 static bool arg_boot = false;
@@ -208,7 +210,7 @@ static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
-static char *arg_replace = NULL;
+static const char *arg_replace = NULL;
 static ImagePolicy *arg_image_policy = NULL;
 
 #define MAX_DEPTH 256
@@ -287,6 +289,7 @@ static int specifier_directory(
         unsigned i;
         int r;
 
+        assert(ret);
         assert_cc(ELEMENTSOF(paths_system) == ELEMENTSOF(paths_user));
         paths = arg_runtime_scope == RUNTIME_SCOPE_USER ? paths_user : paths_system;
 
@@ -586,12 +589,16 @@ static int opendir_and_stat(
                 return 0;
         }
 
-        if (statx(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx) < 0)
-                return log_error_errno(errno, "statx(%s) failed: %m", path);
-
-        r = statx_warn_mount_root(&sx, LOG_ERR);
+        r = xstatx_full(dirfd(d),
+                        /* path= */ NULL,
+                        AT_EMPTY_PATH,
+                        /* xstatx_flags= */ 0,
+                        STATX_MODE|STATX_INO,
+                        STATX_ATIME|STATX_MTIME,
+                        STATX_ATTR_MOUNT_ROOT,
+                        &sx);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "statx(%s) failed: %m", path);
 
         *ret_mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
         *ret = TAKE_PTR(d);
@@ -683,44 +690,32 @@ static int dir_cleanup(
                 if (dot_or_dot_dot(de->d_name))
                         continue;
 
-                /* If statx() is supported, use it. It's preferable over fstatat() since it tells us
-                 * explicitly where we are looking at a mount point, for free as side information. Determining
-                 * the same information without statx() is hard, see the complexity of path_is_mount_point(),
-                 * and also much slower as it requires a number of syscalls instead of just one. Hence, when
-                 * we have modern statx() we use it instead of fstat() and do proper mount point checks,
-                 * while on older kernels's well do traditional st_dev based detection of mount points.
-                 *
-                 * Using statx() for detecting mount points also has the benefit that we handle weird file
-                 * systems such as overlayfs better where each file is originating from a different
-                 * st_dev. */
-
                 struct statx sx;
-                if (statx(dirfd(d), de->d_name,
-                          AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
-                          STATX_TYPE|STATX_MODE|STATX_UID|STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
-                          &sx) < 0) {
-                        if (errno == ENOENT)
-                                continue;
-
+                r = xstatx_full(dirfd(d), de->d_name,
+                                AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
+                                /* xstatx_flags= */ 0,
+                                STATX_TYPE|STATX_MODE|STATX_UID,
+                                STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
+                                STATX_ATTR_MOUNT_ROOT,
+                                &sx);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0) {
                         /* FUSE, NFS mounts, SELinux might return EACCES */
-                        log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                        log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_ERR, r,
                                        "statx(%s/%s) failed: %m", p, de->d_name);
                         continue;
                 }
-
-                r = statx_warn_mount_root(&sx, LOG_ERR);
-                if (r < 0)
-                        return r;
 
                 if (FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT)) {
                         log_debug("Ignoring \"%s/%s\": different mount points.", p, de->d_name);
                         continue;
                 }
 
-                atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : 0;
-                mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : 0;
-                ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? statx_timestamp_load_nsec(&sx.stx_ctime) : 0;
-                btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? statx_timestamp_load_nsec(&sx.stx_btime) : 0;
+                atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : NSEC_INFINITY;
+                mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : NSEC_INFINITY;
+                ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? statx_timestamp_load_nsec(&sx.stx_ctime) : NSEC_INFINITY;
+                btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? statx_timestamp_load_nsec(&sx.stx_btime) : NSEC_INFINITY;
 
                 sub_path = path_join(p, de->d_name);
                 if (!sub_path) {
@@ -874,11 +869,19 @@ finish:
                 log_action("Would restore", "Restoring",
                            "%s access and modification time on \"%s\": %s, %s",
                            p,
-                           FORMAT_TIMESTAMP_STYLE(self_atime_nsec / NSEC_PER_USEC, TIMESTAMP_US),
-                           FORMAT_TIMESTAMP_STYLE(self_mtime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
+                           self_atime_nsec != NSEC_INFINITY
+                                ? FORMAT_TIMESTAMP_STYLE(self_atime_nsec / NSEC_PER_USEC, TIMESTAMP_US)
+                                : "(omitted)",
+                           self_mtime_nsec != NSEC_INFINITY
+                                ? FORMAT_TIMESTAMP_STYLE(self_mtime_nsec / NSEC_PER_USEC, TIMESTAMP_US)
+                                : "(omitted)");
 
-                timespec_store_nsec(ts + 0, self_atime_nsec);
-                timespec_store_nsec(ts + 1, self_mtime_nsec);
+                ts[0] = self_atime_nsec != NSEC_INFINITY
+                        ? *TIMESPEC_STORE_NSEC(self_atime_nsec)
+                        : TIMESPEC_OMIT;
+                ts[1] = self_mtime_nsec != NSEC_INFINITY
+                        ? *TIMESPEC_STORE_NSEC(self_mtime_nsec)
+                        : TIMESPEC_OMIT;
 
                 /* Restore original directory timestamps */
                 if (!arg_dry_run &&
@@ -2396,13 +2399,13 @@ static int create_symlink(Context *c, Item *i) {
                 r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /* ret_path= */ NULL, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
                         /* Silently skip over lines where the source file is missing. */
-                        log_info("Symlink source path '%s/%s' does not exist, skipping line.",
-                                 empty_to_root(arg_root), skip_leading_slash(i->argument));
+                        log_debug_errno(r, "Symlink source path '%s/%s' does not exist, skipping line.",
+                                        strempty(arg_root), skip_leading_slash(i->argument));
                         return 0;
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to check if symlink source path '%s/%s' exists: %m",
-                                               empty_to_root(arg_root), skip_leading_slash(i->argument));
+                                               strempty(arg_root), skip_leading_slash(i->argument));
         }
 
         r = path_extract_filename(i->path, &bn);
@@ -2645,7 +2648,7 @@ static int rm_if_wrong_type_safe(
         }
 
         /* Fail before removing anything if this is an unsafe transition. */
-        if (follow_links && unsafe_transition(parent_st, &st)) {
+        if (follow_links && stat_unsafe_transition(parent_st, &st)) {
                 (void) fd_get_path(parent_fd, &parent_name);
                 return log_error_errno(SYNTHETIC_ERRNO(ENOLINK),
                                        "Unsafe transition from \"%s\" to \"%s\".", parent_name ?: "...", name);
@@ -3123,6 +3126,7 @@ static int clean_item_instance(
                 return 0;
 
         usec_t cutoff = n - i->age;
+        nsec_t atime_nsec, mtime_nsec;
 
         _cleanup_closedir_ DIR *d = NULL;
         struct statx sx;
@@ -3132,6 +3136,9 @@ static int clean_item_instance(
         r = opendir_and_stat(instance, &d, &sx, &mountpoint);
         if (r <= 0)
                 return r;
+
+        atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : NSEC_INFINITY;
+        mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : NSEC_INFINITY;
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *ab_f = NULL, *ab_d = NULL;
@@ -3152,8 +3159,8 @@ static int clean_item_instance(
         }
 
         return dir_cleanup(c, i, instance, d,
-                           statx_timestamp_load_nsec(&sx.stx_atime),
-                           statx_timestamp_load_nsec(&sx.stx_mtime),
+                           atime_nsec,
+                           mtime_nsec,
                            cutoff * NSEC_PER_USEC,
                            sx.stx_dev_major, sx.stx_dev_minor,
                            mountpoint,
@@ -3597,6 +3604,7 @@ static int parse_line(
         assert(fname);
         assert(line >= 1);
         assert(buffer);
+        assert(invalid_config);
 
         const Specifier specifier_table[] = {
                 { 'h', specifier_user_home,       NULL },
@@ -4135,211 +4143,174 @@ static int exclude_default_prefixes(void) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *cmds = NULL, *opts = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-tmpfiles", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s COMMAND [OPTIONS...] [CONFIGURATION FILE...]\n"
-               "\n%2$sCreate, delete, and clean up files and directories.%4$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "     --create               Create and adjust files and directories\n"
-               "     --clean                Clean up files and directories\n"
-               "     --remove               Remove files and directories marked for removal\n"
-               "     --purge                Delete files and directories marked for creation in\n"
-               "                            specified configuration files (careful!)\n"
-               "     --cat-config           Show configuration files\n"
-               "     --tldr                 Show non-comment parts of configuration files\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "\n%3$sOptions:%4$s\n"
-               "     --user                 Execute user configuration\n"
-               "     --boot                 Execute actions only safe at boot\n"
-               "     --graceful             Quietly ignore unknown users or groups\n"
-               "     --prefix=PATH          Only apply rules with the specified prefix\n"
-               "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
-               "  -E                        Ignore rules prefixed with /dev, /proc, /run, /sys\n"
-               "     --root=PATH            Operate on an alternate filesystem root\n"
-               "     --image=PATH           Operate on disk image as filesystem root\n"
-               "     --image-policy=POLICY  Specify disk image dissection policy\n"
-               "     --replace=PATH         Treat arguments as replacement for PATH\n"
-               "     --dry-run              Just print what would be done\n"
-               "     --no-pager             Do not pipe output into a pager\n"
-               "\nSee the %5$s for details.\n",
+        r = option_parser_get_help_table(&cmds);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table_group("Options", &opts);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, cmds, opts);
+
+        printf("%s COMMAND [OPTIONS...] [CONFIGURATION FILE...]\n"
+               "\n%sCreate, delete, and clean up files and directories.%s\n"
+               "\nCommands:\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_underline(),
-               ansi_normal(),
-               link);
+               ansi_normal());
 
+        r = table_print_or_warn(cmds);
+        if (r < 0)
+                return r;
+
+        printf("\nOptions:\n");
+
+        r = table_print_or_warn(opts);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_CAT_CONFIG,
-                ARG_TLDR,
-                ARG_USER,
-                ARG_CREATE,
-                ARG_CLEAN,
-                ARG_REMOVE,
-                ARG_PURGE,
-                ARG_BOOT,
-                ARG_GRACEFUL,
-                ARG_PREFIX,
-                ARG_EXCLUDE_PREFIX,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_REPLACE,
-                ARG_DRY_RUN,
-                ARG_NO_PAGER,
-        };
-
-        static const struct option options[] = {
-                { "help",           no_argument,         NULL, 'h'                },
-                { "user",           no_argument,         NULL, ARG_USER           },
-                { "version",        no_argument,         NULL, ARG_VERSION        },
-                { "cat-config",     no_argument,         NULL, ARG_CAT_CONFIG     },
-                { "tldr",           no_argument,         NULL, ARG_TLDR           },
-                { "create",         no_argument,         NULL, ARG_CREATE         },
-                { "clean",          no_argument,         NULL, ARG_CLEAN          },
-                { "remove",         no_argument,         NULL, ARG_REMOVE         },
-                { "purge",          no_argument,         NULL, ARG_PURGE          },
-                { "boot",           no_argument,         NULL, ARG_BOOT           },
-                { "graceful",       no_argument,         NULL, ARG_GRACEFUL       },
-                { "prefix",         required_argument,   NULL, ARG_PREFIX         },
-                { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
-                { "root",           required_argument,   NULL, ARG_ROOT           },
-                { "image",          required_argument,   NULL, ARG_IMAGE          },
-                { "image-policy",   required_argument,   NULL, ARG_IMAGE_POLICY   },
-                { "replace",        required_argument,   NULL, ARG_REPLACE        },
-                { "dry-run",        no_argument,         NULL, ARG_DRY_RUN        },
-                { "no-pager",       no_argument,         NULL, ARG_NO_PAGER       },
-                {}
-        };
-
-        int c, r;
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hE", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_CAT_CONFIG:
-                        arg_cat_flags = CAT_CONFIG_ON;
-                        break;
-
-                case ARG_TLDR:
-                        arg_cat_flags = CAT_TLDR;
-                        break;
-
-                case ARG_USER:
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case ARG_CREATE:
+                OPTION_LONG("create", NULL, "Create and adjust files and directories"):
                         arg_operation |= OPERATION_CREATE;
                         break;
 
-                case ARG_CLEAN:
+                OPTION_LONG("clean", NULL, "Clean up files and directories"):
                         arg_operation |= OPERATION_CLEAN;
                         break;
 
-                case ARG_REMOVE:
+                OPTION_LONG("remove", NULL, "Remove files and directories marked for removal"):
                         arg_operation |= OPERATION_REMOVE;
                         break;
 
-                case ARG_BOOT:
-                        arg_boot = true;
-                        break;
-
-                case ARG_PURGE:
+                OPTION_LONG("purge", NULL,
+                            "Delete files and directories marked for creation in"
+                            " specified configuration files (careful!)"):
                         arg_operation |= OPERATION_PURGE;
                         break;
 
-                case ARG_GRACEFUL:
+                OPTION_COMMON_CAT_CONFIG:
+                        arg_cat_flags = CAT_CONFIG_ON;
+                        break;
+
+                OPTION_COMMON_TLDR:
+                        arg_cat_flags = CAT_TLDR;
+                        break;
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_GROUP("Options"):
+                        break;
+
+                OPTION_LONG("user", NULL, "Execute user configuration"):
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
+                OPTION_LONG("boot", NULL, "Execute actions only safe at boot"):
+                        arg_boot = true;
+                        break;
+
+                OPTION_LONG("graceful", NULL, "Quietly ignore unknown users or groups"):
                         arg_graceful = true;
                         break;
 
-                case ARG_PREFIX:
-                        if (strv_extend(&arg_include_prefixes, optarg) < 0)
+                OPTION_LONG("prefix", "PATH", "Only apply rules with the specified prefix"):
+                        if (strv_extend(&arg_include_prefixes, arg) < 0)
                                 return log_oom();
                         break;
 
-                case ARG_EXCLUDE_PREFIX:
-                        if (strv_extend(&arg_exclude_prefixes, optarg) < 0)
+                OPTION_LONG("exclude-prefix", "PATH", "Ignore rules with the specified prefix"):
+                        if (strv_extend(&arg_exclude_prefixes, arg) < 0)
                                 return log_oom();
                         break;
 
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root);
+                OPTION_SHORT('E', NULL, "Ignore rules prefixed with /dev, /proc, /run, /sys"):
+                        r = exclude_default_prefixes();
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
+                OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
 
                         /* Imply -E here since it makes little sense to create files persistently in the /run mountpoint of a disk image */
-                        _fallthrough_;
-
-                case 'E':
                         r = exclude_default_prefixes();
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
+                        r = parse_image_policy_argument(arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_REPLACE:
-                        if (!path_is_absolute(optarg))
+                OPTION_LONG("replace", "PATH", "Treat arguments as replacement for PATH"):
+                        if (!path_is_absolute(arg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "The argument to --replace= must be an absolute path.");
-                        if (!endswith(optarg, ".conf"))
+                        if (!endswith(arg, ".conf"))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "The argument to --replace= must have the extension '.conf'.");
 
-                        arg_replace = optarg;
+                        arg_replace = arg;
                         break;
 
-                case ARG_DRY_RUN:
+                OPTION_LONG("dry-run", NULL, "Just print what would be done"):
                         arg_dry_run = true;
                         break;
 
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
+                OPTION_LONG("inline", NULL, "Treat arguments as configuration lines"):
+                        arg_inline = true;
                         break;
 
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
+                OPTION_COMMON_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
                 }
+
+        char **args = option_parser_get_args(&state);
+        size_t n_args = option_parser_get_n_args(&state);
 
         if (arg_operation == 0 && arg_cat_flags == CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "You need to specify at least one of --clean, --create, --remove, or --purge.");
 
-        if (FLAGS_SET(arg_operation, OPERATION_PURGE) && optind >= argc)
+        if (FLAGS_SET(arg_operation, OPERATION_PURGE) && n_args == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Refusing --purge without specification of a configuration file.");
 
@@ -4347,7 +4318,11 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --replace= is not supported with --cat-config/--tldr.");
 
-        if (arg_replace && optind >= argc)
+        if (arg_inline && arg_cat_flags != CAT_CONFIG_OFF)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --inline is not supported with --cat-config/--tldr.");
+
+        if (arg_replace && n_args == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "When --replace= is given, some configuration items must be specified.");
 
@@ -4359,6 +4334,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Please specify either --root= or --image=, the combination of both is not supported.");
 
+        *ret_args = args;
         return 1;
 }
 
@@ -4423,14 +4399,30 @@ static int parse_arguments(
                 char **config_dirs,
                 char **args,
                 bool *invalid_config) {
+
+        unsigned pos = 1;
         int r;
 
         assert(c);
+        assert(invalid_config);
 
         STRV_FOREACH(arg, args) {
-                r = read_config_file(c, config_dirs, *arg, false, invalid_config);
-                if (r < 0)
-                        return r;
+                if (arg_inline) {
+                        bool invalid_arg = false;
+
+                        /* Use (argument):n, where n==1 for the first positional arg */
+                        r = parse_line("(argument)", pos, *arg, &invalid_arg, c);
+                        if (invalid_arg)
+                                *invalid_config = true;
+                        else if (r < 0)
+                                return r;
+                } else {
+                        r = read_config_file(c, config_dirs, *arg, /* ignore_enoent= */ false, invalid_config);
+                        if (r < 0)
+                                return r;
+                }
+
+                pos++;
         }
 
         return 0;
@@ -4543,7 +4535,8 @@ static int run(int argc, char *argv[]) {
         } phase;
         int r;
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -4598,7 +4591,7 @@ static int run(int argc, char *argv[]) {
         }
 
         if (arg_cat_flags != CAT_CONFIG_OFF)
-                return cat_config(config_dirs, argv + optind);
+                return cat_config(config_dirs, args);
 
         if (should_bypass("SYSTEMD_TMPFILES"))
                 return 0;
@@ -4642,10 +4635,10 @@ static int run(int argc, char *argv[]) {
          * insert the positional arguments at the specified place. Otherwise, if command line arguments are
          * specified, execute just them, and finally, without --replace= or any positional arguments, just
          * read configuration and execute it. */
-        if (arg_replace || optind >= argc)
-                r = read_config_files(&c, config_dirs, argv + optind, &invalid_config);
+        if (arg_replace || strv_isempty(args))
+                r = read_config_files(&c, config_dirs, args, &invalid_config);
         else
-                r = parse_arguments(&c, config_dirs, argv + optind, &invalid_config);
+                r = parse_arguments(&c, config_dirs, args, &invalid_config);
         if (r < 0)
                 return r;
 

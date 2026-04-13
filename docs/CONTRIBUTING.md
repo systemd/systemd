@@ -7,7 +7,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Contributing
 
-We welcome contributions from everyone. However, please follow the following guidelines when posting a GitHub Pull Request or filing a GitHub Issue on the systemd project:
+We welcome contributions from everyone. However, please follow these guidelines when posting a GitHub Pull Request or filing a GitHub Issue on the systemd project:
 
 ## Filing Issues
 
@@ -53,7 +53,8 @@ See [reporting of security vulnerabilities](https://systemd.io/SECURITY).
 ## Using AI Code Generators
 
 If you use an AI code generator such as ChatGPT, Claude, Copilot, Llama or a similar tool, this must be
-disclosed in the commit messages and pull request description.
+disclosed in the commit messages by adding e.g. `Co-developed-by: Claude Opus 4.6 <noreply@anthropic.com>`
+and pull request description.
 
 The quality bar for contributions to this project is high, and unlikely to be met by an unattended AI tool,
 without significant manual corrections. Always thoroughly review and correct any such outputs, for example

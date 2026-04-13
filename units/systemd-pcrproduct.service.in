@@ -12,11 +12,11 @@ Description=TPM NvPCR Product ID Measurement
 Documentation=man:systemd-pcrproduct.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=tpm2.target
+After=tpm2.target systemd-pcrnvdone.service
 Before=sysinit.target shutdown.target
 RequiresMountsFor=/var/lib/systemd/nvpcr
 ConditionPathExists=!/etc/initrd-release
-ConditionSecurity=measured-uki
+ConditionSecurity=measured-os
 
 [Service]
 Type=oneshot

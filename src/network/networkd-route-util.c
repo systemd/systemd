@@ -139,6 +139,12 @@ bool gateway_is_ready(Link *link, bool onlink, int family, const union in_addr_u
         assert(link);
         assert(link->manager);
 
+        if (link->set_flags_messages > 0)
+                return false;
+
+        if (!link_is_up(link))
+                return false;
+
         if (onlink)
                 return true;
 

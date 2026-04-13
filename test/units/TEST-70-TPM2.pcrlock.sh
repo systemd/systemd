@@ -42,6 +42,18 @@ PCRS="1+2+3+4+5+16"
 # (as the PCR values simply won't match the log).
 rm -f /run/log/systemd/tpm2-measure.log
 
+# Add the os-separator measurements, they should be the only measurements that touch pcr 0…6 done from userspace.
+RS=$'\x1e'
+cat >/run/log/systemd/tpm2-measure.log <<EOF
+${RS}{"pcr":0,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659711,"eventType":"os-separator"}}
+${RS}{"pcr":1,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659775,"eventType":"os-separator"}}
+${RS}{"pcr":2,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659805,"eventType":"os-separator"}}
+${RS}{"pcr":3,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659829,"eventType":"os-separator"}}
+${RS}{"pcr":4,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659851,"eventType":"os-separator"}}
+${RS}{"pcr":5,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2660099,"eventType":"os-separator"}}
+${RS}{"pcr":6,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2660139,"eventType":"os-separator"}}
+EOF
+
 # Reset TPM PCR 16 ("debug") explicitly, so that we can use it in a known good state
 tpm2_pcrreset 16
 

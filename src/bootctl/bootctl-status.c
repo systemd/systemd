@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fnmatch.h>
 #include <unistd.h>
 
 #include "sd-varlink.h"
@@ -10,55 +9,19 @@
 #include "bootctl-status.h"
 #include "bootctl-util.h"
 #include "bootspec.h"
+#include "bootspec-util.h"
 #include "chase.h"
-#include "devnum-util.h"
 #include "dirent-util.h"
 #include "efi-api.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "hashmap.h"
 #include "log.h"
 #include "pager.h"
-#include "path-util.h"
 #include "pretty-print.h"
-#include "recurse-dir.h"
 #include "string-util.h"
-#include "strv.h"
 #include "tpm2-util.h"
-
-static int boot_config_load_and_select(
-                BootConfig *config,
-                const char *esp_path,
-                dev_t esp_devid,
-                const char *xbootldr_path,
-                dev_t xbootldr_devid) {
-
-        int r;
-
-        /* If XBOOTLDR and ESP actually refer to the same block device, suppress XBOOTLDR, since it would
-         * find the same entries twice. */
-        bool same = esp_path && xbootldr_path && devnum_set_and_equal(esp_devid, xbootldr_devid);
-
-        r = boot_config_load(config, esp_path, same ? NULL : xbootldr_path);
-        if (r < 0)
-                return r;
-
-        if (!arg_root) {
-                _cleanup_strv_free_ char **efi_entries = NULL;
-
-                r = efi_loader_get_entries(&efi_entries);
-                if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        log_debug_errno(r, "Boot loader reported no entries.");
-                else if (r < 0)
-                        log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
-                else
-                        (void) boot_config_augment_from_loader(config, efi_entries, /* auto_only= */ false);
-        }
-
-        return boot_config_select_special_entries(config, /* skip_efivars= */ !!arg_root);
-}
 
 static int status_entries(
                 const BootConfig *config,
@@ -74,38 +37,51 @@ static int status_entries(
 
         printf("%sBoot Loader Entry Locations:%s\n", ansi_underline(), ansi_normal());
 
-        printf("          ESP: %s (", esp_path);
-        if (!sd_id128_is_null(esp_partition_uuid))
-                printf("/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "",
+        bool need_paren = false;
+        printf("          ESP: %s", esp_path);
+        if (!sd_id128_is_null(esp_partition_uuid)) {
+                printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "",
                        SD_ID128_FORMAT_VAL(esp_partition_uuid));
-        if (!xbootldr_path)
+                need_paren = true;
+        }
+        if (!xbootldr_path) {
+                if (!need_paren) {
+                        fputs(" (", stdout);
+                        need_paren = true;
+                } else
+                        fputs(", ", stdout);
+
                 /* ESP is $BOOT if XBOOTLDR not present. */
-                printf(", %s$BOOT%s", ansi_green(), ansi_normal());
-        printf(")");
+                printf("%s$BOOT%s", ansi_green(), ansi_normal());
+        }
+        if (need_paren)
+                putchar(')');
+        putchar('\n');
 
         if (config->loader_conf_status != 0) {
                 assert(esp_path);
-                printf("\n       config: %s%s/%s%s",
+                printf("       config: %s%s/%s%s",
                        ansi_grey(), esp_path, ansi_normal(), "/loader/loader.conf");
                 if (config->loader_conf_status < 0)
                         printf(": %s%s%s",
                                config->loader_conf_status == -ENOENT ? ansi_grey() : ansi_highlight_yellow(),
                                STRERROR(config->loader_conf_status),
                                ansi_normal());
+                putchar('\n');
         }
 
         if (xbootldr_path) {
-                printf("\n     XBOOTLDR: %s (", xbootldr_path);
+                printf("     XBOOTLDR: %s (", xbootldr_path);
                 if (!sd_id128_is_null(xbootldr_partition_uuid))
                         printf("/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ", ",
                                SD_ID128_FORMAT_VAL(xbootldr_partition_uuid));
                 /* XBOOTLDR is always $BOOT if present. */
-                printf("%s$BOOT%s)", ansi_green(), ansi_normal());
+                printf("%s$BOOT%s)\n", ansi_green(), ansi_normal());
         }
 
         if (settle_entry_token() >= 0)
-                printf("\n        token: %s", arg_entry_token);
-        printf("\n\n");
+                printf("        token: %s\n", arg_entry_token);
+        putchar('\n');
 
         if (config->default_entry < 0)
                 printf("%zu entries, no entry could be determined as default.\n", config->n_entries);
@@ -349,10 +325,12 @@ static void print_yes_no_line(bool first, bool good, const char *name) {
                name);
 }
 
-int verb_status(int argc, char *argv[], void *userdata) {
+int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_id128_t esp_uuid = SD_ID128_NULL, xbootldr_uuid = SD_ID128_NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r, k;
+
+        bool has_efi = touch_variables();
 
         r = acquire_esp(/* unprivileged_mode= */ -1,
                         /* graceful= */ false,
@@ -395,13 +373,14 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        if (arg_root)
-                log_debug("Skipping 'System' section, operating offline.");
-        else if (!is_efi_boot())
-                printf("%sSystem:%s\n"
-                       "Not booted with EFI\n\n",
-                       ansi_underline(), ansi_normal());
-        else {
+        if (!has_efi) {
+                if (arg_root)
+                        log_debug("Skipping 'System' section, operating offline.");
+                else
+                        printf("%sSystem:%s\n"
+                               "Not booted with EFI\n\n",
+                               ansi_underline(), ansi_normal());
+        } else {
                 static const struct {
                         uint64_t flag;
                         const char *name;
@@ -444,7 +423,8 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_STUB_FEATURE_MULTI_PROFILE_UKI,         "Stub understands profile selector"                           },
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
-                        *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL, *sysfail_entry = NULL, *sysfail_reason = NULL;
+                        *current_entry = NULL, *oneshot_entry = NULL, *preferred_entry = NULL, *default_entry = NULL, *sysfail_entry = NULL,
+                        *sysfail_reason = NULL;
                 uint64_t loader_features = 0, stub_features = 0;
                 int have;
 
@@ -458,6 +438,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 (void) efi_stub_get_features(&stub_features);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntrySelected"), &current_entry);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), &oneshot_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntryPreferred"), &preferred_entry);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"), &default_entry);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail"), &sysfail_entry);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderSysFailReason"), &sysfail_reason);
@@ -493,6 +474,16 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 else {
                         errno = -k;
                         printf("  Measured UKI: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
+                }
+
+                k = efi_measured_os(LOG_DEBUG);
+                if (k > 0)
+                        printf("   Measured OS: %syes%s\n", ansi_highlight_green(), ansi_normal());
+                else if (k == 0)
+                        printf("   Measured OS: no\n");
+                else {
+                        errno = -k;
+                        printf("   Measured OS: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
                 }
 
                 k = efi_get_reboot_to_firmware();
@@ -545,6 +536,8 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
                         if (current_entry)
                                 printf(" Current Entry: %s\n", current_entry);
+                        if (preferred_entry)
+                                printf(" Preferred Entry: %s\n", preferred_entry);
                         if (default_entry)
                                 printf(" Default Entry: %s\n", default_entry);
                         if (oneshot_entry && !streq_ptr(oneshot_entry, default_entry))
@@ -616,7 +609,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
         if (arg_esp_path)
                 RET_GATHER(r, status_binaries(arg_esp_path, esp_uuid));
 
-        if (!arg_root && is_efi_boot())
+        if (has_efi)
                 RET_GATHER(r, status_variables());
 
         if (arg_esp_path || arg_xbootldr_path) {
@@ -637,257 +630,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int ref_file(Hashmap **known_files, const char *fn, int increment) {
-        char *k = NULL;
-        int n, r;
-
-        assert(known_files);
-
-        /* just gracefully ignore this. This way the caller doesn't have to verify whether the bootloader
-         * entry is relevant. */
-        if (!fn)
-                return 0;
-
-        n = PTR_TO_INT(hashmap_get2(*known_files, fn, (void**)&k));
-        n += increment;
-
-        assert(n >= 0);
-
-        if (n == 0) {
-                (void) hashmap_remove(*known_files, fn);
-                free(k);
-        } else if (!k) {
-                _cleanup_free_ char *t = NULL;
-
-                t = strdup(fn);
-                if (!t)
-                        return -ENOMEM;
-                r = hashmap_ensure_put(known_files, &path_hash_ops_free, t, INT_TO_PTR(n));
-                if (r < 0)
-                        return r;
-                TAKE_PTR(t);
-        } else {
-                r = hashmap_update(*known_files, fn, INT_TO_PTR(n));
-                if (r < 0)
-                        return r;
-        }
-
-        return n;
-}
-
-static void deref_unlink_file(Hashmap **known_files, const char *fn, const char *root) {
-        _cleanup_free_ char *path = NULL;
-        int r;
-
-        assert(known_files);
-
-        /* just gracefully ignore this. This way the caller doesn't
-           have to verify whether the bootloader entry is relevant */
-        if (!fn || !root)
-                return;
-
-        r = ref_file(known_files, fn, -1);
-        if (r < 0)
-                return (void) log_warning_errno(r, "Failed to deref \"%s\", ignoring: %m", fn);
-        if (r > 0)
-                return;
-
-        if (arg_dry_run) {
-                r = chase_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, F_OK, &path);
-                if (r < 0)
-                        log_info_errno(r, "Unable to determine whether \"%s\" exists, ignoring: %m", fn);
-                else
-                        log_info("Would remove \"%s\"", path);
-                return;
-        }
-
-        r = chase_and_unlink(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, 0, &path);
-        if (r >= 0)
-                log_info("Removed \"%s\"", path);
-        else if (r != -ENOENT)
-                return (void) log_warning_errno(r, "Failed to remove \"%s\", ignoring: %m", fn);
-
-        _cleanup_free_ char *d = NULL;
-        if (path_extract_directory(fn, &d) >= 0 && !path_equal(d, "/")) {
-                r = chase_and_unlink(d, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, AT_REMOVEDIR, NULL);
-                if (r < 0 && !IN_SET(r, -ENOTEMPTY, -ENOENT))
-                        log_warning_errno(r, "Failed to remove directory \"%s\", ignoring: %m", d);
-        }
-}
-
-static int count_known_files(const BootConfig *config, const char* root, Hashmap **ret_known_files) {
-        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
-        int r;
-
-        assert(config);
-        assert(ret_known_files);
-
-        for (size_t i = 0; i < config->n_entries; i++) {
-                const BootEntry *e = config->entries + i;
-
-                if (!path_equal(e->root, root))
-                        continue;
-
-                r = ref_file(&known_files, e->kernel, +1);
-                if (r < 0)
-                        return r;
-                r = ref_file(&known_files, e->efi, +1);
-                if (r < 0)
-                        return r;
-                r = ref_file(&known_files, e->uki, +1);
-                if (r < 0)
-                        return r;
-                STRV_FOREACH(s, e->initrd) {
-                        r = ref_file(&known_files, *s, +1);
-                        if (r < 0)
-                                return r;
-                }
-                r = ref_file(&known_files, e->device_tree, +1);
-                if (r < 0)
-                        return r;
-                STRV_FOREACH(s, e->device_tree_overlay) {
-                        r = ref_file(&known_files, *s, +1);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        *ret_known_files = TAKE_PTR(known_files);
-
-        return 0;
-}
-
-static int boot_config_find_in(const BootConfig *config, const char *root, const char *id) {
-        assert(config);
-
-        if (!root || !id)
-                return -ENOENT;
-
-        for (size_t i = 0; i < config->n_entries; i++)
-                if (path_equal(config->entries[i].root, root) &&
-                    fnmatch(id, config->entries[i].id, FNM_CASEFOLD) == 0)
-                        return i;
-
-        return -ENOENT;
-}
-
-static int unlink_entry(const BootConfig *config, const char *root, const char *id) {
-        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
-        const BootEntry *e = NULL;
-        int r;
-
-        assert(config);
-
-        r = count_known_files(config, root, &known_files);
-        if (r < 0)
-                return log_error_errno(r, "Failed to count files in %s: %m", root);
-
-        r = boot_config_find_in(config, root, id);
-        if (r < 0)
-                return 0; /* There is nothing to remove. */
-
-        if (r == config->default_entry)
-                log_warning("%s is the default boot entry", id);
-        if (r == config->selected_entry)
-                log_warning("%s is the selected boot entry", id);
-
-        e = &config->entries[r];
-
-        deref_unlink_file(&known_files, e->kernel, e->root);
-        deref_unlink_file(&known_files, e->efi, e->root);
-        deref_unlink_file(&known_files, e->uki, e->root);
-        STRV_FOREACH(s, e->initrd)
-                deref_unlink_file(&known_files, *s, e->root);
-        deref_unlink_file(&known_files, e->device_tree, e->root);
-        STRV_FOREACH(s, e->device_tree_overlay)
-                deref_unlink_file(&known_files, *s, e->root);
-
-        if (arg_dry_run)
-                log_info("Would remove \"%s\"", e->path);
-        else {
-                r = chase_and_unlink(e->path, root, CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, 0, NULL);
-                if (r == -ENOENT)
-                        return 0; /* Already removed? */
-                if (r < 0)
-                        return log_error_errno(r, "Failed to remove \"%s\": %m", e->path);
-
-                log_info("Removed %s", e->path);
-        }
-
-        return 0;
-}
-
-static int list_remove_orphaned_file(
-                RecurseDirEvent event,
-                const char *path,
-                int dir_fd,
-                int inode_fd,
-                const struct dirent *de,
-                const struct statx *sx,
-                void *userdata) {
-
-        Hashmap *known_files = userdata;
-
-        assert(path);
-
-        if (event != RECURSE_DIR_ENTRY)
-                return RECURSE_DIR_CONTINUE;
-
-        if (hashmap_get(known_files, path))
-                return RECURSE_DIR_CONTINUE; /* keep! */
-
-        if (arg_dry_run)
-                log_info("Would remove %s", path);
-        else if (unlinkat(dir_fd, de->d_name, 0) < 0)
-                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                               "Failed to remove \"%s\", ignoring: %m", path);
-        else
-                log_info("Removed %s", path);
-
-        return RECURSE_DIR_CONTINUE;
-}
-
-static int cleanup_orphaned_files(
-                const BootConfig *config,
-                const char *root) {
-
-        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
-        _cleanup_free_ char *full = NULL, *p = NULL;
-        _cleanup_close_ int dir_fd = -EBADF;
-        int r;
-
-        assert(config);
-        assert(root);
-
-        log_info("Cleaning %s", root);
-
-        r = settle_entry_token();
-        if (r < 0)
-                return r;
-
-        r = count_known_files(config, root, &known_files);
-        if (r < 0)
-                return log_error_errno(r, "Failed to count files in %s: %m", root);
-
-        dir_fd = chase_and_open(arg_entry_token, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS,
-                        O_DIRECTORY|O_CLOEXEC, &full);
-        if (dir_fd == -ENOENT)
-                return 0;
-        if (dir_fd < 0)
-                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, skip_leading_slash(arg_entry_token));
-
-        p = path_join("/", arg_entry_token);
-        if (!p)
-                return log_oom();
-
-        r = recurse_dir(dir_fd, p, 0, UINT_MAX, RECURSE_DIR_SORT, list_remove_orphaned_file, known_files);
-        if (r < 0)
-                return log_error_errno(r, "Failed to cleanup %s: %m", full);
-
-        return r;
-}
-
-int verb_list(int argc, char *argv[], void *userdata) {
+int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r;
@@ -896,6 +639,8 @@ int verb_list(int argc, char *argv[], void *userdata) {
          * things: turn off logging about access errors and turn off potentially privileged device probing.
          * Here we're interested in the latter but not the former, hence request the mode, and log about
          * EACCES. */
+
+        (void) touch_variables();
 
         r = acquire_esp(/* unprivileged_mode= */ -1, /* graceful= */ false, NULL, NULL, NULL, NULL, &esp_devid);
         if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
@@ -918,19 +663,8 @@ int verb_list(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        if (streq(argv[0], "list")) {
-                pager_open(arg_pager_flags);
-                return show_boot_entries(&config, arg_json_format_flags);
-        } else if (streq(argv[0], "cleanup")) {
-                if (arg_xbootldr_path && xbootldr_devid != esp_devid)
-                        cleanup_orphaned_files(&config, arg_xbootldr_path);
-                return cleanup_orphaned_files(&config, arg_esp_path);
-        } else {
-                assert(streq(argv[0], "unlink"));
-                if (arg_xbootldr_path && xbootldr_devid != esp_devid)
-                        r = unlink_entry(&config, arg_xbootldr_path, argv[1]);
-                return RET_GATHER(r, unlink_entry(&config, arg_esp_path, argv[1]));
-        }
+        pager_open(arg_pager_flags);
+        return show_boot_entries(&config, arg_json_format_flags);
 }
 
 int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -939,13 +673,11 @@ int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, s
         int r;
 
         assert(link);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
-
-        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
         r = acquire_esp(/* unprivileged_mode= */ false,
                         /* graceful= */ false,
@@ -972,23 +704,21 @@ int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, s
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *previous = NULL;
+        r = sd_varlink_set_sentinel(link, "io.systemd.BootControl.NoSuchBootEntry");
+        if (r < 0)
+                return r;
+
         for (size_t i = 0; i < config.n_entries; i++) {
-                if (previous) {
-                        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("entry", previous));
-                        if (r < 0)
-                                return r;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                        previous = sd_json_variant_unref(previous);
-                }
+                r = boot_entry_to_json(&config, i, &v);
+                if (r < 0)
+                        return r;
 
-                r = boot_entry_to_json(&config, i, &previous);
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("entry", v));
                 if (r < 0)
                         return r;
         }
 
-        if (!previous)
-                return sd_varlink_error(link, "io.systemd.BootControl.NoSuchBootEntry", NULL);
-
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("entry", previous));
+        return 0;
 }

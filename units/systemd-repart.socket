@@ -17,6 +17,7 @@ Before=shutdown.target
 
 [Socket]
 ListenStream=/run/systemd/io.systemd.Repart
+Symlinks=/run/varlink/registry/io.systemd.Repart
 FileDescriptorName=varlink
 SocketMode=0600
 Accept=yes

@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -10,7 +9,9 @@
 
 #include "build.h"
 #include "bus-util.h"
+#include "chase.h"
 #include "env-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -18,13 +19,19 @@
 #include "log.h"
 #include "main-func.h"
 #include "memfd-util.h"
+#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-lookup.h"
+#include "path-util.h"
 #include "pidfd-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "recurse-dir.h"
+#include "runtime-scope.h"
+#include "socket-forward.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -47,8 +54,11 @@ static bool arg_quiet = false;
 static char **arg_graceful = NULL;
 static usec_t arg_timeout = 0;
 static bool arg_exec = false;
+static bool arg_upgrade = false;
 static PushFds arg_push_fds = {};
 static bool arg_ask_password = true;
+static bool arg_legend = true;
+static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
 static void push_fds_done(PushFds *p) {
         assert(p);
@@ -62,191 +72,168 @@ STATIC_DESTRUCTOR_REGISTER(arg_push_fds, push_fds_done);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("varlinkctl", "1", &link);
         if (r < 0)
                 return log_oom();
 
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, options, verbs);
+
         pager_open(arg_pager_flags);
 
-        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
-               "%5$sIntrospect Varlink Services.%6$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "  info ADDRESS           Show service information\n"
-               "  list-interfaces ADDRESS\n"
-               "                         List interfaces implemented by service\n"
-               "  list-methods ADDRESS [INTERFACE…]\n"
-               "                         List methods implemented by services or specific\n"
-               "                         interfaces\n"
-               "  introspect ADDRESS [INTERFACE…]\n"
-               "                         Show interface definition\n"
-               "  call ADDRESS METHOD [PARAMS]\n"
-               "                         Invoke method\n"
-               "  --exec call ADDRESS METHOD PARAMS -- CMDLINE…\n"
-               "                         Invoke method and pass response and fds to command\n"
-               "  validate-idl [FILE]    Validate interface description\n"
-               "  help                   Show this help\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --no-ask-password   Do not prompt for password\n"
-               "     --no-pager          Do not pipe output into a pager\n"
-               "     --more              Request multiple responses\n"
-               "     --collect           Collect multiple responses in a JSON array\n"
-               "     --oneway            Do not request response\n"
-               "     --json=MODE         Output as JSON\n"
-               "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
-               "  -q --quiet             Do not output method reply\n"
-               "     --graceful=ERROR    Treat specified Varlink error as success\n"
-               "     --timeout=SECS      Maximum time to wait for method call completion\n"
-               "  -E                     Short for --more --timeout=infinity\n"
-               "     --push-fd=FD        Pass the specified fd along with method call\n"
-               "\nSee the %2$s for details.\n",
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "%sIntrospect Varlink Services.%s\n"
+               "\nCommands:\n",
                program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
                ansi_normal());
 
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\nOptions:\n");
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nWith --exec, specify the command to invoke:\n"
+               "  %s --exec call ADDRESS METHOD PARAMS -- CMDLINE…\n",
+               program_invocation_short_name);
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP(help);
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_MORE,
-                ARG_ONEWAY,
-                ARG_JSON,
-                ARG_COLLECT,
-                ARG_GRACEFUL,
-                ARG_TIMEOUT,
-                ARG_EXEC,
-                ARG_PUSH_FD,
-                ARG_NO_ASK_PASSWORD,
-        };
-
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
-                { "more",            no_argument,       NULL, ARG_MORE            },
-                { "oneway",          no_argument,       NULL, ARG_ONEWAY          },
-                { "json",            required_argument, NULL, ARG_JSON            },
-                { "collect",         no_argument,       NULL, ARG_COLLECT         },
-                { "quiet",           no_argument,       NULL, 'q'                 },
-                { "graceful",        required_argument, NULL, ARG_GRACEFUL        },
-                { "timeout",         required_argument, NULL, ARG_TIMEOUT         },
-                { "exec",            no_argument,       NULL, ARG_EXEC            },
-                { "push-fd",         required_argument, NULL, ARG_PUSH_FD         },
-                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                {},
-        };
-
-        int c, r;
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hjqE", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case 'E':
-                        arg_timeout = USEC_INFINITY;
-                        _fallthrough_;
+                OPTION_LONG("system", NULL, "Enumerate system registry"):
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
 
-                case ARG_MORE:
+                OPTION_LONG("user", NULL, "Enumerate user registry"):
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
+                OPTION_LONG("more", NULL, "Request multiple responses"):
                         arg_method_flags = (arg_method_flags & ~SD_VARLINK_METHOD_ONEWAY) | SD_VARLINK_METHOD_MORE;
                         break;
 
-                case ARG_ONEWAY:
-                        arg_method_flags = (arg_method_flags & ~SD_VARLINK_METHOD_MORE) | SD_VARLINK_METHOD_ONEWAY;
-                        break;
-
-                case ARG_COLLECT:
+                OPTION_LONG("collect", NULL, "Collect multiple responses in a JSON array"):
                         arg_collect = true;
                         break;
 
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
+                OPTION_LONG("oneway", NULL, "Do not request response"):
+                        arg_method_flags = (arg_method_flags & ~SD_VARLINK_METHOD_MORE) | SD_VARLINK_METHOD_ONEWAY;
                         break;
 
-                case 'j':
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+                        break;
+
+                OPTION_COMMON_LOWERCASE_J:
                         arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
 
-                case 'q':
+                OPTION('q', "quiet", NULL, "Do not output method reply"):
                         arg_quiet = true;
                         break;
 
-                case ARG_GRACEFUL:
-                        r = varlink_idl_qualified_symbol_name_is_valid(optarg);
+                OPTION_LONG("graceful", "ERROR", "Treat specified Varlink error as success"):
+                        r = varlink_idl_qualified_symbol_name_is_valid(arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to validate Varlink error name '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to validate Varlink error name '%s': %m", arg);
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid Varlink error name: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid Varlink error name: %s", arg);
 
-                        if (strv_extend(&arg_graceful, optarg) < 0)
+                        if (strv_extend(&arg_graceful, arg) < 0)
                                 return log_oom();
-
                         break;
 
-                case ARG_TIMEOUT:
-                        if (isempty(optarg)) {
+                OPTION_LONG("timeout", "SECS", "Maximum time to wait for method call completion"):
+                        if (isempty(arg)) {
                                 arg_timeout = USEC_INFINITY;
                                 break;
                         }
 
-                        r = parse_sec(optarg, &arg_timeout);
+                        r = parse_sec(arg, &arg_timeout);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", arg);
 
                         if (arg_timeout == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Timeout cannot be zero.");
-
                         break;
 
-                case ARG_EXEC:
+                OPTION_SHORT('E', NULL, "Short for --more --timeout=infinity"):
+                        arg_timeout = USEC_INFINITY;
+                        arg_method_flags = (arg_method_flags & ~SD_VARLINK_METHOD_ONEWAY) | SD_VARLINK_METHOD_MORE;
+                        break;
+
+                OPTION_LONG("upgrade", NULL,
+                            "Request protocol upgrade (connection becomes raw"
+                            " bidirectional pipe on stdin/stdout after reply)"):
+                        arg_upgrade = true;
+                        break;
+
+                OPTION_LONG("exec", NULL, "Invoke method and pass response and fds to command"):
                         arg_exec = true;
                         break;
 
-                case ARG_PUSH_FD: {
+                OPTION_LONG("push-fd", "FD", "Pass the specified fd along with method call"): {
                         if (!GREEDY_REALLOC(arg_push_fds.fds, arg_push_fds.n_fds + 1))
                                 return log_oom();
 
                         _cleanup_close_ int add_fd = -EBADF;
-                        if (STARTSWITH_SET(optarg, "/", "./")) {
+                        if (STARTSWITH_SET(arg, "/", "./")) {
                                 /* We usually expect a numeric fd spec, but as an extension let's treat this
                                  * as a path to open in read-only mode in case this is clearly an absolute or
                                  * relative path */
-                                add_fd = open(optarg, O_CLOEXEC|O_RDONLY|O_NOCTTY);
+                                add_fd = open(arg, O_CLOEXEC|O_RDONLY|O_NOCTTY);
                                 if (add_fd < 0)
-                                        return log_error_errno(errno, "Failed to open '%s': %m", optarg);
+                                        return log_error_errno(errno, "Failed to open '%s': %m", arg);
                         } else {
-                                int parsed_fd = parse_fd(optarg);
+                                int parsed_fd = parse_fd(arg);
                                 if (parsed_fd < 0)
-                                        return log_error_errno(parsed_fd, "Failed to parse --push-fd= parameter: %s", optarg);
+                                        return log_error_errno(parsed_fd, "Failed to parse --push-fd= parameter: %s", arg);
 
                                 /* Make a copy, so that the same fd could be used multiple times in a reasonable
                                  * way. This also validates the fd early */
@@ -258,16 +245,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_push_fds.fds[arg_push_fds.n_fds++] = TAKE_FD(add_fd);
                         break;
                 }
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         /* If more than one reply is expected, imply JSON-SEQ output, and set SD_JSON_FORMAT_FLUSH */
@@ -276,6 +253,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         strv_sort_uniq(arg_graceful);
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
@@ -344,7 +322,9 @@ static void get_info_data_done(GetInfoData *d) {
         d->interfaces = strv_free(d->interfaces);
 }
 
-static int verb_info(int argc, char *argv[], void *userdata) {
+VERB(verb_info, "info", "ADDRESS", 2, 2, 0, "Show service information");
+VERB(verb_info, "list-interfaces", "ADDRESS", 2, 2, 0, "List interfaces implemented by service");
+static int verb_info(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         const char *url;
         int r;
@@ -383,6 +363,8 @@ static int verb_info(int argc, char *argv[], void *userdata) {
                 if (streq_ptr(argv[0], "list-interfaces")) {
                         STRV_FOREACH(i, data.interfaces)
                                 puts(*i);
+
+                        return 0;
                 } else {
                         _cleanup_(table_unrefp) Table *t = NULL;
 
@@ -406,20 +388,14 @@ static int verb_info(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return table_log_add_error(r);
 
-                        r = table_print(t, NULL);
-                        if (r < 0)
-                                return table_log_print_error(r);
+                        return table_print_or_warn(t);
                 }
         } else {
-                sd_json_variant *v;
-
-                v = streq_ptr(argv[0], "list-interfaces") ?
+                sd_json_variant *v = streq_ptr(argv[0], "list-interfaces") ?
                         sd_json_variant_by_key(reply, "interfaces") : reply;
 
-                sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
         }
-
-        return 0;
 }
 
 static size_t break_columns(void) {
@@ -441,7 +417,10 @@ typedef struct GetInterfaceDescriptionData {
         const char *description;
 } GetInterfaceDescriptionData;
 
-static int verb_introspect(int argc, char *argv[], void *userdata) {
+VERB(verb_introspect, "introspect", "ADDRESS [INTERFACE…]", 2, VERB_ANY, 0, "Show interface definition");
+VERB(verb_introspect, "list-methods", "ADDRESS [INTERFACE…]", 2, VERB_ANY, 0,
+     "List methods implemented by services or specific interfaces");
+static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         _cleanup_strv_free_ char **auto_interfaces = NULL;
         char **interfaces;
@@ -612,11 +591,157 @@ static int reply_callback(
         return r;
 }
 
-static int verb_call(int argc, char *argv[], void *userdata) {
+static int upgrade_forward_done(SocketForward *sf, int error, void *userdata) {
+        sd_event *event = ASSERT_PTR(userdata);
+
+        return sd_event_exit(event, error < 0 ? error : 0);
+}
+
+/* This will only return if something goes wrong, otherwise the exec_cmdline
+ * is run and replaces our code. */
+static int exec_with_listen_fds(char **exec_cmdline, int *fds, size_t n_fds) {
+        _cleanup_free_ char *j = quote_command_line(exec_cmdline, SHELL_ESCAPE_EMPTY);
+        if (!j)
+                return log_oom();
+
+        log_close();
+        log_set_open_when_needed(true);
+
+        int r = close_all_fds(fds, n_fds);
+        if (r < 0)
+                return log_error_errno(r, "Failed to close all remaining file descriptors: %m");
+
+        r = pack_fds(fds, n_fds);
+        if (r < 0)
+                return log_error_errno(r, "Failed to rearrange file descriptors: %m");
+
+        r = fd_cloexec_many(fds, n_fds, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable O_CLOEXEC for file descriptors: %m");
+
+        if (n_fds > 0) {
+                r = setenvf("LISTEN_FDS", /* overwrite= */ true, "%zu", n_fds);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set $LISTEN_FDS environment variable: %m");
+
+                r = setenvf("LISTEN_PID", /* overwrite= */ true, PID_FMT, getpid_cached());
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set $LISTEN_PID environment variable: %m");
+
+                uint64_t pidfdid;
+                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                        r = setenvf("LISTEN_PIDFDID", /* overwrite= */ true, "%" PRIu64, pidfdid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set $LISTEN_PIDFDID environment variable: %m");
+                }
+        } else {
+                (void) unsetenv("LISTEN_FDS");
+                (void) unsetenv("LISTEN_PID");
+                (void) unsetenv("LISTEN_PIDFDID");
+        }
+        (void) unsetenv("LISTEN_FDNAMES");
+
+        log_debug("Executing: %s", j);
+
+        execvp(exec_cmdline[0], exec_cmdline);
+        return log_error_errno(errno, "Failed to execute '%s': %m", j);
+}
+
+static int varlink_call_and_upgrade(const char *url, const char *method, sd_json_variant *parameters, char **exec_cmdline) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(socket_forward_freep) SocketForward *sf = NULL;
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        const char *error_id = NULL;
+        int r;
+
+        r = varlink_connect_auto(&vl, url);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_call_and_upgrade(
+                        vl,
+                        method,
+                        parameters,
+                        /* ret_parameters= */ NULL,
+                        &error_id,
+                        &input_fd,
+                        &output_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to upgrade connection via %s(): %m", method);
+        if (!isempty(error_id))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADE), "Upgrade via %s() failed with error: %s", method, error_id);
+
+        if (!strv_isempty(exec_cmdline)) {
+                /* --exec mode: place the upgraded connection on stdin/stdout so that the child
+                 * process can just read/write naturally. */
+                (void) sd_notify(/* unset_environment= */ false, "READY=1");
+
+                log_close();
+                log_set_open_when_needed(true);
+
+                int keep_fds[] = { TAKE_FD(input_fd), TAKE_FD(output_fd) };
+
+                r = close_all_fds(keep_fds, 2);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to close remaining file descriptors: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = move_fd(keep_fds[0], STDIN_FILENO, /* cloexec= */ false);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to move upgraded connection to stdin: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = move_fd(keep_fds[1], STDOUT_FILENO, /* cloexec= */ false);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to move upgraded connection to stdout: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                (void) exec_with_listen_fds(exec_cmdline, /* fds= */ NULL, /* n_fds= */ 0);
+                /* This is only reached on failure, otherwise we continue with exec_cmdline). */
+                _exit(EXIT_FAILURE);
+        }
+
+        /* No --exec: bidirectional proxy between stdin/stdout and the upgraded socket */
+
+        /* Use a clean event loop just for the forwarding to avoid any interference. */
+        r = sd_event_new(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        _cleanup_close_ int stdin_fd = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3);
+        if (stdin_fd < 0)
+                return log_error_errno(errno, "Failed to dup stdin: %m");
+
+        _cleanup_close_ int stdout_fd = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 3);
+        if (stdout_fd < 0)
+                return log_error_errno(errno, "Failed to dup stdout: %m");
+
+        r = socket_forward_new_pair(
+                        event,
+                        TAKE_FD(stdin_fd), TAKE_FD(stdout_fd),
+                        TAKE_FD(input_fd), TAKE_FD(output_fd),
+                        upgrade_forward_done, event,
+                        &sf);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up socket forwarding for varlink: %m");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run socket forward for varlink: %m");
+
+        return 0;
+}
+
+VERB(verb_call, "call", "ADDRESS METHOD [PARAMS]", 3, VERB_ANY, 0, "Invoke method");
+static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         const char *url, *method, *parameter, *source;
-        char **cmdline;
+        char **exec_cmdline;
         int r;
 
         assert(argc >= 3);
@@ -629,12 +754,31 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         if (arg_exec && (arg_collect || (arg_method_flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE))) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--exec and --collect/--more/--oneway may not be combined.");
 
+        if (arg_upgrade) {
+                if (arg_collect || arg_method_flags != 0 || arg_push_fds.n_fds > 0 || !strv_isempty(arg_graceful))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--upgrade may not be combined with --collect/--more/--oneway/--push-fd=/--graceful.");
+        }
+
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         url = argv[1];
         method = argv[2];
         parameter = argc > 3 && !streq(argv[3], "-") ? argv[3] : NULL;
-        cmdline = strv_skip(argv, 4);
+        exec_cmdline = strv_skip(argv, 4);
+
+        if (!varlink_idl_qualified_symbol_name_is_valid(method))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid qualified method name: '%s' (Expected valid Varlink interface name, followed by a dot, followed by a valid Varlink symbol name.)", method);
+
+        if (arg_upgrade) {
+                /* For --upgrade, parse parameters from argv only (stdin is used for the upgraded connection) */
+                if (parameter) {
+                        r = sd_json_parse(parameter, SD_JSON_PARSE_MUST_BE_OBJECT, &jp, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse parameters: %m");
+                }
+
+                return varlink_call_and_upgrade(url, method, jp, exec_cmdline);
+        }
 
         /* No JSON mode explicitly configured? Then default to the same as -j (except if --exec is used, in
          * which case generate shortest possible JSON since we are going to pass it to a program rather than
@@ -652,22 +796,19 @@ static int verb_call(int argc, char *argv[], void *userdata) {
          * leave incomplete lines hanging around. */
         arg_json_format_flags |= SD_JSON_FORMAT_NEWLINE;
 
-        if (!varlink_idl_qualified_symbol_name_is_valid(method))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid qualified method name: '%s' (Expected valid Varlink interface name, followed by a dot, followed by a valid Varlink symbol name.)", method);
-
         unsigned line = 0, column = 0;
         if (parameter) {
                 source = "<argv[4]>";
 
                 /* <argv[4]> is correct, as dispatch_verb() shifts arguments by one for the verb. */
-                r = sd_json_parse_with_source(parameter, source, 0, &jp, &line, &column);
+                r = sd_json_parse_with_source(parameter, source, SD_JSON_PARSE_MUST_BE_OBJECT, &jp, &line, &column);
         } else {
                 if (isatty_safe(STDIN_FILENO) && !arg_quiet)
                         log_notice("Expecting method call parameter JSON object on standard input. (Provide empty string or {} for no parameters.)");
 
                 source = "<stdin>";
 
-                r = sd_json_parse_file_at(stdin, AT_FDCWD, source, 0, &jp, &line, &column);
+                r = sd_json_parse_file_at(stdin, AT_FDCWD, source, SD_JSON_PARSE_MUST_BE_OBJECT, &jp, &line, &column);
         }
         if (r < 0 && r != -ENODATA)
                 return log_error_errno(r, "Failed to parse parameters at %s:%u:%u: %m", source, line, column);
@@ -820,10 +961,6 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                         if (mfd < 0)
                                 return log_error_errno(mfd, "Failed to allocate memfd for reply: %m");
 
-                        _cleanup_free_ char *j = strv_join(cmdline, " ");
-                        if (!j)
-                                return log_oom();
-
                         int *fd_array = NULL, n = 0;
                         size_t m = 0;
                         CLEANUP_ARRAY(fd_array, m, close_many_and_free);
@@ -850,65 +987,14 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                          * lives in our process their fds. Hence we will now no longer bubble up any
                          * errors. */
 
-                        log_close();
-                        log_set_open_when_needed(true);
-
                         r = move_fd(mfd, STDIN_FILENO, /* cloexec= */ false);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to move reply to STDIN_FILENO: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
-                        r = close_all_fds(fd_array, m);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to close all remaining file descriptors: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        r = pack_fds(fd_array, m);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to rearrange file descriptors: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        r = fd_cloexec_many(fd_array, m, false);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to disable O_CLOEXEC for file descriptors: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        if (m > 0) {
-                                r = setenvf("LISTEN_FDS", /* overwrite= */ true, "%zu", m);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to set $LISTEN_FDS environment variable: %m");
-                                        _exit(EXIT_FAILURE);
-                                }
-
-                                r = setenvf("LISTEN_PID", /* overwrite= */ true, PID_FMT, getpid_cached());
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to set $LISTEN_PID environment variable: %m");
-                                        _exit(EXIT_FAILURE);
-                                }
-
-                                uint64_t pidfdid;
-                                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
-                                        r = setenvf("LISTEN_PIDFDID", /* overwrite= */ true, "%" PRIu64, pidfdid);
-                                        if (r < 0) {
-                                                log_error_errno(r, "Failed to set $LISTEN_PIDFDID environment variable: %m");
-                                                _exit(EXIT_FAILURE);
-                                        }
-                                }
-                        } else {
-                                (void) unsetenv("LISTEN_FDS");
-                                (void) unsetenv("LISTEN_PID");
-                                (void) unsetenv("LISTEN_PIDFDID");
-                        }
-                        (void) unsetenv("LISTEN_FDNAMES");
-
-                        log_debug("Executing: %s", j);
-
-                        execvp(cmdline[0], cmdline);
-                        log_error_errno(errno, "Failed to execute '%s': %m", j);
+                        (void) exec_with_listen_fds(exec_cmdline, fd_array, m);
+                        /* This is only reached on failure, otherwise we continue with exec_cmdline. */
                         _exit(EXIT_FAILURE);
                 }
 
@@ -924,7 +1010,8 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_validate_idl(int argc, char *argv[], void *userdata) {
+VERB(verb_validate_idl, "validate-idl", "[FILE]", 1, 2, 0, "Validate interface description");
+static int verb_validate_idl(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
         _cleanup_free_ char *text = NULL;
         const char *fname;
@@ -973,19 +1060,253 @@ static int verb_validate_idl(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int varlinkctl_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "info",            2,        2,        0, verb_info         },
-                { "list-interfaces", 2,        2,        0, verb_info         },
-                { "introspect",      2,        VERB_ANY, 0, verb_introspect   },
-                { "list-methods",    2,        VERB_ANY, 0, verb_introspect   },
-                { "call",            3,        VERB_ANY, 0, verb_call         },
-                { "validate-idl",    1,        2,        0, verb_validate_idl },
-                { "help",            VERB_ANY, VERB_ANY, 0, verb_help         },
-                {}
-        };
+VERB_NOARG(verb_list_registry, "list-registry", "Show list of services in the service registry");
+static int verb_list_registry(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        int r;
 
-        return dispatch_verb(argc, argv, verbs, NULL);
+        assert(argc <= 1);
+
+        _cleanup_free_ char *reg_path = NULL;
+        r = runtime_directory_generic(arg_runtime_scope, "varlink/registry", &reg_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine registry path: %m");
+
+        _cleanup_(table_unrefp) Table *table = table_new("interface", "entrypoint");
+        if (!table)
+                return log_oom();
+
+        (void) table_set_sort(table, (size_t) 0);
+
+        _cleanup_close_ int regfd = open(reg_path, O_DIRECTORY|O_CLOEXEC);
+        if (regfd < 0)  {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open '%s': %m", reg_path);
+        } else {
+                _cleanup_free_ DirectoryEntries *des = NULL;
+                r = readdir_all(regfd, RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate '%s': %m", reg_path);
+
+                FOREACH_ARRAY(i, des->entries, des->n_entries) {
+                        struct dirent *de = *i;
+
+                        if (!varlink_idl_interface_name_is_valid(de->d_name)) {
+                                log_debug("Found file '%s' whose names does not qualify as valid Varlink interface name, skipping.", de->d_name);
+                                continue;
+                        }
+
+                        _cleanup_free_ char *j = path_join(reg_path, de->d_name);
+                        if (!j)
+                                return log_oom();
+
+                        switch (de->d_type) {
+                        case DT_LNK: {
+                                _cleanup_free_ char *resolved = NULL;
+
+                                r = chase(j, /* root= */ NULL, CHASE_MUST_BE_SOCKET, &resolved, /* ret_fd= */ NULL);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to resolve '%s', skipping: %m", j);
+                                        continue;
+                                }
+
+                                _cleanup_free_ char *address = strjoin("unix:", resolved);
+                                if (!address)
+                                        return log_oom();
+
+                                r = table_add_many(
+                                                table,
+                                                TABLE_STRING, de->d_name,
+                                                TABLE_STRING, address);
+                                if (r < 0)
+                                        return r;
+
+                                break;
+                        }
+
+                        case DT_SOCK: {
+                                _cleanup_free_ char *address = strjoin("unix:", j);
+                                if (!address)
+                                        return log_oom();
+
+                                r = table_add_many(
+                                                table,
+                                                TABLE_STRING, de->d_name,
+                                                TABLE_STRING, address);
+                                if (r < 0)
+                                        return r;
+
+                                break;
+                        }
+
+                        default:
+                                log_debug("Ignoring inode '%s' of unexpected type: %m", de->d_name);
+                        }
+                }
+        }
+
+        if (!table_isempty(table) || sd_json_format_enabled(arg_json_format_flags)) {
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to output table: %m");
+        }
+
+        if (arg_legend && !sd_json_format_enabled(arg_json_format_flags)) {
+                if (table_isempty(table))
+                        printf("No services registered.\n");
+                else
+                        printf("\n%zu registered services listed.\n", table_get_rows(table) - 1);
+        }
+
+        return 0;
+}
+
+/* Build a minimal IDL from a qualified method name so that introspection works. The parsed interface is
+ * returned to the caller who must keep it alive for the lifetime of the server
+ * (sd_varlink_server_add_interface() borrows the pointer). */
+static int varlink_server_add_interface_from_method(sd_varlink_server *s, const char *method, sd_varlink_interface **ret_interface) {
+        assert(s);
+        assert(method);
+        assert(ret_interface);
+
+        const char *dot = strrchr(method, '.');
+        assert(dot);
+
+        _cleanup_free_ char *interface_name = strndup(method, dot - method);
+        if (!interface_name)
+                return log_oom();
+
+        /* Note that we do not need to put the upgrade flag comment here, it is added automatically
+         * by varlink_idl_format_symbol() because of the SD_VARLINK_REQUIRES_UPGRADE flag. */
+        _cleanup_free_ char *idl_text = strjoin(
+                        "interface ", interface_name, "\n"
+                        "\n"
+                        "method ", dot + 1, " () -> ()\n");
+        if (!idl_text)
+                return log_oom();
+
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *iface = NULL;
+        int r = sd_varlink_idl_parse(idl_text, /* reterr_line= */ NULL, /* reterr_column= */ NULL, &iface);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse IDL for method '%s': %m", method);
+
+        /* Mark the method as requiring the upgrade flag so introspection shows the annotation */
+        assert(iface->symbols[0] && iface->symbols[0]->symbol_type == SD_VARLINK_METHOD);
+        ((sd_varlink_symbol*) iface->symbols[0])->symbol_flags |= SD_VARLINK_REQUIRES_UPGRADE;
+
+        r = sd_varlink_server_add_interface(s, iface);
+        if (r < 0)
+                return r;
+
+        *ret_interface = TAKE_PTR(iface);
+
+        return 0;
+}
+
+static int method_serve_upgrade(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        char **exec_cmdline = ASSERT_PTR(userdata);
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        int r;
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, NULL);
+
+        r = sd_varlink_reply_and_upgrade(link, /* parameters= */ NULL, &input_fd, &output_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to upgrade connection: %m");
+
+        /* Copy exec_cmdline before forking: pidref_safe_fork() calls rename_process() which
+         * overwrites the argv area that exec_cmdline points into. */
+        _cleanup_strv_free_ char **cmdline_copy = strv_copy(exec_cmdline);
+        if (!cmdline_copy)
+                return log_oom();
+
+        r = pidref_safe_fork_full(
+                        "(serve)",
+                        (int[]) { input_fd, output_fd, STDERR_FILENO },
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_DETACH|FORK_LOG,
+                        /* ret= */ NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                execvp(cmdline_copy[0], cmdline_copy);
+                log_error_errno(errno, "Failed to execute '%s': %m", cmdline_copy[0]);
+                _exit(EXIT_FAILURE);
+        }
+
+        return 0;
+}
+
+VERB(verb_serve, "serve", "METHOD CMDLINE…", 3, VERB_ANY, 0, "Serve a command via varlink protocol upgrade");
+static int verb_serve(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        const char *method;
+        char **exec_cmdline;
+        int r, n;
+
+        assert(argc >= 3); /* Guaranteed by verb dispatch table */
+
+        method = argv[1];
+        exec_cmdline = argv + 2;
+
+        r = varlink_idl_qualified_symbol_name_is_valid(method);
+        if (r < 0)
+                return log_error_errno(r, "Failed to validate method name '%s': %m", method);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid qualified method name: '%s'", method);
+
+        /* Require socket activation */
+        n = sd_listen_fds(/* unset_environment= */ true);
+        if (n < 0)
+                return log_error_errno(n, "Failed to determine passed file descriptors: %m");
+        if (n == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed via socket activation.");
+        if (n > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected exactly one socket activation fd, got %d.", n);
+
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get event loop: %m");
+
+        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_UPGRADABLE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate varlink server: %m");
+
+        _cleanup_free_ char *description = strjoin("serve:", method);
+        if (!description)
+                return log_oom();
+
+        r = sd_varlink_server_set_description(s, description);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set server description: %m");
+
+        r = sd_varlink_server_bind_method(s, method, method_serve_upgrade);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind method '%s': %m", method);
+
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *iface = NULL;
+        r = varlink_server_add_interface_from_method(s, method, &iface);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add interface for method '%s': %m", method);
+
+        sd_varlink_server_set_userdata(s, exec_cmdline);
+
+        r = sd_varlink_server_listen_fd(s, SD_LISTEN_FDS_START);
+        if (r < 0)
+                return log_error_errno(r, "Failed to listen on socket activation fd: %m");
+
+        r = sd_varlink_server_attach_event(s, event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach varlink server to event loop: %m");
+
+        (void) sd_notify(/* unset_environment= */ false, "READY=1");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        return 0;
 }
 
 static int run(int argc, char *argv[]) {
@@ -993,11 +1314,12 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;  /* unnecessary initialization to appease gcc <= 13 */
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        return varlinkctl_main(argc, argv);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

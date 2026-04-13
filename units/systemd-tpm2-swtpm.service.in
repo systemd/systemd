@@ -1,0 +1,26 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Fallback Software TPM
+Documentation=man:systemd-tpm2-swtpm.service(8)
+DefaultDependencies=no
+After=systemd-sysusers.service
+Wants=modprobe@tpm_vtpm_proxy.service
+After=modprobe@tpm_vtpm_proxy.service
+Before=tpm2.target sysinit.target
+
+[Service]
+Type=notify
+RuntimeDirectory=systemd/swtpm
+ExecStart={{LIBEXECDIR}}/systemd-tpm2-swtpm
+# Write out volatile state (so that we can read it back after the initrd transition
+ExecStop=swtpm_ioctl --unix %t/systemd/swtpm/socket -v
+# Initiate graceful shutdown
+ExecStop=swtpm_ioctl --unix %t/systemd/swtpm/socket -s

@@ -143,6 +143,7 @@ static int systemctl_help(void) {
                "  reload UNIT...                      Reload one or more units\n"
                "  restart UNIT...                     Start or restart one or more units\n"
                "  try-restart UNIT...                 Restart one or more units if active\n"
+               "  enqueue-marked                      Enqueue jobs for all marked units\n"
                "  reload-or-restart UNIT...           Reload one or more units if possible,\n"
                "                                      otherwise start or restart\n"
                "  try-reload-or-restart UNIT...       If active, reload one or more units,\n"
@@ -830,9 +831,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CHECK_INHIBITORS:
-                        r = parse_tristate_full(optarg, "auto", &arg_check_inhibitors);
+                        r = parse_tristate_argument_with_auto("--check-inhibitors=", optarg, &arg_check_inhibitors);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --check-inhibitors= argument: %s", optarg);
+                                return r;
                         break;
 
                 case ARG_PLAIN:
@@ -1077,12 +1078,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 if (optind + 1 < argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "No additional arguments allowed with 'reload-or-restart --marked'.");
-                if (arg_wait)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--marked --wait is not supported.");
-                if (arg_show_transaction)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--marked --show-transaction is not supported.");
 
         } else if (do_reload_or_restart) {
                 if (optind + 1 >= argc)

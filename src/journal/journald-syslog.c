@@ -21,6 +21,7 @@
 #include "journald-wall.h"
 #include "log.h"
 #include "log-ratelimit.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
@@ -200,14 +201,14 @@ int syslog_fixup_facility(int priority) {
         return priority;
 }
 
-size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) {
+size_t syslog_parse_identifier(const char **buf, char **ret_identifier, pid_t *ret_pid) {
         const char *p;
-        char *t;
         size_t l, e;
+        pid_t pid = 0;
 
         assert(buf);
-        assert(identifier);
-        assert(pid);
+        assert(ret_identifier);
+        assert(ret_pid);
 
         p = *buf;
 
@@ -215,8 +216,11 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         l = strcspn(p, WHITESPACE);
 
         if (l <= 0 ||
-            p[l-1] != ':')
+            p[l-1] != ':') {
+                *ret_identifier = NULL;
+                *ret_pid = 0;
                 return 0;
+        }
 
         e = l;
         l--;
@@ -227,9 +231,9 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
                 for (;;) {
 
                         if (p[k] == '[') {
-                                t = strndup(p+k+1, l-k-2);
+                                _cleanup_free_ char *t = strndup(p+k+1, l-k-2);
                                 if (t)
-                                        *pid = t;
+                                        (void) parse_pid(t, &pid);
 
                                 l = k;
                                 break;
@@ -242,9 +246,13 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
                 }
         }
 
-        t = strndup(p, l);
-        if (t)
-                *identifier = t;
+        /* The syslog identifier should be short enough in most cases and NAME_MAX should be enough. Let's
+         * refuse ridiculously long identifier string as "no identifier string found", because if it is
+         * longer than some threshold then it is quite likely some misformatted data, and not a valid syslog
+         * message. Note. NAME_MAX is counted *without* the trailing NUL. */
+        _cleanup_free_ char *identifier = NULL;
+        if (l <= NAME_MAX)
+                identifier = strndup(p, l); /* ignore OOM here. */
 
         /* Single space is used as separator */
         if (p[e] != '\0' && strchr(WHITESPACE, p[e]))
@@ -252,10 +260,12 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
 
         l = (p - *buf) + e;
         *buf = p + e;
+        *ret_identifier = TAKE_PTR(identifier);
+        *ret_pid = pid;
         return l;
 }
 
-static int syslog_skip_timestamp(const char **buf) {
+static size_t syslog_skip_timestamp(const char **buf) {
         enum {
                 LETTER,
                 SPACE,
@@ -275,8 +285,8 @@ static int syslog_skip_timestamp(const char **buf) {
                 SPACE
         };
 
-        const char *p, *t;
-        unsigned i;
+        const char *p;
+        size_t i;
 
         assert(buf);
         assert(*buf);
@@ -313,13 +323,15 @@ static int syslog_skip_timestamp(const char **buf) {
                         if (*p != ':')
                                 return 0;
                         break;
-
                 }
         }
 
-        t = *buf;
+        assert(p >= *buf);
+        size_t n = p - *buf;
+        assert(n <= ELEMENTSOF(sequence));
+
         *buf = p;
-        return p - t;
+        return n;
 }
 
 void manager_process_syslog_message(
@@ -328,14 +340,12 @@ void manager_process_syslog_message(
                 size_t raw_len,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label,
-                size_t label_len) {
+                const char *label) {
 
         char *t, syslog_priority[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int)],
                  syslog_facility[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
         const char *msg, *syslog_ts, *a;
-        _cleanup_free_ char *identifier = NULL, *pid = NULL,
-                *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL;
+        _cleanup_free_ char *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL;
         int priority = LOG_USER | LOG_INFO, r;
         ClientContext *context = NULL;
         struct iovec *iovec;
@@ -351,7 +361,7 @@ void manager_process_syslog_message(
         assert(buf[raw_len] == '\0');
 
         if (ucred && pid_is_valid(ucred->pid)) {
-                r = client_context_get(m, ucred->pid, ucred, label, label_len, NULL, &context);
+                r = client_context_get(m, ucred->pid, ucred, label, /* unit_id= */ NULL, &context);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m",
@@ -398,6 +408,8 @@ void manager_process_syslog_message(
                 /* We failed to parse the full timestamp, store the raw message too */
                 store_raw = true;
 
+        _cleanup_free_ char *identifier = NULL;
+        pid_t pid;
         syslog_parse_identifier(&msg, &identifier, &pid);
 
         if (client_context_check_keep_log(context, msg, strlen(msg)) <= 0)
@@ -433,9 +445,10 @@ void manager_process_syslog_message(
                 iovec[n++] = IOVEC_MAKE_STRING(a);
         }
 
-        if (pid) {
-                a = strjoina("SYSLOG_PID=", pid);
-                iovec[n++] = IOVEC_MAKE_STRING(a);
+        char syslog_pid[STRLEN("SYSLOG_PID=") + DECIMAL_STR_MAX(pid_t)];
+        if (pid_is_valid(pid)) {
+                xsprintf(syslog_pid, "SYSLOG_PID="PID_FMT, pid);
+                iovec[n++] = IOVEC_MAKE_STRING(syslog_pid);
         }
 
         if (syslog_ts_len > 0) {

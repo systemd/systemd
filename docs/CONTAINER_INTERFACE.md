@@ -188,7 +188,7 @@ manager, please consider supporting the following interfaces.
    activation work. The protocol to hand sockets from systemd to services is
    hence the same as from the container manager to the container systemd. For
    further details see the explanations of
-   [sd_listen_fds(1)](https://0pointer.de/public/systemd-man/sd_listen_fds.html)
+   [sd_listen_fds(1)](https://www.freedesktop.org/software/systemd/man/latest/sd_listen_fds.html)
    and the [blog story for service
    developers](https://0pointer.de/blog/projects/socket-activation.html).
 
@@ -403,9 +403,9 @@ its user to 2 (to effectively disallow `fork()`ing) you cannot run more than
 one Avahi instance on the entire system...
 
 People have been asking to be able to run systemd without `CAP_SYS_ADMIN` and
-`CAP_SYS_MKNOD` in the container. This is now supported to some level in
+`CAP_MKNOD` in the container. This is now supported to some level in
 systemd, but we recommend against it (see above). If `CAP_SYS_ADMIN` and
-`CAP_SYS_MKNOD` are missing from the container systemd will now gracefully turn
+`CAP_MKNOD` are missing from the container systemd will now gracefully turn
 off `PrivateTmp=`, `PrivateNetwork=`, `ProtectHome=`, `ProtectSystem=` and
 others, because those capabilities are required to implement these options. The
 services using these settings (which include many of systemd's own) will hence

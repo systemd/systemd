@@ -1,0 +1,80 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd-dlopen" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd-dlopen</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd-dlopen</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd-dlopen</refname>
+    <refpurpose>ELF dlopen metadata annotation macros</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-dlopen.h&gt;</funcsynopsisinfo>
+    </funcsynopsis>
+
+    <cmdsynopsis>
+      <command>pkg-config --cflags libsystemd</command>
+    </cmdsynopsis>
+
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>sd-dlopen.h</filename> provides macros for embedding
+    <filename>.note.dlopen</filename> metadata in ELF binaries, implementing the
+    <ulink url="https://uapi-group.org/specifications/specs/elf_dlopen_metadata/">ELF dlopen
+    metadata</ulink> specification for declaring optional shared library dependencies that are loaded via
+    <citerefentry project='man-pages'><refentrytitle>dlopen</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    at runtime.</para>
+
+    <para>The header is self-contained and does not require runtime linkage against
+    <citerefentry><refentrytitle>libsystemd</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    Projects only need the installed header to use the macros.</para>
+
+    <para>Package managers and build systems can read the embedded ELF notes to discover runtime
+    dependencies that are not visible in ELF <constant>DT_NEEDED</constant> entries.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>SD_ELF_NOTE_DLOPEN</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for details on the available macros and constants.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <para>The macros described here are header-only and do not require runtime linkage against
+    <citerefentry><refentrytitle>libsystemd</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    Only the installed header and include path (as provided by
+    <command>pkg-config --cflags libsystemd</command>) are needed.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>SD_ELF_NOTE_DLOPEN()</function> and associated macros and constants were added in
+    version 261.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>SD_ELF_NOTE_DLOPEN</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>dlopen</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

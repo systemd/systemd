@@ -26,8 +26,8 @@ else
         project_minor_version = '0'
 endif
 
-libsystemd_version = '0.42.0'
-libudev_version = '1.7.12'
+libsystemd_version = '0.43.0'
+libudev_version = '1.7.13'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
@@ -183,6 +183,7 @@ ntpservicelistdir = libexecdir / 'ntp-units.d'
 credstoredir = prefixdir / 'lib/credstore'
 pcrlockdir = prefixdir / 'lib/pcrlock.d'
 mimepackagesdir = prefixdir / 'share/mime/packages'
+varlinkbridgesdir = libexecdir / 'varlink-bridges'
 
 configfiledir = get_option('configfiledir')
 if configfiledir == ''
@@ -255,7 +256,6 @@ conf.set_quoted('KERNEL_INSTALL_DIR',                         kernelinstalldir)
 conf.set_quoted('MODPROBE_DIR',                               modprobedir)
 conf.set_quoted('MODULESLOAD_DIR',                            modulesloaddir)
 conf.set_quoted('PKGSYSCONFDIR',                              pkgsysconfdir)
-conf.set_quoted('POLKIT_AGENT_BINARY_PATH',                   bindir / 'pkttyagent')
 conf.set_quoted('POLKIT_RULES_DIR',                           polkitrulesdir)
 conf.set_quoted('PREFIX',                                     prefixdir)
 conf.set_quoted('PREFIX_NOSLASH',                             prefixdir_noslash)
@@ -311,6 +311,7 @@ conf.set_quoted('USER_GENERATOR_DIR',                         usergeneratordir)
 conf.set_quoted('USER_KEYRING_PATH',                          pkgsysconfdir / 'import-pubring.pgp')
 conf.set_quoted('USER_KEYRING_PATH_LEGACY',                   pkgsysconfdir / 'import-pubring.gpg')
 conf.set_quoted('USER_PRESET_DIR',                            userpresetdir)
+conf.set_quoted('VARLINK_BRIDGES_DIR',                        varlinkbridgesdir)
 conf.set_quoted('VENDOR_KEYRING_PATH',                        libexecdir / 'import-pubring.pgp')
 
 conf.set('ANSI_OK_COLOR',                                     'ANSI_' + get_option('ok-color').underscorify().to_upper())
@@ -537,6 +538,26 @@ conf.set10('HAVE_WARNING_ZERO_LENGTH_BOUNDS', have)
 have = cc.has_argument('-Wzero-as-null-pointer-constant')
 conf.set10('HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT', have)
 
+possible_c_attributes = [
+        'alloc_size',
+        'fallthrough',
+        'retain',
+]
+
+foreach attr : possible_c_attributes
+        have = cc.has_function_attribute(attr)
+        conf.set10('HAVE_ATTRIBUTE_' + attr.to_upper(), have)
+endforeach
+
+# TODO: drop this manual check when meson learns about this attribute
+possible_c_attributes += ['no_reorder']
+
+have = cc.compiles(
+        '__attribute__((__no_reorder__)) int x;',
+        args : '-Werror=attributes',
+        name : '__attribute__((__no_reorder__))')
+conf.set10('HAVE_ATTRIBUTE_NO_REORDER', have)
+
 #####################################################################
 # compilation result tests
 
@@ -565,10 +586,6 @@ foreach ident : [
         ['renameat2',         '''#include <stdio.h>'''],        # since musl-1.2.6
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
-        ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
-        ['mallinfo2',         '''#include <malloc.h>'''],       # since glibc-2.33
-        ['execveat',          '''#include <unistd.h>'''],       # since glibc-2.34
-        ['close_range',       '''#include <unistd.h>'''],       # since glibc-2.34
         ['epoll_pwait2',      '''#include <sys/epoll.h>'''],    # since glibc-2.35
         ['fsconfig',          '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsmount',           '''#include <sys/mount.h>'''],    # since glibc-2.36
@@ -588,6 +605,7 @@ foreach ident : [
         ['fchmodat2',         '''#include <sys/stat.h>'''],     # no known header declares fchmodat2
         ['bpf',               '''#include <sys/syscall.h>'''],  # no known header declares bpf
         ['kcmp',              '''#include <sys/syscall.h>'''],  # no known header declares kcmp
+        ['kexec_file_load',   '''#include <sys/syscall.h>'''],  # no known header declares kexec_file_load
         ['keyctl',            '''#include <sys/syscall.h>'''],  # no known header declares keyctl
         ['add_key',           '''#include <sys/syscall.h>'''],  # no known header declares add_key
         ['request_key',       '''#include <sys/syscall.h>'''],  # no known header declares request_key
@@ -678,8 +696,6 @@ conf.set('GPERF_LEN_TYPE', gperf_len_type,
 #####################################################################
 
 foreach header : [
-        'gshadow.h',
-        'nss.h',
         'sys/sdt.h',
         'threads.h',
         'valgrind/memcheck.h',
@@ -900,6 +916,7 @@ foreach option : ['adm-gid',
                   'video-gid',
                   'wheel-gid',
                   'systemd-journal-gid',
+                  'systemd-imds-uid',
                   'systemd-network-uid',
                   'systemd-resolve-uid',
                   'systemd-timesync-uid']
@@ -1357,6 +1374,7 @@ conf.set10('HAVE_DWFL_SET_SYSROOT',
 libz = dependency('zlib',
                   required : get_option('zlib'))
 conf.set10('HAVE_ZLIB', libz.found())
+libz_cflags = libz.partial_dependency(includes: true, compile_args: true)
 
 feature = get_option('bzip2')
 libbzip2 = dependency('bzip2',
@@ -1366,6 +1384,7 @@ if not libbzip2.found()
         libbzip2 = cc.find_library('bz2', required : feature)
 endif
 conf.set10('HAVE_BZIP2', libbzip2.found())
+libbzip2_cflags = libbzip2.partial_dependency(includes: true, compile_args: true)
 
 libxz = dependency('liblzma',
                    required : get_option('xz'))
@@ -1533,6 +1552,12 @@ conf.set('DEFAULT_DNSSEC_MODE',
          'DNSSEC_' + default_dnssec.underscorify().to_upper())
 conf.set_quoted('DEFAULT_DNSSEC_MODE_STR', default_dnssec)
 
+have = get_option('imds').require(
+        conf.get('HAVE_LIBCURL') == 1,
+        error_message : 'curl required').allowed()
+conf.set10('ENABLE_IMDS', have)
+conf.set('IMDS_NETWORK_DEFAULT', 'IMDS_NETWORK_@0@'.format(get_option('imds-network')).to_upper())
+
 have = get_option('importd').require(
         conf.get('HAVE_LIBCURL') == 1 and
         conf.get('HAVE_OPENSSL') == 1 and
@@ -1601,15 +1626,16 @@ foreach tuple : [
                 ['backlight'],
                 ['binfmt'],
                 ['compat-mutable-uid-boundaries'],
+                ['compat-sysv-interfaces'],
                 ['coredump'],
                 ['efi'],
                 ['environment-d'],
                 ['firstboot'],
-                ['gshadow',         conf.get('HAVE_GSHADOW_H') == 1,  'gshadow.h not found'],
+                ['gshadow',         get_option('libc') != 'musl', 'musl does not support it'],
                 ['hibernate'],
                 ['hostnamed'],
                 ['hwdb'],
-                ['idn',             conf.get('HAVE_NI_IDN') == 1,     'NI_IDN is not defined'],
+                ['idn',             conf.get('HAVE_NI_IDN') == 1, 'NI_IDN is not defined'],
                 ['ima'],
                 ['ipe'],
                 ['initrd'],
@@ -1621,8 +1647,8 @@ foreach tuple : [
                 ['mountfsd'],
                 ['networkd'],
                 ['nsresourced'],
-                ['nss-myhostname',  conf.get('HAVE_NSS_H') == 1,      'nss.h not found'],
-                ['nss-systemd',     conf.get('HAVE_NSS_H') == 1,      'nss.h not found'],
+                ['nss-myhostname',  get_option('libc') != 'musl', 'musl does not support it'],
+                ['nss-systemd',     get_option('libc') != 'musl', 'musl does not support it'],
                 ['oomd'],
                 ['portabled'],
                 ['pstore'],
@@ -1637,7 +1663,7 @@ foreach tuple : [
                 ['timesyncd'],
                 ['tmpfiles'],
                 ['tpm'],
-                ['utmp',            get_option('libc') != 'musl',     'musl does not support it'],
+                ['utmp',            get_option('libc') != 'musl', 'musl does not support it'],
                 ['userdb'],
                 ['vconsole'],
                 ['xdg-autostart'],
@@ -1659,15 +1685,15 @@ foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
         want = get_option(tuple[0])
         if want.enabled()
-                if conf.get('HAVE_NSS_H') != 1
-                        error('@0@ is requested but nss.h not found'.format(tuple[0]))
+                if get_option('libc') == 'musl'
+                        error('@0@ is requested but musl does not support it'.format(tuple[0]))
                 endif
                 if not get_option(tuple[1])
                         error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
                 endif
                 have = true
         elif want.allowed()
-                have = get_option(tuple[1]) and conf.get('HAVE_NSS_H') == 1
+                have = get_option(tuple[1]) and get_option('libc') != 'musl'
         else
                 have = false
         endif
@@ -1697,7 +1723,9 @@ conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', want_slow_tests)
 
 pymod = import('python')
 python = pymod.find_installation('python3', required : true, modules : ['jinja2'])
-python_39 = python.language_version().version_compare('>=3.9')
+if not python.language_version().version_compare('>=3.9')
+        error('Python >= 3.9 is required')
+endif
 
 #####################################################################
 
@@ -1800,7 +1828,7 @@ if conf.get('BPF_FRAMEWORK') == 1
                 ]
         endif
 
-        bpf_o_unstripped_cmd += ['-I.']
+        bpf_o_unstripped_cmd += ['-I.', '-include', 'config.h']
 
         if cc.get_id() == 'gcc' or meson.is_cross_build()
                 if cc.get_id() != 'gcc'
@@ -1898,9 +1926,7 @@ if have and efi_arch == 'x64' and cc.links('''
         efi_cpu_family_alt = 'x86'
 endif
 
-pefile = pymod.find_installation('python3', required: false, modules : ['pefile'])
-
-want_ukify = get_option('ukify').require(python_39 and (want_tests != 'true' or pefile.found()), error_message : 'Python >= 3.9 and pefile required').allowed()
+want_ukify = pymod.find_installation('python3', required: get_option('ukify'), modules : ['pefile']).found()
 conf.set10('ENABLE_UKIFY', want_ukify)
 
 #####################################################################
@@ -2368,6 +2394,7 @@ subdir('src/hostname')
 subdir('src/hwdb')
 subdir('src/id128')
 subdir('src/import')
+subdir('src/imds') # Note, we are not alphabetically here, since we want to use a variable from src/import/ here
 subdir('src/integritysetup')
 subdir('src/journal')
 subdir('src/journal-remote')
@@ -2381,6 +2408,7 @@ subdir('src/measure')
 subdir('src/modules-load')
 subdir('src/mount')
 subdir('src/mountfsd')
+subdir('src/mstack')
 subdir('src/mute-console')
 subdir('src/network')
 subdir('src/notify')
@@ -2401,6 +2429,7 @@ subdir('src/quotacheck')
 subdir('src/random-seed')
 subdir('src/remount-fs')
 subdir('src/repart')
+subdir('src/report')
 subdir('src/reply-password')
 subdir('src/resolve')
 subdir('src/rfkill')
@@ -2779,7 +2808,7 @@ if install_tests
         install_subdir('mkosi',
                        install_dir : testsdir,
                        exclude_files : ['mkosi.local.conf', 'mkosi.key', 'mkosi.crt'],
-                       exclude_directories : ['mkosi.local'])
+                       exclude_directories : ['mkosi.local', 'mkosi.tools'])
 endif
 
 ############################################################
@@ -2822,8 +2851,6 @@ install_data('LICENSE.GPL2',
 
 install_subdir('LICENSES',
                install_dir : docdir)
-
-install_emptydir(systemdstatedir)
 
 #####################################################################
 
@@ -2870,7 +2897,13 @@ if git.found()
                      'ls-files', ':/*.[ch]', ':/*.cc',
                 check : false)
         if all_files.returncode() == 0
-                all_files = files(all_files.stdout().split())
+                existing_files = []
+                foreach f : all_files.stdout().split()
+                        if fs.exists(f)
+                                existing_files += f
+                        endif
+                endforeach
+                all_files = files(existing_files)
 
                 custom_target(
                         output : 'tags',
@@ -2954,6 +2987,34 @@ if meson.version().version_compare('>=1.4.0')
                                 )
                         endif
                 endforeach
+        endforeach
+endif
+
+spatch = find_program('spatch', required : false)
+if spatch.found()
+        coccinelle_exclude = [
+                # libc/ has no assert() or systemd-headers so leave it
+                'src/libc/',
+                # test/ has some deliberate wonky pointers, just leave excluded
+                'src/test/',
+        ]
+
+        coccinelle_src_dirs = run_command(
+                'sh', '-c', 'printf "%s\n" src/*/',
+                check : true,
+        ).stdout().strip().split('\n')
+
+        foreach dir : coccinelle_src_dirs
+                if dir not in coccinelle_exclude
+                        test(
+                                'coccinelle-@0@'.format(fs.name(dir.strip('/'))),
+                                check_coccinelle_sh,
+                                args : [meson.project_source_root() / dir,
+                                        meson.project_source_root() / 'coccinelle'],
+                                suite : 'coccinelle',
+                                timeout : 120,
+                        )
+                endif
         endforeach
 endif
 
@@ -3073,7 +3134,8 @@ summary({
         'default user $PATH'                        : default_user_path != '' ? default_user_path : '(same as system services)',
         'systemd service watchdog'                  : service_watchdog == '' ? 'disabled' : service_watchdog,
         'time epoch'                                : f'@time_epoch@ (@alt_time_epoch@)',
-        'TPM2 nvpcr base'                           : run_command(sh, '-c', 'printf 0x%x @0@'.format(get_option('tpm2-nvpcr-base')), check : true).stdout()
+        'TPM2 nvpcr base'                           : run_command(sh, '-c', 'printf 0x%x @0@'.format(get_option('tpm2-nvpcr-base')), check : true).stdout(),
+        'IMDS networking'                           : get_option('imds-network'),
 })
 
 # TODO:
@@ -3138,6 +3200,7 @@ foreach tuple : [
         ['homed'],
         ['hostnamed'],
         ['hwdb'],
+        ['imds'],
         ['importd'],
         ['initrd'],
         ['kernel-install'],
@@ -3189,6 +3252,7 @@ foreach tuple : [
         ['html pages',             want_html],
         ['man page indices',       want_man and have_lxml],
         ['compat-mutable-uid-boundaries'],
+        ['compat-sysv-interfaces'],
         ['utmp'],
         ['ldconfig'],
         ['adm group',              get_option('adm-group')],

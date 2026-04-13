@@ -58,6 +58,29 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>Directories</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><filename>/usr/lib/systemd/varlink-bridges/</filename></term>
+        <listitem>
+          <para>When <function>sd_varlink_connect_url()</function> encounters a URL with a scheme that is not
+            natively supported, it looks for a bridge helper binary named after the URL scheme in this
+            directory. The binary is invoked the same way as <literal>exec:</literal> binaries but with the full
+            URL passed as the first command line argument.</para>
+
+          <para>For example, if
+            <command>varlinkctl introspect https://example.com/ws/sockets/io.systemd.Hostname</command>
+            is called, <command>varlinkctl</command> will look for an executable
+            <filename>/usr/lib/systemd/varlink-bridges/https</filename> and invoke it with
+            <literal>https://example.com/ws/sockets/io.systemd.Hostname</literal> as its only
+            argument.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

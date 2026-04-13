@@ -125,13 +125,13 @@ static int dnssd_registered_service_load(Manager *manager, const char *path) {
                 return log_oom();
 
         r = config_parse_many(
-                        STRV_MAKE_CONST(path), DNSSD_SERVICE_DIRS, dropin_dirname, /* root= */ NULL,
+                        STRV_MAKE_CONST(path),
+                        DNSSD_SERVICE_DIRS,
+                        dropin_dirname,
                         "Service\0",
                         config_item_perf_lookup, resolved_dnssd_gperf_lookup,
                         CONFIG_PARSE_WARN,
-                        service,
-                        NULL,
-                        NULL);
+                        service);
         if (r < 0)
                 return r;
 
@@ -332,6 +332,8 @@ int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtIte
         size_t length;
         DnsTxtItem *i;
 
+        assert(ret_item);
+
         length = strlen(key);
 
         if (!isempty(value))
@@ -356,6 +358,8 @@ int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtIte
 int dnssd_txt_item_new_from_data(const char *key, const void *data, const size_t size, DnsTxtItem **ret_item) {
         size_t length;
         DnsTxtItem *i;
+
+        assert(ret_item);
 
         length = strlen(key);
 

@@ -406,9 +406,9 @@ static int manager_add_home_by_record(
                 goto unlink_this_file;
 
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file_at(NULL, dir_fd, fname, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse_file_at(/* f= */ NULL, dir_fd, fname, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse identity record at %s:%u%u: %m", fname, line, column);
+                return log_error_errno(r, "Failed to parse identity record at %s:%u:%u: %m", fname, line, column);
 
         if (sd_json_variant_is_blank_object(v))
                 goto unlink_this_file;
@@ -1889,10 +1889,10 @@ static int manager_rebalance_calculate(Manager *m) {
                 assert(h->rebalance_usage <= usage_sum);
                 assert(h->rebalance_weight <= weight_sum);
 
-                d = ((double) (free_sum / 4096.0) * (double) h->rebalance_weight) / (double) weight_sum; /* Calculate new space for this home in units of 4K */
+                d = free_sum / 4096.0 * h->rebalance_weight / weight_sum; /* Calculate new space for this home in units of 4K */
 
                 /* Convert from units of 4K back to bytes */
-                if (d >= (double) (UINT64_MAX/4096))
+                if (d >= UINT64_MAX / 4096)
                         new_free = UINT64_MAX;
                 else
                         new_free = (uint64_t) d * 4096;
@@ -1928,7 +1928,7 @@ static int manager_rebalance_calculate(Manager *m) {
                         h->rebalance_pending = true;
                 }
 
-                if ((fabs((double) h->rebalance_size - (double) h->rebalance_goal) * 100 / (double) h->rebalance_size) >= 5.0)
+                if (ABS_DIFF(h->rebalance_size, h->rebalance_goal) * 100.0 / h->rebalance_size >= 5.0)
                         relevant = true;
         }
 

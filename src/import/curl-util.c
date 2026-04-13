@@ -207,6 +207,8 @@ int curl_glue_new(CurlGlue **glue, sd_event *event) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         int r;
 
+        assert(glue);
+
         if (event)
                 e = sd_event_ref(event);
         else {
@@ -358,6 +360,8 @@ struct curl_slist *curl_slist_new(const char *first, ...) {
 int curl_header_strdup(const void *contents, size_t sz, const char *field, char **value) {
         const char *p;
         char *s;
+
+        assert(value);
 
         p = memory_startswith_no_case(contents, sz, field);
         if (!p)

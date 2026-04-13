@@ -26,6 +26,9 @@ int parse_vid_range(const char *p, uint16_t *vid, uint16_t *vid_end) {
         unsigned lower, upper;
         int r;
 
+        assert(vid);
+        assert(vid_end);
+
         r = parse_range(p, &lower, &upper);
         if (r < 0)
                 return r;

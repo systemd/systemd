@@ -17,6 +17,7 @@
 #include "networkd-link.h"
 #include "networkd-link-bus.h"
 #include "networkd-manager.h"
+#include "networkd-speed-meter.h"
 #include "networkd-state-file.h"
 #include "ordered-set.h"
 #include "parse-util.h"
@@ -42,32 +43,12 @@ static int property_get_bit_rates(
                 sd_bus_error *error) {
 
         Link *link = ASSERT_PTR(userdata);
-        Manager *manager;
-        double interval_sec;
         uint64_t tx, rx;
 
         assert(bus);
         assert(reply);
 
-        manager = link->manager;
-
-        if (!manager->use_speed_meter ||
-            manager->speed_meter_usec_old == 0 ||
-            !link->stats_updated)
-                return sd_bus_message_append(reply, "(tt)", UINT64_MAX, UINT64_MAX);
-
-        assert(manager->speed_meter_usec_new > manager->speed_meter_usec_old);
-        interval_sec = (double) (manager->speed_meter_usec_new - manager->speed_meter_usec_old) / USEC_PER_SEC;
-
-        if (link->stats_new.tx_bytes > link->stats_old.tx_bytes)
-                tx = (uint64_t) ((link->stats_new.tx_bytes - link->stats_old.tx_bytes) / interval_sec);
-        else
-                tx = (uint64_t) ((UINT64_MAX - (link->stats_old.tx_bytes - link->stats_new.tx_bytes)) / interval_sec);
-
-        if (link->stats_new.rx_bytes > link->stats_old.rx_bytes)
-                rx = (uint64_t) ((link->stats_new.rx_bytes - link->stats_old.rx_bytes) / interval_sec);
-        else
-                rx = (uint64_t) ((UINT64_MAX - (link->stats_old.rx_bytes - link->stats_new.rx_bytes)) / interval_sec);
+        link_get_bit_rates(link, &tx, &rx);
 
         return sd_bus_message_append(reply, "(tt)", tx, rx);
 }
@@ -672,7 +653,7 @@ int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        r = link_reconfigure_full(l, LINK_RECONFIGURE_UNCONDITIONALLY | LINK_RECONFIGURE_CLEANLY, message, /* counter= */ NULL);
+        r = link_reconfigure_full(l, LINK_RECONFIGURE_UNCONDITIONALLY | LINK_RECONFIGURE_CLEANLY, message, /* varlink= */ NULL, /* counter= */ NULL);
         if (r != 0)
                 return r; /* Will reply later when r > 0. */
 

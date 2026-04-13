@@ -462,9 +462,11 @@ int boot_config_load_type1(
 void boot_config_free(BootConfig *config) {
         assert(config);
 
+        free(config->preferred_pattern);
         free(config->default_pattern);
 
         free(config->entry_oneshot);
+        free(config->entry_preferred);
         free(config->entry_default);
         free(config->entry_selected);
         free(config->entry_sysfail);
@@ -515,7 +517,9 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
                         continue;
                 }
 
-                if (streq(field, "default"))
+                if (streq(field, "preferred"))
+                        r = free_and_strdup(&config->preferred_pattern, p);
+                else if (streq(field, "default"))
                         r = free_and_strdup(&config->default_pattern, p);
                 else if (STR_IN_SET(field, "timeout", "editor", "auto-entries", "auto-firmware",
                                     "auto-poweroff", "auto-reboot", "beep", "reboot-for-bitlocker",
@@ -551,6 +555,12 @@ static int boot_loader_read_conf_path(BootConfig *config, const char *root, cons
         return boot_loader_read_conf(config, f, full);
 }
 
+static unsigned boot_entry_profile(const BootEntry *a) {
+        assert(a);
+
+        return a->profile == UINT_MAX ? 0 : a->profile;
+}
+
 static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         int r;
 
@@ -579,6 +589,10 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
                 r = -strverscmp_improved(a->version, b->version);
                 if (r != 0)
                         return r;
+
+                r = CMP(boot_entry_profile(a), boot_entry_profile(b));
+                if (r != 0)
+                        return r;
         }
 
         r = -strverscmp_improved(a->id_without_profile ?: a->id, b->id_without_profile ?: b->id);
@@ -588,7 +602,7 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         if (a->id_without_profile && b->id_without_profile) {
                 /* The strverscmp_improved() call above already established that we are talking about the
                  * same image here, hence order by profile, if there is one */
-                r = CMP(a->profile, b->profile);
+                r = CMP(boot_entry_profile(a), boot_entry_profile(b));
                 if (r != 0)
                         return r;
         }
@@ -707,7 +721,6 @@ static int boot_entry_load_unified(
         _cleanup_free_ char *fname = NULL, *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
                 *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
         const char *k, *good_name, *good_version, *good_sort_key;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(root);
@@ -719,11 +732,8 @@ static int boot_entry_load_unified(
         if (!k)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path is not below root: %s", path);
 
-        f = fmemopen_unlocked((void*) osrelease_text, strlen(osrelease_text), "r");
-        if (!f)
-                return log_oom();
-
-        r = parse_env_file(f, "os-release",
+        r = parse_env_data(osrelease_text, /* size= */ SIZE_MAX,
+                           ".osrel",
                            "PRETTY_NAME", &os_pretty_name,
                            "IMAGE_ID", &os_image_id,
                            "NAME", &os_name,
@@ -751,14 +761,9 @@ static int boot_entry_load_unified(
 
         _cleanup_free_ char *profile_id = NULL, *profile_title = NULL;
         if (profile_text) {
-                fclose(f);
-
-                f = fmemopen_unlocked((void*) profile_text, strlen(profile_text), "r");
-                if (!f)
-                        return log_oom();
-
-                r = parse_env_file(
-                                f, "profile",
+                r = parse_env_data(
+                                profile_text, /* size= */ SIZE_MAX,
+                                ".profile",
                                 "ID", &profile_id,
                                 "TITLE", &profile_title);
                 if (r < 0)
@@ -1016,7 +1021,7 @@ static int pe_find_uki_sections(
                 }
 
                 /* Permit "masking" of sections in the base profile */
-                if (found->VirtualSize == 0)
+                if (le32toh(found->VirtualSize) == 0)
                         continue;
 
                 r = pe_read_section_data(fd, found, PE_SECTION_SIZE_MAX, (void**) t->data, /* ret_size= */ NULL);
@@ -1051,6 +1056,7 @@ static int pe_find_addon_sections(
 
         assert(fd >= 0);
         assert(path);
+        assert(ret_cmdline);
 
         r = pe_load_headers_and_sections(fd, path, &sections, &pe_header);
         if (r < 0)
@@ -1390,11 +1396,29 @@ static int boot_entries_select_default(const BootConfig *config) {
                 }
         }
 
+        if (config->entry_preferred) {
+                i = boot_config_find(config, config->entry_preferred);
+                if (i >= 0) {
+                        log_debug("Found default: id \"%s\" is matched by LoaderEntryPreferred",
+                                  config->entries[i].id);
+                        return i;
+                }
+        }
+
         if (config->entry_default) {
                 i = boot_config_find(config, config->entry_default);
                 if (i >= 0) {
                         log_debug("Found default: id \"%s\" is matched by LoaderEntryDefault",
                                   config->entries[i].id);
+                        return i;
+                }
+        }
+
+        if (config->preferred_pattern) {
+                i = boot_config_find(config, config->preferred_pattern);
+                if (i >= 0) {
+                        log_debug("Found preferred: id \"%s\" is matched by pattern \"%s\"",
+                                  config->entries[i].id, config->preferred_pattern);
                         return i;
                 }
         }
@@ -1437,6 +1461,12 @@ static int boot_load_efi_entry_pointers(BootConfig *config, bool skip_efivars) {
                 return log_oom();
         if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
                 log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\", ignoring: %m");
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderEntryPreferred"), &config->entry_preferred);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryPreferred\", ignoring: %m");
 
         r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"), &config->entry_default);
         if (r == -ENOMEM)
@@ -1559,11 +1589,26 @@ int boot_config_load_auto(
                                                "Failed to determine whether /run/boot-loader-entries/ exists: %m");
         }
 
-        r = find_esp_and_warn(NULL, override_esp_path, /* unprivileged_mode= */ false, &esp_where, NULL, NULL, NULL, NULL, &esp_devid);
+        r = find_esp_and_warn_full(
+                        /* root= */ NULL,
+                        override_esp_path,
+                        /* unprivileged_mode= */ false,
+                        &esp_where,
+                        /* ret_part= */ NULL,
+                        /* ret_pstart= */ NULL,
+                        /* ret_psize= */ NULL,
+                        /* ret_uuid= */ NULL,
+                        &esp_devid);
         if (r < 0) /* we don't log about ENOKEY here, but propagate it, leaving it to the caller to log */
                 return r;
 
-        r = find_xbootldr_and_warn(NULL, override_xbootldr_path, /* unprivileged_mode= */ false, &xbootldr_where, NULL, &xbootldr_devid);
+        r = find_xbootldr_and_warn_full(
+                        /* root= */ NULL,
+                        override_xbootldr_path,
+                        /* unprivileged_mode= */ false,
+                        &xbootldr_where,
+                        /* ret_uuid= */ NULL,
+                        &xbootldr_devid);
         if (r < 0 && r != -ENOKEY)
                 return r; /* It's fine if the XBOOTLDR partition doesn't exist, hence we ignore ENOKEY here */
 

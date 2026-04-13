@@ -402,7 +402,7 @@
         be empty. If this option is used, the size allocation algorithm is slightly altered: the partition is
         created at least as big as required to fit the data in, i.e. the data size is an additional minimum
         size value taken into consideration for the allocation algorithm, similar to and in addition to the
-        <varname>SizeMin=</varname> value configured above.</para>
+        <varname>SizeMinBytes=</varname> value configured above.</para>
 
         <para>This option has no effect if the partition it is declared for already exists, i.e. existing
         data is never overwritten. Note that the data is copied in before the partition table is updated,
@@ -497,17 +497,6 @@
         in a user namespace with the current user mapped to the root user to make sure the files and
         directories in the image are owned by the root user.</para>
 
-        <para>Note that when populating XFS filesystems with <command>systemd-repart</command> and loop
-        devices are not available, populating XFS filesystems with files containing spaces, tabs or newlines
-        might fail on old versions of
-        <citerefentry project='man-pages'><refentrytitle>mkfs.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        due to limitations of its protofile format.</para>
-
-        <para>Note that when populating XFS filesystems with <command>systemd-repart</command> and loop
-        devices are not available, extended attributes will not be copied into generated XFS filesystems
-        due to limitations <citerefentry project='man-pages'><refentrytitle>mkfs.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
-        protofile format.</para>
-
         <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para>
 
         <para>When
@@ -516,6 +505,9 @@
         relative to the specified directory. If <option>--copy-source=</option> is not used, but the
         <option>--image=</option> or <option>--root=</option> switches are used, the source paths are taken
         relative to the specified root directory or disk image root.</para>
+
+        <para>Note that when <varname>CopyFiles=</varname> is used with <varname>Format=xfs</varname>,
+        <command>xfsprogs</command> 6.17 or newer is required.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
@@ -688,6 +680,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Discard=</varname></term>
+
+        <listitem><para>Takes a boolean argument. The default is <literal>no</literal> if
+        <option>--discard=no</option> is used for the invocation of <command>systemd-repart</command>
+        or if <varname>Integrity=inline</varname> is set. It is <literal>yes</literal> otherwise.</para>
+
+        <para>If set to <literal>yes</literal>, when creating the LUKS2 superblock for the partition, the
+        <literal>allow-discards</literal> activation flag will be set so that future activations will allow
+        discards by default.</para>
+
+        <para>This option has no effect if the partition already exists or if <varname>Encrypt=off</varname> is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Verity=</varname></term>
 
         <listitem><para>Takes one of <literal>off</literal>, <literal>data</literal>,
@@ -834,9 +842,9 @@
         <literal>off</literal> when false, and <literal>best</literal> when true). Defaults to
         <literal>off</literal>. If set to <literal>best</literal>, the partition will have the minimal size
         required to store the sources configured with <varname>CopyFiles=</varname>. <literal>best</literal>
-        is currently only supported for read-only filesystems. If set to <literal>guess</literal>, the
-        partition is created at least as big as required to store the sources configured with
-        <varname>CopyFiles=</varname>. Note that unless the filesystem is a read-only filesystem,
+        is currently only supported for read-only filesystems and btrfs. If set to <literal>guess</literal>,
+        the partition is created at least as big as required to store the sources configured with
+        <varname>CopyFiles=</varname>. Note that unless the filesystem is a read-only filesystem or btrfs,
         <command>systemd-repart</command> will have to populate the filesystem twice to guess the minimal
         required size, so enabling this option might slow down repart when populating large partitions.
         </para>
@@ -884,7 +892,9 @@
         </para>
 
         <para>Note that this setting is only taken into account when <option>--generate-crypttab=</option>
-        is specified on the <command>systemd-repart</command> command line.</para>
+        is specified on the <command>systemd-repart</command> command line. As the crypttab with the expected
+        hashes can only be generated after LUKS volumes are formatted, the crypttab itself cannot be put to
+        the generated volume.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>

@@ -53,6 +53,8 @@ typedef struct Tpm2Context {
         void *tcti_dl;
         TSS2_TCTI_CONTEXT *tcti_context;
         ESYS_CONTEXT *esys_context;
+        char *tcti_driver;
+        char *tcti_param;
 
         /* Some selected cached capabilities of the TPM */
         TPMS_ALG_PROPERTY *capability_algorithms;
@@ -145,6 +147,9 @@ typedef enum Tpm2UserspaceEventType {
         TPM2_EVENT_KEYSLOT,
         TPM2_EVENT_NVPCR_INIT,
         TPM2_EVENT_NVPCR_SEPARATOR,
+        TPM2_EVENT_DM_VERITY,
+        TPM2_EVENT_IMDS_USERDATA,
+        TPM2_EVENT_OS_SEPARATOR,
         _TPM2_USERSPACE_EVENT_TYPE_MAX,
         _TPM2_USERSPACE_EVENT_TYPE_INVALID = -EINVAL,
 } Tpm2UserspaceEventType;
@@ -193,6 +198,24 @@ static inline int tpm2_digest_rehash(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
 static inline int tpm2_digest_init(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
         return tpm2_digest_many(alg, digest, NULL, 0, false);
 }
+
+typedef struct Tpm2VendorInfo {
+        uint32_t level;
+        uint32_t revision_major;
+        uint32_t revision_minor;
+        uint32_t day_of_year;
+        uint32_t year;
+        uint32_t vendor_tpm_type;
+        uint16_t firmware_version_major;
+        uint16_t firmware_version_minor;
+        uint32_t firmware_version2;
+        char family_indicator[4+1];
+        char manufacturer[4+1];
+        char vendor_string[4*4+1];
+} Tpm2VendorInfo;
+
+int tpm2_vendor_info_to_modalias(const Tpm2VendorInfo *info, char **ret);
+int tpm2_get_vendor_info(Tpm2Context *c, Tpm2VendorInfo *ret);
 
 void tpm2_log_debug_tpml_pcr_selection(const TPML_PCR_SELECTION *l, const char *msg);
 void tpm2_log_debug_pcr_value(const Tpm2PCRValue *pcr_value, const char *msg);
@@ -303,8 +326,6 @@ int tpm2_tpm2b_public_to_fingerprint(const TPM2B_PUBLIC *public, void **ret_fing
 
 int tpm2_define_policy_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE requested_nv_index, const TPM2B_DIGEST *write_policy, TPM2_HANDLE *ret_nv_index, Tpm2Handle **ret_nv_handle, TPM2B_NV_PUBLIC *ret_nv_public);
 int tpm2_write_policy_nv_index(Tpm2Context *c, const Tpm2Handle *policy_session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, const TPM2B_DIGEST *policy_digest);
-int tpm2_define_nvpcr_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, TPMI_ALG_HASH algorithm, Tpm2Handle **ret_nv_handle);
-int tpm2_extend_nvpcr_nv_index(Tpm2Context *c, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, const struct iovec *digest);
 int tpm2_undefine_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle);
 int tpm2_read_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, struct iovec *ret_value);
 
@@ -476,6 +497,7 @@ typedef enum Tpm2Support {
 
         /* Combined flags for generic (i.e. not tool-specific) support */
         TPM2_SUPPORT_FULL         = TPM2_SUPPORT_API|TPM2_SUPPORT_LIBTSS2_ALL,
+        TPM2_SUPPORT_SOFTWARE     = TPM2_SUPPORT_FULL & ~TPM2_SUPPORT_FIRMWARE, /* Same, just without PC firmware support */
 } Tpm2Support;
 
 Tpm2Support tpm2_support_full(Tpm2Support mask);
@@ -484,6 +506,9 @@ static inline Tpm2Support tpm2_support(void) {
 }
 static inline bool tpm2_is_fully_supported(void) {
         return tpm2_support() == TPM2_SUPPORT_FULL;
+}
+static inline bool tpm2_is_mostly_supported(void) {
+        return (tpm2_support() & TPM2_SUPPORT_SOFTWARE) == TPM2_SUPPORT_SOFTWARE;
 }
 
 int verb_has_tpm2_generic(bool quiet);

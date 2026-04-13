@@ -590,7 +590,29 @@
         <term><varname>RestartSteps=</varname></term>
         <listitem><para>Configures the number of exponential steps to take to increase the interval
         of auto-restarts from <varname>RestartSec=</varname> to <varname>RestartMaxDelaySec=</varname>.
-        Takes a positive integer or 0 to disable it. Defaults to 0.</para>
+        Takes a positive integer or 0 to disable it. Defaults to 0. <emphasis>Hint:</emphasis> values
+        between 3 and 5 are good choices when exponential backoff is desired.</para>
+
+        <para>Example:</para>
+
+        <programlisting>RestartSec=10s
+RestartSteps=4
+RestartMaxDelaySec=160s</programlisting>
+
+        <para>This will produce the following restart intervals: 10s, 20s, 40s, 80s, 160s, 160s, 160s, etc.
+        Notice the geometric interpolation and the resulting constant ratio between intervals; here it is 2.
+        The formula for the <emphasis>ratio</emphasis> is
+        <inlineequation>
+          <mathphrase>
+            (<varname>RestartMaxDelaySec</varname> / <varname>RestartSec</varname>)^(1 / <varname>RestartSteps</varname>)
+          </mathphrase>
+        </inlineequation>. A (repeating) delay equal to <varname>RestartMaxDelaySec=</varname> is always
+        reached after
+        <inlineequation>
+          <mathphrase>
+            <varname>RestartSteps</varname> + 1
+          </mathphrase>
+        </inlineequation> steps.</para>
 
         <para>This setting is effective only if <varname>RestartMaxDelaySec=</varname> is also set and
         <varname>RestartSec=</varname> is not zero.</para>
@@ -1228,9 +1250,10 @@
         file descriptor store is automatically released when the service is stopped; if
         <constant>restart</constant> (the default) it is kept around as long as the unit is neither inactive
         nor failed, or a job is queued for the service, or the service is expected to be restarted. If
-        <constant>yes</constant> the file descriptor store is kept around until the unit is removed from
-        memory (i.e. is not referenced anymore and inactive). The latter is useful to keep entries in the
-        file descriptor store pinned until the service manager exits.</para>
+        <constant>yes</constant> the file descriptor store is kept around and garbage collection of the unit
+        is disabled. The latter is useful to keep entries in the file descriptor store pinned until the unit
+        is removed, the service manager exits, or the file descriptors get <constant>EPOLLHUP</constant> or
+        <constant>EPOLLERR</constant>.</para>
 
         <para>Use <command>systemctl clean --what=fdstore …</command> to release the file descriptor store
         explicitly.</para>
@@ -1347,6 +1370,28 @@
         above.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RefreshOnReload=</varname></term>
+
+        <listitem><para>Takes a boolean argument, or a list of resources defined in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        Possible values are <option>extensions</option> and <option>credentials</option>, separated by space.
+        Prepending the list with a single tilde character (<literal>~</literal>) inverts the effect.
+        Defaults to <option>extensions</option>. An empty assignment resets the list to default. If enabled,
+        the corresponding resources (<option>ExtensionImages=</option>/<option>ExtensionDirectories=</option>
+        for <option>extensions</option> and <option>LoadCredential=</option>/<option>ImportCredential=</option>/
+        <option>SetCredential=</option> (along with their <option>Encrypted</option> counterparts)
+        for <option>credentials</option>) will be refreshed on service reload. If <option>yes</option>,
+        all resources listed above that are used by the service shall be refreshed.</para>
+
+        <para>Specially, if this option is set explicitly, and the respective resources are in use,
+        the service may be reloaded without any actual reload mechanism (<option>ExecReload=</option>
+        or <option>Type=notify-reload</option>) for notifying the main process, in which case the reload
+        is considered complete immediately after refreshing.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
     </variablelist>

@@ -242,6 +242,12 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*515-58:pvr*
  KEYBOARD_KEY_8a=micmute                                # Microphone mute button
  KEYBOARD_KEY_55=power
 
+# Nitro AN517-54
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*517-54:pvr*
+ KEYBOARD_KEY_8a=micmute                                # Fn+F7; Microphone mute button
+ KEYBOARD_KEY_f5=prog1                                  # NitroSense button
+ KEYBOARD_KEY_55=power
+
 # Nitro ANV15-51
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*ANV*15-51:pvr*
  KEYBOARD_KEY_66=micmute                                # Microphone mute button
@@ -320,7 +326,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAYANEO:pnKUN:pvr*
 # multi-scancode sequence. The specific preceding codes
 # depend on the model, but the final scancode is always the
 # same.
-evdev:name:AT Translated Set 2 keyboard:dmi:*:svnAYA NEO:*
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnAYADEVICE:*
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnAYANEO:*
  KEYBOARD_KEY_66=f15                                    # LC (All models)
@@ -667,6 +672,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[tT][aA][bB][lL][eE][tT]*:*
  KEYBOARD_KEY_86=pageup
  KEYBOARD_KEY_87=pagedown
 
+# OmniBook Ultra Flip Laptop 14-fh0xxx
+evdev:atkbd:dmi:*:svnHP:pnHPOmniBookUltraFlipLaptop14-fh0xxx:*
+ KEYBOARD_KEY_82=unknown                                # Mic mute, handled by hp-wmi
+ KEYBOARD_KEY_ab=!unknown                               # Brightness Down and Up keys, handled by acpi-video
+
 # Pavilion
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*:*
@@ -708,7 +718,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx360Convertible13*:*
 evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pn*HP[sS][pP][eE][cC][tT][rR][eE]*x3602-in-1*:*
 # ENVY x360
 evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx360Convertible*:*
-evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx3602-in-1*:*
+evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pnHP[eE][nN][vV][yY]x3602-in-1*:*
  KEYBOARD_KEY_08=unknown                                #  Prevents random airplane mode activation
 
 # HP Elite x2 1013 G3
@@ -926,13 +936,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteDragonflyG2*:pvr*
 evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteDragonflyG2*:pvr*
  KEYBOARD_KEY_08=unknown                                # rfkill is also reported by HP Wireless hotkeys
 
-# HP Elite Dragonfly G3
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnHPEliteDragonfly13.5inchG3NotebookPC:pvr*
- KEYBOARD_KEY_c9=up
- KEYBOARD_KEY_d1=down
- KEYBOARD_KEY_c8=pageup
- KEYBOARD_KEY_d0=pagedown
-
 # HP 430 Programmable Wireless Keypad
 evdev:input:b0005v03F0p854Ae044C*
  KEYBOARD_KEY_700f3=macro1
@@ -1133,6 +1136,8 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:*:pvrIdeaPadSlim5*
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn81Q7*:pvrLenovoYogaS940:*
 # Lenovo ThinkBook 16G6IRL
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn21KH*:pvrThinkBook16G6IRL:*
+# Lenovo ThinkBook 14 2-in-1 G5 IAU
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn21SQ*:pvrThinkBook142-in-1G5IAU:*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
@@ -1167,12 +1172,25 @@ evdev:input:b0003v04B3p301B*
  KEYBOARD_KEY_90007=mail
  KEYBOARD_KEY_90008=www
 
-# Lenovo Ideapad D330-10IGM
-evdev:name:SIPODEV Lenovo HID Device:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
- KEYBOARD_KEY_70073=touchpad_toggle                     # Fn+Supr (Touchpad toggle)
+# Lenovo Ideapad D330-10IGM and D330-10IGL
+# (Tablet buttons)
+evdev:atkbd:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IG[ML]:*
+ KEYBOARD_LED_NUMLOCK=0                                 # Lacks Num-Lock LED
+ KEYBOARD_LED_CAPSLOCK=0                                # Lacks Caps-Lock LED
 
-evdev:name:SIPODEV Lenovo HID Device Consumer Control:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
- KEYBOARD_KEY_c00ff=fn_esc                              # Fn+Tab (FnLk toggle)
+# Lenovo Ideapad D330-10IGM and D330-10IGL
+# (Dock keyboard) "* Lenovo HID Device"
+evdev:input:b0003v17EFp60C[368]*-e0,1,4,11,14,k*,C2,*ram4,l0,1,2,sfw
+# Touchpad key acts as LEFTCTRL+LEFTMETA+F24 (C2) Windows shortcut for touchpad toggle,
+# with this as LEFTCTRL+LEFTMETA+TOUCHPAD_TOGGLE but just works.
+ KEYBOARD_KEY_70073=touchpad_toggle                     # Fn+Supr (Touchpad toggle).
+ KEYBOARD_LED_NUMLOCK=0                                 # Lacks Num-Lock LED
+ KEYBOARD_LED_CAPSLOCK=0                                # Lacks Caps-Lock LED
+
+# Lenovo Ideapad D330-10IGM and D330-10IGL
+# (Dock keyboard: volume, brightness and FnLk keys) "* Lenovo HID Device Consumer Control"
+evdev:input:b0003v17EFp60C[368]*-e0,1,4,k*,F0,*ram4,lsfw
+ KEYBOARD_KEY_c00ff=fn_esc                              # Fn+Tab (FnLk toggle). Default is UNKNOWN (F0).
 
 # Lenovo Thinkbook 16 G6+ 2024
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21LG:pvr*
@@ -1195,6 +1213,11 @@ evdev:name:AT Translated Set 2 keyboard:dmi:*:svnLENOVO:pn83N1:*
 evdev:name:AT Raw Set 2 keyboard:dmi:*:svnLENOVO:pn83N0:*
 evdev:name:AT Raw Set 2 keyboard:dmi:*:svnLENOVO:pn83N1:*
  KEYBOARD_KEY_20=f16 # Power button long press
+
+# Lenovo Thinkpad T14s Gen 6 (Snapdragon)
+evdev:name:hid-over-i2c 04F3:000D Keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21N1*:*
+evdev:name:hid-over-i2c 04F3:000D Keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21N2*:*
+ KEYBOARD_KEY_70072=unknown # Silence spurious F23 key-press report from Fn key
 
 ###########################################################
 # LG
@@ -1798,6 +1821,14 @@ evdev:input:b0003v258Ap001E*
  KEYBOARD_KEY_70066=sleep
 
 ###########################################################
+# Positron
+###########################################################
+
+# Positron Proxima 15 (G1569)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svn*Positron*:pnG1569*:*
+ KEYBOARD_KEY_6e=fn
+
+###########################################################
 # Purism
 ###########################################################
 
@@ -2137,6 +2168,14 @@ evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:bd*:svnVIOS:pnLTH17:*
  KEYBOARD_KEY_70073=touchpad_toggle                     # Touchpad toggle
 
 ###########################################################
+# Wareus
+###########################################################
+
+# Wareus B15 (8AD5A)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnWareus*:pnB15*:*
+ KEYBOARD_KEY_55=fn
+
+###########################################################
 # WeiHeng
 ###########################################################
 
@@ -2158,6 +2197,18 @@ evdev:name:FTSC1000:00 2808:509C Keyboard:dmi:*:svnXiaomiInc:pnMipad2:*
  KEYBOARD_KEY_70016=menu                                # S -> menu
  KEYBOARD_KEY_70029=leftmeta                            # Esc -> LeftMeta (Windows key / Win8 tablets home)
  KEYBOARD_KEY_7002a=back                                # Backspace -> back
+
+# Xiaomi Mi NoteBook Pro star key
+evdev:atkbd:dmi:bvnTIMI*:bvr*:bd*:svnTIMI*:pnMiNoteBookPro*:*
+ KEYBOARD_KEY_72=macro
+
+###########################################################
+# X+
+###########################################################
+
+# X+ piccolo series 81X (Intel N305, possibly more)
+evdev:input:b0011v0001p0001eAB83*
+ KEYBOARD_KEY_9c=enter                                  # KP_enter in the main area is wrong
 
 ###########################################################
 # Zepto
@@ -2381,21 +2432,21 @@ evdev:input:b0003v05FEp1010*
 ######################### LACK OF MODIFIER LEDS ############################
 # This section lists keyboard which do not have their own LEDs for some
 # modifiers. Only Caps-Lock (KEYBOARD_LED_CAPSLOCK) and Num-Lock
-# (KEYBOARD_LED_CAPSLOCK) are currently handled and need their values set
+# (KEYBOARD_LED_NUMLOCK) are currently handled and need their values set
 # to "0" to indicate the absence of LED.
 #
 # Presence of a LED is implicit when the property is absent.
 
 # Apple Wireless keyboards
-evdev:input:b0005v05aCp022C*
-evdev:input:b0005v05aCp022D*
-evdev:input:b0005v05aCp022E*
-evdev:input:b0005v05aCp0239*
-evdev:input:b0005v05aCp023A*
-evdev:input:b0005v05aCp023B*
-evdev:input:b0005v05aCp0255*
-evdev:input:b0005v05aCp0256*
-evdev:input:b0005v05aCp0257*
+evdev:input:b0005v05ACp022C*
+evdev:input:b0005v05ACp022D*
+evdev:input:b0005v05ACp022E*
+evdev:input:b0005v05ACp0239*
+evdev:input:b0005v05ACp023A*
+evdev:input:b0005v05ACp023B*
+evdev:input:b0005v05ACp0255*
+evdev:input:b0005v05ACp0256*
+evdev:input:b0005v05ACp0257*
  KEYBOARD_LED_NUMLOCK=0
 
 # Logitech K750

@@ -6,6 +6,8 @@
 
 #include <passwdqc.h>
 
+#include "sd-dlopen.h"
+
 #include "alloc-util.h"
 #include "dlfcn-util.h"
 #include "errno-util.h"
@@ -15,12 +17,12 @@
 
 static void *passwdqc_dl = NULL;
 
-DLSYM_PROTOTYPE(passwdqc_params_reset) = NULL;
-DLSYM_PROTOTYPE(passwdqc_params_load) = NULL;
-DLSYM_PROTOTYPE(passwdqc_params_parse) = NULL;
-DLSYM_PROTOTYPE(passwdqc_params_free) = NULL;
-DLSYM_PROTOTYPE(passwdqc_check) = NULL;
-DLSYM_PROTOTYPE(passwdqc_random) = NULL;
+static DLSYM_PROTOTYPE(passwdqc_params_reset) = NULL;
+static DLSYM_PROTOTYPE(passwdqc_params_load) = NULL;
+static DLSYM_PROTOTYPE(passwdqc_params_parse) = NULL;
+static DLSYM_PROTOTYPE(passwdqc_params_free) = NULL;
+static DLSYM_PROTOTYPE(passwdqc_check) = NULL;
+static DLSYM_PROTOTYPE(passwdqc_random) = NULL;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(passwdqc_params_t*, sym_passwdqc_params_free, passwdqc_params_freep, NULL);
 
@@ -137,9 +139,10 @@ int check_password_quality(
 
 int dlopen_passwdqc(void) {
 #if HAVE_PASSWDQC
-        ELF_NOTE_DLOPEN("passwdqc",
+        SD_ELF_NOTE_DLOPEN(
+                        "passwdqc",
                         "Support for password quality checks",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libpasswdqc.so.1");
 
         return dlopen_many_sym_or_warn(

@@ -1,0 +1,13 @@
+{
+    "type": "devicetree",
+    "name": "Qualcomm SCP_HAMOA",
+    "compatible": "qcom,x1e001de-devkit",
+    "hwids": [
+        "baa7a649-12d8-56c7-93c5-a4e10f4852be",
+        "c8e75ab8-555c-5952-a3e3-5b607bea031d",
+        "4bb05d50-6c4f-525d-a9ec-8924afd6edea",
+        "830bd4a2-2498-55cf-b561-48f7dc5f4820",
+        "f37dc44b-0be4-5a70-86bd-81f3dacff2e9",
+        "9cba20d0-17ad-559f-94cd-cfcbbf5f71f5"
+    ]
+}

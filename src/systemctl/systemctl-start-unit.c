@@ -289,12 +289,13 @@ static const char** make_extra_args(const char *extra_args[static 4]) {
         return extra_args;
 }
 
-int verb_start(int argc, char *argv[], void *userdata) {
+int verb_start(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *wu = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         const char *method, *job_type, *mode, *one_name, *suffix = NULL;
         _cleanup_free_ char **stopped_units = NULL; /* Do not use _cleanup_strv_free_ */
         _cleanup_strv_free_ char **names = NULL;
+        bool is_enqueue_marked_jobs = false;
         int r, ret = EXIT_SUCCESS;
         sd_bus *bus;
 
@@ -331,13 +332,23 @@ int verb_start(int argc, char *argv[], void *userdata) {
                                 job_type = "start";
                                 mode = "isolate";
                                 suffix = ".target";
-                        } else if (!arg_marked) {
+                        } else if (streq(argv[0], "enqueue-marked") || arg_marked) {
+                                is_enqueue_marked_jobs = true;
+                                method = job_type = mode = NULL;
+
+                                if (arg_show_transaction)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "--show-transaction is not supported for enqueue-marked.");
+
+                                if (arg_marked)
+                                        log_warning("--marked is deprecated. Please use 'systemctl enqueue-marked' instead.");
+
+                        } else {
                                 /* A command in style of "systemctl start <unit1> <unit2> …", "systemctl stop <unit1> <unit2> …" and so on */
                                 method = verb_to_method(argv[0]);
                                 job_type = verb_to_job_type(argv[0]);
                                 mode = arg_job_mode();
-                        } else
-                                method = job_type = mode = NULL;
+                        }
 
                         one_name = NULL;
                 }
@@ -357,7 +368,7 @@ int verb_start(int argc, char *argv[], void *userdata) {
                 names = strv_new(one_name);
                 if (!names)
                         return log_oom();
-        } else if (!arg_marked) {
+        } else if (!is_enqueue_marked_jobs) {
                 bool expanded;
 
                 r = expand_unit_names(bus, strv_skip(argv, 1), suffix, &names, &expanded);
@@ -387,11 +398,11 @@ int verb_start(int argc, char *argv[], void *userdata) {
         }
 
         _cleanup_(fork_notify_terminate) PidRef journal_pid = PIDREF_NULL;
-        if (arg_marked)
+        if (is_enqueue_marked_jobs)
                 ret = enqueue_marked_jobs(bus, w);
         else {
                 if (arg_verbose)
-                        (void) journal_fork(arg_runtime_scope, names, &journal_pid);
+                        (void) journal_fork(arg_runtime_scope, names, arg_output, &journal_pid);
 
                 STRV_FOREACH(name, names) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;

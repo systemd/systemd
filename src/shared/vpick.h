@@ -17,7 +17,7 @@ typedef struct PickFilter {
         const char *basename;         /* Can be overridden by search pattern */
         const char *version;
         Architecture architecture;
-        char * const *suffix;         /* Can be overridden by search pattern */
+        const char *suffix;           /* Can be overridden by search pattern */
 } PickFilter;
 
 typedef struct PickResult {
@@ -64,8 +64,10 @@ int path_uses_vpick(const char *path);
 
 extern const PickFilter pick_filter_image_raw[1];
 extern const PickFilter pick_filter_image_dir[1];
+extern const PickFilter pick_filter_image_mstack[1];
 
 #define pick_filter_image_any (const PickFilter[]) {    \
         pick_filter_image_raw[0],                       \
+        pick_filter_image_mstack[0],                    \
         pick_filter_image_dir[0],                       \
 }

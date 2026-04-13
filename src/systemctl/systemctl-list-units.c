@@ -258,7 +258,7 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
         return 0;
 }
 
-int verb_list_units(int argc, char *argv[], void *userdata) {
+int verb_list_units(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_set_free_ Set *replies = NULL;
         sd_bus *bus;
@@ -490,7 +490,7 @@ static int output_sockets_list(const SocketInfo *sockets, size_t n_sockets) {
         return 0;
 }
 
-int verb_list_sockets(int argc, char *argv[], void *userdata) {
+int verb_list_sockets(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_set_free_ Set *replies = NULL;
         _cleanup_strv_free_ char **sockets_with_suffix = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
@@ -771,7 +771,7 @@ static int add_timer_info(
         return 0;
 }
 
-int verb_list_timers(int argc, char *argv[], void *userdata) {
+int verb_list_timers(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_set_free_ Set *replies = NULL;
         _cleanup_strv_free_ char **timers_with_suffix = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
@@ -970,7 +970,7 @@ static int output_automounts_list(const AutomountInfo *infos, size_t n_infos) {
         return 0;
 }
 
-int verb_list_automounts(int argc, char *argv[], void *userdata) {
+int verb_list_automounts(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_set_free_ Set *replies = NULL;
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
@@ -1178,7 +1178,7 @@ static int output_paths_list(const PathInfo *paths, size_t n_paths) {
         return 0;
 }
 
-int verb_list_paths(int argc, char *argv[], void *userdata) {
+int verb_list_paths(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_set_free_ Set *replies = NULL;
         _cleanup_strv_free_ char **units = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;

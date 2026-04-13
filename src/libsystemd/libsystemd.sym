@@ -1085,3 +1085,21 @@ global:
         sd_event_get_exit_on_idle;
         sd_varlink_is_connected;
 } LIBSYSTEMD_258;
+
+LIBSYSTEMD_260 {
+global:
+        sd_session_get_extra_device_access;
+} LIBSYSTEMD_259;
+
+LIBSYSTEMD_261 {
+global:
+        sd_varlink_call_and_upgrade;
+        sd_varlink_reply_and_upgrade;
+        sd_varlink_set_sentinel;
+        sd_event_add_cpu_pressure;
+        sd_event_source_set_cpu_pressure_type;
+        sd_event_source_set_cpu_pressure_period;
+        sd_event_add_io_pressure;
+        sd_event_source_set_io_pressure_type;
+        sd_event_source_set_io_pressure_period;
+} LIBSYSTEMD_260;

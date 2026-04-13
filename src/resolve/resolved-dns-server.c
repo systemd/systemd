@@ -1036,7 +1036,8 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
         dns_server_unref(m->current_dns_server);
         m->current_dns_server = dns_server_ref(s);
 
-        if (m->unicast_scope)
+        /* Skip flushing the cache if server stale feature is enabled. */
+        if (m->unicast_scope && m->stale_retention_usec == 0)
                 dns_cache_flush(&m->unicast_scope->cache);
 
         (void) manager_send_changed(m, "CurrentDNSServer");
@@ -1153,6 +1154,10 @@ void dns_server_flush_cache(DnsServer *s) {
                 s->delegate ? s->delegate->scope :
                               s->manager->unicast_scope;
         if (!scope)
+                return;
+
+        /* Skip flushing the cache if server stale feature is enabled. */
+        if (s->manager->stale_retention_usec > 0)
                 return;
 
         dns_cache_flush(&scope->cache);
@@ -1374,7 +1379,7 @@ int dns_server_dump_configuration_to_json(DnsServer *server, sd_json_variant **r
         return sd_json_buildo(
                         ret,
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("addressString", dns_server_string(server)),
-                        JSON_BUILD_PAIR_IN_ADDR("address", &server->address, server->family),
+                        JSON_BUILD_PAIR_IN_ADDR("address", server->family, &server->address),
                         SD_JSON_BUILD_PAIR_INTEGER("family", server->family),
                         SD_JSON_BUILD_PAIR_UNSIGNED("port", dns_server_port(server)),
                         SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_UNSIGNED(ifindex)),

@@ -77,7 +77,7 @@ testcase_sanity() {
     create_dummy_container "$template"
     # Create a simple image from the just created container template
     image="$(mktemp /var/lib/machines/TEST-13-NSPAWN.image-XXX.img)"
-    dd if=/dev/zero of="$image" bs=1M count=256
+    truncate -s 384M "$image"
     mkfs.ext4 "$image"
     mkdir -p /mnt
     mount -o loop "$image" /mnt
@@ -202,7 +202,7 @@ testcase_sanity() {
     systemd-nspawn --register=no --directory="$root" bash -xec '[[ $$ -eq 1 ]]'
     systemd-nspawn --register=no --directory="$root" --as-pid2 bash -xec '[[ $$ -eq 2 ]]'
 
-    # --user=
+    # --uid=
     # "Fake" getent passwd's bare minimum, so we don't have to pull it in
     # with all the DSO shenanigans
     cat >"$root/bin/getent" <<\EOF
@@ -222,6 +222,9 @@ EOF
     # as bash isn't invoked with the necessary environment variables for that.
     useradd --root="$root" --uid 1000 --user-group --create-home testuser
     systemd-nspawn --register=no --directory="$root" bash -xec '[[ $USER == root ]]'
+    systemd-nspawn --register=no --directory="$root" --uid=testuser bash -xec '[[ $USER == testuser ]]'
+    # Backward compat: --user NAME (space-separated) and --user=testuser should still work
+    systemd-nspawn --register=no --directory="$root" --user testuser bash -xec '[[ $USER == testuser ]]'
     systemd-nspawn --register=no --directory="$root" --user=testuser bash -xec '[[ $USER == testuser ]]'
 
     # --settings= + .nspawn files
@@ -335,10 +338,10 @@ EOF
                    --load-credential=cred.path:/tmp/cred.path \
                    --set-credential="cred.set:hello world" \
                    bash -xec '[[ "$(</run/host/credentials/cred.path)" == "foo bar" ]]; [[ "$(</run/host/credentials/cred.set)" == "hello world" ]]'
-    # Combine with --user to ensure creds are still readable
+    # Combine with --uid to ensure creds are still readable
     systemd-nspawn --register=no \
                    --directory="$root" \
-                   --user=testuser \
+                   --uid=testuser \
                    --no-new-privileges=yes \
                    --load-credential=cred.path:/tmp/cred.path \
                    --set-credential="cred.set:hello world" \
@@ -394,6 +397,46 @@ EOF
     (! systemd-nspawn --volatile="")
     (! systemd-nspawn --volatile=-1)
     (! systemd-nspawn --rlimit==)
+}
+
+testcase_check_default_inaccessible_paths() {
+    local root container inaccessible_paths path exp
+
+    # Taken from src/nspawn/nspawn-mount.c:mount_all()
+    inaccessible_paths=(
+        "/proc/kallsyms"
+        "/proc/kcore"
+        "/proc/keys"
+        "/proc/sysrq-trigger"
+        "/proc/timer_list"
+    )
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.default_inaccessible_paths.XXX)"
+    container="$(basename "$root")"
+    create_dummy_container "$root"
+
+    # Each inaccessible path should have zeroed permissions, which stat's %a reports as a single 0
+    for path in "${inaccessible_paths[@]}"; do
+        systemd-nspawn --register=no --directory="$root" \
+                       bash -xec "ls -l $path; [[ \$(stat --format=%a $path) -eq 0 ]]"
+    done
+
+    # SYSTEMD_NSPAWN_API_VFS_WRITABLE=yes mounts certain API directories under /sys/ and /proc/sys/
+    # as writable, and it also skips the path masking (by dropping the MOUNT_APPLY_APIVFS_RO flag)
+    for path in "${inaccessible_paths[@]}"; do
+        exp="$(stat --format=%a "$path")"
+        SYSTEMD_NSPAWN_API_VFS_WRITABLE=yes systemd-nspawn --register=no --directory="$root" \
+                       bash -xec "ls -l $path; [[ \$(stat --format=%a $path) -eq $exp ]]"
+    done
+
+    # SYSTEMD_NSPAWN_API_VFS_WRITABLE=network mounts only /proc/sys/net/ as writable but doesn't
+    # drop the MOUNT_APPLY_APIVFS_RO flag, so the masking should still apply
+    for path in "${inaccessible_paths[@]}"; do
+        SYSTEMD_NSPAWN_API_VFS_WRITABLE=network systemd-nspawn --register=no --directory="$root" \
+                       bash -xec "ls -l $path; [[ \$(stat --format=%a $path) -eq 0 ]]"
+    done
+
+    rm -fr "$root"
 }
 
 nspawn_settings_cleanup() {
@@ -810,7 +853,7 @@ testcase_rootidmap() {
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.rootidmap-path.XXX)"
     # Create ext4 image, as ext4 supports idmapped-mounts.
     mkdir -p /tmp/rootidmap/bind
-    dd if=/dev/zero of=/tmp/rootidmap/ext4.img bs=4k count=2048
+    truncate -s $((4096*2048)) /tmp/rootidmap/ext4.img
     mkfs.ext4 /tmp/rootidmap/ext4.img
     mount /tmp/rootidmap/ext4.img /tmp/rootidmap/bind
     trap "rootidmap_cleanup /tmp/rootidmap/" RETURN
@@ -854,7 +897,7 @@ testcase_owneridmap() {
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.owneridmap-path.XXX)"
     # Create ext4 image, as ext4 supports idmapped-mounts.
     mkdir -p /tmp/owneridmap/bind
-    dd if=/dev/zero of=/tmp/owneridmap/ext4.img bs=4k count=2048
+    truncate -s $((4096*2048)) /tmp/owneridmap/ext4.img
     mkfs.ext4 /tmp/owneridmap/ext4.img
     mount /tmp/owneridmap/ext4.img /tmp/owneridmap/bind
     trap "owneridmap_cleanup /tmp/owneridmap/" RETURN
@@ -867,7 +910,7 @@ testcase_owneridmap() {
 
     create_dummy_container "$root"
 
-    # --user=
+    # --uid=
     # "Fake" getent passwd's bare minimum, so we don't have to pull it in
     # with all the DSO shenanigans
     cat >"$root/bin/getent" <<\EOF
@@ -893,7 +936,7 @@ EOF
             systemd-nspawn --register=no \
                            --directory="$root" \
                            -U \
-                           --user=testuser \
+                           --uid=testuser \
                            --bind=/tmp/owneridmap/bind:/home/testuser:owneridmap \
                            ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
                            bash -c "$cmd" |& tee nspawn.out; then

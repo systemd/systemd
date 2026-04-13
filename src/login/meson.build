@@ -21,6 +21,7 @@ systemd_logind_extract_sources = files(
         'logind-session-dbus.c',
         'logind-session-device.c',
         'logind-session.c',
+        'logind-shutdown.c',
         'logind-user-dbus.c',
         'logind-user.c',
         'logind-utmp.c',
@@ -109,7 +110,7 @@ custom_target(
         input : 'logind.conf.in',
         output : 'logind.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-        install : install_sysconfdir_samples and pkgsysconfdir != 'no',
+        install : install_sysconfdir_samples,
         install_dir : pkgconfigfiledir)
 
 custom_target(

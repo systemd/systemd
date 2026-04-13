@@ -3,7 +3,7 @@
 #include "chid-fundamental.h"
 #include "tests.h"
 
-const char16_t *const test_fields[_CHID_SMBIOS_FIELDS_MAX] = {
+static const char16_t *const test_fields[_CHID_SMBIOS_FIELDS_MAX] = {
         [CHID_SMBIOS_MANUFACTURER]           = u"Micro-Star International Co., Ltd.",
         [CHID_SMBIOS_PRODUCT_NAME]           = u"MS-7D70",
         [CHID_SMBIOS_PRODUCT_SKU]            = u"To be filled by O.E.M.",

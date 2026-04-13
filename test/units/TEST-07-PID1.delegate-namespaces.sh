@@ -88,14 +88,14 @@ testcase_multiple_features() {
         -p PrivateTmp=yes \
         -p PrivateDevices=yes \
         -p PrivateNetwork=yes \
-        -p PrivateUsersEx=self \
+        -p PrivateUsers=self \
         -p PrivateIPC=yes \
         -p ProtectHostname=yes \
         -p ProtectClock=yes \
         -p ProtectKernelTunables=yes \
         -p ProtectKernelModules=yes \
         -p ProtectKernelLogs=yes \
-        -p ProtectControlGroupsEx=private \
+        -p ProtectControlGroups=private \
         -p LockPersonality=yes \
         -p Environment=ABC=QED \
         -p DelegateNamespaces=yes \

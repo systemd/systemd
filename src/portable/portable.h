@@ -112,7 +112,7 @@ int portable_get_state(
 
 int portable_get_profiles(RuntimeScope scope, char ***ret);
 
-void portable_changes_free(PortableChange *changes, size_t n_changes);
+void portable_changes_free(PortableChange *array, size_t n);
 
 DECLARE_STRING_TABLE_LOOKUP(portable_change_type, int);
 

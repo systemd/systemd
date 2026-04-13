@@ -199,9 +199,12 @@ typedef struct ExecContext {
         char **unset_environment;
 
         struct rlimit *rlimit[_RLIMIT_MAX];
-        char *working_directory, *root_directory, *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
+        char *working_directory;
+        char *root_directory;
+        char *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
         struct iovec root_hash, root_hash_sig;
         MountOptions *root_image_options;
+        char *root_mstack;
         bool root_ephemeral;
         bool working_directory_missing_ok:1;
         bool working_directory_home:1;
@@ -330,9 +333,9 @@ typedef struct ExecContext {
         int bind_log_sockets;
         int memory_ksm;
         MemoryTHP memory_thp;
-        PrivateTmp private_tmp;
-        PrivateTmp private_var_tmp; /* This is not an independent parameter, but calculated from other
-                                     * parameters in unit_patch_contexts(). */
+        PrivateTmp private_tmp;     /* Those are not independent parameters, but are calculated from */
+        PrivateTmp private_var_tmp; /* other parameters in unit_patch_contexts(). */
+
         bool private_network;
         bool private_devices;
         PrivateUsers private_users;
@@ -577,6 +580,7 @@ char** exec_context_get_restrict_filesystems(const ExecContext *c);
 bool exec_context_restrict_namespaces_set(const ExecContext *c);
 bool exec_context_restrict_filesystems_set(const ExecContext *c);
 bool exec_context_with_rootfs(const ExecContext *c);
+bool exec_context_with_rootfs_strict(const ExecContext *c);
 
 int exec_context_has_vpicked_extensions(const ExecContext *context);
 
@@ -634,7 +638,7 @@ DECLARE_STRING_TABLE_LOOKUP(exec_resource_type, ExecDirectoryType);
 
 DECLARE_STRING_TABLE_LOOKUP(memory_thp, MemoryTHP);
 
-bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecRuntime *runtime);
+bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params);
 bool exec_needs_network_namespace(const ExecContext *context);
 bool exec_needs_ipc_namespace(const ExecContext *context);
 bool exec_needs_pid_namespace(const ExecContext *context, const ExecParameters *params);

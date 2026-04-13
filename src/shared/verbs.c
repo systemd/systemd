@@ -3,6 +3,7 @@
 #include <getopt.h>
 
 #include "env-util.h"
+#include "format-table.h"
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
@@ -57,40 +58,46 @@ bool should_bypass(const char *env_prefix) {
         return true;
 }
 
-const Verb* verbs_find_verb(const char *name, const Verb verbs[]) {
+static bool verb_is_metadata(const Verb *verb) {
+        /* A metadata entry that is not a real verb, like the group marker */
+        return FLAGS_SET(ASSERT_PTR(verb)->flags, VERB_GROUP_MARKER);
+}
+
+const Verb* verbs_find_verb(const char *name, const Verb verbs[], const Verb verbs_end[]) {
         assert(verbs);
 
-        for (size_t i = 0; verbs[i].dispatch; i++)
-                if (name ? streq(name, verbs[i].verb) : FLAGS_SET(verbs[i].flags, VERB_DEFAULT))
-                        return verbs + i;
+        for (const Verb *verb = verbs; verb < verbs_end; verb++) {
+                if (verb_is_metadata(verb))
+                        continue;
+
+                if (name ? streq(name, verb->verb) : FLAGS_SET(verb->flags, VERB_DEFAULT))
+                        return verb;
+        }
 
         /* At the end of the list? */
         return NULL;
 }
 
-int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
-        const Verb *verb;
-        const char *name;
-        int r, left;
+int _dispatch_verb_with_args(char **args, const Verb verbs[], const Verb verbs_end[], void *userdata) {
+        int r;
 
         assert(verbs);
+        assert(verbs_end > verbs);
         assert(verbs[0].dispatch);
         assert(verbs[0].verb);
-        assert(argc >= 0);
-        assert(argv);
-        assert(argc >= optind);
 
-        left = argc - optind;
-        argv += optind;
-        optind = 0;
-        name = argv[0];
+        const char *name = args ? args[0] : NULL;
+        size_t left = strv_length(args);
 
-        verb = verbs_find_verb(name, verbs);
+        const Verb *verb = verbs_find_verb(name, verbs, verbs_end);
         if (!verb) {
                 _cleanup_strv_free_ char **verb_strv = NULL;
 
-                for (size_t i = 0; verbs[i].dispatch; i++) {
-                        r = strv_extend(&verb_strv, verbs[i].verb);
+                for (verb = verbs; verb < verbs_end; verb++) {
+                        if (verb_is_metadata(verb))
+                                continue;
+
+                        r = strv_extend(&verb_strv, verb->verb);
                         if (r < 0)
                                 return log_oom();
                 }
@@ -120,12 +127,10 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
         if (!name)
                 left = 1;
 
-        if (verb->min_args != VERB_ANY &&
-            (unsigned) left < verb->min_args)
+        if (verb->min_args != VERB_ANY && left < verb->min_args)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too few arguments.");
 
-        if (verb->max_args != VERB_ANY &&
-            (unsigned) left > verb->max_args)
+        if (verb->max_args != VERB_ANY && left > verb->max_args)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments.");
 
         if ((verb->flags & VERB_ONLINE_ONLY) && running_in_chroot_or_offline()) {
@@ -134,7 +139,79 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
         }
 
         if (!name)
-                return verb->dispatch(1, STRV_MAKE(verb->verb), userdata);
+                return verb->dispatch(1, STRV_MAKE(verb->verb), verb->data, userdata);
 
-        return verb->dispatch(left, argv, userdata);
+        assert(left < INT_MAX);  /* args are derived from argc+argv, so their size must fit in an int. */
+        return verb->dispatch(left, args, verb->data, userdata);
+}
+
+int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
+        /* getopt wrapper for _dispatch_verb_with_args.
+         * TBD: remove this function when all programs with verbs have been converted. */
+
+        assert(argc >= 0);
+        assert(argv);
+        assert(argc >= optind);
+
+        size_t n = 0;
+        while (verbs[n].verb)
+                n++;
+
+        return _dispatch_verb_with_args(strv_skip(argv, optind), verbs, verbs + n, userdata);
+}
+
+int _verbs_get_help_table(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const char *group,
+                Table **ret) {
+        int r;
+
+        assert(ret);
+
+        _cleanup_(table_unrefp) Table *table = table_new("verb", "help");
+        if (!table)
+                return log_oom();
+
+        bool in_group = group == NULL;  /* Are we currently in the section on the array that forms
+                                         * group <group>? The first part is the default group, so
+                                         * if the group was not specified, we are in. */
+
+        for (const Verb *verb = verbs; verb < verbs_end; verb++) {
+                assert(verb->verb);
+
+                bool group_marker = FLAGS_SET(verb->flags, VERB_GROUP_MARKER);
+                if (!in_group) {
+                        in_group = group_marker && streq(group, verb->verb);
+                        continue;
+                }
+                if (group_marker)
+                        break;  /* End of group */
+
+                if (!verb->help)
+                        /* No help string — we do not show the verb */
+                        continue;
+
+                /* We indent the option string by two spaces. We could set the minimum cell width and
+                 * right-align for a similar result, but that'd be more work. This is only used for
+                 * display. */
+                r = table_add_cell_stringf(table, NULL, "  %s%s%s",
+                                           verb->verb,
+                                           verb->argspec ? " " : "",
+                                           strempty(verb->argspec));
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                _cleanup_strv_free_ char **s = strv_split(verb->help, /* separators= */ NULL);
+                if (!s)
+                        return log_oom();
+
+                r = table_add_many(table, TABLE_STRV_WRAPPED, s);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        table_set_header(table, false);
+        *ret = TAKE_PTR(table);
+        return 0;
 }

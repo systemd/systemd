@@ -83,7 +83,7 @@ static int table_add_designator_line(Table *table, PartitionDesignator d, Partit
         return 0;
 }
 
-int verb_image_policy(int argc, char *argv[], void *userdata) {
+int verb_image_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         for (int i = 1; i < argc; i++) {
@@ -157,7 +157,7 @@ int verb_image_policy(int argc, char *argv[], void *userdata) {
 
                 putc('\n', stdout);
 
-                r = table_print(table, NULL);
+                r = table_print_or_warn(table);
                 if (r < 0)
                         return r;
         }

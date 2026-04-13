@@ -168,6 +168,8 @@ int prioq_put(Prioq *q, void *data, unsigned *idx) {
 int _prioq_ensure_put(Prioq **q, compare_func_t compare_func, void *data, unsigned *idx) {
         int r;
 
+        assert(q);
+
         r = prioq_ensure_allocated(q, compare_func);
         if (r < 0)
                 return r;

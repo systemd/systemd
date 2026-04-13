@@ -20,6 +20,7 @@ print(
 #include <stddef.h>
 #include <stdint.h>
 
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 const uint8_t hwids_section_data[] = {
     """,
     end='',
@@ -34,6 +35,8 @@ for i, b in enumerate(hwids):
 
 print(
     """};
+
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 const size_t hwids_section_len =""",
     f'{len(hwids)};',
 )

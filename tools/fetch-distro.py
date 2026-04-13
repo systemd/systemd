@@ -123,7 +123,7 @@ def update_distro(args, distro: str, config: dict):
         print(f'{pkg_subdir}: commit {new_commit!s} is still fresh')
         return
 
-    cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'log', '--graph', '--first-parent',
+    cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'log', '--graph', '--no-merges',
            '--pretty=oneline', '--no-decorate', '--abbrev-commit', '--abbrev=10',
            f'{old_commit}..{new_commit}']
     if subdir is not None:

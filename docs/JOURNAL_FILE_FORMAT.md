@@ -30,7 +30,7 @@ so if this document and the code disagree, the code is right.
 That said we'll of course try hard to keep this document up-to-date and accurate.
 
 Instead of implementing your own reader or writer for journal files we ask you to use the
-[Journal's native CAPI](https://www.freedesktop.org/software/systemd/man/sd-journal.html)
+[Journal's native CAPI](https://www.freedesktop.org/software/systemd/man/latest/sd-journal.html)
 to access these files.
 It provides you with full access to the files, and will not withhold any data.
 If you find a limitation, please ping us and we might add some additional interfaces for you.
@@ -42,7 +42,7 @@ The export format is much simpler to parse, but complete and accurate.
 Due to its stream-based nature it is not indexed.
 
 _Or, to put this in other words: this low-level document is probably not what you want to use as base of your project.
-You want our [C API](https://www.freedesktop.org/software/systemd/man/sd-journal.html) instead!
+You want our [C API](https://www.freedesktop.org/software/systemd/man/latest/sd-journal.html) instead!
 And if you really don't want the C API, then you want the
 [Journal Export Format or Journal JSON Format](/JOURNAL_EXPORT_FORMATS) instead!
 This document is primarily for your entertainment and education.
@@ -51,7 +51,7 @@ Thank you!_
 This document assumes you have a basic understanding of the journal concepts, the properties of a journal entry and so on.
 If not, please go and read up, then come back!
 This is a good opportunity to read about the
-[basic properties of journal entries](https://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html),
+[basic properties of journal entries](https://www.freedesktop.org/software/systemd/man/latest/systemd.journal-fields.html),
 in particular realize that they may include binary non-text data (though usually don't),
 and the same field might have multiple values assigned within the same entry.
 
@@ -202,7 +202,7 @@ also supposed to be updated whenever the file was opened for any form of
 writing, including when opened to mark it as archived. This behaviour has been
 deemed problematic since without an associated boot ID the
 **tail_entry_monotonic** field is useless. To indicate whether the boot ID is
-updated only on append the JOURNAL_COMPATIBLE_TAIL_ENTRY_BOOT_ID is set. If it
+updated only on append the `JOURNAL_COMPATIBLE_TAIL_ENTRY_BOOT_ID` is set. If it
 is not set, the **tail_entry_monotonic** field is not usable).
 
 The currently used part of the file is the **header_size** plus the
@@ -291,27 +291,27 @@ enum {
 };
 ```
 
-HEADER_INCOMPATIBLE_COMPRESSED_XZ indicates that the file includes DATA objects
-that are compressed using XZ. Similarly, HEADER_INCOMPATIBLE_COMPRESSED_LZ4
+`HEADER_INCOMPATIBLE_COMPRESSED_XZ` indicates that the file includes DATA objects
+that are compressed using XZ. Similarly, `HEADER_INCOMPATIBLE_COMPRESSED_LZ4`
 indicates that the file includes DATA objects that are compressed with the LZ4
-algorithm. And HEADER_INCOMPATIBLE_COMPRESSED_ZSTD indicates that there are
+algorithm. And `HEADER_INCOMPATIBLE_COMPRESSED_ZSTD` indicates that there are
 objects compressed with ZSTD.
 
-HEADER_INCOMPATIBLE_KEYED_HASH indicates that instead of the unkeyed Jenkins
+`HEADER_INCOMPATIBLE_KEYED_HASH` indicates that instead of the unkeyed Jenkins
 hash function the keyed siphash24 hash function is used for the two hash
 tables, see below.
 
-HEADER_INCOMPATIBLE_COMPACT indicates that the journal file uses the new binary
+`HEADER_INCOMPATIBLE_COMPACT` indicates that the journal file uses the new binary
 format that uses less space on disk compared to the original format.
 
-HEADER_COMPATIBLE_SEALED indicates that the file includes TAG objects required
+`HEADER_COMPATIBLE_SEALED` indicates that the file includes TAG objects required
 for Forward Secure Sealing.
 
-HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID indicates whether the
+`HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID` indicates whether the
 **tail_entry_boot_id** field is strictly updated on initial creation of the
 file and whenever an entry is updated (in which case the flag is set), or also
 when the file is archived (in which case it is unset). New files should always
-set this flag (and thus not update the **tail_entry_boot_id** except when
+set this flag (and thus not update **tail_entry_boot_id** except when
 creating the file and when appending an entry to it.
 
 ## Dirty Detection
@@ -406,11 +406,11 @@ _packed_ struct ObjectHeader {
 ```
 
 The **type** field is one of the object types listed above. The **flags** field
-currently knows three flags: OBJECT_COMPRESSED_XZ, OBJECT_COMPRESSED_LZ4 and
-OBJECT_COMPRESSED_ZSTD. It is only valid for DATA objects and indicates that
+currently knows three flags: `OBJECT_COMPRESSED_XZ`, `OBJECT_COMPRESSED_LZ4` and
+`OBJECT_COMPRESSED_ZSTD`. It is only valid for DATA objects and indicates that
 the data payload is compressed with XZ/LZ4/ZSTD. If one of the
-OBJECT_COMPRESSED_* flags is set for an object then the matching
-HEADER_INCOMPATIBLE_COMPRESSED_XZ/HEADER_INCOMPATIBLE_COMPRESSED_LZ4/HEADER_INCOMPATIBLE_COMPRESSED_ZSTD
+`OBJECT_COMPRESSED_*` flags is set for an object then the matching
+`HEADER_INCOMPATIBLE_COMPRESSED_XZ`/`HEADER_INCOMPATIBLE_COMPRESSED_LZ4`/`HEADER_INCOMPATIBLE_COMPRESSED_ZSTD`
 flag must be set for the file as well. At most one of these three bits may be
 set. The **size** field encodes the size of the object including all its
 headers and payload.
@@ -465,7 +465,7 @@ number of ENTRY objects that reference this object, i.e. the sum of all
 ENTRY_ARRAYS chained up from this object, plus 1.
 
 The **payload[]** field contains the field name and date unencoded, unless
-OBJECT_COMPRESSED_XZ/OBJECT_COMPRESSED_LZ4/OBJECT_COMPRESSED_ZSTD is set in the
+`OBJECT_COMPRESSED_XZ`/`OBJECT_COMPRESSED_LZ4`/`OBJECT_COMPRESSED_ZSTD` is set in the
 `ObjectHeader`, in which case the payload is compressed with the indicated
 compression algorithm.
 
@@ -587,7 +587,7 @@ If the hash table fill level is increasing over a certain fill level (Learning
 from Java's Hashtable for example: > 75%), the writer should rotate the file
 and create a new one.
 
-The DATA_HASH_TABLE should be sized taking into account to the maximum size the
+The DATA_HASH_TABLE should be sized taking into account the maximum size the
 file is expected to grow, as configured by the administrator or disk space
 considerations. The FIELD_HASH_TABLE should be sized to a fixed size; the
 number of fields should be pretty static as it depends only on developers'

@@ -54,8 +54,6 @@ int pid_get_start_time(pid_t pid, usec_t *ret);
 int pidref_get_start_time(const PidRef *pid, usec_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
 
-int container_get_leader(const char *machine, pid_t *pid);
-
 static inline bool SIGINFO_CODE_IS_DEAD(int code) {
         return IN_SET(code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
 }
@@ -86,8 +84,6 @@ int pidref_is_my_child(PidRef *pidref);
 int pidref_from_same_root_fs(PidRef *a, PidRef *b);
 
 bool is_main_thread(void);
-
-bool oom_score_adjust_is_valid(int oa);
 
 #ifndef PERSONALITY_INVALID
 /* personality(2) documents that 0xFFFFFFFFUL is used for querying the
@@ -219,6 +215,7 @@ static inline int namespace_fork(
                                    ret);
 }
 
+bool oom_score_adjust_is_valid(int oa);
 int set_oom_score_adjust(int value);
 int get_oom_score_adjust(int *ret);
 
@@ -233,9 +230,6 @@ int get_oom_score_adjust(int *ret);
 #define TASKS_MAX 4194303U
 
 assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
-
-/* Like TAKE_PTR() but for pid_t, resetting them to 0 */
-#define TAKE_PID(pid) TAKE_GENERIC(pid, pid_t, 0)
 
 int setpriority_closest(int priority);
 

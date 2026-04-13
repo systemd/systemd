@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 
+#include "sd-dlopen.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
@@ -41,6 +42,8 @@ DLSYM_PROTOTYPE(crypt_keyslot_destroy) = NULL;
 DLSYM_PROTOTYPE(crypt_keyslot_max) = NULL;
 DLSYM_PROTOTYPE(crypt_load) = NULL;
 DLSYM_PROTOTYPE(crypt_metadata_locking) = NULL;
+DLSYM_PROTOTYPE(crypt_persistent_flags_get) = NULL;
+DLSYM_PROTOTYPE(crypt_persistent_flags_set) = NULL;
 DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase) = NULL;
 DLSYM_PROTOTYPE(crypt_reencrypt_run);
 DLSYM_PROTOTYPE(crypt_resize) = NULL;
@@ -211,6 +214,8 @@ int cryptsetup_get_volume_key_prefix(
         const char *uuid;
         char *s;
 
+        assert(ret);
+
         uuid = sym_crypt_get_uuid(cd);
         if (!uuid)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get LUKS UUID.");
@@ -245,6 +250,8 @@ int cryptsetup_get_volume_key_id(
         char *hex;
         int r;
 
+        assert(ret);
+
         r = cryptsetup_get_volume_key_prefix(cd, volume_name, &prefix);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get LUKS volume key prefix.");
@@ -270,9 +277,10 @@ int dlopen_cryptsetup(void) {
          * still available though, and given we want to support 2.2.0 for a while longer, we'll use the old
          * symbol if the new one is not available. */
 
-        ELF_NOTE_DLOPEN("cryptsetup",
+        SD_ELF_NOTE_DLOPEN(
+                        "cryptsetup",
                         "Support for disk encryption, integrity, and authentication",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libcryptsetup.so.12");
 
         r = dlopen_many_sym_or_warn(
@@ -300,6 +308,8 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_keyslot_max),
                         DLSYM_ARG(crypt_load),
                         DLSYM_ARG(crypt_metadata_locking),
+                        DLSYM_ARG(crypt_persistent_flags_get),
+                        DLSYM_ARG(crypt_persistent_flags_set),
                         DLSYM_ARG(crypt_reencrypt_init_by_passphrase),
                         DLSYM_ARG(crypt_reencrypt_run),
                         DLSYM_ARG(crypt_resize),

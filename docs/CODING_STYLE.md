@@ -699,6 +699,26 @@ SPDX-License-Identifier: LGPL-2.1-or-later
           return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read ...");
   ```
 
+- When generating log messages that contain filenames, user controlled strings,
+  or similar, please enclose them in single ticks.
+
+- Think about the log level you choose: for functions that are of the "logging"
+  kind (see above), please ensure that failures we propagate should be logged
+  about at `LOG_ERR` level. Failures that are noteworthy, but we proceed anyway,
+  should be logged at `LOG_WARN` level. Important informational messages should
+  use `LOG_NOTICE` and regular informational messages should use
+  `LOG_INFO`. Note that the latter is the default maximum log level, i.e. only
+  `LOG_DEBUG` messages are hidden by default.
+
+- All log messages that show some failure which is not fatal for the immediate
+  operation (i.e. generally those you'd log at `LOG_WARN` level, as described
+  above) should be suffixed with a `…, ignoring: %m"` or similar. Or in other
+  words, they should make clear not only in log level but also in English
+  language that the issue is not fatal, but ignored. Depending on context you
+  can also use `…, proceeding anyway: %m"`, `…, skipping: %m` or other language
+  that makes clear that the failure is not actionable and doesn't strictly
+  require immediate administrator attention.
+
 ## Memory Allocation
 
 - Always check OOM. There is no excuse. In program code, you can use
@@ -734,9 +754,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   section of the `alloca(3)` man page.
 
 - If you want to concatenate two or more strings, consider using `strjoina()`
-  or `strjoin()` rather than `asprintf()`, as the latter is a lot slower. This
-  matters particularly in inner loops (but note that `strjoina()` cannot be
-  used there).
+  or `strjoin()` rather than `asprintf()` or `asprintf_safe`, as the latter is
+  a lot slower. This matters particularly in inner loops (but note that
+  `strjoina()` cannot be used there).
 
 ## Runtime Behaviour
 
@@ -1033,3 +1053,38 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - Never use `grep -q` in a pipeline, use `grep >/dev/null` instead. The former
   will generate `SIGPIPE` for the previous command in the pipeline when it finds
   a match which will cause the test to fail unexpectedly.
+
+## Kernel Version Dependencies
+
+- For entirely new functionality it's fine to rely on features of very recent
+  (released!) kernel versions. If a feature is added to the upstream kernel,
+  and a stable release is made, then it's immediately OK to merge *new*
+  functionality into systemd relying on it, as long as that functionality is
+  optional. (In some cases, it might be OK to merge a feature into systemd
+  slightly before the final kernel release that it is based on, as long as the
+  kernel development cycle has already progressed far enough that the feature
+  is unlikely to be still reverted – for example once RC2 of the kernel release
+  has been released.)
+
+- For components that already have been released in a stable version
+  compatibility with older kernels must be retained, down to the "minimum
+  baseline" version as listed in the README, or the version current when the
+  component was added to our tree, whichever is newer.
+
+- When adding a fallback path, please avoid checking for kernel versions, as
+  downstream distributions tend to backport features, and version checks are
+  not great replacements for feature checks hence.
+
+- When adding a compatibility code path for an older kernel version, please add
+  a comment in the following style to the relevant codepath:
+
+```c
+        // FIXME: This compatibility code path shall be removed once kernel X.Y
+        //        becomes the new minimal baseline
+```
+
+  When this syntax is followed we'll have an easier time tracking down these
+  codepaths and removing them when bumping baselines.
+
+- Whenever support for a new kernel API feature is added, please update the
+  kernel feature/version list in README as well (as part of the same PR).

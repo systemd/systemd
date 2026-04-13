@@ -30,7 +30,7 @@ LICENSE:
 
 REQUIREMENTS:
         Linux kernel ≥ 3.15 for timerfd_create() CLOCK_BOOTTIME support
-                     ≥ 3.17 for memfd_create() and getrandom()
+                     ≥ 3.17 for memfd_create(), getrandom(), and kexec_file_load() (x86-64)
                      ≥ 4.3 for ambient capabilities
                      ≥ 4.5 for pids controller in cgroup v2
                      ≥ 4.6 for cgroup namespaces
@@ -60,7 +60,7 @@ REQUIREMENTS:
 
         Linux kernel ≥ 5.11 for epoll_pwait2()
                      ≥ 5.12 for idmapped mount (mount_setattr())
-                     ≥ 5.14 for cgroup.kill and quotactl_fd()
+                     ≥ 5.14 for cgroup.kill, quotactl_fd(), and MOUNT_ATTR_NOSYMFOLLOW
 
         ⚠️ Kernel versions below 5.14 ("recommended baseline") have significant gaps
            in functionality and are not recommended for use with this version
@@ -72,10 +72,13 @@ REQUIREMENTS:
                                and MOVE_MOUNT_BENEATH
                      ≥ 6.6 for quota support on tmpfs
                      ≥ 6.7 for cgroup2fs memory_hugetlb_accounting option
+                     ≥ 6.8 for STATX_MNT_ID_UNIQUE
                      ≥ 6.9 for pidfs
                      ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
                                 and block device 'partscan' sysfs attribute
-                     ≥ 6.13 for PIDFD_GET_INFO and {set,remove}xattrat()
+                     ≥ 6.12 for AT_HANDLE_MNT_ID_UNIQUE
+                     ≥ 6.13 for PIDFD_GET_INFO, {set,remove}xattrat(), and
+                                FSCONFIG_SET_FD support for overlayfs layers
                      ≥ 6.16 for coredump pattern '%F' (pidfd) specifier and SO_PASSRIGHTS
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
@@ -201,7 +204,9 @@ REQUIREMENTS:
           CONFIG_PSI
           CONFIG_MEMCG
 
-        glibc >= 2.31
+        glibc >= 2.34
+        musl >= 1.2.5 with fde29c04adbab9d5b081bf6717b5458188647f1c
+                (required when building systemd with -Dlibc=musl)
         libxcrypt >= 4.4.0 (optional)
         libmount >= 2.30 (from util-linux)
                 (util-linux *must* be built without --enable-libmount-support-mtab)
@@ -243,7 +248,7 @@ REQUIREMENTS:
         gperf
         docbook-xsl (optional, required for documentation)
         xsltproc    (optional, required for documentation)
-        python >= 3.7 (required by meson too, >= 3.9 is required for ukify)
+        python >= 3.9
         python-jinja2
         python-pefile (optional, required for ukify)
         python-lxml (optional, required to build the indices)
@@ -259,9 +264,9 @@ REQUIREMENTS:
         During runtime, you need the following additional
         dependencies:
 
-        util-linux >= v2.27.1 required (including but not limited to: mount,
-                                        umount, swapon, swapoff, sulogin,
-                                        agetty, fsck)
+        util-linux >= v2.41 required (including but not limited to: mount,
+                                      umount, swapon, swapoff, sulogin,
+                                      agetty, fsck)
         dbus >= 1.4.0 (strictly speaking optional, but recommended)
                 NOTE: If using dbus < 1.9.18, you should override the default
                 policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).

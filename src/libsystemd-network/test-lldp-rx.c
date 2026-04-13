@@ -35,6 +35,8 @@ static void lldp_rx_handler(sd_lldp_rx *lldp_rx, sd_lldp_rx_event_t event, sd_ll
 static int start_lldp_rx(sd_lldp_rx **lldp_rx, sd_event *e, sd_lldp_rx_callback_t cb, void *cb_data) {
         int r;
 
+        assert(lldp_rx);
+
         r = sd_lldp_rx_new(lldp_rx);
         if (r < 0)
                 return r;

@@ -7,3 +7,6 @@ executables += [
                 'sources' : files('ask-password.c'),
         },
 ]
+
+install_data('io.systemd.ask-password.policy',
+             install_dir : polkitpolicydir)

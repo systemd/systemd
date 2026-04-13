@@ -1,0 +1,9 @@
+{
+    "type": "devicetree",
+    "name": "ASUSTeK COMPUTER INC. ASUS Zenbook A14",
+    "compatible": "asus,zenbook-a14-ux3407qa-oled",
+    "hwids": [
+        "f84ba711-7075-5c1b-a03c-57d2521a1ac2",
+        "91971b38-ae5d-5e14-9f44-7c0316710593"
+    ]
+}

@@ -193,16 +193,26 @@ int copy_bytes_full(
         if (fdt < 0)
                 return fdt;
 
+        if (FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE) &&
+            lseek(fdf, 0, SEEK_SET) < 0)
+                return -errno;
+
+        if (FLAGS_SET(copy_flags, COPY_SEEK0_TARGET) &&
+            lseek(fdt, 0, SEEK_SET) < 0)
+                return -errno;
+
         /* Try btrfs reflinks first. This only works on regular, seekable files, hence let's check the file offsets of
          * source and destination first. */
         if ((copy_flags & COPY_REFLINK)) {
                 off_t foffset;
 
-                foffset = lseek(fdf, 0, SEEK_CUR);
+                /* In reflink mode we need to know where the current file offset is, but if we just seeked to
+                 * 0 anyway, we can suppress that. */
+                foffset = FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE) ? 0 : lseek(fdf, 0, SEEK_CUR);
                 if (foffset >= 0) {
                         off_t toffset;
 
-                        toffset = lseek(fdt, 0, SEEK_CUR);
+                        toffset = FLAGS_SET(copy_flags, COPY_SEEK0_TARGET) ? 0 : lseek(fdt, 0, SEEK_CUR);
                         if (toffset >= 0) {
 
                                 if (foffset == 0 && toffset == 0 && max_bytes == UINT64_MAX)
@@ -1442,6 +1452,8 @@ int copy_directory_at_full(
                 const char *from,
                 int dir_fdt,
                 const char *to,
+                uid_t override_uid,
+                gid_t override_gid,
                 CopyFlags copy_flags,
                 copy_progress_path_t progress_path,
                 copy_progress_bytes_t progress_bytes,
@@ -1468,9 +1480,13 @@ int copy_directory_at_full(
                         dir_fdt, to,
                         st.st_dev,
                         COPY_DEPTH_MAX,
-                        UID_INVALID, GID_INVALID,
+                        override_uid,
+                        override_gid,
                         copy_flags,
-                        NULL, NULL, NULL, NULL,
+                        /* denylist= */ NULL,
+                        /* subvolumes= */ NULL,
+                        /* progress_path= */ NULL,
+                        /* progress_bytes= */ NULL,
                         progress_path,
                         progress_bytes,
                         userdata);
@@ -1748,6 +1764,18 @@ int copy_access(int fdf, int fdt) {
                 return -errno;
 
         return RET_NERRNO(fchmod(fdt, st.st_mode & 07777));
+}
+
+int copy_owner(int fdf, int fdt) {
+        struct stat st;
+
+        assert(fdf >= 0);
+        assert(fdt >= 0);
+
+        if (fstat(fdf, &st) < 0)
+                return -errno;
+
+        return RET_NERRNO(fchown(fdt, st.st_uid, st.st_gid));
 }
 
 int copy_rights_with_fallback(int fdf, int fdt, const char *patht) {

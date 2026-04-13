@@ -18,3 +18,5 @@ Property=ID_NET_AUTO_LINK_LOCAL_ONLY=1
 LinkLocalAddressing=yes
 IPv6AcceptRA=no
 MulticastDNS=yes
+LLDP=yes
+EmitLLDP=yes

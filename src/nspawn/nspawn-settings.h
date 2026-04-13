@@ -92,43 +92,44 @@ typedef enum ConsoleMode {
 } ConsoleMode;
 
 typedef enum SettingsMask {
-        SETTING_START_MODE        = UINT64_C(1) << 0,
-        SETTING_ENVIRONMENT       = UINT64_C(1) << 1,
-        SETTING_USER              = UINT64_C(1) << 2,
-        SETTING_CAPABILITY        = UINT64_C(1) << 3,
-        SETTING_KILL_SIGNAL       = UINT64_C(1) << 4,
-        SETTING_PERSONALITY       = UINT64_C(1) << 5,
-        SETTING_MACHINE_ID        = UINT64_C(1) << 6,
-        SETTING_NETWORK           = UINT64_C(1) << 7,
-        SETTING_EXPOSE_PORTS      = UINT64_C(1) << 8,
-        SETTING_READ_ONLY         = UINT64_C(1) << 9,
-        SETTING_VOLATILE_MODE     = UINT64_C(1) << 10,
-        SETTING_CUSTOM_MOUNTS     = UINT64_C(1) << 11,
-        SETTING_WORKING_DIRECTORY = UINT64_C(1) << 12,
-        SETTING_USERNS            = UINT64_C(1) << 13,
-        SETTING_NOTIFY_READY      = UINT64_C(1) << 14,
-        SETTING_PIVOT_ROOT        = UINT64_C(1) << 15,
-        SETTING_SYSCALL_FILTER    = UINT64_C(1) << 16,
-        SETTING_HOSTNAME          = UINT64_C(1) << 17,
-        SETTING_NO_NEW_PRIVILEGES = UINT64_C(1) << 18,
-        SETTING_OOM_SCORE_ADJUST  = UINT64_C(1) << 19,
-        SETTING_CPU_AFFINITY      = UINT64_C(1) << 20,
-        SETTING_RESOLV_CONF       = UINT64_C(1) << 21,
-        SETTING_LINK_JOURNAL      = UINT64_C(1) << 22,
-        SETTING_TIMEZONE          = UINT64_C(1) << 23,
-        SETTING_EPHEMERAL         = UINT64_C(1) << 24,
-        SETTING_SLICE             = UINT64_C(1) << 25,
-        SETTING_DIRECTORY         = UINT64_C(1) << 26,
-        SETTING_USE_CGNS          = UINT64_C(1) << 27,
-        SETTING_CLONE_NS_FLAGS    = UINT64_C(1) << 28,
-        SETTING_CONSOLE_MODE      = UINT64_C(1) << 29,
-        SETTING_CREDENTIALS       = UINT64_C(1) << 30,
-        SETTING_BIND_USER         = UINT64_C(1) << 31,
-        SETTING_BIND_USER_SHELL   = UINT64_C(1) << 32,
-        SETTING_SUPPRESS_SYNC     = UINT64_C(1) << 33,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 34, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (34 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (34 + _RLIMIT_MAX)) -1,
+        SETTING_START_MODE                 = UINT64_C(1) << 0,
+        SETTING_ENVIRONMENT                = UINT64_C(1) << 1,
+        SETTING_USER                       = UINT64_C(1) << 2,
+        SETTING_CAPABILITY                 = UINT64_C(1) << 3,
+        SETTING_KILL_SIGNAL                = UINT64_C(1) << 4,
+        SETTING_PERSONALITY                = UINT64_C(1) << 5,
+        SETTING_MACHINE_ID                 = UINT64_C(1) << 6,
+        SETTING_NETWORK                    = UINT64_C(1) << 7,
+        SETTING_EXPOSE_PORTS               = UINT64_C(1) << 8,
+        SETTING_READ_ONLY                  = UINT64_C(1) << 9,
+        SETTING_VOLATILE_MODE              = UINT64_C(1) << 10,
+        SETTING_CUSTOM_MOUNTS              = UINT64_C(1) << 11,
+        SETTING_WORKING_DIRECTORY          = UINT64_C(1) << 12,
+        SETTING_USERNS                     = UINT64_C(1) << 13,
+        SETTING_NOTIFY_READY               = UINT64_C(1) << 14,
+        SETTING_PIVOT_ROOT                 = UINT64_C(1) << 15,
+        SETTING_SYSCALL_FILTER             = UINT64_C(1) << 16,
+        SETTING_HOSTNAME                   = UINT64_C(1) << 17,
+        SETTING_NO_NEW_PRIVILEGES          = UINT64_C(1) << 18,
+        SETTING_OOM_SCORE_ADJUST           = UINT64_C(1) << 19,
+        SETTING_CPU_AFFINITY               = UINT64_C(1) << 20,
+        SETTING_RESOLV_CONF                = UINT64_C(1) << 21,
+        SETTING_LINK_JOURNAL               = UINT64_C(1) << 22,
+        SETTING_TIMEZONE                   = UINT64_C(1) << 23,
+        SETTING_EPHEMERAL                  = UINT64_C(1) << 24,
+        SETTING_SLICE                      = UINT64_C(1) << 25,
+        SETTING_DIRECTORY                  = UINT64_C(1) << 26,
+        SETTING_USE_CGNS                   = UINT64_C(1) << 27,
+        SETTING_CLONE_NS_FLAGS             = UINT64_C(1) << 28,
+        SETTING_CONSOLE_MODE               = UINT64_C(1) << 29,
+        SETTING_CREDENTIALS                = UINT64_C(1) << 30,
+        SETTING_BIND_USER                  = UINT64_C(1) << 31,
+        SETTING_BIND_USER_SHELL            = UINT64_C(1) << 32,
+        SETTING_SUPPRESS_SYNC              = UINT64_C(1) << 33,
+        SETTING_RESTRICT_ADDRESS_FAMILIES  = UINT64_C(1) << 34,
+        SETTING_RLIMIT_FIRST               = UINT64_C(1) << 35, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST                = UINT64_C(1) << (35 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL                 = (UINT64_C(1) << (35 + _RLIMIT_MAX)) -1,
         _SETTING_FORCE_ENUM_WIDTH = UINT64_MAX
 } SettingsMask;
 
@@ -175,6 +176,7 @@ typedef struct Settings {
         char *pivot_root_old;
         UserNamespaceMode userns_mode;
         uid_t uid_shift, uid_range;
+        unsigned delegate_container_ranges;
         int notify_ready;
         char **syscall_allow_list;
         char **syscall_deny_list;
@@ -189,6 +191,8 @@ typedef struct Settings {
         bool link_journal_try;
         TimezoneMode timezone;
         int suppress_sync;
+        Set *restrict_address_families;
+        bool restrict_address_families_is_allowlist;
 
         /* [Files] */
         int read_only;
@@ -276,6 +280,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_userns_chown);
 CONFIG_PARSER_PROTOTYPE(config_parse_userns_ownership);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_user);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_user_shell);
+CONFIG_PARSER_PROTOTYPE(config_parse_restrict_address_families);
 
 DECLARE_STRING_TABLE_LOOKUP(resolv_conf_mode, ResolvConfMode);
 

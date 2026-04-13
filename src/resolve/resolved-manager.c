@@ -49,6 +49,7 @@
 #include "resolved-mdns.h"
 #include "resolved-resolv-conf.h"
 #include "resolved-socket-graveyard.h"
+#include "resolved-static-records.h"
 #include "resolved-util.h"
 #include "resolved-varlink.h"
 #include "set.h"
@@ -637,6 +638,7 @@ static void manager_set_defaults(Manager *m) {
         m->enable_cache = DNS_CACHE_MODE_YES;
         m->dns_stub_listener_mode = DNS_STUB_LISTENER_YES;
         m->read_etc_hosts = true;
+        m->read_static_records = true;
         m->resolve_unicast_single_label = false;
         m->cache_from_localhost = false;
         m->stale_retention_usec = 0;
@@ -659,6 +661,11 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         m->unicast_scope = dns_scope_free(m->unicast_scope);
         m->delegates = hashmap_free(m->delegates);
         dns_trust_anchor_flush(&m->trust_anchor);
+        manager_etc_hosts_flush(m);
+        manager_static_records_flush(m);
+
+        m->etc_hosts_last = USEC_INFINITY;
+        m->static_records_last = USEC_INFINITY;
 
         manager_set_defaults(m);
 
@@ -729,6 +736,7 @@ int manager_new(Manager **ret) {
                 .read_resolv_conf = true,
                 .need_builtin_fallbacks = true,
                 .etc_hosts_last = USEC_INFINITY,
+                .static_records_last = USEC_INFINITY,
 
                 .sigrtmin18_info.memory_pressure_handler = manager_memory_pressure,
                 .sigrtmin18_info.memory_pressure_userdata = m,
@@ -886,6 +894,9 @@ Manager* manager_free(Manager *m) {
         manager_dns_stub_stop(m);
         manager_varlink_done(m);
 
+        set_free(m->varlink_query_results_subscription);
+        set_free(m->varlink_dns_configuration_subscription);
+
         manager_socket_graveyard_clear(m);
 
         ordered_set_free(m->dns_extra_stub_listeners);
@@ -914,6 +925,7 @@ Manager* manager_free(Manager *m) {
 
         dns_trust_anchor_flush(&m->trust_anchor);
         manager_etc_hosts_flush(m);
+        manager_static_records_flush(m);
 
         while ((sb = hashmap_first(m->dns_service_browsers)))
                 dns_service_browser_free(sb);
@@ -1451,6 +1463,8 @@ static int manager_next_random_name(const char *old, char **ret_new) {
         const char *p;
         uint64_t u, a;
         char *n;
+
+        assert(ret_new);
 
         p = strchr(old, 0);
         assert(p);
@@ -2055,6 +2069,7 @@ static int dns_configuration_json_append(
                 Set *negative_trust_anchors,
                 Set *dns_scopes,
                 DnssecMode dnssec_mode,
+                bool dnssec_supported,
                 DnsOverTlsMode dns_over_tls_mode,
                 ResolveSupport llmnr_support,
                 ResolveSupport mdns_support,
@@ -2138,6 +2153,7 @@ static int dns_configuration_json_append(
                         SD_JSON_BUILD_PAIR_CONDITION(!set_isempty(negative_trust_anchors),
                                                      "negativeTrustAnchors",
                                                      JSON_BUILD_STRING_SET(negative_trust_anchors)),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(dnssec_mode >= 0, "dnssecSupported", dnssec_supported),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("dnssec", dnssec_mode_to_string(dnssec_mode)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("dnsOverTLS", dns_over_tls_mode_to_string(dns_over_tls_mode)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("llmnr", resolve_support_to_string(llmnr_support)),
@@ -2169,6 +2185,7 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
                         m->trust_anchor.negative_by_name,
                         scopes,
                         manager_get_dnssec_mode(m),
+                        manager_dnssec_supported(m),
                         manager_get_dns_over_tls_mode(m),
                         m->llmnr_support,
                         m->mdns_support,
@@ -2225,6 +2242,7 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
                         l->dnssec_negative_trust_anchors,
                         scopes,
                         link_get_dnssec_mode(l),
+                        link_dnssec_supported(l),
                         link_get_dns_over_tls_mode(l),
                         link_get_llmnr_support(l),
                         link_get_mdns_support(l),
@@ -2255,6 +2273,7 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
                         /* negative_trust_anchors= */ NULL,
                         scopes,
                         /* dnssec_mode= */ _DNSSEC_MODE_INVALID,
+                        /* dnssec_supported= */ false,
                         /* dns_over_tls_mode= */ _DNS_OVER_TLS_MODE_INVALID,
                         /* llmnr_support= */ _RESOLVE_SUPPORT_INVALID,
                         /* mdns_support= */ _RESOLVE_SUPPORT_INVALID,

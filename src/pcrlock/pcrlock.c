@@ -899,6 +899,10 @@ static int event_log_load_firmware(EventLog *el) {
         path = tpm2_firmware_log_path();
 
         r = read_full_file(path, (char**) &buf, &bufsize);
+        if (r == -ENOENT) {
+                log_notice("No '%s' file, assuming TPM without firmware support.", path);
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to open TPM2 event log '%s': %m", path);
 
@@ -946,6 +950,11 @@ static int event_log_load_firmware(EventLog *el) {
 
                 if (event->eventType == EV_NO_ACTION) { /* Ignore pseudo events, that don't result in a measurement */
                         log_debug("Skipping NO_ACTION event.");
+                        continue;
+                }
+
+                if (event->pcrIndex >= TPM2_PCRS_MAX) {
+                        log_debug("Skipping event on PCR %" PRIu32 " (out of range).", event->pcrIndex);
                         continue;
                 }
 
@@ -1713,7 +1722,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
         }
 
         if (!sd_json_variant_is_object(j)) {
-                log_warning_errno(r, "Component file %s does not contain JSON object, ignoring.", path);
+                log_warning("Component file %s does not contain JSON object, ignoring.", path);
                 return 0;
         }
 
@@ -2447,6 +2456,8 @@ static int event_log_load_and_process(EventLog **ret) {
         _cleanup_(event_log_freep) EventLog *el = NULL;
         int r;
 
+        assert(ret);
+
         el = event_log_new();
         if (!el)
                 return log_oom();
@@ -2489,7 +2500,7 @@ static int event_log_load_and_process(EventLog **ret) {
         return 0;
 }
 
-static int verb_show_log(int argc, char *argv[], void *userdata) {
+static int verb_show_log(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *log_table = NULL, *pcr_table = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
         bool want_json = sd_json_format_enabled(arg_json_format_flags);
@@ -2602,7 +2613,7 @@ static int event_log_record_to_cel(EventLogRecord *record, uint64_t *recnum, sd_
         return 0;
 }
 
-static int verb_show_cel(int argc, char *argv[], void *userdata) {
+static int verb_show_cel(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
         uint64_t recnum = 0;
@@ -2637,7 +2648,7 @@ static int verb_show_cel(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_list_components(int argc, char *argv[], void *userdata) {
+static int verb_list_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(event_log_freep) EventLog *el = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         enum {
@@ -2785,15 +2796,15 @@ static int make_pcrlock_record(
 
                 r = sd_json_variant_append_arraybo(
                                 &digests,
-                                SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
+                                SD_JSON_BUILD_PAIR_STRING("hashAlg", a),
                                 SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(hash, hash_usize)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON digest object: %m");
         }
 
         r = sd_json_buildo(ret_record,
-                           SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(pcr)),
-                           SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests)));
+                           SD_JSON_BUILD_PAIR_UNSIGNED("pcr", pcr),
+                           SD_JSON_BUILD_PAIR_VARIANT("digests", digests));
         if (r < 0)
                 return log_error_errno(r, "Failed to build record object: %m");
 
@@ -2867,7 +2878,7 @@ static int make_pcrlock_record_from_stream(
 
                 r = sd_json_variant_append_arraybo(
                                 &digests,
-                                SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
+                                SD_JSON_BUILD_PAIR_STRING("hashAlg", a),
                                 SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(hash, hash_usize)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON digest object: %m");
@@ -2881,8 +2892,8 @@ static int make_pcrlock_record_from_stream(
 
                 r = sd_json_buildo(
                                 &record,
-                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(i)),
-                                SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests)));
+                                SD_JSON_BUILD_PAIR_UNSIGNED("pcr", i),
+                                SD_JSON_BUILD_PAIR_VARIANT("digests", digests));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build record object: %m");
 
@@ -2914,7 +2925,7 @@ static int write_pcrlock(sd_json_variant *array, const char *default_pcrlock_pat
 
         r = sd_json_buildo(
                         &v,
-                        SD_JSON_BUILD_PAIR("records", SD_JSON_BUILD_VARIANT(array)));
+                        SD_JSON_BUILD_PAIR_VARIANT("records", array));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -2957,7 +2968,7 @@ static int unlink_pcrlock(const char *default_pcrlock_path) {
         return 0;
 }
 
-static int verb_lock_raw(int argc, char *argv[], void *userdata) {
+static int verb_lock_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *records = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -2978,11 +2989,11 @@ static int verb_lock_raw(int argc, char *argv[], void *userdata) {
         return write_pcrlock(records, NULL);
 }
 
-static int verb_unlock_simple(int argc, char *argv[], void *userdata) {
+static int verb_unlock_simple(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(NULL);
 }
 
-static int verb_lock_secureboot_policy(int argc, char *argv[], void *userdata) {
+static int verb_lock_secureboot_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         static const struct {
                 sd_id128_t id;
                 const char *name;
@@ -3055,7 +3066,7 @@ static int verb_lock_secureboot_policy(int argc, char *argv[], void *userdata) {
         return write_pcrlock(array, PCRLOCK_SECUREBOOT_POLICY_PATH);
 }
 
-static int verb_unlock_secureboot_policy(int argc, char *argv[], void *userdata) {
+static int verb_unlock_secureboot_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_SECUREBOOT_POLICY_PATH);
 }
 
@@ -3176,7 +3187,7 @@ static int event_log_ensure_secureboot_consistency(EventLog *el) {
         return 0;
 }
 
-static int verb_lock_secureboot_authority(int argc, char *argv[], void *userdata) {
+static int verb_lock_secureboot_authority(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
         int r;
@@ -3238,7 +3249,7 @@ static int verb_lock_secureboot_authority(int argc, char *argv[], void *userdata
                 LIST_FOREACH(banks, bank, rec->banks) {
                         r = sd_json_variant_append_arraybo(
                                         &digests,
-                                        SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(tpm2_hash_alg_to_string(bank->algorithm))),
+                                        SD_JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string(bank->algorithm)),
                                         SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(bank->hash.buffer, bank->hash.size)));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build digests array: %m");
@@ -3246,8 +3257,8 @@ static int verb_lock_secureboot_authority(int argc, char *argv[], void *userdata
 
                 r = sd_json_variant_append_arraybo(
                                 &array,
-                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(rec->pcr)),
-                                SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests)));
+                                SD_JSON_BUILD_PAIR_UNSIGNED("pcr", rec->pcr),
+                                SD_JSON_BUILD_PAIR_VARIANT("digests", digests));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build record array: %m");
         }
@@ -3255,11 +3266,11 @@ static int verb_lock_secureboot_authority(int argc, char *argv[], void *userdata
         return write_pcrlock(array, PCRLOCK_SECUREBOOT_AUTHORITY_PATH);
 }
 
-static int verb_unlock_secureboot_authority(int argc, char *argv[], void *userdata) {
+static int verb_unlock_secureboot_authority(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_SECUREBOOT_AUTHORITY_PATH);
 }
 
-static int verb_lock_gpt(int argc, char *argv[], void *userdata) {
+static int verb_lock_gpt(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *record = NULL;
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         uint8_t h[2 * 4096]; /* space for at least two 4K sectors. GPT header should definitely be in here */
@@ -3372,7 +3383,7 @@ static int verb_lock_gpt(int argc, char *argv[], void *userdata) {
         return write_pcrlock(array, PCRLOCK_GPT_PATH);
 }
 
-static int verb_unlock_gpt(int argc, char *argv[], void *userdata) {
+static int verb_unlock_gpt(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_GPT_PATH);
 }
 
@@ -3431,7 +3442,7 @@ static void enable_json_sse(void) {
         arg_json_format_flags |= SD_JSON_FORMAT_SSE;
 }
 
-static int verb_lock_firmware(int argc, char *argv[], void *userdata) {
+static int verb_lock_firmware(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array_early = NULL, *array_late = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
         uint32_t always_mask, separator_mask, separator_seen_mask = 0, action_seen_mask = 0;
@@ -3529,7 +3540,7 @@ static int verb_lock_firmware(int argc, char *argv[], void *userdata) {
                 LIST_FOREACH(banks, bank, rec->banks) {
                         r = sd_json_variant_append_arraybo(
                                         &digests,
-                                        SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(tpm2_hash_alg_to_string(bank->algorithm))),
+                                        SD_JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string(bank->algorithm)),
                                         SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(bank->hash.buffer, bank->hash.size)));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build digests array: %m");
@@ -3537,8 +3548,8 @@ static int verb_lock_firmware(int argc, char *argv[], void *userdata) {
 
                 r = sd_json_variant_append_arraybo(
                                 FLAGS_SET(separator_seen_mask, bit) ? &array_late : &array_early,
-                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(rec->pcr)),
-                                SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests)));
+                                SD_JSON_BUILD_PAIR_UNSIGNED("pcr", rec->pcr),
+                                SD_JSON_BUILD_PAIR_VARIANT("digests", digests));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build record array: %m");
         }
@@ -3550,7 +3561,7 @@ static int verb_lock_firmware(int argc, char *argv[], void *userdata) {
         return write_pcrlock(array_late, default_pcrlock_late_path);
 }
 
-static int verb_unlock_firmware(int argc, char *argv[], void *userdata) {
+static int verb_unlock_firmware(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char *default_pcrlock_early_path, *default_pcrlock_late_path;
         int r;
 
@@ -3576,7 +3587,7 @@ static int verb_unlock_firmware(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_lock_machine_id(int argc, char *argv[], void *userdata) {
+static int verb_lock_machine_id(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL, *array = NULL;
         _cleanup_free_ char *word = NULL;
         int r;
@@ -3596,7 +3607,7 @@ static int verb_lock_machine_id(int argc, char *argv[], void *userdata) {
         return write_pcrlock(array, PCRLOCK_MACHINE_ID_PATH);
 }
 
-static int verb_unlock_machine_id(int argc, char *argv[], void *userdata) {
+static int verb_unlock_machine_id(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_MACHINE_ID_PATH);
 }
 
@@ -3604,6 +3615,7 @@ static int pcrlock_file_system_path(const char *normalized_path, char **ret) {
         _cleanup_free_ char *s = NULL;
 
         assert(normalized_path);
+        assert(ret);
 
         if (path_equal(normalized_path, "/"))
                 s = strdup(PCRLOCK_ROOT_FILE_SYSTEM_PATH);
@@ -3627,7 +3639,7 @@ static int pcrlock_file_system_path(const char *normalized_path, char **ret) {
         return 0;
 }
 
-static int verb_lock_file_system(int argc, char *argv[], void *userdata) {
+static int verb_lock_file_system(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char* paths[3] = {};
         int r;
 
@@ -3680,7 +3692,7 @@ static int verb_lock_file_system(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_unlock_file_system(int argc, char *argv[], void *userdata) {
+static int verb_unlock_file_system(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char* paths[3] = {};
         int r;
 
@@ -3710,7 +3722,7 @@ static int verb_unlock_file_system(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_lock_pe(int argc, char *argv[], void *userdata) {
+static int verb_lock_pe(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -3748,7 +3760,7 @@ static int verb_lock_pe(int argc, char *argv[], void *userdata) {
 
                         r = sd_json_variant_append_arraybo(
                                         &digests,
-                                        SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
+                                        SD_JSON_BUILD_PAIR_STRING("hashAlg", a),
                                         SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(hash, hash_size)));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON digest object: %m");
@@ -3756,8 +3768,8 @@ static int verb_lock_pe(int argc, char *argv[], void *userdata) {
 
                 r = sd_json_variant_append_arraybo(
                                 &array,
-                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(i)),
-                                SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(digests)));
+                                SD_JSON_BUILD_PAIR_UNSIGNED("pcr", i),
+                                SD_JSON_BUILD_PAIR_VARIANT("digests", digests));
                 if (r < 0)
                         return log_error_errno(r, "Failed to append record object: %m");
         }
@@ -3774,7 +3786,7 @@ static void section_hashes_array_done(SectionHashArray *array) {
                 free((*array)[i]);
 }
 
-static int verb_lock_uki(int argc, char *argv[], void *userdata) {
+static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *pe_digests = NULL;
         _cleanup_(section_hashes_array_done) SectionHashArray section_hashes = {};
         size_t hash_sizes[TPM2_N_HASH_ALGORITHMS];
@@ -3804,7 +3816,7 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
 
                 r = sd_json_variant_append_arraybo(
                                 &pe_digests,
-                                SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
+                                SD_JSON_BUILD_PAIR_STRING("hashAlg", a),
                                 SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(peh, hash_sizes[i])));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON digest object: %m");
@@ -3816,8 +3828,8 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
 
         r = sd_json_variant_append_arraybo(
                         &array,
-                        SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(TPM2_PCR_BOOT_LOADER_CODE)),
-                        SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(pe_digests)));
+                        SD_JSON_BUILD_PAIR_UNSIGNED("pcr", TPM2_PCR_BOOT_LOADER_CODE),
+                        SD_JSON_BUILD_PAIR_VARIANT("digests", pe_digests));
         if (r < 0)
                 return log_error_errno(r, "Failed to append record object: %m");
 
@@ -3839,7 +3851,7 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
 
                         r = sd_json_variant_append_arraybo(
                                         &section_digests,
-                                        SD_JSON_BUILD_PAIR("hashAlg", SD_JSON_BUILD_STRING(a)),
+                                        SD_JSON_BUILD_PAIR_STRING("hashAlg", a),
                                         SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(hash, hash_sizes[i])));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON digest object: %m");
@@ -3860,8 +3872,8 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
                 /* And then append a record for the section contents digests as well */
                 r = sd_json_variant_append_arraybo(
                                 &array,
-                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(TPM2_PCR_KERNEL_BOOT /* =11 */)),
-                                SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(section_digests)));
+                                SD_JSON_BUILD_PAIR_UNSIGNED("pcr", TPM2_PCR_KERNEL_BOOT),
+                                SD_JSON_BUILD_PAIR_VARIANT("digests", section_digests));
                 if (r < 0)
                         return log_error_errno(r, "Failed to append record object: %m");
         }
@@ -3869,7 +3881,7 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
         return write_pcrlock(array, NULL);
 }
 
-static int verb_lock_kernel_cmdline(int argc, char *argv[], void *userdata) {
+static int verb_lock_kernel_cmdline(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL, *array = NULL;
         _cleanup_free_ char *cmdline = NULL;
         int r;
@@ -3906,11 +3918,11 @@ static int verb_lock_kernel_cmdline(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_unlock_kernel_cmdline(int argc, char *argv[], void *userdata) {
+static int verb_unlock_kernel_cmdline(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_KERNEL_CMDLINE_PATH);
 }
 
-static int verb_lock_kernel_initrd(int argc, char *argv[], void *userdata) {
+static int verb_lock_kernel_initrd(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *records = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         uint32_t pcr_mask = UINT32_C(1) << TPM2_PCR_KERNEL_INITRD;
@@ -3933,7 +3945,7 @@ static int verb_lock_kernel_initrd(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_unlock_kernel_initrd(int argc, char *argv[], void *userdata) {
+static int verb_unlock_kernel_initrd(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_KERNEL_INITRD_PATH);
 }
 
@@ -4004,8 +4016,7 @@ static int pcr_prediction_add_result(
                 Tpm2PCRPrediction *context,
                 Tpm2PCRPredictionResult *result,
                 uint32_t pcr,
-                const char *path,
-                size_t offset) {
+                const char *path) {
 
         _cleanup_free_ Tpm2PCRPredictionResult *copy = NULL;
         int r;
@@ -4040,18 +4051,11 @@ static const EVP_MD* evp_from_tpm2_alg(uint16_t alg) {
 }
 
 static int event_log_component_variant_calculate(
-                Tpm2PCRPrediction *context,
                 Tpm2PCRPredictionResult *result,
-                EventLogComponent *component,
                 EventLogComponentVariant *variant,
-                uint32_t pcr,
-                const char *path) {
+                uint32_t pcr) {
 
-        int r;
-
-        assert(context);
         assert(result);
-        assert(component);
         assert(variant);
 
         FOREACH_ARRAY(rr, variant->records, variant->n_records) {
@@ -4107,13 +4111,6 @@ static int event_log_component_variant_calculate(
 
                         assert(l == (unsigned) sz);
                 }
-
-                /* This is a valid result once we hit the start location */
-                if (arg_location_start && strcmp(component->id, arg_location_start) >= 0) {
-                        r = pcr_prediction_add_result(context, result, pcr, path, rr - variant->records);
-                        if (r < 0)
-                                return r;
-                }
         }
 
         return 0;
@@ -4137,7 +4134,7 @@ static int event_log_predict_pcrs(
         /* Check if we reached the end of the components, generate a result, and backtrack */
         if (component_index >= el->n_components ||
             (arg_location_end && strcmp(el->components[component_index]->id, arg_location_end) > 0)) {
-                r = pcr_prediction_add_result(context, parent_result, pcr, path, /* offset= */ 0);
+                r = pcr_prediction_add_result(context, parent_result, pcr, path);
                 if (r < 0)
                         return r;
 
@@ -4145,6 +4142,13 @@ static int event_log_predict_pcrs(
         }
 
         component = ASSERT_PTR(el->components[component_index]);
+
+        /* Check if we are just about to process a component after start, if so record a result and continue. */
+        if (arg_location_start && strcmp(component->id, arg_location_start) > 0) {
+                r = pcr_prediction_add_result(context, parent_result, pcr, path);
+                if (r < 0)
+                        return r;
+        }
 
         FOREACH_ARRAY(ii, component->variants, component->n_variants) {
                 _cleanup_free_ Tpm2PCRPredictionResult *result = NULL;
@@ -4169,12 +4173,9 @@ static int event_log_predict_pcrs(
                         return log_oom();
 
                 r = event_log_component_variant_calculate(
-                                context,
                                 result,
-                                component,
                                 variant,
-                                pcr,
-                                subpath);
+                                pcr);
                 if (r < 0)
                         return r;
 
@@ -4328,7 +4329,7 @@ static int tpm2_pcr_prediction_run(
         return 0;
 }
 
-static int verb_predict(int argc, char *argv[], void *userdata) {
+static int verb_predict(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(tpm2_pcr_prediction_done) Tpm2PCRPrediction context = {
                 arg_pcr_mask != 0 ? arg_pcr_mask : DEFAULT_PCR_MASK,
         };
@@ -4907,7 +4908,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         return 1; /* installed new policy */
 }
 
-static int verb_make_policy(int argc, char *argv[], void *userdata) {
+static int verb_make_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         r = make_policy(arg_force, arg_recovery_pin);
@@ -5007,7 +5008,7 @@ static int remove_policy(void) {
         return ret;
 }
 
-static int verb_remove_policy(int argc, char *argv[], void *userdata) {
+static int verb_remove_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return remove_policy();
 }
 
@@ -5041,7 +5042,7 @@ static int test_tpm2_support_pcrlock(Tpm2Support *ret) {
         return 0;
 }
 
-static int verb_is_supported(int argc, char *argv[], void *userdata) {
+static int verb_is_supported(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         Tpm2Support s;
@@ -5065,7 +5066,7 @@ static int verb_is_supported(int argc, char *argv[], void *userdata) {
         return ~s & (TPM2_SUPPORT_API|TPM2_SUPPORT_API_PCRLOCK);
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -5137,6 +5138,10 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
+}
+
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
@@ -5183,8 +5188,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -5360,7 +5364,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int pcrlock_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",                        VERB_ANY, VERB_ANY, 0,            help                             },
+                { "help",                        VERB_ANY, VERB_ANY, 0,            verb_help                        },
                 { "log",                         VERB_ANY, 1,        VERB_DEFAULT, verb_show_log                    },
                 { "cel",                         VERB_ANY, 1,        0,            verb_show_cel                    },
                 { "list-components",             VERB_ANY, 1,        0,            verb_list_components             },
@@ -5404,6 +5408,7 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
         int r;
 
         assert(link);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
@@ -5417,24 +5422,23 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *rec_cel = NULL;
+        // FIXME: We can't use a NULL sentinel here because the output fields in the IDL are non-nullable.
+        r = sd_varlink_set_sentinel(link, NULL);
+        if (r < 0)
+                return r;
 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
-
-                if (rec_cel) {
-                        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("record", rec_cel));
-                        if (r < 0)
-                                return r;
-
-                        rec_cel = sd_json_variant_unref(rec_cel);
-                }
-
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *rec_cel = NULL;
                 r = event_log_record_to_cel(*rr, &recnum, &rec_cel);
+                if (r < 0)
+                        return r;
+
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("record", rec_cel));
                 if (r < 0)
                         return r;
         }
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_CONDITION(!!rec_cel, "record", SD_JSON_BUILD_VARIANT(rec_cel)));
+        return 0;
 }
 
 typedef struct MethodMakePolicyParameters {

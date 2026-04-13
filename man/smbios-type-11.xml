@@ -88,9 +88,10 @@
       <varlistentry>
         <term><varname>io.systemd.boot.loglevel=</varname><replaceable>LEVEL</replaceable></term>
 
-        <listitem><para>This allows configuration of the log level, and is read by <command>systemd-boot</command>.
-        For details see
-        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+        <listitem><para>This allows configuration of the log level, and is read by
+        <command>systemd-boot</command> and <command>systemd-stub</command>.  For details see
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>

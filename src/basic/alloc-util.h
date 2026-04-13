@@ -108,6 +108,34 @@ static inline void *memdup_suffix0_multiply(const void *p, size_t need, size_t s
         return memdup_suffix0(p, size * need);
 }
 
+size_t malloc_sizeof_safe(void **xp);
+
+/* This returns the number of usable bytes in a malloc()ed region as per malloc_usable_size(), which may
+ * return a value larger than the size that was actually allocated. Access to that additional memory is
+ * discouraged because it violates the C standard; a compiler cannot see that this as valid. To help the
+ * compiler out, the MALLOC_SIZEOF_SAFE macro 'allocates' the usable size using a dummy allocator function
+ * expand_to_usable. There is a possibility of malloc_usable_size() returning different values during the
+ * lifetime of an object, which may cause problems, but the glibc allocator does not do that at the moment. */
+#define MALLOC_SIZEOF_SAFE(x) \
+        malloc_sizeof_safe((void**) &__builtin_choose_expr(__builtin_constant_p(x), (void*) { NULL }, (x)))
+
+/* Inspired by ELEMENTSOF() but operates on malloc()'ed memory areas: typesafely returns the number of items
+ * that fit into the specified memory block */
+#define MALLOC_ELEMENTSOF(x) \
+        (__builtin_choose_expr(                                         \
+                __builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
+                MALLOC_SIZEOF_SAFE(x)/sizeof((x)[0]),                   \
+                VOID_0))
+
+/* Dummy allocator to tell the compiler that the new size of p is newsize. The implementation returns the
+ * pointer as is; the only reason for its existence is as a conduit for the _alloc_ attribute.  This must not
+ * be inlined (hence a non-static function with _noinline_ because LTO otherwise tries to inline it) because
+ * gcc then loses the attributes on the function.
+ * See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=96503 */
+void *expand_to_usable(void *p, size_t newsize) _alloc_(2) _returns_nonnull_ _noinline_;
+
+void* realloc0(void *p, size_t new_size) _alloc_(2);
+
 static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
         size_t m;
 
@@ -179,61 +207,10 @@ void* greedy_realloc_append(void **p, size_t *n_p, const void *from, size_t n_fr
 #  define msan_unpoison(r, s)
 #endif
 
-/* Dummy allocator to tell the compiler that the new size of p is newsize. The implementation returns the
- * pointer as is; the only reason for its existence is as a conduit for the _alloc_ attribute.  This must not
- * be inlined (hence a non-static function with _noinline_ because LTO otherwise tries to inline it) because
- * gcc then loses the attributes on the function.
- * See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=96503 */
-void *expand_to_usable(void *p, size_t newsize) _alloc_(2) _returns_nonnull_ _noinline_;
-
-size_t malloc_sizeof_safe(void **xp);
-
-/* This returns the number of usable bytes in a malloc()ed region as per malloc_usable_size(), which may
- * return a value larger than the size that was actually allocated. Access to that additional memory is
- * discouraged because it violates the C standard; a compiler cannot see that this as valid. To help the
- * compiler out, the MALLOC_SIZEOF_SAFE macro 'allocates' the usable size using a dummy allocator function
- * expand_to_usable. There is a possibility of malloc_usable_size() returning different values during the
- * lifetime of an object, which may cause problems, but the glibc allocator does not do that at the moment. */
-#define MALLOC_SIZEOF_SAFE(x) \
-        malloc_sizeof_safe((void**) &__builtin_choose_expr(__builtin_constant_p(x), (void*) { NULL }, (x)))
-
-/* Inspired by ELEMENTSOF() but operates on malloc()'ed memory areas: typesafely returns the number of items
- * that fit into the specified memory block */
-#define MALLOC_ELEMENTSOF(x) \
-        (__builtin_choose_expr(                                         \
-                __builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
-                MALLOC_SIZEOF_SAFE(x)/sizeof((x)[0]),                   \
-                VOID_0))
-
 /* Free every element of the array. */
-static inline void free_many(void **p, size_t n) {
-        assert(p || n == 0);
-
-        FOREACH_ARRAY(i, p, n)
-                *i = mfree(*i);
-}
+void free_many(void **p, size_t n);
 
 /* Typesafe wrapper for char** rather than void**. Unfortunately C won't implicitly cast this. */
 static inline void free_many_charp(char **c, size_t n) {
         free_many((void**) c, n);
-}
-
-_alloc_(2) static inline void *realloc0(void *p, size_t new_size) {
-        size_t old_size;
-        void *q;
-
-        /* Like realloc(), but initializes anything appended to zero */
-
-        old_size = MALLOC_SIZEOF_SAFE(p);
-
-        q = realloc(p, new_size);
-        if (!q)
-                return NULL;
-
-        new_size = MALLOC_SIZEOF_SAFE(q); /* Update with actually allocated space */
-
-        if (new_size > old_size)
-                memset((uint8_t*) q + old_size, 0, new_size - old_size);
-
-        return q;
 }

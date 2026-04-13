@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-daemon.h"
 #include "sd-event.h"
 
@@ -512,7 +514,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
                  * checksum file. */
 
                 if (j == p->raw_job) {
-                        if (j->error == ENOMEDIUM) /* HTTP 404 */
+                        if (j->error == -ENOMEDIUM) /* HTTP 404 */
                                 r = log_error_errno(j->error, "Failed to retrieve image file. (Wrong URL?)");
                         else
                                 r = log_error_errno(j->error, "Failed to retrieve image file.");

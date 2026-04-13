@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -11,7 +10,6 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
-#include "argv-util.h"
 #include "ask-password-api.h"
 #include "build.h"
 #include "cryptsetup-fido2.h"
@@ -27,6 +25,7 @@
 #include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "json-util.h"
@@ -36,6 +35,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "nulstr-util.h"
+#include "options.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pkcs11-util.h"
@@ -557,12 +557,14 @@ static int parse_one_option(const char *option) {
 
         } else if ((val = startswith(option, "tpm2-measure-keyslot-nvpcr="))) {
 
-                if (isempty(val)) {
+                r = isempty(val) ? false : parse_boolean(val);
+                if (r == 0) {
                         arg_tpm2_measure_keyslot_nvpcr = mfree(arg_tpm2_measure_keyslot_nvpcr);
                         return 0;
                 }
-
-                if (!tpm2_nvpcr_name_is_valid(val)) {
+                if (r > 0)
+                        val = "cryptsetup";
+                else if (!tpm2_nvpcr_name_is_valid(val)) {
                         log_warning("Invalid NvPCR name, ignoring: %s", option);
                         return 0;
                 }
@@ -1028,11 +1030,11 @@ static int measure_volume_key(
                 return 0;
         }
 
-        r = efi_measured_uki(LOG_WARNING);
+        r = efi_measured_os(LOG_WARNING);
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_debug("Kernel stub did not measure kernel image into the expected PCR, skipping userspace volume key measurement, too.");
+                log_debug("OS measurements not explicitly requested and kernel stub did not measure kernel image into the expected PCR, skipping userspace volume key measurement, too.");
                 return 0;
         }
 
@@ -1095,8 +1097,9 @@ static int measure_keyslot(
                 const char *mechanism,
                 int keyslot) {
 
+#if HAVE_TPM2
         int r;
-
+#endif
         assert(cd);
         assert(name);
 
@@ -1105,15 +1108,15 @@ static int measure_keyslot(
                 return 0;
         }
 
-        r = efi_measured_uki(LOG_WARNING);
+#if HAVE_TPM2
+        r = efi_measured_os(LOG_WARNING);
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_debug("Kernel stub did not measure kernel image into the expected PCR, skipping userspace key slot measurement, too.");
+                log_debug("OS measurements not explicitly requested and kernel stub did not measure kernel image into the expected PCR, skipping userspace key slot measurement, too.");
                 return 0;
         }
 
-#if HAVE_TPM2
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
         if (r < 0)
@@ -2448,61 +2451,69 @@ static int attach_luks_or_plain_or_bitlk(
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-cryptsetup", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s attach VOLUME SOURCE-DEVICE [KEY-FILE] [CONFIG]\n"
-               "%1$s detach VOLUME\n\n"
-               "%2$sAttach or detach an encrypted block device.%3$s\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "\nSee the %4$s for details.\n",
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, options);
+
+        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
+               "%sAttach or detach an encrypted block device.%s\n"
+               "\n%sCommands:%s\n",
                program_invocation_short_name,
                ansi_highlight(),
                ansi_normal(),
-               link);
+               ansi_underline(),
+               ansi_normal());
 
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n",
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-        };
+VERB_COMMON_HELP_HIDDEN(help);
 
-        static const struct option options[] = {
-                { "help",                         no_argument,       NULL, 'h'                       },
-                { "version",                      no_argument,       NULL, ARG_VERSION               },
-                {}
-        };
-
-        int c;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
-        if (argv_looks_like_help(argc, argv))
-                return help();
+        OptionParser state = { argc, argv };
+        const char *arg;
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
@@ -2536,6 +2547,8 @@ static uint32_t determine_flags(void) {
 
 static void remove_and_erasep(const char **p) {
         int r;
+
+        assert(p);
 
         if (!*p)
                 return;
@@ -2583,7 +2596,9 @@ static int discover_key(const char *key_file, const char *volume, TokenType toke
         return r;
 }
 
-static int verb_attach(int argc, char *argv[], void *userdata) {
+VERB(verb_attach, "attach", "VOLUME SOURCE-DEVICE [KEY-FILE] [CONFIG]", 3, 5, 0,
+     "Attach an encrypted block device");
+static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _unused_ _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
         crypt_status_info status;
@@ -2823,7 +2838,9 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_detach(int argc, char *argv[], void *userdata) {
+VERB(verb_detach, "detach", "VOLUME", 2, 2, 0,
+     "Detach an encrypted block device");
+static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         const char *volume = ASSERT_PTR(argv[1]);
         int r;
@@ -2857,19 +2874,14 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
         cryptsetup_enable_logging(NULL);
 
-        static const Verb verbs[] = {
-                { "attach", 3, 5, 0, verb_attach },
-                { "detach", 2, 2, 0, verb_detach },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

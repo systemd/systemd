@@ -174,7 +174,7 @@ int vl_method_resolve_record(
                         if (r == 0)
                                 break;
 
-                        nxdomain = !!hashmap_get(m->machines, q);
+                        nxdomain = hashmap_contains(m->machines, q);
                 }
         }
 

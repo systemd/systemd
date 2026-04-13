@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/ethernet.h>
+#include <net/if_arp.h>
 #include <stdio.h>
 
 #include "ether-addr-util.h"
@@ -68,6 +69,29 @@ bool hw_addr_is_null(const struct hw_addr_data *addr) {
         return addr->length == 0 || memeqzero(addr->bytes, addr->length);
 }
 
+bool hw_addr_is_valid(const struct hw_addr_data *addr, uint16_t iftype) {
+        assert(addr);
+
+        switch (iftype) {
+        case ARPHRD_ETHER:
+                /* Refuse all zero and all 0xFF. */
+                if (addr->length != ETH_ALEN)
+                        return false;
+
+                return !ether_addr_is_null(&addr->ether) && !ether_addr_is_broadcast(&addr->ether);
+
+        case ARPHRD_INFINIBAND:
+                /* The last 8 bytes cannot be zero. */
+                if (addr->length != INFINIBAND_ALEN)
+                        return false;
+
+                return !memeqzero(addr->bytes + INFINIBAND_ALEN - 8, 8);
+
+        default:
+                return false;
+        }
+}
+
 DEFINE_HASH_OPS(hw_addr_hash_ops, struct hw_addr_data, hw_addr_hash_func, hw_addr_compare);
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(hw_addr_hash_ops_free, struct hw_addr_data, hw_addr_hash_func, hw_addr_compare, free);
 
@@ -91,10 +115,15 @@ char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR
 }
 
 int ether_addr_compare(const struct ether_addr *a, const struct ether_addr *b) {
+        assert(a);
+        assert(b);
+
         return memcmp(a, b, ETH_ALEN);
 }
 
 static void ether_addr_hash_func(const struct ether_addr *p, struct siphash *state) {
+        assert(p);
+
         siphash24_compress_typesafe(*p, state);
 }
 

@@ -37,8 +37,8 @@ JOURNAL_TS="$(date "+%s")"
 systemctl restart "$UNIT_NAME.timer"
 systemctl status "$UNIT_NAME.timer"
 
-date -s '+2 hours'
-trap 'date -s "-2 hours"' EXIT
+date --set='+2 hours'
+trap 'date --set="-2 hours"' EXIT
 sleep 1
 systemctl status "$UNIT_NAME.timer"
 assert_eq "$(journalctl -q -p info --since="@$JOURNAL_TS" --unit="$UNIT_NAME" --grep="$TEST_MESSAGE" | wc -l)" "1"

@@ -1,8 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "console.h"
+#include "device-path-util.h"
 #include "efi-log.h"
+#include "efi-string.h"
 #include "proto/graphics-output.h"
+#include "proto/pci-io.h"
+#include "string-util-fundamental.h"
+#include "util.h"
 
 #define SYSTEM_FONT_WIDTH 8
 #define SYSTEM_FONT_HEIGHT 19
@@ -11,6 +16,8 @@
 #define VIEWPORT_RATIO 10
 
 static void event_closep(EFI_EVENT *event) {
+        assert(event);
+
         if (!*event)
                 return;
 
@@ -191,6 +198,9 @@ EFI_STATUS query_screen_resolution(uint32_t *ret_w, uint32_t *ret_h) {
         EFI_STATUS err;
         EFI_GRAPHICS_OUTPUT_PROTOCOL *go;
 
+        assert(ret_w);
+        assert(ret_h);
+
         err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_GRAPHICS_OUTPUT_PROTOCOL), NULL, (void **) &go);
         if (err != EFI_SUCCESS)
                 return err;
@@ -341,4 +351,252 @@ EFI_STATUS console_query_mode(size_t *x_max, size_t *y_max) {
         }
 
         return err;
+}
+
+static bool has_virtio_console_pci_device(void) {
+        _cleanup_free_ EFI_HANDLE *handles = NULL;
+        size_t n_handles = 0;
+
+        EFI_STATUS err = BS->LocateHandleBuffer(
+                        ByProtocol,
+                        MAKE_GUID_PTR(EFI_PCI_IO_PROTOCOL),
+                        NULL,
+                        &n_handles,
+                        &handles);
+        if (err != EFI_SUCCESS) {
+                log_debug_status(err, "Failed to locate PCI I/O protocol handles, assuming no VirtIO console: %m");
+                return false;
+        }
+
+        if (n_handles == 0) {
+                log_debug("No PCI devices found, not scanning for VirtIO console.");
+                return false;
+        }
+
+        log_debug("Found %zu PCI devices, scanning for VirtIO console...", n_handles);
+
+        size_t n_virtio_console = 0;
+
+        for (size_t i = 0; i < n_handles; i++) {
+                EFI_PCI_IO_PROTOCOL *pci_io = NULL;
+
+                if (BS->HandleProtocol(handles[i], MAKE_GUID_PTR(EFI_PCI_IO_PROTOCOL), (void **) &pci_io) != EFI_SUCCESS)
+                        continue;
+
+                /* Read PCI vendor ID and device ID (at offsets 0x00 and 0x02 in PCI config space) */
+                uint16_t pci_id[2] = {};
+                if (pci_io->Pci.Read(pci_io, EfiPciIoWidthUint16, /* offset= */ 0x00, /* count= */ 2, pci_id) != EFI_SUCCESS)
+                        continue;
+
+                log_debug("PCI device %zu: vendor=%04x device=%04x", i, pci_id[0], pci_id[1]);
+
+                if (pci_id[0] == PCI_VENDOR_ID_REDHAT && pci_id[1] == PCI_DEVICE_ID_VIRTIO_CONSOLE)
+                        n_virtio_console++;
+
+                if (n_virtio_console > 1) {
+                        log_debug("There is more than one VirtIO console PCI device, cannot determine which one is the console.");
+                        return false;
+                }
+        }
+
+        if (n_virtio_console == 0) {
+                log_debug("No VirtIO console PCI device found.");
+                return false;
+        }
+
+        log_debug("Found exactly one VirtIO console PCI device.");
+        return true;
+}
+
+static bool has_graphics_output(void) {
+        EFI_GRAPHICS_OUTPUT_PROTOCOL *gop = NULL;
+        EFI_STATUS err;
+
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_GRAPHICS_OUTPUT_PROTOCOL), NULL, (void **) &gop);
+        if (err != EFI_SUCCESS) {
+                log_debug_status(err, "No EFI Graphics Output Protocol found: %m");
+                return false;
+        }
+
+        log_debug("EFI Graphics Output Protocol found.");
+        return true;
+}
+
+#if defined(__i386__) || defined(__x86_64__)
+
+/* Walk the device path looking for a UART console and determine the COM port index from the
+ * ACPI device path node. On x86, the Linux kernel assigns fixed ttyS indices based on I/O port
+ * addresses (see arch/x86/include/asm/serial.h):
+ *
+ *   ttyS0=0x3F8, ttyS1=0x2F8, ttyS2=0x3E8, ttyS3=0x2E8
+ *
+ * On standard PC firmware, the ACPI UID for PNP0501 (16550 UART) maps directly to the COM port
+ * index: UID 0 = COM1 (0x3F8) = ttyS0, UID 1 = COM2 (0x2F8) = ttyS1, etc.
+ *
+ * Returns EFI_SUCCESS and sets *ret_index on success, or EFI_NOT_FOUND if no PNP0501 UART
+ * was found. */
+static EFI_STATUS device_path_get_uart_index(const EFI_DEVICE_PATH *dp, uint32_t *ret_index) {
+        assert(ret_index);
+
+        for (const EFI_DEVICE_PATH *node = dp; !device_path_is_end(node); node = device_path_next_node(node))
+                if (node->Type == ACPI_DEVICE_PATH &&
+                    node->SubType == ACPI_DP &&
+                    node->Length >= sizeof(ACPI_HID_DEVICE_PATH)) {
+                        const ACPI_HID_DEVICE_PATH *acpi = (const ACPI_HID_DEVICE_PATH *) node;
+                        if (acpi->HID == EISA_PNP_ID(0x0501)) {
+                                *ret_index = acpi->UID;
+                                return EFI_SUCCESS;
+                        }
+                }
+
+        return EFI_NOT_FOUND;
+}
+
+/* Check if the console output is a serial UART. If so, determine the COM port index from the
+ * ACPI device path so we can pass the correct console= device to the kernel. */
+static EFI_STATUS find_serial_console_index(uint32_t *ret_index) {
+        assert(ret_index);
+
+        /* First try the ConOut handle directly. */
+        EFI_DEVICE_PATH *dp = NULL;
+        if (BS->HandleProtocol(ST->ConsoleOutHandle, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp) == EFI_SUCCESS) {
+                _cleanup_free_ char16_t *dp_str = NULL;
+                (void) device_path_to_str(dp, &dp_str);
+                log_debug("ConOut device path: %ls", strempty(dp_str));
+
+                if (device_path_get_uart_index(dp, ret_index) == EFI_SUCCESS) {
+                        log_debug("ConOut is a serial console (port index %u).", *ret_index);
+                        return EFI_SUCCESS;
+                }
+
+                log_debug("ConOut device path does not contain a PNP0501 UART node.");
+                return EFI_NOT_FOUND;
+        }
+
+        /* ConOut handle has no device path (e.g. ConSplitter virtual handle). Enumerate all
+         * text output handles and check if any of them is a serial console. */
+        log_debug("ConOut handle has no device path, enumerating text output handles...");
+
+        _cleanup_free_ EFI_HANDLE *handles = NULL;
+        size_t n_handles = 0;
+        if (BS->LocateHandleBuffer(
+                        ByProtocol,
+                        MAKE_GUID_PTR(EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL),
+                        NULL,
+                        &n_handles,
+                        &handles) != EFI_SUCCESS) {
+                log_debug("Failed to enumerate text output handles.");
+                return EFI_NOT_FOUND;
+        }
+
+        bool found = false;
+
+        for (size_t i = 0; i < n_handles; i++) {
+                dp = NULL;
+                if (BS->HandleProtocol(handles[i], MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp) != EFI_SUCCESS)
+                        continue;
+
+                _cleanup_free_ char16_t *dp_str = NULL;
+                (void) device_path_to_str(dp, &dp_str);
+                log_debug("Text output handle %zu device path: %ls", i, strempty(dp_str));
+
+                uint32_t index;
+                if (device_path_get_uart_index(dp, &index) != EFI_SUCCESS)
+                        continue;
+
+                log_debug("Text output handle %zu is a serial console (port index %u).", i, index);
+
+                if (found && *ret_index != index) {
+                        log_debug("Multiple serial consoles with different port indices found, cannot determine which one to use.");
+                        return EFI_NOT_FOUND;
+                }
+
+                *ret_index = index;
+                found = true;
+        }
+
+        if (!found) {
+                log_debug("No serial console found among text output handles.");
+                return EFI_NOT_FOUND;
+        }
+
+        return EFI_SUCCESS;
+}
+
+static const char16_t *serial_console_arg(uint32_t index) {
+        /* Use the uart I/O port address format (see Documentation/admin-guide/kernel-parameters.txt)
+         * instead of ttyS names. This addresses the 8250/16550 UART at the specified I/O port
+         * directly and switches to the matching ttyS device later. The I/O port addresses for
+         * the standard COM ports are fixed (see arch/x86/include/asm/serial.h), and the ACPI UID
+         * for PNP0501 maps directly to the COM port index. */
+        static const char16_t *const table[] = {
+                u"console=uart,io,0x3f8",  /* COM1 */
+                u"console=uart,io,0x2f8",  /* COM2 */
+                u"console=uart,io,0x3e8",  /* COM3 */
+                u"console=uart,io,0x2e8",  /* COM4 */
+        };
+
+        if (index >= ELEMENTSOF(table))
+                return NULL;
+
+        return table[index];
+}
+
+#endif /* __i386__ || __x86_64__ */
+
+/* If there's no console= in the command line yet, try to detect the appropriate console device.
+ *
+ * Detection order:
+ * 1. If exactly one VirtIO console PCI device exists -> console=hvc0
+ * 2. If there's graphical output (GOP) -> don't add console=, the kernel defaults are fine
+ * 3. On x86, if exactly one serial console exists -> console=uart,io,<addr>
+ * 4. Otherwise -> don't add console=, let the user handle it
+ *
+ * VirtIO console takes priority since it's explicitly configured by the VMM. Graphics is
+ * checked before serial to avoid accidentally redirecting output away from a graphical
+ * console by adding a serial console= argument.
+ *
+ * Serial console auto-detection is restricted to x86 where ACPI PNP0501 UIDs map to fixed
+ * I/O port addresses for 8250/16550 UARTs. On non-x86 (e.g. ARM), serial device indices are
+ * assigned dynamically, and the kernel has its own console auto-detection mechanisms
+ * (DT stdout-path, etc.).
+ *
+ * Not TPM-measured because the value is deterministically derived from firmware-reported
+ * hardware state (PCI device enumeration, GOP presence, serial device paths). */
+void cmdline_append_console(char16_t **cmdline) {
+        assert(cmdline);
+
+        if (*cmdline && (efi_fnmatch(u"console=*", *cmdline) || efi_fnmatch(u"* console=*", *cmdline))) {
+                log_debug("Kernel command line already contains console=, not adding one.");
+                return;
+        }
+
+        const char16_t *console_arg = NULL;
+
+        if (has_virtio_console_pci_device())
+                console_arg = u"console=hvc0";
+        else if (has_graphics_output()) {
+                log_debug("Graphical output available, not adding console= to kernel command line.");
+                return;
+        }
+#if defined(__i386__) || defined(__x86_64__)
+        else {
+                uint32_t serial_index;
+                if (find_serial_console_index(&serial_index) == EFI_SUCCESS)
+                        console_arg = serial_console_arg(serial_index);
+        }
+#endif
+
+        if (!console_arg) {
+                log_debug("Cannot determine console type, not adding console= to kernel command line.");
+                return;
+        }
+
+        log_debug("Appending %ls to kernel command line.", console_arg);
+
+        _cleanup_free_ char16_t *old = TAKE_PTR(*cmdline);
+        if (isempty(old))
+                *cmdline = xstrdup16(console_arg);
+        else
+                *cmdline = xasprintf("%ls %ls", old, console_arg);
 }

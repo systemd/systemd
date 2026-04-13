@@ -1,0 +1,10 @@
+{
+    "userName": "classicuser",
+    "realName": "Classic Unix User",
+    "uid": 1005,
+    "gid": 1005,
+    "homeDirectory": "/home/classicuser",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "storage": "classic"
+}

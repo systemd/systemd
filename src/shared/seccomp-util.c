@@ -12,9 +12,11 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 
-#ifdef ARCH_MIPS
+#ifdef __mips__
 #include <asm/sgidefs.h>
 #endif
+
+#include "sd-dlopen.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -49,9 +51,10 @@ DLSYM_PROTOTYPE(seccomp_syscall_resolve_name) = NULL;
 DLSYM_PROTOTYPE(seccomp_syscall_resolve_num_arch) = NULL;
 
 int dlopen_libseccomp(void) {
-        ELF_NOTE_DLOPEN("seccomp",
+        SD_ELF_NOTE_DLOPEN(
+                        "seccomp",
                         "Support for Seccomp Sandboxes",
-                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
                         "libseccomp.so.2");
 
         return dlopen_many_sym_or_warn(
@@ -275,6 +278,8 @@ int seccomp_init_for_arch(scmp_filter_ctx *ret, uint32_t arch, uint32_t default_
         _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
         int r;
 
+        assert(ret);
+
         /* Much like seccomp_init(), but initializes the filter for one specific architecture only, without affecting
          * any others. Also, turns off the NNP fiddling. */
 
@@ -402,6 +407,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "gettimeofday\0"
                 "getuid\0"
                 "getuid32\0"
+                "lsm_get_self_attr\0"
+                "lsm_list_modules\0"
                 "membarrier\0"
                 "mmap\0"
                 "mmap2\0"

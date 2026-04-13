@@ -1480,7 +1480,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
                         got_forward_slash = true;
                 }
 
-                if (!in_charset(p, "0123456789") || *p == '\0') {
+                if (!in_charset(p, DIGITS) || *p == '\0') {
                         if (!hostname_is_valid(p, 0) || got_forward_slash)
                                 return -EINVAL;
 
@@ -1496,7 +1496,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
 interpret_port_as_machine_old_syntax:
                 /* Let's make sure this is not a port of some kind,
                  * and is a valid machine name. */
-                if (!in_charset(m, "0123456789") && hostname_is_valid(m, 0))
+                if (!in_charset(m, DIGITS) && hostname_is_valid(m, 0))
                         c = strjoina(",argv", p ? "7" : "5", "=--machine=", m);
         }
 
@@ -2021,6 +2021,7 @@ static int bus_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
 
         assert(bus);
         assert(m);
+        assert(idx);
 
         r = bus_socket_write_message(bus, m, idx);
         if (r <= 0)
@@ -3483,10 +3484,13 @@ static int add_match_callback(
         sd_bus_slot_ref(match_slot);
 
         if (sd_bus_message_is_method_error(m, NULL)) {
-                r = log_debug_errno(sd_bus_message_get_errno(m),
+                const sd_bus_error *e = ASSERT_PTR(sd_bus_message_get_error(m));
+                r = sd_bus_error_get_errno(e);
+
+                r = log_debug_errno(r,
                                     "Unable to add match %s, failing connection: %s",
                                     match_slot->match_callback.match_string,
-                                    sd_bus_message_get_error(m)->message);
+                                    bus_error_message(e, r));
 
                 failed = true;
         } else

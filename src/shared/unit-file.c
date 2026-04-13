@@ -291,17 +291,15 @@ int unit_file_resolve_symlink(
                                          dir, dir ? "/" : "", filename);
 
         if (!dir) {
-                r = path_extract_directory(filename, &_dir);
-                if (r < 0)
-                        return r;
-                dir = _dir;
-
-                r = path_extract_filename(filename, &_filename);
+                r = path_split_prefix_filename(filename, &_dir, &_filename);
                 if (r < 0)
                         return r;
                 if (r == O_DIRECTORY)
                         return log_warning_errno(SYNTHETIC_ERRNO(EISDIR),
                                                  "Unexpected path to a directory \"%s\", refusing.", filename);
+
+                /* We validate that the path is absolute above, hence dir must be extractable. */
+                dir = ASSERT_PTR(_dir);
                 filename = _filename;
         }
 
@@ -753,6 +751,8 @@ int unit_file_find_fragment(
         _cleanup_free_ char *template = NULL, *instance = NULL;
         _cleanup_set_free_ Set *names = NULL;
         int r;
+
+        assert(ret_fragment_path);
 
         /* Finds a fragment path, and returns the set of names:
          * if we have …/foo.service and …/foo-alias.service→foo.service,

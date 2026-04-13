@@ -112,6 +112,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(DIR*, closedir, NULL);
 int fd_nonblock(int fd, bool nonblock);
 int stdio_disable_nonblock(void);
 
+void nonblock_resetp(int *fd);
+
 int fd_cloexec(int fd, bool cloexec);
 int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec);
 
@@ -179,7 +181,9 @@ static inline int dir_fd_is_root_or_cwd(int dir_fd) {
         return IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT) ? true : path_is_root_at(dir_fd, NULL);
 }
 
-int fds_are_same_mount(int fd1, int fd2);
+int fds_inode_and_mount_same(int fd1, int fd2);
+
+int resolve_xat_fdroot(int *fd, const char **path, char **ret_buffer);
 
 /* The maximum length a buffer for a /proc/self/fd/<fd> path needs */
 #define PROC_FD_PATH_MAX \

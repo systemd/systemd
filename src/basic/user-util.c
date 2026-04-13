@@ -762,18 +762,17 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
                                        * don't allow slashes. */
                         return false;
 
-                if (in_charset(u, "0123456789")) /* Don't allow fully numeric strings, they might be confused
-                                                  * with UIDs (note that this test is more broad than
-                                                  * the parse_uid() test above, as it will cover more than
-                                                  * the 32-bit range, and it will detect 65535 (which is in
-                                                  * invalid UID, even though in the unsigned 32 bit range) */
+                if (in_charset(u, DIGITS)) /* Don't allow fully numeric strings, they might be confused with
+                                            * UIDs (note that this test is more broad than the parse_uid()
+                                            * test above, as it will cover more than the 32-bit range, and it
+                                            * will detect 65535 (which is in invalid UID, even though in the
+                                            * unsigned 32 bit range) */
                         return false;
 
-                if (u[0] == '-' && in_charset(u + 1, "0123456789")) /* Don't allow negative fully numeric
-                                                                     * strings either. After all some people
-                                                                     * write 65535 as -1 (even though that's
-                                                                     * not even true on 32-bit uid_t
-                                                                     * anyway) */
+                if (u[0] == '-' && in_charset(u + 1, DIGITS)) /* Don't allow negative fully numeric strings
+                                                               * either. After all some people write 65535 as
+                                                               * -1 (even though that's not even true on
+                                                               * 32-bit uid_t anyway) */
                         return false;
 
                 if (dot_or_dot_dot(u)) /* User names typically become home directory names, and these two are
@@ -920,19 +919,28 @@ int maybe_setgroups(size_t size, const gid_t *list) {
 
         /* Check if setgroups is allowed before we try to drop all the auxiliary groups */
         if (size == 0) { /* Dropping all aux groups? */
+
+                /* The kernel refuses setgroups() if there are no GID mappings in the current
+                 * user namespace, so check that beforehand and don't try to setgroups() if
+                 * there are no GID mappings. */
+                _cleanup_fclose_ FILE *f = fopen("/proc/self/gid_map", "re");
+                if (!f && errno != ENOENT)
+                        return -errno;
+                if (f) {
+                        r = safe_fgetc(f, /* ret= */ NULL);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                log_debug("Skipping setgroups(), /proc/self/gid_map is empty");
+                                return 0;
+                        }
+                }
+
                 _cleanup_free_ char *setgroups_content = NULL;
-                bool can_setgroups;
-
                 r = read_one_line_file("/proc/self/setgroups", &setgroups_content);
-                if (r == -ENOENT)
-                        /* Old kernels don't have /proc/self/setgroups, so assume we can use setgroups */
-                        can_setgroups = true;
-                else if (r < 0)
+                if (r < 0 && r != -ENOENT)
                         return r;
-                else
-                        can_setgroups = streq(setgroups_content, "allow");
-
-                if (!can_setgroups) {
+                if (r > 0 && streq(setgroups_content, "deny")) {
                         log_debug("Skipping setgroups(), /proc/self/setgroups is set to 'deny'");
                         return 0;
                 }
@@ -1105,6 +1113,8 @@ int getpwnam_malloc(const char *name, struct passwd **ret) {
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
 
+                /* Silence static analyzers */
+                assert(bufsize <= SIZE_MAX - ALIGN(sizeof(struct passwd)));
                 buf = malloc0(ALIGN(sizeof(struct passwd)) + bufsize);
                 if (!buf)
                         return -ENOMEM;
@@ -1146,6 +1156,8 @@ int getpwuid_malloc(uid_t uid, struct passwd **ret) {
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
 
+                /* Silence static analyzers */
+                assert(bufsize <= SIZE_MAX - ALIGN(sizeof(struct passwd)));
                 buf = malloc0(ALIGN(sizeof(struct passwd)) + bufsize);
                 if (!buf)
                         return -ENOMEM;
@@ -1190,6 +1202,8 @@ int getgrnam_malloc(const char *name, struct group **ret) {
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
 
+                /* Silence static analyzers */
+                assert(bufsize <= SIZE_MAX - ALIGN(sizeof(struct group)));
                 buf = malloc0(ALIGN(sizeof(struct group)) + bufsize);
                 if (!buf)
                         return -ENOMEM;
@@ -1229,6 +1243,8 @@ int getgrgid_malloc(gid_t gid, struct group **ret) {
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
 
+                /* Silence static analyzers */
+                assert(bufsize <= SIZE_MAX - ALIGN(sizeof(struct group)));
                 buf = malloc0(ALIGN(sizeof(struct group)) + bufsize);
                 if (!buf)
                         return -ENOMEM;

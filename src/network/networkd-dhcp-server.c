@@ -326,6 +326,7 @@ void manager_toggle_dhcp4_server_state(Manager *manager, bool start) {
 
 static int dhcp_server_find_uplink(Link *link, Link **ret) {
         assert(link);
+        assert(ret);
 
         if (link->network->dhcp_server_uplink_name)
                 return link_get_by_name(link->manager, link->network->dhcp_server_uplink_name, ret);
@@ -454,6 +455,9 @@ static int dhcp4_server_parse_dns_server_string_and_warn(
                 const char *string,
                 struct in_addr **addresses,
                 size_t *n_addresses) {
+
+        assert(addresses);
+        assert(n_addresses);
 
         for (;;) {
                 _cleanup_free_ char *word = NULL, *server_name = NULL;

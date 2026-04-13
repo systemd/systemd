@@ -55,19 +55,23 @@ static ColorMode get_color_mode_impl(void) {
 
         /* First, we check $SYSTEMD_COLORS, which is the explicit way to change the mode. */
         ColorMode m = parse_systemd_colors();
-        if (IN_SET(m, COLOR_OFF, COLOR_16, COLOR_256, COLOR_24BIT))
+        if (m >= 0 && m < _COLOR_MODE_FIXED_MAX)
                 return m;
 
-        /* Next, check for the presence of $NO_COLOR; value is ignored. */
-        if (getenv("NO_COLOR"))
-                return COLOR_OFF;
+        /* If SYSTEMD_COLORS=true was set explicitly, skip the environment checks below — the user
+         * explicitly requested colors, so honor it even when stdout is piped or $NO_COLOR is set. */
+        if (m != COLOR_TRUE) {
+                /* Check for the presence of $NO_COLOR; value is ignored. */
+                if (getenv("NO_COLOR"))
+                        return COLOR_OFF;
 
-        /* If the above didn't work, we turn colors off unless we are on a TTY. And if we are on a TTY we
-         * turn it off if $TERM is set to "dumb". There's one special tweak though: if we are PID 1 then we
-         * do not check whether we are connected to a TTY, because we don't keep /dev/console open
-         * continuously due to fear of SAK, and hence things are a bit weird. */
-        if (getpid_cached() == 1 ? getenv_terminal_is_dumb() : terminal_is_dumb())
-                return COLOR_OFF;
+                /* Turn colors off unless we are on a TTY. And if we are on a TTY we turn it off if $TERM
+                 * is set to "dumb". There's one special tweak though: if we are PID 1 then we do not check
+                 * whether we are connected to a TTY, because we don't keep /dev/console open continuously
+                 * due to fear of SAK, and hence things are a bit weird. */
+                if (getpid_cached() == 1 ? getenv_terminal_is_dumb() : terminal_is_dumb())
+                        return COLOR_OFF;
+        }
 
         /* We failed to figure out any reason to *disable* colors. Let's see how many colors we shall use. */
         if (m == COLOR_AUTO_16)
@@ -92,12 +96,13 @@ static ColorMode get_color_mode_impl(void) {
 }
 
 ColorMode get_color_mode(void) {
-        if (cached_color_mode < 0)
+        if (cached_color_mode < 0) {
                 cached_color_mode = get_color_mode_impl();
+                assert(cached_color_mode >= 0 && cached_color_mode < _COLOR_MODE_FIXED_MAX);
+        }
 
         return cached_color_mode;
 }
-
 
 static const char* const color_mode_table[_COLOR_MODE_MAX] = {
         [COLOR_OFF]        = "off",
@@ -107,9 +112,10 @@ static const char* const color_mode_table[_COLOR_MODE_MAX] = {
         [COLOR_AUTO_16]    = "auto-16",
         [COLOR_AUTO_256]   = "auto-256",
         [COLOR_AUTO_24BIT] = "auto-24bit",
+        [COLOR_TRUE]       = "true",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(color_mode, ColorMode, COLOR_24BIT);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(color_mode, ColorMode, COLOR_TRUE);
 
 /*
  * Check that the string is formatted like an ANSI color code, i.e. that it consists of one or more

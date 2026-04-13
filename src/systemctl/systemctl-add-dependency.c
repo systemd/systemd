@@ -17,7 +17,7 @@
 #include "systemctl-util.h"
 #include "unit-name.h"
 
-int verb_add_dependency(int argc, char *argv[], void *userdata) {
+int verb_add_dependency(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_free_ char *target = NULL;
         const char *verb = argv[0];
@@ -51,7 +51,7 @@ int verb_add_dependency(int argc, char *argv[], void *userdata) {
                 CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
                 r = unit_file_add_dependency(arg_runtime_scope, unit_file_flags_from_args(), arg_root, names, target, dep, &changes, &n_changes);
-                install_changes_dump(r, "add dependency on", changes, n_changes, arg_quiet);
+                r = install_changes_dump(r, "add dependency on", changes, n_changes, arg_quiet);
                 if (r < 0)
                         return r;
         } else {

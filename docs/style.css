@@ -111,9 +111,14 @@ a {
   text-decoration: none;
   color: var(--sd-link-color);
   cursor: pointer;
+  overflow-wrap: anywhere;
 }
 a:hover {
   text-decoration: underline;
+}
+img {
+  max-width: 100%;
+  height: auto;
 }
 b {
   font-weight: 600;
@@ -567,6 +572,7 @@ tbody td {
 code.highlighter-rouge {
   padding: 2px 6px;
   background-color: var(--sd-highlight-inline-bg);
+  overflow-wrap: anywhere;
 }
 
 a code.highlighter-rouge {

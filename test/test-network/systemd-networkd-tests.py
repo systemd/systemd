@@ -73,6 +73,7 @@ resolvectl_bin = shutil.which('resolvectl', path=which_paths)
 timedatectl_bin = shutil.which('timedatectl', path=which_paths)
 udevadm_bin = shutil.which('udevadm', path=which_paths)
 test_ndisc_send = None
+test_modem_manager_mock = None
 build_dir = None
 source_dir = None
 
@@ -425,8 +426,9 @@ def clear_udev_rules():
 def save_active_units():
     for u in [
             'systemd-networkd.socket',
-            'systemd-networkd-varlink.socket',
             'systemd-networkd-resolve-hook.socket',
+            'systemd-networkd-varlink.socket',
+            'systemd-networkd-varlink-metrics.socket',
             'systemd-networkd.service',
             'systemd-resolved-monitor.socket',
             'systemd-resolved-varlink.socket',
@@ -447,12 +449,16 @@ def restore_active_units():
         call('systemctl stop systemd-networkd.socket')
         has_network_socket = True
 
+    if 'systemd-networkd-resolve-hook.socket' in active_units:
+        call('systemctl stop systemd-networkd-resolve-hook.socket')
+        has_network_socket = True
+
     if 'systemd-networkd-varlink.socket' in active_units:
         call('systemctl stop systemd-networkd-varlink.socket')
         has_network_socket = True
 
-    if 'systemd-networkd-resolve-hook.socket' in active_units:
-        call('systemctl stop systemd-networkd-resolve-hook.socket')
+    if 'systemd-networkd-varlink-metrics.socket' in active_units:
+        call('systemctl stop systemd-networkd-varlink-metrics.socket')
         has_network_socket = True
 
     if 'systemd-resolved-monitor.socket' in active_units:
@@ -521,9 +527,10 @@ def setup_system_units():
         for unit in [
                 'systemd-networkd.service',
                 'systemd-networkd.socket',
-                'systemd-networkd-varlink.socket',
-                'systemd-networkd-resolve-hook.socket',
                 'systemd-networkd-persistent-storage.service',
+                'systemd-networkd-resolve-hook.socket',
+                'systemd-networkd-varlink.socket',
+                'systemd-networkd-varlink-metrics.socket',
                 'systemd-resolved.service',
                 'systemd-timesyncd.service',
                 'systemd-udevd.service',
@@ -549,29 +556,7 @@ def setup_system_units():
 
     # TODO: also run udevd with sanitizers, valgrind, or coverage
     create_unit_dropin(
-        'systemd-udevd.service',
-        [
-            '[Service]',
-            'ExecStart=',
-            f'ExecStart=@{udevadm_bin} systemd-udevd',
-        ]
-    )
-    create_unit_dropin(
         'systemd-networkd.socket',
-        [
-            '[Unit]',
-            'StartLimitIntervalSec=0',
-        ]
-    )
-    create_unit_dropin(
-        'systemd-networkd-varlink.socket',
-        [
-            '[Unit]',
-            'StartLimitIntervalSec=0',
-        ]
-    )
-    create_unit_dropin(
-        'systemd-networkd-resolve-hook.socket',
         [
             '[Unit]',
             'StartLimitIntervalSec=0',
@@ -588,6 +573,35 @@ def setup_system_units():
             'ExecStop=',
             f'ExecStop={networkctl_bin} persistent-storage no',
             'Environment=SYSTEMD_LOG_LEVEL=debug' if enable_debug else '',
+        ]
+    )
+    create_unit_dropin(
+        'systemd-networkd-resolve-hook.socket',
+        [
+            '[Unit]',
+            'StartLimitIntervalSec=0',
+        ]
+    )
+    create_unit_dropin(
+        'systemd-networkd-varlink.socket',
+        [
+            '[Unit]',
+            'StartLimitIntervalSec=0',
+        ]
+    )
+    create_unit_dropin(
+        'systemd-networkd-varlink-metrics.socket',
+        [
+            '[Unit]',
+            'StartLimitIntervalSec=0',
+        ]
+    )
+    create_unit_dropin(
+        'systemd-udevd.service',
+        [
+            '[Service]',
+            'ExecStart=',
+            f'ExecStart=@{udevadm_bin} systemd-udevd',
         ]
     )
 
@@ -608,9 +622,10 @@ def clear_system_units():
 
     rm_unit('systemd-networkd.service')
     rm_unit('systemd-networkd.socket')
-    rm_unit('systemd-networkd-varlink.socket')
-    rm_unit('systemd-networkd-resolve-hook.socket')
     rm_unit('systemd-networkd-persistent-storage.service')
+    rm_unit('systemd-networkd-resolve-hook.socket')
+    rm_unit('systemd-networkd-varlink.socket')
+    rm_unit('systemd-networkd-varlink-metrics.socket')
     rm_unit('systemd-resolved.service')
     rm_unit('systemd-timesyncd.service')
     rm_unit('systemd-udevd.service')
@@ -855,13 +870,18 @@ def dnr_v6_instance_data(adn, addrs=None, prio=1, alpns=("dot",), dohpath=None):
 
     return data
 
-def start_dnsmasq(*additional_options, interface='veth-peer', ra_mode=None, ipv4_range='192.168.5.10,192.168.5.200', ipv4_router='192.168.5.1', ipv6_range='2600::10,2600::20'):
+def start_dnsmasq(*additional_options, namespace=None, interface='veth-peer', ra_mode=None, ipv4_range='192.168.5.10,192.168.5.200', ipv4_router='192.168.5.1', ipv6_range='2600::10,2600::20'):
     if ra_mode:
         ra_mode = f',{ra_mode}'
     else:
         ra_mode = ''
 
-    command = (
+    if namespace:
+        ns_command = ('ip', 'netns', 'exec', namespace)
+    else:
+        ns_command = ()
+
+    command = ns_command + (
         'dnsmasq',
         f'--log-facility={dnsmasq_log_file}',
         '--log-queries=extra',
@@ -954,6 +974,28 @@ def start_radvd(*additional_options, config_file):
 def stop_radvd():
     stop_by_pid_file(radvd_pid_file)
 
+def start_modem_manager_mock(*additional_options):
+    dbus_policy_src = os.path.join(networkd_ci_temp_dir, 'mock-modem-manager.conf')
+    cp(dbus_policy_src, '/etc/dbus-1/system.d/mock-modem-manager.conf')
+    check_output('systemctl reload dbus.service')
+
+    command = ' '.join([test_modem_manager_mock] + list(additional_options))
+    with open('/run/systemd/system/test-modem-manager-mock.service', mode='w', encoding='utf-8') as f:
+        f.write('[Unit]\n'
+                'Description=Mock ModemManager for networkd testing\n'
+                '[Service]\n'
+                'Type=notify\n'
+                'BusName=org.freedesktop.ModemManager1\n'
+                f'ExecStart={command}\n')
+    check_output('systemctl daemon-reload')
+    check_output('systemctl start test-modem-manager-mock.service')
+
+def stop_modem_manager_mock():
+    call('systemctl stop test-modem-manager-mock.service')
+    rm_f('/run/systemd/system/test-modem-manager-mock.service')
+    call('systemctl daemon-reload')
+    rm_f('/etc/dbus-1/system.d/mock-modem-manager.conf')
+
 def radvd_check_config(config_file):
     if not shutil.which('radvd'):
         print('radvd is not installed, assuming the config check failed')
@@ -968,7 +1010,7 @@ def networkd_invocation_id():
     return check_output('systemctl show --value -p InvocationID systemd-networkd.service')
 
 def networkd_pid():
-    return check_output('systemctl show --value -p MainPID systemd-networkd.service')
+    return int(check_output('systemctl show --value -p MainPID systemd-networkd.service'))
 
 def read_networkd_log(invocation_id=None, since=None):
     if not invocation_id:
@@ -995,13 +1037,15 @@ def stop_networkd(show_logs=True, check_failed=True):
 
     if check_failed:
         check_output('systemctl stop systemd-networkd.socket')
-        check_output('systemctl stop systemd-networkd-varlink.socket')
         check_output('systemctl stop systemd-networkd-resolve-hook.socket')
+        check_output('systemctl stop systemd-networkd-varlink.socket')
+        check_output('systemctl stop systemd-networkd-varlink-metrics.socket')
         check_output('systemctl stop systemd-networkd.service')
     else:
         call('systemctl stop systemd-networkd.socket')
-        call('systemctl stop systemd-networkd-varlink.socket')
         call('systemctl stop systemd-networkd-resolve-hook.socket')
+        call('systemctl stop systemd-networkd-varlink.socket')
+        call('systemctl stop systemd-networkd-varlink-metrics.socket')
         call('systemctl stop systemd-networkd.service')
 
     if show_logs:
@@ -1029,9 +1073,6 @@ def restart_networkd(show_logs=True):
     invocation_id = networkd_invocation_id()
     pid = networkd_pid()
     print(f'Restarted systemd-networkd.service: PID={pid}, Invocation ID={invocation_id}')
-
-def networkd_pid():
-    return int(check_output('systemctl show --value -p MainPID systemd-networkd.service'))
 
 def networkctl(*args):
     # Do not call networkctl if networkd is in failed state.
@@ -1081,6 +1122,7 @@ def tear_down_common():
     stop_dnsmasq()
     stop_isc_dhcpd()
     stop_radvd()
+    stop_modem_manager_mock()
 
     # 2. remove modules
     call_quiet('rmmod netdevsim')
@@ -1088,6 +1130,8 @@ def tear_down_common():
 
     # 3. remove network namespace
     call_quiet('ip netns del ns99')
+    call_quiet('ip netns del ns-bridge')
+    call_quiet('ip netns del ns-server')
 
     # 4. remove links
     flush_l2tp_tunnels()
@@ -4587,6 +4631,47 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '149.10.124.48/28 proto kernel scope link src 149.10.124.58')
         self.assertRegex(output, '149.10.124.66 via inet6 2001:1234:5:8fff:ff:ff:ff:ff proto static')
 
+    def test_route_static_issue_40106(self):
+        check_output('ip link add dummy99 type dummy')
+        check_output('ip link set dummy99 up carrier off')
+        copy_network_unit(
+            '25-route-static-issue-40106-dummy.network',
+            '25-route-static-issue-40106-vlan.netdev',
+            '25-route-static-issue-40106-vlan.network',
+        )
+        start_networkd()
+        self.wait_online('dummy99:no-carrier')
+        self.wait_operstate('vlan99', operstate='off', setup_state='configuring')
+
+        # address can be configured even when the interface is down.
+        self.wait_address('vlan99', '192.0.2.1/24', ipv='-4', timeout_sec=10)
+        print('### ip -4 address show dev vlan99')
+        output = check_output('ip -4 address show dev vlan99')
+        print(output)
+        self.assertIn('inet 192.0.2.1/24 brd 192.0.2.255 scope global vlan99', output)
+
+        # route cannot be configured when the interface is down.
+        print('### ip -4 route show dev vlan99')
+        output = check_output('ip -4 route show dev vlan99')
+        print(output)
+        self.assertEqual(output, '')
+
+        # When cable is connected, the vlan becomes up by BindCarrier=, then
+        # the pending route is also configured.
+        check_output('ip link set dummy99 carrier on')
+        self.wait_online('dummy99:degraded', 'vlan99:routable')
+
+        print('### ip -4 address show dev vlan99')
+        output = check_output('ip -4 address show dev vlan99')
+        print(output)
+        self.assertIn('inet 192.0.2.1/24 brd 192.0.2.255 scope global vlan99', output)
+
+        print('### ip -4 route show dev vlan99')
+        output = check_output('ip -4 route show dev vlan99')
+        print(output)
+        self.assertIn('192.0.2.0/24 proto kernel scope link src 192.0.2.1', output)
+        self.assertIn('multicast 198.51.100.1 proto static scope link', output)
+
     @expectedFailureIfModuleIsNotAvailable('tcp_dctcp')
     def test_route_congctl(self):
         copy_network_unit('25-route-congctl.network', '12-dummy.netdev')
@@ -7931,6 +8016,105 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         self.teardown_nftset('addr4', 'network4', 'ifindex')
 
+    def _test_dhcp_client_send_release_one(self, stop=True) -> bool:
+        start_dnsmasq(
+            namespace='ns-server',
+            interface='server',
+            ipv4_range='192.0.2.100,192.0.2.109',
+            ipv4_router='192.0.2.1',
+        )
+
+        start_networkd()
+        self.wait_online('client:routable')
+
+        print('## ip -4 address show dev client scope global')
+        output = check_output('ip -4 address show dev client scope global')
+        print(output)
+        self.assertRegex(output, r'192.0.2.10[0-9]/24')
+
+        print('## ip -4 route show dev client')
+        output = check_output('ip -4 route show dev client')
+        print(output)
+        self.assertRegex(output, r'default via 192.0.2.1 proto dhcp src 192.0.2.10[0-9]')
+        self.assertRegex(output, r'192.0.2.0/24 proto kernel scope link src 192.0.2.10[0-9]')
+        self.assertRegex(output, r'192.0.2.1 proto dhcp scope link src 192.0.2.10[0-9]')
+
+        if stop:
+            stop_networkd()
+        else:
+            networkctl('down', 'client')
+
+        success = False
+        for _ in range(20):
+            time.sleep(0.5)
+            try:
+                output = read_dnsmasq_log_file()
+            except FileNotFoundError:
+                output = ""
+            if 'DHCPRELEASE' in output:
+                success = True
+                break
+
+        print('## dnsmasq log')
+        print(output)
+
+        return success
+
+    def test_dhcp_client_send_release(self):
+        check_output('ip netns add ns-bridge')
+        check_output('ip netns exec ns-bridge ip link add bridge99 type bridge')
+        check_output('ip netns exec ns-bridge ip link set bridge99 address 12:34:56:78:90:ab')
+        check_output('ip netns exec ns-bridge ip link set bridge99 up')
+
+        check_output('ip link add client type veth peer clientp')
+        check_output('ip link set clientp netns ns-bridge')
+        check_output('ip netns exec ns-bridge ip link set clientp master bridge99')
+        check_output('ip netns exec ns-bridge ip link set clientp up')
+
+        check_output('ip link add server type veth peer serverp')
+        check_output('ip link set serverp netns ns-bridge')
+        check_output('ip netns exec ns-bridge ip link set serverp master bridge99')
+        check_output('ip netns exec ns-bridge ip link set serverp up')
+
+        check_output('ip netns add ns-server')
+        check_output('ip link set server netns ns-server')
+        check_output('ip netns exec ns-server ip link set server up')
+        check_output('ip netns exec ns-server ip address add 192.0.2.1/24 dev server')
+
+        copy_network_unit('25-dhcp-client-simple.network')
+
+        '''
+        Sending DHCPRELEASE is best-effort. Even if send() succeeds, the packet may be dropped later in the
+        networking stack (e.g. due to unresolved neighbor state or interface teardown). Userspace cannot
+        reliably determine whether the packet was eventually transmitted or dropped.
+
+        Hence, the test below may be flaky. In most cases, neighbor resolution completes quickly enough and
+        the packet is transmitted before the interface is brought down. Running the test multiple times
+        should make it sufficiently reliable.
+        '''
+
+        first = True
+        for _ in range(5):
+            if not first:
+                stop_dnsmasq()
+                stop_networkd(show_logs=False)
+
+            first = False
+
+            if self._test_dhcp_client_send_release_one():
+                break
+        else:
+            self.fail('Timed out waiting for DHCPRELEASE in dnsmasq log (on stopping networkd)')
+
+        for _ in range(5):
+            stop_dnsmasq()
+            stop_networkd(show_logs=False)
+
+            if self._test_dhcp_client_send_release_one(stop=False):
+                break
+        else:
+            self.fail('Timed out waiting for DHCPRELEASE in dnsmasq log (on bringing down interface)')
+
     def test_dhcp_client_ipv4_dbus_status(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
         start_networkd()
@@ -9407,6 +9591,54 @@ class NetworkdSysctlTest(unittest.TestCase, Utilities):
         self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/max_addresses'", log)
         self.assertNotIn("Sysctl monitor BPF returned error", log)
 
+class NetworkdWWANTests(unittest.TestCase, Utilities):
+
+    def setUp(self):
+        setup_common()
+
+    def tearDown(self):
+        tear_down_common()
+
+    def test_wwan_ipv4v6_static(self):
+        """Test WWAN bearer with both IPv4 and IPv6 static configuration.
+
+        Regression test for https://github.com/systemd/systemd/issues/41389
+        """
+        if not os.path.exists(test_modem_manager_mock):
+            self.skipTest(f'{test_modem_manager_mock} does not exist.')
+
+        copy_network_unit('12-dummy.netdev', '25-wwan-ipv4v6.network')
+        try:
+            start_modem_manager_mock(
+                '--ifname', 'dummy98',
+                '--ipv4-address', '100.120.244.160',
+                '--ipv4-gateway', '100.120.244.161',
+                '--ipv4-prefix', '26',
+                '--ipv6-address', '2001:db8::1',
+                '--ipv6-gateway', '2001:db8::2',
+                '--ipv6-prefix', '64',
+            )
+        except (subprocess.CalledProcessError, PermissionError, OSError) as e:
+            self.skipTest(f'Failed to start mock ModemManager: {e}')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        output = check_output('ip -4 address show dev dummy98')
+        print(output)
+        self.assertIn('100.120.244.160/26', output)
+
+        output = check_output('ip -6 address show dev dummy98')
+        print(output)
+        self.assertIn('2001:db8::1/64', output)
+
+        output = check_output('ip -4 route show dev dummy98')
+        print(output)
+        self.assertIn('default via 100.120.244.161', output)
+
+        output = check_output('ip -6 route show dev dummy98')
+        print(output)
+        self.assertIn('default via 2001:db8::2', output)
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--build-dir', help='Path to build dir', dest='build_dir')
@@ -9465,6 +9697,11 @@ if __name__ == '__main__':
         test_ndisc_send = os.path.normpath(os.path.join(build_dir, 'test-ndisc-send'))
     else:
         test_ndisc_send = '/usr/lib/tests/test-ndisc-send'
+
+    if build_dir:
+        test_modem_manager_mock = os.path.normpath(os.path.join(build_dir, 'test-modem-manager-mock'))
+    else:
+        test_modem_manager_mock = '/usr/lib/systemd/tests/unit-tests/manual/test-modem-manager-mock'
 
     if asan_options:
         env.update({'ASAN_OPTIONS': asan_options})

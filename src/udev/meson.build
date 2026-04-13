@@ -59,6 +59,10 @@ if conf.get('HAVE_ACL') == 1
         udevadm_extract_sources += files('udev-builtin-uaccess.c')
 endif
 
+if conf.get('HAVE_TPM2') == 1
+        udevadm_extract_sources += files('udev-builtin-tpm2_id.c')
+endif
+
 ############################################################
 
 generate_keyboard_keys_list = files('generate-keyboard-keys-list.sh')

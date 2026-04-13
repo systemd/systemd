@@ -38,7 +38,7 @@ extern DLSYM_PROTOTYPE(acl_to_any_text);
 
 int dlopen_libacl(void);
 
-int devnode_acl(int fd, uid_t uid);
+int devnode_acl(int fd, const Set *uids);
 
 int calc_acl_mask_if_needed(acl_t *acl_p);
 int add_base_acls_if_needed(acl_t *acl_p, const char *path);
@@ -89,7 +89,7 @@ static inline int dlopen_libacl(void) {
         return -EOPNOTSUPP;
 }
 
-static inline int devnode_acl(int fd, uid_t uid) {
+static inline int devnode_acl(int fd, const Set *uids) {
         return -EOPNOTSUPP;
 }
 

@@ -376,7 +376,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1; /* work to do */
 }
 
-int wait_main(int argc, char *argv[], void *userdata) {
+int verb_wait_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *udev_monitor = NULL, *kernel_monitor = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;

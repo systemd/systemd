@@ -65,9 +65,19 @@ void qsort_r_safe(void *base, size_t nmemb, size_t size, comparison_userdata_fn_
 }
 
 int cmp_int(const int *a, const int *b) {
+        /* This is called from qsort()s inner loops. Correctly implemented qsort will never pass NULL so we
+           just suppress the check via POINTER_MAY_BE_NULL instead of assert() to avoid the runtime cost. */
+        POINTER_MAY_BE_NULL(a);
+        POINTER_MAY_BE_NULL(b);
+
         return CMP(*a, *b);
 }
 
 int cmp_uint16(const uint16_t *a, const uint16_t *b) {
+        /* This is called from qsort()s inner loops. Correctly implemented qsort will never pass NULL so we
+           just suppress the check via POINTER_MAY_BE_NULL instead of assert() to avoid the runtime cost. */
+        POINTER_MAY_BE_NULL(a);
+        POINTER_MAY_BE_NULL(b);
+
         return CMP(*a, *b);
 }

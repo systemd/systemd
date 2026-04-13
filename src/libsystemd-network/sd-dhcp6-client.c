@@ -379,6 +379,9 @@ int sd_dhcp6_client_get_information_request(sd_dhcp6_client *client, int *enable
 }
 
 static int be16_compare_func(const be16_t *a, const be16_t *b) {
+        assert(a);
+        assert(b);
+
         return CMP(be16toh(*a), be16toh(*b));
 }
 

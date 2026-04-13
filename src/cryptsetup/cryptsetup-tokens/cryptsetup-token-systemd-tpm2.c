@@ -72,7 +72,7 @@ _public_ int cryptsetup_token_open_pin(
         if (usrptr)
                 params = *(systemd_tpm2_plugin_params *)usrptr;
 
-        r = sd_json_parse(json, 0, &v, NULL, NULL);
+        r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Failed to parse token JSON data: %m");
 
@@ -186,7 +186,7 @@ _public_ void cryptsetup_token_dump(
 
         assert(json);
 
-        r = sd_json_parse(json, 0, &v, NULL, NULL);
+        r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " JSON object: %m");
 
@@ -230,7 +230,8 @@ _public_ void cryptsetup_token_dump(
         crypt_log(cd, "\ttpm2-pcr-bank:    %s\n", strna(tpm2_hash_alg_to_string(pcr_bank)));
         crypt_log(cd, "\ttpm2-pubkey:" CRYPT_DUMP_LINE_SEP "%s\n", pubkey_str);
         crypt_log(cd, "\ttpm2-pubkey-pcrs: %s\n", strna(pubkey_pcrs_str));
-        crypt_log(cd, "\ttpm2-primary-alg: %s\n", strna(tpm2_asym_alg_to_string(primary_alg)));
+        if (primary_alg != 0)
+                crypt_log(cd, "\ttpm2-primary-alg: %s\n", strna(tpm2_asym_alg_to_string(primary_alg)));
         crypt_log(cd, "\ttpm2-pin:         %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
         crypt_log(cd, "\ttpm2-pcrlock:     %s\n", true_false(flags & TPM2_FLAGS_USE_PCRLOCK));
         crypt_log(cd, "\ttpm2-salt:        %s\n", true_false(iovec_is_set(&salt)));
@@ -274,7 +275,7 @@ _public_ int cryptsetup_token_validate(
 
         assert(json);
 
-        r = sd_json_parse(json, 0, &v, NULL, NULL);
+        r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Could not parse " TOKEN_NAME " json object: %m");
 

@@ -268,6 +268,8 @@ static int verify_unit(Unit *u, bool check_man, const char *root) {
 }
 
 static void set_destroy_ignore_pointer_max(Set **s) {
+        assert(s);
+
         if (*s == POINTER_MAX)
                 return;
         set_free(*s);

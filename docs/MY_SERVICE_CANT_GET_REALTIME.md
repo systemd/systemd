@@ -43,7 +43,7 @@ This overrides the default logic for this one service only,
 and places all its processes back in the root cgroup of the "cpu" hierarchy, which has the full RT budget assigned.
 * A third option is to simply assign your service a realtime budget.
 For that use `ControlGroupAttribute=cpu.rt_runtime_us 500000` in its `[Service]` or suchlike.
-See [the kernel documentation](http://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt) for details.
+See [the kernel documentation](https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt) for details.
 The latter two options are not available for System V services.
 A possible solution is to write a small wrapper service file that simply calls the SysV script's start verb in `ExecStart=` and the stop verb in `ExecStop=`.
 (It also needs to set `RemainAfterExit=1` and `Type=forking`!)

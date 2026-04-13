@@ -43,6 +43,7 @@
 #include "parse-util.h"
 #include "password-quality-util.h"
 #include "path-util.h"
+#include "plymouth-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "prompt-util.h"
@@ -109,6 +110,10 @@ static void print_welcome(int rfd, sd_varlink **mute_console_link) {
 
         assert(rfd >= 0);
         assert(mute_console_link);
+
+        /* Needs to be called before mute_console or it will garble the screen */
+        if (arg_welcome)
+                (void) plymouth_hide_splash();
 
         if (!*mute_console_link && arg_mute_console)
                 (void) mute_console(mute_console_link);
@@ -407,11 +412,15 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
         if (arg_keymap)
                 return 0;
 
-        r = read_credential("firstboot.keymap", (void**) &arg_keymap, NULL);
+        _cleanup_free_ char *km = NULL;
+        r = read_credential("firstboot.keymap", (void**) &km, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential firstboot.keymap, ignoring: %m");
+        else if (!keymap_is_valid(km))
+                log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Keymap '%s' supplied via credential is not valid, ignoring.", km);
         else {
                 log_debug("Acquired keymap from credential.");
+                arg_keymap = TAKE_PTR(km);
                 return 0;
         }
 
@@ -535,11 +544,15 @@ static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
         if (arg_timezone)
                 return 0;
 
-        r = read_credential("firstboot.timezone", (void**) &arg_timezone, NULL);
+        _cleanup_free_ char *tz = NULL;
+        r = read_credential("firstboot.timezone", (void**) &tz, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential firstboot.timezone, ignoring: %m");
+        else if (!timezone_is_valid(tz, LOG_DEBUG))
+                log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Timezone '%s' supplied via credential is not valid, ignoring.", tz);
         else {
                 log_debug("Acquired timezone from credential.");
+                arg_timezone = TAKE_PTR(tz);
                 return 0;
         }
 
@@ -641,6 +654,19 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
 
         if (arg_hostname)
                 return 0;
+
+        _cleanup_free_ char *hn = NULL;
+        r = read_credential("firstboot.hostname", (void**) &hn, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential firstboot.hostname, ignoring: %m");
+        else if (!hostname_is_valid(hn, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK))
+                log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Hostname '%s' supplied via credential is not valid, ignoring.", hn);
+        else {
+                log_debug("Acquired hostname from credentials.");
+                arg_hostname = TAKE_PTR(hn);
+                hostname_cleanup(arg_hostname);
+                return 0;
+        }
 
         if (!arg_prompt_hostname) {
                 log_debug("Prompting for hostname was not requested.");

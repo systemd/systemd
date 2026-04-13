@@ -21,6 +21,7 @@
 #include "networkd-ndisc.h"
 #include "networkd-radv.h"
 #include "networkd-sysctl.h"
+#include "networkd-wwan-bus.h"
 #include "resolve-util.h"
 
 typedef enum KeepConfiguration {
@@ -414,6 +415,19 @@ typedef struct Network {
 
         /* NTP */
         char **ntp;
+
+        /* ModemManager support */
+        char *mm_apn;
+        bool mm_allow_roaming;
+        MMBearerAllowedAuth mm_allowed_auth;
+        MMBearerIpFamily mm_ip_family;
+        char *mm_operator_id;
+        char *mm_user;
+        char *mm_password;
+        char *mm_pin;
+        int mm_use_gateway;
+        uint32_t mm_route_metric;
+        bool mm_route_metric_set;
 } Network;
 
 DECLARE_TRIVIAL_REF_UNREF_FUNC(Network, network);

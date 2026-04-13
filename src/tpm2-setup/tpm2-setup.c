@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <sys/stat.h>
+#include <sysexits.h>
 
 #include "sd-messages.h"
 
@@ -12,11 +12,13 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "options.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "set.h"
@@ -37,94 +39,76 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 #define TPM2_SRK_TPM2B_PUBLIC_PERSISTENT_PATH "/var/lib/systemd/tpm2-srk-public-key.tpm2b_public"
 #define TPM2_SRK_TPM2B_PUBLIC_RUNTIME_PATH "/run/systemd/tpm2-srk-public-key.tpm2b_public"
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-tpm2-setup", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...]\n"
-               "\n%5$sSet up the TPM2 Storage Root Key (SRK), and initialize NvPCRs.%6$s\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "     --tpm2-device=PATH\n"
-               "                          Pick TPM2 device\n"
-               "     --early=BOOL         Store SRK public key in /run/ rather than /var/lib/\n"
-               "     --graceful           Exit gracefully if no TPM2 device is found\n"
-               "\nSee the %2$s for details.\n",
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...]\n"
+               "\n%sSet up the TPM2 Storage Root Key (SRK), and initialize NvPCRs.%s\n"
+               "\n%sOptions:%s\n",
                program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
                ansi_normal());
 
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_TPM2_DEVICE,
-                ARG_EARLY,
-                ARG_GRACEFUL,
-        };
-
-        static const struct option options[] = {
-                { "help",        no_argument,       NULL, 'h'             },
-                { "version",     no_argument,       NULL, ARG_VERSION     },
-                { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
-                { "early",       required_argument, NULL, ARG_EARLY       },
-                { "graceful",    no_argument,       NULL, ARG_GRACEFUL    },
-                {}
-        };
-
-        int c, r;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
-                        return help(0, NULL, NULL);
+                OPTION_COMMON_HELP:
+                        return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_TPM2_DEVICE:
-                        if (streq(optarg, "list"))
+                OPTION_LONG("tpm2-device", "PATH", "Pick TPM2 device"):
+                        if (streq(arg, "list"))
                                 return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
-                        if (free_and_strdup(&arg_tpm2_device, streq(optarg, "auto") ? NULL : optarg) < 0)
+                        if (free_and_strdup(&arg_tpm2_device, streq(arg, "auto") ? NULL : arg) < 0)
                                 return log_oom();
-
                         break;
 
-                case ARG_EARLY:
-                        r = parse_boolean(optarg);
+                OPTION_LONG("early", "BOOL", "Store SRK public key in /run/ rather than /var/lib/"):
+                        r = parse_boolean(arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --early= argument: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --early= argument: %s", arg);
 
                         arg_early = r;
                         break;
 
-                case ARG_GRACEFUL:
+                OPTION_LONG("graceful", NULL, "Exit gracefully if no TPM2 device is found"):
                         arg_graceful = true;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        if (optind != argc)
+        if (option_parser_get_n_args(&state) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program expects no argument.");
 
         return 1;
@@ -291,8 +275,8 @@ static int setup_srk(void) {
                 log_struct_errno(LOG_INFO, r,
                                  LOG_MESSAGE("Insufficient permissions to access TPM, not generating SRK."),
                                  LOG_MESSAGE_ID(SD_MESSAGE_SRK_ENROLLMENT_NEEDS_AUTHORIZATION_STR));
-                return 76; /* Special return value which means "Insufficient permissions to access TPM,
-                            * cannot generate SRK". This isn't really an error when called at boot. */;
+                return EX_PROTOCOL; /* Special return value which means "Insufficient permissions to access TPM,
+                                     * cannot generate SRK". This isn't really an error when called at boot. */;
         }
         if (r < 0)
                 return r;
@@ -385,7 +369,7 @@ static int setup_srk(void) {
 typedef struct SetupNvPCRContext {
         Tpm2Context *tpm2_context;
         struct iovec anchor_secret;
-        size_t n_already, n_anchored;
+        size_t n_already, n_anchored, n_failed;
         Set *done;
 } SetupNvPCRContext;
 
@@ -404,15 +388,10 @@ static int setup_nvpcr_one(
 
         assert(c);
         assert(name);
+        assert(c->tpm2_context);
 
         if (set_contains(c->done, name))
                 return 0;
-
-        if (!c->tpm2_context) {
-                r = tpm2_context_new_or_warn(arg_tpm2_device, &c->tpm2_context);
-                if (r < 0)
-                        return r;
-        }
 
         r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name, &c->anchor_secret);
         if (r == -EUNATCH) {
@@ -427,8 +406,22 @@ static int setup_nvpcr_one(
 
                 r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name, &c->anchor_secret);
         }
-        if (r < 0)
+        if (r == -EOPNOTSUPP) {
+                c->n_failed++;
+                return log_struct_errno(LOG_ERR, r,
+                                        LOG_MESSAGE("The TPM does not correctly support NV indexes in NT_EXTEND mode, unable to allocate NvPCR '%s': %m", name),
+                                        LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVPCR_UNSUPPORTED_STR));
+        }
+        if (r == -ENOSPC) {
+                c->n_failed++;
+                return log_struct_errno(LOG_ERR, r,
+                                        LOG_MESSAGE("The TPM's NV index space is exhausted, unable to allocate NvPCR '%s': %m", name),
+                                        LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVINDEX_EXHAUSTED_STR));
+        }
+        if (r < 0) {
+                c->n_failed++;
                 return log_error_errno(r, "Failed to extend NvPCR index with anchor secret: %m");
+        }
 
         if (r > 0)
                 c->n_anchored++;
@@ -443,7 +436,7 @@ static int setup_nvpcr_one(
 
 static int setup_nvpcr(void) {
         _cleanup_(setup_nvpcr_context_done) SetupNvPCRContext c = {};
-        int r = 0;
+        int r;
 
         _cleanup_strv_free_ char **l = NULL;
         r = conf_files_list_nulstr(
@@ -455,21 +448,27 @@ static int setup_nvpcr(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find .nvpcr files: %m");
 
+        int ret = 0;
         STRV_FOREACH(i, l) {
-                r = setup_nvpcr_one(&c, *i);
-                if (r < 0)
-                        return r;
+                if (!c.tpm2_context) {
+                        /* Inability to contact the TPM shall be fatal for us */
+                        r = tpm2_context_new_or_warn(arg_tpm2_device, &c.tpm2_context);
+                        if (r < 0)
+                                return r;
+                }
+
+                /* But if we fail to initialize some NvPCR, we go on */
+                RET_GATHER(ret, setup_nvpcr_one(&c, *i));
         }
 
-        if (c.n_already > 0 && c.n_anchored == 0 && !arg_early) {
+        if (c.n_already > 0 && c.n_anchored == 0 && !arg_early)
                 /* If we didn't anchor anything right now, but we anchored something earlier, then it might
                  * have happened in the initrd, and thus the anchor ID was not committed to /var/ or the ESP
                  * yet. Hence, let's explicitly do so now, to catch up. */
+                RET_GATHER(ret, tpm2_nvpcr_acquire_anchor_secret(/* ret= */ NULL, /* sync_secondary= */ true));
 
-                r = tpm2_nvpcr_acquire_anchor_secret(/* ret= */ NULL, /* sync_secondary= */ true);
-                if (r < 0)
-                        return r;
-        }
+        if (c.n_failed > 0)
+                log_warning("%zu NvPCRs failed to initialize, proceeding anyway.", c.n_failed);
 
         if (c.n_anchored > 0) {
                 if (c.n_already == 0)
@@ -478,10 +477,17 @@ static int setup_nvpcr(void) {
                         log_info("%zu NvPCRs initialized. (%zu NvPCRs were already initialized.)", c.n_anchored, c.n_already);
         } else if (c.n_already > 0)
                 log_info("%zu NvPCRs already initialized.", c.n_already);
-        else
+        else if (c.n_failed == 0)
                 log_debug("No NvPCRs defined, nothing initialized.");
 
-        return r;
+        /* Turn some errors into recognizable ones, which we can catch with
+         * SuccessExitStatus= in the service unit file. */
+        if (ret == -EOPNOTSUPP)
+                return EX_UNAVAILABLE;   /* e.g. no NvPCR support in TPM */
+        if (ret == -ENOSPC)
+                return EX_CANTCREAT;     /* NV index space on TPM exhausted */
+
+        return ret;
 }
 
 static int run(int argc, char *argv[]) {
@@ -493,17 +499,22 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        if (arg_graceful && !tpm2_is_fully_supported()) {
+        if (arg_graceful && !tpm2_is_mostly_supported()) {
                 log_notice("No complete TPM2 support detected, exiting gracefully.");
                 return EXIT_SUCCESS;
         }
 
         umask(0022);
 
+        /* Execute both jobs, and then return unlisted errors preferably, and listed errors
+         * (i.e. EX_UNAVAILABLE, EX_CANTCREAT, EX_PROTOCOL) otherwise. */
         r = setup_srk();
-        RET_GATHER(r, setup_nvpcr());
-
-        return r;
+        int k = setup_nvpcr();
+        if (r < 0)
+                return r;
+        if (k < 0)
+                return k;
+        return r != EXIT_SUCCESS ? r : k;
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

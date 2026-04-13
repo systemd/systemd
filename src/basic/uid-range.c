@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sched.h>
 #include <string.h>
 
 #include "alloc-util.h"
@@ -62,6 +63,10 @@ static void uid_range_coalesce(UIDRange *range) {
                                 break;
 
                         begin = MIN(x->start, y->start);
+
+                        /* Silence static analyzers, overflow is prevented by uid_range_add_internal() */
+                        assert(x->start <= UINT32_MAX - x->nr);
+                        assert(y->start <= UINT32_MAX - y->nr);
                         end = MAX(x->start + x->nr, y->start + y->nr);
 
                         x->start = begin;
@@ -70,7 +75,12 @@ static void uid_range_coalesce(UIDRange *range) {
                         if (range->n_entries > j + 1)
                                 memmove(y, y + 1, sizeof(UIDRangeEntry) * (range->n_entries - j - 1));
 
+                        /* Silence static analyzers, n_entries > 0 since j < n_entries holds in the loop condition */
+                        assert(range->n_entries > 0);
                         range->n_entries--;
+
+                        /* Silence static analyzers, j cannot be 0 here since it starts at i + 1, i.e. >= 1 */
+                        assert(j > 0);
                         j--;
                 }
         }
@@ -115,7 +125,7 @@ int uid_range_add_internal(UIDRange **range, uid_t start, uid_t nr, bool coalesc
         return 0;
 }
 
-int uid_range_add_str(UIDRange **range, const char *s) {
+int uid_range_add_str_full(UIDRange **range, const char *s, bool coalesce) {
         uid_t start, end;
         int r;
 
@@ -126,7 +136,7 @@ int uid_range_add_str(UIDRange **range, const char *s) {
         if (r < 0)
                 return r;
 
-        return uid_range_add_internal(range, start, end - start + 1, /* coalesce= */ true);
+        return uid_range_add_internal(range, start, end - start + 1, coalesce);
 }
 
 int uid_range_next_lower(const UIDRange *range, uid_t *uid) {
@@ -230,7 +240,7 @@ bool uid_range_is_empty(const UIDRange *range) {
         return true;
 }
 
-int uid_range_load_userns(const char *path, UIDRangeUsernsMode mode, UIDRange **ret) {
+int uid_range_load_userns_full(const char *path, UIDRangeUsernsMode mode, bool coalesce, UIDRange **ret) {
         _cleanup_(uid_range_freep) UIDRange *range = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -280,13 +290,14 @@ int uid_range_load_userns(const char *path, UIDRangeUsernsMode mode, UIDRange **
                         return r;
         }
 
-        uid_range_coalesce(range);
+        if (coalesce)
+                uid_range_coalesce(range);
 
         *ret = TAKE_PTR(range);
         return 0;
 }
 
-int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode mode, UIDRange **ret) {
+int uid_range_load_userns_by_fd_full(int userns_fd, UIDRangeUsernsMode mode, bool coalesce, UIDRange **ret) {
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
@@ -294,6 +305,12 @@ int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode mode, UIDRange
         assert(mode >= 0);
         assert(mode < _UID_RANGE_USERNS_MODE_MAX);
         assert(ret);
+
+        r = is_our_namespace(userns_fd, NAMESPACE_USER);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return uid_range_load_userns_full(/* path= */ NULL, mode, coalesce, ret);
 
         r = userns_enter_and_pin(userns_fd, &pidref);
         if (r < 0)
@@ -303,7 +320,7 @@ int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode mode, UIDRange
                         pidref.pid,
                         IN_SET(mode, UID_RANGE_USERNS_INSIDE, UID_RANGE_USERNS_OUTSIDE) ? "uid_map" : "gid_map");
 
-        return uid_range_load_userns(p, mode, ret);
+        return uid_range_load_userns_full(p, mode, coalesce, ret);
 }
 
 bool uid_range_overlaps(const UIDRange *range, uid_t start, uid_t nr) {
@@ -324,6 +341,225 @@ bool uid_range_overlaps(const UIDRange *range, uid_t start, uid_t nr) {
                         return true;
 
         return false;
+}
+
+int uid_range_clip(UIDRange *range, uid_t min, uid_t max) {
+        assert(range);
+
+        if (min > max)
+                return -EINVAL;
+
+        size_t t = 0;
+        FOREACH_ARRAY(e, range->entries, range->n_entries) {
+                uid_t entry_end = e->start + e->nr; /* one past the last UID in entry */
+
+                /* Skip entries completely outside [min, max] */
+                if (entry_end <= min || e->start > max)
+                        continue;
+
+                /* Trim the entry to fit within [min, max] */
+                uid_t new_start = MAX(e->start, min);
+                /* entry_end is exclusive, avoid overflow when max == UINT32_MAX */
+                uid_t new_end = entry_end <= max ? entry_end : max + 1;
+                assert(new_end > new_start);
+
+                range->entries[t++] = (UIDRangeEntry) {
+                        .start = new_start,
+                        .nr = new_end - new_start,
+                };
+        }
+
+        range->n_entries = t;
+
+        return 0;
+}
+
+int uid_range_partition(UIDRange *range, uid_t size) {
+        assert(range);
+        assert(size > 0);
+
+        /* Partitions the UID range entries into buckets of the given size. Any entry larger than the given
+         * size will be partitioned into multiple entries, each of the given size. Any leftover UIDs in the
+         * entry are dropped. Any entries smaller than the given size are also dropped. */
+
+        /* Count how many entries we'll need after partitioning */
+        size_t n_new_entries = 0;
+        FOREACH_ARRAY(e, range->entries, range->n_entries)
+                n_new_entries += e->nr / size;
+
+        if (n_new_entries == 0) {
+                range->n_entries = 0;
+                return 0;
+        }
+
+        if (n_new_entries > range->n_entries && !GREEDY_REALLOC(range->entries, n_new_entries))
+                return -ENOMEM;
+
+        /* Work backwards to avoid overwriting entries we still need to read */
+        size_t t = n_new_entries;
+        for (size_t i = range->n_entries; i > 0; i--) {
+                UIDRangeEntry *e = range->entries + i - 1;
+                unsigned n_parts = e->nr / size;
+
+                for (unsigned j = n_parts; j > 0; j--)
+                        range->entries[--t] = (UIDRangeEntry) {
+                                .start = e->start + (j - 1) * size,
+                                .nr = size,
+                        };
+        }
+
+        range->n_entries = n_new_entries;
+
+        return 0;
+}
+
+int uid_range_copy(const UIDRange *range, UIDRange **ret) {
+        assert(ret);
+
+        if (!range) {
+                *ret = NULL;
+                return 0;
+        }
+
+        _cleanup_(uid_range_freep) UIDRange *copy = new0(UIDRange, 1);
+        if (!copy)
+                return -ENOMEM;
+
+        if (range->n_entries > 0) {
+                copy->entries = newdup(UIDRangeEntry, range->entries, range->n_entries);
+                if (!copy->entries)
+                        return -ENOMEM;
+
+                copy->n_entries = range->n_entries;
+        }
+
+        *ret = TAKE_PTR(copy);
+        return 0;
+}
+
+int uid_range_remove(UIDRange *range, uid_t start, uid_t size) {
+        assert(range);
+
+        if (size == 0)
+                return 0;
+
+        uid_t end = start + size; /* one past the last UID to remove */
+
+        for (size_t i = 0; i < range->n_entries; i++) {
+                UIDRangeEntry *e = range->entries + i;
+                uid_t entry_end = e->start + e->nr;
+
+                /* No overlap */
+                if (entry_end <= start || e->start >= end)
+                        continue;
+
+                /* Check if this removal splits the entry into two parts */
+                if (e->start < start && entry_end > end) {
+                        /* Need to split: grow the array first */
+                        if (!GREEDY_REALLOC(range->entries, range->n_entries + 1))
+                                return -ENOMEM;
+
+                        /* Re-fetch pointer after potential realloc */
+                        e = range->entries + i;
+                        entry_end = e->start + e->nr;
+
+                        /* Shift everything after this entry to make room */
+                        memmove(range->entries + i + 2, range->entries + i + 1,
+                                (range->n_entries - i - 1) * sizeof(UIDRangeEntry));
+                        range->n_entries++;
+
+                        /* First part: before the removed range */
+                        range->entries[i] = (UIDRangeEntry) {
+                                .start = e->start,
+                                .nr = start - e->start,
+                        };
+
+                        /* Second part: after the removed range */
+                        range->entries[i + 1] = (UIDRangeEntry) {
+                                .start = end,
+                                .nr = entry_end - end,
+                        };
+
+                        /* Skip the newly inserted entry */
+                        i++;
+                        continue;
+                }
+
+                /* Removal covers the entire entry */
+                if (start <= e->start && end >= entry_end) {
+                        memmove(e, e + 1, (range->n_entries - i - 1) * sizeof(UIDRangeEntry));
+                        range->n_entries--;
+                        i--;
+                        continue;
+                }
+
+                /* Removal trims the start of the entry */
+                if (start <= e->start && end > e->start) {
+                        e->nr = entry_end - end;
+                        e->start = end;
+                        continue;
+                }
+
+                /* Removal trims the end of the entry */
+                if (start < entry_end && end >= entry_end) {
+                        e->nr = start - e->start;
+                        continue;
+                }
+        }
+
+        return 0;
+}
+
+int uid_range_translate(const UIDRange *outside, const UIDRange *inside, uid_t uid, uid_t *ret) {
+        assert(uid_range_entries(outside) == uid_range_entries(inside));
+        assert(ret);
+
+        /* Given two UID ranges that represent the outside UID range of a user namespace (the 2nd and 3rd
+         * columns in /proc/xxx/uid_map) and the inside UID range of a user namespace (the 1st and 3rd
+         * columns in /proc/xxx/uid_map), translates the given UID from the outside range to the inside
+         * range. For example, given the following UID range:
+         *
+         * 0 1000 1
+         *
+         * calling uid_range_translate(outside, inside, 1000) will return 0 as the output UID. Alternatively,
+         * calling uid_range_translate(inside, outside, 0) will return 1000 as the output UID.
+         */
+
+        for (size_t i = 0; i < uid_range_entries(outside); i++)
+                assert(outside->entries[i].nr == inside->entries[i].nr);
+
+        for (size_t i = 0; i < uid_range_entries(outside); i++) {
+                const UIDRangeEntry *e = outside->entries + i;
+
+                if (uid < e->start || uid >= e->start + e->nr)
+                        continue;
+
+                *ret = inside->entries[i].start + uid - e->start;
+                return 0;
+        }
+
+        return -ESRCH;
+}
+
+int uid_range_translate_userns_fd(int userns_fd, UIDRangeUsernsMode mode, uid_t uid, uid_t *ret) {
+        int r;
+
+        assert(userns_fd >= 0);
+        assert(IN_SET(mode, UID_RANGE_USERNS_OUTSIDE, GID_RANGE_USERNS_OUTSIDE));
+
+        _cleanup_(uid_range_freep) UIDRange *outside_range = NULL;
+        r = uid_range_load_userns_by_fd_full(userns_fd, mode, /* coalesce= */ false, &outside_range);
+        if (r < 0)
+                return r;
+
+        mode = mode == UID_RANGE_USERNS_OUTSIDE ? UID_RANGE_USERNS_INSIDE : GID_RANGE_USERNS_INSIDE;
+
+        _cleanup_(uid_range_freep) UIDRange *inside_range = NULL;
+        r = uid_range_load_userns_by_fd_full(userns_fd, mode, /* coalesce= */ false, &inside_range);
+        if (r < 0)
+                return r;
+
+        return uid_range_translate(outside_range, inside_range, uid, ret);
 }
 
 bool uid_range_equal(const UIDRange *a, const UIDRange *b) {
@@ -378,4 +614,19 @@ int uid_map_search_root(pid_t pid, UIDRangeUsernsMode mode, uid_t *ret) {
                         return 0;
                 }
         }
+}
+
+uid_t uid_range_base(const UIDRange *range) {
+
+        /* Returns the lowest UID in the range (notw that elements are sorted, hence we just need to look at
+         * the first one that is populated. */
+
+        if (uid_range_is_empty(range))
+                return UID_INVALID;
+
+        FOREACH_ARRAY(e, range->entries, range->n_entries)
+                if (e->nr > 0)
+                        return e->start;
+
+        return UID_INVALID;
 }

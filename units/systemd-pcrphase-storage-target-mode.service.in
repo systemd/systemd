@@ -15,7 +15,7 @@ Conflicts=shutdown.target
 After=tpm2.target
 Before=shutdown.target
 ConditionPathExists=/etc/initrd-release
-ConditionSecurity=measured-uki
+ConditionSecurity=measured-os
 FailureAction=reboot-force
 
 [Service]

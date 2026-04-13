@@ -78,7 +78,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int hwdb_main(int argc, char *argv[], void *userdata) {
+int verb_hwdb_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         r = parse_argv(argc, argv);

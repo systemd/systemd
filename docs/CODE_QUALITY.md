@@ -27,7 +27,7 @@ available functionality:
    using `systemd-nspawn` and `qemu`. Requires root.
 
 3. Use `./coccinelle/run-coccinelle.sh` to run all
-   [Coccinelle](http://coccinelle.lip6.fr/) semantic patch scripts we ship. The
+   [Coccinelle](https://coccinelle.gitlabpages.inria.fr/website/) semantic patch scripts we ship. The
    output will show false positives, hence take it with a pinch of salt.
 
 4. Use `./tools/find-double-newline.sh recdiff` to find double newlines. Use
@@ -69,10 +69,6 @@ available functionality:
 
 13. When building systemd from a git checkout the build scripts will
     automatically enable a git commit hook that ensures whitespace cleanliness.
-
-14. [CodeQL](https://codeql.github.com/) analyzes each PR and every commit
-    pushed to `main`. The list of active alerts can be found
-    [here](https://github.com/systemd/systemd/security/code-scanning).
 
 15. Each PR is automatically tested with [Address Sanitizer](https://clang.llvm.org/docs/AddressSanitizer.html)
     and [Undefined Behavior Sanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html).

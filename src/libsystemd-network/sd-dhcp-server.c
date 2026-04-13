@@ -719,7 +719,7 @@ static int server_send_offer_or_ack(
                 r = dhcp_option_append(
                                 &packet->dhcp, req->max_optlen, &offset, 0,
                                 SD_DHCP_OPTION_VENDOR_SPECIFIC,
-                                ordered_set_size(server->vendor_options), server->vendor_options);
+                                /* optlen= */ 0, server->vendor_options);
                 if (r < 0)
                         return r;
         }
@@ -1641,6 +1641,7 @@ int sd_dhcp_server_set_callback(sd_dhcp_server *server, sd_dhcp_server_callback_
 
 int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr *address) {
         assert_return(server, -EINVAL);
+        assert_return(address, -EINVAL);
         assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
 
         if (memcmp(address, &server->relay_target, sizeof(struct in_addr)) == 0)

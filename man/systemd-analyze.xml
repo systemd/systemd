@@ -198,6 +198,11 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">identify-tpm2</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">pcrs</arg>
       <arg choice="opt" rep="repeat"><replaceable>PCR</replaceable></arg>
     </cmdsynopsis>
@@ -1026,6 +1031,27 @@ default         ignore      -         -</programlisting>
       </example>
 
       <xi:include href="version-info.xml" xpointer="v257"/>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze identify-tpm2</command></title>
+
+      <para>Shows vendor information about the TPM 2.0 device discovered.</para>
+
+      <example>
+        <title>Example Output</title>
+
+        <programlisting>  Family Indicator: 2.0
+             Level: 0
+          Revision: 1.59
+Specification Date: Mon 2023-01-09
+      Manufacturer: STM
+     Vendor String: ST33KTPM2XSPI
+  Firmware Version: 9.258
+   Modalias String: fi2.0:lv0:rv1.59:sy2023:sd9:mfSTM:vsST33KTPM2XSPI:ty0:fw9.258.0:</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v260"/>
     </refsect2>
 
     <refsect2>

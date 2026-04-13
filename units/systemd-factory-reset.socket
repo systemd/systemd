@@ -15,6 +15,7 @@ Before=sockets.target
 
 [Socket]
 ListenStream=/run/systemd/io.systemd.FactoryReset
+Symlinks=/run/varlink/registry/io.systemd.FactoryReset
 FileDescriptorName=varlink
 SocketMode=0666
 Accept=yes

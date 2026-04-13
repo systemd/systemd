@@ -43,7 +43,7 @@ test -e "$WORK_DIR/upper/foo"
 systemd-umount "$WORK_DIR/overlay"
 
 # Set up a simple block device for further tests
-dd if=/dev/zero of="$WORK_DIR/simple.img" bs=1M count=16
+truncate -s 16M "$WORK_DIR/simple.img"
 mkfs.ext4 -L sd-mount-test "$WORK_DIR/simple.img"
 LOOP="$(losetup --show --find "$WORK_DIR/simple.img")"
 udevadm wait --timeout=60 --settle "$LOOP"

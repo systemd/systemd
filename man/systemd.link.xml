@@ -666,7 +666,7 @@
       <varlistentry>
         <term><varname>TransmitQueues=</varname></term>
         <listitem>
-          <para>Specifies the device's number of transmit queues. An integer in the range 1…4096.
+          <para>Specifies the device's number of transmit queues. An integer in the range 1…16384.
           When unset, the kernel's default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v248"/>
@@ -675,7 +675,7 @@
       <varlistentry>
         <term><varname>ReceiveQueues=</varname></term>
         <listitem>
-          <para>Specifies the device's number of receive queues. An integer in the range 1…4096.
+          <para>Specifies the device's number of receive queues. An integer in the range 1…16384.
           When unset, the kernel's default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v248"/>

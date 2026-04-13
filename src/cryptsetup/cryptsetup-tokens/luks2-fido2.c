@@ -97,7 +97,7 @@ int parse_luks2_fido2_data(
         assert(ret_cid_size);
         assert(ret_required);
 
-        r = sd_json_parse(json, 0, &v, NULL, NULL);
+        r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return crypt_log_error_errno(cd, r, "Failed to parse JSON token data: %m");
 

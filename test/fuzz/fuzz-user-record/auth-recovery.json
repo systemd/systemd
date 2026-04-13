@@ -1,0 +1,27 @@
+{
+    "userName": "recoveryuser",
+    "realName": "Recovery Key User",
+    "uid": 2003,
+    "gid": 2003,
+    "homeDirectory": "/home/recoveryuser",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "storage": "luks",
+    "imagePath": "/home/recoveryuser.home",
+    "recoveryKeyType": ["modhex64", "modhex64"],
+    "privileged": {
+        "hashedPassword": [
+            "$6$mainsalt$mainpasswordhashforrecoveryuser"
+        ],
+        "recoveryKey": [
+            {
+                "type": "modhex64",
+                "hashedPassword": "$6$recovery1$hashedrecoverykey1"
+            },
+            {
+                "type": "modhex64",
+                "hashedPassword": "$6$recovery2$hashedrecoverykey2"
+            }
+        ]
+    }
+}

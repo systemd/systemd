@@ -34,6 +34,7 @@
 #include "strv.h"
 #include "transaction.h"                /* IWYU pragma: keep */
 #include "unit-name.h"
+#include "user-util.h"
 #include "web-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_collect_mode, collect_mode, CollectMode);
@@ -1558,9 +1559,9 @@ static int property_get_effective_limit(
 }
 
 int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
+        Unit *u = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_set_free_ Set *pids = NULL;
-        Unit *u = userdata;
         const char *path;
         int r;
 
@@ -1598,12 +1599,22 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
+        /* Let's query the sender's UID, so that we can make our security decisions */
+        uid_t sender_uid;
+        r = sd_bus_creds_get_euid(creds, &sender_uid);
+        if (r < 0)
+                return r;
+        bool validate_ownership = sender_uid != 0 && sender_uid != getuid();
+
+        if (validate_ownership && !uid_is_valid(u->ref_uid)) /* process_is_owned_by_uid() requires a valid uid */
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_ACCESS_DENIED,
+                                         "Refusing to attach processes to unit with unknown user credentials.");
+
         r = sd_bus_message_enter_container(message, 'a', "u");
         if (r < 0)
                 return r;
         for (;;) {
                 _cleanup_(pidref_freep) PidRef *pidref = NULL;
-                uid_t sender_uid;
                 uint32_t upid;
 
                 r = sd_bus_message_read(message, "u", &upid);
@@ -1633,16 +1644,11 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                 if (r < 0)
                         return r;
 
-                /* Let's query the sender's UID, so that we can make our security decisions */
-                r = sd_bus_creds_get_euid(creds, &sender_uid);
-                if (r < 0)
-                        return r;
-
                 /* Let's validate security: if the sender is root or the owner of the service manager, then
                  * all is OK. If the sender is any other user, then the process in question must be owned by
                  * both the sender and the target unit's UID. Note that ownership here means either direct
                  * ownership, or indirect via a userns that is owned by the right UID. */
-                if (sender_uid != 0 && sender_uid != getuid()) {
+                if (validate_ownership) {
                         r = process_is_owned_by_uid(pidref, sender_uid);
                         if (r < 0)
                                 return sd_bus_error_set_errnof(reterr_error, r, "Failed to check if process " PID_FMT " is owned by client's UID: %m", pidref->pid);
@@ -1962,19 +1968,11 @@ int bus_unit_queue_job_one(
 
         assert(u);
 
-        r = unit_queue_job_check_and_mangle_type(u, &type, /* reload_if_possible= */ FLAGS_SET(flags, BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE));
-        if (r == -ENOENT)
-                return sd_bus_error_setf(reterr_error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
-        if (r == -ELIBEXEC)
-                return sd_bus_error_setf(reterr_error,
-                                         BUS_ERROR_ONLY_BY_DEPENDENCY,
-                                         "Operation refused, unit %s may be requested by dependency only (it is configured to refuse manual start/stop).",
-                                         u->id);
-        if (r == -ESHUTDOWN)
-                return sd_bus_error_setf(reterr_error,
-                                         BUS_ERROR_SHUTTING_DOWN,
-                                         "Operation for unit %s refused, D-Bus is shutting down.",
-                                         u->id);
+        r = unit_queue_job_check_and_mangle_type(
+                        u,
+                        &type,
+                        /* reload_if_possible= */ FLAGS_SET(flags, BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE),
+                        reterr_error);
         if (r < 0)
                 return r;
 
@@ -2129,7 +2127,6 @@ static int bus_unit_set_live_property(
 
                 for (;;) {
                         const char *word;
-                        bool b;
 
                         r = sd_bus_message_read(message, "s", &word);
                         if (r < 0)
@@ -2137,22 +2134,14 @@ static int bus_unit_set_live_property(
                         if (r == 0)
                                 break;
 
-                        if (IN_SET(word[0], '+', '-')) {
-                                b = word[0] == '+';
-                                word++;
-                                some_plus_minus = true;
-                        } else {
-                                b = true;
-                                some_absolute = true;
-                        }
-
-                        UnitMarker m = unit_marker_from_string(word);
-                        if (m < 0)
+                        r = parse_unit_marker(word, &settings, &mask);
+                        if (r < 0)
                                 return sd_bus_error_setf(reterr_error, BUS_ERROR_BAD_UNIT_SETTING,
                                                          "Unknown marker \"%s\".", word);
-
-                        SET_FLAG(settings, 1u << m, b);
-                        SET_FLAG(mask, 1u << m, true);
+                        if (r > 0)
+                                some_plus_minus = true;
+                        else
+                                some_absolute = true;
                 }
 
                 r = sd_bus_message_exit_container(message);
@@ -2164,9 +2153,8 @@ static int bus_unit_set_live_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (some_absolute)
-                                u->markers = settings;
-                        else
-                                u->markers = settings | (u->markers & ~mask);
+                                mask = UINT_MAX;
+                        u->markers = unit_normalize_markers((u->markers & ~mask), settings);
                 }
 
                 return 1;

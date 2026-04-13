@@ -19,7 +19,7 @@
 
 /* We follow bash for the character set. Different shells have different rules. */
 #define VALID_BASH_ENV_NAME_CHARS               \
-        DIGITS LETTERS                          \
+        ALPHANUMERICAL                          \
         "_"
 
 size_t sc_arg_max(void) {

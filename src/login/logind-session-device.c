@@ -105,9 +105,8 @@ static void sd_eviocrevoke(int fd) {
                 if (errno == EINVAL) {
                         log_warning_errno(errno, "Kernel does not support evdev-revocation, continuing without revoking device access: %m");
                         warned = true;
-                } else if (errno != ENODEV) {
+                } else if (errno != ENODEV)
                         log_warning_errno(errno, "Failed to revoke evdev device, continuing without revoking device access: %m");
-                }
         }
 }
 

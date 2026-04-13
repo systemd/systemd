@@ -158,6 +158,8 @@ static int map_generic_field(
         char *c, *t;
         int r;
 
+        assert(p);
+
         /* Implements fallback mappings for all fields we don't know */
 
         for (e = *p; e < *p + 16; e++) {

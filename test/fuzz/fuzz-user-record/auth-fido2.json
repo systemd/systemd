@@ -1,0 +1,40 @@
+{
+    "userName": "fido2user",
+    "realName": "FIDO2 Security Key User",
+    "uid": 2002,
+    "gid": 2002,
+    "homeDirectory": "/home/fido2user",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "storage": "luks",
+    "imagePath": "/home/fido2user.home",
+    "fido2HmacCredential": [
+        "AQIDBAUAAQ==",
+        "BQYHCAkKCw=="
+    ],
+    "privileged": {
+        "fido2HmacSalt": [
+            {
+                "credential": "AQIDBAUAAQ==",
+                "salt": "Zmlyc3RzYWx0Zm9yZmlkbzJ0ZXN0aW5n",
+                "hashedPassword": "$6$fido2salt1$hashedpasswordforfido2credential1",
+                "up": true,
+                "uv": false,
+                "clientPin": false
+            },
+            {
+                "credential": "BQYHCAkKCw==",
+                "salt": "c2Vjb25kc2FsdGZvcmZpZG8ydGVzdA==",
+                "hashedPassword": "$6$fido2salt2$hashedpasswordforfido2credential2",
+                "up": true,
+                "uv": true,
+                "clientPin": true
+            }
+        ]
+    },
+    "secret": {
+        "tokenPin": ["1234"],
+        "fido2UserPresencePermitted": true,
+        "fido2UserVerificationPermitted": true
+    }
+}

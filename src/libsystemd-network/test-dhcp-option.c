@@ -120,6 +120,9 @@ static DHCPMessage *create_message(uint8_t *options, uint16_t optlen,
 }
 
 static void test_ignore_opts(uint8_t *descoption, int *descpos, int *desclen) {
+        assert(descoption);
+        assert(descpos);
+        assert(desclen);
         assert_se(*descpos >= 0);
 
         while (*descpos < *desclen) {

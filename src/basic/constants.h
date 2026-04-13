@@ -66,6 +66,8 @@
 #define VARLINK_PATH_MACHINED_USERDB "/run/systemd/userdb/io.systemd.Machine"
 /* Path where systemd-machined listens to resolve.hook varlink queries */
 #define VARLINK_PATH_MACHINED_RESOLVE_HOOK "/run/systemd/resolve.hook/io.systemd.Machine"
+/* Path where to connect to send varlink prekill events */
+#define VARLINK_DIR_OOMD_PREKILL_HOOK "/run/systemd/oomd.prekill.hook/"
 
 /* Recommended baseline - see README for details */
 #define KERNEL_BASELINE_VERSION "5.14"

@@ -1099,9 +1099,9 @@ static JsonData* json_data_free(JsonData *d) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(JsonData*, json_data_free);
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(json_data_hash_ops_free,
-                                      char, string_hash_func, string_compare_func,
-                                      JsonData, json_data_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(json_data_hash_ops_free,
+                                              char, string_hash_func, string_compare_func,
+                                              JsonData, json_data_free);
 
 static int update_json_data(
                 Hashmap *h,
@@ -1193,61 +1193,56 @@ static int update_json_data_split(
         return update_json_data(h, flags, name, eq + 1, size - fieldlen - 1);
 }
 
-static int output_json(
-                FILE *f,
+int journal_entry_to_json(
                 sd_journal *j,
-                OutputMode mode,
-                unsigned n_columns,
                 OutputFlags flags,
                 const Set *output_fields,
-                const size_t highlight[2],
-                dual_timestamp *previous_display_ts, /* unused */
-                sd_id128_t *previous_boot_id) {      /* unused */
+                sd_json_variant **ret) {
 
         char usecbuf[CONST_MAX(DECIMAL_STR_MAX(usec_t), DECIMAL_STR_MAX(uint64_t))];
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *object = NULL;
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
         sd_id128_t journal_boot_id, seqnum_id;
         _cleanup_free_ char *cursor = NULL;
         usec_t realtime, monotonic;
-        sd_json_variant **array = NULL;
-        JsonData *d;
         uint64_t seqnum;
+        const char *corrupted_what = NULL;
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_free_ sd_json_variant **array = NULL;
         size_t n = 0;
         int r;
 
         assert(j);
+        assert(ret);
 
         (void) sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
 
         r = sd_journal_get_cursor(j, &cursor);
         if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
-                log_debug_errno(r, "Unable to determine cursor of entry, assuming bad or partially written entry: %m");
-                return 0;
+                corrupted_what = "cursor";
+                goto corrupted_skip;
         }
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
 
         r = sd_journal_get_realtime_usec(j, &realtime);
         if (r == -EBADMSG) {
-                log_debug_errno(r, "Unable to read realtime timestamp of entry, assuming bad or partially written entry: %m");
-                return 0;
+                corrupted_what = "realtime timestamp";
+                goto corrupted_skip;
         }
         if (r < 0)
                 return log_error_errno(r, "Failed to get realtime timestamp: %m");
 
         r = sd_journal_get_monotonic_usec(j, &monotonic, &journal_boot_id);
         if (r == -EBADMSG) {
-                log_debug_errno(r, "Unable to read monotonic timestamp of entry, assuming bad or partially written entry: %m");
-                return 0;
+                corrupted_what = "monotonic timestamp";
+                goto corrupted_skip;
         }
         if (r < 0)
                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
         r = sd_journal_get_seqnum(j, &seqnum, &seqnum_id);
         if (r == -EBADMSG) {
-                log_debug_errno(r, "Unable to read sequence number of entry, assuming bad or partially written entry: %m");
-                return 0;
+                corrupted_what = "sequence number";
+                goto corrupted_skip;
         }
         if (r < 0)
                 return log_error_errno(r, "Failed to get seqnum: %m");
@@ -1302,31 +1297,56 @@ static int output_json(
                         return r;
         }
 
-        array = new(sd_json_variant*, hashmap_size(h)*2);
+        array = new(sd_json_variant*, hashmap_size(h) * 2);
         if (!array)
                 return log_oom();
 
-        CLEANUP_ARRAY(array, n, sd_json_variant_unref_many);
-
+        JsonData *d;
         HASHMAP_FOREACH(d, h) {
                 assert(sd_json_variant_elements(d->values) > 0);
 
-                array[n++] = sd_json_variant_ref(d->name);
+                array[n++] = d->name;
 
                 if (sd_json_variant_elements(d->values) == 1)
-                        array[n++] = sd_json_variant_ref(sd_json_variant_by_index(d->values, 0));
+                        array[n++] = sd_json_variant_by_index(d->values, 0);
                 else
-                        array[n++] = sd_json_variant_ref(d->values);
+                        array[n++] = d->values;
         }
 
-        r = sd_json_variant_new_object(&object, array, n);
+        r = sd_json_variant_new_object(ret, array, n);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate JSON object: %m");
 
+        return 1;
+
+corrupted_skip:
+        log_debug_errno(r, "Unable to determine %s of entry, assuming bad or partially written entry: %m", ASSERT_PTR(corrupted_what));
+        *ret = NULL;
+        return 0;
+}
+
+static int output_json(
+                FILE *f,
+                sd_journal *j,
+                OutputMode mode,
+                unsigned n_columns,
+                OutputFlags flags,
+                const Set *output_fields,
+                const size_t highlight[2],
+                dual_timestamp *previous_display_ts, /* unused */
+                sd_id128_t *previous_boot_id) {      /* unused */
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *object = NULL;
+        int r;
+
+        r = journal_entry_to_json(j, flags, output_fields, &object);
+        if (r <= 0)
+                return r;
+
         return sd_json_variant_dump(object,
-                                 output_mode_to_json_format_flags(mode) |
-                                 (FLAGS_SET(flags, OUTPUT_COLOR) ? SD_JSON_FORMAT_COLOR : 0),
-                                 f, NULL);
+                                    output_mode_to_json_format_flags(mode) |
+                                    (FLAGS_SET(flags, OUTPUT_COLOR) ? SD_JSON_FORMAT_COLOR : 0),
+                                    f, NULL);
 }
 
 static int output_cat_field(
@@ -1747,12 +1767,14 @@ int add_matches_for_unit_full(sd_journal *j, MatchUnitFlag flags, const char *un
         return r;
 }
 
-int add_matches_for_user_unit_full(sd_journal *j, MatchUnitFlag flags, const char *unit) {
-        uid_t uid = getuid();
+int add_matches_for_user_unit_full(sd_journal *j, MatchUnitFlag flags, uid_t uid, const char *unit) {
         int r;
 
         assert(j);
         assert(unit);
+
+        if (uid == UID_INVALID)
+                uid = getuid();
 
         (void) (
                 /* Look for messages from the user service itself */
@@ -1990,7 +2012,7 @@ static int set_matches_for_discover_id(
                 return add_matches_for_unit_full(j, /* flags= */ 0, unit);
 
         if (type == LOG_USER_UNIT_INVOCATION_ID)
-                return add_matches_for_user_unit_full(j, /* flags= */ 0, unit);
+                return add_matches_for_user_unit_full(j, /* flags= */ 0, UID_INVALID, unit);
 
         return -EINVAL;
 }

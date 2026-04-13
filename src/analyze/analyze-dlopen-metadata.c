@@ -12,7 +12,7 @@
 #include "json-util.h"
 #include "strv.h"
 
-int verb_dlopen_metadata(int argc, char *argv[], void *userdata) {
+int verb_dlopen_metadata(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         _cleanup_free_ char *abspath = NULL;

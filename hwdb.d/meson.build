@@ -19,6 +19,7 @@ hwdb_files_notest = files(
 hwdb_files_test = files(
         '20-dmi-id.hwdb',
         '20-net-ifname.hwdb',
+        '40-imds.hwdb',
         '60-autosuspend.hwdb',
         '60-autosuspend-fingerprint-reader.hwdb',
         '60-evdev.hwdb',
@@ -26,6 +27,7 @@ hwdb_files_test = files(
         '60-keyboard.hwdb',
         '60-seat.hwdb',
         '60-sensor.hwdb',
+        '60-tpm2.hwdb',
         '70-analyzers.hwdb',
         '70-av-production.hwdb',
         '70-cameras.hwdb',

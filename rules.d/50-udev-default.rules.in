@@ -31,7 +31,7 @@ SUBSYSTEM=="pci|usb|platform", IMPORT{builtin}="path_id"
 
 SUBSYSTEM=="net", IMPORT{builtin}="net_driver"
 
-SUBSYSTEM=="ptp", GROUP="clock", MODE="0660"
+SUBSYSTEM=="ptp", GROUP="clock", MODE="0664"
 SUBSYSTEM=="ptp", ATTR{clock_name}=="KVM virtual PTP", SYMLINK+="ptp_kvm"
 SUBSYSTEM=="ptp", ATTR{clock_name}=="hyperv", SYMLINK+="ptp_hyperv"
 SUBSYSTEM=="ptp", ATTR{clock_name}=="ptp_vmw", SYMLINK+="ptp_vmware"

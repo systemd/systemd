@@ -3,11 +3,14 @@
 #include <sys/stat.h>
 #include <sys/syslog.h>
 
+#include "sd-dlopen.h"
+
 #include "acl-util.h"
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -43,9 +46,10 @@ DLSYM_PROTOTYPE(acl_set_tag_type);
 DLSYM_PROTOTYPE(acl_to_any_text);
 
 int dlopen_libacl(void) {
-        ELF_NOTE_DLOPEN("acl",
+        SD_ELF_NOTE_DLOPEN(
+                        "acl",
                         "Support for file Access Control Lists (ACLs)",
-                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
                         "libacl.so.1");
 
         return dlopen_many_sym_or_warn(
@@ -80,8 +84,9 @@ int dlopen_libacl(void) {
                         DLSYM_ARG(acl_to_any_text));
 }
 
-int devnode_acl(int fd, uid_t uid) {
-        bool changed = false, found = false;
+int devnode_acl(int fd, const Set *uids) {
+        _cleanup_set_free_ Set *found = NULL;
+        bool changed = false;
         int r;
 
         assert(fd >= 0);
@@ -107,12 +112,12 @@ int devnode_acl(int fd, uid_t uid) {
                 if (tag != ACL_USER)
                         continue;
 
-                if (uid > 0) {
+                if (!set_isempty(uids)) {
                         uid_t *u = sym_acl_get_qualifier(entry);
                         if (!u)
                                 return -errno;
 
-                        if (*u == uid) {
+                        if (set_contains(uids, UID_TO_PTR(*u))) {
                                 acl_permset_t permset;
                                 if (sym_acl_get_permset(entry, &permset) < 0)
                                         return -errno;
@@ -132,7 +137,10 @@ int devnode_acl(int fd, uid_t uid) {
                                         changed = true;
                                 }
 
-                                found = true;
+                                r = set_ensure_put(&found, NULL, UID_TO_PTR(*u));
+                                if (r < 0)
+                                        return r;
+
                                 continue;
                         }
                 }
@@ -145,7 +153,16 @@ int devnode_acl(int fd, uid_t uid) {
         if (r < 0)
                 return -errno;
 
-        if (!found && uid > 0) {
+        void *p;
+        SET_FOREACH(p, uids) {
+                uid_t uid = PTR_TO_UID(p);
+
+                if (uid == 0)
+                        continue;
+
+                if (set_contains(found, UID_TO_PTR(uid)))
+                        continue;
+
                 if (sym_acl_create_entry(&acl, &entry) < 0)
                         return -errno;
 

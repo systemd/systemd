@@ -250,6 +250,8 @@ int dhcp6_option_append(
 
         int r;
 
+        assert(buf);
+        assert(offset);
         assert(optval || optlen == 0);
 
         r = option_append_hdr(buf, offset, code, optlen);

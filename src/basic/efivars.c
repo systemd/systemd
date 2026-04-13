@@ -319,20 +319,26 @@ int efi_set_variable_string(const char *variable, const char *value) {
         return efi_set_variable(variable, u16, (char16_strlen(u16) + 1) * sizeof(char16_t));
 }
 
-bool is_efi_boot(void) {
-        static int cache = -1;
+static int cache_efi_boot = -1;
 
-        if (cache < 0) {
-                if (detect_container() > 0)
-                        cache = false;
-                else {
-                        cache = access("/sys/firmware/efi/", F_OK) >= 0;
-                        if (!cache && errno != ENOENT)
-                                log_debug_errno(errno, "Unable to test whether /sys/firmware/efi/ exists, assuming EFI not available: %m");
-                }
+bool set_efi_boot(bool b) {
+        return (cache_efi_boot = b);
+}
+
+bool is_efi_boot(void) {
+        if (cache_efi_boot >= 0)
+                return cache_efi_boot;
+
+        if (detect_container() > 0)
+                return (cache_efi_boot = false);
+
+        if (access("/sys/firmware/efi/", F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Unable to test whether /sys/firmware/efi/ exists, assuming EFI not available: %m");
+                return (cache_efi_boot = false);
         }
 
-        return cache;
+        return (cache_efi_boot = true);
 }
 
 static int read_flag(const char *variable) {

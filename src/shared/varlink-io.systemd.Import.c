@@ -101,7 +101,10 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("The numeric ID of this download"),
                 SD_VARLINK_DEFINE_OUTPUT(id, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_ERROR(AlreadyInProgress);
+static SD_VARLINK_DEFINE_ERROR(
+                AlreadyInProgress,
+                SD_VARLINK_FIELD_COMMENT("The URL of the transfer already in progress."),
+                SD_VARLINK_DEFINE_FIELD(remote, SD_VARLINK_STRING, 0));
 static SD_VARLINK_DEFINE_ERROR(TransferCancelled);
 static SD_VARLINK_DEFINE_ERROR(TransferFailed);
 static SD_VARLINK_DEFINE_ERROR(NoTransfers);

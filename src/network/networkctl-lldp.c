@@ -219,7 +219,7 @@ static int dump_lldp_neighbors_json(sd_json_variant *reply, char * const *patter
         return sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
 }
 
-int link_lldp_status(int argc, char *argv[], void *userdata) {
+int verb_link_lldp_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         sd_json_variant *reply;
@@ -303,9 +303,9 @@ int link_lldp_status(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        r = table_print(table, NULL);
+        r = table_print_or_warn(table);
         if (r < 0)
-                return table_log_print_error(r);
+                return r;
 
         if (arg_legend) {
                 lldp_capabilities_legend(all);

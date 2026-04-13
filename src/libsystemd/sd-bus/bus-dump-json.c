@@ -57,8 +57,8 @@ static int json_transform_variant(sd_bus_message *m, const char *contents, sd_js
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(contents)),
-                        SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(value)));
+                        SD_JSON_BUILD_PAIR_STRING("type", contents),
+                        SD_JSON_BUILD_PAIR_VARIANT("data", value));
 }
 
 static int json_transform_dict_array(sd_bus_message *m, sd_json_variant **ret) {
@@ -287,8 +287,8 @@ static int json_transform_message(sd_bus_message *m, const char *type, sd_json_v
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(type)),
-                        SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(v)));
+                        SD_JSON_BUILD_PAIR_STRING("type", type),
+                        SD_JSON_BUILD_PAIR_VARIANT("data", v));
 }
 
 _public_ int sd_bus_message_dump_json(sd_bus_message *m, uint64_t flags, sd_json_variant **ret) {
@@ -325,13 +325,13 @@ _public_ int sd_bus_message_dump_json(sd_bus_message *m, uint64_t flags, sd_json
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(bus_message_type_to_string(m->header->type))),
-                        SD_JSON_BUILD_PAIR("endian", SD_JSON_BUILD_STRING(CHAR_TO_STR(m->header->endian))),
-                        SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_INTEGER(m->header->flags)),
-                        SD_JSON_BUILD_PAIR("version", SD_JSON_BUILD_INTEGER(m->header->version)),
-                        SD_JSON_BUILD_PAIR("cookie", SD_JSON_BUILD_INTEGER(BUS_MESSAGE_COOKIE(m))),
+                        SD_JSON_BUILD_PAIR_STRING("type", bus_message_type_to_string(m->header->type)),
+                        SD_JSON_BUILD_PAIR_STRING("endian", CHAR_TO_STR(m->header->endian)),
+                        SD_JSON_BUILD_PAIR_INTEGER("flags", m->header->flags),
+                        SD_JSON_BUILD_PAIR_INTEGER("version", m->header->version),
+                        SD_JSON_BUILD_PAIR_INTEGER("cookie", BUS_MESSAGE_COOKIE(m)),
                         SD_JSON_BUILD_PAIR_CONDITION(m->reply_cookie != 0, "reply_cookie", SD_JSON_BUILD_INTEGER(m->reply_cookie)),
-                        SD_JSON_BUILD_PAIR("timestamp-realtime", SD_JSON_BUILD_UNSIGNED(ts)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("timestamp-realtime", ts),
                         SD_JSON_BUILD_PAIR_CONDITION(!!m->sender, "sender", SD_JSON_BUILD_STRING(m->sender)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!m->destination, "destination", SD_JSON_BUILD_STRING(m->destination)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!m->path, "path", SD_JSON_BUILD_STRING(m->path)),
@@ -341,5 +341,5 @@ _public_ int sd_bus_message_dump_json(sd_bus_message *m, uint64_t flags, sd_json
                         SD_JSON_BUILD_PAIR_CONDITION(m->realtime != 0, "realtime", SD_JSON_BUILD_INTEGER(m->realtime)),
                         SD_JSON_BUILD_PAIR_CONDITION(m->seqnum != 0, "seqnum", SD_JSON_BUILD_INTEGER(m->seqnum)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!m->error.name, "error_name", SD_JSON_BUILD_STRING(m->error.name)),
-                        SD_JSON_BUILD_PAIR("payload", SD_JSON_BUILD_VARIANT(v)));
+                        SD_JSON_BUILD_PAIR_VARIANT("payload", v));
 }

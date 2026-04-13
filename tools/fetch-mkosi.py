@@ -43,7 +43,7 @@ def read_config():
 
 def commit_file(files: list[Path], commit: str, changes: str):
     message = '\n'.join((
-        f'mkosi: update mkosi commit reference to {commit}',
+        f'mkosi: update mkosi ref to {commit}',
         '',
         changes))
 
@@ -75,7 +75,7 @@ def update_mkosi(args):
         print(f'mkosi: commit {new_commit!s} is still fresh')
         return
 
-    cmd = ['git', '-C', args.dir.as_posix(), 'log', '--graph', '--first-parent', '--no-merges',
+    cmd = ['git', '-C', args.dir.as_posix(), 'log', '--graph', '--no-merges',
            '--pretty=oneline', '--no-decorate', '--abbrev-commit', '--abbrev=10',
            f'{old_commit}..{new_commit}']
     print(f"+ {shlex.join(cmd)}")

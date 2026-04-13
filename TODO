@@ -23,7 +23,6 @@ External:
 * fedora: update policy to declare access mode and ownership of unit files to root:root 0644, and add an rpmlint check for it
 
 * missing shell completions:
-  - systemd-hwdb
 
 * zsh shell completions:
   - <command> <verb> -<TAB> should complete options, but currently does not
@@ -116,13 +115,123 @@ Deprecations and removals:
 
 * Consider removing root=gpt-auto, and push people to use root=dissect instead.
 
-* Once
-  https://github.com/util-linux/util-linux/commit/508fb0e7ac103b68531a59db2a4473897853ab52
-  has hit the prominent distributions, revert --issue-file= hack in units/*getty*service.in
+* remove any trace of "cpuacct" cgroup controller, it's a cgroupv1 thing.
+  similar "devices"
 
 Features:
+* sysext: make systemd-{sys,conf}ext-sysroot.service work in the split '/var'
+  configuration.
 
-* Maybe introducean InodeRef structure inspired by PidRef, which references a
+* introduce a concept of /etc/machine-info "TAGS=" field that allows tagging
+  machines with zero, one or more roles, states or other forms of
+  categorization. Then, add a way of using this in sysupdate to automatically
+  enable certain transfers, one for each role.
+
+* sd-varlink: add fully async modes of the protocol upgrade stuff
+
+* repart: maybe remove iso9660/eltorito superblock from disk when booting via
+  gpt, if there is one.
+
+* crypttab/gpt-auto-generator: allow explicit control over which unlock mechs
+  to permit, and maybe have a global headless kernel cmdline option
+
+* start making use of the new --graceful switch to util-linux' umount command
+
+* sysusers: allow specifying a path to an inode *and* a literal UID in the UID
+  column, so that if the inode exists it is used, and if not the literal UID is
+  used. Use this for services such as the imds one, which run under their own
+  UID in the initrd, and whose data should survive to the host, properly owned.
+
+* add service file setting to force the fwmark (a la SO_MARK) to some value, so
+  that we can allowlist certain services for imds this way.
+
+* lock down swtpm a bit to make it harder to extract keys from it as it is
+  running. i.e. make ptracing + termination hard from the outside. also run
+  swtpm as unpriv user (not trivial, probably requires patch swtpm, as it needs
+  to allocate vtpm device), to lock it down from the inside.
+
+* once swtpm's sd_notify() support has landed in the distributions, remove the
+  invocation in tpm2-swtpm.c and let swtpm handle it.
+
+* make systemd work nicely without /bin/sh, logins and associated shell tools around
+  - make sure debug shell service (sushell) has a nice failure mode, prints a message and reboots
+  - varlink interface for "systemctl start" and friends
+  - https://github.com/util-linux/util-linux/issues/4117
+
+* imds: maybe do smarter api version handling
+
+* drop NV_ORDERLY flag from the product uuid nvpcr. Effect of the flag is that
+  it pushes the thing into TPM RAM, but a TPM usually has very little of that,
+  less than NVRAM. hence setting the flag amplifies space issues. Unsetting the
+  flag increases wear issues on the NVRAM, however, but this should be limited
+  for the product uuid nvpcr, since its only changed once per boot. this needs
+  to be configurable by nvpcr however, as other nvpcrs are different,
+  i.e. verity one receives many writes during system uptime quite
+  possibly. (also, NV_ORDERLY makes stuff faster, and dropping it costs
+  possibly up to 100ms supposedly)
+
+* instead of going directly for DefineSpace when initializing nvpcrs, check if
+  they exist first. apparently DEfineSpace is broken on some tpms, and also
+  creates log spam if the nvindex already exists.
+
+* on first login of a user, measure its identity to some nvpcr
+
+* sd-lldp: pick up 802.3 maximum frame size/mtu, to be able to detect jumbo
+  frame capable networks
+
+* networkd: maintain a file in /run/ that can be symlinked into /run/issue.d/
+  that always shows the current primary IP address
+
+* oci: add support for blake hashes for layers
+
+* oci: add support for "importctl import-oci" which implements the "OCI layout"
+  spec (i.e. acquiring via local fs access), as opposed to the current
+  "importctl pull-oci" which focusses on the "OCI image spec", i.e. downloads
+  from the web (i.e. acquiring via URLs).
+
+* oci: support "data" in any OCI descriptor, not just manifest config.
+
+* report:
+  - plug "facts" into systemd-report too, i.e. stuff that is more static, such as hostnames, ssh keys and so on.
+  - pass filtering hints to services, so that they can also be applied server-side, not just client side
+  - metrics from pid1: suppress metrics form units that are inactive and have nothing to report
+  - add "hint-suppress-zero" flag (which suppresses all metrics which are zero)
+  - add "hint-object" parameter (which only queries info about certain object)
+  - make systemd-report a varlink service
+
+* implement a varlink registry service, similar to the one of the reference
+  implementation, backed by /run/varlink/registry/. Then, also implement
+  connect-via-registry-resolution in sd-varlink and varlinkctl. Care needs to
+  be taken to do the resolution asynchronousy. Also, note that the Varlink
+  reference implementation uses a different address syntax, which needs to be
+  taken into account.
+
+* have a signal that reloads every unit that supports reloading
+
+* systemd: add storage API via varlink, where everyone can drop a socket in a
+  dir, similar, do the same thing for networking
+
+* do a console daemon that takes stdio fds for services and allows to reconnect
+  to them later
+
+* report: have something that requests cloud workload identity bearer tokens
+  and includes it in the report
+
+* sysupdate: download multiple arbitrary patterns from same source
+
+* sysupdate: SHA256SUMS format with bearer tokens for each resource to download
+
+* sysupdate: decrypt SHA256SUMS with key from tpm
+
+* sysupdate: clean up stuff on disk that disappears from SHA256SUMS
+
+* sysupdate: turn http backend stuff int plugin via varlink
+
+* add new tool that can be used in debug mode runs in very early boot,
+  generates a random password, passes it as credential to sysusers for the root
+  user, then displays it on screen. people can use this to remotely log in.
+
+* Maybe introduce an InodeRef structure inspired by PidRef, which references a
   specific inode, and combines: a path, an O_PATH fd, and possibly a FID into
   one. Why? We often pass around path and fd separately in chaseat() and similar
   calls. Because passing around both separately is cumbersome we sometimes only
@@ -155,6 +264,10 @@ Features:
 * homed/pam_systemd: allow authentication by ssh-agent, so that run0/polkit can
   be allowed if caller comes with the right ssh-agent keys.
 
+* machined: gc for OCI layers that are not referenced anymore by any .mstack/ links.
+
+* pull-oci: progress notification
+
 * networkd/machined: implement reverse name lookups in the resolved hook
 
 * networkd's resolved hook: optionally map all lease IP addresses handed out to
@@ -171,22 +284,9 @@ Features:
   the file systems to disk later (using btrfs device replacement), if needed as
   part of an installer logic.
 
-* add a concept of overlay directory stacks to image discovery, i.e. have a dir
-  with a name suffix of ".ovl" or so that contains DDIs and plain dirs (and
-  possible .v dirs) that are glued together on use via overlayfs. one special
-  subdir should be used as writable top layer.
-
 * journald: log pidfid as another field, i.e. _PIDFDID=
 
-* systemd-nspawn: something like --volatile= but that isn't volatile, but
-  stores the data in some separate dir on disk. Usecase: keep always up-to-date
-  DDIs of some OS in your home dir, but combine its /usr/ with a locally
-  maintained root fs in a regular dir to maintain local state. (idea: call it
-  --mutable= and take dir or DDI and merge in)
-
 * measure all log-in attempts into a new nvpcr
-
-* measure all DDI activations into a new nvpcr
 
 * maybe rework systemd-modules-load to be a generator that just instantiates
   modprobe@.service a bunch of times
@@ -200,9 +300,6 @@ Features:
 
 * Add knob to cryptsetup, to trigger automatic reboot on failure to unlock
   disk. Enable this by default for rootfs, also in gpt-auto-generator
-
-* Add RebootUptimeMinSec= knob to PID 1, that makes systemd-shutdown sleep
-  until the specified uptime has passed, to lengthen tight boot loops.
 
 * replace bootctl's PE version check to actually use APIs from pe-binary.[ch]
   to find binary version.
@@ -301,7 +398,6 @@ Features:
   root disks)
 
 * complete varlink introspection comments:
-  - io.systemd.BootControl
   - io.systemd.Hostname
   - io.systemd.ManagedOOM
   - io.systemd.Network
@@ -476,7 +572,7 @@ Features:
   service into the early boot, waiting for the DMI and network device to show
   up.
 
-* Add UKI profile conditioning so that profles are only available if secure
+* Add UKI profile conditioning so that profiles are only available if secure
   boot is turned off, or only on. similar, add conditions on TPM availability,
   network boot, and other conditions.
 
@@ -532,10 +628,6 @@ Features:
 * foreign uid:
   - add support to export-fs, import-fs
   - systemd-dissect should learn mappings, too, when doing mtree and such
-
-* format-table: introduce new cell type for strings with ansi sequences in
-  them. display them in regular output mode (via strip_tab_ansi()), but
-  suppress them in json mode.
 
 * resolved: report ttl in resolution replies if we know it. This data is useful
   for tools such as wireguard which want to periodically re-resolve DNS names,
@@ -674,10 +766,6 @@ Features:
   settled), since we need those for pcrlock measurements and similar. When
   deleting entries for rotation, place an event that declares how many items
   have been dropped, and what the hash before and after that.
-
-* measure information about all DDIs as we activate them to an NvPCR. We
-  probably should measure the dm-verity root hash from the kernel side, but
-  DDI meta info from userspace.
 
 * use name_to_handle_at() with AT_HANDLE_FID instead of .st_ino (inode
   number) for identifying inodes, for example in copy.c when finding hard
@@ -929,8 +1017,6 @@ Features:
 
 * Varlinkification of the following command line tools, to open them up to
   other programs via IPC:
-  - bootctl
-  - journalctl (allowing journal read access via IPC)
   - coredumpcl
   - systemd-bless-boot
   - systemd-measure
@@ -1086,12 +1172,6 @@ Features:
   with success notifications from nspawn payloads. When this is enabled,
   automatically support reverting back to older OS version images if newer ones
   fail to boot.
-
-* implement new "systemd-fsrebind" tool that works like gpt-auto-generator but
-  looks at a root dir and then applies vpick on various dirs/images to pick a
-  root tree, a /usr/ tree, a /home/, a /srv/, a /var/ tree and so on. Dirs
-  could also be btrfs subvols (combine with btrfs auto-snapshort approach for
-  creating versions like these automatically).
 
 * remove tomoyo support, it's obsolete and unmaintained apparently
 
@@ -1254,9 +1334,9 @@ Features:
   - If run on every boot, should it use the sysupdate config from the host on
     subsequent boots?
 
-* To mimic the new tpm2-measure-pcr= crypttab option add the same to veritytab
-  (measuring the root hash) and integritytab (measuring the HMAC key if one is
-  used)
+* To mimic the new tpm2-measure-pcr= crypttab option and tpm2-measure-nvpcr=
+  veritytab option, add the same to integritytab (measuring the HMAC key if one
+  is used)
 
 * We should start measuring all services, containers, and system extensions we
   activate. probably into PCR 13. i.e. add --tpm2-measure-pcr= or so to
@@ -1273,8 +1353,6 @@ Features:
 
 * automatic boot assessment: add one more default success check that just waits
   for a bit after boot, and blesses the boot if the system stayed up that long.
-
-* systemd-repart: add support for generating ISO9660 images
 
 * systemd-repart: in addition to the existing "factory reset" mode (which
   simply empties existing partitions marked for that). add a mode where
@@ -1675,18 +1753,6 @@ Features:
   keys of /etc/crypttab. That way people can store/provide the roothash
   externally and provide to us on demand only.
 
-* we probably should extend the root verity hash of the root fs into some PCR
-  on boot. (i.e. maybe add a veritytab option tpm2-measure=12 or so to measure
-  it into PCR 12); Similar: we probably should extend the LUKS volume key of
-  the root fs into some PCR on boot. (i.e. maybe add a crypttab option
-  tpm2-measure=15 or so to measure it into PCR 15); once both are in place
-  update gpt-auto-discovery to generate these by default for the partitions it
-  discovers. Static vendor stuff should probably end up in PCR 12 (i.e. the
-  verity hash), with local keys in PCR 15 (i.e. the encryption volume
-  key). That way, we nicely distinguish resources supplied by the OS vendor
-  (i.e. sysext, root verity) from those inherently local (i.e. encryption key),
-  which is useful if they shall be signed separately.
-
 * rework recursive read-only remount to use new mount API
 
 * when mounting disk images: if IMAGE_ID/IMAGE_VERSION is set in os-release
@@ -1705,9 +1771,6 @@ Features:
     i.e. a Compress=no option in the transfer definitions
 
 * in sd-id128: also parse UUIDs in RFC4122 URN syntax (i.e. chop off urn:uuid: prefix)
-
-* systemd-sysext: optionally, run it in initrd already, before transitioning
-  into host, to open up possibility for services shipped like that.
 
 * whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
   reception limit the kernel silently enforces.
@@ -2279,8 +2342,6 @@ Features:
   - timer units should get the ability to trigger when DST changes
   - Modulate timer frequency based on battery state
 
-* add libsystemd-password or so to query passwords during boot using the password agent logic
-
 * clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
 
 * on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?)
@@ -2623,11 +2684,6 @@ Features:
   partition on disk, but only if it is marked for growing and not read-only.
 
 * systemd-repart: read LUKS encryption key from $CREDENTIALS_DIRECTORY
-
-* systemd-repart: add a switch to factory reset the partition table without
-  immediately applying the new configuration again. i.e. --factory-reset=leave
-  or so. (this is useful to factory reset an image, then putting it into
-  another machine, ensuring that luks key is generated on new machine, not old)
 
 * systemd-repart: support setting up dm-integrity with HMAC
 

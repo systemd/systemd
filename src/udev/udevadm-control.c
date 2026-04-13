@@ -331,7 +331,7 @@ static int send_control_commands(void) {
         return 0;
 }
 
-int control_main(int argc, char *argv[], void *userdata) {
+int verb_control_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         if (running_in_chroot() > 0) {

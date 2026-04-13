@@ -46,6 +46,7 @@ UserRecord* user_record_new(void) {
                 .nice_level = INT_MAX,
                 .not_before_usec = UINT64_MAX,
                 .not_after_usec = UINT64_MAX,
+                .birth_date = BIRTH_DATE_UNSET,
                 .locked = -1,
                 .storage = _USER_STORAGE_INVALID,
                 .access_mode = MODE_INVALID,
@@ -211,12 +212,15 @@ static UserRecord* user_record_free(UserRecord *h) {
 
         for (size_t i = 0; i < h->n_fido2_hmac_credential; i++)
                 fido2_hmac_credential_done(h->fido2_hmac_credential + i);
+        free(h->fido2_hmac_credential);
         for (size_t i = 0; i < h->n_fido2_hmac_salt; i++)
                 fido2_hmac_salt_done(h->fido2_hmac_salt + i);
+        free(h->fido2_hmac_salt);
 
         strv_free(h->recovery_key_type);
         for (size_t i = 0; i < h->n_recovery_key; i++)
                 recovery_key_done(h->recovery_key + i);
+        free(h->recovery_key);
 
         strv_free(h->self_modifiable_fields);
         strv_free(h->self_modifiable_blobs);
@@ -414,6 +418,28 @@ static int json_dispatch_filename_or_path(const char *name, sd_json_variant *var
         return 0;
 }
 
+static int json_dispatch_birth_date(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        struct tm *ret = ASSERT_PTR(userdata);
+        const char *s;
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *ret = BIRTH_DATE_UNSET;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        s = sd_json_variant_string(variant);
+
+        r = parse_birth_date(s, ret);
+        if (r < 0)
+                return json_log(variant, flags, r, "JSON field '%s' is not a valid ISO 8601 date (expected YYYY-MM-DD).", strna(name));
+
+        return 0;
+}
+
 static int json_dispatch_home_directory(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char **s = userdata;
         const char *n;
@@ -554,11 +580,11 @@ static int json_dispatch_weight(const char *name, sd_json_variant *variant, sd_j
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
 
         k = sd_json_variant_unsigned(variant);
-        if (k <= CGROUP_WEIGHT_MIN || k >= CGROUP_WEIGHT_MAX)
+        if (k < CGROUP_WEIGHT_MIN || k > CGROUP_WEIGHT_MAX)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "JSON field '%s' is not in valid range %" PRIu64 "%s%" PRIu64 ".",
-                                strna(name), (uint64_t) CGROUP_WEIGHT_MIN,
-                                glyph(GLYPH_ELLIPSIS), (uint64_t) CGROUP_WEIGHT_MAX);
+                                strna(name), CGROUP_WEIGHT_MIN,
+                                glyph(GLYPH_ELLIPSIS), CGROUP_WEIGHT_MAX);
 
         *weight = k;
         return 0;
@@ -1161,7 +1187,7 @@ int per_machine_hostname_match(sd_json_variant *hns, sd_json_dispatch_flags_t fl
                                 continue;
                         }
 
-                        if (streq(sd_json_variant_string(hns), hn))
+                        if (streq(sd_json_variant_string(e), hn))
                                 return true;
                 }
 
@@ -1488,10 +1514,18 @@ int user_group_record_mangle(
         if (USER_RECORD_STRIP_MASK(load_flags) == _USER_RECORD_MASK_MAX) /* strip everything? */
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EINVAL), "Stripping everything from record, refusing.");
 
-        /* Extra safety: mark the "secret" part (that contains literal passwords and such) as sensitive, so
-         * that it is not included in debug output and erased from memory when we are done. We do this for
-         * any record that passes through here. */
-        sd_json_variant_sensitive(sd_json_variant_by_key(v, "secret"));
+        /* Extra safety: mark sensitive parts of the JSON as such, so that they are not included in debug
+         * output and erased from memory when we are done. We do this for any record that passes through here. */
+        FOREACH_STRING(key,
+                       /* This section contains literal passwords and such in plain text */
+                       "secret",
+
+                       /* Personally Identifiable Information (PII) — avoid leaking in logs */
+                       "realName",
+                       "location",
+                       "emailAddress",
+                       "birthDate")
+                sd_json_variant_sensitive(sd_json_variant_by_key(v, key));
 
         /* Check if we have the special sections and if they match our flags set */
         FOREACH_ELEMENT(i, mask_field) {
@@ -1585,6 +1619,7 @@ int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags load
                 { "emailAddress",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, email_address),                 SD_JSON_STRICT },
                 { "iconName",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, icon_name),                     SD_JSON_STRICT },
                 { "location",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, location),                      0              },
+                { "birthDate",                  SD_JSON_VARIANT_STRING,        json_dispatch_birth_date,             offsetof(UserRecord, birth_date),                    0              },
                 { "disposition",                SD_JSON_VARIANT_STRING,        json_dispatch_user_disposition,       offsetof(UserRecord, disposition),                   0              },
                 { "lastChangeUSec",             _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, last_change_usec),              0              },
                 { "lastPasswordChangeUSec",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, last_password_change_usec),     0              },
@@ -1826,6 +1861,16 @@ const char* user_record_image_path(UserRecord *h) {
                 user_record_home_directory_real(h) : NULL;
 }
 
+static bool user_record_image_is_blockdev(UserRecord *h) {
+        assert(h);
+
+        const char *p = user_record_image_path(h);
+        if (!p)
+                return false;
+
+        return path_startswith(p, "/dev/");
+}
+
 const char* user_record_cifs_user_name(UserRecord *h) {
         assert(h);
 
@@ -1877,16 +1922,10 @@ const char* user_record_real_name(UserRecord *h) {
 }
 
 bool user_record_luks_discard(UserRecord *h) {
-        const char *ip;
-
         assert(h);
 
         if (h->luks_discard >= 0)
                 return h->luks_discard;
-
-        ip = user_record_image_path(h);
-        if (!ip)
-                return false;
 
         /* Use discard by default if we are referring to a real block device, but not when operating on a
          * loopback device. We want to optimize for SSD and flash storage after all, but we should be careful
@@ -1894,7 +1933,7 @@ bool user_record_luks_discard(UserRecord *h) {
          * mean thin provisioning and we should not do that willy-nilly since it means we'll risk EIO later
          * on should the disk space to back our file systems not be available. */
 
-        return path_startswith(ip, "/dev/");
+        return user_record_image_is_blockdev(h);
 }
 
 bool user_record_luks_offline_discard(UserRecord *h) {
@@ -2060,7 +2099,7 @@ int user_record_removable(UserRecord *h) {
                 return -1;
 
         /* For now consider only LUKS home directories with a reference by path as removable */
-        return storage == USER_LUKS && path_startswith(user_record_image_path(h), "/dev/");
+        return storage == USER_LUKS && user_record_image_is_blockdev(h);
 }
 
 uint64_t user_record_ratelimit_interval_usec(UserRecord *h) {

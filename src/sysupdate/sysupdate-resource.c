@@ -31,6 +31,7 @@
 #include "strv.h"
 #include "sysupdate-cache.h"
 #include "sysupdate-instance.h"
+#include "sysupdate-partition.h"
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
 #include "time-util.h"
@@ -80,15 +81,22 @@ static int resource_load_from_directory_recursive(
                 Resource *rr,
                 DIR* d,
                 const char* relpath,
-                mode_t m) {
+                const char* relpath_for_matching,
+                mode_t m,
+                bool ancestor_is_partial,
+                bool ancestor_is_pending) {
         int r;
 
         for (;;) {
                 _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
                 _cleanup_free_ char *joined = NULL, *rel_joined = NULL;
+                _cleanup_free_ char *rel_joined_for_matching = NULL;
                 Instance *instance;
                 struct dirent *de;
+                const char *de_d_name_stripped;
                 struct stat st;
+                bool is_partial = ancestor_is_partial, is_pending = ancestor_is_pending;
+                const char *stripped;
 
                 errno = 0;
                 de = readdir_no_dot(d);
@@ -128,11 +136,26 @@ static int resource_load_from_directory_recursive(
                 if (!(S_ISDIR(st.st_mode) && S_ISREG(m)) && ((st.st_mode & S_IFMT) != m))
                         continue;
 
+                if ((stripped = startswith(de->d_name, ".sysupdate.partial."))) {
+                        de_d_name_stripped = stripped;
+                        is_partial = true;
+                } else if ((stripped = startswith(de->d_name, ".sysupdate.pending."))) {
+                        de_d_name_stripped = stripped;
+                        is_pending = true;
+                } else
+                        de_d_name_stripped = de->d_name;
+
                 rel_joined = path_join(relpath, de->d_name);
                 if (!rel_joined)
                         return log_oom();
 
-                r = pattern_match_many(rr->patterns, rel_joined, &extracted_fields);
+                /* Match against the filename with any `.sysupdate.partial.` (etc.) prefix stripped, so the
+                 * user’s patterns still apply. But don’t use the stripped version in any paths or recursion. */
+                rel_joined_for_matching = path_join(relpath_for_matching, de_d_name_stripped);
+                if (!rel_joined_for_matching)
+                        return log_oom();
+
+                r = pattern_match_many(rr->patterns, rel_joined_for_matching, &extracted_fields);
                 if (r == PATTERN_MATCH_RETRY) {
                         _cleanup_closedir_ DIR *subdir = NULL;
 
@@ -140,7 +163,7 @@ static int resource_load_from_directory_recursive(
                         if (!subdir)
                                 continue;
 
-                        r = resource_load_from_directory_recursive(rr, subdir, rel_joined, m);
+                        r = resource_load_from_directory_recursive(rr, subdir, rel_joined, rel_joined_for_matching, m, is_partial, is_pending);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -168,6 +191,9 @@ static int resource_load_from_directory_recursive(
 
                 if (instance->metadata.mode == MODE_INVALID)
                         instance->metadata.mode = st.st_mode & 0775; /* mask out world-writability and suid and stuff, for safety */
+
+                instance->is_partial = is_partial;
+                instance->is_pending = is_pending;
         }
 
         return 0;
@@ -192,7 +218,7 @@ static int resource_load_from_directory(
                 return log_error_errno(errno, "Failed to open directory '%s': %m", rr->path);
         }
 
-        return resource_load_from_directory_recursive(rr, d, NULL, m);
+        return resource_load_from_directory_recursive(rr, d, NULL, NULL, m, false, false);
 }
 
 static int resource_load_from_blockdev(Resource *rr) {
@@ -219,6 +245,7 @@ static int resource_load_from_blockdev(Resource *rr) {
                 _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
                 _cleanup_(partition_info_destroy) PartitionInfo pinfo = PARTITION_INFO_NULL;
                 Instance *instance;
+                bool is_partial = false, is_pending = false;
 
                 r = read_partition_info(c, t, i, &pinfo);
                 if (r < 0)
@@ -226,9 +253,28 @@ static int resource_load_from_blockdev(Resource *rr) {
                 if (r == 0) /* not assigned */
                         continue;
 
-                /* Check if partition type matches */
-                if (rr->partition_type_set && !sd_id128_equal(pinfo.type, rr->partition_type.uuid))
-                        continue;
+                /* Check if partition type matches, either directly or via derived partial/pending type
+                 * UUIDs. The derived UUIDs are computed from the configured partition type by hashing it
+                 * with a fixed app-specific ID, so we can detect the state without relying on label
+                 * prefixes. */
+                if (rr->partition_type_set) {
+                        sd_id128_t partial_type, pending_type;
+
+                        r = gpt_partition_type_uuid_for_sysupdate_partial(rr->partition_type.uuid, &partial_type);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to derive partial partition type UUID: %m");
+
+                        r = gpt_partition_type_uuid_for_sysupdate_pending(rr->partition_type.uuid, &pending_type);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to derive pending partition type UUID: %m");
+
+                        if (sd_id128_equal(pinfo.type, partial_type))
+                                is_partial = true;
+                        else if (sd_id128_equal(pinfo.type, pending_type))
+                                is_pending = true;
+                        else if (!sd_id128_equal(pinfo.type, rr->partition_type.uuid))
+                                continue;
+                }
 
                 /* A label of "_empty" means "not used so far" for us */
                 if (streq_ptr(pinfo.label, "_empty")) {
@@ -262,6 +308,9 @@ static int resource_load_from_blockdev(Resource *rr) {
 
                 if (instance->metadata.read_only < 0)
                         instance->metadata.read_only = instance->partition_info.read_only;
+
+                instance->is_partial = is_partial;
+                instance->is_pending = is_pending;
         }
 
         return 0;
@@ -384,24 +433,10 @@ static int process_magic_file(
         if (iovec_memcmp(&IOVEC_MAKE(expected_hash, sizeof(expected_hash)), hash) != 0)
                 log_warning("Hash of best before marker file '%s' has unexpected value, proceeding anyway.", fn);
 
-        struct tm parsed_tm = {};
-        const char *n = strptime(e, "%Y-%m-%d", &parsed_tm);
-        if (!n || *n != 0) {
-                /* Doesn't parse? Then it's not a best-before date */
-                log_warning("Found best before marker with an invalid date, ignoring: %s", fn);
-                return 0;
-        }
-
-        struct tm copy_tm = parsed_tm;
         usec_t best_before;
-        r = mktime_or_timegm_usec(&copy_tm, /* utc= */ true, &best_before);
-        if (r < 0)
-                return log_error_errno(r, "Failed to convert best before time: %m");
-        if (copy_tm.tm_mday != parsed_tm.tm_mday ||
-            copy_tm.tm_mon != parsed_tm.tm_mon ||
-            copy_tm.tm_year != parsed_tm.tm_year) {
-                /* date was not normalized? (e.g. "30th of feb") */
-                log_warning("Found best before marker with a non-normalized data, ignoring: %s", fn);
+        r = parse_calendar_date(e, &best_before);
+        if (r < 0) {
+                log_warning_errno(r, "Found best before marker with an invalid date, ignoring: %s", fn);
                 return 0;
         }
 
@@ -442,6 +477,7 @@ static int resource_load_from_web(
         int r;
 
         assert(rr);
+        POINTER_MAY_BE_NULL(web_cache);
 
         ci = web_cache ? web_cache_get_item(*web_cache, rr->path, verify) : NULL;
         if (ci) {
@@ -539,6 +575,11 @@ static int resource_load_from_web(
                                         memcpy(instance->metadata.sha256sum, h.iov_base, h.iov_len);
                                         instance->metadata.sha256sum_set = true;
                                 }
+
+                                /* Web resources can only be a source, not a target, so
+                                 * can never be partial or pending. */
+                                instance->is_partial = false;
+                                instance->is_pending = false;
                         }
                 }
 
@@ -678,7 +719,7 @@ static int get_sysext_overlay_block(const char *p, dev_t *ret) {
                 return 0;
         }
 
-        (void) block_get_originating(*ret, ret);
+        (void) block_get_originating(*ret, ret, /* recursive= */ false);
         return 1;
 }
 
@@ -798,9 +839,9 @@ int resource_resolve_path(
                 } else { /* boot, esp, or xbootldr */
                         r = 0;
                         if (IN_SET(rr->path_relative_to, PATH_RELATIVE_TO_BOOT, PATH_RELATIVE_TO_XBOOTLDR))
-                                r = find_xbootldr_and_warn(root, NULL, /* unprivileged_mode= */ -1, &relative_to, NULL, NULL);
+                                r = find_xbootldr_and_warn(root, /* path= */ NULL, /* unprivileged_mode= */ -1, &relative_to);
                         if (r == -ENOKEY || rr->path_relative_to == PATH_RELATIVE_TO_ESP)
-                                r = find_esp_and_warn(root, NULL, -1, &relative_to, NULL, NULL, NULL, NULL, NULL);
+                                r = find_esp_and_warn(root, /* path= */ NULL, /* unprivileged_mode= */ -1, &relative_to);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to resolve $BOOT: %m");
                         log_debug("Resolved $BOOT to '%s'", relative_to);

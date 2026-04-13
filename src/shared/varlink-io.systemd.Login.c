@@ -65,6 +65,9 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(RemoteUser, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Host name of the remote host"),
                 SD_VARLINK_DEFINE_INPUT(RemoteHost, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("List of additional hardware devices that this session is granted access to."
+                                         "For every $ID in the list, this adds access for all devices tagged with \"xaccess-$ID\" in udev."),
+                SD_VARLINK_DEFINE_INPUT(ExtraDeviceAccess, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("The identifier string of the session of the user."),
                 SD_VARLINK_DEFINE_OUTPUT(Id, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The runtime path ($XDG_RUNTIME_DIR) of the user."),
@@ -91,6 +94,7 @@ static SD_VARLINK_DEFINE_ERROR(AlreadySessionMember);
 static SD_VARLINK_DEFINE_ERROR(VirtualTerminalAlreadyTaken);
 static SD_VARLINK_DEFINE_ERROR(TooManySessions);
 static SD_VARLINK_DEFINE_ERROR(UnitAllocationFailed);
+static SD_VARLINK_DEFINE_ERROR(NoSessionPIDFD);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Login,
@@ -117,4 +121,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Maximum number of sessions reached"),
                 &vl_error_TooManySessions,
                 SD_VARLINK_SYMBOL_COMMENT("Failed to allocate a unit for the session"),
-                &vl_error_UnitAllocationFailed);
+                &vl_error_UnitAllocationFailed,
+                SD_VARLINK_SYMBOL_COMMENT("The session leader process does not have a pidfd"),
+                &vl_error_NoSessionPIDFD);

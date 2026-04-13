@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -622,6 +624,7 @@ int pull_job_restart_with_sha256sum(PullJob *j, char **ret) {
         int r;
 
         assert(j);
+        assert(ret);
 
         /* Generic implementation of a PullJobNotFound handler, that restarts the job requesting SHA256SUMS */
 
@@ -675,6 +678,7 @@ int pull_job_restart_with_signature(PullJob *j, char **ret) {
         int r;
 
         assert(j);
+        assert(ret);
 
         /* Generic implementation of a PullJobNotFound handler, that restarts the job requesting a different
          * signature file. After the initial file, additional *.sha256.gpg, SHA256SUMS.gpg and SHA256SUMS.asc

@@ -15,7 +15,7 @@ at_exit() {
     systemctl stop testsleep.service
     rm -f /run/udev/udev.conf.d/timeout.conf
     rm -f /run/udev/rules.d/99-testsuite.rules
-    killall --regexp '(|/usr/bin/)sleep'
+    pkill -f '(/usr/bin/)?sleep'
     udevadm control --reload
     ip link del "$IFNAME"
 }
@@ -60,7 +60,7 @@ done
 grep -q -F 'ID_PROCESSING=1' "/run/udev/data/n${IFINDEX}"
 
 # Forcibly kill sleep command invoked by the udev rule to finish processing the add event.
-killall --regexp '(|/usr/bin/)sleep'
+pkill -f '(/usr/bin/)?sleep'
 udevadm settle --timeout=30
 
 # Check if ID_PROCESSING flag is unset, and the device units are active.

@@ -43,7 +43,8 @@ static void test_tmpdir_one(const char *id, const char *A, const char *B) {
         struct stat x, y;
         char *c, *d;
 
-        ASSERT_OK_ZERO(setup_tmp_dirs(id, &a, &b));
+        ASSERT_OK(setup_tmp_dir_one(id, "/tmp", &a));
+        ASSERT_OK(setup_tmp_dir_one(id, "/var/tmp", &b));
 
         ASSERT_OK_ERRNO(stat(a, &x));
         ASSERT_OK_ERRNO(stat(b, &y));
@@ -198,7 +199,6 @@ TEST(protect_kernel_logs) {
         static const NamespaceParameters p = {
                 .runtime_scope = RUNTIME_SCOPE_SYSTEM,
                 .protect_kernel_logs = true,
-                .root_directory_fd = -EBADF,
         };
         int r;
 

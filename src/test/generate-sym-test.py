@@ -6,6 +6,7 @@
 import os
 import re
 import sys
+from pathlib import Path
 from typing import IO
 
 
@@ -161,7 +162,10 @@ for dirpath, _, filenames in sorted(os.walk(sys.argv[2])):
     for filename in sorted(filenames):
         if not filename.endswith('.c') and not filename.endswith('.h'):
             continue
-        with open(os.path.join(dirpath, filename), 'r') as f:
+        p = Path(dirpath) / filename
+        if p.is_symlink():
+            continue
+        with p.open('rt') as f:
             process_source_file(f)
 
 print("""        {}

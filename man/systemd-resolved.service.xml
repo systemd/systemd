@@ -131,6 +131,16 @@
       <listitem><para>The hostname <literal>_localdnsproxy</literal> is resolved to the IP address 127.0.0.54,
       i.e. the address the local DNS proxy (see above) is listening on.</para></listitem>
 
+      <listitem><para>The files matching <filename>/etc/systemd/resolve/static.d/*.rr</filename>,
+      <filename>/run/systemd/resolve/static.d/*.rr</filename>,
+      <filename>/usr/local/lib/systemd/resolve/static.d/*.rr</filename>,
+      <filename>/usr/lib/systemd/resolve/static.d/*.rr</filename> may be used to define arbitrary
+      records. See
+      <citerefentry><refentrytitle>systemd.rr</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      details. Support for this may be disabled with <varname>ReadStaticRecords=no</varname>, see
+      <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      </para></listitem>
+
       <listitem><para>The mappings defined in <filename>/etc/hosts</filename> are resolved to their
       configured addresses and back, but they will not affect lookups for non-address types (like MX).
       Support for <filename>/etc/hosts</filename> may be disabled with <varname>ReadEtcHosts=no</varname>,
@@ -510,6 +520,7 @@ search foobar.com barbar.com
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.dns-delegate</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.rr</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.dnssd</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>dnssec-trust-anchors.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>

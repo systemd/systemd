@@ -33,8 +33,7 @@ int undecchar(char c) {
 }
 
 char hexchar(int x) {
-        static const char table[] = "0123456789abcdef";
-
+        const char *table = LOWERCASE_HEXDIGITS;
         return table[x & 15];
 }
 
@@ -165,9 +164,7 @@ int unhexmem_full(
  * useful when representing NSEC3 hashes, as one can then verify the
  * order of hashes directly from their representation. */
 char base32hexchar(int x) {
-        static const char table[] = "0123456789"
-                                    "ABCDEFGHIJKLMNOPQRSTUV";
-
+        const char *table = DIGITS "ABCDEFGHIJKLMNOPQRSTUV";
         return table[x & 31];
 }
 
@@ -516,9 +513,7 @@ int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *_l
 
 /* https://tools.ietf.org/html/rfc4648#section-4 */
 char base64char(int x) {
-        static const char table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                                    "abcdefghijklmnopqrstuvwxyz"
-                                    "0123456789+/";
+        const char *table = UPPERCASE_LETTERS LOWERCASE_LETTERS DIGITS "+/";
         return table[x & 63];
 }
 
@@ -526,9 +521,7 @@ char base64char(int x) {
  * since we don't want "/" appear in interface names (since interfaces appear in sysfs as filenames).
  * See section #5 of RFC 4648. */
 char urlsafe_base64char(int x) {
-        static const char table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                                    "abcdefghijklmnopqrstuvwxyz"
-                                    "0123456789-_";
+        const char *table = UPPERCASE_LETTERS LOWERCASE_LETTERS DIGITS "-_";
         return table[x & 63];
 }
 

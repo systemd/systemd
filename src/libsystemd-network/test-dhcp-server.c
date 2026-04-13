@@ -68,7 +68,7 @@ static int test_basic(bool bind_to_interface) {
         r = sd_dhcp_server_start(server);
         /* skip test if running in an environment with no full networking support, CONFIG_PACKET not
          * compiled in kernel, nor af_packet module available. */
-        if (r == -EPERM || r == -EAFNOSUPPORT)
+        if (IN_SET(r, -EPERM, -EAFNOSUPPORT))
                 return r;
         ASSERT_OK(r);
 

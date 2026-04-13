@@ -11,4 +11,5 @@ libc_wrapper_sources += files(
         'stdio.c',
         'stdlib.c',
         'string.c',
+        'unistd.c',
 )

@@ -559,20 +559,18 @@ int in_addr_port_ifindex_name_to_string(int family, const union in_addr_union *u
         if (port > 0) {
                 if (family == AF_INET6) {
                         if (ifindex > 0)
-                                r = asprintf(&x, "[%s]:%"PRIu16"%%%i%s%s", ip_str, port, ifindex, separator, server_name);
+                                x = asprintf_safe("[%s]:%"PRIu16"%%%i%s%s", ip_str, port, ifindex, separator, server_name);
                         else
-                                r = asprintf(&x, "[%s]:%"PRIu16"%s%s", ip_str, port, separator, server_name);
+                                x = asprintf_safe("[%s]:%"PRIu16"%s%s", ip_str, port, separator, server_name);
                 } else
-                        r = asprintf(&x, "%s:%"PRIu16"%s%s", ip_str, port, separator, server_name);
+                        x = asprintf_safe("%s:%"PRIu16"%s%s", ip_str, port, separator, server_name);
         } else {
                 if (ifindex > 0)
-                        r = asprintf(&x, "%s%%%i%s%s", ip_str, ifindex, separator, server_name);
-                else {
+                        x = asprintf_safe("%s%%%i%s%s", ip_str, ifindex, separator, server_name);
+                else
                         x = strjoin(ip_str, separator, server_name);
-                        r = x ? 0 : -ENOMEM;
-                }
         }
-        if (r < 0)
+        if (!x)
                 return -ENOMEM;
 
         *ret = TAKE_PTR(x);
@@ -842,6 +840,8 @@ int in_addr_prefix_covers_full(
 int in_addr_parse_prefixlen(int family, const char *p, unsigned char *ret) {
         uint8_t u;
         int r;
+
+        assert(ret);
 
         if (!IN_SET(family, AF_INET, AF_INET6))
                 return -EAFNOSUPPORT;

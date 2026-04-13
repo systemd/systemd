@@ -18,6 +18,7 @@
 #include "sd-ndisc.h"
 #include "sd-netlink.h"
 #include "sd-radv.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "arphrd-util.h"
@@ -63,6 +64,7 @@
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
 #include "networkd-wifi.h"
+#include "networkd-wwan-bus.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"
@@ -529,6 +531,9 @@ void link_check_ready(Link *link) {
         if (!link->sr_iov_configured)
                 return (void) log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
 
+        if (!link->bearer_configured)
+                return (void) log_link_debug(link, "%s(): Bearer has not been applied.", __func__);
+
         /* IPv6LL is assigned after the link gains its carrier. */
         if (!link->network->configure_without_carrier &&
             link_ipv6ll_enabled(link) &&
@@ -538,7 +543,7 @@ void link_check_ready(Link *link) {
         /* All static addresses must be ready. */
         bool has_static_address = false;
         SET_FOREACH(a, link->addresses) {
-                if (a->source != NETWORK_CONFIG_SOURCE_STATIC)
+                if (!IN_SET(a->source, NETWORK_CONFIG_SOURCE_STATIC, NETWORK_CONFIG_SOURCE_MODEM_MANAGER))
                         continue;
                 if (!address_is_ready(a))
                         return (void) log_link_debug(link, "%s(): static address %s is not ready.", __func__,
@@ -811,7 +816,6 @@ int link_ipv6ll_gained(Link *link) {
 
 int link_handle_bound_to_list(Link *link) {
         bool required_up = false;
-        bool link_is_up = false;
         Link *l;
 
         assert(link);
@@ -822,18 +826,15 @@ int link_handle_bound_to_list(Link *link) {
         if (hashmap_isempty(link->bound_to_links))
                 return 0;
 
-        if (link->flags & IFF_UP)
-                link_is_up = true;
-
         HASHMAP_FOREACH(l, link->bound_to_links)
                 if (link_has_carrier(l)) {
                         required_up = true;
                         break;
                 }
 
-        if (!required_up && link_is_up)
+        if (!required_up && link_is_up(link))
                 return link_request_to_bring_up_or_down(link, /* up= */ false);
-        if (required_up && !link_is_up)
+        if (required_up && !link_is_up(link))
                 return link_request_to_bring_up_or_down(link, /* up= */ true);
 
         return 0;
@@ -861,11 +862,12 @@ static int link_put_carrier(Link *link, Link *carrier, Hashmap **h) {
 
         assert(link);
         assert(carrier);
+        assert(h);
 
         if (link == carrier)
                 return 0;
 
-        if (hashmap_get(*h, INT_TO_PTR(carrier->ifindex)))
+        if (hashmap_contains(*h, INT_TO_PTR(carrier->ifindex)))
                 return 0;
 
         r = hashmap_ensure_put(h, NULL, INT_TO_PTR(carrier->ifindex), carrier);
@@ -1293,6 +1295,10 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_modem_reconfigure(link);
+        if (r < 0)
+                return r;
+
         if (!link_has_carrier(link))
                 return 0;
 
@@ -1505,6 +1511,7 @@ typedef struct LinkReconfigurationData {
         Link *link;
         LinkReconfigurationFlag flags;
         sd_bus_message *message;
+        sd_varlink *varlink;
         unsigned *counter;
 } LinkReconfigurationData;
 
@@ -1514,6 +1521,7 @@ static LinkReconfigurationData* link_reconfiguration_data_free(LinkReconfigurati
 
         link_unref(data->link);
         sd_bus_message_unref(data->message);
+        sd_varlink_unref(data->varlink);
 
         return mfree(data);
 }
@@ -1524,23 +1532,29 @@ static void link_reconfiguration_data_destroy_callback(LinkReconfigurationData *
         int r;
 
         assert(data);
+        assert(!data->message || !data->varlink); /* D-Bus and Varlink callers are mutually exclusive */
 
-        if (data->message) {
-                if (data->counter) {
-                        assert(*data->counter > 0);
-                        (*data->counter)--;
-                }
+        if (data->counter) {
+                assert(*data->counter > 0);
+                (*data->counter)--;
+        }
 
-                if (!data->counter || *data->counter <= 0) {
-                        /* Update the state files before replying the bus method. Otherwise,
-                         * systemd-networkd-wait-online following networkctl reload/reconfigure may read an
-                         * outdated state file and wrongly handle an interface is already in the configured
-                         * state. */
-                        (void) manager_clean_all(data->manager);
+        if (!data->counter || *data->counter == 0) {
+                /* Update the state files before replying. Otherwise, systemd-networkd-wait-online following
+                 * networkctl reload/reconfigure may read an outdated state file and wrongly consider an
+                 * interface already in the configured state. */
+                (void) manager_clean_all(data->manager);
 
+                if (data->message) {
                         r = sd_bus_reply_method_return(data->message, NULL);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to reply for DBus method, ignoring: %m");
+                }
+
+                if (data->varlink) {
+                        r = sd_varlink_reply(data->varlink, NULL);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to reply to Varlink request, ignoring: %m");
                 }
         }
 
@@ -1564,7 +1578,7 @@ static int link_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
         return r;
 }
 
-int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_message *message, unsigned *counter) {
+int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_message *message, sd_varlink *varlink, unsigned *counter) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         _cleanup_(link_reconfiguration_data_freep) LinkReconfigurationData *data = NULL;
         int r;
@@ -1572,6 +1586,7 @@ int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_mess
         assert(link);
         assert(link->manager);
         assert(link->manager->rtnl);
+        assert(!message || !varlink); /* D-Bus and Varlink callers are mutually exclusive */
 
         /* When the link is in the pending or initialized state, link_reconfigure_impl() will be called later
          * by link_initialized() or link_initialized_and_synced(). To prevent the function from being called
@@ -1590,6 +1605,7 @@ int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_mess
                 .link = link_ref(link),
                 .flags = flags,
                 .message = sd_bus_message_ref(message), /* message may be NULL, but _ref() works fine. */
+                .varlink = sd_varlink_ref(varlink),     /* varlink may be NULL, but _ref() works fine. */
                 .counter = counter,
         };
 
@@ -2004,7 +2020,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
                         carrier_state = LINK_CARRIER_STATE_ENSLAVED;
                 else
                         carrier_state = LINK_CARRIER_STATE_CARRIER;
-        } else if (link->flags & IFF_UP)
+        } else if (link_is_up(link))
                 carrier_state = LINK_CARRIER_STATE_NO_CARRIER;
         else
                 carrier_state = LINK_CARRIER_STATE_OFF;
@@ -2139,6 +2155,11 @@ bool link_has_carrier(Link *link) {
         return netif_has_carrier(link->kernel_operstate, link->flags);
 }
 
+bool link_is_up(Link *link) {
+        assert(link);
+        return FLAGS_SET(link->flags, IFF_UP);
+}
+
 bool link_multicast_enabled(Link *link) {
         assert(link);
 
@@ -2218,7 +2239,7 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
                         log_link_debug(link, "Unknown link flags lost, ignoring: %#.5x", unknown_flags_removed);
         }
 
-        link_was_admin_up = link->flags & IFF_UP;
+        link_was_admin_up = link_is_up(link);
         had_carrier = link_has_carrier(link);
 
         link->flags = flags;
@@ -2228,9 +2249,9 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
 
         r = 0;
 
-        if (!link_was_admin_up && (link->flags & IFF_UP))
+        if (!link_was_admin_up && link_is_up(link))
                 r = link_admin_state_up(link);
-        else if (link_was_admin_up && !(link->flags & IFF_UP))
+        else if (link_was_admin_up && !link_is_up(link))
                 r = link_admin_state_down(link);
         if (r < 0)
                 return r;

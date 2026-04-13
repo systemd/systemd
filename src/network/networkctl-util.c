@@ -3,14 +3,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "sd-bus.h"
-
-#include "alloc-util.h"
 #include "ansi-color.h"
+#include "bus-util.h"
 #include "log.h"
 #include "networkctl.h"
 #include "networkctl-util.h"
-#include "stdio-util.h"
+#include "polkit-agent.h"
 #include "string-util.h"
 #include "strv.h"
 #include "varlink-util.h"
@@ -62,6 +60,40 @@ int varlink_connect_networkd(sd_varlink **ret_varlink) {
         return 0;
 }
 
+int reload_networkd(void) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        r = varlink_connect_networkd(&vl);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+        return varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.service.Reload",
+                        /* reply= */ NULL,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
+}
+
+int reload_udevd(void) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        r = sd_varlink_connect_address(&vl, "/run/udev/io.systemd.Udev");
+        if (r == -ENOENT) {
+                log_debug("systemd-udevd is not running, skipping reload.");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to udev: %m");
+
+        (void) sd_varlink_set_description(vl, "udev");
+
+        return varlink_call_and_log(vl, "io.systemd.service.Reload", /* parameters= */ NULL, /* reply= */ NULL);
+}
+
 bool networkd_is_running(void) {
         static int cached = -1;
         int r;
@@ -79,59 +111,6 @@ bool networkd_is_running(void) {
         }
 
         return cached;
-}
-
-int acquire_bus(sd_bus **ret) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        int r;
-
-        assert(ret);
-
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to system bus: %m");
-
-        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
-
-        if (networkd_is_running()) {
-                r = varlink_connect_networkd(/* ret_varlink= */ NULL);
-                if (r < 0)
-                        return r;
-        } else
-                log_warning("systemd-networkd is not running, output might be incomplete.");
-
-        *ret = TAKE_PTR(bus);
-        return 0;
-}
-
-int link_get_property(
-                sd_bus *bus,
-                int ifindex,
-                sd_bus_error *error,
-                sd_bus_message **reply,
-                const char *iface,
-                const char *propname,
-                const char *type) {
-
-        _cleanup_free_ char *path = NULL;
-        char ifindex_str[DECIMAL_STR_MAX(int)];
-        int r;
-
-        assert(bus);
-        assert(ifindex >= 0);
-        assert(error);
-        assert(reply);
-        assert(iface);
-        assert(propname);
-        assert(type);
-
-        xsprintf(ifindex_str, "%i", ifindex);
-
-        r = sd_bus_path_encode("/org/freedesktop/network1/link", ifindex_str, &path);
-        if (r < 0)
-                return r;
-
-        return sd_bus_get_property(bus, "org.freedesktop.network1", path, iface, propname, error, reply, type);
 }
 
 void operational_state_to_color(const char *name, const char *state, const char **on, const char **off) {
@@ -195,4 +174,41 @@ void online_state_to_color(const char *state, const char **on, const char **off)
                 if (off)
                         *off = "";
         }
+}
+
+int acquire_link_description(sd_varlink *vl, int ifindex, sd_json_variant **ret) {
+        int r;
+
+        assert(vl);
+        assert(ifindex > 0);
+        assert(ret);
+
+        sd_json_variant *v; /* borrowed from vl, do not unref */
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Network.Link.Describe",
+                        &v,
+                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", ifindex));
+        if (r < 0)
+                return r;
+
+        *ret = sd_json_variant_ref(v);
+        return 0;
+}
+
+int json_variant_find_object(sd_json_variant *v, char * const *object_names, sd_json_variant **ret) {
+        assert(object_names);
+        assert(ret);
+
+        if (!v || sd_json_variant_is_null(v))
+                return -ENODATA;
+
+        STRV_FOREACH(name, object_names) {
+                v = sd_json_variant_by_key(v, *name);
+                if (!v || sd_json_variant_is_null(v))
+                        return -ENODATA;
+        }
+
+        *ret = v;
+        return 0;
 }

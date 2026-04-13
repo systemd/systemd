@@ -193,6 +193,7 @@ static int call_get_addresses(
         assert(name);
         assert(prefix);
         assert(prefix2);
+        assert(ret);
 
         r = bus_call_method(bus, bus_machine_mgr, "GetMachineAddresses", NULL, &reply, "s", name);
         if (r < 0)
@@ -262,7 +263,7 @@ static int show_table(Table *table, const char *word) {
                 if (OUTPUT_MODE_IS_JSON(arg_output))
                         r = table_print_json(table, NULL, output_mode_to_json_format_flags(arg_output) | SD_JSON_FORMAT_COLOR_AUTO);
                 else
-                        r = table_print(table, NULL);
+                        r = table_print(table);
                 if (r < 0)
                         return table_log_print_error(r);
         }
@@ -277,7 +278,7 @@ static int show_table(Table *table, const char *word) {
         return 0;
 }
 
-static int list_machines(int argc, char *argv[], void *userdata) {
+static int verb_list_machines(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -354,7 +355,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         return show_table(table, "machines");
 }
 
-static int list_images(int argc, char *argv[], void *userdata) {
+static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -745,7 +746,7 @@ static int show_machine_properties(sd_bus *bus, const char *path, bool *new_line
         return r;
 }
 
-static int show_machine(int argc, char *argv[], void *userdata) {
+static int verb_show_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool properties, new_line = false;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1036,7 +1037,7 @@ static int show_image_properties(sd_bus *bus, const char *path, bool *new_line) 
         return r;
 }
 
-static int show_image(int argc, char *argv[], void *userdata) {
+static int verb_show_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool properties, new_line = false;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1080,7 +1081,7 @@ static int show_image(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int kill_machine(int argc, char *argv[], void *userdata) {
+static int verb_kill_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1105,7 +1106,7 @@ static int kill_machine(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int reboot_machine(int argc, char *argv[], void *userdata) {
+static int verb_reboot_machine(int argc, char *argv[], uintptr_t data, void *userdata) {
         if (arg_runner == RUNNER_VMSPAWN)
                 return log_error_errno(
                                 SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -1115,17 +1116,17 @@ static int reboot_machine(int argc, char *argv[], void *userdata) {
         arg_kill_whom = "leader";
         arg_signal = SIGINT; /* sysvinit + systemd */
 
-        return kill_machine(argc, argv, userdata);
+        return verb_kill_machine(argc, argv, data, userdata);
 }
 
-static int poweroff_machine(int argc, char *argv[], void *userdata) {
+static int verb_poweroff_machine(int argc, char *argv[], uintptr_t data, void *userdata) {
         arg_kill_whom = "leader";
         arg_signal = SIGRTMIN+4; /* only systemd */
 
-        return kill_machine(argc, argv, userdata);
+        return verb_kill_machine(argc, argv, data, userdata);
 }
 
-static int terminate_machine(int argc, char *argv[], void *userdata) {
+static int verb_terminate_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1148,7 +1149,7 @@ static const char *select_copy_method(bool copy_from, bool force) {
                 return copy_from ? "CopyFromMachine" : "CopyToMachine";
 }
 
-static int copy_files(int argc, char *argv[], void *userdata) {
+static int verb_copy_files(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *abs_host_path = NULL;
@@ -1203,7 +1204,7 @@ static int copy_files(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int bind_mount(int argc, char *argv[], void *userdata) {
+static int verb_bind_mount(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1308,6 +1309,9 @@ static int parse_machine_uid(const char *spec, const char **machine, char **uid)
         char *_uid = NULL;
         const char *_machine = NULL;
 
+        assert(uid);
+        assert(machine);
+
         if (spec) {
                 const char *at;
 
@@ -1336,7 +1340,7 @@ static int parse_machine_uid(const char *spec, const char **machine, char **uid)
         return 0;
 }
 
-static int login_machine(int argc, char *argv[], void *userdata) {
+static int verb_login_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
@@ -1387,7 +1391,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         return process_forward(event, slot, master, PTY_FORWARD_IGNORE_VHANGUP, machine);
 }
 
-static int shell_machine(int argc, char *argv[], void *userdata) {
+static int verb_shell_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
@@ -1515,7 +1519,7 @@ static int get_settings_path(const char *name, char **ret_path) {
         return -ENOENT;
 }
 
-static int edit_settings(int argc, char *argv[], void *userdata) {
+static int verb_edit_settings(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(edit_file_context_done) EditFileContext context = {};
         int r;
 
@@ -1585,7 +1589,7 @@ static int edit_settings(int argc, char *argv[], void *userdata) {
         return do_edit_files_and_install(&context);
 }
 
-static int cat_settings(int argc, char *argv[], void *userdata) {
+static int verb_cat_settings(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r = 0;
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
@@ -1636,7 +1640,7 @@ static int cat_settings(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int remove_image(int argc, char *argv[], void *userdata) {
+static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1663,7 +1667,7 @@ static int remove_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int rename_image(int argc, char *argv[], void *userdata) {
+static int verb_rename_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1683,7 +1687,7 @@ static int rename_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int clone_image(int argc, char *argv[], void *userdata) {
+static int verb_clone_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1707,7 +1711,7 @@ static int clone_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int read_only_image(int argc, char *argv[], void *userdata) {
+static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int b = true, r;
@@ -1765,7 +1769,7 @@ static int make_service_name(const char *name, char **ret) {
         return 0;
 }
 
-static int start_machine(int argc, char *argv[], void *userdata) {
+static int verb_start_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1821,7 +1825,7 @@ static int start_machine(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int enable_machine(int argc, char *argv[], void *userdata) {
+static int verb_enable_machine(int argc, char *argv[], uintptr_t data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method;
@@ -1909,15 +1913,15 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
                         return log_oom();
 
                 if (enable)
-                        return start_machine(strv_length(new_args), new_args, userdata);
+                        return verb_start_machine(strv_length(new_args), new_args, data, userdata);
 
-                return poweroff_machine(strv_length(new_args), new_args, userdata);
+                return verb_poweroff_machine(strv_length(new_args), new_args, data, userdata);
         }
 
         return 0;
 }
 
-static int set_limit(int argc, char *argv[], void *userdata) {
+static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         uint64_t limit;
@@ -1947,7 +1951,7 @@ static int set_limit(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int clean_images(int argc, char *argv[], void *userdata) {
+static int verb_clean_images(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         uint64_t usage, total = 0;
@@ -2048,7 +2052,7 @@ static int chainload_importctl(int argc, char *argv[]) {
         return log_error_errno(r, "Failed to invoke 'importctl': %m");
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -2135,6 +2139,10 @@ static int help(int argc, char *argv[], void *userdata) {
                ansi_normal());
 
         return 0;
+}
+
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -2257,7 +2265,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'h':
-                        return help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -2444,35 +2452,35 @@ done:
 static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
 
         static const Verb verbs[] = {
-                { "help",            VERB_ANY, VERB_ANY, 0,            help              },
-                { "list",            VERB_ANY, 1,        VERB_DEFAULT, list_machines     },
-                { "list-images",     VERB_ANY, 1,        0,            list_images       },
-                { "status",          2,        VERB_ANY, 0,            show_machine      },
-                { "image-status",    VERB_ANY, VERB_ANY, 0,            show_image        },
-                { "show",            VERB_ANY, VERB_ANY, 0,            show_machine      },
-                { "show-image",      VERB_ANY, VERB_ANY, 0,            show_image        },
-                { "terminate",       2,        VERB_ANY, 0,            terminate_machine },
-                { "reboot",          2,        VERB_ANY, 0,            reboot_machine    },
-                { "restart",         2,        VERB_ANY, 0,            reboot_machine    }, /* Convenience alias */
-                { "poweroff",        2,        VERB_ANY, 0,            poweroff_machine  },
-                { "stop",            2,        VERB_ANY, 0,            poweroff_machine  }, /* Convenience alias */
-                { "kill",            2,        VERB_ANY, 0,            kill_machine      },
-                { "login",           VERB_ANY, 2,        0,            login_machine     },
-                { "shell",           VERB_ANY, VERB_ANY, 0,            shell_machine     },
-                { "bind",            3,        4,        0,            bind_mount        },
-                { "edit",            2,        VERB_ANY, 0,            edit_settings     },
-                { "cat",             2,        VERB_ANY, 0,            cat_settings      },
-                { "copy-to",         3,        4,        0,            copy_files        },
-                { "copy-from",       3,        4,        0,            copy_files        },
-                { "remove",          2,        VERB_ANY, 0,            remove_image      },
-                { "rename",          3,        3,        0,            rename_image      },
-                { "clone",           3,        3,        0,            clone_image       },
-                { "read-only",       2,        3,        0,            read_only_image   },
-                { "start",           2,        VERB_ANY, 0,            start_machine     },
-                { "enable",          2,        VERB_ANY, 0,            enable_machine    },
-                { "disable",         2,        VERB_ANY, 0,            enable_machine    },
-                { "set-limit",       2,        3,        0,            set_limit         },
-                { "clean",           VERB_ANY, 1,        0,            clean_images      },
+                { "help",            VERB_ANY, VERB_ANY, 0,            verb_help              },
+                { "list",            VERB_ANY, 1,        VERB_DEFAULT, verb_list_machines     },
+                { "list-images",     VERB_ANY, 1,        0,            verb_list_images       },
+                { "status",          2,        VERB_ANY, 0,            verb_show_machine      },
+                { "image-status",    VERB_ANY, VERB_ANY, 0,            verb_show_image        },
+                { "show",            VERB_ANY, VERB_ANY, 0,            verb_show_machine      },
+                { "show-image",      VERB_ANY, VERB_ANY, 0,            verb_show_image        },
+                { "terminate",       2,        VERB_ANY, 0,            verb_terminate_machine },
+                { "reboot",          2,        VERB_ANY, 0,            verb_reboot_machine    },
+                { "restart",         2,        VERB_ANY, 0,            verb_reboot_machine    }, /* Convenience alias */
+                { "poweroff",        2,        VERB_ANY, 0,            verb_poweroff_machine  },
+                { "stop",            2,        VERB_ANY, 0,            verb_poweroff_machine  }, /* Convenience alias */
+                { "kill",            2,        VERB_ANY, 0,            verb_kill_machine      },
+                { "login",           VERB_ANY, 2,        0,            verb_login_machine     },
+                { "shell",           VERB_ANY, VERB_ANY, 0,            verb_shell_machine     },
+                { "bind",            3,        4,        0,            verb_bind_mount        },
+                { "edit",            2,        VERB_ANY, 0,            verb_edit_settings     },
+                { "cat",             2,        VERB_ANY, 0,            verb_cat_settings      },
+                { "copy-to",         3,        4,        0,            verb_copy_files        },
+                { "copy-from",       3,        4,        0,            verb_copy_files        },
+                { "remove",          2,        VERB_ANY, 0,            verb_remove_image      },
+                { "rename",          3,        3,        0,            verb_rename_image      },
+                { "clone",           3,        3,        0,            verb_clone_image       },
+                { "read-only",       2,        3,        0,            verb_read_only_image   },
+                { "start",           2,        VERB_ANY, 0,            verb_start_machine     },
+                { "enable",          2,        VERB_ANY, 0,            verb_enable_machine    },
+                { "disable",         2,        VERB_ANY, 0,            verb_enable_machine    },
+                { "set-limit",       2,        3,        0,            verb_set_limit         },
+                { "clean",           VERB_ANY, 1,        0,            verb_clean_images      },
                 {}
         };
 

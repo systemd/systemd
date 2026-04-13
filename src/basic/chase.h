@@ -29,12 +29,14 @@ typedef enum ChaseFlags {
         CHASE_EXTRACT_FILENAME   = 1 << 13, /* Only return the last component of the resolved path */
         CHASE_MUST_BE_DIRECTORY  = 1 << 14, /* Fail if returned inode fd is not a dir */
         CHASE_MUST_BE_REGULAR    = 1 << 15, /* Fail if returned inode fd is not a regular file */
+        CHASE_MUST_BE_SOCKET     = 1 << 16, /* Fail if returned inode fd is not a socket */
 } ChaseFlags;
 
-bool unsafe_transition(const struct stat *a, const struct stat *b);
+int statx_unsafe_transition(const struct statx *a, const struct statx *b);
+bool stat_unsafe_transition(const struct stat *a, const struct stat *b);
 
 /* How many iterations to execute before returning -ELOOP */
-#define CHASE_MAX 32
+#define CHASE_MAX 128U
 
 int chase(const char *path_with_prefix, const char *root, ChaseFlags flags, char **ret_path, int *ret_fd);
 

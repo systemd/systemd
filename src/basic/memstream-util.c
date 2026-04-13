@@ -69,7 +69,7 @@ int memstream_dump_internal(
 
         r = memstream_finalize(m, &buf, NULL);
         if (r < 0)
-                return log_full_errno(level, r, "Failed to flush memstream: %m: %m");
+                return log_full_errno(level, r, "Failed to flush memstream: %m");
 
         return log_dump_internal(level, error, file, line, func, buf);
 }

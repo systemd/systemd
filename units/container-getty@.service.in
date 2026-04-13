@@ -22,7 +22,7 @@ Conflicts=rescue.service
 Before=rescue.service
 
 [Service]
-ExecStart=-{{AGETTY}} --noreset --noclear --issue-file=/etc/issue:/etc/issue.d:/run/issue.d:/usr/lib/issue.d - ${TERM}
+ExecStart=-{{AGETTY}} --noreset --noclear - ${TERM}
 Type=idle
 Restart=always
 RestartSec=0

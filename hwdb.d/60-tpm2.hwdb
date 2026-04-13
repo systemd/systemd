@@ -1,0 +1,14 @@
+# This file is part of systemd.
+#
+# Use "systemd-analyze identify-tpm2" to generate the modalias string for your
+# hardware. Don't forget to prefix it with "tpm2:" for inclusion in a match here.
+#
+# Currently, the only relevant property to set here is TPM2_BROKEN_NVPCR=1,
+# which should be set on TPMs where NvPCRs don't work. Specifically, because
+# on some hardware the combination of TPMA_NV_ORDERLY + TPM2_NT_EXTEND cause
+# NV_Extend() operations to time out. For details, see:
+# https://github.com/systemd/systemd/issues/40485
+
+# ST33TPHF2ESPI Firmware 73.4
+tpm2:*:mfSTM:*:fw73.4.*:
+ TPM2_BROKEN_NVPCR=1

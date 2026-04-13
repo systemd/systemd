@@ -148,13 +148,11 @@ static int inhibitor_save(Inhibitor *i) {
 }
 
 static int bus_manager_send_inhibited_change(Inhibitor *i) {
-        const char *property;
-
         assert(i);
 
-        property = IN_SET(i->mode, INHIBIT_BLOCK, INHIBIT_BLOCK_WEAK) ? "BlockInhibited" : "DelayInhibited";
-
-        return manager_send_changed(i->manager, property);
+        return manager_send_changed(i->manager,
+                                    i->mode == INHIBIT_DELAY ? "DelayInhibited" : "BlockInhibited",
+                                    "NCurrentInhibitors");
 }
 
 int inhibitor_start(Inhibitor *i) {

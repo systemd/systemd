@@ -84,7 +84,7 @@ check_elapse_timestamp
 # elapse timestamp (this goes through a slightly different codepath that actually contained the original
 # issue).
 : "Next elapse timestamp after time jump"
-date -s "tomorrow 00:10"
+date --set="tomorrow 00:10"
 check_elapse_timestamp
 
 : "Next elapse timestamp after daemon-reload"

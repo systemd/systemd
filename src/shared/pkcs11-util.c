@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-dlopen.h"
+
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
@@ -401,6 +403,8 @@ static int read_public_key_info(
                 CK_OBJECT_HANDLE object,
                 EVP_PKEY **ret_pkey) {
 
+        assert(ret_pkey);
+
         CK_ATTRIBUTE attribute = { CKA_PUBLIC_KEY_INFO, NULL_PTR, 0 };
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         CK_RV rv;
@@ -442,6 +446,8 @@ int pkcs11_token_read_public_key(
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         CK_RV rv;
         int r;
+
+        assert(ret_pkey);
 
         r = read_public_key_info(m, session, object, &pkey);
         if (r >= 0) {
@@ -666,6 +672,8 @@ int pkcs11_token_read_x509_certificate(
         X509_NAME *name = NULL;
         int r;
 
+        assert(ret_cert);
+
         r = dlopen_p11kit();
         if (r < 0)
                 return r;
@@ -872,6 +880,8 @@ int pkcs11_token_find_related_object(
         CK_OBJECT_HANDLE objects[2];
         CK_RV rv;
 
+        assert(ret_object);
+
         rv = m->C_GetAttributeValue(session, prototype, attributes, ELEMENTSOF(attributes));
         if (!IN_SET(rv, CKR_OK, CKR_ATTRIBUTE_TYPE_INVALID))
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve length of attributes: %s", sym_p11_kit_strerror(rv));
@@ -946,6 +956,9 @@ static int ecc_convert_to_compressed(
         CK_ATTRIBUTE ec_params_attr = { CKA_EC_PARAMS, NULL_PTR, 0 };
         CK_RV rv;
         int r;
+
+        assert(ret_compressed_point);
+        assert(ret_compressed_point_size);
 
         rv = m->C_GetAttributeValue(session, object, &ec_params_attr, 1);
         if (!IN_SET(rv, CKR_OK, CKR_ATTRIBUTE_TYPE_INVALID))
@@ -1070,6 +1083,9 @@ static int pkcs11_token_decrypt_data_ecc(
         int r;
 #endif
 
+        assert(ret_decrypted_data);
+        assert(ret_decrypted_data_size);
+
         rv = m->C_GetSessionInfo(session, &session_info);
         if (rv != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
@@ -1149,6 +1165,9 @@ static int pkcs11_token_decrypt_data_rsa(
         _cleanup_(erase_and_freep) CK_BYTE *dbuffer = NULL;
         CK_ULONG dbuffer_size = 0;
         CK_RV rv;
+
+        assert(ret_decrypted_data);
+        assert(ret_decrypted_data_size);
 
         rv = m->C_DecryptInit(session, (CK_MECHANISM*) &mechanism, object);
         if (rv != CKR_OK)
@@ -1766,9 +1785,10 @@ static int list_callback(
 
 int dlopen_p11kit(void) {
 #if HAVE_P11KIT
-        ELF_NOTE_DLOPEN("p11-kit",
+        SD_ELF_NOTE_DLOPEN(
+                        "p11-kit",
                         "Support for PKCS11 hardware tokens",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libp11-kit.so.0");
 
         return dlopen_many_sym_or_warn(
@@ -1813,11 +1833,7 @@ int pkcs11_list_tokens(void) {
                 return 0;
         }
 
-        r = table_print(t, stdout);
-        if (r < 0)
-                return log_error_errno(r, "Failed to show device table: %m");
-
-        return 0;
+        return table_print_or_warn(t);
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "PKCS#11 tokens not supported on this build.");

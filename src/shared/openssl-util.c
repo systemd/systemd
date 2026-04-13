@@ -487,6 +487,9 @@ int rsa_encrypt_bytes(
         _cleanup_free_ void *b = NULL;
         size_t l;
 
+        assert(ret_encrypt_key);
+        assert(ret_encrypt_key_size);
+
         ctx = EVP_PKEY_CTX_new(pkey, NULL);
         if (!ctx)
                 return log_openssl_errors("Failed to allocate public key context");
@@ -1097,6 +1100,11 @@ static int ecc_pkey_generate_volume_keys(
                 void **ret_saved_key,
                 size_t *ret_saved_key_size) {
 
+        assert(ret_decrypted_key);
+        assert(ret_decrypted_key_size);
+        assert(ret_saved_key);
+        assert(ret_saved_key_size);
+
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_new = NULL;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_free_ unsigned char *saved_key = NULL;
@@ -1149,6 +1157,11 @@ static int rsa_pkey_generate_volume_keys(
         _cleanup_free_ void *saved_key = NULL;
         size_t decrypted_key_size, saved_key_size;
         int r;
+
+        assert(ret_decrypted_key);
+        assert(ret_decrypted_key_size);
+        assert(ret_saved_key);
+        assert(ret_saved_key_size);
 
         r = rsa_pkey_to_suitable_key_size(pkey, &decrypted_key_size);
         if (r < 0)
@@ -1208,6 +1221,7 @@ int pkey_generate_volume_keys(
 static int load_key_from_provider(
                 const char *provider,
                 const char *private_key_uri,
+                UI_METHOD *ui_method,
                 EVP_PKEY **ret) {
 
         assert(provider);
@@ -1223,8 +1237,8 @@ static int load_key_from_provider(
 
         _cleanup_(OSSL_STORE_closep) OSSL_STORE_CTX *store = OSSL_STORE_open(
                         private_key_uri,
-                        /* ui_method= */ NULL,
-                        /* ui_method= */ NULL,
+                        ui_method,
+                        /* ui_data= */ NULL,
                         /* post_process= */ NULL,
                         /* post_process_data= */ NULL);
         if (!store)
@@ -1246,7 +1260,7 @@ static int load_key_from_provider(
         return 0;
 }
 
-static int load_key_from_engine(const char *engine, const char *private_key_uri, EVP_PKEY **ret) {
+static int load_key_from_engine(const char *engine, const char *private_key_uri, UI_METHOD *ui_method, EVP_PKEY **ret) {
         assert(engine);
         assert(private_key_uri);
         assert(ret);
@@ -1260,7 +1274,7 @@ static int load_key_from_engine(const char *engine, const char *private_key_uri,
         if (ENGINE_init(e) == 0)
                 return log_openssl_errors("Failed to initialize signing engine '%s'", engine);
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = ENGINE_load_private_key(e, private_key_uri, /* ui_method= */ NULL, /* callback_data= */ NULL);
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = ENGINE_load_private_key(e, private_key_uri, ui_method, /* callback_data= */ NULL);
         if (!private_key)
                 return log_openssl_errors("Failed to load private key from '%s'", private_key_uri);
         REENABLE_WARNING;
@@ -1338,13 +1352,13 @@ static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) 
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse PEM private key: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
-        if (ret)
-                *ret = TAKE_PTR(pk);
+        *ret = TAKE_PTR(pk);
 
         return 0;
 }
 
 static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSSLAskPasswordUI **ret) {
+        assert(request);
         assert(ret);
 
 #ifndef OPENSSL_NO_UI_CONSOLE
@@ -1403,8 +1417,7 @@ static int load_x509_certificate_from_file(const char *path, X509 **ret) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse X.509 certificate: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
-        if (ret)
-                *ret = TAKE_PTR(cert);
+        *ret = TAKE_PTR(cert);
 
         return 0;
 }
@@ -1533,13 +1546,18 @@ int openssl_load_private_key(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to allocate ask-password user interface: %m");
 
+                UI_METHOD *ui_method = NULL;
+#ifndef OPENSSL_NO_UI_CONSOLE
+                ui_method = ui->method;
+#endif
+
                 switch (private_key_source_type) {
 
                 case OPENSSL_KEY_SOURCE_ENGINE:
-                        r = load_key_from_engine(private_key_source, private_key, ret_private_key);
+                        r = load_key_from_engine(private_key_source, private_key, ui_method, ret_private_key);
                         break;
                 case OPENSSL_KEY_SOURCE_PROVIDER:
-                        r = load_key_from_provider(private_key_source, private_key, ret_private_key);
+                        r = load_key_from_provider(private_key_source, private_key, ui_method, ret_private_key);
                         break;
                 default:
                         assert_not_reached();
