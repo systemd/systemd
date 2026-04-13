@@ -1112,20 +1112,14 @@ static int context_acquire_data(Context *c) {
                 if (!token_header)
                         return context_log_oom(c);
 
-                struct curl_slist *n = curl_slist_append(c->request_header_data, token_header);
-                if (!n)
-                        return context_log_oom(c);
-
-                c->request_header_data = n;
+                r = curl_append_to_header(&c->request_header_data, STRV_MAKE(token_header));
+                if (r < 0)
+                        return context_log_errno(c, LOG_ERR, r, "Failed to create curl header: %m");
         }
 
-        STRV_FOREACH(i, arg_extra_header) {
-                struct curl_slist *n = curl_slist_append(c->request_header_data, *i);
-                if (!n)
-                        return context_log_oom(c);
-
-                c->request_header_data = n;
-        }
+        r = curl_append_to_header(&c->request_header_data, arg_extra_header);
+        if (r < 0)
+                return context_log_errno(c, LOG_ERR, r, "Failed to create curl header: %m");
 
         if (c->request_header_data)
                 if (curl_easy_setopt(c->curl_data, CURLOPT_HTTPHEADER, c->request_header_data) != CURLE_OK)
