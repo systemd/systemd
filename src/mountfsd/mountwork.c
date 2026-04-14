@@ -748,7 +748,7 @@ static int vl_method_mount_image(
 
                 r = sd_json_variant_append_arraybo(
                                 &aj,
-                                SD_JSON_BUILD_PAIR_STRING("designator", partition_designator_to_string(d)),
+                                JSON_BUILD_PAIR_ENUM("designator", partition_designator_to_string(d)),
                                 SD_JSON_BUILD_PAIR_BOOLEAN("writable", pp->rw),
                                 SD_JSON_BUILD_PAIR_BOOLEAN("growFileSystem", pp->growfs),
                                 SD_JSON_BUILD_PAIR_CONDITION(pp->partno > 0, "partitionNumber", SD_JSON_BUILD_INTEGER(pp->partno)),
