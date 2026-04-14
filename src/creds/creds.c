@@ -949,6 +949,34 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_pretty = true;
                         break;
 
+                case ARG_NAME:
+                        if (isempty(optarg)) {
+                                arg_name = NULL;
+                                arg_name_any = true;
+                                break;
+                        }
+
+                        if (!credential_name_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid credential name: %s", optarg);
+
+                        arg_name = optarg;
+                        arg_name_any = false;
+                        break;
+
+                case ARG_TIMESTAMP:
+                        r = parse_timestamp(optarg, &arg_timestamp);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse timestamp: %s", optarg);
+
+                        break;
+
+                case ARG_NOT_AFTER:
+                        r = parse_timestamp(optarg, &arg_not_after);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --not-after= timestamp: %s", optarg);
+
+                        break;
+
                 case ARG_WITH_KEY:
                         if (streq(optarg, "help")) {
                                 if (arg_legend)
@@ -1007,34 +1035,6 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_signature);
                         if (r < 0)
                                 return r;
-
-                        break;
-
-                case ARG_NAME:
-                        if (isempty(optarg)) {
-                                arg_name = NULL;
-                                arg_name_any = true;
-                                break;
-                        }
-
-                        if (!credential_name_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid credential name: %s", optarg);
-
-                        arg_name = optarg;
-                        arg_name_any = false;
-                        break;
-
-                case ARG_TIMESTAMP:
-                        r = parse_timestamp(optarg, &arg_timestamp);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse timestamp: %s", optarg);
-
-                        break;
-
-                case ARG_NOT_AFTER:
-                        r = parse_timestamp(optarg, &arg_not_after);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --not-after= timestamp: %s", optarg);
 
                         break;
 
