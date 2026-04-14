@@ -1,0 +1,21 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Grant systemd-networkd access to the Open vSwitch database socket
+Documentation=man:networkd.conf(5)
+
+[Service]
+Type=oneshot
+# systemd-networkd runs as the unprivileged "systemd-network" user and must be able
+# to traverse the runtime directory and connect to (i.e. write) the OVSDB socket. A
+# per-user ACL grants exactly that, independent of the socket's owning group and mode,
+# which vary across distributions. Requires setfacl(1) from the acl package.
+ExecStart=setfacl -m u:systemd-network:rx /run/openvswitch
+ExecStart=setfacl -m u:systemd-network:rw /run/openvswitch/db.sock
