@@ -4573,7 +4573,8 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
-                case _JSON_BUILD_PAIR_STRING_NON_EMPTY: {
+                case _JSON_BUILD_PAIR_STRING_NON_EMPTY:
+                case _JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY: {
                         const char *n, *s;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
@@ -4589,7 +4590,16 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
-                                r = sd_json_variant_new_string(&add_more, s);
+                                if (command == _JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY) {
+                                        _cleanup_free_ char *c = strdup(s);
+                                        if (!c) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+
+                                        r = sd_json_variant_new_string(&add_more, json_underscorify(c));
+                                } else
+                                        r = sd_json_variant_new_string(&add_more, s);
                                 if (r < 0)
                                         goto finish;
                         }
