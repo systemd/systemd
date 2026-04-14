@@ -125,7 +125,7 @@ def hwdb_grammar():
     matchline = (matchline_typed | matchline_general) + EOL
 
     propertyline = (White(' ', exact=1).suppress() +
-                    Combine(UDEV_TAG - '=' - Optional(Word(alphanums + '_=:@*.!-;, "/'))
+                    Combine(UDEV_TAG - '=' - Optional(Word(alphanums + '_=:@*.!-;, "/?&'))
                             - Optional(pythonStyleComment)) +
                     EOL)
     propertycomment = White(' ', exact=1) + pythonStyleComment + EOL
@@ -215,6 +215,24 @@ def property_grammar():
              ('ID_NET_NAME_FROM_DATABASE', name_literal),
              ('ID_NET_NAME_INCLUDE_DOMAIN', zero_one),
              ('TPM2_BROKEN_NVPCR', zero_one),
+             ('IMDS_VENDOR', name_literal),
+             ('IMDS_TOKEN_URL', name_literal),
+             ('IMDS_REFRESH_HEADER_NAME', name_literal),
+             ('IMDS_DATA_URL', name_literal),
+             ('IMDS_DATA_URL_SUFFIX', name_literal),
+             ('IMDS_TOKEN_HEADER_NAME', name_literal),
+             ('IMDS_EXTRA_HEADER', name_literal),
+             ('IMDS_ADDRESS_IPV4', name_literal),
+             ('IMDS_ADDRESS_IPV6', name_literal),
+             ('IMDS_KEY_HOSTNAME', name_literal),
+             ('IMDS_KEY_REGION', name_literal),
+             ('IMDS_KEY_ZONE', name_literal),
+             ('IMDS_KEY_IPV4_PUBLIC', name_literal),
+             ('IMDS_KEY_IPV6_PUBLIC', name_literal),
+             ('IMDS_KEY_SSH_KEY', name_literal),
+             ('IMDS_KEY_USERDATA', name_literal),
+             ('IMDS_KEY_USERDATA_BASE', name_literal),
+             ('IMDS_KEY_USERDATA_BASE64', name_literal),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
