@@ -1198,6 +1198,27 @@ RestartMaxDelaySec=160s</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>NotifyRateLimitIntervalSec=</varname></term>
+        <term><varname>NotifyRateLimitBurst=</varname></term>
+
+        <listitem><para>Configures rate limiting applied to messages sent by the service to the notification socket
+        (as accessible via the
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> call). If the
+        service sends more than <varname>NotifyRateLimitBurst=</varname> messages within
+        <varname>NotifyRateLimitIntervalSec=</varname>, further messages are rejected by the kernel and
+        <function>sendmsg()</function> returns <constant>EAGAIN</constant>. The rate limit is enforced using
+        a BPF LSM program and hence requires BPF LSM support to be enabled in the kernel. If the kernel does not support
+        BPF LSM, the rate limit is not applied. The rate limit is only applied to services which are expected to send
+        messages to the notification socket. Set either option to zero to disable rate limiting for this service.
+        <varname>NotifyRateLimitIntervalSec=</varname> defaults to 1s. <varname>NotifyRateLimitBurst=</varname> defaults
+        to 10. These defaults may be changed globally via the <varname>DefaultNotifyRateLimitIntervalSec=</varname>
+        and <varname>DefaultNotifyRateLimitBurst=</varname> options, see
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Sockets=</varname></term>
         <listitem><para>Specifies the name of the socket units this
         service shall inherit socket file descriptors from when the
