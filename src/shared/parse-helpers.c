@@ -135,7 +135,7 @@ int parse_address_families(const char *rvalue, Set **families, bool *is_allowlis
 
                 /* If we previously wanted to forbid an address family and now we want to allow it, then
                  * just remove it from the list. */
-                if (!invert == *is_allowlist) {
+                if (invert != *is_allowlist) {
                         r = set_put(*families, INT_TO_PTR(af));
                         if (r < 0)
                                 return r;
