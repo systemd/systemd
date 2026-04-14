@@ -1248,6 +1248,33 @@ DuplicateAddressDetection=none</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>OVSBridge=</varname></term>
+        <listitem>
+          <para>The name of the OVS bridge to attach this interface to as a system port.
+          Mutually exclusive with <varname>BatmanAdvanced=</varname>, <varname>Bridge=</varname>,
+          <varname>Bond=</varname>, <varname>VRF=</varname>, and <varname>OVSBond=</varname>.</para>
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>OVSBond=</varname></term>
+        <listitem>
+          <para>Specifies the name of an OVS bond port (configured as a
+          <filename>.netdev</filename> with <varname>Kind=ovs-port</varname> and
+          <varname>Type=bond</varname>) to add this interface to as a bond member.
+          The matched interface is attached to the bond port in OVSDB as a system-type
+          interface. Multiple <filename>.network</filename> files can reference the
+          same bond to form multi-member bonds.</para>
+
+          <para>Mutually exclusive with <varname>BatmanAdvanced=</varname>,
+          <varname>Bridge=</varname>, <varname>Bond=</varname>,
+          <varname>VRF=</varname>, and <varname>OVSBridge=</varname>.</para>
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPoIB=</varname></term>
         <term><varname>IPVLAN=</varname></term>
         <term><varname>IPVTAP=</varname></term>
@@ -6583,6 +6610,36 @@ IPv6AcceptRA=no
         </listitem>
       </varlistentry>
 
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[OVSPort] Section Options</title>
+
+    <para>The [OVSPort] section configures per-link Open vSwitch port settings when the
+    interface is attached to an OVS bridge via <varname>OVSBridge=</varname>. These
+    settings apply to the standalone Port row created for this interface; they do
+    NOT apply to bond members attached via <varname>OVSBond=</varname> (those are
+    Interface rows inside the bond's Port and inherit the bond Port's VLAN settings):</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Tag=</varname></term>
+        <listitem>
+          <para>Sets the access VLAN tag (0-4094) for this port.</para>
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>VLANMode=</varname></term>
+        <listitem>
+          <para>Sets the VLAN mode. Takes <literal>access</literal>,
+          <literal>trunk</literal>, <literal>native-tagged</literal>,
+          <literal>native-untagged</literal>, or
+          <literal>dot1q-tunnel</literal>.</para>
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
