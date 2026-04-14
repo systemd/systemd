@@ -24,6 +24,7 @@
 #include "networkd-radv.h"
 #include "networkd-sysctl.h"
 #include "networkd-wwan-bus.h"
+#include "ovs-port.h"
 #include "resolve-util.h"
 #include "tlv-util.h"
 
@@ -83,6 +84,14 @@ typedef struct Network {
         char *bond_name;
         char *vrf_name;
         Hashmap *stacked_netdev_names;
+
+        /* OVS master netdev */
+        char *ovs_bridge_name;
+        char *ovs_bond_name;
+
+        /* [OVSPort] per-link settings (only meaningful with OVSBridge=) */
+        uint16_t ovs_port_tag;          /* VLANID_INVALID = unset */
+        OVSPortVLANMode ovs_port_vlan_mode;     /* _OVS_PORT_VLAN_MODE_INVALID = unset */
 
         /* [Link] section */
         struct hw_addr_data hw_addr;
