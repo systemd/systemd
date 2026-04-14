@@ -80,6 +80,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(isSelected, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Addon images of the entry."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(addons, BootEntryAddon, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Extra files associated with the entry"),
+                SD_VARLINK_DEFINE_FIELD(extras, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("Command line options of the entry."),
                 SD_VARLINK_DEFINE_FIELD(cmdline, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
@@ -134,6 +136,53 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("If true the boot loader will be registered in an EFI boot entry via EFI variables, otherwise this is omitted"),
                 SD_VARLINK_DEFINE_INPUT(touchVariables, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                Unlink,
+                SD_VARLINK_FIELD_COMMENT("Index into array of file descriptors passed along with this message, pointing to file descriptor to root file system to operate on"),
+                SD_VARLINK_DEFINE_INPUT(rootFileDescriptor, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Root directory to operate relative to. If both this and rootFileDescriptor is specified, this is purely informational. If only this is specified, it is what will be used."),
+                SD_VARLINK_DEFINE_INPUT(rootDirectory, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Selects how to identify boot entries"),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(bootEntryTokenType, BootEntryTokenType, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The ID of the boot loader entry to remove."),
+                SD_VARLINK_DEFINE_INPUT(id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, remove the oldest entry."),
+                SD_VARLINK_DEFINE_INPUT(oldest, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                BootEntryExtraFile,
+                SD_VARLINK_FIELD_COMMENT("The name of the extra file"),
+                SD_VARLINK_DEFINE_FIELD(filename, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Index into array of file descriptors, pointing to a file descriptor referencing the extra file."),
+                SD_VARLINK_DEFINE_FIELD(fileDescriptor, SD_VARLINK_INT, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                Link,
+                SD_VARLINK_FIELD_COMMENT("Index into array of file descriptors passed along with this message, pointing to file descriptor to root file system to operate on"),
+                SD_VARLINK_DEFINE_INPUT(rootFileDescriptor, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Root directory to operate relative to. If both this and rootFileDescriptor is specified, this is purely informational. If only this is specified, it is what will be used."),
+                SD_VARLINK_DEFINE_INPUT(rootDirectory, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Selects how to identify boot entries"),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(bootEntryTokenType, BootEntryTokenType, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The entry title for the newly created boot menu entry"),
+                SD_VARLINK_DEFINE_INPUT(entryTitle, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The entry version for the newly created boot menu entry"),
+                SD_VARLINK_DEFINE_INPUT(entryVersion, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The commit number for the newly created boot menu entry"),
+                SD_VARLINK_DEFINE_INPUT(entryCommit, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Filename of the kernel image (UKI), under which to place the kernel image in the $BOOT partition"),
+                SD_VARLINK_DEFINE_INPUT(kernelFilename, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Index into array of file descriptors passed along with this message, pointing to file descriptor to the kernel image to copy"),
+                SD_VARLINK_DEFINE_INPUT(kernelFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("An array of 'extra' files for this entry, i.e. credentials, confexts, sysexts, addons."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(extraFiles, BootEntryExtraFile, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("What to set the triesLeft counter of the boot menu entry to initially."),
+                SD_VARLINK_DEFINE_INPUT(triesLeft, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("How much space to always keep free on ESP/XBOOTLDR. Defaults to 1 MiB"),
+                SD_VARLINK_DEFINE_INPUT(keepFree, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The ID of the boot loader entry just created."),
+                SD_VARLINK_DEFINE_OUTPUT(id, SD_VARLINK_STRING, 0));
+
 static SD_VARLINK_DEFINE_ERROR(
                 RebootToFirmwareNotSupported);
 
@@ -144,7 +193,13 @@ static SD_VARLINK_DEFINE_ERROR(
                 NoESPFound);
 
 static SD_VARLINK_DEFINE_ERROR(
+                NoDollarBootFound);
+
+static SD_VARLINK_DEFINE_ERROR(
                 BootEntryTokenUnavailable);
+
+static SD_VARLINK_DEFINE_ERROR(
+                InvalidKernelImage);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_BootControl,
@@ -156,6 +211,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_BootEntrySource,
                 SD_VARLINK_SYMBOL_COMMENT("A structure encapsulating an addon of a boot entry"),
                 &vl_type_BootEntryAddon,
+                SD_VARLINK_SYMBOL_COMMENT("An additional file to install"),
+                &vl_type_BootEntryExtraFile,
                 SD_VARLINK_SYMBOL_COMMENT("A structure encapsulating a boot entry"),
                 &vl_type_BootEntry,
                 SD_VARLINK_SYMBOL_COMMENT("The operation to execute"),
@@ -170,11 +227,19 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_BootEntryTokenType,
                 SD_VARLINK_SYMBOL_COMMENT("Install the boot loader on the ESP."),
                 &vl_method_Install,
+                SD_VARLINK_SYMBOL_COMMENT("Unlink a boot menu item"),
+                &vl_method_Unlink,
+                SD_VARLINK_SYMBOL_COMMENT("Install a kernel as boot menu item"),
+                &vl_method_Link,
                 SD_VARLINK_SYMBOL_COMMENT("SetRebootToFirmware() and GetRebootToFirmware() return this if the firmware does not actually support the reboot-to-firmware-UI concept."),
                 &vl_error_RebootToFirmwareNotSupported,
                 SD_VARLINK_SYMBOL_COMMENT("No boot entry defined."),
                 &vl_error_NoSuchBootEntry,
                 SD_VARLINK_SYMBOL_COMMENT("No EFI System Partition (ESP) found."),
                 &vl_error_NoESPFound,
-                SD_VARLINK_SYMBOL_COMMENT("The select boot entry token could not be determined."),
-                &vl_error_BootEntryTokenUnavailable);
+                SD_VARLINK_SYMBOL_COMMENT("Neither ESP nor XBOOTLDR found, hence not $BOOT location identified."),
+                &vl_error_NoDollarBootFound,
+                SD_VARLINK_SYMBOL_COMMENT("The selected boot entry token could not be determined."),
+                &vl_error_BootEntryTokenUnavailable,
+                SD_VARLINK_SYMBOL_COMMENT("The specified kernel image is not valid."),
+                &vl_error_InvalidKernelImage);
