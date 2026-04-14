@@ -17,6 +17,7 @@
 #include "bpf-program.h"
 #include "bpf-restrict-ifaces.h"
 #include "bpf-socket-bind.h"
+#include "bpf-socket-ratelimit.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -2849,6 +2850,7 @@ void unit_prune_cgroup(Unit *u) {
 
 #if BPF_FRAMEWORK
         (void) bpf_restrict_fs_cleanup(u); /* Remove cgroup from the global LSM BPF map */
+        (void) bpf_socket_ratelimit_cleanup(u);
 #endif
 
         unit_modify_nft_set(u, /* add= */ false);
