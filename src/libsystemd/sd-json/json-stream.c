@@ -1446,7 +1446,9 @@ int json_stream_parse(JsonStream *s, sd_json_variant **ret) {
                 /* consumed is relative to begin since we always scan from the start */
                 sz = consumed;
 
-                _cleanup_free_ char *msg = strndup(begin, sz);
+                /* Use erase_and_freep so any future early-return between strndup and the
+                 * explicit_bzero_safe below cannot leak sensitive data to the heap. */
+                _cleanup_(erase_and_freep) char *msg = strndup(begin, sz);
                 if (!msg)
                         return -ENOMEM;
 
