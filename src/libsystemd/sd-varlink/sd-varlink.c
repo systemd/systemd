@@ -6,6 +6,7 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
@@ -959,6 +960,178 @@ static int generic_method_get_interface_description(
                         SD_JSON_BUILD_PAIR_STRING("description", text));
 }
 
+static int varlink_dispatch_sentinel(sd_varlink *v) {
+        int r;
+
+        assert(v);
+        assert(v->sentinel);
+
+        if (v->previous) {
+                r = json_stream_enqueue_full(&v->stream, v->previous, v->previous_fds, v->n_previous_fds);
+                if (r >= 0) {
+                        v->previous = sd_json_variant_unref(v->previous);
+                        v->previous_fds = mfree(v->previous_fds);
+                        v->n_previous_fds = 0;
+                        /* Mirror sd_varlink_reply()'s post-enqueue state machine: PENDING_* means we're
+                         * outside the dispatch stack frame (e.g. called from varlink_fiber_entry after
+                         * the fiber returned), so we go straight to IDLE_SERVER ourselves. PROCESSING_*
+                         * means we're inside varlink_dispatch_method(), which will transition us. */
+                        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE)) {
+                                varlink_clear_current(v);
+                                varlink_set_state(v, VARLINK_IDLE_SERVER);
+                        } else
+                                varlink_set_state(v, VARLINK_PROCESSED_METHOD);
+                }
+
+                return r;
+        }
+
+        char *sentinel = TAKE_PTR(v->sentinel);
+
+        /* Propagate the sentinel to the client if one was configured and no replies were enqueued by
+         * the callback. */
+        if (sentinel == POINTER_MAX)
+                r = sd_varlink_reply(v, NULL);
+        else {
+                r = sd_varlink_error(v, sentinel, NULL);
+                /* sd_varlink_error() deliberately returns a negative
+                 * errno mapped from the error id on success (so method
+                 * callbacks can `return sd_varlink_error(...);` to
+                 * enqueue a reply and propagate a matching errno in one
+                 * go). For sentinel dispatch we don't care about that
+                 * mapping — the reply is either enqueued or not, which
+                 * we detect via the state transition instead. */
+                if (IN_SET(v->state, VARLINK_PROCESSED_METHOD, VARLINK_IDLE_SERVER))
+                        r = 0;
+        }
+
+        if (sentinel != POINTER_MAX)
+                free(sentinel);
+
+        return r;
+}
+
+typedef struct VarlinkFiberData {
+        sd_varlink *link;
+        sd_json_variant *parameters;
+        sd_varlink_method_flags_t flags;
+        void *userdata;
+        sd_varlink_method_t callback;
+} VarlinkFiberData;
+
+static VarlinkFiberData* varlink_fiber_data_free(VarlinkFiberData *d) {
+        if (!d)
+                return NULL;
+
+        sd_json_variant_unref(d->parameters);
+        sd_varlink_unref(d->link);
+        return mfree(d);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkFiberData*, varlink_fiber_data_free);
+
+static void varlink_fiber_data_destroy(void *userdata) {
+        varlink_fiber_data_free(userdata);
+}
+
+static int varlink_fiber_entry(void *userdata) {
+        VarlinkFiberData *d = ASSERT_PTR(userdata);
+        sd_varlink *v = d->link;
+        int r;
+
+        r = d->callback(v, d->parameters, d->flags, d->userdata);
+
+        /* The fiber runs after varlink_dispatch_method() has already transitioned the state from
+         * VARLINK_PROCESSING_METHOD{,_MORE} to VARLINK_PENDING_METHOD{,_MORE}, so that's what we match
+         * here to decide whether the call still needs a reply. Any other state (e.g. IDLE_SERVER after
+         * the callback replied, or DISCONNECTED after sd_varlink_close()) means no fixup is needed. */
+        if (!IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
+                return r;
+
+        if (r < 0) {
+                varlink_log_errno(v, r, "Fiber returned error: %m");
+
+                /* Propagate error to the client if the method call remains unanswered. */
+                r = sd_varlink_error_errno(v, r);
+        } else if (v->sentinel) {
+                r = varlink_dispatch_sentinel(v);
+                if (r < 0)
+                        varlink_log_errno(v, r, "Failed to process sentinel: %m");
+        } else if (v->n_ref <= 2) {
+                /* Bare minimum refs (server + fiber data) means the connection wasn't stashed
+                 * to reply later, so the fiber was supposed to reply itself but didn't. */
+                r = varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
+                                      "Fiber returned without enqueuing a reply or stashing connection, failing.");
+                goto fail;
+        } else
+                r = 0;
+
+        /* If we didn't manage to enqueue a response, then fail the connection completely. */
+        if (r < 0 && IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
+                goto fail;
+
+        return r;
+
+fail:
+        varlink_set_state(v, VARLINK_PROCESSING_FAILURE);
+        varlink_dispatch_local_error(v, SD_VARLINK_ERROR_PROTOCOL);
+        sd_varlink_close(v);
+
+        return r;
+}
+
+static int varlink_dispatch_fiber(sd_varlink *v, const char *method, sd_varlink_method_t callback, sd_json_variant *parameters, sd_varlink_method_flags_t flags) {
+        int r;
+
+        assert(v);
+        assert(v->server);
+        assert(method);
+        assert(callback);
+
+        if (!v->server->event)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN),
+                                         "Cannot dispatch fiber method without event loop.");
+
+        _cleanup_(varlink_fiber_data_freep) VarlinkFiberData *d = new(VarlinkFiberData, 1);
+        if (!d)
+                return log_oom_debug();
+
+        *d = (VarlinkFiberData) {
+                .link = sd_varlink_ref(v),
+                .parameters = sd_json_variant_ref(parameters),
+                .flags = flags,
+                .userdata = v->userdata,
+                .callback = callback,
+        };
+
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        r = sd_fiber_new(v->server->event, method, varlink_fiber_entry, d, varlink_fiber_data_destroy, &f);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(d); /* The fiber owns the data now. */
+
+        /* Run the fiber at a higher priority than the connection's quit event source, so that on event
+         * loop exit the fiber's exit source (which cancels it and drives its cleanup) fires before
+         * varlink's quit_callback closes the connection. This lets a fiber handler reply with an error
+         * or flush its sentinel on a still-open connection during graceful shutdown. */
+        int64_t priority;
+        r = sd_event_source_get_priority(v->quit_event_source, &priority);
+        if (r < 0)
+                return r;
+
+        r = sd_future_set_priority(f, priority > INT64_MIN ? priority - 1 : priority);
+        if (r < 0)
+                return r;
+
+        /* Hand the future's lifetime over to the event loop: it'll auto-unref on resolve. */
+        r = sd_fiber_set_floating(f, true);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int varlink_dispatch_method(sd_varlink *v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         sd_varlink_method_flags_t flags = 0;
@@ -1056,7 +1229,13 @@ static int varlink_dispatch_method(sd_varlink *v) {
                         v->protocol_upgrade || FLAGS_SET(v->server->flags, SD_VARLINK_SERVER_UPGRADABLE));
 
         /* First consult user supplied method implementations */
+        bool is_fiber = false;
         callback = hashmap_get(v->server->methods, method);
+        if (!callback) {
+                callback = hashmap_get(v->server->fiber_methods, method);
+                if (callback)
+                        is_fiber = true;
+        }
         if (!callback) {
                 if (streq(method, "org.varlink.service.GetInfo"))
                         callback = generic_method_get_info;
@@ -1108,7 +1287,13 @@ static int varlink_dispatch_method(sd_varlink *v) {
                 }
 
                 if (!invalid) {
-                        r = callback(v, parameters, flags, v->userdata);
+                        if (is_fiber)
+                                /* Spawn a fiber to run the callback. The VarlinkFiberData takes a ref on the
+                                 * connection (bumping n_ref above 2), so the post-callback logic below treats
+                                 * this as a deferred reply and moves state to PENDING_METHOD. */
+                                r = varlink_dispatch_fiber(v, method, callback, parameters, flags);
+                        else
+                                r = callback(v, parameters, flags, v->userdata);
                         if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                                 if (r < 0) {
                                         varlink_log_errno(v, r, "Callback for '%s' returned error: %m", method);
@@ -1117,37 +1302,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                          * if the method call remains unanswered. */
                                         r = sd_varlink_error_errno(v, r);
                                 } else if (v->sentinel) {
-                                        if (v->previous) {
-                                                r = json_stream_enqueue_full(&v->stream, v->previous, v->previous_fds, v->n_previous_fds);
-                                                if (r >= 0) {
-                                                        v->previous = sd_json_variant_unref(v->previous);
-                                                        v->previous_fds = mfree(v->previous_fds);
-                                                        v->n_previous_fds = 0;
-                                                        varlink_set_state(v, VARLINK_PROCESSED_METHOD);
-                                                }
-                                        } else {
-                                                char *sentinel = TAKE_PTR(v->sentinel);
-
-                                                /* Propagate the sentinel to the client if one was configured
-                                                 * and no replies were enqueued by the callback. */
-                                                if (sentinel == POINTER_MAX)
-                                                        r = sd_varlink_reply(v, NULL);
-                                                else {
-                                                        r = sd_varlink_error(v, sentinel, NULL);
-                                                        /* sd_varlink_error() deliberately returns a negative
-                                                         * errno mapped from the error id on success (so method
-                                                         * callbacks can `return sd_varlink_error(...);` to
-                                                         * enqueue a reply and propagate a matching errno in one
-                                                         * go). For sentinel dispatch we don't care about that
-                                                         * mapping — the reply is either enqueued or not, which
-                                                         * we detect via the state transition instead. */
-                                                        if (v->state == VARLINK_PROCESSED_METHOD)
-                                                                r = 0;
-                                                }
-
-                                                if (sentinel != POINTER_MAX)
-                                                        free(sentinel);
-                                        }
+                                        r = varlink_dispatch_sentinel(v);
                                         if (r < 0)
                                                 varlink_log_errno(v, r, "Failed to process sentinel for method '%s': %m", method);
                                 } else {
@@ -2599,8 +2754,12 @@ _public_ int sd_varlink_set_sentinel(sd_varlink *v, const char *error_id) {
         if (v->state == VARLINK_PROCESSING_METHOD_ONEWAY)
                 return 0;
 
-        /* This has to be called during a callback, and not after it has exited. */
-        assert_return(IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE),
+        /* This has to be called during a callback, and not after it has exited. The PENDING states
+         * apply to fiber callbacks, which run after varlink_dispatch_method() has already transitioned
+         * the state from PROCESSING to PENDING. */
+        assert_return(IN_SET(v->state,
+                             VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE,
+                             VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE),
                       -EUCLEAN);
 
         char *s = NULL;
@@ -2902,7 +3061,11 @@ static sd_varlink_server* varlink_server_destroy(sd_varlink_server *s) {
         while ((m = hashmap_steal_first_key(s->methods)))
                 free(m);
 
+        while ((m = hashmap_steal_first_key(s->fiber_methods)))
+                free(m);
+
         hashmap_free(s->methods);
+        hashmap_free(s->fiber_methods);
         hashmap_free(s->interfaces);
         hashmap_free(s->symbols);
         hashmap_free(s->by_uid);
@@ -3593,23 +3756,32 @@ static bool varlink_symbol_in_interface(const char *method, const char *interfac
         return !strchr(p+1, '.');
 }
 
-_public_ int sd_varlink_server_bind_method(sd_varlink_server *s, const char *method, sd_varlink_method_t callback) {
+int varlink_server_bind_internal(sd_varlink_server *s, Hashmap **methods, const char *method, sd_varlink_method_t callback) {
         _cleanup_free_ char *m = NULL;
         int r;
 
-        assert_return(s, -EINVAL);
-        assert_return(method, -EINVAL);
-        assert_return(callback, -EINVAL);
+        assert(s);
+        assert(methods);
+        assert(method);
+        assert(callback);
 
         if (varlink_symbol_in_interface(method, "org.varlink.service") ||
             varlink_symbol_in_interface(method, "io.systemd"))
                 return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EEXIST), "Cannot bind server to '%s'.", method);
 
+        /* Refuse to register the same method in both the regular and fiber method maps: the dispatcher
+         * always consults methods first and would silently ignore a shadowed fiber_methods entry (or vice
+         * versa), hiding the misconfiguration. */
+        Hashmap *other = methods == &s->methods ? s->fiber_methods : s->methods;
+        if (hashmap_contains(other, method))
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EEXIST),
+                                                "Method '%s' is already bound in the other method map.", method);
+
         m = strdup(method);
         if (!m)
                 return log_oom_debug();
 
-        r = hashmap_ensure_put(&s->methods, &string_hash_ops, m, callback);
+        r = hashmap_ensure_put(methods, &string_hash_ops, m, callback);
         if (r == -ENOMEM)
                 return log_oom_debug();
         if (r < 0)
@@ -3620,13 +3792,12 @@ _public_ int sd_varlink_server_bind_method(sd_varlink_server *s, const char *met
         return 0;
 }
 
-_public_ int sd_varlink_server_bind_method_many_internal(sd_varlink_server *s, ...) {
-        va_list ap;
+int varlink_server_bind_many_internal(sd_varlink_server *s, Hashmap **methods, va_list ap) {
         int r = 0;
 
-        assert_return(s, -EINVAL);
+        assert(s);
+        assert(methods);
 
-        va_start(ap, s);
         for (;;) {
                 sd_varlink_method_t callback;
                 const char *method;
@@ -3637,10 +3808,30 @@ _public_ int sd_varlink_server_bind_method_many_internal(sd_varlink_server *s, .
 
                 callback = va_arg(ap, sd_varlink_method_t);
 
-                r = sd_varlink_server_bind_method(s, method, callback);
+                r = varlink_server_bind_internal(s, methods, method, callback);
                 if (r < 0)
                         break;
         }
+
+        return r;
+}
+
+_public_ int sd_varlink_server_bind_method(sd_varlink_server *s, const char *method, sd_varlink_method_t callback) {
+        assert_return(s, -EINVAL);
+        assert_return(method, -EINVAL);
+        assert_return(callback, -EINVAL);
+
+        return varlink_server_bind_internal(s, &s->methods, method, callback);
+}
+
+_public_ int sd_varlink_server_bind_method_many_internal(sd_varlink_server *s, ...) {
+        va_list ap;
+        int r;
+
+        assert_return(s, -EINVAL);
+
+        va_start(ap, s);
+        r = varlink_server_bind_many_internal(s, &s->methods, ap);
         va_end(ap);
 
         return r;

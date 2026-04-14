@@ -19,6 +19,10 @@ int varlink_many_notifyb(Set *s, ...);
 int varlink_many_reply(Set *s, sd_json_variant *parameters);
 int varlink_many_error(Set *s, const char *error_id, sd_json_variant *parameters);
 
+int varlink_server_bind_fiber(sd_varlink_server *s, const char *method, sd_varlink_method_t callback);
+int varlink_server_bind_fiber_many_internal(sd_varlink_server *s, ...);
+#define varlink_server_bind_fiber_many(s, ...) varlink_server_bind_fiber_many_internal(s, __VA_ARGS__, NULL)
+
 int varlink_set_info_systemd(sd_varlink_server *server);
 
 int varlink_server_new(
