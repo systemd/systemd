@@ -3,6 +3,7 @@
 #include <linux/filter.h>
 #include <linux/nl80211.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-dhcp-relay.h"
@@ -39,6 +40,7 @@
 #include "networkd-manager-varlink.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
+#include "networkd-ovs.h"
 #include "networkd-queue.h"
 #include "networkd-resolve-hook.h"
 #include "networkd-route.h"
@@ -51,6 +53,7 @@
 #include "networkd-wiphy.h"
 #include "networkd-wwan-bus.h"
 #include "ordered-set.h"
+#include "ovsdb/ovsdb-client.h"
 #include "qdisc.h"
 #include "set.h"
 #include "stat-util.h"
@@ -745,6 +748,10 @@ Manager* manager_free(Manager *m) {
 
         m->tuntap_fds_by_name = hashmap_free(m->tuntap_fds_by_name);
 
+        /* Null out m->ovsdb BEFORE unref: cancel_all callbacks fire synchronously
+         * inside ovsdb_client_unref; clearing the pointer first ensures re-entrant
+         * callbacks (e.g. ovs_reconcile_done) see m->ovsdb == NULL and skip. */
+        ovsdb_client_unref(TAKE_PTR(m->ovsdb));
         sd_event_source_disable_unref(m->ovs_reconnect_timer);
         free(m->ovs_socket_path);
 
@@ -880,6 +887,8 @@ int manager_load_config(Manager *m) {
         r = manager_build_nexthop_ids(m);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build nexthop ID map: %m");
+
+        (void) manager_ovs_maybe_start(m);
 
         log_debug("Loaded.");
         return 0;
@@ -1290,6 +1299,8 @@ int manager_reload(Manager *m, sd_bus_message *message, sd_varlink *varlink) {
                 log_debug_errno(r, "Failed to reload .network files: %m");
                 goto finish;
         }
+
+        (void) manager_ovs_maybe_start(m);
 
         HASHMAP_FOREACH(link, m->links_by_index)
                 (void) link_reconfigure_full(
