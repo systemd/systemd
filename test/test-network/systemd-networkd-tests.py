@@ -7229,6 +7229,212 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.assertIn('from all to 8.8.8.8 lookup 100', output)
 
 
+def ovs_available():
+    return bool(shutil.which('ovs-vsctl') and shutil.which('ovsdb-server') and shutil.which('ovs-vswitchd'))
+
+
+@unittest.skipUnless(
+    ovs_available(), 'Open vSwitch tools (ovs-vsctl/ovsdb-server/ovs-vswitchd) not installed'
+)
+class NetworkdOVSTests(unittest.TestCase, Utilities):
+    def setUp(self):
+        setup_common()
+        # The OVS bridges below use datapath_type=system, which needs the kernel datapath.
+        # Skip (rather than fail) where the module is unavailable, e.g. minimal CI kernels.
+        if call_quiet('modprobe openvswitch') != 0:
+            self.skipTest('openvswitch kernel module not available')
+        # Open vSwitch ships under different unit names across distributions.
+        if not any(
+            call_quiet(f'systemctl start {unit}') == 0
+            for unit in ('openvswitch', 'openvswitch-switch', 'ovs-vswitchd')
+        ):
+            self.skipTest('could not start Open vSwitch (ovsdb-server/ovs-vswitchd)')
+        # Wait until the OVSDB control socket networkd talks to is ready.
+        for _ in range(50):
+            if call_quiet('ovs-vsctl --timeout=1 show') == 0:
+                break
+            time.sleep(0.1)
+        else:
+            self.skipTest('ovsdb-server did not become ready')
+
+        # systemd-networkd connects to the OVSDB socket as the unprivileged
+        # "systemd-network" user. On real systems systemd-network-ovs-generator joins
+        # the "openvswitch" group; here we grant the user access directly so the test
+        # does not depend on the socket's owning group and mode, which vary across
+        # distributions (e.g. 0750 root-only, or a non-"openvswitch" group). Make the
+        # runtime directory traversable and add a per-user ACL, falling back to a
+        # world-writable mode where setfacl is unavailable.
+        call_quiet('chmod o+rx /run/openvswitch')
+        if (
+            call_quiet('setfacl -m u:systemd-network:rw /run/openvswitch/db.sock') != 0
+            and call_quiet('chmod o+rw /run/openvswitch/db.sock') != 0
+        ):
+            self.skipTest('could not grant systemd-network access to the OVSDB socket')
+
+        # Start from a clean slate even if a previous run was interrupted.
+        call_quiet('ovs-vsctl --if-exists del-br br0')
+
+    def tearDown(self):
+        # Stop networkd first so the reconciler does not immediately recreate the
+        # bridge we are about to delete, then drop the OVSDB state.
+        tear_down_common()
+        call_quiet('ovs-vsctl --if-exists del-br br0')
+
+    def wait_ovs(self, command, contains=None, timeout=10):
+        # The reconciler pushes rows to OVSDB asynchronously after the netdev is marked ready,
+        # so poll ovs-vsctl until the expected state shows up.
+        deadline = time.monotonic() + timeout
+        last = ''
+        while time.monotonic() < deadline:
+            p = subprocess.run(
+                command.split(),
+                check=False,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            last = p.stdout
+            if p.returncode == 0 and (contains is None or contains in last):
+                return last
+            time.sleep(0.2)
+        self.fail(
+            f'timed out waiting for "{command}"'
+            + (f' to contain "{contains}"' if contains else '')
+            + f'; last rc/output:\n{last}'
+        )
+
+    def wait_ovs_gone(self, command, timeout=10):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if call_quiet(command) != 0:
+                return
+            time.sleep(0.2)
+        self.fail(f'timed out waiting for "{command}" to fail (row still present)')
+
+    def test_ovs_bridge(self):
+        copy_network_unit('25-ovs-bridge.netdev', '25-ovs-bridge.network')
+        start_networkd()
+        self.wait_online('br0:degraded')
+
+        self.wait_ovs('ovs-vsctl br-exists br0')
+        output = check_output('ovs-vsctl list-br')
+        print(output)
+        self.assertIn('br0', output)
+
+        # networkd-created rows carry the ownership marker used by the reconciler.
+        output = check_output('ovs-vsctl get bridge br0 external_ids')
+        print(output)
+        self.assertIn('networkd-managed="true"', output)
+
+        # [OVSBridge] properties are applied.
+        output = check_output('ovs-vsctl get bridge br0 fail_mode')
+        print(output)
+        self.assertIn('secure', output)
+
+    def test_ovs_port_internal(self):
+        copy_network_unit(
+            '25-ovs-bridge.netdev',
+            '25-ovs-bridge.network',
+            '25-ovs-port-internal.netdev',
+            '25-ovs-port-internal.network',
+        )
+        start_networkd()
+        self.wait_online('br0:degraded', 'vm1:degraded')
+
+        self.wait_ovs('ovs-vsctl get port vm1 tag', contains='100')
+        output = check_output('ovs-vsctl get interface vm1 type')
+        print(output)
+        self.assertIn('internal', output)
+
+    def test_ovs_tunnel_vxlan(self):
+        copy_network_unit('25-ovs-bridge.netdev', '25-ovs-bridge.network', '25-ovs-tunnel-vxlan.netdev')
+        start_networkd()
+        self.wait_online('br0:degraded')
+
+        self.wait_ovs('ovs-vsctl get interface tun0 type', contains='vxlan')
+        output = check_output('ovs-vsctl get interface tun0 options')
+        print(output)
+        self.assertIn('remote_ip="10.0.0.2"', output)
+        self.assertIn('key="42"', output)
+
+    def test_ovs_port_patch(self):
+        copy_network_unit('25-ovs-bridge.netdev', '25-ovs-bridge.network', '25-ovs-port-patch.netdev')
+        start_networkd()
+        self.wait_online('br0:degraded')
+
+        self.wait_ovs('ovs-vsctl get interface patch0 type', contains='patch')
+        output = check_output('ovs-vsctl get interface patch0 options')
+        print(output)
+        self.assertIn('peer=patch1', output)
+
+    def test_ovs_bond(self):
+        copy_network_unit(
+            '25-ovs-bridge.netdev',
+            '25-ovs-bridge.network',
+            '25-ovs-port-bond.netdev',
+            '12-dummy.netdev',
+            '25-ovs-bond-member-dummy98.network',
+            '11-dummy.netdev',
+            '25-ovs-bond-member-test1.network',
+        )
+        start_networkd()
+        self.wait_online('br0:degraded')
+
+        self.wait_ovs('ovs-vsctl get port bond0 bond_mode', contains='balance-slb')
+        output = check_output('ovs-vsctl get port bond0 lacp')
+        print(output)
+        self.assertIn('active', output)
+
+        # ovs-vsctl list-ifaces takes a bridge; the bond members show up as interfaces on br0.
+        # Both members are attached asynchronously, so poll for each before asserting.
+        self.wait_ovs('ovs-vsctl list-ifaces br0', contains='dummy98')
+        output = self.wait_ovs('ovs-vsctl list-ifaces br0', contains='test1')
+        print(output)
+        self.assertIn('dummy98', output)
+        self.assertIn('test1', output)
+
+    def test_ovs_system_port(self):
+        copy_network_unit(
+            '25-ovs-bridge.netdev', '25-ovs-bridge.network', '12-dummy.netdev', '25-ovs-bridge-port.network'
+        )
+        start_networkd()
+        self.wait_online('br0:degraded')
+
+        self.wait_ovs('ovs-vsctl port-to-br dummy98', contains='br0')
+        output = check_output('ovs-vsctl get port dummy98 tag')
+        print(output)
+        self.assertEqual(output.strip(), '10')
+
+    def test_ovs_reconcile_reload_delete(self):
+        copy_network_unit('25-ovs-bridge.netdev', '25-ovs-bridge.network', '25-ovs-port-patch.netdev')
+        start_networkd()
+        self.wait_online('br0:degraded')
+        self.wait_ovs('ovs-vsctl get interface patch0 type', contains='patch')
+
+        # Drop the port config and reload: the reconciler must delete the now-orphaned row,
+        # while leaving the still-configured bridge in place.
+        remove_network_unit('25-ovs-port-patch.netdev')
+        networkctl_reload()
+        self.wait_ovs_gone('ovs-vsctl get interface patch0 type')
+        self.assertEqual(call_quiet('ovs-vsctl br-exists br0'), 0)
+
+    def test_ovs_networkctl_status(self):
+        copy_network_unit(
+            '25-ovs-bridge.netdev',
+            '25-ovs-bridge.network',
+            '25-ovs-port-internal.netdev',
+            '25-ovs-port-internal.network',
+        )
+        start_networkd()
+        self.wait_online('br0:degraded', 'vm1:degraded')
+        self.wait_ovs('ovs-vsctl get port vm1 tag', contains='100')
+
+        data = json.loads(networkctl_json('br0'))
+        print(data.get('OVSInterfaces'))
+        self.assertIn('OVSInterfaces', data)
+        self.assertIn('vm1', data['OVSInterfaces'])
+
+
 class NetworkdSRIOVTests(unittest.TestCase, Utilities):
     def setUp(self):
         setup_common()
