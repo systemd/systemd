@@ -1467,6 +1467,9 @@ have = get_option('repart').require(
         error_message : 'fdisk required').allowed()
 conf.set10('ENABLE_REPART', have)
 
+have = get_option('openvswitch').allowed()
+conf.set10('ENABLE_OPENVSWITCH', have)
+
 default_dnssec = get_option('default-dnssec')
 if default_dnssec != 'no' and conf.get('HAVE_OPENSSL') == 0
         message('default-dnssec cannot be set to yes or allow-downgrade when openssl is disabled. Setting default-dnssec to no.')
