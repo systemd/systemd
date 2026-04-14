@@ -433,6 +433,7 @@ int seat_set_active(Seat *s, Session *session) {
         seat_save(s);
 
         if (old_active) {
+                user_maybe_became_inactive(old_active->user);
                 user_save(old_active->user);
                 session_save(old_active);
                 session_device_pause_all(old_active);

@@ -2273,6 +2273,9 @@ static int verb_lock_home(int argc, char *argv[], uintptr_t _data, void *userdat
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
+        log_warning("Locking directly via homed is a low-level operation and is thus not recommended.\n"
+                    "Please use 'loginctl secure-lock-user' instead.");
+
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
@@ -2393,7 +2396,7 @@ static int verb_with_home(int argc, char *argv[], uintptr_t _data, void *userdat
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "b", /* please_suspend= */ getenv_bool("SYSTEMD_PLEASE_SUSPEND_HOME") > 0);
+                r = sd_bus_message_append(m, "b", false); /* please_suspend (ignored) */
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2477,17 +2480,21 @@ static int verb_lock_all_homes(int argc, char *argv[], uintptr_t _data, void *us
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
+        log_warning("This command has been deprecated. Please use 'loginctl secure-lock-users' instead.");
+
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
 
-        r = bus_message_new_method_call(bus, &m, bus_mgr, "LockAllHomes");
+        r = bus_message_new_method_call(bus, &m, bus_login_mgr, "SecureLockUsers");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        /* We disable timing out here because the user can configure how long SecureLockUsers takes
+         * via InhibitDelayMaxSec= in logind.conf */
+        r = sd_bus_call(bus, m, UINT64_MAX, &error, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to lock all homes: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to secure lock users: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -2655,7 +2662,7 @@ static int acquire_group_list(char ***ret) {
 
         r = groupdb_all(&match, USERDB_SUPPRESS_SHADOW, &iterator);
         if (r == -ENOLINK)
-                log_debug_errno(r, "No groups found. (Didn't check via Varlink.)");
+                log_debug_errno(r, "No groups found. (Didn't check via sd_varlink.)");
         else if (r == -ESRCH)
                 log_debug_errno(r, "No groups found.");
         else if (r < 0)
@@ -3918,7 +3925,6 @@ static int help(void) {
                "\n%4$sLock/Unlock Commands:%5$s\n"
                "  lock USER…                   Temporarily lock an active home area\n"
                "  unlock USER…                 Unlock a temporarily locked home area\n"
-               "  lock-all                     Lock all suitable home areas\n"
                "\n%4$sOther Commands:%5$s\n"
                "  rebalance                    Rebalance free space between home areas\n"
                "  firstboot                    Run first-boot home area creation wizard\n"
