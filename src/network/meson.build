@@ -75,6 +75,7 @@ systemd_networkd_export_sources = files(
         'networkd-network.c',
         'networkd-nexthop.c',
         'networkd-ntp.c',
+        'networkd-ovs.c',
         'networkd-queue.c',
         'networkd-radv.c',
         'networkd-resolve-hook.c',
