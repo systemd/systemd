@@ -6726,3 +6726,59 @@ int config_parse_protect_hostname(
         free_and_replace(c->private_hostname, h);
         return 1;
 }
+
+int config_parse_luo_sessions(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***sessions = ASSERT_PTR(data);
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *sessions = strv_free(*sessions);
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+                int r;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse LUOSession= value, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                if (!fdname_is_valid(word) || !string_is_safe(word, /* flags= */ 0)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "LUO session name contains invalid characters, ignoring: %s", word);
+                        continue;
+                }
+
+                if (strv_contains(*sessions, word)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Duplicate LUO session name, ignoring: %s", word);
+                        continue;
+                }
+
+                r = strv_extend(sessions, word);
+                if (r < 0)
+                        return log_oom();
+        }
+}
