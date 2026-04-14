@@ -348,6 +348,9 @@ executables += [
                 'link_with' : [libshared],
         },
         test_template + {
+                'sources' : files('test-json-stream-delimiterless.c'),
+        },
+        test_template + {
                 'sources' : files('test-libcrypt-util.c'),
                 'conditions' : ['HAVE_LIBCRYPT'],
                 'timeout' : 120,
