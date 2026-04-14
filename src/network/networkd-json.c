@@ -15,6 +15,8 @@
 #include "iovec-util.h"
 #include "ip-protocol-list.h"
 #include "json-util.h"
+#include "netdev/ovs-port.h"
+#include "netdev/ovs-tunnel.h"
 #include "netif-util.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-common.h"
@@ -25,6 +27,7 @@
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-ntp.h"
+#include "networkd-ovs.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
@@ -469,6 +472,56 @@ static int netdev_append_json(NetDev *netdev, sd_json_variant **v) {
                         v,
                         SD_JSON_BUILD_PAIR_STRING("NetDevFile", netdev->filename),
                         SD_JSON_BUILD_PAIR_STRV("NetDevFileDropins", netdev->dropins));
+}
+
+static int ovs_append_json(Link *link, sd_json_variant **v) {
+        NetDev *netdev;
+        const char *ovs_bridge = NULL;
+        const char *ovs_bond = NULL;
+        const char *ovs_port_type = NULL;
+        const char *ovs_fail_mode = NULL;
+        _cleanup_strv_free_ char **interfaces = NULL;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        netdev = link->netdev;
+
+        if (netdev && netdev->kind == NETDEV_KIND_OVS_BRIDGE) {
+                /* This link IS an OVS bridge. */
+                ovs_fail_mode = ovs_monitor_get_bridge_fail_mode(link->manager, netdev->ifname);
+                r = ovs_monitor_get_bridge_ports(link->manager, netdev->ifname, &interfaces);
+                if (r < 0)
+                        log_link_debug_errno(link, r, "Failed to collect OVS bridge ports for '%s', omitting from JSON: %m",
+                                             netdev->ifname);
+
+        } else if (netdev && netdev->kind == NETDEV_KIND_OVS_PORT) {
+                OVSPort *p = OVS_PORT(netdev);
+                ovs_bridge = p->bridge;
+                ovs_port_type = ovs_port_type_to_string(p->type);
+
+        } else if (netdev && netdev->kind == NETDEV_KIND_OVS_TUNNEL) {
+                OVSTunnel *t = OVS_TUNNEL(netdev);
+                ovs_bridge = t->bridge;
+                ovs_port_type = "tunnel";
+
+        } else if (link->network && link->network->ovs_bridge_name) {
+                ovs_bridge = link->network->ovs_bridge_name;
+
+        } else if (link->network && link->network->ovs_bond_name) {
+                /* Bond members use the dedicated OVSBond field, NOT OVSBridge */
+                ovs_bond = link->network->ovs_bond_name;
+                ovs_port_type = "bond-member";
+        }
+
+        return sd_json_variant_merge_objectbo(
+                        v,
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("OVSBridge", ovs_bridge),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("OVSBond", ovs_bond),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("OVSPortType", ovs_port_type),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("OVSFailMode", ovs_fail_mode),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("OVSInterfaces", interfaces));
 }
 
 static int device_append_json(sd_device *device, sd_json_variant **v) {
@@ -1572,6 +1625,10 @@ int link_build_json(Link *link, sd_json_variant **ret) {
                 return r;
 
         r = netdev_append_json(link->netdev, &v);
+        if (r < 0)
+                return r;
+
+        r = ovs_append_json(link, &v);
         if (r < 0)
                 return r;
 
