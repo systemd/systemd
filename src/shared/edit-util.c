@@ -260,13 +260,6 @@ static int run_editor_child(const EditFileContext *context) {
                 }
         }
 
-        if (context->n_files == 1 && context->files[0].line > 1) {
-                /* If editing a single file only, use the +LINE syntax to put cursor on the right line */
-                r = strv_extendf(&args, "+%u", context->files[0].line);
-                if (r < 0)
-                        return log_oom();
-        }
-
         FOREACH_ARRAY(i, context->files, context->n_files) {
                 r = strv_extend(&args, i->temp);
                 if (r < 0)
