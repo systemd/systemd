@@ -117,6 +117,14 @@ typedef struct Manager {
 
         Hashmap *tuntap_fds_by_name;
 
+        /* OVS support (lazy-initialized when OVS configs are present) */
+        OVSDBClient *ovsdb;
+        unsigned ovs_use_count;
+        char *ovs_socket_path;          /* [OVS] Socket= */
+        bool ovs_clear_on_boot;         /* [OVS] ClearDatabaseOnBoot= */
+        sd_event_source *ovs_reconnect_timer;
+        usec_t ovs_reconnect_delay;
+
         unsigned reloading;
 
         int serialization_fd;
