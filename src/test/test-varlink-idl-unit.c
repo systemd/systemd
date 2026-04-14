@@ -2,6 +2,7 @@
 
 #include "cgroup.h"
 #include "ioprio-util.h"
+#include "kill.h"
 #include "numa-util.h"
 #include "process-util.h"
 #include "tests.h"
@@ -39,6 +40,9 @@ TEST(unit_enums_idl) {
         test_enum_to_string_name("shared", &vl_type_MountPropagationFlag);
         test_enum_to_string_name("slave", &vl_type_MountPropagationFlag);
         test_enum_to_string_name("private", &vl_type_MountPropagationFlag);
+
+        /* KillContext enums */
+        TEST_IDL_ENUM(KillMode, kill_mode, vl_type_KillMode);
 
         /* CGroupContext enums */
         TEST_IDL_ENUM(CGroupDevicePolicy, cgroup_device_policy, vl_type_CGroupDevicePolicy);
