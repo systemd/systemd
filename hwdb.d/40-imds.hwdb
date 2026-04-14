@@ -1,0 +1,105 @@
+# This file is part of systemd
+
+# This provides various properties that declare if and how IMDS is available on
+# the local system, i.e. we are running in a major cloud service that provides
+# something resembling AWS' or Azure's Instance Metadata Service.
+#
+# General IMDS endpoint data:
+#   IMDS_VENDOR=                → Indicates IMDS is available, and which vendor it is
+#   IMDS_TOKEN_URL=             → The URL to request an API token from. If not set, no API token is requested.
+#   IMDS_REFRESH_HEADER_NAME=   → The HTTP request header field (everything before the ":") that contains the refresh TTL (in seconds) when requesting a token.
+#   IMDS_DATA_URL=              → The base URL to request actual IMDS data fields from
+#   IMDS_DATA_URL_SUFFIX=       → Parameters to suffix the URLs with
+#   IMDS_TOKEN_HEADER_NAME=     → The HTTP request header field (everything before the ":") used to pass the token
+#   IMDS_EXTRA_HEADER=, IMDS_EXTRA_HEADER2=, IMDS_EXTRA_HEADER3=, …
+#                               → Additional HTTP headers to pass when requesting a data field (full header, including ":")
+#   IMDS_ADDRESS_IPV4=          → IPv4 address of the IMDS server
+#   IMDS_ADDRESS_IPV6=          → IPv6 address of the IMDS server
+#
+# Well-known IMDS keys:
+#   IMDS_KEY_HOSTNAME=          → IMDS key for the hostname
+#   IMDS_KEY_REGION=            → IMDS key for the region, if that concept applies
+#   IMDS_KEY_ZONE=              → IMDS key for the zone, if that concept applies
+#   IMDS_KEY_IPV4_PUBLIC=       → IMDS key for the primary public IPv4 address if there is any
+#   IMDS_KEY_IPV6_PUBLIC=       → IMDS key for the primary public IPv6 address if there is any
+#   IMDS_KEY_SSH_KEY=           → IMDS key for an SSH public key to install in the root account
+#   IMDS_KEY_USERDATA=          → IMDS key for arbitrary userdata (if there's only one)
+#   IMDS_KEY_USERDATA_BASE=     → IMDS key for arbitrary userdata (if there are multiple, this is the common prefix)
+#   IMDS_KEY_USERDATA_BASE64=   → IMDS key for arbitrary userdata (if there's only one, but it is base64 encoded)
+
+# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html
+dmi:bvnAmazonEC2:*
+ IMDS_VENDOR=amazon-ec2
+ IMDS_TOKEN_URL=http://169.254.169.254/latest/api/token
+ IMDS_REFRESH_HEADER_NAME=X-aws-ec2-metadata-token-ttl-seconds
+ IMDS_DATA_URL=http://169.254.169.254/latest
+ IMDS_TOKEN_HEADER_NAME=X-aws-ec2-metadata-token
+ IMDS_ADDRESS_IPV4=169.254.169.254
+ IMDS_ADDRESS_IPV6=fd00:ec2::254
+ IMDS_KEY_HOSTNAME=/meta-data/hostname
+ IMDS_KEY_REGION=/meta-data/placement/region
+ IMDS_KEY_ZONE=/meta-data/placement/availability-zone
+ IMDS_KEY_IPV4_PUBLIC=/meta-data/public-ipv4
+ IMDS_KEY_IPV6_PUBLIC=/meta-data/ipv6
+ IMDS_KEY_SSH_KEY=/meta-data/public-keys/0/openssh-key
+ IMDS_KEY_USERDATA=/user-data
+
+# https://learn.microsoft.com/en-us/azure/virtual-machines/instance-metadata-service#instance-metadata
+dmi:*:cat7783-7084-3265-9085-8269-3286-77:*
+ IMDS_VENDOR=microsoft-azure
+ IMDS_DATA_URL=http://169.254.169.254/metadata
+ IMDS_DATA_URL_SUFFIX=?api-version=2025-04-07&format=text
+ IMDS_EXTRA_HEADER=Metadata: true
+ IMDS_ADDRESS_IPV4=169.254.169.254
+ IMDS_KEY_HOSTNAME=/instance/compute/osProfile/computerName
+ IMDS_KEY_REGION=/instance/compute/location
+ IMDS_KEY_ZONE=/instance/compute/physicalZone
+ IMDS_KEY_IPV4_PUBLIC=/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress
+ IMDS_KEY_IPV6_PUBLIC=/instance/network/interface/0/ipv6/ipAddress/0/publicIpAddress
+ IMDS_KEY_SSH_KEY=/instance/compute/publicKeys/0/keyData
+ IMDS_KEY_USERDATA_BASE64=/instance/compute/userData
+
+# https://docs.cloud.google.com/compute/docs/metadata/predefined-metadata-keys
+dmi:*:pnGoogleComputeEngine:*
+ IMDS_VENDOR=google-gcp
+ IMDS_DATA_URL=http://169.254.169.254/computeMetadata/v1
+ IMDS_EXTRA_HEADER=Metadata-Flavor: Google
+ IMDS_ADDRESS_IPV4=169.254.169.254
+ IMDS_KEY_HOSTNAME=/instance/hostname
+ IMDS_KEY_REGION=/instance/region
+ IMDS_KEY_ZONE=/instance/zone
+ IMDS_KEY_IPV4_PUBLIC=/instance/network-interfaces/0/access-configs/0/external-ip
+ IMDS_KEY_USERDATA_BASE=/instance/attributes
+
+# https://docs.hetzner.cloud/reference/cloud#description/server-metadata
+dmi:bvnHetzner:*
+ IMDS_VENDOR=hetzner-cloud
+ IMDS_DATA_URL=http://169.254.169.254/hetzner/v1/metadata
+ IMDS_ADDRESS_IPV4=169.254.169.254
+ IMDS_KEY_HOSTNAME=/hostname
+ IMDS_KEY_REGION=/region
+ IMDS_KEY_ZONE=/availability-zone
+ IMDS_KEY_IPV4_PUBLIC=/public-ipv4
+ IMDS_KEY_SSH_KEY=/public-keys/0
+ IMDS_KEY_USERDATA=/userdata
+
+# https://docs.oracle.com/en-us/iaas/Content/Compute/Tasks/gettingmetadata.htm#metadata-keys
+dmi:*:catOracleCloud.com:*
+ IMDS_VENDOR=oracle-cloud-oci
+ IMDS_DATA_URL=http://169.254.169.254/opc/v2
+ IMDS_ADDRESS_IPV4=169.254.169.254
+ IMDS_ADDRESS_IPV6=fd00:c1::a9fe:a9fe
+ IMDS_EXTRA_HEADER=Authorization: Bearer Oracle
+ IMDS_KEY_HOSTNAME=/instance/hostname
+ IMDS_KEY_REGION=/instance/region
+ IMDS_KEY_ZONE=/instance/availabilityDomain
+ IMDS_KEY_SSH_KEY=/instance/metadata/ssh_authorized_keys
+ IMDS_KEY_USERDATA_BASE64=/metadata/user_data
+
+# https://www.scaleway.com/en/docs/instances/how-to/use-cloud-init/
+dmi:*:svnScaleway:*
+ IMDS_VENDOR=scaleway
+ IMDS_DATA_URL=http://169.254.42.42
+ IMDS_ADDRESS_IPV4=169.254.42.42
+ IMDS_ADDRESS_IPV6=fd00:42::42
+ IMDS_KEY_USERDATA=/user_data
