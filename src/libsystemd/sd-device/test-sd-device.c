@@ -878,6 +878,11 @@ TEST(device_add_property) {
         ASSERT_OK(sd_device_get_property_value(dev, ".hoge", &val));
         ASSERT_STREQ(val, "baz");
 
+        /* check property with colon */
+        ASSERT_OK(device_add_property(dev, "hoge:hoge", "baz"));
+        ASSERT_OK(sd_device_get_property_value(dev, "hoge:hoge", &val));
+        ASSERT_STREQ(val, "baz");
+
         /* refuse invalid property names */
         ASSERT_ERROR(device_add_property(dev, "hoge-hoge", "aaa"), EINVAL);
         ASSERT_ERROR(device_add_property(dev, "hoge=hoge", "aaa"), EINVAL);
