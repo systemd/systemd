@@ -1549,10 +1549,10 @@ int link_build_json(Link *link, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_STRING("AdministrativeState", link_state_to_string(link->state)),
                         SD_JSON_BUILD_PAIR_STRING("OperationalState", link_operstate_to_string(link->operstate)),
                         SD_JSON_BUILD_PAIR_STRING("CarrierState", link_carrier_state_to_string(link->carrier_state)),
-                        SD_JSON_BUILD_PAIR_STRING("AddressState", link_address_state_to_string(link->address_state)),
-                        SD_JSON_BUILD_PAIR_STRING("IPv4AddressState", link_address_state_to_string(link->ipv4_address_state)),
-                        SD_JSON_BUILD_PAIR_STRING("IPv6AddressState", link_address_state_to_string(link->ipv6_address_state)),
-                        SD_JSON_BUILD_PAIR_STRING("OnlineState", link_online_state_to_string(link->online_state)));
+                        JSON_BUILD_PAIR_ENUM("AddressState", link_address_state_to_string(link->address_state)),
+                        JSON_BUILD_PAIR_ENUM("IPv4AddressState", link_address_state_to_string(link->ipv4_address_state)),
+                        JSON_BUILD_PAIR_ENUM("IPv6AddressState", link_address_state_to_string(link->ipv6_address_state)),
+                        JSON_BUILD_PAIR_ENUM("OnlineState", link_online_state_to_string(link->online_state)));
         if (r < 0)
                 return r;
 
