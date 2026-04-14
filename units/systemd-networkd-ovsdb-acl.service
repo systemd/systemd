@@ -1,0 +1,35 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Grant systemd-networkd access to the Open vSwitch database socket
+Documentation=man:networkd.conf(5)
+# setfacl(1) is provided by the acl package; on minimal images that lack it, skip this
+# unit gracefully instead of failing (the requirement is documented in networkd.conf(5)).
+ConditionPathExists=/usr/bin/setfacl
+
+[Service]
+Type=oneshot
+# Stay active after exit (defaults to no): otherwise the PathExists= .path re-triggers
+# this oneshot in a loop until the start limit trips and the watch dies.
+RemainAfterExit=yes
+# systemd-networkd runs as the unprivileged "systemd-network" user and must be able
+# to traverse the runtime directory and connect to (i.e. write) the OVSDB socket. A
+# per-user ACL grants exactly that, independent of the socket's owning group and mode,
+# which vary across distributions. Requires setfacl(1) from the acl package.
+#
+# Grant only traverse (x) on the directory — read (r) would let systemd-network
+# enumerate /run/openvswitch (pidfiles, control sockets, conf.db), which it never
+# needs to reach the known db.sock path. /run/openvswitch is created and owned by
+# the (root) Open vSwitch daemon, so planting a hostile db.sock symlink there would
+# already require root; we therefore do not attempt symlink hardening here (setfacl
+# -P would not help anyway — on a non-recursive symlink argument it applies no ACL
+# at all, silently breaking legitimately symlinked sockets).
+ExecStart=/usr/bin/setfacl -m u:systemd-network:x /run/openvswitch
+ExecStart=/usr/bin/setfacl -m u:systemd-network:rw /run/openvswitch/db.sock
