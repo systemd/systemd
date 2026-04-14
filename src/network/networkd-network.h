@@ -81,6 +81,14 @@ typedef struct Network {
         char *vrf_name;
         Hashmap *stacked_netdev_names;
 
+        /* OVS master netdev */
+        char *ovs_bridge_name;
+        char *ovs_bond_name;
+
+        /* [OVSPort] per-link settings (only meaningful with OVSBridge=) */
+        uint16_t ovs_port_tag;          /* VLANID_INVALID = unset */
+        char *ovs_port_vlan_mode;
+
         /* [Link] section */
         struct hw_addr_data hw_addr;
         uint32_t mtu;
