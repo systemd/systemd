@@ -135,7 +135,8 @@ typedef struct sd_varlink_server {
 
         LIST_HEAD(VarlinkServerSocket, sockets);
 
-        Hashmap *methods;              /* Fully qualified symbol name of a method → VarlinkMethod */
+        Hashmap *methods;              /* Fully qualified symbol name of a method → sd_varlink_method_t */
+        Hashmap *fiber_methods;        /* Fully qualified symbol name of a fiber method → sd_varlink_method_t */
         Hashmap *interfaces;           /* Fully qualified interface name → VarlinkInterface* */
         Hashmap *symbols;              /* Fully qualified symbol name of method/error → VarlinkSymbol* */
         sd_varlink_connect_t connect_callback;
@@ -184,3 +185,6 @@ VarlinkServerSocket* varlink_server_socket_free(VarlinkServerSocket *ss);
 DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServerSocket *, varlink_server_socket_free);
 
 int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSocket *ss);
+
+int varlink_server_bind_internal(sd_varlink_server *s, Hashmap **methods, const char *method, sd_varlink_method_t callback);
+int varlink_server_bind_many_internal(sd_varlink_server *s, Hashmap **methods, va_list ap);
