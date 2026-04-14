@@ -1302,15 +1302,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("locale", "LOCALE", "Set primary locale (LANG=)"):
-                        r = free_and_strdup(&arg_locale, arg);
+                        r = free_and_strdup_warn(&arg_locale, arg);
                         if (r < 0)
-                                return log_oom();
+                                return r;
                         break;
 
                 OPTION_LONG("locale-messages", "LOCALE", "Set message locale (LC_MESSAGES=)"):
-                        r = free_and_strdup(&arg_locale_messages, arg);
+                        r = free_and_strdup_warn(&arg_locale_messages, arg);
                         if (r < 0)
-                                return log_oom();
+                                return r;
                         break;
 
                 OPTION_LONG("keymap", "KEYMAP", "Set keymap"):
@@ -1318,9 +1318,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Keymap %s is not valid.", arg);
 
-                        r = free_and_strdup(&arg_keymap, arg);
+                        r = free_and_strdup_warn(&arg_keymap, arg);
                         if (r < 0)
-                                return log_oom();
+                                return r;
                         break;
 
                 OPTION_LONG("timezone", "TIMEZONE", "Set timezone"):
@@ -1328,9 +1328,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Timezone %s is not valid.", arg);
 
-                        r = free_and_strdup(&arg_timezone, arg);
+                        r = free_and_strdup_warn(&arg_timezone, arg);
                         if (r < 0)
-                                return log_oom();
+                                return r;
                         break;
 
                 OPTION_LONG("hostname", "NAME", "Set hostname"):
@@ -1338,9 +1338,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Host name %s is not valid.", arg);
 
-                        r = free_and_strdup(&arg_hostname, arg);
+                        r = free_and_strdup_warn(&arg_hostname, arg);
                         if (r < 0)
-                                return log_oom();
+                                return r;
 
                         hostname_cleanup(arg_hostname);
                         break;
@@ -1358,9 +1358,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("root-password", "PASSWORD", "Set root password from plaintext password"):
-                        r = free_and_strdup(&arg_root_password, arg);
+                        r = free_and_strdup_warn(&arg_root_password, arg);
                         if (r < 0)
-                                return log_oom();
+                                return r;
 
                         arg_root_password_is_hashed = false;
                         break;
@@ -1376,23 +1376,23 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("root-password-hashed", "HASH", "Set root password from hashed password"):
-                        r = free_and_strdup(&arg_root_password, arg);
+                        r = free_and_strdup_warn(&arg_root_password, arg);
                         if (r < 0)
-                                return log_oom();
+                                return r;
 
                         arg_root_password_is_hashed = true;
                         break;
 
                 OPTION_LONG("root-shell", "SHELL", "Set root shell"):
-                        r = free_and_strdup(&arg_root_shell, arg);
+                        r = free_and_strdup_warn(&arg_root_shell, arg);
                         if (r < 0)
-                                return log_oom();
+                                return r;
                         break;
 
                 OPTION_LONG("kernel-command-line", "CMDLINE", "Set kernel command line"):
-                        r = free_and_strdup(&arg_kernel_cmdline, arg);
+                        r = free_and_strdup_warn(&arg_kernel_cmdline, arg);
                         if (r < 0)
-                                return log_oom();
+                                return r;
                         break;
 
                 OPTION_LONG("prompt-locale", NULL, "Prompt the user for locale settings"):
