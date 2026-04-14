@@ -69,6 +69,92 @@
   </refsect1>
 
   <refsect1>
+    <title>OOM Rulesets</title>
+
+    <para><command>systemd-oomd</command> supports custom rulesets that define conditions and actions for
+    OOM handling on a per-unit basis. Ruleset files use the <filename>.oomrule</filename> extension and are
+    loaded from <filename>/etc/systemd/oomd/rules.d/</filename>,
+    <filename>/run/systemd/oomd/rules.d/</filename>,
+    <filename>/usr/local/lib/systemd/oomd/rules.d/</filename>, and
+    <filename>/usr/lib/systemd/oomd/rules.d/</filename>.
+    Units opt into rulesets via the <varname>OOMRules=</varname> setting in
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    which takes a space-separated list of ruleset names (the file name without the <filename>.oomrule</filename>
+    extension).</para>
+
+    <para>Each ruleset file contains a <literal>[Rule]</literal> section with the following options. At least
+    one of <varname>MemoryPressureAbove=</varname> or <varname>SwapUsageMax=</varname> must be configured;
+    rulesets with no conditions are ignored. If both are set, the conditions are combined with AND, i.e. the
+    action is only triggered when both thresholds are exceeded simultaneously.</para>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>MemoryPressureAbove=</varname></term>
+
+        <listitem><para>Sets the memory pressure threshold above which the rule's action will be triggered.
+        The memory pressure represents the fraction of time in a 10 second window in which all tasks in the
+        control group were delayed (PSI <literal>full avg10</literal>). Takes a value specified in percent
+        (when suffixed with <literal>%</literal>), permille (<literal>‰</literal>) or permyriad
+        (<literal>‱</literal>), between 0% and 100%, inclusive. If unset or assigned the empty string,
+        this condition is not evaluated. A value of <literal>100%</literal> can never be exceeded and is
+        therefore rejected with a warning; a value of <literal>0%</literal> makes the condition true on any
+        observed pressure, which is usually not useful.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SwapUsageMax=</varname></term>
+
+        <listitem><para>Sets the system-wide swap usage threshold above which the rule's action will be
+        triggered. Takes a value specified in percent (when suffixed with <literal>%</literal>),
+        permille (<literal>‰</literal>) or permyriad (<literal>‱</literal>),
+        between 0% and 100%, inclusive. If unset or assigned the empty string, this condition is not
+        evaluated. A value of <literal>100%</literal> can never be exceeded and is therefore rejected with
+        a warning; a value of <literal>0%</literal> fires as soon as any swap is in use, which is usually
+        not useful.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Action=</varname></term>
+
+        <listitem><para>Specifies the action to take when the rule's conditions are met. Takes one of
+        <literal>kill-all</literal>, <literal>kill-by-pgscan</literal>, or
+        <literal>kill-by-swap</literal>. This setting is mandatory; rulesets without
+        <varname>Action=</varname> are ignored.</para>
+
+        <itemizedlist>
+          <listitem><para><literal>kill-all</literal> sends <constant>SIGKILL</constant> to all processes
+          in the unit's cgroup directly.</para></listitem>
+
+          <listitem><para><literal>kill-by-pgscan</literal> selects and kills the descendant cgroup with
+          the highest recent page scan (reclaim) rate.</para></listitem>
+
+          <listitem><para><literal>kill-by-swap</literal> selects and kills the descendant cgroup with the
+          highest swap usage.</para></listitem>
+        </itemizedlist>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LastingSec=</varname></term>
+
+        <listitem><para>Sets the duration the conditions must be continuously met before the action is taken.
+        Takes a time span value, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details on the permitted syntax. Defaults to 0, i.e. the action is taken
+        immediately when the conditions are met.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
     <title>[OOM] Section Options</title>
 
     <para>The following options are available in the [OOM] section:</para>

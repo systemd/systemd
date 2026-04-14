@@ -9,6 +9,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit.h"
 #include "varlink.h"
 #include "varlink-dynamic-user.h"
@@ -26,10 +27,11 @@
 static const char* const managed_oom_mode_properties[] = {
         "ManagedOOMSwap",
         "ManagedOOMMemoryPressure",
+        "OOMRules",
 };
 
 static int build_managed_oom_json_array_element(Unit *u, const char *property, sd_json_variant **ret_v) {
-        bool use_limit = false, use_duration = false;
+        bool use_limit = false, use_duration = false, use_rules = false;
         CGroupContext *c;
         const char *mode;
 
@@ -48,25 +50,34 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, s
         if (!crt)
                 return -EINVAL;
 
-        if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
+        if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u))) {
                 /* systemd-oomd should always treat inactive units as though they didn't enable any action since they
                  * should not have a valid cgroup */
                 mode = managed_oom_mode_to_string(MANAGED_OOM_AUTO);
-        else if (streq(property, "ManagedOOMSwap"))
+        } else if (streq(property, "ManagedOOMSwap")) {
                 mode = managed_oom_mode_to_string(c->moom_swap);
-        else if (streq(property, "ManagedOOMMemoryPressure")) {
+        } else if (streq(property, "ManagedOOMMemoryPressure")) {
                 mode = managed_oom_mode_to_string(c->moom_mem_pressure);
                 use_limit = c->moom_mem_pressure_limit > 0;
                 use_duration = c->moom_mem_pressure_duration_usec != USEC_INFINITY;
-        } else
+        } else if (streq(property, "OOMRules")) {
+                if (strv_isempty(c->moom_rules))
+                        mode = managed_oom_mode_to_string(MANAGED_OOM_AUTO);
+                else {
+                        mode = managed_oom_mode_to_string(MANAGED_OOM_KILL);
+                        use_rules = true;
+                }
+        } else {
                 return -EINVAL;
+        }
 
         return sd_json_buildo(ret_v,
                               SD_JSON_BUILD_PAIR_STRING("mode", mode),
                               SD_JSON_BUILD_PAIR_STRING("path", crt->cgroup_path),
                               SD_JSON_BUILD_PAIR_STRING("property", property),
                               SD_JSON_BUILD_PAIR_CONDITION(use_limit, "limit", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit)),
-                              SD_JSON_BUILD_PAIR_CONDITION(use_duration, "duration", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_duration_usec)));
+                              SD_JSON_BUILD_PAIR_CONDITION(use_duration, "duration", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_duration_usec)),
+                              SD_JSON_BUILD_PAIR_CONDITION(use_rules, "rules", SD_JSON_BUILD_STRV(c->moom_rules)));
 }
 
 static int build_managed_oom_cgroups_json(Manager *m, bool allow_empty, sd_json_variant **ret) {
@@ -107,7 +118,8 @@ static int build_managed_oom_cgroups_json(Manager *m, bool allow_empty, sd_json_
                                 /* For the initial varlink call we only care about units that enabled (i.e. mode is not
                                  * set to "auto") oomd properties. */
                                 if (!(streq(*i, "ManagedOOMSwap") && c->moom_swap == MANAGED_OOM_KILL) &&
-                                    !(streq(*i, "ManagedOOMMemoryPressure") && c->moom_mem_pressure == MANAGED_OOM_KILL))
+                                    !(streq(*i, "ManagedOOMMemoryPressure") && c->moom_mem_pressure == MANAGED_OOM_KILL) &&
+                                    !(streq(*i, "OOMRules") && !strv_isempty(c->moom_rules)))
                                         continue;
 
                                 r = build_managed_oom_json_array_element(u, *i, &e);

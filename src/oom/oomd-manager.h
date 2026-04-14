@@ -2,14 +2,19 @@
 #pragma once
 
 #include "conf-parser-forward.h"
+#include "constants.h"
 #include "shared-forward.h"
 #include "oomd-conf.h"
 #include "oomd-util.h"
+
+#define RULESET_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/oomd/rules.d"))
 
 /* Polling interval for monitoring stats */
 #define SWAP_INTERVAL_USEC 150000 /* 0.15 seconds */
 /* Pressure counters are lagging (~2 seconds) compared to swap so polling too frequently just wastes CPU */
 #define MEM_PRESSURE_INTERVAL_USEC (1 * USEC_PER_SEC)
+
+#define RULESETS_INTERVAL_USEC MAX((usec_t) SWAP_INTERVAL_USEC, (usec_t) MEM_PRESSURE_INTERVAL_USEC)
 
 /* Take action if 10s of memory pressure > 60 for more than 30s. We use the "full" value from PSI so this is the
  * percentage of time all tasks were delayed (i.e. unproductive).
@@ -24,6 +29,24 @@
 
 #define RECLAIM_DURATION_USEC (30 * USEC_PER_SEC)
 #define POST_ACTION_DELAY_USEC (15 * USEC_PER_SEC)
+
+typedef enum OomdAction {
+        OOMD_ACTION_NONE = 0,
+        OOMD_ACTION_KILL_ALL,
+        OOMD_ACTION_KILL_BY_PGSCAN,
+        OOMD_ACTION_KILL_BY_SWAP,
+        _OOMD_ACTION_MAX,
+        _OOMD_ACTION_INVALID = -EINVAL,
+} OomdAction;
+
+typedef struct OomdRuleset {
+        char *name;
+        int memory_pressure_above; /* permyriad (0-10000), or -1 for unset */
+        int swap_above;            /* permyriad (0-10000), or -1 for unset */
+        OomdAction action;
+        usec_t lasting_usec;
+        Hashmap *start_times; /* k: strdup'd cgroup path (char*) -> v: heap-allocated timestamp (usec_t*) */
+} OomdRuleset;
 
 typedef struct Manager {
         sd_bus *bus;
@@ -41,13 +64,17 @@ typedef struct Manager {
         Hashmap *monitored_swap_cgroup_contexts;
         Hashmap *monitored_mem_pressure_cgroup_contexts;
         Hashmap *monitored_mem_pressure_cgroup_contexts_candidates;
+        Hashmap *monitored_rules_cgroup_contexts;
+        Hashmap *monitored_rules_cgroup_contexts_candidates;
 
         OomdSystemContext system_context;
 
         usec_t mem_pressure_post_action_delay_start;
+        usec_t rules_post_action_delay_start;
 
         sd_event_source *swap_context_event_source;
         sd_event_source *mem_pressure_context_event_source;
+        sd_event_source *rules_context_event_source;
 
         /* This varlink object is used to manage the subscription from systemd-oomd to PID1 which it uses to
          * listen for changes in ManagedOOM settings (oomd client - systemd server). */
@@ -58,6 +85,7 @@ typedef struct Manager {
 
         usec_t prekill_timeout;
         Set *kill_states; /* currently ongoing OomdKillState operations */
+        Hashmap *rulesets;
 } Manager;
 
 Manager* manager_free(Manager *m);
