@@ -636,7 +636,6 @@ static void client_disable_event_sources(sd_dhcp_client *client) {
         (void) event_source_disable(client->timeout_t1);
         (void) event_source_disable(client->timeout_t2);
         (void) event_source_disable(client->timeout_expire);
-        (void) event_source_disable(client->timeout_ipv6_only_mode);
 }
 
 static void client_initialize(sd_dhcp_client *client) {
@@ -1294,8 +1293,6 @@ static int client_initialize_time_events(sd_dhcp_client *client) {
         assert(client);
         assert(client->event);
 
-        (void) event_source_disable(client->timeout_ipv6_only_mode);
-
         return event_reset_time_relative(
                         client->event,
                         &client->timeout_resend,
@@ -1572,39 +1569,17 @@ static int client_handle_offer_or_rapid_ack(sd_dhcp_client *client, DHCPMessage 
         return 0;
 }
 
-static int client_enter_requesting_now(sd_dhcp_client *client) {
-        assert(client);
-
-        client_set_state(client, DHCP_STATE_REQUESTING);
-        client->discover_attempt = 0;
-        client->request_attempt = 0;
-
-        return event_reset_time(client->event, &client->timeout_resend,
-                                CLOCK_BOOTTIME, 0, 0,
-                                client_timeout_resend, client,
-                                client->event_priority, "dhcp4-resend-timer",
-                                /* force_reset= */ true);
-}
-
-static int client_enter_requesting_delayed(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_dhcp_client *client = ASSERT_PTR(userdata);
-        DHCP_CLIENT_DONT_DESTROY(client);
-        int r;
-
-        r = client_enter_requesting_now(client);
-        if (r < 0)
-                client_stop(client, r);
-
-        return 0;
-}
-
 static int client_enter_requesting(sd_dhcp_client *client) {
         assert(client);
         assert(client->lease);
 
         client_disable_event_sources(client);
 
-        if (client->lease->ipv6_only_preferred_usec > 0) {
+        client_set_state(client, DHCP_STATE_REQUESTING);
+        client->discover_attempt = 0;
+        client->request_attempt = 0;
+
+        if (sd_dhcp_client_is_waiting_for_ipv6_connectivity(client)) {
                 if (client->ipv6_acquired) {
                         log_dhcp_client(client,
                                         "Received an OFFER with IPv6-only preferred option, and the host already acquired IPv6 connectivity, stopping DHCPv4 client.");
@@ -1614,16 +1589,19 @@ static int client_enter_requesting(sd_dhcp_client *client) {
                 log_dhcp_client(client,
                                 "Received an OFFER with IPv6-only preferred option, delaying to send REQUEST with %s.",
                                 FORMAT_TIMESPAN(client->lease->ipv6_only_preferred_usec, USEC_PER_SEC));
-
-                return event_reset_time_relative(client->event, &client->timeout_ipv6_only_mode,
-                                                 CLOCK_BOOTTIME,
-                                                 client->lease->ipv6_only_preferred_usec, 0,
-                                                 client_enter_requesting_delayed, client,
-                                                 client->event_priority, "dhcp4-ipv6-only-mode-timer",
-                                                 /* force_reset= */ true);
         }
 
-        return client_enter_requesting_now(client);
+        return event_reset_time_relative(
+                        client->event,
+                        &client->timeout_resend,
+                        CLOCK_BOOTTIME,
+                        client->lease->ipv6_only_preferred_usec,
+                        /* accuracy= */ 0,
+                        client_timeout_resend,
+                        client,
+                        client->event_priority,
+                        "dhcp4-resend-timer",
+                        /* force_reset= */ true);
 }
 
 static bool lease_equal(const sd_dhcp_lease *a, const sd_dhcp_lease *b) {
@@ -1776,13 +1754,18 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         return 0;
 }
 
-static int client_enter_bound_now(sd_dhcp_client *client, int notify_event) {
+static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
         int r;
 
         assert(client);
+        assert(client->lease);
 
         if (IN_SET(client->state, DHCP_STATE_REQUESTING, DHCP_STATE_REBOOTING))
                 notify_event = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
+
+        client_disable_event_sources(client);
+
+        client->start_delay = 0;
 
         client_set_state(client, DHCP_STATE_BOUND);
         client->discover_attempt = 0;
@@ -1792,59 +1775,10 @@ static int client_enter_bound_now(sd_dhcp_client *client, int notify_event) {
 
         r = client_set_lease_timeouts(client);
         if (r < 0)
-                log_dhcp_client_errno(client, r, "could not set lease timeouts: %m");
+                return log_dhcp_client_errno(client, r, "Failed to set lease timeouts: %m");
 
         client_notify(client, notify_event);
         return 0;
-}
-
-static int client_enter_bound_delayed(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_dhcp_client *client = ASSERT_PTR(userdata);
-        DHCP_CLIENT_DONT_DESTROY(client);
-        int r;
-
-        r = client_enter_bound_now(client, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
-        if (r < 0)
-                client_stop(client, r);
-
-        return 0;
-}
-
-static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
-        assert(client);
-        assert(client->lease);
-
-        client_disable_event_sources(client);
-
-        client->start_delay = 0;
-
-        /* RFC 8925 section 3.2
-         * If the client is in the INIT-REBOOT state, it SHOULD stop the DHCPv4 configuration process or
-         * disable the IPv4 stack completely for V6ONLY_WAIT seconds or until the network attachment event,
-         * whichever happens first.
-         *
-         * In the below, the condition uses REBOOTING, instead of INIT-REBOOT, as the client state has
-         * already transitioned from INIT-REBOOT to REBOOTING after sending a DHCPREQUEST message. */
-        if (client->state == DHCP_STATE_REBOOTING && client->lease->ipv6_only_preferred_usec > 0) {
-                if (client->ipv6_acquired) {
-                        log_dhcp_client(client,
-                                        "Received an ACK with IPv6-only preferred option, and the host already acquired IPv6 connectivity, stopping DHCPv4 client.");
-                        return sd_dhcp_client_stop(client);
-                }
-
-                log_dhcp_client(client,
-                                "Received an ACK with IPv6-only preferred option, delaying to enter bound state with %s.",
-                                FORMAT_TIMESPAN(client->lease->ipv6_only_preferred_usec, USEC_PER_SEC));
-
-                return event_reset_time_relative(client->event, &client->timeout_ipv6_only_mode,
-                                                 CLOCK_BOOTTIME,
-                                                 client->lease->ipv6_only_preferred_usec, 0,
-                                                 client_enter_bound_delayed, client,
-                                                 client->event_priority, "dhcp4-ipv6-only-mode",
-                                                 /* force_reset= */ true);
-        }
-
-        return client_enter_bound_now(client, notify_event);
 }
 
 static int client_restart(sd_dhcp_client *client) {
@@ -2111,9 +2045,6 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
 
         assert_return(client, -EINVAL);
 
-        /* Note, do not reset the flag in client_initialize(), as it is also called on expire. */
-        client->ipv6_acquired = false;
-
         /* If no client identifier exists, construct an RFC 4361-compliant one */
         if (!sd_dhcp_client_id_is_set(&client->client_id)) {
                 r = sd_dhcp_client_set_iaid_duid_en(client, /* iaid_set= */ false, /* iaid= */ 0);
@@ -2239,28 +2170,48 @@ int sd_dhcp_client_stop(sd_dhcp_client *client) {
         return 0;
 }
 
+int sd_dhcp_client_is_waiting_for_ipv6_connectivity(sd_dhcp_client *client) {
+        /* Note that we intentionally do not implement the following behavior:
+         *
+         * RFC 8925, section 3.2:
+         *   If the client is in the INIT-REBOOT state, it SHOULD stop the DHCPv4 configuration process or
+         *   disable the IPv4 stack completely for V6ONLY_WAIT seconds or until the next network attachment
+         *   event, whichever occurs first.
+         *
+         * Delaying the application of an acquired IPv4 address after DHCPACK introduces several issues:
+         *
+         * - If T1 is reached before the address is assigned to the interface, the client cannot send a
+         *   unicast DHCPREQUEST during RENEWING.
+         *
+         * - If the client is stopped before the address is configured, it cannot send a DHCPRELEASE message,
+         *   which also requires a valid source address.
+         *
+         * While these issues could be worked around, doing so would significantly complicate the
+         * implementation and violate assumptions in the DHCP state machine as defined in RFC 2131.
+         *
+         * Instead, we only honor the IPv6-Only Preferred delay (Option 108) in the REQUESTING state, i.e.
+         * before any DHCPREQUEST has been sent. */
+
+         return
+                client &&
+                client->state == DHCP_STATE_REQUESTING &&
+                client->request_attempt == 0 &&
+                client->lease->ipv6_only_preferred_usec > 0;
+}
+
 int sd_dhcp_client_set_ipv6_connectivity(sd_dhcp_client *client, int have) {
         if (!client)
                 return 0;
 
-        /* We have already received a message with IPv6-Only preferred option, and are waiting for IPv6
-         * connectivity or timeout, let's stop the client. */
-        if (have && sd_event_source_get_enabled(client->timeout_ipv6_only_mode, NULL) > 0)
-                return sd_dhcp_client_stop(client);
-
-        /* Otherwise, save that the host already has IPv6 connectivity. */
         client->ipv6_acquired = have;
+
+        if (have && sd_dhcp_client_is_waiting_for_ipv6_connectivity(client)) {
+                log_dhcp_client(client,
+                                "Acquired IPv6 connectivity before sending REQUEST, stopping DHCPv4 client.");
+                return sd_dhcp_client_stop(client);
+        }
+
         return 0;
-}
-
-int sd_dhcp_client_interrupt_ipv6_only_mode(sd_dhcp_client *client) {
-        assert_return(client, -EINVAL);
-        assert_return(sd_dhcp_client_is_running(client), -ESTALE);
-
-        if (sd_event_source_get_enabled(client->timeout_ipv6_only_mode, NULL) <= 0)
-                return 0;
-
-        return client_start(client);
 }
 
 int sd_dhcp_client_attach_event(sd_dhcp_client *client, sd_event *event, int64_t priority) {
@@ -2316,7 +2267,6 @@ static sd_dhcp_client* dhcp_client_free(sd_dhcp_client *client) {
         sd_event_source_unref(client->timeout_t1);
         sd_event_source_unref(client->timeout_t2);
         sd_event_source_unref(client->timeout_expire);
-        sd_event_source_unref(client->timeout_ipv6_only_mode);
 
         sd_dhcp_client_detach_event(client);
 

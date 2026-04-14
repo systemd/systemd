@@ -69,7 +69,6 @@ struct sd_dhcp_client {
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;
         sd_event_source *timeout_expire;
-        sd_event_source *timeout_ipv6_only_mode;
         sd_dhcp_client_callback_t callback;
         void *userdata;
         sd_dhcp_client_callback_t state_callback;
