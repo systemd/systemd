@@ -765,11 +765,41 @@ static int copy_one_file(
         if (dest_fd < 0 && dest_fd != -ENOENT)
                 return log_error_errno(dest_fd, "Failed to open '%s' under '%s/EFI/systemd' directory: %m", dest_name, j);
 
+        /* If --keep-fallback is set and a primary binary already exists, preserve it atomically
+         * before installing the new version. This gives firmware a fallback Boot#### entry pointing
+         * to the old binary in case the new one fails to load. The rotation overwrites any previous
+         * fallback, so only one generation of fallback is kept. */
+        const char *e = startswith(dest_name, "systemd-boot");
+
+        if (c->keep_fallback && e && dest_fd >= 0) {
+                r = version_check(source_fd, source_path, dest_fd, dest_path);
+                if (r >= 0) {
+                        _cleanup_free_ char *fallback_name = strjoin("systemd-boot-fallback", e);
+                        if (!fallback_name)
+                                return log_oom();
+
+                        _cleanup_free_ char *fallback_path = path_join(j, "/EFI/systemd", fallback_name);
+                        if (!fallback_path)
+                                return log_oom();
+
+                        r = copy_file_with_version_check(dest_path, dest_fd, fallback_path, dest_parent_fd, fallback_name, /* dest_fd= */ -EBADF, /* force= */ true);
+                        if (r < 0)
+                                return r;
+
+                        /* reset offset so the subsequent version check in copy_file_with_version_check() can read dest_fd */
+                        if (lseek(dest_fd, 0, SEEK_SET) < 0)
+                                return log_error_errno(errno, "Failed to seek \"%s\": %m", dest_path);
+                }
+
+                /* reset source_fd offset consumed by version_check */
+                if (lseek(source_fd, 0, SEEK_SET) < 0)
+                        return log_error_errno(errno, "Failed to seek \"%s\": %m", source_path);
+        }
+
         /* Note that if this fails we do the second copy anyway, but return this error code,
          * so we stash it away in a separate variable. */
         ret = copy_file_with_version_check(source_path, source_fd, dest_path, dest_parent_fd, dest_name, dest_fd, force);
 
-        const char *e = startswith(dest_name, "systemd-boot");
         if (e) {
 
                 /* Create the EFI default boot loader name (specified for removable devices) */
