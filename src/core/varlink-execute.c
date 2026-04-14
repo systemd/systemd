@@ -27,6 +27,9 @@
 #include "varlink-common.h"
 #include "varlink-execute.h"
 
+#define JSON_BUILD_PAIR_MOUNT_PROPAGATION_FLAG(name, s) \
+        SD_JSON_BUILD_PAIR_CONDITION(!isempty(s), name, JSON_BUILD_STRING_UNDERSCORIFY(s))
+
 static int working_directory_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         ExecContext *c = ASSERT_PTR(userdata);
 
@@ -262,7 +265,7 @@ static int cpu_sched_class_build_json(sd_json_variant **ret, const char *name, v
         if (r < 0)
                 return log_debug_errno(r, "Failed to convert sched policy to string: %m");
 
-        return sd_json_variant_new_string(ret, s);
+        return sd_json_variant_new_string(ret, json_underscorify(s));
 }
 
 static int cpu_affinity_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -343,7 +346,7 @@ static int ioprio_class_build_json(sd_json_variant **ret, const char *name, void
         if (r < 0)
                 return log_debug_errno(r, "Failed to convert IO priority class to string: %m");
 
-        return sd_json_variant_new_string(ret, s);
+        return sd_json_variant_new_string(ret, json_underscorify(s));
 }
 
 static int exec_dir_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -927,7 +930,7 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         SD_JSON_BUILD_PAIR_BOOLEAN("RestrictSUIDSGID", c->restrict_suid_sgid),
                         SD_JSON_BUILD_PAIR_BOOLEAN("RemoveIPC", c->remove_ipc),
                         JSON_BUILD_PAIR_TRISTATE_NON_NULL("PrivateMounts", c->private_mounts),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("MountFlags", mount_propagation_flag_to_string(c->mount_propagation_flag)),
+                        JSON_BUILD_PAIR_MOUNT_PROPAGATION_FLAG("MountFlags", mount_propagation_flag_to_string(c->mount_propagation_flag)),
 
                         /* System Call Filtering */
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("SystemCallFilter", syscall_filter_build_json, c),

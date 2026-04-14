@@ -15,21 +15,6 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(file));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
-                ExecOutputType,
-                SD_VARLINK_DEFINE_ENUM_VALUE(inherit),
-                SD_VARLINK_DEFINE_ENUM_VALUE(null),
-                SD_VARLINK_DEFINE_ENUM_VALUE(tty),
-                SD_VARLINK_DEFINE_ENUM_VALUE(kmsg),
-                SD_VARLINK_DEFINE_ENUM_VALUE(kmsg_console),
-                SD_VARLINK_DEFINE_ENUM_VALUE(journal),
-                SD_VARLINK_DEFINE_ENUM_VALUE(journal_console),
-                SD_VARLINK_DEFINE_ENUM_VALUE(socket),
-                SD_VARLINK_DEFINE_ENUM_VALUE(fd),
-                SD_VARLINK_DEFINE_ENUM_VALUE(file),
-                SD_VARLINK_DEFINE_ENUM_VALUE(append),
-                SD_VARLINK_DEFINE_ENUM_VALUE(truncate));
-
-SD_VARLINK_DEFINE_ENUM_TYPE(
                 ExecUtmpMode,
                 SD_VARLINK_DEFINE_ENUM_VALUE(init),
                 SD_VARLINK_DEFINE_ENUM_VALUE(login),
@@ -119,46 +104,15 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(strict));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
-                ManagedOOMMode,
-                SD_VARLINK_DEFINE_ENUM_VALUE(auto),
-                SD_VARLINK_DEFINE_ENUM_VALUE(kill));
-
-SD_VARLINK_DEFINE_ENUM_TYPE(
                 ManagedOOMPreference,
                 SD_VARLINK_DEFINE_ENUM_VALUE(none),
                 SD_VARLINK_DEFINE_ENUM_VALUE(avoid),
                 SD_VARLINK_DEFINE_ENUM_VALUE(omit));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
-                CGroupPressureWatch,
-                SD_VARLINK_DEFINE_ENUM_VALUE(no),
-                SD_VARLINK_DEFINE_ENUM_VALUE(yes),
-                SD_VARLINK_DEFINE_ENUM_VALUE(auto),
-                SD_VARLINK_DEFINE_ENUM_VALUE(skip));
-
-SD_VARLINK_DEFINE_ENUM_TYPE(
                 CollectMode,
                 SD_VARLINK_DEFINE_ENUM_VALUE(inactive),
                 SD_VARLINK_DEFINE_ENUM_VALUE(inactive_or_failed));
-
-SD_VARLINK_DEFINE_ENUM_TYPE(
-                EmergencyAction,
-                SD_VARLINK_DEFINE_ENUM_VALUE(none),
-                SD_VARLINK_DEFINE_ENUM_VALUE(exit),
-                SD_VARLINK_DEFINE_ENUM_VALUE(exit_force),
-                SD_VARLINK_DEFINE_ENUM_VALUE(reboot),
-                SD_VARLINK_DEFINE_ENUM_VALUE(reboot_force),
-                SD_VARLINK_DEFINE_ENUM_VALUE(reboot_immediate),
-                SD_VARLINK_DEFINE_ENUM_VALUE(poweroff),
-                SD_VARLINK_DEFINE_ENUM_VALUE(poweroff_force),
-                SD_VARLINK_DEFINE_ENUM_VALUE(poweroff_immediate),
-                SD_VARLINK_DEFINE_ENUM_VALUE(soft_reboot),
-                SD_VARLINK_DEFINE_ENUM_VALUE(soft_reboot_force),
-                SD_VARLINK_DEFINE_ENUM_VALUE(kexec),
-                SD_VARLINK_DEFINE_ENUM_VALUE(kexec_force),
-                SD_VARLINK_DEFINE_ENUM_VALUE(halt),
-                SD_VARLINK_DEFINE_ENUM_VALUE(halt_force),
-                SD_VARLINK_DEFINE_ENUM_VALUE(halt_immediate));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 JobMode,
@@ -194,6 +148,36 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 PrivateBPF,
                 SD_VARLINK_DEFINE_ENUM_VALUE(no),
                 SD_VARLINK_DEFINE_ENUM_VALUE(yes));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                CPUSchedulingPolicy,
+                SD_VARLINK_DEFINE_ENUM_VALUE(other),
+                SD_VARLINK_DEFINE_ENUM_VALUE(batch),
+                SD_VARLINK_DEFINE_ENUM_VALUE(idle),
+                SD_VARLINK_DEFINE_ENUM_VALUE(fifo),
+                SD_VARLINK_DEFINE_ENUM_VALUE(ext),
+                SD_VARLINK_DEFINE_ENUM_VALUE(rr));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                IOSchedulingClass,
+                SD_VARLINK_DEFINE_ENUM_VALUE(none),
+                SD_VARLINK_DEFINE_ENUM_VALUE(realtime),
+                SD_VARLINK_DEFINE_ENUM_VALUE(best_effort),
+                SD_VARLINK_DEFINE_ENUM_VALUE(idle));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                NUMAPolicy,
+                SD_VARLINK_DEFINE_ENUM_VALUE(default),
+                SD_VARLINK_DEFINE_ENUM_VALUE(preferred),
+                SD_VARLINK_DEFINE_ENUM_VALUE(bind),
+                SD_VARLINK_DEFINE_ENUM_VALUE(interleave),
+                SD_VARLINK_DEFINE_ENUM_VALUE(local));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                MountPropagationFlag,
+                SD_VARLINK_DEFINE_ENUM_VALUE(shared),
+                SD_VARLINK_DEFINE_ENUM_VALUE(slave),
+                SD_VARLINK_DEFINE_ENUM_VALUE(private));
 
 /* CGroupContext */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
@@ -713,7 +697,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#Nice="),
                 SD_VARLINK_DEFINE_FIELD(Nice, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#CPUSchedulingPolicy="),
-                SD_VARLINK_DEFINE_FIELD(CPUSchedulingPolicy, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CPUSchedulingPolicy, CPUSchedulingPolicy, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#CPUSchedulingPriority="),
                 SD_VARLINK_DEFINE_FIELD(CPUSchedulingPriority, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#CPUSchedulingResetOnFork="),
@@ -721,11 +705,11 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#CPUAffinity="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CPUAffinity, CPUAffinity, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#NUMAPolicy="),
-                SD_VARLINK_DEFINE_FIELD(NUMAPolicy, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(NUMAPolicy, NUMAPolicy, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#NUMAMask="),
                 SD_VARLINK_DEFINE_FIELD(NUMAMask, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#IOSchedulingClass="),
-                SD_VARLINK_DEFINE_FIELD(IOSchedulingClass, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(IOSchedulingClass, IOSchedulingClass, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#IOSchedulingPriority="),
                 SD_VARLINK_DEFINE_FIELD(IOSchedulingPriority, SD_VARLINK_INT, 0),
 
@@ -827,7 +811,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#PrivateMounts="),
                 SD_VARLINK_DEFINE_FIELD(PrivateMounts, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#MountFlags="),
-                SD_VARLINK_DEFINE_FIELD(MountFlags, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(MountFlags, MountPropagationFlag, SD_VARLINK_NULLABLE),
 
                 /* System Call Filtering
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#System%20Call%20Filtering */
@@ -1304,6 +1288,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_ProtectControlGroups,
                 &vl_type_PrivatePIDs,
                 &vl_type_PrivateBPF,
+                &vl_type_CPUSchedulingPolicy,
+                &vl_type_IOSchedulingClass,
+                &vl_type_NUMAPolicy,
+                &vl_type_MountPropagationFlag,
                 &vl_type_WorkingDirectory,
                 &vl_type_PartitionMountOptions,
                 &vl_type_BindPath,
