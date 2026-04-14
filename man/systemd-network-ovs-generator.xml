@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-network-ovs-generator" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-network-ovs-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-network-ovs-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-network-ovs-generator</refname>
+    <refpurpose>Unit generator for Open vSwitch service ordering</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-network-ovs-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-network-ovs-generator</filename> is a generator that runs early at boot and when
+    configuration of the system manager is reloaded. It scans the
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    configuration directories for
+    <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    files declaring <varname>Kind=ovs-bridge</varname>, <varname>Kind=ovs-port</varname>, or
+    <varname>Kind=ovs-tunnel</varname>, and
+    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    files using <varname>OVSBridge=</varname> or <varname>OVSBond=</varname> in the
+    <literal>[Network]</literal> section, including their <filename>.d/*.conf</filename> drop-ins.</para>
+
+    <para>When Open vSwitch configuration is found, the generator emits drop-ins that order
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd-networkd-wait-online.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    <varname>After=</varname> the Open vSwitch service, and add a soft <varname>Wants=</varname> dependency
+    on it, so that the ordering has no effect when Open vSwitch is not installed. The drop-in for
+    <filename>systemd-networkd.service</filename> additionally pulls in
+    <filename>systemd-networkd-ovsdb-acl.path</filename> and
+    <filename>systemd-networkd-ovsdb-acl.service</filename>, which grant
+    <command>systemd-networkd</command> access to the OVSDB socket via an ACL. When no Open vSwitch
+    configuration is present, no drop-ins are generated and the units above remain inert.</para>
+
+    <para>The generator does nothing in the initrd.</para>
+
+    <para>The name of the Open vSwitch service (or services) the drop-ins order against is set at build time
+    via the <option>openvswitch-service-names</option> meson option, and defaults to
+    <filename>openvswitch.service</filename>.</para>
+
+    <para><filename>systemd-network-ovs-generator</filename> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
