@@ -57,6 +57,7 @@ typedef enum InstallOperation {
 typedef struct InstallContext {
         InstallOperation operation;
         bool graceful;
+        bool keep_fallback;
         char *root;
         int root_fd;
         sd_id128_t machine_id;
@@ -141,6 +142,7 @@ static int install_context_from_cmdline(
         b.operation = operation;
         b.graceful = arg_graceful() == ARG_GRACEFUL_FORCE ||
                 (operation == INSTALL_UPDATE && arg_graceful() != ARG_GRACEFUL_NO);
+        b.keep_fallback = arg_keep_fallback;
         b.machine_id = arg_machine_id;
         b.entry_token_type = arg_entry_token_type;
         b.make_entry_directory = arg_make_entry_directory;
