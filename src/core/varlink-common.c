@@ -4,8 +4,10 @@
 
 #include "bus-common-errors.h"
 #include "cpu-set-util.h"
+#include "execute.h"
 #include "json-util.h"
 #include "rlimit-util.h"
+#include "strv.h"
 #include "varlink-common.h"
 #include "varlink-unit.h"
 
@@ -103,4 +105,25 @@ int cpuset_build_json(sd_json_variant **ret, const char *name, void *userdata) {
 empty:
         *ret = NULL;
         return 0;
+}
+
+int exec_command_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        ExecCommand *cmd = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        if (isempty(cmd->path)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("path", cmd->path),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("arguments", cmd->argv),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ignoreFailure", FLAGS_SET(cmd->flags, EXEC_COMMAND_IGNORE_FAILURE)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("privileged", FLAGS_SET(cmd->flags, EXEC_COMMAND_FULLY_PRIVILEGED)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("noSetuid", FLAGS_SET(cmd->flags, EXEC_COMMAND_NO_SETUID)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("noEnvExpand", FLAGS_SET(cmd->flags, EXEC_COMMAND_NO_ENV_EXPAND)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("viaShell", FLAGS_SET(cmd->flags, EXEC_COMMAND_VIA_SHELL)));
 }
