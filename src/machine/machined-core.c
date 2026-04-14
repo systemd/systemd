@@ -343,7 +343,7 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
                 break;
 
         case MACHINE_CONTAINER: {
-                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
+                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF, userns_fd = -EBADF;
                 _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
                 _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
                 _cleanup_fclose_ FILE *f = NULL;
@@ -352,7 +352,7 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
                                           &pidns_fd,
                                           &mntns_fd,
                                           /* ret_netns_fd= */ NULL,
-                                          /* ret_userns_fd= */ NULL,
+                                          &userns_fd,
                                           &root_fd);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to open namespace: %m");
@@ -366,7 +366,7 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
                                    pidns_fd,
                                    mntns_fd,
                                    /* netns_fd= */ -EBADF,
-                                   /* userns_fd= */ -EBADF,
+                                   userns_fd,
                                    root_fd,
                                    &child);
                 if (r < 0)
