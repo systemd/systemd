@@ -1722,8 +1722,20 @@ static int bus_property_get_resolv_conf_mode(
 
 static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
+        int r;
 
         assert(message);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.resolve1.reset-statistics",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
 
         bus_client_log(message, "statistics reset");
 
