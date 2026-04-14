@@ -19,3 +19,5 @@ typedef struct NextHop NextHop;
 typedef struct Request Request;
 typedef struct Route Route;
 typedef struct Wireguard Wireguard;
+
+typedef struct OVSDBClient OVSDBClient;
