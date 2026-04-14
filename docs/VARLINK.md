@@ -63,10 +63,21 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   * `JSON_DISPATCH_ENUM_DEFINE` - creates a `json_dispatch_*` function that
     accepts both the original and the underscorified enum value as valid input.
 
+  For example, a `LogTarget` field outputs `"journal_or_kmsg"` (underscore
+  form), but on input both `"journal_or_kmsg"` and `"journal-or-kmsg"` are
+  accepted. This is handled automatically by `JSON_DISPATCH_ENUM_DEFINE`:
+  it first tries the value as-is via `_from_string()`, and if that fails,
+  replaces underscores with dashes and retries.
+
 - An internal enum may be exposed as a simple string field instead of a Varlink
   enum type when the field is output-only and never provided or controlled by
   the user. However, such fields should avoid using dashes to prevent breaking
   changes if they are later converted into enums (see below).
+
+  For example, in `io.systemd.Unit`, configuration settings that users select
+  in unit files (e.g. `ProtectSystem`, `ExecInputType`) should be proper varlink
+  enum types. Runtime state fields that only the engine determines (e.g.
+  `ActiveState`, `SubState`) may remain plain strings.
 
 - A varlink string field that has a finite set of possible values may later be
   converted into an enum without introducing a breaking change. This allows the
