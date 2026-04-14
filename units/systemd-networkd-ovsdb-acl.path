@@ -1,0 +1,26 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Grant systemd-networkd access to the Open vSwitch database socket
+Documentation=man:networkd.conf(5)
+
+[Path]
+# systemd-networkd talks to ovsdb-server over this socket as the unprivileged
+# "systemd-network" user. Watch for the socket and (re-)apply the access ACL
+# whenever ovsdb-server (re)creates it. This unit is not enabled on its own; it is
+# pulled in by systemd-network-ovs-generator when OVS configuration is present.
+#
+# PathModified= (edge-triggered) is deliberate, not PathExists=. PathExists= stays
+# "good" while the socket exists, so it re-triggers the oneshot in a loop until the
+# start limit trips and the watcher dies. PathModified= only fires on a change (the
+# socket appearing, or being replaced when ovsdb-server restarts) and does not re-fire
+# from its own trigger, so the ACL is re-applied on every (re)creation without looping.
+PathModified=/run/openvswitch/db.sock
+Unit=systemd-networkd-ovsdb-acl.service
