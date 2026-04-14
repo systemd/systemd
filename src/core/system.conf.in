@@ -55,6 +55,8 @@
 #DefaultRestartSec=100ms
 #DefaultStartLimitIntervalSec=10s
 #DefaultStartLimitBurst=5
+#DefaultNotifyRateLimitIntervalSec=1s
+#DefaultNotifyRateLimitBurst=10
 #DefaultEnvironment=
 #DefaultIOAccounting=no
 #DefaultIPAccounting=no
