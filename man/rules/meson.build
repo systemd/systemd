@@ -1148,6 +1148,7 @@ manpages = [
   ['systemd-mute-console.socket', 'systemd-mute-console@.service'],
   ''],
  ['systemd-network-generator.service', '8', ['systemd-network-generator'], ''],
+ ['systemd-network-ovs-generator', '8', [], 'ENABLE_NETWORKD'],
  ['systemd-networkd-wait-online.service',
   '8',
   ['systemd-networkd-wait-online', 'systemd-networkd-wait-online@.service'],
