@@ -261,13 +261,12 @@ static void test_log_context(void) {
                         IOVEC_MAKE_STRING("ABC=def"),
                         IOVEC_MAKE_STRING("GHI=jkl"),
                 };
-                _cleanup_free_ struct iovec_wrapper *iovw = NULL;
-                ASSERT_NOT_NULL(iovw = iovw_new());
-                ASSERT_OK(iovw_consume(iovw, strdup("MNO=pqr"), STRLEN("MNO=pqr") + 1));
+                struct iovec_wrapper iovw = {};
+                ASSERT_OK(iovw_consume(&iovw, strdup("MNO=pqr"), STRLEN("MNO=pqr") + 1));
 
                 LOG_CONTEXT_PUSH_IOV(iov, ELEMENTSOF(iov));
                 LOG_CONTEXT_PUSH_IOV(iov, ELEMENTSOF(iov));
-                LOG_CONTEXT_CONSUME_IOV(iovw->iovec, iovw->count);
+                LOG_CONTEXT_CONSUME_IOV(iovw.iovec, iovw.count);
                 LOG_CONTEXT_PUSH("STU=vwx");
 
                 ASSERT_EQ(log_context_num_contexts(), 3U);
