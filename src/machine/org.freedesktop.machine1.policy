@@ -88,7 +88,17 @@
                         <allow_inactive>auth_admin</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
-                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.shell org.freedesktop.login1.login</annotate>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.shell org.freedesktop.login1.login org.freedesktop.machine1.inspect-machines</annotate>
+        </action>
+
+        <action id="org.freedesktop.machine1.inspect-machines">
+                <description gettext-domain="systemd">Inspect local virtual machines and containers</description>
+                <message gettext-domain="systemd">Authentication is required to inspect local virtual machines and containers.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
         </action>
 
         <action id="org.freedesktop.machine1.create-machine">
@@ -115,6 +125,17 @@
         <action id="org.freedesktop.machine1.manage-images">
                 <description gettext-domain="systemd">Manage local virtual machine and container images</description>
                 <message gettext-domain="systemd">Authentication is required to manage local virtual machine and container images.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.machine1.inspect-images</annotate>
+        </action>
+
+        <action id="org.freedesktop.machine1.inspect-images">
+                <description gettext-domain="systemd">Inspect local virtual machine and container images</description>
+                <message gettext-domain="systemd">Authentication is required to inspect local virtual machine and container images.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>

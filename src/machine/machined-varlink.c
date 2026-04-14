@@ -534,6 +534,17 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r != 0)
                 return r;
 
+        if (should_acquire_metadata(p.acquire_metadata)) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                m->bus,
+                                "org.freedesktop.machine1.inspect-machines",
+                                (const char**) STRV_MAKE("name", strna(p.name)),
+                                &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
+
         if (p.name || pidref_is_set(&p.pidref) || pidref_is_automatic(&p.pidref)) {
                 r = lookup_machine_by_name_or_pidref(link, m, p.name, &p.pidref, &machine);
                 if (r == -ESRCH)
@@ -684,6 +695,17 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
+
+        if (should_acquire_metadata(p.acquire_metadata)) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                m->bus,
+                                "org.freedesktop.machine1.inspect-images",
+                                (const char**) STRV_MAKE("name", strna(p.image_name)),
+                                &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
 
         if (p.image_name) {
                 _cleanup_(image_unrefp) Image *found = NULL;

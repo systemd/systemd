@@ -16,6 +16,8 @@ at_exit() {
     rm -rf /home/testuser/.local/state/machines/.tar-file* ||:
     rm -rf /home/testuser/.local/state/machines/zurps ||:
     machinectl terminate zurps ||:
+    machinectl terminate exfiltrate ||:
+    systemctl --user --machine testuser@ stop exfiltrate.service ||:
     rm -f /etc/polkit-1/rules.d/registermachinetest.rules
 }
 
@@ -87,5 +89,27 @@ run0 -u testuser \
 (! run0 -u testuser machinectl shell root@shouldnotwork2 /usr/bin/id -u)
 (! run0 -u testuser machinectl shell 0@shouldnotwork2 /usr/bin/id -u)
 (! run0 -u testuser machinectl shell testuser@shouldnotwork2 /usr/bin/id -u)
+
+echo FOO=bar >/tmp/foo
+chmod 600 /tmp/foo
+run0 -u testuser \
+    systemd-run --unit exfiltrate.service --service-type notify --property NotifyAccess=all --user \
+        unshare --map-root-user --user --mount \
+            bash -c 'mount --bind /tmp/foo /usr/lib/os-release; systemd-notify --ready; exec sleep infinity'
+exfiltrate_pid="$(systemctl --machine testuser@.host show --user -P MainPID exfiltrate.service)"
+run0 -u testuser \
+    varlinkctl \
+        call \
+        /run/systemd/machine/io.systemd.Machine \
+        io.systemd.Machine.Register \
+        "{\"name\":\"exfiltrate\", \"class\":\"container\", \"leader\": $exfiltrate_pid}"
+exfiltrate_output="$(run0 -u testuser \
+    varlinkctl \
+        call \
+        /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List \
+        "{\"name\":\"exfiltrate\",\"acquireMetadata\":\"graceful\"}" 2>&1)" || true
+(! echo "$exfiltrate_output" | grep '"name".*"exfiltrate"' >/dev/null)
+(! echo "$exfiltrate_output" | grep "FOO=bar" >/dev/null)
+systemctl --user --machine testuser@ stop exfiltrate.service
 
 loginctl disable-linger testuser
