@@ -11,6 +11,18 @@
         SD_VARLINK_DEFINE_INPUT_BY_TYPE(pid, ProcessId, SD_VARLINK_NULLABLE),                                                                  \
         VARLINK_DEFINE_POLKIT_INPUT
 
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                MachineClass,
+                SD_VARLINK_DEFINE_ENUM_VALUE(container),
+                SD_VARLINK_DEFINE_ENUM_VALUE(vm),
+                SD_VARLINK_DEFINE_ENUM_VALUE(host));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                KillWhom,
+                SD_VARLINK_DEFINE_ENUM_VALUE(leader),
+                SD_VARLINK_DEFINE_ENUM_VALUE(supervisor),
+                SD_VARLINK_DEFINE_ENUM_VALUE(all));
+
 static SD_VARLINK_DEFINE_ENUM_TYPE(
                 AcquireMetadata,
                 SD_VARLINK_FIELD_COMMENT("Do not include metadata in the output"),
@@ -31,7 +43,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(name,                    SD_VARLINK_STRING, 0),
                 SD_VARLINK_DEFINE_INPUT(id,                      SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(service,                 SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_INPUT(class,                   SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(class,            MachineClass, 0),
                 SD_VARLINK_FIELD_COMMENT("The leader PID as simple positive integer."),
                 SD_VARLINK_DEFINE_INPUT(leader,                  SD_VARLINK_INT,    SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The leader PID as ProcessId structure. If both the leader and leaderProcessId parameters are specified they must reference the same process. Typically one would only specify one or the other however. It's generally recommended to specify leaderProcessId as it references a process in a robust way without risk of identifier recycling."),
@@ -61,7 +73,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 Kill,
                 VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS,
                 SD_VARLINK_FIELD_COMMENT("Identifier that specifies what precisely to send the signal to (either 'leader', 'supervisor', or 'all')."),
-                SD_VARLINK_DEFINE_INPUT(whom, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(whom, KillWhom, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Numeric UNIX signal integer."),
                 SD_VARLINK_DEFINE_INPUT(signal, SD_VARLINK_INT, 0));
 
@@ -78,7 +90,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Name of the software that registered this machine"),
                 SD_VARLINK_DEFINE_OUTPUT(service, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The class of this machine"),
-                SD_VARLINK_DEFINE_OUTPUT(class, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(class, MachineClass, 0),
                 SD_VARLINK_FIELD_COMMENT("Leader process PID of this machine"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(leader, ProcessId, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Supervisor process PID of this machine"),
@@ -216,6 +228,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_ProcessId,
                 SD_VARLINK_SYMBOL_COMMENT("A timestamp object consisting of both CLOCK_REALTIME and CLOCK_MONOTONIC timestamps"),
                 &vl_type_Timestamp,
+                SD_VARLINK_SYMBOL_COMMENT("The class of a machine"),
+                &vl_type_MachineClass,
+                SD_VARLINK_SYMBOL_COMMENT("What to send a signal to in a machine"),
+                &vl_type_KillWhom,
                 SD_VARLINK_SYMBOL_COMMENT("A enum field allowing to gracefully get metadata"),
                 &vl_type_AcquireMetadata,
                 SD_VARLINK_SYMBOL_COMMENT("An address object"),

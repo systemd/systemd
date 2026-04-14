@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "varlink-idl-common.h"
 #include "varlink-io.systemd.oom.h"
 
 /* This is oomd's Varlink service, where oomd is server and systemd --user is the client.
@@ -9,7 +10,7 @@
 
 SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ControlGroup,
-                SD_VARLINK_DEFINE_FIELD(mode, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(mode, ManagedOOMMode, 0),
                 SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
                 SD_VARLINK_DEFINE_FIELD(property, SD_VARLINK_STRING, 0),
                 SD_VARLINK_DEFINE_FIELD(limit, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
@@ -22,5 +23,6 @@ static SD_VARLINK_DEFINE_METHOD(
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_oom,
                 "io.systemd.oom",
+                &vl_type_ManagedOOMMode,
                 &vl_method_ReportManagedOOMCGroups,
                 &vl_type_ControlGroup);

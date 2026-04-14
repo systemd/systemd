@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "cgroup.h"
+#include "ioprio-util.h"
+#include "numa-util.h"
+#include "process-util.h"
 #include "tests.h"
 #include "test-varlink-idl-util.h"
 #include "unit.h"
+#include "varlink-idl-common.h"
 #include "varlink-io.systemd.Unit.h"
 
 TEST(unit_enums_idl) {
@@ -24,6 +28,17 @@ TEST(unit_enums_idl) {
         TEST_IDL_ENUM(ProtectControlGroups, protect_control_groups, vl_type_ProtectControlGroups);
         TEST_IDL_ENUM(PrivatePIDs, private_pids, vl_type_PrivatePIDs);
         TEST_IDL_ENUM(PrivateBPF, private_bpf, vl_type_PrivateBPF);
+
+        /* sched_policy table has gaps (SCHED_IDLE=5, SCHED_EXT=7), so only test from_string direction */
+        TEST_IDL_ENUM_FROM_STRING(int, sched_policy, vl_type_CPUSchedulingPolicy);
+        /* ioprio_class uses _alloc variant for to_string, so only test from_string direction */
+        TEST_IDL_ENUM_FROM_STRING(int, ioprio_class, vl_type_IOSchedulingClass);
+        TEST_IDL_ENUM(int, mpol, vl_type_NUMAPolicy);
+
+        /* mount_propagation_flag has non-standard from_string API, test manually */
+        test_enum_to_string_name("shared", &vl_type_MountPropagationFlag);
+        test_enum_to_string_name("slave", &vl_type_MountPropagationFlag);
+        test_enum_to_string_name("private", &vl_type_MountPropagationFlag);
 
         /* CGroupContext enums */
         TEST_IDL_ENUM(CGroupDevicePolicy, cgroup_device_policy, vl_type_CGroupDevicePolicy);
