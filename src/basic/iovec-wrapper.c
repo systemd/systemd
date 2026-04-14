@@ -27,22 +27,6 @@ void iovw_done_free(struct iovec_wrapper *iovw) {
         iovw_done(iovw);
 }
 
-struct iovec_wrapper *iovw_free_free(struct iovec_wrapper *iovw) {
-        if (!iovw)
-                return NULL;
-
-        iovw_done_free(iovw);
-        return mfree(iovw);
-}
-
-struct iovec_wrapper *iovw_free(struct iovec_wrapper *iovw) {
-        if (!iovw)
-                return NULL;
-
-        iovw_done(iovw);
-        return mfree(iovw);
-}
-
 int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
         assert(iovw);
 
@@ -118,8 +102,7 @@ void iovw_rebase(struct iovec_wrapper *iovw, void *old, void *new) {
 }
 
 size_t iovw_size(const struct iovec_wrapper *iovw) {
-        if (!iovw)
-                return 0;
+        assert(iovw);
 
         return iovec_total_size(iovw->iovec, iovw->count);
 }
