@@ -36,6 +36,8 @@ int luo_session_preserve_fd(int session_fd, int fd, uint64_t token);
 int luo_session_retrieve_fd(int session_fd, uint64_t token);
 int luo_session_finish(int session_fd);
 
+bool luo_session_name_is_valid(const char *name);
+
 int luo_parse_serialization(sd_json_variant **ret, int **ret_fds, size_t *ret_n_fds);
 int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd);
 
