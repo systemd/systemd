@@ -105,6 +105,13 @@ typedef struct LinkInfo {
         uint16_t ipvlan_mode;
         uint16_t ipvlan_flags;
 
+        /* OVS info (from varlink Link.Describe response) */
+        char *ovs_bridge;
+        char *ovs_bond;
+        char *ovs_port_type;
+        char *ovs_fail_mode;
+        char **ovs_interfaces;
+
         /* ethtool info */
         int autonegotiation;
         uint64_t speed;
