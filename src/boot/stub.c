@@ -10,6 +10,7 @@
 #include "efi-string.h"
 #include "export-vars.h"
 #include "graphics.h"
+#include "initrd.h"
 #include "iovec-util-fundamental.h"
 #include "linux.h"
 #include "measure.h"
@@ -32,13 +33,10 @@
 
 /* The list of initrds we combine into one, in the order we want to merge them */
 enum {
-        /* The first two are part of the PE binary */
-        INITRD_UCODE,
-        INITRD_BASE,
-
-        /* The rest are dynamically generated, and hence in dynamic memory */
-        _INITRD_DYNAMIC_FIRST,
-        INITRD_CREDENTIAL = _INITRD_DYNAMIC_FIRST,
+        INITRD_UCODE,    /* Part of the PE binary */
+        INITRD_PREVIOUS, /* initrd already configured via the EFI protocol before we were invoked */
+        INITRD_BASE,     /* Part of the PE binary */
+        INITRD_CREDENTIAL,
         INITRD_GLOBAL_CREDENTIAL,
         INITRD_SYSEXT,
         INITRD_GLOBAL_SYSEXT,
@@ -51,6 +49,8 @@ enum {
         INITRD_BOOT_SECRET,
         _INITRD_MAX,
 };
+
+#define INITRD_IS_STATIC(idx) IN_SET(idx, INITRD_UCODE, INITRD_BASE)
 
 /* magic string to find in the binary image */
 DECLARE_NOALLOC_SECTION(".sdmagic", "#### LoaderInfo: systemd-stub " GIT_VERSION " ####");
@@ -100,50 +100,6 @@ static void combine_measured_flag(int *value, int measured) {
                 return;
 
         *value = *value < 0 ? measured : *value && measured;
-}
-
-/* Combine initrds by concatenation in memory */
-static EFI_STATUS combine_initrds(
-                const struct iovec initrds[], size_t n_initrds,
-                Pages *ret_initrd_pages, size_t *ret_initrd_size) {
-
-        size_t n = 0;
-
-        assert(initrds || n_initrds == 0);
-        assert(ret_initrd_pages);
-        assert(ret_initrd_size);
-
-        FOREACH_ARRAY(i, initrds, n_initrds) {
-                /* some initrds (the ones from UKI sections) need padding, pad all to be safe */
-                size_t initrd_size = ALIGN4(i->iov_len);
-                if (n > SIZE_MAX - initrd_size)
-                        return EFI_OUT_OF_RESOURCES;
-
-                n += initrd_size;
-        }
-
-        _cleanup_pages_ Pages pages = xmalloc_initrd_pages(n);
-        uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
-
-        FOREACH_ARRAY(i, initrds, n_initrds) {
-                size_t pad;
-
-                p = mempcpy(p, i->iov_base, i->iov_len);
-
-                pad = ALIGN4(i->iov_len) - i->iov_len;
-                if (pad == 0)
-                        continue;
-
-                memzero(p, pad);
-                p += pad;
-        }
-
-        assert(PHYSICAL_ADDRESS_TO_POINTER(pages.addr + n) == p);
-
-        *ret_initrd_pages = TAKE_STRUCT(pages);
-        *ret_initrd_size = n;
-
-        return EFI_SUCCESS;
 }
 
 static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsigned profile) {
@@ -550,6 +506,18 @@ static void extend_initrds(
                 iovec_array_extend(all_initrds, n_all_initrds, *i);
 }
 
+static void acquire_previous_initrd(struct iovec initrds[static _INITRD_MAX]) {
+        EFI_STATUS err;
+
+        err = initrd_read_previous(initrds + INITRD_PREVIOUS);
+        if (err == EFI_NOT_FOUND)
+                log_debug_status(err, "No previous initrd installed.");
+        else if (err != EFI_SUCCESS)
+                log_warning_status(err, "Failed to read previously registered initrd, ignoring.");
+        else
+                log_debug("Successfully loaded previously installed initrd (%zu bytes).", initrds[INITRD_PREVIOUS].iov_len);
+}
+
 static EFI_STATUS load_addons(
                 EFI_HANDLE stub_image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
@@ -823,8 +791,9 @@ static void initrds_free(struct iovec (*initrds)[_INITRD_MAX]) {
 
         /* Free the dynamic initrds, but leave the non-dynamic ones around */
 
-        for (size_t i = _INITRD_DYNAMIC_FIRST; i < _INITRD_MAX; i++)
-                iovec_done((*initrds) + i);
+        for (size_t i = 0; i < _INITRD_MAX; i++)
+                if (!INITRD_IS_STATIC(i))
+                        iovec_done((*initrds) + i);
 }
 
 static void generate_sidecar_initrds(
@@ -846,9 +815,7 @@ static void generate_sidecar_initrds(
                       /* dropin_dir= */ NULL,
                       u".cred",
                       /* exclude_suffix= */ NULL,
-                      ".extra/credentials",
-                      /* dir_mode= */ 0500,
-                      /* access_mode= */ 0400,
+                      &cpio_target_credentials,
                       /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Credentials initrd",
                       initrds + INITRD_CREDENTIAL,
@@ -859,9 +826,7 @@ static void generate_sidecar_initrds(
                       u"\\loader\\credentials",
                       u".cred",
                       /* exclude_suffix= */ NULL,
-                      ".extra/global_credentials",
-                      /* dir_mode= */ 0500,
-                      /* access_mode= */ 0400,
+                      &cpio_target_global_credentials,
                       /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Global credentials initrd",
                       initrds + INITRD_GLOBAL_CREDENTIAL,
@@ -872,9 +837,7 @@ static void generate_sidecar_initrds(
                       /* dropin_dir= */ NULL,
                       u".raw",         /* ideally we'd pick up only *.sysext.raw here, but for compat we pick up *.raw instead … */
                       u".confext.raw", /* … but then exclude *.confext.raw again */
-                      ".extra/sysext",
-                      /* dir_mode= */ 0555,
-                      /* access_mode= */ 0444,
+                      &cpio_target_sysext,
                       /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
                       u"System extension initrd",
                       initrds + INITRD_SYSEXT,
@@ -885,9 +848,7 @@ static void generate_sidecar_initrds(
                       u"\\loader\\extensions",
                       u".raw", /* as above */
                       u".confext.raw",
-                      ".extra/global_sysext",
-                      /* dir_mode= */ 0555,
-                      /* access_mode= */ 0444,
+                      &cpio_target_global_sysext,
                       /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
                       u"Global system extension initrd",
                       initrds + INITRD_GLOBAL_SYSEXT,
@@ -898,9 +859,7 @@ static void generate_sidecar_initrds(
                       /* dropin_dir= */ NULL,
                       u".confext.raw",
                       /* exclude_suffix= */ NULL,
-                      ".extra/confext",
-                      /* dir_mode= */ 0555,
-                      /* access_mode= */ 0444,
+                      &cpio_target_confext,
                       /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Configuration extension initrd",
                       initrds + INITRD_CONFEXT,
@@ -911,9 +870,7 @@ static void generate_sidecar_initrds(
                       u"\\loader\\extensions",
                       u".confext.raw",
                       /* exclude_suffix= */ NULL,
-                      ".extra/global_confext",
-                      /* dir_mode= */ 0555,
-                      /* access_mode= */ 0444,
+                      &cpio_target_global_confext,
                       /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Global configuration extension initrd",
                       initrds + INITRD_GLOBAL_CONFEXT,
@@ -964,10 +921,8 @@ static void generate_embedded_initrds(
                 (void) pack_cpio_literal(
                                 (const uint8_t*) loaded_image->ImageBase + sections[t->section].memory_offset,
                                 sections[t->section].memory_size,
-                                ".extra",
+                                &cpio_target_meta,
                                 t->filename,
-                                /* dir_mode= */ 0555,
-                                /* access_mode= */ 0444,
                                 /* tpm_pcr= */ UINT32_MAX,
                                 /* tpm_description= */ NULL,
                                 initrds + t->initrd_index,
@@ -988,10 +943,8 @@ static void generate_boot_secret_initrd(
         (void) pack_cpio_literal(
                         boot_secret,
                         BOOT_SECRET_SIZE,
-                        ".extra",
+                        &cpio_target_meta_secret,
                         u"boot-secret",
-                        /* dir_mode= */ 0555,
-                        /* access_mode= */ 0400,
                         /* tpm_pcr= */ UINT32_MAX,
                         /* tpm_description= */ NULL,
                         initrds + INITRD_BOOT_SECRET,
@@ -1309,6 +1262,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         install_addon_devicetrees(&dt_state, dt_addons, n_dt_addons, &parameters_measured);
 
         /* Generate & find all initrds */
+        acquire_previous_initrd(initrds);
         generate_sidecar_initrds(loaded_image, initrds, &parameters_measured, &sysext_measured, &confext_measured);
         generate_embedded_initrds(loaded_image, sections, initrds);
         generate_boot_secret_initrd(boot_secret, initrds);
