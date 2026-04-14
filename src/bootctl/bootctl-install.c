@@ -2028,6 +2028,10 @@ int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         char *path = strjoina("/EFI/systemd/systemd-boot", get_efi_arch(), ".efi");
         RET_GATHER(r, remove_variables(uuid, path, /* in_order= */ true));
+
+        char *fallback_path = strjoina("/EFI/systemd/systemd-boot-fallback", get_efi_arch(), ".efi");
+        RET_GATHER(r, remove_variables(uuid, fallback_path, /* in_order= */ true));
+
         return RET_GATHER(r, remove_loader_variables());
 }
 
