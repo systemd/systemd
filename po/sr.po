@@ -855,26 +855,26 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
 msgid "Enable/disable DNSSEC"
-msgstr "Омогући/онемогући ДНСБЕЗБ"
+msgstr "Омогући/онемогући DNSSEC"
 
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
 msgid "Authentication is required to enable or disable DNSSEC."
 msgstr ""
-"Потребно је потврђивање идентитета за омогућавање или онемогућавање ДНСБЕЗБ-"
+"Потребно је потврђивање идентитета за омогућавање или онемогућавање DNSSEC-"
 "а."
 
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
 msgid "Set DNSSEC Negative Trust Anchors"
-msgstr "Постави негативне сидре поверења за ДНСБЕЗБ"
+msgstr "Постави негативне сидре поверења за DNSSEC"
 
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
 msgstr ""
 "Потребно је потврђивање идентитета за постављање негативних сидара поверења "
-"за ДНСБЕЗБ."
+"за DNSSEC."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
