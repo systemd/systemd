@@ -1449,6 +1449,32 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_HOSTNAME:
+                        if (!hostname_is_valid(optarg, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Host name %s is not valid.", optarg);
+
+                        r = free_and_strdup(&arg_hostname, optarg);
+                        if (r < 0)
+                                return log_oom();
+
+                        hostname_cleanup(arg_hostname);
+                        break;
+
+                case ARG_SETUP_MACHINE_ID:
+                        r = sd_id128_randomize(&arg_machine_id);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
+
+                        break;
+
+                case ARG_MACHINE_ID:
+                        r = sd_id128_from_string(optarg, &arg_machine_id);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse machine id %s.", optarg);
+
+                        break;
+
                 case ARG_ROOT_PASSWORD:
                         r = free_and_strdup(&arg_root_password, optarg);
                         if (r < 0)
@@ -1482,43 +1508,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_HOSTNAME:
-                        if (!hostname_is_valid(optarg, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Host name %s is not valid.", optarg);
-
-                        r = free_and_strdup(&arg_hostname, optarg);
-                        if (r < 0)
-                                return log_oom();
-
-                        hostname_cleanup(arg_hostname);
-                        break;
-
-                case ARG_SETUP_MACHINE_ID:
-                        r = sd_id128_randomize(&arg_machine_id);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
-
-                        break;
-
-                case ARG_MACHINE_ID:
-                        r = sd_id128_from_string(optarg, &arg_machine_id);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse machine id %s.", optarg);
-
-                        break;
-
                 case ARG_KERNEL_COMMAND_LINE:
                         r = free_and_strdup(&arg_kernel_cmdline, optarg);
                         if (r < 0)
                                 return log_oom();
 
-                        break;
-
-                case ARG_PROMPT:
-                        arg_prompt_locale = arg_prompt_keymap = arg_prompt_timezone = arg_prompt_hostname =
-                                arg_prompt_root_password = arg_prompt_root_shell = true;
-                        arg_prompt_keymap_auto = false;
                         break;
 
                 case ARG_PROMPT_LOCALE:
@@ -1550,9 +1544,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_prompt_root_shell = true;
                         break;
 
-                case ARG_COPY:
-                        arg_copy_locale = arg_copy_keymap = arg_copy_timezone = arg_copy_root_password =
-                                arg_copy_root_shell = true;
+                case ARG_PROMPT:
+                        arg_prompt_locale = arg_prompt_keymap = arg_prompt_timezone = arg_prompt_hostname =
+                                arg_prompt_root_password = arg_prompt_root_shell = true;
+                        arg_prompt_keymap_auto = false;
                         break;
 
                 case ARG_COPY_LOCALE:
@@ -1573,6 +1568,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_COPY_ROOT_SHELL:
                         arg_copy_root_shell = true;
+                        break;
+
+                case ARG_COPY:
+                        arg_copy_locale = arg_copy_keymap = arg_copy_timezone = arg_copy_root_password =
+                                arg_copy_root_shell = true;
                         break;
 
                 case ARG_FORCE:
@@ -1598,15 +1598,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_RESET:
-                        arg_reset = true;
-                        break;
-
                 case ARG_MUTE_CONSOLE:
                         r = parse_boolean_argument("--mute-console=", optarg, &arg_mute_console);
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case ARG_RESET:
+                        arg_reset = true;
                         break;
 
                 case '?':
