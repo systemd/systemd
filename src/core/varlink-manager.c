@@ -381,6 +381,7 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
                                         JOB_FAIL,
                                         /* reload_if_possible= */ !BIT_SET(u->markers, UNIT_MARKER_NEEDS_RESTART),
                                         &job_id,
+                                        /* ret_job= */ NULL,
                                         &bus_error);
                 if (ERRNO_IS_NEG_RESOURCE(r))
                         return r;
