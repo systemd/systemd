@@ -1289,7 +1289,7 @@ static int find_slot(sd_id128_t uuid, const char *path, uint16_t *id) {
         return 0;
 }
 
-static int insert_into_order(InstallContext *c, uint16_t slot) {
+static int insert_into_order(InstallContext *c, uint16_t slot, uint16_t after_slot) {
         _cleanup_free_ uint16_t *order = NULL;
         uint16_t *t;
         int n;
@@ -1318,6 +1318,27 @@ static int insert_into_order(InstallContext *c, uint16_t slot) {
                 memmove(order + 1, order, i * sizeof(uint16_t));
                 order[0] = slot;
                 return efi_set_boot_order(order, n);
+        }
+        /* insert after a specific slot if requested */
+        if (after_slot != UINT16_MAX) {
+                t = reallocarray(order, n + 1, sizeof(uint16_t));
+                if (!t)
+                        return -ENOMEM;
+                order = t;
+
+                /* find after_slot and insert slot immediately after it */
+                for (int i = 0; i < n; i++) {
+                        if (order[i] != after_slot)
+                                continue;
+                        /* shift the tail one position right to make room */
+                        memmove(order + i + 2, order + i + 1, (n - i - 1) * sizeof(uint16_t));
+                        order[i + 1] = slot;
+                        return efi_set_boot_order(order, n + 1);
+                }
+
+                /* after_slot not found, append */
+                order[n] = slot;
+                return efi_set_boot_order(order, n + 1);
         }
 
         /* extend array */
@@ -1410,7 +1431,10 @@ fallback:
 
 static int install_variables(
                 InstallContext *c,
-                const char *path) {
+                const char *path,
+                const char *description,
+                uint16_t after_slot,
+                uint16_t *ret_slot) {
 
         uint16_t slot;
         int r;
@@ -1452,12 +1476,6 @@ static int install_variables(
         bool existing = r > 0;
 
         if (c->operation == INSTALL_NEW || !existing) {
-                _cleanup_free_ char *description = NULL;
-
-                r = pick_efi_boot_option_description(esp_fd, &description);
-                if (r < 0)
-                        return r;
-
                 r = efi_add_boot_option(
                                 slot,
                                 description,
@@ -1480,7 +1498,10 @@ static int install_variables(
                          description);
         }
 
-        return insert_into_order(c, slot);
+        if (ret_slot)
+                *ret_slot = slot;
+
+        return insert_into_order(c, slot, after_slot);
 }
 
 static int are_we_installed(InstallContext *c) {
@@ -1689,7 +1710,30 @@ static int run_install(InstallContext *c) {
         }
 
         char *path = strjoina("/EFI/systemd/systemd-boot", arch, ".efi");
-        return install_variables(c, path);
+
+        _cleanup_free_ char *description = NULL;
+        r = pick_efi_boot_option_description(esp_fd, &description);
+        if (r < 0)
+                return r;
+
+        uint16_t primary_slot = UINT16_MAX;
+        r = install_variables(c, path, description, UINT16_MAX, &primary_slot);
+        if (r < 0)
+                return r;
+
+        if (!c->keep_fallback)
+                return 0;
+
+        char *fallback_path = strjoina("/EFI/systemd/systemd-boot-fallback", arch, ".efi");
+
+        _cleanup_free_ char *fallback_description = NULL;
+        if (asprintf(&fallback_description, "%s (fallback)", description) < 0)
+                return log_oom();
+
+        if (strlen(fallback_description) > EFI_BOOT_OPTION_DESCRIPTION_MAX)
+                fallback_description[EFI_BOOT_OPTION_DESCRIPTION_MAX] = '\0';
+
+        return install_variables(c, fallback_path, fallback_description, primary_slot, NULL);
 }
 
 int verb_install(int argc, char *argv[], uintptr_t _data, void *userdata) {
