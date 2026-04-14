@@ -560,7 +560,11 @@ int pkcs11_token_read_public_key(
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to init an EVP_PKEY_CTX for EC.");
 
                 OSSL_PARAM ec_params[8] = {
-                        OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_PUB_KEY, os->data, os->length)
+                        /* We need to drop the const from the data param, because ec_params is
+                         * modified below. But we'll not modify ec_params[0]. */
+                        OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_PUB_KEY,
+                                                (unsigned char *) ASN1_STRING_get0_data(os),
+                                                ASN1_STRING_length(os)),
                 };
 
                 _cleanup_free_ void *order = NULL, *p = NULL, *a = NULL, *b = NULL, *generator = NULL;
@@ -663,13 +667,10 @@ int pkcs11_token_read_x509_certificate(
                 CK_OBJECT_HANDLE object,
                 X509 **ret_cert) {
 
-        _cleanup_free_ char *t = NULL;
         CK_ATTRIBUTE attribute = {
                 .type = CKA_VALUE
         };
         CK_RV rv;
-        _cleanup_(X509_freep) X509 *x509 = NULL;
-        X509_NAME *name = NULL;
         int r;
 
         assert(ret_cert);
@@ -695,15 +696,15 @@ int pkcs11_token_read_x509_certificate(
                                        "Failed to read X.509 certificate data off token: %s", sym_p11_kit_strerror(rv));
 
         const unsigned char *p = attribute.pValue;
-        x509 = d2i_X509(NULL, &p, attribute.ulValueLen);
+        _cleanup_(X509_freep) X509 *x509 = d2i_X509(NULL, &p, attribute.ulValueLen);
         if (!x509)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse X.509 certificate.");
 
-        name = X509_get_subject_name(x509);
+        const X509_NAME *name = X509_get_subject_name(x509);
         if (!name)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to acquire X.509 subject name.");
 
-        t = X509_NAME_oneline(name, NULL, 0);
+        _cleanup_free_ char *t = X509_NAME_oneline(name, NULL, 0);
         if (!t)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to format X.509 subject name as string.");
 
