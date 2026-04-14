@@ -54,7 +54,7 @@ static inline int btrfs_get_block_device(const char *path, dev_t *ret) {
         return btrfs_get_block_device_at(AT_FDCWD, path, ret);
 }
 static inline int btrfs_get_block_device_fd(int fd, dev_t *ret) {
-        return btrfs_get_block_device_at(fd, "", ret);
+        return btrfs_get_block_device_at(fd, NULL, ret);
 }
 
 int btrfs_defrag_fd(int fd);
