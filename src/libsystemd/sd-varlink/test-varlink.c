@@ -2,12 +2,12 @@
 
 #include <fcntl.h>
 #include <poll.h>
-#include <pthread.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
 
@@ -214,7 +214,12 @@ static void flood_test(const char *address) {
         /* Block the main event loop while we flood */
         ASSERT_OK_EQ_ERRNO(write(block_write_fd, &x, sizeof(x)), (ssize_t) sizeof(x));
 
-        ASSERT_OK(sd_event_default(&e));
+        /* Create a fresh event loop for the flood test — we can't reuse the default event because the
+         * main test (and the fiber we're running in) is already running it, and sd_event_loop() asserts
+         * the event is in the INITIAL state. Exit-on-idle so the nested loop terminates once the
+         * overload reply has been received and all other work is quiesced. */
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         /* Flood the server with connections */
         ASSERT_NOT_NULL(connections = new0(sd_varlink*, OVERLOAD_CONNECTIONS));
@@ -249,7 +254,7 @@ static void flood_test(const char *address) {
                 connections[k] = sd_varlink_unref(connections[k]);
 }
 
-static void *thread(void *arg) {
+static int client_fiber(void *arg) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *c = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *i = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *wrong = NULL;
@@ -261,7 +266,7 @@ static void *thread(void *arg) {
                                                    SD_JSON_BUILD_PAIR_INTEGER("b", 99))));
 
         ASSERT_OK(sd_varlink_connect_address(&c, arg));
-        ASSERT_OK(sd_varlink_set_description(c, "thread-client"));
+        ASSERT_OK(sd_varlink_set_description(c, "fiber-client"));
         ASSERT_OK(sd_varlink_set_allow_fd_passing_input(c, true));
         ASSERT_OK(sd_varlink_set_allow_fd_passing_output(c, true));
 
@@ -319,7 +324,7 @@ static void *thread(void *arg) {
 
         ASSERT_OK(sd_varlink_send(c, "io.test.Done", NULL));
 
-        return NULL;
+        return 0;
 }
 
 static int block_fd_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -346,8 +351,8 @@ TEST(chat) {
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         _cleanup_close_pair_ int block_fds[2] = EBADF_PAIR;
-        pthread_t t;
         const char *sp;
 
         ASSERT_OK(mkdtemp_malloc("/tmp/varlink-test-XXXXXX", &tmpdir));
@@ -386,11 +391,11 @@ TEST(chat) {
 
         ASSERT_OK(sd_varlink_attach_event(c, e, 0));
 
-        ASSERT_OK(-pthread_create(&t, NULL, thread, (void*) sp));
+        ASSERT_OK(sd_fiber_new(e, "client", client_fiber, (void*) sp, /* destroy= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
 
-        ASSERT_OK(-pthread_join(t, NULL));
+        ASSERT_OK(sd_future_result(f));
 }
 
 static int method_invalid(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -616,6 +621,173 @@ TEST(sentinel_oneway) {
         ASSERT_OK(sd_event_loop(e));
 }
 
+static int method_fiber_sentinel_error(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* Set an error sentinel from a fiber callback and return without sending a reply. The sentinel
+         * error should still be propagated by the fiber's post-callback logic, even though the varlink
+         * state has already been transitioned to VARLINK_PENDING_METHOD by the time the fiber runs. */
+        ASSERT_OK(sd_varlink_set_sentinel(link, "io.test.SentinelError"));
+        return 0;
+}
+
+TEST(fiber_sentinel_error) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        ASSERT_OK(sd_varlink_server_new(&s, 0));
+
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+
+        ASSERT_OK(varlink_server_bind_fiber(s, "io.test.FiberSentinelError", method_fiber_sentinel_error));
+
+        int connfd[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
+
+        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_sentinel_error));
+
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.FiberSentinelError", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+}
+
+static int method_fiber_errno(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* Return a negative errno without sending a reply. The fiber's post-callback logic should
+         * convert this into a SD_VARLINK_ERROR_SYSTEM reply. */
+        return -ENOSYS;
+}
+
+static int reply_fiber_errno(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        ASSERT_STREQ(error_id, SD_VARLINK_ERROR_SYSTEM);
+        ASSERT_EQ(sd_json_variant_integer(sd_json_variant_by_key(parameters, "errno")), ENOSYS);
+        ASSERT_OK(sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS));
+        return 0;
+}
+
+TEST(fiber_errno) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        ASSERT_OK(sd_varlink_server_new(&s, 0));
+
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+
+        ASSERT_OK(varlink_server_bind_fiber(s, "io.test.FiberErrno", method_fiber_errno));
+
+        int connfd[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
+
+        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_fiber_errno));
+
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.FiberErrno", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+}
+
+static int method_fiber_no_reply(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* Return success without replying and without stashing a ref. The fiber's post-callback
+         * logic should detect this and fail the connection. */
+        return 0;
+}
+
+static int reply_fiber_no_reply(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        ASSERT_STREQ(error_id, SD_VARLINK_ERROR_DISCONNECTED);
+        ASSERT_OK(sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS));
+        return 0;
+}
+
+TEST(fiber_no_reply) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        ASSERT_OK(sd_varlink_server_new(&s, 0));
+
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+
+        ASSERT_OK(varlink_server_bind_fiber(s, "io.test.FiberNoReply", method_fiber_no_reply));
+
+        int connfd[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
+
+        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_fiber_no_reply));
+
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.FiberNoReply", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+}
+
+static int fiber_stashed_deferred_reply(sd_event_source *s, void *userdata) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = ASSERT_PTR(userdata);
+
+        sd_event_source_disable_unref(s);
+        ASSERT_OK(sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "stashed")));
+        return 0;
+}
+
+static int method_fiber_stash(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* Stash a ref on the connection so n_ref > 2 when the fiber returns, and reply later from a
+         * deferred event source. The fiber's post-callback logic should see the extra ref and treat
+         * this as a valid deferred-reply case instead of failing the connection. */
+        sd_event_source *source;
+
+        ASSERT_OK(sd_event_add_defer(sd_varlink_get_event(link), &source, fiber_stashed_deferred_reply, sd_varlink_ref(link)));
+        ASSERT_OK(sd_event_source_set_enabled(source, SD_EVENT_ONESHOT));
+        return 0;
+}
+
+static int reply_fiber_stash(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        ASSERT_NULL(error_id);
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(parameters, "result")), "stashed");
+        ASSERT_OK(sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS));
+        return 0;
+}
+
+TEST(fiber_stash) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        ASSERT_OK(sd_varlink_server_new(&s, 0));
+
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+
+        ASSERT_OK(varlink_server_bind_fiber(s, "io.test.FiberStash", method_fiber_stash));
+
+        int connfd[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
+
+        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_fiber_stash));
+
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.FiberStash", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+}
+
 static int method_with_fd_sentinel(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
 
@@ -766,8 +938,9 @@ static int method_upgrade(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r < 0)
                 return r;
 
-        /* After upgrade, do raw I/O: read until EOF, reverse, write back.
-         * The client shuts down its write side after sending, so we get a clean EOF. */
+        /* After upgrade, do raw I/O: read until the client shuts down its write side (giving us a clean
+         * EOF), reverse what we got, and write it back. Use suspending I/O so other fibers (the client)
+         * can make progress while we're waiting on the socket. */
         char buf[64] = {};
         ssize_t n = ASSERT_OK(loop_read(input_fd, buf, sizeof(buf) - 1, /* do_poll= */ true));
         ASSERT_GT(n, 0);
@@ -787,12 +960,10 @@ static int method_upgrade_without_flag(sd_varlink *link, sd_json_variant *parame
         /* Calling reply_and_upgrade without the client requesting it should fail with -EPROTO */
         ASSERT_ERROR(sd_varlink_reply_and_upgrade(link, /* parameters= */ NULL, &input_fd, &output_fd), EPROTO);
 
-        sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS);
-
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
-static void *upgrade_thread(void *arg) {
+static int upgrade_client_fiber(void *arg) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *c = NULL;
         _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
         sd_json_variant *o = NULL;
@@ -825,14 +996,15 @@ static void *upgrade_thread(void *arg) {
         ASSERT_OK(sd_varlink_call(c2, "io.test.UpgradeWithoutFlag", /* parameters= */ NULL, &o, &error_id));
         ASSERT_NULL(error_id);
 
-        return NULL;
+        ASSERT_OK(sd_event_exit(sd_fiber_get_event(), EXIT_SUCCESS));
+        return 0;
 }
 
 TEST(upgrade) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        pthread_t t;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         const char *sp;
 
         ASSERT_OK(mkdtemp_malloc("/tmp/varlink-test-XXXXXX", &tmpdir));
@@ -842,31 +1014,23 @@ TEST(upgrade) {
 
         ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_UPGRADABLE));
         ASSERT_OK(sd_varlink_server_set_description(s, "upgrade-server"));
-        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.Upgrade", method_upgrade));
+        /* The method does raw I/O on the upgraded socket — bind it as a fiber method so it can
+         * suspend on loop_read()/loop_write() and the client fiber can make progress concurrently. */
+        ASSERT_OK(varlink_server_bind_fiber(s, "io.test.Upgrade", method_upgrade));
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.UpgradeWithoutFlag", method_upgrade_without_flag));
         ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
 
-        ASSERT_OK(-pthread_create(&t, NULL, upgrade_thread, (void*) sp));
+        ASSERT_OK(sd_fiber_new(e, "upgrade-client", upgrade_client_fiber, (void*) sp, /* destroy= */ NULL, &f));
 
-        /* Run the event loop until no more connections (the thread will disconnect when done) */
+        /* Run the event loop. Exits on idle once the client fiber completes and all server connections
+         * have been torn down. */
         ASSERT_OK(sd_event_loop(e));
 
-        ASSERT_OK(-pthread_join(t, NULL));
+        ASSERT_OK(sd_future_result(f));
 }
 
-static int method_upgrade_and_exit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        sd_event *event = ASSERT_PTR(userdata);
-
-        int r = method_upgrade(link, parameters, flags, /* userdata= */ NULL);
-
-        /* Exit the event loop after the upgrade is handled. We can't use sd_varlink_get_event()
-         * here because the connection is already disconnected after reply_and_upgrade. */
-        (void) sd_event_exit(event, r < 0 ? r : EXIT_SUCCESS);
-        return r;
-}
-
-static void *upgrade_pipelining_thread(void *arg) {
+static int upgrade_pipelining_client_fiber(void *arg) {
         union sockaddr_union sa = {};
         _cleanup_close_ int fd = -EBADF;
 
@@ -893,8 +1057,8 @@ static void *upgrade_pipelining_thread(void *arg) {
         /* Shut down write side so server's method_upgrade sees EOF after raw payload */
         ASSERT_OK_ERRNO(shutdown(fd, SHUT_WR));
 
-        /* Read everything: upgrade reply (JSON + \0) + reversed raw payload. The server closes
-         * the connection after writing, so loop_read() reads until EOF and gets it all. */
+        /* Read everything: upgrade reply (JSON + \0) + reversed raw payload. The server closes the
+         * connection after writing, so loop_read_suspend() reads until EOF and gets it all. */
         char buf[256] = {};
         ssize_t n = ASSERT_OK(loop_read(fd, buf, sizeof(buf) - 1, /* do_poll= */ true));
         ASSERT_GT(n, 0);
@@ -909,14 +1073,15 @@ static void *upgrade_pipelining_thread(void *arg) {
         ASSERT_EQ(raw_size, strlen(raw_payload));
         ASSERT_STREQ(strndupa_safe(raw, raw_size), "!denilepiP");
 
-        return NULL;
+        ASSERT_OK(sd_event_exit(sd_fiber_get_event(), EXIT_SUCCESS));
+        return 0;
 }
 
 TEST(upgrade_pipelining) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        pthread_t t;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         const char *sp;
 
         ASSERT_OK(mkdtemp_malloc("/tmp/varlink-test-XXXXXX", &tmpdir));
@@ -924,45 +1089,29 @@ TEST(upgrade_pipelining) {
 
         ASSERT_OK(sd_event_new(&e));
 
-        ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_UPGRADABLE|SD_VARLINK_SERVER_INHERIT_USERDATA));
+        ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_UPGRADABLE));
         ASSERT_OK(sd_varlink_server_set_description(s, "upgrade-pipelining-server"));
-        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.Upgrade", method_upgrade_and_exit));
+        /* method_upgrade does raw I/O on the upgraded socket, so bind as a fiber method. */
+        ASSERT_OK(varlink_server_bind_fiber(s, "io.test.Upgrade", method_upgrade));
         ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
-        sd_varlink_server_set_userdata(s, e);
 
-        ASSERT_OK(-pthread_create(&t, NULL, upgrade_pipelining_thread, (void*) sp));
+        ASSERT_OK(sd_fiber_new(e, "upgrade-pipelining-client", upgrade_pipelining_client_fiber, (void*) sp, /* destroy= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
 
-        ASSERT_OK(-pthread_join(t, NULL));
+        ASSERT_OK(sd_future_result(f));
 }
 
 typedef struct ExecDirServer {
         sd_varlink_server *server;
-        sd_event *event;
         const char *name;
-        pthread_t thread;
 } ExecDirServer;
 
 static int method_execute_dir_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         ExecDirServer *srv = ASSERT_PTR(userdata);
 
         return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("name", srv->name));
-}
-
-static void on_execute_dir_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
-        ExecDirServer *srv = ASSERT_PTR(userdata);
-
-        /* Only one client (from varlink_execute_directory()) connects per server — once it's gone, we're done. */
-        ASSERT_OK(sd_event_exit(srv->event, 0));
-}
-
-static void *execute_dir_server_thread(void *arg) {
-        ExecDirServer *srv = arg;
-
-        ASSERT_OK(sd_event_loop(srv->event));
-        return NULL;
 }
 
 static int execute_dir_reply(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
@@ -975,51 +1124,28 @@ static int execute_dir_reply(sd_varlink *link, sd_json_variant *parameters, cons
         return 0;
 }
 
-TEST(execute_directory) {
-        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
-        static const char * const names[] = { "alpha", "beta", "gamma" };
-        ExecDirServer servers[ELEMENTSOF(names)] = {};
-        size_t reply_count = 0;
+typedef struct ExecDirClientArgs {
+        const char *tmpdir;
+        size_t n_servers;
+        size_t *reply_count;
+} ExecDirClientArgs;
 
-        ASSERT_OK(mkdtemp_malloc("/tmp/varlink-execdir-XXXXXX", &tmpdir));
-
-        for (size_t i = 0; i < ELEMENTSOF(names); i++) {
-                ExecDirServer *eds = servers + i;
-                servers[i].name = names[i];
-
-                _cleanup_free_ char *j = ASSERT_PTR(path_join(tmpdir, names[i]));
-
-                ASSERT_OK(sd_event_new(&eds->event));
-                ASSERT_OK(varlink_server_new(&eds->server,
-                                             SD_VARLINK_SERVER_INHERIT_USERDATA,
-                                             eds));
-                ASSERT_OK(sd_varlink_server_bind_method(eds->server, "io.test.ExecDirPing", method_execute_dir_ping));
-                ASSERT_OK(sd_varlink_server_bind_disconnect(eds->server, on_execute_dir_disconnect));
-                ASSERT_OK(sd_varlink_server_listen_address(eds->server, j, 0600));
-                ASSERT_OK(sd_varlink_server_attach_event(eds->server, eds->event, 0));
-
-                ASSERT_OK(-pthread_create(&eds->thread, NULL, execute_dir_server_thread, eds));
-        }
+static int execute_dir_client_fiber(void *arg) {
+        ExecDirClientArgs *a = ASSERT_PTR(arg);
 
         ASSERT_OK_EQ(varlink_execute_directory(
-                                     tmpdir,
+                                     a->tmpdir,
                                      "io.test.ExecDirPing",
                                      /* parameters= */ NULL,
                                      /* more= */ false,
                                      /* timeout_usec= */ USEC_INFINITY,
                                      execute_dir_reply,
-                                     &reply_count), (ssize_t) ELEMENTSOF(names));
-        ASSERT_EQ(reply_count, ELEMENTSOF(names));
-
-        FOREACH_ELEMENT(eds, servers) {
-                ASSERT_OK(-pthread_join(eds->thread, NULL));
-                eds->server = sd_varlink_server_unref(eds->server);
-                eds->event = sd_event_unref(eds->event);
-        }
+                                     a->reply_count), (ssize_t) a->n_servers);
+        ASSERT_EQ(*a->reply_count, a->n_servers);
 
         /* Calling the helper against a non-existent directory must fail. */
         _cleanup_free_ char *nope = NULL;
-        ASSERT_OK(asprintf(&nope, "%s/does-not-exist", tmpdir));
+        ASSERT_OK(asprintf(&nope, "%s/does-not-exist", a->tmpdir));
         ASSERT_FAIL(varlink_execute_directory(
                                     nope,
                                     "io.test.ExecDirPing",
@@ -1027,13 +1153,13 @@ TEST(execute_directory) {
                                     /* more= */ false,
                                     /* timeout_usec= */ USEC_INFINITY,
                                     execute_dir_reply,
-                                    &reply_count));
+                                    a->reply_count));
 
         /* An empty directory must simply return 0 and not invoke the reply callback. */
-        _cleanup_free_ char *empty = ASSERT_PTR(path_join(tmpdir, "empty"));
+        _cleanup_free_ char *empty = ASSERT_PTR(path_join(a->tmpdir, "empty"));
         ASSERT_OK_ERRNO(mkdir(empty, 0755));
 
-        size_t count_before = reply_count;
+        size_t count_before = *a->reply_count;
         ASSERT_OK_ZERO(varlink_execute_directory(
                                        empty,
                                        "io.test.ExecDirPing",
@@ -1041,8 +1167,52 @@ TEST(execute_directory) {
                                        /* more= */ false,
                                        /* timeout_usec= */ USEC_INFINITY,
                                        execute_dir_reply,
-                                       &reply_count));
-        ASSERT_EQ(reply_count, count_before);
+                                       a->reply_count));
+        ASSERT_EQ(*a->reply_count, count_before);
+
+        ASSERT_OK(sd_event_exit(sd_fiber_get_event(), EXIT_SUCCESS));
+        return 0;
+}
+
+TEST(execute_directory) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        static const char * const names[] = { "alpha", "beta", "gamma" };
+        ExecDirServer servers[ELEMENTSOF(names)] = {};
+        size_t reply_count = 0;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/varlink-execdir-XXXXXX", &tmpdir));
+
+        ASSERT_OK(sd_event_new(&e));
+
+        for (size_t i = 0; i < ELEMENTSOF(names); i++) {
+                ExecDirServer *eds = servers + i;
+                servers[i].name = names[i];
+
+                _cleanup_free_ char *j = ASSERT_PTR(path_join(tmpdir, names[i]));
+
+                ASSERT_OK(varlink_server_new(&eds->server,
+                                             SD_VARLINK_SERVER_INHERIT_USERDATA,
+                                             eds));
+                ASSERT_OK(sd_varlink_server_bind_method(eds->server, "io.test.ExecDirPing", method_execute_dir_ping));
+                ASSERT_OK(sd_varlink_server_listen_address(eds->server, j, 0600));
+                ASSERT_OK(sd_varlink_server_attach_event(eds->server, e, 0));
+        }
+
+        ExecDirClientArgs args = {
+                .tmpdir = tmpdir,
+                .n_servers = ELEMENTSOF(names),
+                .reply_count = &reply_count,
+        };
+        ASSERT_OK(sd_fiber_new(e, "execute-dir-client", execute_dir_client_fiber, &args, NULL, &f));
+
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_OK(sd_future_result(f));
+
+        FOREACH_ELEMENT(eds, servers)
+                eds->server = sd_varlink_server_unref(eds->server);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
