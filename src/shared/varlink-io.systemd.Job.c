@@ -19,7 +19,8 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 JobState,
                 SD_VARLINK_DEFINE_ENUM_VALUE(waiting),
-                SD_VARLINK_DEFINE_ENUM_VALUE(running));
+                SD_VARLINK_DEFINE_ENUM_VALUE(running),
+                SD_VARLINK_DEFINE_ENUM_VALUE(finished));
 
 /* Keep in sync with job_result_table[] in src/core/job.c */
 SD_VARLINK_DEFINE_ENUM_TYPE(
@@ -45,9 +46,9 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(Id, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("The job type"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(JobType, JobType, 0),
-                SD_VARLINK_FIELD_COMMENT("Current job state, set in intermediate streaming notifications"),
+                SD_VARLINK_FIELD_COMMENT("Current job state. 'finished' indicates the job has completed; in that case Result is also set."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(State, JobState, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Final job result, set in the final streaming reply"),
+                SD_VARLINK_FIELD_COMMENT("Job result. Only set once the job has reached the 'finished' state."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Result, JobResult, SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_INTERFACE(

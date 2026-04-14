@@ -7,6 +7,7 @@
 #include "sd-bus.h"
 #include "sd-id128.h"
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "all-units.h"
 #include "alloc-util.h"
@@ -791,6 +792,7 @@ Unit* unit_free(Unit *u) {
 
         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
         u->bus_track = sd_bus_track_unref(u->bus_track);
+        u->varlink_unit_change = sd_varlink_unref(u->varlink_unit_change);
         u->deserialized_refs = strv_free(u->deserialized_refs);
         u->pending_freezer_invocation = sd_bus_message_unref(u->pending_freezer_invocation);
 
