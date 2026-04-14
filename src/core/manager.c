@@ -7,6 +7,7 @@
 #include <sys/mount.h>
 #include <sys/reboot.h>
 #include <sys/wait.h>
+#include <sys/xattr.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -22,6 +23,7 @@
 #include "boot-timestamps.h"
 #include "bpf-restrict-fs.h"
 #include "bpf-restrict-fsaccess.h"
+#include "bpf-socket-ratelimit.h"
 #include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
@@ -100,6 +102,7 @@
 #include "varlink.h"
 #include "virt.h"
 #include "watchdog.h"
+#include "xattr-util.h"
 
 /* Make sure clients notifying us don't block */
 #define MANAGER_SOCKET_RCVBUF_SIZE (8*U64_MB)
@@ -967,6 +970,9 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 
                 .dump_ratelimit = (const RateLimit) { .interval = 10 * USEC_PER_MINUTE, .burst = 10 },
 
+                .initial_socket_ratelimit_bind_link_fd = -EBADF,
+                .initial_socket_ratelimit_send_link_fd = -EBADF,
+
                 .executor_fd = -EBADF,
 
                 .restrict_fsaccess_bss_map_fd = -EBADF,
@@ -1094,6 +1100,24 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         return 0;
 }
 
+static int manager_ratelimit_notify(Manager *m, int fd) {
+        int r;
+
+        r = socket_xattr_supported();
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EOPNOTSUPP;
+
+        r = xsetxattr(fd, NULL, AT_EMPTY_PATH, "user.ratelimit", "1");
+        if (r == 0) {
+                r = bpf_socket_ratelimit_setup(m);
+                if (r < 0)
+                        return r;
+        }
+        return r;
+}
+
 static int manager_setup_notify(Manager *m) {
         int r;
 
@@ -1127,6 +1151,10 @@ static int manager_setup_notify(Manager *m) {
 
                 (void) sockaddr_un_unlink(&sa.un);
 
+                r = manager_ratelimit_notify(m, fd);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enable ratelimit on notify socket, ignoring: %m");
+
                 r = mac_selinux_bind(fd, &sa.sa, sa_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind notify fd to '%s': %m", m->notify_socket);
@@ -1143,6 +1171,10 @@ static int manager_setup_notify(Manager *m) {
                 m->notify_fd = TAKE_FD(fd);
 
                 log_debug("Using notification socket %s", m->notify_socket);
+        } else {
+                r = manager_ratelimit_notify(m, m->notify_fd);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enable ratelimit on notify socket, ignoring: %m");
         }
 
         if (!m->notify_event_source) {
@@ -1814,6 +1846,9 @@ Manager* manager_free(Manager *m) {
 
 #if BPF_FRAMEWORK
         bpf_restrict_fs_destroy(m->restrict_fs);
+        bpf_socket_ratelimit_destroy(m->socket_ratelimit);
+        safe_close(m->initial_socket_ratelimit_bind_link_fd);
+        safe_close(m->initial_socket_ratelimit_send_link_fd);
 #endif
         close_many(m->restrict_fsaccess_link_fds, ELEMENTSOF(m->restrict_fsaccess_link_fds));
         safe_close(m->restrict_fsaccess_bss_map_fd);
@@ -3352,7 +3387,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         log_warning_errno(r, "Failed to acquire manager dump: %m");
                         break;
                 }
-
+                manager_ratelimit_notify(m, m->notify_fd);
                 log_dump(LOG_INFO, dump);
                 break;
         }
@@ -4615,6 +4650,8 @@ int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
 
         m->defaults.start_limit = defaults->start_limit;
 
+        m->defaults.notify_ratelimit = defaults->notify_ratelimit;
+
         m->defaults.memory_accounting = defaults->memory_accounting;
         m->defaults.io_accounting = defaults->io_accounting;
         m->defaults.tasks_accounting = defaults->tasks_accounting;
@@ -5514,6 +5551,7 @@ void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope) {
                 .timeout_abort_set = false,
                 .device_timeout_usec = manager_default_timeout(scope),
                 .start_limit = { DEFAULT_START_LIMIT_INTERVAL, DEFAULT_START_LIMIT_BURST },
+                .notify_ratelimit = { 1 * USEC_PER_SEC, 10 },
 
                 .memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
                 .io_accounting = false,

@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/xattr.h>
 #include <unistd.h>
 
 #include "alloc-util.h"

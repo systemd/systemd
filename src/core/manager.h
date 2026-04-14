@@ -156,6 +156,7 @@ typedef struct UnitDefaults {
         bool timeout_abort_set;
 
         RateLimit start_limit;
+        RateLimit notify_ratelimit;
 
         bool memory_accounting;
         bool io_accounting;
@@ -508,6 +509,11 @@ typedef struct Manager {
          * targeted writes (clearing initramfs_s_dev after switch_root). */
         int restrict_fsaccess_link_fds[_RESTRICT_FILESYSTEM_ACCESS_LINK_MAX];
         int restrict_fsaccess_bss_map_fd;
+
+        /* Reference to socket ratelimiter BPF program */
+        struct socket_ratelimit_bpf *socket_ratelimit;
+        int initial_socket_ratelimit_send_link_fd;
+        int initial_socket_ratelimit_bind_link_fd;
 
         /* Allow users to configure a rate limit for Reload()/Reexecute() operations */
         RateLimit reload_reexec_ratelimit;
