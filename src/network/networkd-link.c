@@ -55,6 +55,7 @@
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
+#include "networkd-ovs.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
 #include "networkd-resolve-hook.h"
@@ -67,6 +68,7 @@
 #include "networkd-sysctl.h"
 #include "networkd-wifi.h"
 #include "networkd-wwan-bus.h"
+#include "ovsdb/ovsdb-client.h"
 #include "ordered-set.h"
 #include "set.h"
 #include "socket-util.h"
@@ -1491,7 +1493,22 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
 
         r = link_get_network(link, &network);
         if (r == -ENOENT) {
+                /* The link no longer matches any .network. If it was attached to OVS, the managed
+                 * Port/Interface rows we created for it are now orphaned. link_enter_unmanaged()
+                 * drops link->network, after which ovs_port_still_configured() returns false for
+                 * this link, so a reconcile sweeps those rows (Phase 0). The OVS trigger further
+                 * below is bypassed by this early return, so do it here too. */
+                bool was_ovs = link->network &&
+                               (link->network->ovs_bridge_name || link->network->ovs_bond_name);
+
                 link_enter_unmanaged(link);
+
+                if (was_ovs && link->manager->ovsdb &&
+                    ovsdb_client_get_state(link->manager->ovsdb) == OVSDB_CLIENT_READY) {
+                        r = ovs_reconcile(link->manager);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "OVS reconciliation after link became unmanaged failed: %m");
+                }
                 return 0;
         }
         if (r < 0)
@@ -1529,6 +1546,25 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
 
         /* Then, apply new .network file */
         link->network = network_ref(network);
+
+        /* Trigger reconciliation when this link's OVS attachment changes — both when the new
+         * .network attaches it to an OVS bridge/bond (so OVS state catches up with a link that
+         * may have appeared after the initial reconcile) AND when the old .network had an OVS
+         * attachment that the new one drops (so the now-orphaned Port/Interface rows are swept;
+         * otherwise 'networkctl reconfigure IFACE' removing OVSBridge= would leave them behind).
+         *
+         * Skip if the client is still HANDSHAKING / FAILED — ovs_reconcile would see an empty
+         * monitor cache and emit ops as if nothing existed in OVSDB, causing constraint-violation
+         * transacts. The post-handshake snapshot reconcile (manager_ovs_on_monitor_initial)
+         * covers this link too. */
+        if ((network->ovs_bridge_name || network->ovs_bond_name ||
+             (old_network && (old_network->ovs_bridge_name || old_network->ovs_bond_name))) &&
+            link->manager->ovsdb &&
+            ovsdb_client_get_state(link->manager->ovsdb) == OVSDB_CLIENT_READY) {
+                r = ovs_reconcile(link->manager);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "OVS reconciliation triggered by link reconfigure failed: %m");
+        }
 
         if (FLAGS_SET(network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC) ||
             !FLAGS_SET(flags, LINK_RECONFIGURE_CLEANLY)) {
