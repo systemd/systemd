@@ -31,6 +31,9 @@
         "-MACsecTransmitAssociation\0"            \
         "-MACVLAN\0"                              \
         "-MACVTAP\0"                              \
+        "-OVSBridge\0"                            \
+        "-OVSPort\0"                              \
+        "-OVSTunnel\0"                            \
         "-Peer\0"                                 \
         "-Tap\0"                                  \
         "-Tun\0"                                  \
@@ -69,6 +72,9 @@ typedef enum NetDevKind {
         NETDEV_KIND_MACVLAN,
         NETDEV_KIND_MACVTAP,
         NETDEV_KIND_NLMON,
+        NETDEV_KIND_OVS_BRIDGE,
+        NETDEV_KIND_OVS_PORT,
+        NETDEV_KIND_OVS_TUNNEL,
         NETDEV_KIND_SIT,
         NETDEV_KIND_TAP,
         NETDEV_KIND_TUN,

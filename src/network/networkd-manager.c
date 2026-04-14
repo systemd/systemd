@@ -742,6 +742,9 @@ Manager* manager_free(Manager *m) {
 
         m->tuntap_fds_by_name = hashmap_free(m->tuntap_fds_by_name);
 
+        sd_event_source_disable_unref(m->ovs_reconnect_timer);
+        free(m->ovs_socket_path);
+
         m->wiphy_by_name = hashmap_free(m->wiphy_by_name);
         m->wiphy_by_index = hashmap_free(m->wiphy_by_index);
 
