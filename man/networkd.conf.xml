@@ -415,6 +415,77 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>[OVS] Section Options</title>
+
+    <para>The [OVS] section configures Open vSwitch integration. systemd-networkd
+    talks directly to <command>ovsdb-server</command> over a JSON-RPC Unix socket
+    (RFC 7047) to create and reconcile OVS bridges, ports and tunnels declared
+    via <filename>.netdev</filename> and <filename>.network</filename> files.</para>
+
+    <para><emphasis>Requirements and caveats:</emphasis></para>
+    <itemizedlist>
+      <listitem><para>Open vSwitch 2.5 or newer. Earlier versions lack the
+      <literal>rstp_enable</literal> column and reject reconciliation transacts
+      if <varname>RSTP=</varname> is configured.</para></listitem>
+
+      <listitem><para>The <literal>openvswitch</literal> kernel module must be
+      loaded. Minimal or container-based distributions that strip kernel modules
+      need to install it separately.</para></listitem>
+
+      <listitem><para>Do not configure OVS bridges, ports or tunnels in both
+      <command>systemd-networkd</command> and <command>NetworkManager</command> at
+      the same time — they will fight over ownership in OVSDB. Pick one.</para></listitem>
+
+      <listitem><para>On distributions with SELinux or AppArmor confinement of
+      <command>systemd-networkd</command> (Fedora/RHEL, Ubuntu), the policy must
+      allow <command>systemd-networkd</command> to connect to the OVSDB socket.
+      Distribution packagers typically ship an updated policy alongside this
+      support.</para></listitem>
+
+      <listitem><para>If the OVS package uses a group-restricted socket
+      (<filename>/run/openvswitch/db.sock</filename> mode 0660 with group
+      <literal>openvswitch</literal>, as on Debian/Ubuntu) and
+      <command>systemd-networkd</command> runs with dropped privileges,
+      distribution packagers should add
+      <literal>SupplementaryGroups=openvswitch</literal> to a
+      <filename>systemd-networkd.service</filename> drop-in.</para></listitem>
+    </itemizedlist>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Socket=</varname></term>
+        <listitem>
+          <para>Path to the OVSDB management socket. Defaults to
+          <filename>/run/openvswitch/db.sock</filename>, which is where
+          <command>ovsdb-server</command> listens by default on all common
+          distributions.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ClearDatabaseOnBoot=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, all OVS bridges are cleared from the
+          OVSDB root row on the first connection after each boot. Bridges,
+          ports, and interfaces that were still present from a previous boot are
+          thus removed before the desired configuration is applied. This ensures
+          deterministic OVS state across reboots.</para>
+
+          <para>The clear is tracked by a marker file in
+          <filename>/run/systemd/netif/ovs-cleared</filename> (tmpfs), so it
+          only happens once per boot; networkd crash-restart within the same
+          boot will not re-clear. Defaults to <literal>no</literal>.</para>
+
+          <para>Only the <literal>bridges</literal> column of the root
+          <literal>Open_vSwitch</literal> row is cleared; controller and SSL
+          configuration provisioned out of band (by OVN, OpenStack, etc.) is
+          preserved.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
       <title>See Also</title>
       <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
