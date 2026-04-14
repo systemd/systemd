@@ -39,6 +39,18 @@ libsystemd_network_sources = files(
         'sd-radv.c',
 )
 
+libsystemd_network_ovsdb_sources = files(
+        'ovsdb/ovsdb-client.c',
+        'ovsdb/ovsdb-monitor.c',
+        'ovsdb/ovsdb-ops.c',
+        'ovsdb/ovsdb-rpc.c',
+        'ovsdb/ovsdb-schema.c',
+)
+
+if conf.get('ENABLE_OPENVSWITCH') == 1
+        libsystemd_network_sources += libsystemd_network_ovsdb_sources
+endif
+
 sources += libsystemd_network_sources
 
 libsystemd_network = static_library(
@@ -112,6 +124,31 @@ executables += [
         },
         network_test_template + {
                 'sources' : files('test-sd-dhcp-lease.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-ovsdb-schema.c'),
+                'conditions' : ['ENABLE_OPENVSWITCH'],
+        },
+        network_test_template + {
+                'sources' : files('test-ovsdb-ops.c'),
+                'conditions' : ['ENABLE_OPENVSWITCH'],
+        },
+        network_test_template + {
+                'sources' : files('test-ovsdb-rpc.c'),
+                'conditions' : ['ENABLE_OPENVSWITCH'],
+        },
+        network_test_template + {
+                'sources' : files('test-ovsdb-monitor.c'),
+                'conditions' : ['ENABLE_OPENVSWITCH'],
+        },
+        network_test_template + {
+                'sources' : files('test-ovsdb-client.c'),
+                'conditions' : ['ENABLE_OPENVSWITCH'],
+        },
+        network_test_template + {
+                'sources' : files('test-ovsdb-integration.c'),
+                'conditions' : ['ENABLE_OPENVSWITCH'],
+                'type' : 'manual',
         },
         network_fuzz_template + {
                 'sources' : files('fuzz-dhcp-client.c'),
