@@ -25,8 +25,6 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "capability-util.h"
-#include "chase.h"
-#include "chattr-util.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "discover-image.h"
@@ -152,6 +150,10 @@ static bool arg_firmware_describe = false;
 static Set *arg_firmware_features_include = NULL;
 static Set *arg_firmware_features_exclude = NULL;
 static char *arg_forward_journal = NULL;
+static uint64_t arg_forward_journal_max_use = UINT64_MAX;
+static uint64_t arg_forward_journal_keep_free = UINT64_MAX;
+static uint64_t arg_forward_journal_max_file_size = UINT64_MAX;
+static uint64_t arg_forward_journal_max_files = UINT64_MAX;
 static int arg_register = -1;
 static bool arg_keep_unit = false;
 static sd_id128_t arg_uuid = {};
@@ -837,6 +839,30 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                OPTION_LONG("forward-journal-max-use", "BYTES", "Maximum disk space for forwarded journal"):
+                        r = parse_size(arg, 1024, &arg_forward_journal_max_use);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-use= value: %s", optarg);
+                        break;
+
+                OPTION_LONG("forward-journal-keep-free", "BYTES", "Minimum disk space to keep free"):
+                        r = parse_size(arg, 1024, &arg_forward_journal_keep_free);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-keep-free= value: %s", optarg);
+                        break;
+
+                OPTION_LONG("forward-journal-max-file-size", "BYTES", "Maximum size of individual journal files"):
+                        r = parse_size(arg, 1024, &arg_forward_journal_max_file_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-file-size= value: %s", optarg);
+                        break;
+
+                OPTION_LONG("forward-journal-max-files", "N", "Maximum number of journal files to keep"):
+                        r = safe_atou64(arg, &arg_forward_journal_max_files);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-files= value: %s", optarg);
+                        break;
+
                 OPTION_LONG("pass-ssh-key", "BOOL", "Create an SSH key to access the VM"):
                         r = parse_boolean_argument("--pass-ssh-key=", arg, &arg_pass_ssh_key);
                         if (r < 0)
@@ -910,6 +936,12 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_ram_slots > 0 && arg_ram_max == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Memory hotplug slots require a maximum RAM size");
+
+        if ((arg_forward_journal_max_use != UINT64_MAX ||
+             arg_forward_journal_keep_free != UINT64_MAX ||
+             arg_forward_journal_max_file_size != UINT64_MAX ||
+             arg_forward_journal_max_files != UINT64_MAX) && !arg_forward_journal)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--forward-journal-max-use=/--forward-journal-keep-free=/--forward-journal-max-file-size=/--forward-journal-max-files= require --forward-journal=.");
 
         if (arg_ephemeral && arg_extra_drives.n_drives > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --ephemeral with --extra-drive=");
@@ -1562,58 +1594,6 @@ static int start_tpm(
 
         r = strv_extend_many(&argv, "--ctrl", "type=unixio,fd=3");
         if (r < 0)
-                return log_oom();
-
-        r = fork_notify(argv, ret_pidref);
-        if (r < 0)
-                return r;
-
-        if (ret_listen_address)
-                *ret_listen_address = TAKE_PTR(listen_address);
-
-        return 0;
-}
-
-static int start_systemd_journal_remote(
-                const char *scope,
-                unsigned port,
-                const char *sd_socket_activate,
-                char **ret_listen_address,
-                PidRef *ret_pidref) {
-
-        int r;
-
-        assert(scope);
-        assert(sd_socket_activate);
-
-        _cleanup_free_ char *scope_prefix = NULL;
-        r = unit_name_to_prefix(scope, &scope_prefix);
-        if (r < 0)
-                return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
-
-        _cleanup_free_ char *listen_address = NULL;
-        if (asprintf(&listen_address, "vsock:2:%u", port) < 0)
-                return log_oom();
-
-        _cleanup_free_ char *sd_journal_remote = NULL;
-        r = find_executable_full(
-                        "systemd-journal-remote",
-                        /* root= */ NULL,
-                        STRV_MAKE(LIBEXECDIR),
-                        /* use_path_envvar= */ true, /* systemd-journal-remote should be installed in
-                                                        * LIBEXECDIR, but for supporting fancy setups. */
-                        &sd_journal_remote,
-                        /* ret_fd= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
-
-        _cleanup_strv_free_ char **argv = strv_new(
-                        sd_socket_activate,
-                        "--listen", listen_address,
-                        sd_journal_remote,
-                        "--output", arg_forward_journal,
-                        "--split-mode", endswith(arg_forward_journal, ".journal") ? "none" : "host");
-        if (!argv)
                 return log_oom();
 
         r = fork_notify(argv, ret_pidref);
@@ -2386,14 +2366,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (asprintf(&mem, "%" PRIu64 "M", DIV_ROUND_UP(arg_ram, U64_MB)) < 0)
                 return log_oom();
 
+        _cleanup_free_ char *subdir = path_join("systemd/vmspawn", arg_machine);
+        if (!subdir)
+                return log_oom();
+
         /* Create our runtime directory. We need this for the QEMU config file, TPM state, virtiofsd
-         * sockets, runtime mounts, and SSH key material.
-         *
-         * Use runtime_directory() (not _generic()) so that when vmspawn runs in a systemd service
-         * with RuntimeDirectory= set, we pick up $RUNTIME_DIRECTORY and place our stuff into the
-         * directory the service manager prepared for us. When the env var is unset, we fall back
-         * to /run/systemd/vmspawn/<machine>/ (or the $XDG_RUNTIME_DIR equivalent in user scope)
-         * and take care of creation and destruction ourselves. */
+         * sockets, runtime mounts, and SSH key material. */
         _cleanup_free_ char *runtime_dir = NULL, *runtime_dir_suffix = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
 
@@ -2401,27 +2379,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (!runtime_dir_suffix)
                 return log_oom();
 
-        r = runtime_directory(arg_runtime_scope, runtime_dir_suffix, &runtime_dir);
+        r = runtime_directory_make(arg_runtime_scope, runtime_dir_suffix, &runtime_dir, &runtime_dir_destroy);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine runtime directory: %m");
-        if (r > 0) {
-                /* $RUNTIME_DIRECTORY was not set, so we got the fallback path and need to create and
-                 * clean up the directory ourselves.
-                 *
-                 * If a previous vmspawn instance was killed without cleanup (e.g. SIGKILL), the directory may
-                 * already exist with stale contents. This is harmless: varlink's sockaddr_un_unlink() removes stale
-                 * sockets before bind(), and other files (QEMU config, SSH keys) are created fresh. This matches
-                 * nspawn's approach of not proactively cleaning stale runtime directories. */
-                r = mkdir_p(runtime_dir, 0755);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create runtime directory '%s': %m", runtime_dir);
+                return log_error_errno(r, "Failed to create runtime directory: %m");
 
-                runtime_dir_destroy = strdup(runtime_dir);
-                if (!runtime_dir_destroy)
-                        return log_oom();
-        }
-        /* When $RUNTIME_DIRECTORY is set the service manager created the directory for us and
-         * will destroy it (or preserve it, per RuntimeDirectoryPreserve=) when the service stops. */
+        /* If a previous vmspawn instance was killed without cleanup (e.g. SIGKILL), the directory may
+         * already exist with stale contents. This is harmless: varlink's sockaddr_un_unlink() removes stale
+         * sockets before bind(), and other files (QEMU config, SSH keys) are created fresh. This matches
+         * nspawn's approach of not proactively cleaning stale runtime directories. */
 
         log_debug("Using runtime directory: %s", runtime_dir);
 
@@ -3337,25 +3302,21 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_forward_journal) {
                 _cleanup_free_ char *listen_address = NULL;
-
-                ChaseFlags chase_flags = CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY;
-                if (endswith(arg_forward_journal, ".journal"))
-                        chase_flags |= CHASE_PARENT;
-
-                _cleanup_close_ int journal_fd = -EBADF;
-                r = chase(arg_forward_journal, /* root= */ NULL, chase_flags, /* ret_path= */ NULL, &journal_fd);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create journal directory for '%s': %m", arg_forward_journal);
-
-                r = chattr_fd(journal_fd, FS_NOCOW_FL, FS_NOCOW_FL);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to set NOCOW flag on journal directory for '%s', ignoring: %m", arg_forward_journal);
+                if (asprintf(&listen_address, "vsock:2:%u", child_cid) < 0)
+                        return log_oom();
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
                         return log_oom();
 
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
-                r = start_systemd_journal_remote(unit, child_cid, sd_socket_activate, &listen_address, &child);
+                r = fork_journal_remote(
+                                listen_address,
+                                arg_forward_journal,
+                                arg_forward_journal_max_use,
+                                arg_forward_journal_keep_free,
+                                arg_forward_journal_max_file_size,
+                                arg_forward_journal_max_files,
+                                &child);
                 if (r < 0)
                         return r;
 
