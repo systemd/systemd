@@ -27,22 +27,6 @@ void iovw_done_free(struct iovec_wrapper *iovw) {
         iovw_done(iovw);
 }
 
-struct iovec_wrapper *iovw_free_free(struct iovec_wrapper *iovw) {
-        if (!iovw)
-                return NULL;
-
-        iovw_done_free(iovw);
-        return mfree(iovw);
-}
-
-struct iovec_wrapper *iovw_free(struct iovec_wrapper *iovw) {
-        if (!iovw)
-                return NULL;
-
-        iovw_done(iovw);
-        return mfree(iovw);
-}
-
 int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
         assert(iovw);
 
@@ -59,6 +43,28 @@ int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
 
         iovw->iovec[iovw->count++] = IOVEC_MAKE(data, len);
         return 0;
+}
+
+int iovw_append(struct iovec_wrapper *iovw, const void *data, size_t len) {
+        if (len == 0)
+                return 0;
+
+        void *c = memdup(data, len);
+        if (!c)
+                return -ENOMEM;
+
+        return iovw_put(iovw, c, len);
+}
+
+int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
+        /* Move data into iovw or free on error */
+        int r;
+
+        r = iovw_put(iovw, data, len);
+        if (r < 0)
+                free(data);
+
+        return r;
 }
 
 int iovw_put_string_field_full(struct iovec_wrapper *iovw, bool replace, const char *field, const char *value) {
@@ -118,13 +124,12 @@ void iovw_rebase(struct iovec_wrapper *iovw, void *old, void *new) {
 }
 
 size_t iovw_size(const struct iovec_wrapper *iovw) {
-        if (!iovw)
-                return 0;
+        assert(iovw);
 
         return iovec_total_size(iovw->iovec, iovw->count);
 }
 
-int iovw_append(struct iovec_wrapper *target, const struct iovec_wrapper *source) {
+int iovw_append_iovw(struct iovec_wrapper *target, const struct iovec_wrapper *source) {
         size_t original_count;
         int r;
 
@@ -159,4 +164,24 @@ rollback:
 
         target->count = original_count;
         return r;
+}
+
+char* iovw_to_cstring(struct iovec_wrapper *iovw) {
+        assert(iovw);
+
+        size_t size = iovw_size(iovw) + 1;
+        char *p, *ans;
+
+        p = ans = new(char, size);
+        if (!ans)
+                return NULL;
+
+        FOREACH_ARRAY(iovec, iovw->iovec, iovw->count) {
+                memcpy(p, iovec->iov_base, iovec->iov_len);
+                p += iovec->iov_len;
+        }
+
+        *p = '\0';
+
+        return ans;
 }
