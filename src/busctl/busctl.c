@@ -2220,12 +2220,34 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_full = true;
                         break;
 
+                case ARG_SYSTEM:
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
                 case ARG_USER:
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
-                case ARG_SYSTEM:
-                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                case 'H':
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = optarg;
+                        break;
+
+                case 'M':
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case 'C':
+                        r = capsule_name_is_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", optarg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", optarg);
+
+                        arg_host = optarg;
+                        arg_transport = BUS_TRANSPORT_CAPSULE;
                         break;
 
                 case ARG_ADDRESS:
@@ -2272,34 +2294,23 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_list = true;
                         break;
 
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
-                        break;
-
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'C':
-                        r = capsule_name_is_valid(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", optarg);
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", optarg);
-
-                        arg_host = optarg;
-                        arg_transport = BUS_TRANSPORT_CAPSULE;
-                        break;
-
                 case 'q':
                         arg_quiet = true;
                         break;
 
                 case ARG_VERBOSE:
                         arg_verbose = true;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        break;
+
+                case 'j':
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
 
                 case ARG_XML_INTERFACE:
@@ -2347,17 +2358,6 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_boolean_argument("--watch-bind=", optarg, &arg_watch_bind);
                         if (r < 0)
                                 return r;
-                        break;
-
-                case 'j':
-                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
                         break;
 
                 case ARG_DESTINATION:
