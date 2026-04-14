@@ -2837,7 +2837,7 @@ static int context_notify(
         if (c->link) {
                 r = sd_varlink_notifybo(
                                 c->link,
-                                SD_JSON_BUILD_PAIR("phase", JSON_BUILD_STRING_UNDERSCORIFY(progress_phase_to_string(phase))),
+                                JSON_BUILD_PAIR_ENUM("phase", progress_phase_to_string(phase)),
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("object", object),
                                 JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("progress", percent, UINT_MAX));
                 if (r < 0)
