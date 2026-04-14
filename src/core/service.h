@@ -246,6 +246,8 @@ typedef struct Service {
         unsigned n_fd_store_max;
         ExecPreserveMode fd_store_preserve_mode;
 
+        char **luo_sessions; /* LUOSession= setting — list of session names to create/manage */
+
         int stdin_fd;
         int stdout_fd;
         int stderr_fd;

@@ -21,6 +21,7 @@
 #include "fd-util.h"
 #include "glyph-util.h"
 #include "locale-util.h"
+#include "luo-util.h"
 #include "manager.h"
 #include "mount-util.h"
 #include "open-file.h"
@@ -380,6 +381,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("FileDescriptorStoreMax", "u", bus_property_get_unsigned, offsetof(Service, n_fd_store_max), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NFileDescriptorStore", "u", property_get_size_as_uint32, offsetof(Service, n_fd_store), 0),
         SD_BUS_PROPERTY("FileDescriptorStorePreserve", "s", bus_property_get_exec_preserve_mode, offsetof(Service, fd_store_preserve_mode), 0),
+        SD_BUS_PROPERTY("LUOSession", "as", NULL, offsetof(Service, luo_sessions), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StatusText", "s", NULL, offsetof(Service, status_text), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StatusErrno", "i", bus_property_get_int, offsetof(Service, status_errno), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StatusBusError", "s", NULL, offsetof(Service, status_bus_error), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -647,6 +649,35 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "FileDescriptorStorePreserve"))
                 return bus_set_transient_exec_preserve_mode(u, name, &s->fd_store_preserve_mode, message, flags, reterr_error);
+
+        if (streq(name, "LUOSession")) {
+                _cleanup_strv_free_ char **l = NULL;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(p, l)
+                        if (!luo_session_name_is_valid(*p))
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Invalid LUO session name: %s", *p);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (strv_isempty(l)) {
+                                s->luo_sessions = strv_free(s->luo_sessions);
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        } else {
+                                r = strv_extend_strv(&s->luo_sessions, l, /* filter_duplicates= */ true);
+                                if (r < 0)
+                                        return r;
+
+                                STRV_FOREACH(p, l)
+                                        unit_write_settingf(u, flags, name, "%s=%s", name, *p);
+                        }
+                }
+
+                return 1;
+        }
 
         if (streq(name, "NotifyAccess"))
                 return bus_set_transient_notify_access(u, name, &s->notify_access, message, flags, reterr_error);
