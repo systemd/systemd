@@ -518,7 +518,6 @@ static void destroy_uploader(Uploader *u) {
         sd_event_unref(u->event);
 }
 
-#if LIBCURL_VERSION_NUM >= 0x075300
 static int update_content_encoding_header(Uploader *u, const CompressionConfig *cc) {
         bool update_header = false;
 
@@ -577,10 +576,8 @@ static int update_content_encoding_header(Uploader *u, const CompressionConfig *
                 log_debug("Disabled compression algorithm.");
         return 0;
 }
-#endif
 
 static int parse_accept_encoding_header(Uploader *u) {
-#if LIBCURL_VERSION_NUM >= 0x075300
         int r;
 
         assert(u);
@@ -626,9 +623,6 @@ not_found:
                 return update_content_encoding_header(u, ordered_hashmap_first(arg_compression));
 
         return update_content_encoding_header(u, NULL);
-#else
-        return 0;
-#endif
 }
 
 static int perform_upload(Uploader *u) {
