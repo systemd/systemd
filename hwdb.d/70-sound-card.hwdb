@@ -69,6 +69,11 @@ usb:v1038p227A*
 usb:v1038p22A1*
 usb:v1038p227E*
 usb:v1038p229E*
+usb:v1038p22AD*
+usb:v1038p22A9*
+usb:v1038p22A4*
+usb:v1038p22A5*
+usb:v1038p22A7*
 usb:v1038p12E0*
 usb:v1038p12E5*
  SOUND_FORM_FACTOR=headset
