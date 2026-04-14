@@ -714,6 +714,47 @@ static int link_status_one(
                         return table_log_add_error(r);
         }
 
+        /* OVS info (from varlink Link.Describe response, populated independently of netdev_kind) */
+        if (info->ovs_bridge) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "OVS Bridge",
+                                   TABLE_STRING, info->ovs_bridge);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (info->ovs_bond) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "OVS Bond",
+                                   TABLE_STRING, info->ovs_bond);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (info->ovs_port_type) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "OVS Port Type",
+                                   TABLE_STRING, info->ovs_port_type);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (info->ovs_fail_mode) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "OVS Fail Mode",
+                                   TABLE_STRING, info->ovs_fail_mode);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!strv_isempty(info->ovs_interfaces)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "OVS Interfaces",
+                                   TABLE_STRV, info->ovs_interfaces);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         if (info->has_wlan_link_info) {
                 _cleanup_free_ char *esc = NULL;
 
