@@ -34,6 +34,9 @@
 #include "networkd-sriov.h"
 #include "networkd-state-file.h"
 #include "nlmon.h"
+#include "ovs-bridge.h"
+#include "ovs-port.h"
+#include "ovs-tunnel.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -76,6 +79,9 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_MACVLAN]   = &macvlan_vtable,
         [NETDEV_KIND_MACVTAP]   = &macvtap_vtable,
         [NETDEV_KIND_NLMON]     = &nlmon_vtable,
+        [NETDEV_KIND_OVS_BRIDGE] = &ovs_bridge_vtable,
+        [NETDEV_KIND_OVS_PORT]  = &ovs_port_vtable,
+        [NETDEV_KIND_OVS_TUNNEL] = &ovs_tunnel_vtable,
         [NETDEV_KIND_SIT]       = &sit_vtable,
         [NETDEV_KIND_TAP]       = &tap_vtable,
         [NETDEV_KIND_TUN]       = &tun_vtable,
@@ -117,6 +123,9 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_MACVLAN]   = "macvlan",
         [NETDEV_KIND_MACVTAP]   = "macvtap",
         [NETDEV_KIND_NLMON]     = "nlmon",
+        [NETDEV_KIND_OVS_BRIDGE] = "ovs-bridge",
+        [NETDEV_KIND_OVS_PORT]  = "ovs-port",
+        [NETDEV_KIND_OVS_TUNNEL] = "ovs-tunnel",
         [NETDEV_KIND_SIT]       = "sit",
         [NETDEV_KIND_TAP]       = "tap",
         [NETDEV_KIND_TUN]       = "tun",
