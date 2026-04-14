@@ -23,11 +23,14 @@
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-ntp.h"
+#include "networkd-ovs.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-speed-meter.h"
 #include "networkd-wwan.h"
+#include "netdev/ovs-port.h"
+#include "netdev/ovs-tunnel.h"
 #include "ordered-set.h"
 #include "set.h"
 #include "string-util.h"
@@ -468,6 +471,85 @@ static int netdev_append_json(NetDev *netdev, sd_json_variant **v) {
                         SD_JSON_BUILD_PAIR_STRING("NetDevFile", netdev->filename),
                         SD_JSON_BUILD_PAIR_STRV("NetDevFileDropins", netdev->dropins));
 }
+
+#if ENABLE_OPENVSWITCH
+int ovs_append_json(Link *link, sd_json_variant **v) {
+        NetDev *netdev;
+        const char *ovs_bridge = NULL;
+        const char *ovs_bond = NULL;
+        const char *ovs_port_type = NULL;
+        const char *ovs_fail_mode = NULL;
+        _cleanup_strv_free_ char **interfaces = NULL;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        netdev = link->netdev;
+
+        if (netdev && netdev->kind == NETDEV_KIND_OVS_BRIDGE) {
+                /* This link IS an OVS bridge. */
+                ovs_fail_mode = ovs_monitor_get_bridge_fail_mode(link->manager, netdev->ifname);
+                r = ovs_monitor_get_bridge_ports(link->manager, netdev->ifname, &interfaces);
+                if (r < 0)
+                        log_link_debug_errno(link, r, "Failed to collect OVS bridge ports for '%s', omitting from JSON: %m",
+                                             netdev->ifname);
+
+        } else if (netdev && netdev->kind == NETDEV_KIND_OVS_PORT) {
+                OVSPort *p = OVS_PORT(netdev);
+                ovs_bridge = p->bridge;
+                ovs_port_type = ovs_port_type_to_string(p->type);
+
+        } else if (netdev && netdev->kind == NETDEV_KIND_OVS_TUNNEL) {
+                OVSTunnel *t = OVS_TUNNEL(netdev);
+                ovs_bridge = t->bridge;
+                ovs_port_type = "tunnel";
+
+        } else if (link->network && link->network->ovs_bridge_name) {
+                ovs_bridge = link->network->ovs_bridge_name;
+
+        } else if (link->network && link->network->ovs_bond_name) {
+                /* Bond members use the dedicated OVSBond field, NOT OVSBridge */
+                ovs_bond = link->network->ovs_bond_name;
+                ovs_port_type = "bond-member";
+        }
+
+        if (!ovs_bridge && !ovs_bond && !ovs_port_type && !ovs_fail_mode && strv_isempty(interfaces))
+                return 0;  /* nothing to emit */
+
+        if (ovs_bridge) {
+                r = sd_json_variant_set_field_string(v, "OVSBridge", ovs_bridge);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ovs_bond) {
+                r = sd_json_variant_set_field_string(v, "OVSBond", ovs_bond);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ovs_port_type) {
+                r = sd_json_variant_set_field_string(v, "OVSPortType", ovs_port_type);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ovs_fail_mode) {
+                r = sd_json_variant_set_field_string(v, "OVSFailMode", ovs_fail_mode);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!strv_isempty(interfaces)) {
+                r = sd_json_variant_set_field_strv(v, "OVSInterfaces", interfaces);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+#endif
 
 static int device_append_json(sd_device *device, sd_json_variant **v) {
         _cleanup_strv_free_ char **link_dropins = NULL;
@@ -1558,6 +1640,12 @@ int link_build_json(Link *link, sd_json_variant **ret) {
         r = netdev_append_json(link->netdev, &v);
         if (r < 0)
                 return r;
+
+#if ENABLE_OPENVSWITCH
+        r = ovs_append_json(link, &v);
+        if (r < 0)
+                return r;
+#endif
 
         r = device_append_json(link->dev, &v);
         if (r < 0)
