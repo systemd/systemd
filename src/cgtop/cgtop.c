@@ -766,6 +766,38 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         return version();
 
+                case ARG_ORDER:
+                        arg_order = order_from_string(optarg);
+                        if (arg_order < 0)
+                                return log_error_errno(arg_order,
+                                                       "Invalid argument to --order=: %s",
+                                                       optarg);
+                        break;
+
+                case 'p':
+                        arg_order = ORDER_PATH;
+                        break;
+
+                case 't':
+                        arg_order = ORDER_TASKS;
+                        break;
+
+                case 'c':
+                        arg_order = ORDER_CPU;
+                        break;
+
+                case 'm':
+                        arg_order = ORDER_MEMORY;
+                        break;
+
+                case 'i':
+                        arg_order = ORDER_IO;
+                        break;
+
+                case 'r':
+                        arg_raw = true;
+                        break;
+
                 case ARG_CPU_TYPE:
                         if (optarg) {
                                 arg_cpu_type = cpu_type_from_string(optarg);
@@ -778,11 +810,20 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_DEPTH:
-                        r = safe_atou(optarg, &arg_depth);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse depth parameter '%s': %m", optarg);
+                case 'P':
+                        arg_count = COUNT_USERSPACE_PROCESSES;
+                        break;
 
+                case 'k':
+                        arg_count = COUNT_ALL_PROCESSES;
+                        break;
+
+                case ARG_RECURSIVE:
+                        r = parse_boolean_argument("--recursive=", optarg, &arg_recursive);
+                        if (r < 0)
+                                return r;
+
+                        arg_recursive_unset = !r;
                         break;
 
                 case 'd':
@@ -811,52 +852,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_batch = true;
                         break;
 
-                case 'r':
-                        arg_raw = true;
-                        break;
-
-                case 'p':
-                        arg_order = ORDER_PATH;
-                        break;
-
-                case 't':
-                        arg_order = ORDER_TASKS;
-                        break;
-
-                case 'c':
-                        arg_order = ORDER_CPU;
-                        break;
-
-                case 'm':
-                        arg_order = ORDER_MEMORY;
-                        break;
-
-                case 'i':
-                        arg_order = ORDER_IO;
-                        break;
-
-                case ARG_ORDER:
-                        arg_order = order_from_string(optarg);
-                        if (arg_order < 0)
-                                return log_error_errno(arg_order,
-                                                       "Invalid argument to --order=: %s",
-                                                       optarg);
-                        break;
-
-                case 'k':
-                        arg_count = COUNT_ALL_PROCESSES;
-                        break;
-
-                case 'P':
-                        arg_count = COUNT_USERSPACE_PROCESSES;
-                        break;
-
-                case ARG_RECURSIVE:
-                        r = parse_boolean_argument("--recursive=", optarg, &arg_recursive);
+                case ARG_DEPTH:
+                        r = safe_atou(optarg, &arg_depth);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to parse depth parameter '%s': %m", optarg);
 
-                        arg_recursive_unset = !r;
                         break;
 
                 case 'M':
