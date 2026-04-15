@@ -509,7 +509,7 @@ static int config_parse_many_files(
         /* Pin and stat() all dropins */
         STRV_FOREACH(fn, files) {
                 _cleanup_fclose_ FILE *f = NULL;
-                r = chase_and_fopenat_unlocked(root_fd, *fn, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
+                r = chase_and_fopenat_unlocked(root_fd, root_fd, *fn, CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -544,7 +544,7 @@ static int config_parse_many_files(
         /* First process the first found main config file. */
         STRV_FOREACH(fn, conf_files) {
                 _cleanup_fclose_ FILE *f = NULL;
-                r = chase_and_fopenat_unlocked(root_fd, *fn, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
+                r = chase_and_fopenat_unlocked(root_fd, root_fd, *fn, CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
