@@ -36,39 +36,40 @@ if grep -qw luo_nboot=1 /proc/cmdline; then
 
     # Complete and start the late unit
     cat >>/run/systemd/system/TEST-90-LIVEUPDATE-late.service <<EOF
-ExecStart=/usr/lib/systemd/tests/unit-tests/manual/test-luo check
+ExecStart=/usr/lib/systemd/tests/unit-tests/manual/test-luo check late
 EOF
 
     # Verify the late unit has fds in its store
     n_fds=$(systemctl show -P NFileDescriptorStore TEST-90-LIVEUPDATE-late.service)
-    test "$n_fds" -eq 2
+    test "$n_fds" -eq 3
 
     systemctl daemon-reload
 
     # Verify the late unit doesn't get GC'ed during daemon-reload
     n_fds=$(systemctl show -P NFileDescriptorStore TEST-90-LIVEUPDATE-late.service)
-    test "$n_fds" -eq 2
+    test "$n_fds" -eq 3
 
     systemctl daemon-reexec
 
     # Verify the late unit doesn't get GC'ed during daemon-reexec
     n_fds=$(systemctl show -P NFileDescriptorStore TEST-90-LIVEUPDATE-late.service)
-    test "$n_fds" -eq 2
+    test "$n_fds" -eq 3
 
     systemctl start TEST-90-LIVEUPDATE-late.service
 else
     # Create memfds with known content and push them to our fd store.
+    # Also request a LUO session, store a memfd in it, and push the session fd to the fd store.
     /usr/lib/systemd/tests/unit-tests/manual/test-luo store
 
-    # Complete and start the late unit
+    # Complete and start the late unit, use a different session name prefix to avoid collisions
     cat >>/run/systemd/system/TEST-90-LIVEUPDATE-late.service <<EOF
-ExecStart=/usr/lib/systemd/tests/unit-tests/manual/test-luo store
+ExecStart=/usr/lib/systemd/tests/unit-tests/manual/test-luo store late
 EOF
     systemctl start TEST-90-LIVEUPDATE-late.service
 
     # Verify the late unit has fds in its store
     n_fds=$(systemctl show -P NFileDescriptorStore TEST-90-LIVEUPDATE-late.service)
-    test "$n_fds" -eq 2
+    test "$n_fds" -eq 3
 
     # 'systemctl kexec' auto-loads the default boot entry (i.e. the booted UKI,
     # via EFI LoaderEntrySelected/LoaderEntryDefault). Append a marker to the
