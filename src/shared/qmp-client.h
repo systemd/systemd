@@ -72,6 +72,12 @@ QmpClient* qmp_client_unref(QmpClient *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(QmpClient *, qmp_client_unref);
 
+/* Borrowed pointer to the QMP greeting variant received from QEMU during handshake, or
+ * NULL if not yet received. Consumers that need to replay the greeting (e.g. when
+ * wrapping additional clients over the same underlying connection) can use this to
+ * reproduce exactly what QEMU sent without synthesising one. */
+sd_json_variant* qmp_client_get_greeting(QmpClient *client);
+
 /* Returns true iff any object entry in schema (result of query-qmp-schema) has a member with this
  * name. QEMU's introspection replaces type names with opaque numeric ids, so lookup-by-type-name is
  * impossible — but member names are real. Use only when the member name is unique in the schema. */

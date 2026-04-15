@@ -56,6 +56,7 @@ struct QmpClient {
 
         QmpClientState state;
         sd_json_variant *current;  /* most recently parsed message, pending dispatch */
+        sd_json_variant *greeting; /* cached greeting variant, for replay via get_greeting() */
 };
 
 static void qmp_slot_hash_func(const QmpSlot *p, struct siphash *state) {
@@ -342,6 +343,10 @@ static int qmp_client_dispatch_handshake(QmpClient *c) {
                         return json_stream_log_errno(&c->stream, SYNTHETIC_ERRNO(EPROTO),
                                                      "Expected QMP greeting, got something else");
 
+                /* Stash a ref for later replay to consumers that wrap additional
+                 * clients over this connection. */
+                c->greeting = sd_json_variant_ref(v);
+
                 c->state = QMP_CLIENT_HANDSHAKE_GREETING_RECEIVED;
 
                 /* Fall through to immediately send capabilities */
@@ -563,6 +568,7 @@ static void qmp_client_clear(QmpClient *c) {
         qmp_client_handle_disconnect(c);
         qmp_client_detach_event(c);
         qmp_client_clear_current(c);
+        c->greeting = sd_json_variant_unref(c->greeting);
         json_stream_done(&c->stream);
         c->slots = set_free(c->slots);
 }
@@ -809,6 +815,11 @@ sd_event* qmp_client_get_event(QmpClient *c) {
 unsigned qmp_client_next_fdset_id(QmpClient *c) {
         assert(c);
         return c->next_fdset_id++;
+}
+
+sd_json_variant* qmp_client_get_greeting(QmpClient *c) {
+        assert(c);
+        return c->greeting;
 }
 
 bool qmp_schema_has_member(sd_json_variant *schema, const char *member_name) {
