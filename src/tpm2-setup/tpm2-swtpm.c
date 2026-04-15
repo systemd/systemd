@@ -174,6 +174,7 @@ static int run(int argc, char *argv[]) {
 
                 _cleanup_free_ char *unprefixed_state_dir = NULL;
                 r = chaseat(esp_fd,
+                            esp_fd,
                             "/loader/swtpm",
                             CHASE_TRIGGER_AUTOFS|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
                             &unprefixed_state_dir,
