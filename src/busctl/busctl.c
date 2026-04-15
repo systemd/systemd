@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -30,6 +29,7 @@
 #include "logarithm.h"
 #include "main-func.h"
 #include "memstream-util.h"
+#include "options.h"
 #include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -175,7 +175,9 @@ static void notify_bus_error(const sd_bus_error *error) {
         (void) sd_notifyf(/* unset_environment= */ false, "BUSERROR=%s", error->name);
 }
 
-static int verb_list_bus_names(int argc, char *argv[], uintptr_t _data, void *userdata) {
+VERB(verb_list, "list", NULL, VERB_ANY, 1, VERB_DEFAULT,
+     "List bus names");
+static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_strv_free_ char **acquired = NULL, **activatable = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_hashmap_free_ Hashmap *names = NULL;
@@ -537,6 +539,8 @@ static int tree_one(sd_bus *bus, const char *service) {
         return r;
 }
 
+VERB(verb_tree, "tree", "[SERVICE...]", VERB_ANY, VERB_ANY, 0,
+     "Show object tree of service");
 static int verb_tree(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
@@ -996,6 +1000,8 @@ static int members_flags_to_string(const Member *m, char **ret) {
         return 0;
 }
 
+VERB(verb_introspect, "introspect", "SERVICE OBJECT [INTERFACE]", 3, 4, 0,
+     "Introspect an object");
 static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         static const XMLIntrospectOps ops = {
                 .on_interface = on_interface,
@@ -1377,10 +1383,14 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         }
 }
 
+VERB(verb_monitor, "monitor", "[SERVICE...]", VERB_ANY, VERB_ANY, 0,
+     "Show bus traffic");
 static int verb_monitor(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return monitor(argc, argv, sd_json_format_enabled(arg_json_format_flags) ? message_json : message_dump);
 }
 
+VERB(verb_capture, "capture", "[SERVICE...]", VERB_ANY, VERB_ANY, 0,
+     "Capture bus traffic as pcap");
 static int verb_capture(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *osname = NULL;
         static const char info[] =
@@ -1408,6 +1418,8 @@ static int verb_capture(int argc, char *argv[], uintptr_t _data, void *userdata)
         return r;
 }
 
+VERB(verb_status, "status", "[SERVICE]", VERB_ANY, 2, 0,
+     "Show bus service, process or bus owner credentials");
 static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
@@ -1778,6 +1790,8 @@ static int bus_message_dump(sd_bus_message *m, uint64_t flags) {
         return 0;
 }
 
+VERB(verb_call, "call", "SERVICE OBJECT INTERFACE METHOD [SIGNATURE [ARGUMENT...]]", 5, VERB_ANY, 0,
+     "Call a method");
 static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1845,7 +1859,9 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return bus_message_dump(reply, /* flags= */ 0);
 }
 
-static int verb_emit_signal(int argc, char *argv[], uintptr_t _data, void *userdata) {
+VERB(verb_emit, "emit", "OBJECT INTERFACE SIGNAL [SIGNATURE [ARGUMENT...]]", 4, VERB_ANY, 0,
+     "Emit a signal");
+static int verb_emit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
@@ -1890,6 +1906,8 @@ static int verb_emit_signal(int argc, char *argv[], uintptr_t _data, void *userd
         return 0;
 }
 
+VERB(verb_get_property, "get-property", "SERVICE OBJECT INTERFACE PROPERTY...", 5, VERB_ANY, 0,
+     "Get property value");
 static int verb_get_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1948,7 +1966,9 @@ static int on_bus_signal(sd_bus_message *msg, void *userdata, sd_bus_error *ret_
         return 0;
 }
 
-static int verb_wait_signal(int argc, char *argv[], uintptr_t _data, void *userdata) {
+VERB(verb_wait, "wait", "[SERVICE] OBJECT INTERFACE SIGNAL", 4, 5, 0,
+     "Wait for a signal");
+static int verb_wait(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
@@ -1996,6 +2016,8 @@ static int verb_wait_signal(int argc, char *argv[], uintptr_t _data, void *userd
         return sd_event_loop(e);
 }
 
+VERB(verb_set_property, "set-property", "SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT...", 6, VERB_ANY, 0,
+     "Set property value");
 static int verb_set_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -2053,6 +2075,7 @@ static int verb_set_property(int argc, char *argv[], uintptr_t _data, void *user
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("busctl", "1", &link);
@@ -2061,204 +2084,133 @@ static int help(void) {
 
         pager_open(arg_pager_flags);
 
-        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
-               "%5$sIntrospect the D-Bus IPC bus.%6$s\n"
-               "\n%3$sCommands%4$s:\n"
-               "  list                     List bus names\n"
-               "  status [SERVICE]         Show bus service, process or bus owner credentials\n"
-               "  monitor [SERVICE...]     Show bus traffic\n"
-               "  capture [SERVICE...]     Capture bus traffic as pcap\n"
-               "  tree [SERVICE...]        Show object tree of service\n"
-               "  introspect SERVICE OBJECT [INTERFACE]\n"
-               "  call SERVICE OBJECT INTERFACE METHOD [SIGNATURE [ARGUMENT...]]\n"
-               "                           Call a method\n"
-               "  emit OBJECT INTERFACE SIGNAL [SIGNATURE [ARGUMENT...]]\n"
-               "                           Emit a signal\n"
-               "  wait OBJECT INTERFACE SIGNAL\n"
-               "                           Wait for a signal\n"
-               "  get-property SERVICE OBJECT INTERFACE PROPERTY...\n"
-               "                           Get property value\n"
-               "  set-property SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT...\n"
-               "                           Set property value\n"
-               "  help                     Show this help\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help                Show this help\n"
-               "     --version             Show package version\n"
-               "     --no-pager            Do not pipe output into a pager\n"
-               "     --no-legend           Do not show the headers and footers\n"
-               "  -l --full                Do not ellipsize output\n"
-               "     --system              Connect to system bus\n"
-               "     --user                Connect to user bus\n"
-               "  -H --host=[USER@]HOST    Operate on remote host\n"
-               "  -M --machine=CONTAINER   Operate on local container\n"
-               "     --address=ADDRESS     Connect to bus specified by address\n"
-               "     --show-machine        Show machine ID column in list\n"
-               "     --unique              Only show unique names\n"
-               "     --acquired            Only show acquired names\n"
-               "     --activatable         Only show activatable names\n"
-               "     --match=MATCH         Only show matching messages\n"
-               "     --size=SIZE           Maximum length of captured packet\n"
-               "     --list                Don't show tree, but simple object path list\n"
-               "  -q --quiet               Don't show method call reply\n"
-               "     --verbose             Show result values in long format\n"
-               "     --json=MODE           Output as JSON\n"
-               "  -j                       Same as --json=pretty on tty, --json=short otherwise\n"
-               "     --xml-interface       Dump the XML description in introspect command\n"
-               "     --expect-reply=BOOL   Expect a method call reply\n"
-               "     --auto-start=BOOL     Auto-start destination service\n"
-               "     --allow-interactive-authorization=BOOL\n"
-               "                           Allow interactive authorization for operation\n"
-               "     --timeout=SECS        Maximum time to wait for method call completion\n"
-               "     --augment-creds=BOOL  Extend credential data with data read from /proc/$PID\n"
-               "     --watch-bind=BOOL     Wait for bus AF_UNIX socket to be bound in the file\n"
-               "                           system\n"
-               "     --destination=SERVICE Destination service of a signal\n"
-               "  -N --limit-messages=NUMBER\n"
-               "                           Stop monitoring after receiving the specified number\n"
-               "                           of messages\n"
-               "\nSee the %2$s for details.\n",
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, options);
+
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "%sIntrospect the D-Bus IPC bus.%s\n"
+               "\n%sCommands:%s\n",
                program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
                ansi_normal());
 
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n",
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP(help);
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_SYSTEM,
-                ARG_USER,
-                ARG_ADDRESS,
-                ARG_MATCH,
-                ARG_SHOW_MACHINE,
-                ARG_UNIQUE,
-                ARG_ACQUIRED,
-                ARG_ACTIVATABLE,
-                ARG_SIZE,
-                ARG_LIST,
-                ARG_VERBOSE,
-                ARG_XML_INTERFACE,
-                ARG_EXPECT_REPLY,
-                ARG_AUTO_START,
-                ARG_ALLOW_INTERACTIVE_AUTHORIZATION,
-                ARG_TIMEOUT,
-                ARG_AUGMENT_CREDS,
-                ARG_WATCH_BIND,
-                ARG_JSON,
-                ARG_DESTINATION,
-        };
-
-        static const struct option options[] = {
-                { "help",                            no_argument,       NULL, 'h'                                 },
-                { "version",                         no_argument,       NULL, ARG_VERSION                         },
-                { "no-pager",                        no_argument,       NULL, ARG_NO_PAGER                        },
-                { "no-legend",                       no_argument,       NULL, ARG_NO_LEGEND                       },
-                { "full",                            no_argument,       NULL, 'l'                                 },
-                { "system",                          no_argument,       NULL, ARG_SYSTEM                          },
-                { "user",                            no_argument,       NULL, ARG_USER                            },
-                { "address",                         required_argument, NULL, ARG_ADDRESS                         },
-                { "show-machine",                    no_argument,       NULL, ARG_SHOW_MACHINE                    },
-                { "unique",                          no_argument,       NULL, ARG_UNIQUE                          },
-                { "acquired",                        no_argument,       NULL, ARG_ACQUIRED                        },
-                { "activatable",                     no_argument,       NULL, ARG_ACTIVATABLE                     },
-                { "match",                           required_argument, NULL, ARG_MATCH                           },
-                { "host",                            required_argument, NULL, 'H'                                 },
-                { "machine",                         required_argument, NULL, 'M'                                 },
-                { "capsule",                         required_argument, NULL, 'C'                                 },
-                { "size",                            required_argument, NULL, ARG_SIZE                            },
-                { "list",                            no_argument,       NULL, ARG_LIST                            },
-                { "quiet",                           no_argument,       NULL, 'q'                                 },
-                { "verbose",                         no_argument,       NULL, ARG_VERBOSE                         },
-                { "xml-interface",                   no_argument,       NULL, ARG_XML_INTERFACE                   },
-                { "expect-reply",                    required_argument, NULL, ARG_EXPECT_REPLY                    },
-                { "auto-start",                      required_argument, NULL, ARG_AUTO_START                      },
-                { "allow-interactive-authorization", required_argument, NULL, ARG_ALLOW_INTERACTIVE_AUTHORIZATION },
-                { "timeout",                         required_argument, NULL, ARG_TIMEOUT                         },
-                { "augment-creds",                   required_argument, NULL, ARG_AUGMENT_CREDS                   },
-                { "watch-bind",                      required_argument, NULL, ARG_WATCH_BIND                      },
-                { "json",                            required_argument, NULL, ARG_JSON                            },
-                { "destination",                     required_argument, NULL, ARG_DESTINATION                     },
-                { "limit-messages",                  required_argument, NULL, 'N'                                 },
-                {},
-        };
-
-        int c, r;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:C:J:qjlN:", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+        int r;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_NO_LEGEND:
+                OPTION_COMMON_NO_LEGEND:
                         arg_legend = false;
                         break;
 
-                case 'l':
+                OPTION('l', "full", NULL, "Do not ellipsize output"):
                         arg_full = true;
                         break;
 
-                case ARG_USER:
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, "Connect to system bus"):
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
-                case ARG_ADDRESS:
-                        arg_address = optarg;
+                OPTION_LONG("user", NULL, "Connect to user bus"):
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
-                case ARG_SHOW_MACHINE:
+                OPTION_COMMON_HOST:
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = arg;
+                        break;
+
+                OPTION_COMMON_MACHINE:
+                        r = parse_machine_argument(arg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION('C', "capsule", "NAME", "Operate on capsule"):
+                        r = capsule_name_is_valid(arg);
+                        if (r < 0)
+                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", arg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", arg);
+
+                        arg_host = arg;
+                        arg_transport = BUS_TRANSPORT_CAPSULE;
+                        break;
+
+                OPTION_LONG("address", "ADDRESS", "Connect to bus specified by address"):
+                        arg_address = arg;
+                        break;
+
+                OPTION_LONG("show-machine", NULL, "Show machine ID column in list"):
                         arg_show_machine = true;
                         break;
 
-                case ARG_UNIQUE:
+                OPTION_LONG("unique", NULL, "Only show unique names"):
                         arg_unique = true;
                         break;
 
-                case ARG_ACQUIRED:
+                OPTION_LONG("acquired", NULL, "Only show acquired names"):
                         arg_acquired = true;
                         break;
 
-                case ARG_ACTIVATABLE:
+                OPTION_LONG("activatable", NULL, "Only show activatable names"):
                         arg_activatable = true;
                         break;
 
-                case ARG_MATCH:
-                        if (strv_extend(&arg_matches, optarg) < 0)
+                OPTION_LONG("match", "MATCH", "Only show matching messages"):
+                        if (strv_extend(&arg_matches, arg) < 0)
                                 return log_oom();
                         break;
 
-                case ARG_SIZE: {
+                OPTION_LONG("size", "SIZE", "Maximum length of captured packet"): {
                         uint64_t sz;
 
-                        r = parse_size(optarg, 1024, &sz);
+                        r = parse_size(arg, 1024, &sz);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse size '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to parse size '%s': %m", arg);
 
                         if ((uint64_t) (size_t) sz !=  sz)
                                 return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
@@ -2268,155 +2220,110 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_LIST:
+                OPTION_LONG("list", NULL, "Don't show tree, but simple object path list"):
                         arg_list = true;
                         break;
 
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
-                        break;
-
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'C':
-                        r = capsule_name_is_valid(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", optarg);
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", optarg);
-
-                        arg_host = optarg;
-                        arg_transport = BUS_TRANSPORT_CAPSULE;
-                        break;
-
-                case 'q':
+                OPTION('q', "quiet", NULL, "Don't show method call reply"):
                         arg_quiet = true;
                         break;
 
-                case ARG_VERBOSE:
+                OPTION_LONG("verbose", NULL, "Show result values in long format"):
                         arg_verbose = true;
                         break;
 
-                case ARG_XML_INTERFACE:
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+                        break;
+
+                OPTION_COMMON_LOWERCASE_J:
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+                        break;
+
+                OPTION_LONG("xml-interface", NULL, "Dump the XML description in introspect command"):
                         arg_xml_interface = true;
                         break;
 
-                case ARG_EXPECT_REPLY:
-                        r = parse_boolean_argument("--expect-reply=", optarg, &arg_expect_reply);
+                OPTION_LONG("expect-reply", "BOOL", "Expect a method call reply"):
+                        r = parse_boolean_argument("--expect-reply=", arg, &arg_expect_reply);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_AUTO_START:
-                        r = parse_boolean_argument("--auto-start=", optarg, &arg_auto_start);
+                OPTION_LONG("auto-start", "BOOL", "Auto-start destination service"):
+                        r = parse_boolean_argument("--auto-start=", arg, &arg_auto_start);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_ALLOW_INTERACTIVE_AUTHORIZATION:
-                        r = parse_boolean_argument("--allow-interactive-authorization=", optarg,
+                OPTION_LONG("allow-interactive-authorization", "BOOL",
+                            "Allow interactive authorization for operation"):
+                        r = parse_boolean_argument("--allow-interactive-authorization=", arg,
                                                    &arg_allow_interactive_authorization);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_TIMEOUT:
-                        if (isempty(optarg)) {
+                OPTION_LONG("timeout", "SECS", "Maximum time to wait for method call completion"):
+                        if (isempty(arg)) {
                                 arg_timeout = 0; /* Reset to default */
                                 break;
                         }
 
-                        r = parse_sec(optarg, &arg_timeout);
+                        r = parse_sec(arg, &arg_timeout);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", optarg);
-
+                                return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", arg);
                         break;
 
-                case ARG_AUGMENT_CREDS:
-                        r = parse_boolean_argument("--augment-creds=", optarg, &arg_augment_creds);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_WATCH_BIND:
-                        r = parse_boolean_argument("--watch-bind=", optarg, &arg_watch_bind);
+                OPTION_LONG("augment-creds", "BOOL",
+                            "Extend credential data with data read from /proc/$PID"):
+                        r = parse_boolean_argument("--augment-creds=", arg, &arg_augment_creds);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'j':
-                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
+                OPTION_LONG("watch-bind", "BOOL",
+                            "Wait for bus AF_UNIX socket to be bound in the file system"):
+                        r = parse_boolean_argument("--watch-bind=", arg, &arg_watch_bind);
+                        if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_DESTINATION:
-                        arg_destination = optarg;
+                OPTION_LONG("destination", "SERVICE", "Destination service of a signal"):
+                        arg_destination = arg;
                         break;
 
-                case 'N':
-                        if (isempty(optarg)) {
+                OPTION('N', "limit-messages", "NUMBER",
+                       "Stop monitoring after receiving the specified number of messages"):
+                        if (isempty(arg)) {
                                 /* Reset to default */
                                 arg_limit_messages = UINT64_MAX;
                                 arg_limit_signals = 1;
                                 break;
                         }
 
-                        if (streq(optarg, "infinity")) {
+                        if (streq(arg, "infinity")) {
                                 arg_limit_signals = arg_limit_messages = UINT64_MAX;
                                 break;
                         }
 
-                        r = safe_atou64(optarg, &arg_limit_messages);
+                        r = safe_atou64(arg, &arg_limit_messages);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --limit-messages= parameter: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --limit-messages= parameter: %s", arg);
                         if (arg_limit_messages == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--limit-messages= parameter cannot be 0");
 
                         arg_limit_signals = arg_limit_messages;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (arg_full < 0)
                 arg_full = terminal_is_dumb();
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
-}
-
-static int busctl_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "list",         VERB_ANY, 1,        VERB_DEFAULT, verb_list_bus_names },
-                { "status",       VERB_ANY, 2,        0,            verb_status         },
-                { "monitor",      VERB_ANY, VERB_ANY, 0,            verb_monitor        },
-                { "capture",      VERB_ANY, VERB_ANY, 0,            verb_capture        },
-                { "tree",         VERB_ANY, VERB_ANY, 0,            verb_tree           },
-                { "introspect",   3,        4,        0,            verb_introspect     },
-                { "call",         5,        VERB_ANY, 0,            verb_call           },
-                { "emit",         4,        VERB_ANY, 0,            verb_emit_signal    },
-                { "wait",         4,        5,        0,            verb_wait_signal    },
-                { "get-property", 5,        VERB_ANY, 0,            verb_get_property   },
-                { "set-property", 6,        VERB_ANY, 0,            verb_set_property   },
-                { "help",         VERB_ANY, VERB_ANY, 0,            verb_help           },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 static int run(int argc, char *argv[]) {
@@ -2424,11 +2331,12 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        return busctl_main(argc, argv);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

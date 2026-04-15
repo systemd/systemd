@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <linux/magic.h>
 #include <unistd.h>
 
@@ -24,6 +23,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -305,6 +305,8 @@ static int add_credentials_to_table(Table *t, bool encrypted) {
         return 1; /* Creds dir set */
 }
 
+VERB(verb_list, "list", NULL, VERB_ANY, 1, VERB_DEFAULT,
+     "Show list of passed credentials");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
         int r, q;
@@ -465,6 +467,8 @@ static int write_blob(FILE *f, const void *data, size_t size) {
         return 0;
 }
 
+VERB(verb_cat, "cat", "CREDENTIAL...", 2, VERB_ANY, 0,
+     "Show contents of specified credentials");
 static int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         usec_t timestamp;
         int r, ret = 0;
@@ -551,6 +555,8 @@ static int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return ret;
 }
 
+VERB(verb_encrypt, "encrypt", "INPUT OUTPUT", 3, 3, 0,
+     "Encrypt plaintext credential file and write to ciphertext credential file");
 static int verb_encrypt(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(iovec_done_erase) struct iovec plaintext = {}, output = {};
         _cleanup_free_ char *base64_buf = NULL, *fname = NULL;
@@ -659,6 +665,8 @@ static int verb_encrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
         return EXIT_SUCCESS;
 }
 
+VERB(verb_decrypt, "decrypt", "INPUT [OUTPUT]", 2, 3, 0,
+     "Decrypt ciphertext credential file and write to plaintext credential file");
 static int verb_decrypt(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(iovec_done_erase) struct iovec input = {}, plaintext = {};
         _cleanup_free_ char *fname = NULL;
@@ -741,6 +749,8 @@ static int verb_decrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
         return EXIT_SUCCESS;
 }
 
+VERB_NOARG(verb_setup, "setup",
+           "Generate credentials host key, if not existing yet");
 static int verb_setup(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(iovec_done_erase) struct iovec host_key = {};
         int r;
@@ -754,212 +764,169 @@ static int verb_setup(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return EXIT_SUCCESS;
 }
 
+/* For backward compatibility. Hidden from help. */
+VERB(verb_has_tpm2, "has-tpm2", NULL, VERB_ANY, 1, 0, /* help= */ NULL);
 static int verb_has_tpm2(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!arg_quiet)
-                log_notice("The 'systemd-creds %1$s' command has been replaced by 'systemd-analyze %1$s'. Redirecting invocation.", argv[optind]);
+                log_notice("The 'systemd-creds %1$s' command has been replaced by 'systemd-analyze %1$s'. Redirecting invocation.", argv[0]);
 
         return verb_has_tpm2_generic(arg_quiet);
 }
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-creds", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] COMMAND ...\n"
-               "\n%5$sDisplay and Process Credentials.%6$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "  list                    Show list of passed credentials\n"
-               "  cat CREDENTIAL...       Show contents of specified credentials\n"
-               "  setup                   Generate credentials host key, if not existing yet\n"
-               "  encrypt INPUT OUTPUT    Encrypt plaintext credential file and write to\n"
-               "                          ciphertext credential file\n"
-               "  decrypt INPUT [OUTPUT]  Decrypt ciphertext credential file and write to\n"
-               "                          plaintext credential file\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "     --json=pretty|short|off\n"
-               "                          Generate JSON output\n"
-               "     --system             Show credentials passed to system\n"
-               "     --transcode=base64|unbase64|hex|unhex\n"
-               "                          Transcode credential data\n"
-               "     --newline=auto|yes|no\n"
-               "                          Suffix output with newline\n"
-               "  -p --pretty             Output as SetCredentialEncrypted= line\n"
-               "     --name=NAME          Override filename included in encrypted credential\n"
-               "     --timestamp=TIME     Include specified timestamp in encrypted credential\n"
-               "     --not-after=TIME     Include specified invalidation time in encrypted\n"
-               "                          credential\n"
-               "     --with-key=host|tpm2|host+tpm2|null|auto|auto-initrd\n"
-               "                          Which keys to encrypt with\n"
-               "  -H                      Shortcut for --with-key=host\n"
-               "  -T                      Shortcut for --with-key=tpm2\n"
-               "     --tpm2-device=PATH\n"
-               "                          Pick TPM2 device\n"
-               "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
-               "                          Specify TPM2 PCRs to seal against (fixed hash)\n"
-               "     --tpm2-public-key=PATH\n"
-               "                          Specify PEM certificate to seal against\n"
-               "     --tpm2-public-key-pcrs=PCR1+PCR2+PCR3+…\n"
-               "                          Specify TPM2 PCRs to seal against (public key)\n"
-               "     --tpm2-signature=PATH\n"
-               "                          Specify signature for public key PCR policy\n"
-               "     --user               Select user-scoped credential encryption\n"
-               "     --uid=UID            Select user for scoped credentials\n"
-               "     --allow-null         Allow decrypting credentials with null key\n"
-               "     --refuse-null        Refuse decrypting credentials with null key\n"
-               "\nSee the %2$s for details.\n",
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, options);
+
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "%sDisplay and Process Credentials.%s\n"
+               "\n%sCommands:%s\n",
                program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
                ansi_normal());
 
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n",
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP(help);
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_JSON,
-                ARG_SYSTEM,
-                ARG_TRANSCODE,
-                ARG_NEWLINE,
-                ARG_WITH_KEY,
-                ARG_TPM2_DEVICE,
-                ARG_TPM2_PCRS,
-                ARG_TPM2_PUBLIC_KEY,
-                ARG_TPM2_PUBLIC_KEY_PCRS,
-                ARG_TPM2_SIGNATURE,
-                ARG_NAME,
-                ARG_TIMESTAMP,
-                ARG_NOT_AFTER,
-                ARG_USER,
-                ARG_UID,
-                ARG_ALLOW_NULL,
-                ARG_REFUSE_NULL,
-                ARG_NO_ASK_PASSWORD,
-        };
-
-        static const struct option options[] = {
-                { "help",                 no_argument,       NULL, 'h'                      },
-                { "version",              no_argument,       NULL, ARG_VERSION              },
-                { "no-pager",             no_argument,       NULL, ARG_NO_PAGER             },
-                { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
-                { "json",                 required_argument, NULL, ARG_JSON                 },
-                { "system",               no_argument,       NULL, ARG_SYSTEM               },
-                { "transcode",            required_argument, NULL, ARG_TRANSCODE            },
-                { "newline",              required_argument, NULL, ARG_NEWLINE              },
-                { "pretty",               no_argument,       NULL, 'p'                      },
-                { "with-key",             required_argument, NULL, ARG_WITH_KEY             },
-                { "tpm2-device",          required_argument, NULL, ARG_TPM2_DEVICE          },
-                { "tpm2-pcrs",            required_argument, NULL, ARG_TPM2_PCRS            },
-                { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
-                { "tpm2-public-key-pcrs", required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS },
-                { "tpm2-signature",       required_argument, NULL, ARG_TPM2_SIGNATURE       },
-                { "name",                 required_argument, NULL, ARG_NAME                 },
-                { "timestamp",            required_argument, NULL, ARG_TIMESTAMP            },
-                { "not-after",            required_argument, NULL, ARG_NOT_AFTER            },
-                { "quiet",                no_argument,       NULL, 'q'                      },
-                { "user",                 no_argument,       NULL, ARG_USER                 },
-                { "uid",                  required_argument, NULL, ARG_UID                  },
-                { "allow-null",           no_argument,       NULL, ARG_ALLOW_NULL           },
-                { "refuse-null",          no_argument,       NULL, ARG_REFUSE_NULL          },
-                { "no-ask-password",      no_argument,       NULL, ARG_NO_ASK_PASSWORD      },
-                {}
-        };
-
-        int c, r;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hHTpq", options, NULL)) >= 0) {
+        OptionParser state = { argc, argv };
+        const char *arg;
+        int r;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_NO_LEGEND:
+                OPTION_COMMON_NO_LEGEND:
                         arg_legend = false;
                         break;
 
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
-
                         break;
 
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, "Show credentials passed to system"):
                         arg_system = true;
                         break;
 
-                case ARG_TRANSCODE:
-                        if (streq(optarg, "help")) {
+                OPTION_LONG("transcode", "METHOD",
+                            "Transcode credential data (base64, unbase64, hex, unhex)"):
+                        if (streq(arg, "help")) {
                                 if (arg_legend)
                                         puts("Supported transcode types:");
 
                                 return DUMP_STRING_TABLE(transcode_mode, TranscodeMode, _TRANSCODE_MAX);
                         }
 
-                        if (parse_boolean(optarg) == 0) /* If specified as "false", turn transcoding off */
+                        if (parse_boolean(arg) == 0) /* If specified as "false", turn transcoding off */
                                 arg_transcode = TRANSCODE_OFF;
                         else {
                                 TranscodeMode m;
 
-                                m = transcode_mode_from_string(optarg);
+                                m = transcode_mode_from_string(arg);
                                 if (m < 0)
                                         return log_error_errno(m, "Failed to parse transcode mode: %m");
 
                                 arg_transcode = m;
                         }
-
                         break;
 
-                case ARG_NEWLINE:
-                        r = parse_tristate_argument_with_auto("--newline=", optarg, &arg_newline);
+                OPTION_LONG("newline", "auto|yes|no", "Suffix output with newline"):
+                        r = parse_tristate_argument_with_auto("--newline=", arg, &arg_newline);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'p':
+                OPTION('p', "pretty", NULL, "Output as SetCredentialEncrypted= line"):
                         arg_pretty = true;
                         break;
 
-                case ARG_WITH_KEY:
-                        if (streq(optarg, "help")) {
+                OPTION_LONG("name", "NAME",
+                            "Override filename included in encrypted credential"):
+                        if (isempty(arg)) {
+                                arg_name = NULL;
+                                arg_name_any = true;
+                                break;
+                        }
+
+                        if (!credential_name_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid credential name: %s", arg);
+
+                        arg_name = arg;
+                        arg_name_any = false;
+                        break;
+
+                OPTION_LONG("timestamp", "TIME",
+                            "Include specified timestamp in encrypted credential"):
+                        r = parse_timestamp(arg, &arg_timestamp);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse timestamp: %s", arg);
+                        break;
+
+                OPTION_LONG("not-after", "TIME",
+                            "Include specified invalidation time in encrypted credential"):
+                        r = parse_timestamp(arg, &arg_not_after);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --not-after= timestamp: %s", arg);
+                        break;
+
+                OPTION_LONG("with-key", "KEY",
+                            "Which keys to encrypt with (host, tpm2, host+tpm2, null, auto, auto-initrd)"):
+                        if (streq(arg, "help")) {
                                 if (arg_legend)
                                         puts("Supported key types:");
                                 return DUMP_STRING_TABLE(cred_key_type, CredKeyType, _CRED_KEY_TYPE_MAX);
                         }
 
-                        if (isempty(optarg))
+                        if (isempty(arg))
                                 arg_with_key = _CRED_AUTO;
                         else {
-                                CredKeyType t = cred_key_type_from_string(optarg);
+                                CredKeyType t = cred_key_type_from_string(arg);
                                 if (t < 0)
                                         return log_error_errno(t, "Failed to parse key type: %m");
 
@@ -967,90 +934,63 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
-                case 'H':
+                OPTION_SHORT('H', NULL, "Shortcut for --with-key=host"):
                         arg_with_key = CRED_AES256_GCM_BY_HOST;
                         break;
 
-                case 'T':
+                OPTION_SHORT('T', NULL, "Shortcut for --with-key=tpm2"):
                         arg_with_key = _CRED_AUTO_TPM2;
                         break;
 
-                case ARG_TPM2_DEVICE:
-                        if (streq(optarg, "list"))
+                OPTION_LONG("tpm2-device", "PATH", "Pick TPM2 device"):
+                        if (streq(arg, "list"))
                                 return tpm2_list_devices(arg_legend, arg_quiet);
 
-                        arg_tpm2_device = streq(optarg, "auto") ? NULL : optarg;
+                        arg_tpm2_device = streq(arg, "auto") ? NULL : arg;
                         break;
 
-                case ARG_TPM2_PCRS: /* For fixed hash PCR policies only */
-                        r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_tpm2_pcr_mask);
+                OPTION_LONG("tpm2-pcrs", "PCR1+PCR2+PCR3+…",
+                            "Specify TPM2 PCRs to seal against (fixed hash)"):
+                        /* For fixed hash PCR policies only */
+                        r = tpm2_parse_pcr_argument_to_mask(arg, &arg_tpm2_pcr_mask);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_TPM2_PUBLIC_KEY:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_public_key);
+                OPTION_LONG("tpm2-public-key", "PATH",
+                            "Specify PEM certificate to seal against"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_tpm2_public_key);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_TPM2_PUBLIC_KEY_PCRS: /* For public key PCR policies only */
-                        r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_tpm2_public_key_pcr_mask);
+                OPTION_LONG("tpm2-public-key-pcrs", "PCR1+PCR2+…",
+                            "Specify TPM2 PCRs to seal against (public key)"):
+                        /* For public key PCR policies only */
+                        r = tpm2_parse_pcr_argument_to_mask(arg, &arg_tpm2_public_key_pcr_mask);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_TPM2_SIGNATURE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_signature);
+                OPTION_LONG("tpm2-signature", "PATH",
+                            "Specify signature for public key PCR policy"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_tpm2_signature);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_NAME:
-                        if (isempty(optarg)) {
-                                arg_name = NULL;
-                                arg_name_any = true;
-                                break;
-                        }
-
-                        if (!credential_name_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid credential name: %s", optarg);
-
-                        arg_name = optarg;
-                        arg_name_any = false;
-                        break;
-
-                case ARG_TIMESTAMP:
-                        r = parse_timestamp(optarg, &arg_timestamp);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse timestamp: %s", optarg);
-
-                        break;
-
-                case ARG_NOT_AFTER:
-                        r = parse_timestamp(optarg, &arg_not_after);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --not-after= timestamp: %s", optarg);
-
-                        break;
-
-                case ARG_USER:
+                OPTION_LONG("user", NULL, "Select user-scoped credential encryption"):
                         if (!uid_is_valid(arg_uid))
                                 arg_uid = getuid();
-
                         break;
 
-                case ARG_UID:
-                        if (isempty(optarg))
+                OPTION_LONG("uid", "UID", "Select user for scoped credentials"):
+                        if (isempty(arg))
                                 arg_uid = UID_INVALID;
-                        else if (streq(optarg, "self"))
+                        else if (streq(arg, "self"))
                                 arg_uid = getuid();
                         else {
-                                const char *name = optarg;
+                                const char *name = arg;
 
                                 r = get_user_creds(
                                                 &name,
@@ -1061,35 +1001,30 @@ static int parse_argv(int argc, char *argv[]) {
                                                 /* flags= */ 0);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to resolve user '%s': %s",
-                                                               optarg, STRERROR_USER(r));
+                                                               arg, STRERROR_USER(r));
                         }
                         break;
 
-                case ARG_ALLOW_NULL:
+                OPTION_LONG("allow-null", NULL,
+                            "Allow decrypting credentials with null key"):
                         arg_credential_flags &= ~CREDENTIAL_REFUSE_NULL;
                         arg_credential_flags |= CREDENTIAL_ALLOW_NULL;
                         break;
 
-                case ARG_REFUSE_NULL:
+                OPTION_LONG("refuse-null", NULL,
+                            "Refuse decrypting credentials with null key"):
                         arg_credential_flags |= CREDENTIAL_REFUSE_NULL;
                         arg_credential_flags &= ~CREDENTIAL_ALLOW_NULL;
                         break;
 
-                case ARG_NO_ASK_PASSWORD:
+                OPTION_COMMON_NO_ASK_PASSWORD:
                         arg_ask_password = false;
                         break;
 
-                case 'q':
+                OPTION('q', "quiet", NULL, "Suppress informational messages"):
                         arg_quiet = true;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
-        }
 
         SET_FLAG(arg_credential_flags, CREDENTIAL_IPC_ALLOW_INTERACTIVE, arg_ask_password);
 
@@ -1118,23 +1053,8 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
         arg_varlink = r;
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
-}
-
-static int creds_main(int argc, char *argv[]) {
-
-        static const Verb verbs[] = {
-                { "list",     VERB_ANY, 1,        VERB_DEFAULT, verb_list     },
-                { "cat",      2,        VERB_ANY, 0,            verb_cat      },
-                { "encrypt",  3,        3,        0,            verb_encrypt  },
-                { "decrypt",  2,        3,        0,            verb_decrypt  },
-                { "setup",    VERB_ANY, 1,        0,            verb_setup    },
-                { "help",     VERB_ANY, 1,        0,            verb_help     },
-                { "has-tpm2", VERB_ANY, 1,        0,            verb_has_tpm2 }, /* for backward compatibility */
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 #define TIMESTAMP_FRESH_MAX (30*USEC_PER_SEC)
@@ -1552,14 +1472,15 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
         if (arg_varlink)
                 return vl_server();
 
-        return creds_main(argc, argv);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
