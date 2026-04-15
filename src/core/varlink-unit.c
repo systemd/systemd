@@ -225,7 +225,7 @@ static int can_clean_build_json(sd_json_variant **ret, const char *name, void *u
         }
 
         if (FLAGS_SET(mask, EXEC_CLEAN_FDSTORE)) {
-                r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_STRING("fdstore"));
+                r = sd_json_variant_append_arrayb(&v, JSON_BUILD_CONST_STRING("fdstore"));
                 if (r < 0)
                         return r;
         }
@@ -522,6 +522,10 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 /* ignore aliases */
                 if (k != unit->id)
                         continue;
+
+                r = mac_selinux_unit_access_check_varlink(unit, link, "status");
+                if (r < 0)
+                        continue; /* silently skip units the caller is not allowed to see */
 
                 r = list_unit_one(link, unit);
                 if (r < 0)

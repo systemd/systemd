@@ -403,6 +403,8 @@ static int read_public_key_info(
                 CK_OBJECT_HANDLE object,
                 EVP_PKEY **ret_pkey) {
 
+        assert(ret_pkey);
+
         CK_ATTRIBUTE attribute = { CKA_PUBLIC_KEY_INFO, NULL_PTR, 0 };
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         CK_RV rv;
@@ -444,6 +446,8 @@ int pkcs11_token_read_public_key(
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         CK_RV rv;
         int r;
+
+        assert(ret_pkey);
 
         r = read_public_key_info(m, session, object, &pkey);
         if (r >= 0) {
@@ -556,7 +560,11 @@ int pkcs11_token_read_public_key(
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to init an EVP_PKEY_CTX for EC.");
 
                 OSSL_PARAM ec_params[8] = {
-                        OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_PUB_KEY, os->data, os->length)
+                        /* We need to drop the const from the data param, because ec_params is
+                         * modified below. But we'll not modify ec_params[0]. */
+                        OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_PUB_KEY,
+                                                (unsigned char *) ASN1_STRING_get0_data(os),
+                                                ASN1_STRING_length(os)),
                 };
 
                 _cleanup_free_ void *order = NULL, *p = NULL, *a = NULL, *b = NULL, *generator = NULL;
@@ -659,14 +667,13 @@ int pkcs11_token_read_x509_certificate(
                 CK_OBJECT_HANDLE object,
                 X509 **ret_cert) {
 
-        _cleanup_free_ char *t = NULL;
         CK_ATTRIBUTE attribute = {
                 .type = CKA_VALUE
         };
         CK_RV rv;
-        _cleanup_(X509_freep) X509 *x509 = NULL;
-        X509_NAME *name = NULL;
         int r;
+
+        assert(ret_cert);
 
         r = dlopen_p11kit();
         if (r < 0)
@@ -689,15 +696,15 @@ int pkcs11_token_read_x509_certificate(
                                        "Failed to read X.509 certificate data off token: %s", sym_p11_kit_strerror(rv));
 
         const unsigned char *p = attribute.pValue;
-        x509 = d2i_X509(NULL, &p, attribute.ulValueLen);
+        _cleanup_(X509_freep) X509 *x509 = d2i_X509(NULL, &p, attribute.ulValueLen);
         if (!x509)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse X.509 certificate.");
 
-        name = X509_get_subject_name(x509);
+        const X509_NAME *name = X509_get_subject_name(x509);
         if (!name)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to acquire X.509 subject name.");
 
-        t = X509_NAME_oneline(name, NULL, 0);
+        _cleanup_free_ char *t = X509_NAME_oneline(name, NULL, 0);
         if (!t)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to format X.509 subject name as string.");
 
@@ -951,6 +958,9 @@ static int ecc_convert_to_compressed(
         CK_RV rv;
         int r;
 
+        assert(ret_compressed_point);
+        assert(ret_compressed_point_size);
+
         rv = m->C_GetAttributeValue(session, object, &ec_params_attr, 1);
         if (!IN_SET(rv, CKR_OK, CKR_ATTRIBUTE_TYPE_INVALID))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
@@ -1156,6 +1166,9 @@ static int pkcs11_token_decrypt_data_rsa(
         _cleanup_(erase_and_freep) CK_BYTE *dbuffer = NULL;
         CK_ULONG dbuffer_size = 0;
         CK_RV rv;
+
+        assert(ret_decrypted_data);
+        assert(ret_decrypted_data_size);
 
         rv = m->C_DecryptInit(session, (CK_MECHANISM*) &mechanism, object);
         if (rv != CKR_OK)

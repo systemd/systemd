@@ -222,6 +222,8 @@ static void setup_unreferenced_data(void) {
 static void mkdtemp_chdir_chattr(const char *template, char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *path = NULL;
 
+        assert(ret);
+
         ASSERT_OK(mkdtemp_malloc(template, &path));
         ASSERT_OK_ERRNO(chdir(path));
 

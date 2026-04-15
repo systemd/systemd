@@ -20,6 +20,8 @@
 static void prepare_loopback(sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
 
+        assert(ret);
+
         ASSERT_OK(sd_device_new_from_syspath(&dev, "/sys/class/net/lo"));
         ASSERT_OK(device_add_property(dev, "ACTION", "add"));
         ASSERT_OK(device_add_property(dev, "SEQNUM", "10"));
@@ -31,6 +33,8 @@ static void prepare_loopback(sd_device **ret) {
 static int prepare_sda(sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         int r;
+
+        assert(ret);
 
         r = sd_device_new_from_subsystem_sysname(&dev, "block", "sda");
         if (r < 0)
@@ -54,6 +58,9 @@ static int monitor_handler(sd_device_monitor *m, sd_device *d, void *userdata) {
 
 static void prepare_monitor(sd_device_monitor **ret_server, sd_device_monitor **ret_client, union sockaddr_union *ret_address) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+
+        assert(ret_server);
+        assert(ret_client);
 
         ASSERT_OK(device_monitor_new_full(&monitor_server, MONITOR_GROUP_NONE, -EBADF));
         ASSERT_OK(sd_device_monitor_set_description(monitor_server, "sender"));

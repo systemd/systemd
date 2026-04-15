@@ -480,6 +480,8 @@ static int write_temporary_passwd(
         int r;
 
         assert(c);
+        assert(ret_tmpfile);
+        assert(ret_tmpfile_path);
 
         if (ordered_hashmap_isempty(c->todo_uids))
                 goto done;
@@ -611,6 +613,8 @@ static int write_temporary_shadow(
         int r;
 
         assert(c);
+        assert(ret_tmpfile);
+        assert(ret_tmpfile_path);
 
         if (ordered_hashmap_isempty(c->todo_uids))
                 goto done;
@@ -746,6 +750,8 @@ static int write_temporary_group(
         int r;
 
         assert(c);
+        assert(ret_tmpfile);
+        assert(ret_tmpfile_path);
 
         if (ordered_hashmap_isempty(c->todo_gids) && ordered_hashmap_isempty(c->members))
                 goto done;
@@ -863,6 +869,8 @@ static int write_temporary_gshadow(
         int r;
 
         assert(c);
+        assert(ret_tmpfile);
+        assert(ret_tmpfile_path);
 
         if (ordered_hashmap_isempty(c->todo_gids) && ordered_hashmap_isempty(c->members))
                 goto done;

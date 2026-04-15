@@ -942,6 +942,7 @@ static int dissect_image_from_unpartitioned(
         assert(devname);
         assert(m);
         assert(fstype);
+        POINTER_MAY_BE_NULL(mount_node_fd);
 
         if (!image_filter_test(filter, PARTITION_ROOT, /* label= */ NULL)) /* do a filter check with an empty partition label */
                 return -ECOMM;
@@ -2141,14 +2142,16 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
 static int is_loop_device(const char *path) {
         char s[SYS_BLOCK_PATH_MAX("/../loop/")];
         struct stat st;
+        int r;
 
         assert(path);
 
         if (stat(path, &st) < 0)
                 return -errno;
 
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
+        r = stat_verify_block(&st);
+        if (r < 0)
+                return r;
 
         xsprintf_sys_block_path(s, "/loop/", st.st_dev);
         if (access(s, F_OK) < 0) {

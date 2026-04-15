@@ -257,6 +257,8 @@ static int machine_add_from_params(
         assert(message);
         assert(name);
         assert(c == _MACHINE_CLASS_INVALID || MACHINE_CLASS_CAN_REGISTER(c));
+        assert(leader_pidref);
+        assert(supervisor_pidref);
         assert(ret);
 
         if (leader_pidref->pid == 1)

@@ -2,6 +2,21 @@ systemd System and Service Manager
 
 CHANGES WITH 261 in spe:
 
+        Announcements of Future Feature Removals and Incompatible Changes:
+
+        * systemd-logind's integration with the UAPI.1 Boot Loader
+          Specification (which allows systemctl reboot --boot-loader-entry=
+          switch to work) so far has supported a special directory
+          /run/boot-loader-entries/ which allowed defining boot loader entries
+          outside of the ESP/XBOOTLDR partition for compatibility with legacy
+          systems that do not natively implement UAPI.1. However, it appears
+          that (to our knowledge) it is not actually being used by any project
+          (quite unlike UAPI.1 itself, which found adoption far beyond
+          systemd), and its implementation is incomplete. With the future 262
+          release we intend to remove support for /run/boot-loader-entries/ and
+          related interfaces, in order to simplify our codebase. Support for
+          UAPI.1 is – of course – kept in place.
+
         Feature Removals and Incompatible Changes:
 
         * systemd-nspawn's --user= option has been renamed to --uid=. The -u
@@ -29,6 +44,13 @@ CHANGES WITH 261 in spe:
           register values are now changed. This may need to be reflected in the
           attestation environments which use hardware CC registers and not the
           TPM quote.
+
+        * systemd-nspawn gained a new --restrict-address-families= option (and
+          corresponding RestrictAddressFamilies= setting in .nspawn files) to
+          restrict which socket address families may be used in the container.
+          This is currently opt-in. In a future version, the default will be
+          changed to restrict socket address families to AF_INET, AF_INET6 and
+          AF_UNIX.
 
         New features:
 

@@ -286,7 +286,7 @@ static int process_http_upload(
                         _cleanup_free_ char *buf = NULL;
                         size_t buf_size;
 
-                        r = decompress_blob(source->compression, upload_data, *upload_data_size, (void **) &buf, &buf_size, 0);
+                        r = decompress_blob(source->compression, upload_data, *upload_data_size, (void **) &buf, &buf_size, DATA_SIZE_MAX);
                         if (r < 0)
                                 return mhd_respondf(connection, r, MHD_HTTP_BAD_REQUEST, "Decompression of received blob failed.");
 

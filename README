@@ -30,7 +30,7 @@ LICENSE:
 
 REQUIREMENTS:
         Linux kernel ≥ 3.15 for timerfd_create() CLOCK_BOOTTIME support
-                     ≥ 3.17 for memfd_create() and getrandom()
+                     ≥ 3.17 for memfd_create(), getrandom(), and kexec_file_load() (x86-64)
                      ≥ 4.3 for ambient capabilities
                      ≥ 4.5 for pids controller in cgroup v2
                      ≥ 4.6 for cgroup namespaces

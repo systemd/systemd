@@ -88,10 +88,10 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         ASSERT_PTR(ret),
                         SD_JSON_BUILD_PAIR_BOOLEAN("ShowStatus", manager_get_show_status_on(m)),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("LogLevel", log_level_build_json, m),
-                        SD_JSON_BUILD_PAIR_STRING("LogTarget", log_target_to_string(log_get_target())),
+                        JSON_BUILD_PAIR_ENUM("LogTarget", log_target_to_string(log_get_target())),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("Environment", manager_environment_build_json, m),
-                        SD_JSON_BUILD_PAIR_STRING("DefaultStandardOutput", exec_output_to_string(m->defaults.std_output)),
-                        SD_JSON_BUILD_PAIR_STRING("DefaultStandardError", exec_output_to_string(m->defaults.std_error)),
+                        JSON_BUILD_PAIR_ENUM("DefaultStandardOutput", exec_output_to_string(m->defaults.std_output)),
+                        JSON_BUILD_PAIR_ENUM("DefaultStandardError", exec_output_to_string(m->defaults.std_error)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("ServiceWatchdogs", m->service_watchdogs),
                         JSON_BUILD_PAIR_FINITE_USEC("DefaultTimerAccuracyUSec", m->defaults.timer_accuracy_usec),
                         JSON_BUILD_PAIR_FINITE_USEC("DefaultTimeoutStartUSec", m->defaults.timeout_start_usec),
@@ -107,11 +107,11 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         SD_JSON_BUILD_PAIR_CALLBACK("DefaultLimits", rlimit_table_build_json, m->defaults.rlimit),
                         SD_JSON_BUILD_PAIR_UNSIGNED("DefaultTasksMax", cgroup_tasks_max_resolve(&m->defaults.tasks_max)),
                         JSON_BUILD_PAIR_FINITE_USEC("DefaultMemoryPressureThresholdUSec", m->defaults.pressure[PRESSURE_MEMORY].threshold_usec),
-                        SD_JSON_BUILD_PAIR_STRING("DefaultMemoryPressureWatch", cgroup_pressure_watch_to_string(m->defaults.pressure[PRESSURE_MEMORY].watch)),
+                        JSON_BUILD_PAIR_ENUM("DefaultMemoryPressureWatch", cgroup_pressure_watch_to_string(m->defaults.pressure[PRESSURE_MEMORY].watch)),
                         JSON_BUILD_PAIR_FINITE_USEC("DefaultCPUPressureThresholdUSec", m->defaults.pressure[PRESSURE_CPU].threshold_usec),
-                        SD_JSON_BUILD_PAIR_STRING("DefaultCPUPressureWatch", cgroup_pressure_watch_to_string(m->defaults.pressure[PRESSURE_CPU].watch)),
+                        JSON_BUILD_PAIR_ENUM("DefaultCPUPressureWatch", cgroup_pressure_watch_to_string(m->defaults.pressure[PRESSURE_CPU].watch)),
                         JSON_BUILD_PAIR_FINITE_USEC("DefaultIOPressureThresholdUSec", m->defaults.pressure[PRESSURE_IO].threshold_usec),
-                        SD_JSON_BUILD_PAIR_STRING("DefaultIOPressureWatch", cgroup_pressure_watch_to_string(m->defaults.pressure[PRESSURE_IO].watch)),
+                        JSON_BUILD_PAIR_ENUM("DefaultIOPressureWatch", cgroup_pressure_watch_to_string(m->defaults.pressure[PRESSURE_IO].watch)),
                         JSON_BUILD_PAIR_FINITE_USEC("RuntimeWatchdogUSec", manager_get_watchdog(m, WATCHDOG_RUNTIME)),
                         JSON_BUILD_PAIR_FINITE_USEC("RebootWatchdogUSec", manager_get_watchdog(m, WATCHDOG_REBOOT)),
                         JSON_BUILD_PAIR_FINITE_USEC("KExecWatchdogUSec", manager_get_watchdog(m, WATCHDOG_KEXEC)),
@@ -119,10 +119,10 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RuntimeWatchdogPreGovernor", m->watchdog_pretimeout_governor),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("WatchdogDevice", watchdog_get_device()),
                         JSON_BUILD_PAIR_FINITE_USEC("TimerSlackNSec", (uint64_t) prctl(PR_GET_TIMERSLACK)),
-                        SD_JSON_BUILD_PAIR_STRING("DefaultOOMPolicy", oom_policy_to_string(m->defaults.oom_policy)),
+                        JSON_BUILD_PAIR_ENUM("DefaultOOMPolicy", oom_policy_to_string(m->defaults.oom_policy)),
                         SD_JSON_BUILD_PAIR_INTEGER("DefaultOOMScoreAdjust", m->defaults.oom_score_adjust),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultRestrictSUIDSGID", m->defaults.restrict_suid_sgid),
-                        SD_JSON_BUILD_PAIR_STRING("CtrlAltDelBurstAction", emergency_action_to_string(m->cad_burst_action)),
+                        JSON_BUILD_PAIR_ENUM("CtrlAltDelBurstAction", emergency_action_to_string(m->cad_burst_action)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultMemoryZSwapWriteback", m->defaults.memory_zswap_writeback),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("ConfirmSpawn", manager_get_confirm_spawn(m)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("ControlGroup", m->cgroup_root));
@@ -205,6 +205,10 @@ int vl_method_describe_manager(sd_varlink *link, sd_json_variant *parameters, sd
 
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
+                return r;
+
+        r = mac_selinux_access_check_varlink(link, "status");
+        if (r < 0)
                 return r;
 
         r = sd_json_buildo(

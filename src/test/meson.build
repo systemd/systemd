@@ -347,6 +347,10 @@ executables += [
                 'dependencies' : libm,
         },
         test_template + {
+                'sources' : files('test-kexec.c'),
+                'link_with' : [libshared],
+        },
+        test_template + {
                 'sources' : files('test-libcrypt-util.c'),
                 'conditions' : ['HAVE_LIBCRYPT'],
                 'timeout' : 120,
@@ -495,6 +499,13 @@ executables += [
         },
         core_test_template + {
                 'sources' : files('test-varlink-idl-unit.c'),
+        },
+        core_test_template + {
+                'sources' : files('test-varlink-idl-manager.c'),
+        },
+        test_template + {
+                'sources' : files('test-varlink-idl-machine.c'),
+                'objects' : ['systemd-machined'],
         },
         test_template + {
                 'sources' : files('test-watchdog.c'),

@@ -677,6 +677,8 @@ static int persistent_storage_open(void) {
 int manager_new(Manager **ret, bool test_mode) {
         _cleanup_(manager_freep) Manager *m = NULL;
 
+        assert(ret);
+
         m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;

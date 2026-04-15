@@ -1804,10 +1804,10 @@ static int make_transfer_json(Transfer *t, sd_json_variant **ret) {
 
         r = sd_json_buildo(ret,
                            SD_JSON_BUILD_PAIR_UNSIGNED("id", t->id),
-                           SD_JSON_BUILD_PAIR("type", JSON_BUILD_STRING_UNDERSCORIFY(transfer_type_to_string(t->type))),
+                           JSON_BUILD_PAIR_ENUM("type", transfer_type_to_string(t->type)),
                            SD_JSON_BUILD_PAIR_STRING("remote", t->remote),
                            SD_JSON_BUILD_PAIR_STRING("local", t->local),
-                           SD_JSON_BUILD_PAIR("class", JSON_BUILD_STRING_UNDERSCORIFY(image_class_to_string(t->class))),
+                           JSON_BUILD_PAIR_ENUM("class", image_class_to_string(t->class)),
                            SD_JSON_BUILD_PAIR_REAL("percent", transfer_percent_as_double(t)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build transfer JSON data: %m");

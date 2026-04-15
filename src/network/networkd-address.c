@@ -173,6 +173,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 int address_new(Address **ret) {
         _cleanup_(address_unrefp) Address *address = NULL;
 
+        assert(ret);
+
         address = new(Address, 1);
         if (!address)
                 return -ENOMEM;

@@ -2691,6 +2691,8 @@ static int parse_key_file(const char *filename, struct iovec *key) {
         size_t n = 0;
         int r;
 
+        assert(key);
+
         r = read_full_file_full(
                         AT_FDCWD, filename,
                         /* offset= */ UINT64_MAX,
@@ -2835,7 +2837,7 @@ static int context_notify(
         if (c->link) {
                 r = sd_varlink_notifybo(
                                 c->link,
-                                SD_JSON_BUILD_PAIR("phase", JSON_BUILD_STRING_UNDERSCORIFY(progress_phase_to_string(phase))),
+                                JSON_BUILD_PAIR_ENUM("phase", progress_phase_to_string(phase)),
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("object", object),
                                 JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("progress", percent, UINT_MAX));
                 if (r < 0)
@@ -3226,26 +3228,6 @@ static int determine_current_padding(
         return 0;
 }
 
-static int verify_regular_or_block(int fd) {
-        struct stat st;
-
-        assert(fd >= 0);
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (S_ISDIR(st.st_mode))
-                return -EISDIR;
-
-        if (S_ISLNK(st.st_mode))
-                return -ELOOP;
-
-        if (!S_ISREG(st.st_mode) && !S_ISBLK(st.st_mode))
-                return -EBADFD;
-
-        return 0;
-}
-
 static int context_copy_from_one(Context *context, const char *src) {
         _cleanup_close_ int fd = -EBADF;
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
@@ -3261,9 +3243,9 @@ static int context_copy_from_one(Context *context, const char *src) {
         if (r < 0)
                 return r;
 
-        r = verify_regular_or_block(fd);
+        r = fd_verify_regular_or_block(fd);
         if (r < 0)
-                return log_error_errno(r, "%s is not a file nor a block device: %m", src);
+                return log_error_errno(r, "'%s' is not a file nor a block device: %m", src);
 
         r = fdisk_new_context_at(fd, /* path= */ NULL, /* read_only= */ true, /* sector_size= */ UINT32_MAX, &c);
         if (r < 0)
@@ -4382,6 +4364,8 @@ static int partition_hint(const Partition *p, const char *node, char **ret) {
         _cleanup_free_ char *buf = NULL;
         const char *label;
         sd_id128_t id;
+
+        assert(ret);
 
         /* Tries really hard to find a suitable description for this partition */
 

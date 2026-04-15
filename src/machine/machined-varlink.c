@@ -478,7 +478,7 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
                         &v,
                         SD_JSON_BUILD_PAIR_STRING("name", m->name),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->id), "id", SD_JSON_BUILD_ID128(m->id)),
-                        SD_JSON_BUILD_PAIR_STRING("class", machine_class_to_string(m->class)),
+                        JSON_BUILD_PAIR_ENUM("class", machine_class_to_string(m->class)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("service", m->service),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("rootDirectory", m->root_directory),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", m->unit),

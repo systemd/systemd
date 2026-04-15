@@ -10,7 +10,7 @@ FOUND=0
 
 for cocci in "$COCCI_DIR"/check-*.cocci; do
     [[ -f "$cocci" ]] || continue
-    output=$(spatch --very-quiet --sp-file "$cocci" --dir "$SRC_DIR" 2>&1)
+    output=$(spatch --very-quiet --macro-file-builtins "$COCCI_DIR/parsing_hacks.h" --sp-file "$cocci" --dir "$SRC_DIR" 2>&1)
     if [[ -n "$output" ]]; then
         echo "FAIL: $(basename "$cocci") found issues in $SRC_DIR:"
         echo "$output"

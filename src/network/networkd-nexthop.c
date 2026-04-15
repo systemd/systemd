@@ -131,6 +131,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 int nexthop_new(NextHop **ret) {
         _cleanup_(nexthop_unrefp) NextHop *nexthop = NULL;
 
+        assert(ret);
+
         nexthop = new(NextHop, 1);
         if (!nexthop)
                 return -ENOMEM;

@@ -9,9 +9,6 @@ disable dnsmasq.service
 disable isc-dhcp-server.service
 disable isc-dhcp-server6.service
 
-# Pulled in via dracut-network by kexec-tools on Fedora.
-disable NetworkManager*
-
 # Make sure dbus-broker is started by default on Debian/Ubuntu.
 enable dbus-broker.service
 
@@ -49,7 +46,7 @@ disable fstrim.timer
 disable raid-check.timer
 disable systemd-tmpfiles-clean.timer
 
-# mkosi relabels the image itself so no need to do it on boot.
+# TEST-06-SELINUX handles relabeling itself at runtime.
 disable selinux-autorelabel-mark.service
 
 enable coverage-forwarder.service

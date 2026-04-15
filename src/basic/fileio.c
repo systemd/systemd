@@ -1370,6 +1370,8 @@ int read_timestamp_file(const char *fn, usec_t *ret) {
         uint64_t t;
         int r;
 
+        assert(ret);
+
         r = read_one_line_file(fn, &ln);
         if (r < 0)
                 return r;

@@ -11,6 +11,7 @@
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "utf8.h"
 
@@ -84,6 +85,63 @@ int path_simplify_and_warn(
                                   path);
 
         return 0;
+}
+
+int parse_address_families(const char *rvalue, Set **families, bool *is_allowlist) {
+        bool invert = false;
+        int r;
+
+        assert(rvalue);
+        assert(families);
+        assert(is_allowlist);
+
+        if (isempty(rvalue)) {
+                *families = set_free(*families);
+                *is_allowlist = false;
+                return 0;
+        }
+
+        if (streq(rvalue, "none")) {
+                *families = set_free(*families);
+                *is_allowlist = true;
+                return 0;
+        }
+
+        if (rvalue[0] == '~') {
+                invert = true;
+                rvalue++;
+        }
+
+        if (!*families) {
+                *families = set_new(NULL);
+                if (!*families)
+                        return -ENOMEM;
+
+                *is_allowlist = !invert;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                if (r == 0)
+                        return 0;
+                if (r < 0)
+                        return r;
+
+                int af = af_from_name(word);
+                if (af < 0)
+                        return af;
+
+                /* If we previously wanted to forbid an address family and now we want to allow it, then
+                 * just remove it from the list. */
+                if (invert != *is_allowlist) {
+                        r = set_put(*families, INT_TO_PTR(af));
+                        if (r < 0)
+                                return r;
+                } else
+                        set_remove(*families, INT_TO_PTR(af));
+        }
 }
 
 static int parse_af_token(
