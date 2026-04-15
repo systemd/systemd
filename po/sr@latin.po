@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
-# Serbian translation of systemd.
+# Serbian Latin translation of systemd.
 # Frantisek Sumsal <frantisek@sumsal.cz>, 2021.
 # Marko Kostić <marko.m.kostic@gmail.com>, 2026
 #
