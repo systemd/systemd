@@ -631,10 +631,23 @@ int varlink_error_no_such_unit(sd_varlink *v, const char *name) {
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("parameter", name));
 }
 
+void varlink_unit_send_change_signal(Unit *u) {
+        assert(u);
+
+        if (!u->varlink_unit_change)
+                return;
+
+        (void) sd_varlink_notifybo(
+                        u->varlink_unit_change,
+                        SD_JSON_BUILD_PAIR_OBJECT("unitChange",
+                                SD_JSON_BUILD_PAIR_STRING("activeState", unit_active_state_to_string(unit_active_state(u))),
+                                SD_JSON_BUILD_PAIR_STRING("subState", unit_sub_state_to_string(u))));
+}
+
 void varlink_job_send_change_signal(Job *j) {
         assert(j);
 
-        if (!j->varlink)
+        if (!j->varlink || !j->varlink_notify_job_changes)
                 return;
 
         (void) sd_varlink_notifybo(
@@ -662,6 +675,7 @@ void varlink_job_send_removed_signal(Job *j) {
                                 JSON_BUILD_PAIR_ENUM("Result", job_result_to_string(j->result))));
 
         j->varlink = sd_varlink_unref(j->varlink);
+        j->unit->varlink_unit_change = sd_varlink_unref(j->unit->varlink_unit_change);
 }
 
 typedef struct TransientExecCommandItem {
@@ -738,6 +752,8 @@ static void start_transient_context_parameters_done(StartTransientContextParamet
 typedef struct StartTransientParameters {
         StartTransientContextParameters context;
         JobMode mode;
+        int notify_job_changes;
+        int notify_unit_changes;
 } StartTransientParameters;
 
 static void start_transient_parameters_done(StartTransientParameters *p) {
@@ -851,14 +867,18 @@ static int transient_service_apply_properties(Unit *u, TransientServiceParameter
 
 int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "context", SD_JSON_VARIANT_OBJECT, dispatch_transient_context, 0,                                        SD_JSON_MANDATORY },
-                { "mode",    SD_JSON_VARIANT_STRING,  dispatch_job_mode,         offsetof(StartTransientParameters, mode), 0                 },
+                { "context",            SD_JSON_VARIANT_OBJECT,  dispatch_transient_context, 0,                                                       SD_JSON_MANDATORY },
+                { "mode",               SD_JSON_VARIANT_STRING,  dispatch_job_mode,          offsetof(StartTransientParameters, mode),                0                 },
+                { "notifyJobChanges",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,  offsetof(StartTransientParameters, notify_job_changes),  0                 },
+                { "notifyUnitChanges",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,  offsetof(StartTransientParameters, notify_unit_changes), 0                 },
                 {}
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
         _cleanup_(start_transient_parameters_done) StartTransientParameters p = {
                 .mode = _JOB_MODE_INVALID,
+                .notify_job_changes = -1,
+                .notify_unit_changes = -1,
                 .context.service.type = _SERVICE_TYPE_INVALID,
                 .context.service.remain_after_exit = -1,
         };
@@ -944,16 +964,26 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         if (r < 0)
                 return varlink_reply_bus_error(link, r, &bus_error);
 
-        /* Non-streaming: return full unit context and runtime, same shape as Unit.List */
-        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+        bool notify_job = p.notify_job_changes > 0;
+        bool notify_unit = p.notify_unit_changes > 0;
+
+        /* Non-streaming, or fire-and-forget (no notification flags set): return full unit context and runtime */
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE) || (!notify_job && !notify_unit))
                 return sd_varlink_replybo(
                                 link,
                                 SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, u),
                                 SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, u));
 
-        /* Streaming: attach to the job and send the initial state notification */
+        /* Streaming: always attach to the job for the final reply, and optionally to the unit for state
+         * change notifications. j->varlink owns the stream lifetime, u->varlink_unit_change is just a flag
+         * to also send unit state notifications along the way. */
         assert(!j->varlink);
         j->varlink = sd_varlink_ref(link);
+        j->varlink_notify_job_changes = notify_job;
+        if (notify_unit) {
+                assert(!u->varlink_unit_change);
+                u->varlink_unit_change = sd_varlink_ref(link);
+        }
 
         /* Send initial job notification only if job changes were requested */
         if (notify_job)
