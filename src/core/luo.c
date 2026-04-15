@@ -78,8 +78,10 @@ int manager_luo_restore_fd_stores(Manager *m) {
         log_debug("Found LUO session '%s', restoring fd stores.", LUO_SESSION_NAME);
 
         r = luo_read_mapping(session_fd, &mapping);
-        if (r < 0)
+        if (r < 0) {
+                (void) luo_session_finish(session_fd);
                 return r;
+        }
 
         /* Retrieve all fds from the session and dispatch each to the named unit, eagerly loading the
          * unit if necessary. */
@@ -96,6 +98,7 @@ int manager_luo_restore_fd_stores(Manager *m) {
                                 const char *type;
                                 const char *name;
                                 uint64_t token;
+                                const char *session_name;
                         } p = {
                                 .token = UINT64_MAX,
                         };
@@ -104,6 +107,7 @@ int manager_luo_restore_fd_stores(Manager *m) {
                                 { "type",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, type),         SD_JSON_MANDATORY },
                                 { "name",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, name),         SD_JSON_MANDATORY },
                                 { "token",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       voffsetof(p, token),        0                 },
+                                { "sessionName", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, session_name), 0                 },
                                 {}
                         };
 
@@ -131,6 +135,20 @@ int manager_luo_restore_fd_stores(Manager *m) {
                                                           unit_id, p.name, p.token);
                                         continue;
                                 }
+                        } else if (streq(p.type, "luo_session")) {
+                                if (!p.session_name) {
+                                        log_warning("LUO mapping for unit '%s' fd '%s': missing sessionName.", unit_id, p.name);
+                                        continue;
+                                }
+
+                                fd = luo_retrieve_session(device_fd, p.session_name);
+                                if (fd < 0) {
+                                        log_warning_errno(fd, "Failed to retrieve LUO session '%s' for unit '%s' name '%s': %m",
+                                                          p.session_name, unit_id, p.name);
+                                        continue;
+                                }
+
+                                log_debug("Retrieved LUO session '%s' for unit fd store '%s'.", p.session_name, p.name);
                         } else {
                                 log_warning("LUO mapping for unit '%s' fd '%s': unknown type '%s', skipping.",
                                             unit_id, p.name, p.type);
@@ -172,7 +190,8 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
         if (!fds)
                 return log_oom();
 
-        /* Build a JSON object: { "unit_id": [ { "type": "fd", "name": "...", "fd": N }, ... ], ... }
+        /* Build a JSON object: { "unit_id": [ { "type": "fd", "name": "...", "fd": N },
+         *                                     { "type": "luo_session", "name": "...", "fd": N, "sessionName": "..." } ], ... }
          * This is passed to systemd-shutdown which will create a LUO session and preserve the fds. */
         HASHMAP_FOREACH(u, m->units) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *entries = NULL;
@@ -190,7 +209,25 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
                         continue;
 
                 LIST_FOREACH(fd_store, fs, s->fd_store) {
+                        _cleanup_free_ char *session_name = NULL;
                         int copy;
+
+                        /* Check if this fd is itself a LUO session, as those cannot be nested and need
+                         * special handling */
+                        r = fd_get_luo_session_name(fs->fd, &session_name);
+                        if (r < 0 && r != -EMEDIUMTYPE) {
+                                log_warning_errno(r, "Failed to check if fd '%s' of unit '%s' is a LUO session, skipping: %m",
+                                                  fs->fdname, u->id);
+                                continue;
+                        }
+
+                        /* Ensure nobody tries to hijack our session, as we will create this later before
+                         * kexec */
+                        if (streq_ptr(session_name, LUO_SESSION_NAME)) {
+                                log_warning("Skipping fd '%s' of unit '%s' for LUO serialization, as the session name '%s' infringes systemd's namespace.",
+                                            fs->fdname, u->id, session_name);
+                                continue;
+                        }
 
                         copy = fdset_put_dup(fds, fs->fd);
                         if (copy < 0)
@@ -198,9 +235,10 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
 
                         r = sd_json_variant_append_arraybo(
                                         &entries,
-                                        SD_JSON_BUILD_PAIR_STRING("type", "fd"),
+                                        SD_JSON_BUILD_PAIR_STRING("type", session_name ? "luo_session" : "fd"),
                                         SD_JSON_BUILD_PAIR_STRING("name", fs->fdname),
-                                        SD_JSON_BUILD_PAIR_INTEGER("fd", copy));
+                                        SD_JSON_BUILD_PAIR_INTEGER("fd", copy),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("sessionName", session_name));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON for LUO serialization: %m");
 
