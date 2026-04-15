@@ -8,8 +8,14 @@
 #include "hashmap.h"
 #include "log.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
+#include "utf8.h"
 #include "version.h"
+
+bool http_header_valid(const char *a) {
+        return a && ascii_is_valid(a) && !string_has_cc(a, /* ok= */ NULL) && strchr(a, ':');
+}
 
 static void curl_glue_check_finished(CurlGlue *g) {
         int r;
@@ -404,6 +410,22 @@ int curl_parse_http_time(const char *t, usec_t *ret) {
                 return -ERANGE;
 
         *ret = (usec_t) v * USEC_PER_SEC;
+
+        return 0;
+}
+
+int curl_append_to_header(struct curl_slist **list, char **headers) {
+        /* This function leaves 'list' modified on partial failure.
+         * Input/output param list may point to NULL. */
+
+        assert(list);
+
+        STRV_FOREACH(h, headers) {
+                struct curl_slist *l = curl_slist_append(*list, *h);
+                if (!l)
+                        return -ENOMEM;
+                *list = l;
+        }
 
         return 0;
 }

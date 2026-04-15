@@ -33,13 +33,13 @@ static void log_assert(
         log_dispatch_internal(level, 0, file, line, func, NULL, NULL, NULL, NULL, buffer);
 }
 
-_noreturn_ void log_assert_failed(const char *text, const char *file, int line, const char *func) {
+_noreturn_ void* log_assert_failed(const char *text, const char *file, int line, const char *func) {
         log_assert(LOG_CRIT, text, file, line, func,
                    "Assertion '%s' failed at %s:%u, function %s(). Aborting.");
         abort();
 }
 
-_noreturn_ void log_assert_failed_unreachable(const char *file, int line, const char *func) {
+_noreturn_ void* log_assert_failed_unreachable(const char *file, int line, const char *func) {
         log_assert(LOG_CRIT, "Code should not be reached", file, line, func,
                    "%s at %s:%u, function %s(). Aborting. 💥");
         abort();

@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "conf-parser.h"
+#include "curl-util.h"
 #include "daemon-util.h"
 #include "env-file.h"
 #include "extract-word.h"
@@ -80,20 +81,6 @@ static void close_fd_input(Uploader *u);
 #define SERVER_ANSWER_KEEP 2048
 
 #define STATE_FILE "/var/lib/systemd/journal-upload/state"
-
-#define easy_setopt(curl, opt, value, level, cmd)                       \
-        do {                                                            \
-                code = curl_easy_setopt(curl, opt, value);              \
-                if (code) {                                             \
-                        log_full(level,                                 \
-                                 "curl_easy_setopt " #opt " failed: %s", \
-                                  curl_easy_strerror(code));            \
-                        cmd;                                            \
-                }                                                       \
-        } while (0)
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURL*, curl_easy_cleanup, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct curl_slist*, curl_slist_free_all, NULL);
 
 static size_t output_callback(char *buf,
                               size_t size,
@@ -194,8 +181,6 @@ int start_upload(Uploader *u,
                                           size_t nmemb,
                                           void *userdata),
                  void *data) {
-        CURLcode code;
-
         assert(u);
         assert(input_callback);
 
@@ -262,64 +247,63 @@ int start_upload(Uploader *u,
                                                "Call to curl_easy_init failed.");
 
                 /* If configured, set a timeout for the curl operation. */
-                if (arg_network_timeout_usec != USEC_INFINITY)
-                        easy_setopt(curl, CURLOPT_TIMEOUT,
-                                    (long) DIV_ROUND_UP(arg_network_timeout_usec, USEC_PER_SEC),
-                                    LOG_ERR, return -EXFULL);
+                if (arg_network_timeout_usec != USEC_INFINITY &&
+                    !easy_setopt(curl, LOG_ERR, CURLOPT_TIMEOUT,
+                                 (long) DIV_ROUND_UP(arg_network_timeout_usec, USEC_PER_SEC)))
+                        return -EXFULL;
 
                 /* tell it to POST to the URL */
-                easy_setopt(curl, CURLOPT_POST, 1L,
-                            LOG_ERR, return -EXFULL);
+                if (!easy_setopt(curl, LOG_ERR, CURLOPT_POST, 1L))
+                        return -EXFULL;
 
-                easy_setopt(curl, CURLOPT_ERRORBUFFER, u->error,
-                            LOG_ERR, return -EXFULL);
+                if (!easy_setopt(curl, LOG_ERR, CURLOPT_ERRORBUFFER, u->error))
+                        return -EXFULL;
 
                 /* set where to write to */
-                easy_setopt(curl, CURLOPT_WRITEFUNCTION, output_callback,
-                            LOG_ERR, return -EXFULL);
+                if (!easy_setopt(curl, LOG_ERR, CURLOPT_WRITEFUNCTION, output_callback))
+                        return -EXFULL;
 
-                easy_setopt(curl, CURLOPT_WRITEDATA, data,
-                            LOG_ERR, return -EXFULL);
+                if (!easy_setopt(curl, LOG_ERR, CURLOPT_WRITEDATA, data))
+                        return -EXFULL;
 
                 /* set where to read from */
-                easy_setopt(curl, CURLOPT_READFUNCTION, input_callback,
-                            LOG_ERR, return -EXFULL);
+                if (!easy_setopt(curl, LOG_ERR, CURLOPT_READFUNCTION, input_callback))
+                        return -EXFULL;
 
-                easy_setopt(curl, CURLOPT_READDATA, data,
-                            LOG_ERR, return -EXFULL);
+                if (!easy_setopt(curl, LOG_ERR, CURLOPT_READDATA, data))
+                        return -EXFULL;
 
                 /* use our special own mime type and chunked transfer */
-                easy_setopt(curl, CURLOPT_HTTPHEADER, u->header,
-                            LOG_ERR, return -EXFULL);
+                if (!easy_setopt(curl, LOG_ERR, CURLOPT_HTTPHEADER, u->header))
+                        return -EXFULL;
 
                 if (DEBUG_LOGGING)
                         /* enable verbose for easier tracing */
-                        easy_setopt(curl, CURLOPT_VERBOSE, 1L, LOG_WARNING, );
+                        (void) easy_setopt(curl, LOG_WARNING, CURLOPT_VERBOSE, 1L);
 
-                easy_setopt(curl, CURLOPT_USERAGENT,
-                            "systemd-journal-upload " GIT_VERSION,
-                            LOG_WARNING, );
+                (void) easy_setopt(curl, LOG_WARNING,
+                                   CURLOPT_USERAGENT, "systemd-journal-upload " GIT_VERSION);
 
                 if (!streq_ptr(arg_key, "-") && (arg_key || startswith(u->url, "https://"))) {
-                        easy_setopt(curl, CURLOPT_SSLKEY, arg_key ?: PRIV_KEY_FILE,
-                                    LOG_ERR, return -EXFULL);
-                        easy_setopt(curl, CURLOPT_SSLCERT, arg_cert ?: CERT_FILE,
-                                    LOG_ERR, return -EXFULL);
+                        if (!easy_setopt(curl, LOG_ERR, CURLOPT_SSLKEY, arg_key ?: PRIV_KEY_FILE))
+                                return -EXFULL;
+                        if (!easy_setopt(curl, LOG_ERR, CURLOPT_SSLCERT, arg_cert ?: CERT_FILE))
+                                return -EXFULL;
                 }
 
                 if (STRPTR_IN_SET(arg_trust, "-", "all")) {
                         log_info("Server certificate verification disabled.");
-                        easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L,
-                                    LOG_ERR, return -EUCLEAN);
-                        easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L,
-                                    LOG_ERR, return -EUCLEAN);
-                } else if (arg_trust || startswith(u->url, "https://"))
-                        easy_setopt(curl, CURLOPT_CAINFO, arg_trust ?: TRUST_FILE,
-                                    LOG_ERR, return -EXFULL);
+                        if (!easy_setopt(curl, LOG_ERR, CURLOPT_SSL_VERIFYPEER, 0L))
+                                return -EUCLEAN;
+                        if (!easy_setopt(curl, LOG_ERR, CURLOPT_SSL_VERIFYHOST, 0L))
+                                return -EUCLEAN;
+                } else if (arg_trust || startswith(u->url, "https://")) {
+                        if (!easy_setopt(curl, LOG_ERR, CURLOPT_CAINFO, arg_trust ?: TRUST_FILE))
+                                return -EXFULL;
+                }
 
-                if (arg_key || arg_trust)
-                        easy_setopt(curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1,
-                                    LOG_WARNING, );
+                if (startswith(u->url, "https://"))
+                        (void) easy_setopt(curl, LOG_WARNING, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
 
                 u->easy = TAKE_PTR(curl);
         } else {
@@ -330,11 +314,8 @@ int start_upload(Uploader *u,
         }
 
         /* upload to this place */
-        code = curl_easy_setopt(u->easy, CURLOPT_URL, u->url);
-        if (code)
-                return log_error_errno(SYNTHETIC_ERRNO(EXFULL),
-                                       "curl_easy_setopt CURLOPT_URL failed: %s",
-                                       curl_easy_strerror(code));
+        if (!easy_setopt(u->easy, LOG_ERR, CURLOPT_URL, u->url))
+                return -EXFULL;
 
         u->uploading = true;
 
@@ -567,15 +548,15 @@ static int update_content_encoding_header(Uploader *u, const CompressionConfig *
                                 break;
                         }
 
-        if (update_header) {
-                CURLcode code;
-                easy_setopt(u->easy, CURLOPT_HTTPHEADER, u->header, LOG_WARNING, return -EXFULL);
-        }
+        if (update_header &&
+            !easy_setopt(u->easy, LOG_WARNING, CURLOPT_HTTPHEADER, u->header))
+                return -EXFULL;
 
         u->compression = cc;
 
         if (cc)
-                log_debug("Using compression algorithm %s with compression level %i.", compression_to_string(cc->algorithm), cc->level);
+                log_debug("Using compression algorithm %s with compression level %i.",
+                          compression_to_string(cc->algorithm), cc->level);
         else
                 log_debug("Disabled compression algorithm.");
         return 0;
@@ -644,12 +625,13 @@ static int perform_upload(Uploader *u) {
         code = curl_easy_perform(u->easy);
         if (code) {
                 if (u->error[0])
-                        log_error("Upload to %s failed: %.*s",
-                                  u->url, (int) sizeof(u->error), u->error);
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Upload to %s failed: %.*s",
+                                               u->url, (int) sizeof(u->error), u->error);
                 else
-                        log_error("Upload to %s failed: %s",
-                                  u->url, curl_easy_strerror(code));
-                return -EIO;
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Upload to %s failed: %s",
+                                               u->url, curl_easy_strerror(code));
         }
 
         code = curl_easy_getinfo(u->easy, CURLINFO_RESPONSE_CODE, &status);
