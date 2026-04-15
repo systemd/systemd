@@ -341,9 +341,14 @@ int vmspawn_varlink_setup(
         if (!ctx)
                 return log_oom();
 
-        /* Create varlink server for VM control */
+        /* Create varlink server for VM control.
+         *
+         * SD_VARLINK_SERVER_UPGRADABLE is required for the io.systemd.QemuMachineInstance
+         * interface: its AcquireQMP method is declared SD_VARLINK_REQUIRES_UPGRADE, and
+         * without the flag the varlink transport may over-read past the upgrade message
+         * delimiter and lose the first bytes the acquirer writes on the raw channel. */
         r = varlink_server_new(&ctx->varlink_server,
-                               SD_VARLINK_SERVER_INHERIT_USERDATA,
+                               SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_UPGRADABLE,
                                ctx);
         if (r < 0)
                 return log_error_errno(r, "Failed to create varlink server: %m");
