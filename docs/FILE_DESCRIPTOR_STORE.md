@@ -206,6 +206,14 @@ Adding a `FDNAME=…` string identifying the fd is also highly recommended,
 otherwise in case multiple fds are stored, it will be impossible to
 distinguish them, as they will all carry the default name (`stored`).
 
+Services that need to preserve additional kernel state may also create their
+own LUO sessions by opening `/dev/liveupdate` directly (see the kernel
+documentation linked above) and pushing the obtained session fd into their
+fdstore (it is recommended to use a `FDNAME=…` string, as above). systemd
+detects such fds and arranges for them to survive the kexec as well, so that
+the session, and any supported file descriptors preserved inside it, is
+handed back to the service on the other side of the reboot.
+
 ## Initrd Transitions
 
 The fdstore may also be used to pass file descriptors for resources from the
