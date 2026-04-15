@@ -197,8 +197,9 @@ static int pin_choice(
 
         if (inode_fd < 0 || FLAGS_SET(flags, PICK_RESOLVE)) {
                 r = chaseat(toplevel_fd,
+                            toplevel_fd,
                             inode_path,
-                            CHASE_AT_RESOLVE_IN_ROOT,
+                            /* flags= */ 0,
                             FLAGS_SET(flags, PICK_RESOLVE) ? &resolved_path : NULL,
                             inode_fd < 0 ? &inode_fd : NULL);
                 if (r < 0)
@@ -327,7 +328,7 @@ static int make_choice(
         assert(ret);
 
         if (inode_fd < 0) {
-                r = chaseat(toplevel_fd, inode_path, CHASE_AT_RESOLVE_IN_ROOT, NULL, &inode_fd);
+                r = chaseat(toplevel_fd, toplevel_fd, inode_path, /* flags= */ 0, NULL, &inode_fd);
                 if (r < 0)
                         return r;
         }
@@ -344,7 +345,7 @@ static int make_choice(
                         return log_oom_debug();
 
                 _cleanup_close_ int object_fd = -EBADF;
-                r = chaseat(toplevel_fd, p, CHASE_AT_RESOLVE_IN_ROOT, &object_path, &object_fd);
+                r = chaseat(toplevel_fd, toplevel_fd, p, /* flags= */ 0, &object_path, &object_fd);
                 if (r == -ENOENT) {
                         *ret = PICK_RESULT_NULL;
                         return 0;
