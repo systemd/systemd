@@ -57,6 +57,7 @@ typedef enum InstallOperation {
 typedef struct InstallContext {
         InstallOperation operation;
         bool graceful;
+        bool keep_fallback;
         char *root;
         int root_fd;
         sd_id128_t machine_id;
@@ -141,6 +142,7 @@ static int install_context_from_cmdline(
         b.operation = operation;
         b.graceful = arg_graceful() == ARG_GRACEFUL_FORCE ||
                 (operation == INSTALL_UPDATE && arg_graceful() != ARG_GRACEFUL_NO);
+        b.keep_fallback = arg_keep_fallback;
         b.machine_id = arg_machine_id;
         b.entry_token_type = arg_entry_token_type;
         b.make_entry_directory = arg_make_entry_directory;
@@ -763,11 +765,41 @@ static int copy_one_file(
         if (dest_fd < 0 && dest_fd != -ENOENT)
                 return log_error_errno(dest_fd, "Failed to open '%s' under '%s/EFI/systemd' directory: %m", dest_name, j);
 
+        /* If --keep-fallback is set and a primary binary already exists, preserve it atomically
+         * before installing the new version. This gives firmware a fallback Boot#### entry pointing
+         * to the old binary in case the new one fails to load. The rotation overwrites any previous
+         * fallback, so only one generation of fallback is kept. */
+        const char *e = startswith(dest_name, "systemd-boot");
+
+        if (c->keep_fallback && e && dest_fd >= 0) {
+                r = version_check(source_fd, source_path, dest_fd, dest_path);
+                if (r >= 0) {
+                        _cleanup_free_ char *fallback_name = strjoin("systemd-boot-fallback", e);
+                        if (!fallback_name)
+                                return log_oom();
+
+                        _cleanup_free_ char *fallback_path = path_join(j, "/EFI/systemd", fallback_name);
+                        if (!fallback_path)
+                                return log_oom();
+
+                        r = copy_file_with_version_check(dest_path, dest_fd, fallback_path, dest_parent_fd, fallback_name, /* dest_fd= */ -EBADF, /* force= */ true);
+                        if (r < 0)
+                                return r;
+
+                        /* reset offset so the subsequent version check in copy_file_with_version_check() can read dest_fd */
+                        if (lseek(dest_fd, 0, SEEK_SET) < 0)
+                                return log_error_errno(errno, "Failed to seek \"%s\": %m", dest_path);
+                }
+
+                /* reset source_fd offset consumed by version_check */
+                if (lseek(source_fd, 0, SEEK_SET) < 0)
+                        return log_error_errno(errno, "Failed to seek \"%s\": %m", source_path);
+        }
+
         /* Note that if this fails we do the second copy anyway, but return this error code,
          * so we stash it away in a separate variable. */
         ret = copy_file_with_version_check(source_path, source_fd, dest_path, dest_parent_fd, dest_name, dest_fd, force);
 
-        const char *e = startswith(dest_name, "systemd-boot");
         if (e) {
 
                 /* Create the EFI default boot loader name (specified for removable devices) */
@@ -1257,7 +1289,7 @@ static int find_slot(sd_id128_t uuid, const char *path, uint16_t *id) {
         return 0;
 }
 
-static int insert_into_order(InstallContext *c, uint16_t slot) {
+static int insert_into_order(InstallContext *c, uint16_t slot, uint16_t after_slot) {
         _cleanup_free_ uint16_t *order = NULL;
         uint16_t *t;
         int n;
@@ -1286,6 +1318,27 @@ static int insert_into_order(InstallContext *c, uint16_t slot) {
                 memmove(order + 1, order, i * sizeof(uint16_t));
                 order[0] = slot;
                 return efi_set_boot_order(order, n);
+        }
+        /* insert after a specific slot if requested */
+        if (after_slot != UINT16_MAX) {
+                t = reallocarray(order, n + 1, sizeof(uint16_t));
+                if (!t)
+                        return -ENOMEM;
+                order = t;
+
+                /* find after_slot and insert slot immediately after it */
+                for (int i = 0; i < n; i++) {
+                        if (order[i] != after_slot)
+                                continue;
+                        /* shift the tail one position right to make room */
+                        memmove(order + i + 2, order + i + 1, (n - i - 1) * sizeof(uint16_t));
+                        order[i + 1] = slot;
+                        return efi_set_boot_order(order, n + 1);
+                }
+
+                /* after_slot not found, append */
+                order[n] = slot;
+                return efi_set_boot_order(order, n + 1);
         }
 
         /* extend array */
@@ -1378,7 +1431,10 @@ fallback:
 
 static int install_variables(
                 InstallContext *c,
-                const char *path) {
+                const char *path,
+                const char *description,
+                uint16_t after_slot,
+                uint16_t *ret_slot) {
 
         uint16_t slot;
         int r;
@@ -1420,12 +1476,6 @@ static int install_variables(
         bool existing = r > 0;
 
         if (c->operation == INSTALL_NEW || !existing) {
-                _cleanup_free_ char *description = NULL;
-
-                r = pick_efi_boot_option_description(esp_fd, &description);
-                if (r < 0)
-                        return r;
-
                 r = efi_add_boot_option(
                                 slot,
                                 description,
@@ -1448,7 +1498,10 @@ static int install_variables(
                          description);
         }
 
-        return insert_into_order(c, slot);
+        if (ret_slot)
+                *ret_slot = slot;
+
+        return insert_into_order(c, slot, after_slot);
 }
 
 static int are_we_installed(InstallContext *c) {
@@ -1614,7 +1667,7 @@ static int run_install(InstallContext *c) {
                 }
 
                 r = install_binaries(c, arch);
-                if (r < 0)
+                if (r < 0 && !IN_SET(r, -ESTALE, -ESRCH))
                         return r;
 
                 if (c->operation == INSTALL_NEW) {
@@ -1657,7 +1710,30 @@ static int run_install(InstallContext *c) {
         }
 
         char *path = strjoina("/EFI/systemd/systemd-boot", arch, ".efi");
-        return install_variables(c, path);
+
+        _cleanup_free_ char *description = NULL;
+        r = pick_efi_boot_option_description(esp_fd, &description);
+        if (r < 0)
+                return r;
+
+        uint16_t primary_slot = UINT16_MAX;
+        r = install_variables(c, path, description, UINT16_MAX, &primary_slot);
+        if (r < 0)
+                return r;
+
+        if (!c->keep_fallback)
+                return 0;
+
+        char *fallback_path = strjoina("/EFI/systemd/systemd-boot-fallback", arch, ".efi");
+
+        _cleanup_free_ char *fallback_description = NULL;
+        if (asprintf(&fallback_description, "%s (fallback)", description) < 0)
+                return log_oom();
+
+        if (strlen(fallback_description) > EFI_BOOT_OPTION_DESCRIPTION_MAX)
+                fallback_description[EFI_BOOT_OPTION_DESCRIPTION_MAX] = '\0';
+
+        return install_variables(c, fallback_path, fallback_description, primary_slot, NULL);
 }
 
 int verb_install(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -1952,6 +2028,10 @@ int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         char *path = strjoina("/EFI/systemd/systemd-boot", get_efi_arch(), ".efi");
         RET_GATHER(r, remove_variables(uuid, path, /* in_order= */ true));
+
+        char *fallback_path = strjoina("/EFI/systemd/systemd-boot-fallback", get_efi_arch(), ".efi");
+        RET_GATHER(r, remove_variables(uuid, fallback_path, /* in_order= */ true));
+
         return RET_GATHER(r, remove_loader_variables());
 }
 
@@ -2020,6 +2100,7 @@ int vl_method_install(
                 { "rootDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, context.root),             0                 },
                 { "bootEntryTokenType", SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_token_type, voffsetof(p, context.entry_token_type), 0                 },
                 { "touchVariables",     SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,           voffsetof(p, context.touch_variables),  0                 },
+                { "keepFallback",       SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, context.keep_fallback),    0                 },
                 {},
         };
 
