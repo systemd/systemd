@@ -175,7 +175,7 @@ _homectl() {
     fi
 
     local -A VERBS=(
-        [STANDALONE]='list lock-all register unregister adopt'
+        [STANDALONE]='list register unregister adopt'
         [CREATE]='create'
         [NAMES]='activate deactivate inspect authenticate remove lock unlock'
         [NAME]='update passwd'
