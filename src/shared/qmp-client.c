@@ -294,10 +294,17 @@ static bool qmp_client_handle_disconnect(QmpClient *c) {
         if (c->defer_event_source)
                 (void) sd_event_source_set_enabled(c->defer_event_source, SD_EVENT_OFF);
 
-        qmp_client_fail_pending(c, -ECONNRESET);
-        qmp_client_emit_synthetic_shutdown(c);
+        /* Fire the disconnect callback BEFORE failing pending commands: consumers may need
+         * to tear down per-command state (for example, proxies tracking outstanding
+         * commands via weak back-pointers into their slot userdata) before the slot
+         * callbacks fire with -ECONNRESET. Firing in the reverse order would have the
+         * slot callbacks run on consumer state that hasn't been prepared for a teardown
+         * yet. */
         if (c->disconnect_callback)
                 c->disconnect_callback(c, c->disconnect_userdata);
+
+        qmp_client_fail_pending(c, -ECONNRESET);
+        qmp_client_emit_synthetic_shutdown(c);
 
         return true;
 }
