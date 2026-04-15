@@ -54,6 +54,9 @@ bool qmp_client_is_idle(QmpClient *c);
 /* True iff the connection is dead. Stable terminal state — once set, it stays set. */
 bool qmp_client_is_disconnected(QmpClient *c);
 
+/* True iff the handshake has completed and the client is ready to forward commands. */
+bool qmp_client_is_running(QmpClient *c);
+
 /* Async send. Returns 0 on send (callback will fire later), negative errno on failure. */
 int qmp_client_invoke(
                 QmpClient *client,

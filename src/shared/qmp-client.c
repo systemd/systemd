@@ -488,6 +488,11 @@ bool qmp_client_is_disconnected(QmpClient *c) {
         return c->state == QMP_CLIENT_DISCONNECTED;
 }
 
+bool qmp_client_is_running(QmpClient *c) {
+        assert(c);
+        return c->state == QMP_CLIENT_RUNNING;
+}
+
 /* Map our state to the transport phase used for POLLIN / salvage / timeout decisions. */
 static JsonStreamPhase qmp_client_phase(void *userdata) {
         QmpClient *c = ASSERT_PTR(userdata);
