@@ -535,6 +535,29 @@ TEST(endswith_no_case) {
         assert_se(!endswith_no_case("foobar", "FOOBARFOOFOO"));
 }
 
+TEST(strrstr_no_case) {
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "bar"), "bar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "BAR"), "bar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "bAR"), "bar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "FOO"), "foobar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "foo"), "foobar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "FoO"), "foobar");
+        ASSERT_STREQ(strrstr_no_case("aXaXa", "x"), "Xa");
+        ASSERT_STREQ(strrstr_no_case("aXaXa", "X"), "Xa");
+        ASSERT_STREQ(strrstr_no_case("xHello", "hello"), "Hello");
+        ASSERT_STREQ(strrstr_no_case("Hello", "l"), "lo");
+        ASSERT_STREQ(strrstr_no_case("Hello", ""), "");
+        ASSERT_STREQ(strrstr_no_case("", ""), "");
+        ASSERT_STREQ(strrstr_no_case("FOO", "foo"), "FOO");
+        ASSERT_STREQ(strrstr_no_case("hello", "hello"), "hello");
+        ASSERT_STREQ(strrstr_no_case("X", "x"), "X");
+
+        ASSERT_NULL(strrstr_no_case("hello", "xyz"));
+        ASSERT_NULL(strrstr_no_case("", "x"));
+        ASSERT_NULL(strrstr_no_case(NULL, "x"));
+        ASSERT_NULL(strrstr_no_case("x", NULL));
+}
+
 TEST(delete_chars) {
         char *s, input[] = "   hello, waldo.   abc";
 
