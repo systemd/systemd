@@ -12,6 +12,7 @@
 #include "varlink-io.systemd.QemuMachineInstance.h"
 #include "varlink-io.systemd.VirtualMachineInstance.h"
 #include "varlink-util.h"
+#include "vmspawn-qmp-proxy.h"
 #include "vmspawn-varlink.h"
 
 DEFINE_PRIVATE_HASH_OPS_FULL(
@@ -175,7 +176,15 @@ static int vl_method_subscribe_events(sd_varlink *link, sd_json_variant *paramet
 }
 
 static int vl_method_acquire_qmp(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return sd_varlink_error_errno(link, -EOPNOTSUPP);
+        VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
+
+        /* SD_VARLINK_REQUIRES_UPGRADE in the IDL causes the dispatcher to reject calls
+         * without the upgrade flag before we're reached, so this assert-style check is
+         * defensive only. */
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, NULL);
+
+        return vmspawn_qmp_proxy_acquire(ctx->bridge, link);
 }
 
 static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
@@ -274,6 +283,12 @@ static int on_qmp_event(
         assert(client);
         assert(event);
 
+        /* Fan out to any AcquireQMP acquirers speaking native QMP. They want the raw event
+         * (including timestamp), so hand them the original variant when we have it; for
+         * synthesised events (QEMU disconnect -> SHUTDOWN) we pass NULL and the broadcaster
+         * rebuilds a minimal event object. */
+        vmspawn_qmp_proxy_broadcast_event(ctx->bridge, raw, event, data);
+
         /* Dispatch job status changes to pending continuations (e.g. blockdev-create) */
         if (streq(event, "JOB_STATUS_CHANGE"))
                 return dispatch_pending_job(ctx->bridge, data);
@@ -315,6 +330,11 @@ static void on_qmp_disconnect(QmpClient *client, void *userdata) {
         assert(client);
 
         log_debug("Backend connection lost");
+
+        /* Drain AcquireQMP acquirers first so their ProxyCmdCtx back-pointers are NULLed
+         * before qmp_client_fail_pending() runs the per-slot callbacks with -ECONNRESET;
+         * the callbacks then see aq == NULL and free themselves harmlessly. */
+        vmspawn_qmp_proxy_drain(ctx->bridge);
 
         /* Propagate connection loss by closing all subscriber connections */
         drain_event_subscribers(&ctx->subscribed);
