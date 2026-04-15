@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-varlink.h"
+
 #include "core-forward.h"
 #include "list.h"
 
@@ -124,6 +126,10 @@ typedef struct Job {
          */
         sd_bus_track *bus_track;
         char **deserialized_clients;
+
+        /* If non-NULL, a varlink connection streaming updates. */
+        sd_varlink *varlink;
+        bool varlink_notify_job_changes:1;
 
         /* If the job had a specific trigger that needs to be advertised (eg: a path unit), store it. */
         ActivationDetails *activation_details;
