@@ -6,10 +6,11 @@
 
 typedef enum OptionFlags {
         OPTION_OPTIONAL_ARG        = 1U << 0,  /* Same as optional_argument in getopt */
-        OPTION_STOPS_PARSING       = 1U << 1,  /* This option acts like "--" */
-        OPTION_GROUP_MARKER        = 1U << 2,  /* Fake option entry to separate groups */
-        OPTION_HELP_ENTRY          = 1U << 3,  /* Fake option entry to insert an additional help line */
-        OPTION_HELP_ENTRY_VERBATIM = 1U << 4,  /* Same, but use the long_code in the first column as written */
+        OPTION_POSITIONAL_ENTRY    = 1U << 1,  /* The "option" to handle positional arguments */
+        OPTION_STOPS_PARSING       = 1U << 2,  /* This option acts like "--" */
+        OPTION_GROUP_MARKER        = 1U << 3,  /* Fake option entry to separate groups */
+        OPTION_HELP_ENTRY          = 1U << 4,  /* Fake option entry to insert an additional help line */
+        OPTION_HELP_ENTRY_VERBATIM = 1U << 5,  /* Same, but use the long_code in the first column as written */
 } OptionFlags;
 
 typedef struct Option {
@@ -50,6 +51,7 @@ typedef struct Option {
 #define OPTION_LONG_FLAGS(fl, lc, mv, h) OPTION_FULL(fl, /* sc= */ 0, lc, mv, h)
 #define OPTION_SHORT(sc, mv, h) OPTION(sc, /* lc= */ NULL, mv, h)
 #define OPTION_SHORT_FLAGS(fl, sc, mv, h) OPTION_FULL(fl, sc, /* lc= */ NULL, mv, h)
+#define OPTION_POSITIONAL OPTION_FULL(OPTION_POSITIONAL_ENTRY, /* sc= */ 0, "(positional)", /* mv= */ NULL, /* h= */ NULL)
 #define OPTION_HELP_VERBATIM(lc, h) OPTION_FULL(OPTION_HELP_ENTRY_VERBATIM, /* sc= */ 0, lc, /* mv= */ NULL, h)
 
 #define OPTION_COMMON_HELP \
@@ -98,6 +100,10 @@ typedef enum OptionParserMode {
 
         /* Same as "+…" for getopt_long — only parse options before the first positional argument. */
         OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
+
+        /* Same as "-…" for getopt_long — return positional arguments as "options" to be handled by the
+         * option handler specified with OPTION_POSITIONAL. */
+        OPTION_PARSER_RETURN_POSITIONAL_ARGS,
 
         _OPTION_PARSER_MODE_MAX,
 } OptionParserMode;
