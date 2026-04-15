@@ -231,13 +231,13 @@ static int parse_tries(const char *fname, const char **p, unsigned *ret) {
 
         d = strndup(*p, n);
         if (!d)
-                return log_oom();
+                return -ENOMEM;
 
         r = safe_atou_full(d, 10, &tries);
-        if (r >= 0 && tries > INT_MAX) /* sd-boot allows INT_MAX, let's use the same limit */
-                r = -ERANGE;
         if (r < 0)
-                return log_error_errno(r, "Failed to parse tries counter of filename '%s': %m", fname);
+                return r;
+        if (tries > INT_MAX) /* sd-boot allows INT_MAX, let's use the same limit */
+                return -ERANGE;
 
         *p = *p + n;
         *ret = tries;
@@ -257,8 +257,6 @@ int boot_filename_extract_tries(
 
         assert(fname);
         assert(ret_stripped);
-        assert(ret_tries_left);
-        assert(ret_tries_done);
 
         /* Be liberal with suffix, only insist on a dot. After all we want to cover any capitalization here
          * (vfat is case insensitive after all), and at least .efi and .conf as suffix. */
@@ -292,24 +290,29 @@ int boot_filename_extract_tries(
 
         stripped = strndup(fname, m - fname);
         if (!stripped)
-                return log_oom();
+                return -ENOMEM;
 
         if (!strextend(&stripped, suffix))
-                return log_oom();
+                return -ENOMEM;
 
         *ret_stripped = TAKE_PTR(stripped);
-        *ret_tries_left = tries_left;
-        *ret_tries_done = tries_done;
+        if (ret_tries_left)
+                *ret_tries_left = tries_left;
+        if (ret_tries_done)
+                *ret_tries_done = tries_done;
 
         return 0;
 
 nothing:
         stripped = strdup(fname);
         if (!stripped)
-                return log_oom();
+                return -ENOMEM;
 
         *ret_stripped = TAKE_PTR(stripped);
-        *ret_tries_left = *ret_tries_done = UINT_MAX;
+        if (ret_tries_left)
+                *ret_tries_left = UINT_MAX;
+        if (ret_tries_done)
+                *ret_tries_done = UINT_MAX;
         return 0;
 }
 
@@ -335,7 +338,7 @@ static int boot_entry_load_type1(
 
         r = boot_filename_extract_tries(fname, &tmp.id, &tmp.tries_left, &tmp.tries_done);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to extract tries counters from '%s': %m", fname);
 
         if (!efi_loader_entry_name_valid(tmp.id))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", fname);
@@ -778,7 +781,7 @@ static int boot_entry_load_unified(
 
         r = boot_filename_extract_tries(fname, &tmp.id, &tmp.tries_left, &tmp.tries_done);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to extract tries counters from '%s': %m", fname);
 
         if (!efi_loader_entry_name_valid(tmp.id))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", tmp.id);
