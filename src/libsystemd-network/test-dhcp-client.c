@@ -1221,6 +1221,165 @@ TEST(ipv6_only) {
         ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
 }
 
+static int discover_attempt_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        sd_dhcp_client *client = ASSERT_PTR(userdata);
+        static unsigned count = 0;
+
+        count++;
+        log_debug("%s: count=%u", __func__, count);
+
+        switch (count) {
+        case 1 ... 5:     /* test case: no reply */
+        case 6 ... 9:     /* test case: reset on bound (1st cycle) */
+        case 12 ... 15: { /* test case: reset on bound (2nd cycle) */
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                verify_request(request, DHCP_DISCOVER);
+
+                /* Boost the retransmit timer. */
+                ASSERT_OK(sd_event_source_set_time_relative(client->timeout_resend, /* usec= */ 0));
+                break;
+        }
+        case 10:
+        case 16: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                verify_request(request, DHCP_DISCOVER);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_OFFER, &reply);
+
+                send_message(fd, /* raw= */ true, client, reply);
+                break;
+        }
+        case 11:
+        case 17: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                /* REQUEST (selecting) */
+                verify_request(request, DHCP_REQUEST);
+                verify_request_server_address(request);
+                verify_request_client_address(request, /* header= */ false);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_ACK, &reply);
+
+                send_message(fd, /* raw= */ true, client, reply);
+                break;
+        }
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+static int discover_attempt_no_reply_client_handler(sd_dhcp_client *client, int event, void *userdata) {
+        sd_event *e = ASSERT_PTR(userdata);
+        static unsigned count = 0;
+
+        count++;
+        log_debug("%s: count=%u, event=%i", __func__, count, event);
+
+        switch (count) {
+        case 1 ... 3: /* The event triggered after sending the 3rd, 4th, 5th DISCOVER message. */
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE);
+                ASSERT_EQ(client->state, DHCP_STATE_SELECTING);
+                ASSERT_EQ(client->discover_attempt, count + 2u);
+                break;
+        case 4:
+                ASSERT_EQ(event, -ETIMEDOUT);
+                ASSERT_EQ(client->state, DHCP_STATE_SELECTING);
+                ASSERT_EQ(client->discover_attempt, 5u);
+                ASSERT_OK(sd_event_exit(e, 0));
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+static int discover_attempt_reset_on_bound_client_handler(sd_dhcp_client *client, int event, void *userdata) {
+        sd_event *e = ASSERT_PTR(userdata);
+        static unsigned count = 0;
+
+        count++;
+        log_debug("%s: count=%u, event=%i", __func__, count, event);
+
+        switch (count) {
+        case 1 ... 3: /* The event triggered after sending the 3rd, 4th, 5th DISCOVER message. */
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE);
+                ASSERT_EQ(client->state, DHCP_STATE_SELECTING);
+                ASSERT_EQ(client->discover_attempt, count + 2u);
+                break;
+        case 4:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_SELECTING);
+                verify_reply(client, DHCP_STATE_SELECTING);
+                ASSERT_EQ(client->discover_attempt, 5u);
+                break;
+        case 5:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
+                verify_reply(client, DHCP_STATE_BOUND);
+                ASSERT_EQ(client->discover_attempt, 0u);
+                /* expire the lease now. */
+                ASSERT_OK(sd_event_source_set_time_relative(client->timeout_expire, 0));
+                break;
+        case 6:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_EXPIRED);
+                verify_reply(client, DHCP_STATE_BOUND);
+                ASSERT_EQ(client->discover_attempt, 0u);
+                break;
+        case 7 ... 9: /* The event triggered after sending the 3rd, 4th, 5th DISCOVER message. */
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE);
+                ASSERT_EQ(client->state, DHCP_STATE_SELECTING);
+                ASSERT_EQ(client->discover_attempt, count - 4u);
+                break;
+        case 10:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_SELECTING);
+                verify_reply(client, DHCP_STATE_SELECTING);
+                ASSERT_EQ(client->discover_attempt, 5u);
+                break;
+        case 11:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
+                verify_reply(client, DHCP_STATE_BOUND);
+                ASSERT_EQ(client->discover_attempt, 0u);
+                ASSERT_OK(sd_dhcp_client_stop(client));
+                break;
+        case 12:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_STOP);
+                verify_reply(client, DHCP_STATE_BOUND);
+                ASSERT_EQ(client->discover_attempt, 0u);
+                ASSERT_OK(sd_event_exit(e, 0));
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+TEST(discover_attempt) {
+        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
+
+        /* case 1: no reply */
+        setup(discover_attempt_io_handler, discover_attempt_no_reply_client_handler, &client);
+        ASSERT_OK(sd_dhcp_client_set_max_attempts(client, 5));
+        ASSERT_OK(sd_dhcp_client_start(client));
+        ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
+
+        client = sd_dhcp_client_unref(client);
+
+        /* case 2: attempt is reset on bound */
+        setup(discover_attempt_io_handler, discover_attempt_reset_on_bound_client_handler, &client);
+        ASSERT_OK(sd_dhcp_client_set_max_attempts(client, 5));
+        ASSERT_OK(sd_dhcp_client_start(client));
+        ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
+}
+
 static int intro(void) {
         ASSERT_OK_ERRNO(setenv("SYSTEMD_NETWORK_TEST_MODE", "1", /* overwrite= */ true));
         return 0;
