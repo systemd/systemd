@@ -636,7 +636,52 @@ int config_parse_iaid(
         return 0;
 }
 
-int config_parse_dhcp_user_or_vendor_class(
+int config_parse_dhcp4_user_class(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct iovec_wrapper *iovw = ASSERT_PTR(data);
+        int r;
+
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                iovw_done_free(iovw);
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *w = NULL;
+
+                r = extract_first_word(&p, &w, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+                if (r == 0)
+                        return 0;
+
+                size_t len = strlen(w);
+                if (len > UINT8_MAX || len == 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "The length of the user class '%s' is not in the range 1…255, ignoring.", w);
+                        continue;
+                }
+
+                r = iovw_consume(iovw, TAKE_PTR(w), len);
+                if (r < 0)
+                        return log_oom();
+        }
+}
+
+int config_parse_dhcp6_user_or_vendor_class(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -653,7 +698,6 @@ int config_parse_dhcp_user_or_vendor_class(
 
         assert(lvalue);
         assert(rvalue);
-        assert(IN_SET(ltype, AF_INET, AF_INET6));
 
         if (isempty(rvalue)) {
                 *l = strv_free(*l);
@@ -662,32 +706,18 @@ int config_parse_dhcp_user_or_vendor_class(
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL;
-                size_t len;
 
                 r = extract_first_word(&p, &w, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to split user classes option, ignoring: %s", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
                         return 0;
 
-                len = strlen(w);
-                if (ltype == AF_INET) {
-                        if (len > UINT8_MAX || len == 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                           "%s length is not in the range 1…255, ignoring.", w);
-                                continue;
-                        }
-                } else {
-                        if (len > UINT16_MAX || len == 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                           "%s length is not in the range 1…65535, ignoring.", w);
-                                continue;
-                        }
+                size_t len = strlen(w);
+                if (len > UINT16_MAX || len == 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "The length of the user class '%s' is not in the range 1…65535, ignoring.", w);
+                        continue;
                 }
 
                 r = strv_consume(l, TAKE_PTR(w));
@@ -708,13 +738,12 @@ int config_parse_dhcp_send_option(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *opt4 = NULL;
         _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *opt6 = NULL;
-        _unused_ _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *old4 = NULL;
         _unused_ _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *old6 = NULL;
         uint32_t uint32_data, enterprise_identifier = 0;
         _cleanup_free_ char *word = NULL, *q = NULL;
-        OrderedHashmap **options = ASSERT_PTR(data);
+        OrderedHashmap **dhcp6_options = ASSERT_PTR(data);
+        Hashmap **dhcp4_options = ASSERT_PTR(data);
         uint16_t u16, uint16_data;
         union in_addr_union addr;
         DHCPOptionDataType type;
@@ -729,7 +758,10 @@ int config_parse_dhcp_send_option(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                *options = ordered_hashmap_free(*options);
+                if (ltype == AF_INET6)
+                        *dhcp6_options = ordered_hashmap_free(*dhcp6_options);
+                else
+                        *dhcp4_options = hashmap_free(*dhcp4_options);
                 return 0;
         }
 
@@ -895,13 +927,13 @@ int config_parse_dhcp_send_option(
                         return 0;
                 }
 
-                r = ordered_hashmap_ensure_allocated(options, &dhcp6_option_hash_ops);
+                r = ordered_hashmap_ensure_allocated(dhcp6_options, &dhcp6_option_hash_ops);
                 if (r < 0)
                         return log_oom();
 
                 /* Overwrite existing option */
-                old6 = ordered_hashmap_get(*options, UINT_TO_PTR(u16));
-                r = ordered_hashmap_replace(*options, UINT_TO_PTR(u16), opt6);
+                old6 = ordered_hashmap_get(*dhcp6_options, UINT_TO_PTR(u16));
+                r = ordered_hashmap_replace(*dhcp6_options, UINT_TO_PTR(u16), opt6);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
@@ -909,26 +941,12 @@ int config_parse_dhcp_send_option(
                 }
                 TAKE_PTR(opt6);
         } else {
-                r = sd_dhcp_option_new(u8, udata, sz, &opt4);
+                r = dhcp_options_append(dhcp4_options, u8, sz, udata);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
+                                   "Failed to add DHCP option '%s', ignoring assignment: %m", rvalue);
                         return 0;
                 }
-
-                r = ordered_hashmap_ensure_allocated(options, &dhcp_option_hash_ops);
-                if (r < 0)
-                        return log_oom();
-
-                /* Overwrite existing option */
-                old4 = ordered_hashmap_get(*options, UINT_TO_PTR(u8));
-                r = ordered_hashmap_replace(*options, UINT_TO_PTR(u8), opt4);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
-                        return 0;
-                }
-                TAKE_PTR(opt4);
         }
         return 0;
 }

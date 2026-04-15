@@ -6,7 +6,7 @@
 #include "sd-dhcp-client.h"
 #include "sd-dhcp6-client.h"
 
-#include "dhcp-lease-internal.h"
+#include "dhcp-lease-internal.h"         /* IWYU pragma: keep */
 #include "dhcp-server-lease-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "extract-word.h"
@@ -1352,12 +1352,18 @@ static int dhcp_client_lease_append_json(Link *link, sd_json_variant **v) {
         if (r < 0 && r != -ENODATA)
                 return r;
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        r = dhcp_message_build_json(link->dhcp_lease->message, &m);
+        if (r < 0)
+                return r;
+
         r = sd_json_buildo(
                         &w,
                         JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec", lease_timestamp_usec),
                         JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec", t1),
                         JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec", t2),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Hostname", hostname));
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Hostname", hostname),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("Message", m));
         if (r < 0)
                 return r;
 
@@ -1419,36 +1425,41 @@ static int dhcp_client_private_options_append_json(Link *link, sd_json_variant *
         if (!link->dhcp_lease)
                 return 0;
 
-        LIST_FOREACH(options, option, link->dhcp_lease->private_options) {
+        for (uint8_t i = SD_DHCP_OPTION_PRIVATE_BASE; i <= SD_DHCP_OPTION_PRIVATE_LAST; i++) {
+                _cleanup_free_ void *buf = NULL;
+                size_t len;
+
+                r = dhcp_message_get_option_alloc(link->dhcp_lease->message, i, &len, &buf);
+                if (r == -ENODATA)
+                        continue;
+                if (r < 0)
+                        return r;
 
                 r = sd_json_variant_append_arraybo(
                                 &array,
-                                SD_JSON_BUILD_PAIR_UNSIGNED("Option", option->tag),
-                                SD_JSON_BUILD_PAIR_HEX("PrivateOptionData", option->data, option->length));
+                                SD_JSON_BUILD_PAIR_UNSIGNED("Option", i),
+                                SD_JSON_BUILD_PAIR_HEX("PrivateOptionData", buf, len));
                 if (r < 0)
-                        return 0;
+                        return r;
         }
+
         return json_variant_set_field_non_null(v, "PrivateOptions", array);
 }
 
 static int dhcp_client_id_append_json(Link *link, sd_json_variant **v) {
-        const sd_dhcp_client_id *client_id;
-        const void *data;
-        size_t l;
-        int r;
-
         assert(link);
         assert(v);
 
         if (!link->dhcp_client)
                 return 0;
 
-        r = sd_dhcp_client_get_client_id(link->dhcp_client, &client_id);
-        if (r < 0)
+        const sd_dhcp_client_id *client_id;
+        if (sd_dhcp_client_get_client_id(link->dhcp_client, &client_id) < 0)
                 return 0;
 
-        r = sd_dhcp_client_id_get_raw(client_id, &data, &l);
-        if (r < 0)
+        const void *data;
+        size_t l;
+        if (sd_dhcp_client_id_get_raw(client_id, &data, &l) < 0)
                 return 0;
 
         return sd_json_variant_merge_objectbo(v, SD_JSON_BUILD_PAIR_BYTE_ARRAY("ClientIdentifier", data, l));
