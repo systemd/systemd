@@ -116,6 +116,16 @@ static inline const BootEntry* boot_config_default_entry(const BootConfig *confi
         return config->entries + config->default_entry;
 }
 
+static inline const BootEntry* boot_config_selected_entry(const BootConfig *config) {
+        assert(config);
+
+        if (config->selected_entry < 0)
+                return NULL;
+
+        assert((size_t) config->selected_entry < config->n_entries);
+        return config->entries + config->selected_entry;
+}
+
 void boot_config_free(BootConfig *config);
 
 int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path);
