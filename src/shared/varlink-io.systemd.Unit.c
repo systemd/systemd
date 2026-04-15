@@ -1423,6 +1423,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Final job result, set in the final streaming reply"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Result, JobResult, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                UnitChange,
+                SD_VARLINK_FIELD_COMMENT("The current active state of the unit"),
+                SD_VARLINK_DEFINE_FIELD(activeState, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The current sub-state of the unit"),
+                SD_VARLINK_DEFINE_FIELD(subState, SD_VARLINK_STRING, 0));
+
 static SD_VARLINK_DEFINE_ERROR(UnitExists);
 static SD_VARLINK_DEFINE_ERROR(UnitTypeNotSupported);
 static SD_VARLINK_DEFINE_ERROR(BadUnitSetting);
@@ -1434,12 +1441,18 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(context, UnitContextInput, 0),
                 SD_VARLINK_FIELD_COMMENT("Job mode. Defaults to replace."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, JobMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream job state change notifications. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(notifyJobChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream unit state change notifications. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(notifyUnitChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Unit context."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Unit runtime state."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The job that was enqueued. Set in streaming notifications."),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(job, Job, SD_VARLINK_NULLABLE));
+                SD_VARLINK_FIELD_COMMENT("The job that was enqueued. Set in streaming notifications when notifyJobChanges is true."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(job, Job, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit state change. Set in streaming notifications when notifyUnitChanges is true."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(unitChange, UnitChange, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 SetProperties,
@@ -1571,6 +1584,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_JobResult,
                 SD_VARLINK_SYMBOL_COMMENT("A job object"),
                 &vl_type_Job,
+                SD_VARLINK_SYMBOL_COMMENT("A unit state change notification"),
+                &vl_type_UnitChange,
                 SD_VARLINK_SYMBOL_COMMENT("Service-specific context"),
                 &vl_type_ServiceContext,
 
