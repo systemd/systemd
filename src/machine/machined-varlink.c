@@ -534,6 +534,17 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r != 0)
                 return r;
 
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                m->system_bus,
+                                "org.freedesktop.machine1.manage-machines",
+                                (const char**) STRV_MAKE("name", strna(p.name)),
+                                &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
+
         r = sd_varlink_set_sentinel(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE);
         if (r < 0)
                 return r;
