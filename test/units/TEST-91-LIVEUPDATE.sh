@@ -69,13 +69,13 @@ if grep -qw luo_nboot=1 /proc/cmdline; then
 
     # Verify that the user manager also preserved its FD store
     n_user_at_fds=$(systemctl show -P NFileDescriptorStore "${TESTUSER_USER_SVC}")
-    test "${n_user_at_fds}" -ge 2
+    test "${n_user_at_fds}" -ge 3
     write_late_unit user TEST-91-LIVEUPDATE-user-late \
         "/usr/lib/systemd/tests/unit-tests/manual/test-luo check user-late"
     systemctl restart "${TESTUSER_USER_SVC}"
     timeout 30s bash -c "until systemctl is-active --quiet '${TESTUSER_USER_SVC}'; do sleep 0.5; done"
     n_user_unit_fds=$(run0 -u testuser systemctl --user show -P NFileDescriptorStore TEST-91-LIVEUPDATE-user-late.service)
-    test "${n_user_unit_fds}" -eq 2
+    test "${n_user_unit_fds}" -eq 3
     run0 -u testuser systemctl --user start TEST-91-LIVEUPDATE-user-late.service
 
     # nspawn fdstore variant: after kexec, PID 1 propagated the
@@ -102,22 +102,22 @@ EOF
     # late.service: rewrite the fragment with the second-boot ExecStart and
     # exercise the daemon-reload + daemon-reexec preservation paths.
     write_late_unit system TEST-91-LIVEUPDATE-late \
-        "/usr/lib/systemd/tests/unit-tests/manual/test-luo check"
+        "/usr/lib/systemd/tests/unit-tests/manual/test-luo check late"
 
     n_fds=$(systemctl show -P NFileDescriptorStore TEST-91-LIVEUPDATE-late.service)
-    test "$n_fds" -eq 2
+    test "$n_fds" -eq 3
 
     systemctl daemon-reload
 
     # Verify the late unit doesn't get GC'ed during daemon-reload
     n_fds=$(systemctl show -P NFileDescriptorStore TEST-91-LIVEUPDATE-late.service)
-    test "$n_fds" -eq 2
+    test "$n_fds" -eq 3
 
     systemctl daemon-reexec
 
     # Verify the late unit doesn't get GC'ed during daemon-reexec
     n_fds=$(systemctl show -P NFileDescriptorStore TEST-91-LIVEUPDATE-late.service)
-    test "$n_fds" -eq 2
+    test "$n_fds" -eq 3
 
     systemctl start TEST-91-LIVEUPDATE-late.service
 
@@ -127,7 +127,7 @@ EOF
     write_late_unit system TEST-91-LIVEUPDATE-late-noreload \
         "/usr/lib/systemd/tests/unit-tests/manual/test-luo check late-noreload"
     n_fds=$(systemctl show -P NFileDescriptorStore TEST-91-LIVEUPDATE-late-noreload.service)
-    test "$n_fds" -eq 2
+    test "$n_fds" -eq 3
     systemctl start TEST-91-LIVEUPDATE-late-noreload.service
 
     # Zero-fds variant: fragment on second boot sets FileDescriptorStoreMax=0,
@@ -140,6 +140,7 @@ EOF
     systemctl start TEST-91-LIVEUPDATE-late-zerofds.service
 else
     # Create memfds with known content and push them to our fd store.
+    # Also request a LUO session, store a memfd in it, and push the session fd to the fd store.
     /usr/lib/systemd/tests/unit-tests/manual/test-luo store
 
     # Exercise the user manager FD preservation across kexec too
@@ -149,9 +150,9 @@ else
         "/usr/lib/systemd/tests/unit-tests/manual/test-luo store user-late"
     run0 -u testuser systemctl --user start TEST-91-LIVEUPDATE-user-late.service
     n_user_unit_fds=$(run0 -u testuser systemctl --user show -P NFileDescriptorStore TEST-91-LIVEUPDATE-user-late.service)
-    test "${n_user_unit_fds}" -eq 2
+    test "${n_user_unit_fds}" -eq 3
     n_user_at_fds=$(systemctl show -P NFileDescriptorStore "${TESTUSER_USER_SVC}")
-    test "${n_user_at_fds}" -ge 2
+    test "${n_user_at_fds}" -ge 3
 
     # Exercise the FD-store preservation chain across a kexec for a privileged
     # nspawn container managed as a system service:
@@ -180,11 +181,11 @@ EOF
     # to avoid collisions in the LUO session namespace.
     for variant in late late-noreload late-zerofds; do
         write_late_unit system "TEST-91-LIVEUPDATE-${variant}" \
-            "/usr/lib/systemd/tests/unit-tests/manual/test-luo store"
+            "/usr/lib/systemd/tests/unit-tests/manual/test-luo store ${variant}"
         systemctl start "TEST-91-LIVEUPDATE-${variant}.service"
 
         n_fds=$(systemctl show -P NFileDescriptorStore "TEST-91-LIVEUPDATE-${variant}.service")
-        test "$n_fds" -eq 2
+        test "$n_fds" -eq 3
     done
 
     # 'systemctl kexec' auto-loads the default boot entry (i.e. the booted UKI,
