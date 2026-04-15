@@ -1110,8 +1110,18 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                                  * and no replies were enqueued by the callback. */
                                                 if (sentinel == POINTER_MAX)
                                                         r = sd_varlink_reply(v, NULL);
-                                                else
+                                                else {
                                                         r = sd_varlink_error(v, sentinel, NULL);
+                                                        /* sd_varlink_error() deliberately returns a negative
+                                                         * errno mapped from the error id on success (so method
+                                                         * callbacks can `return sd_varlink_error(...);` to
+                                                         * enqueue a reply and propagate a matching errno in one
+                                                         * go). For sentinel dispatch we don't care about that
+                                                         * mapping — the reply is either enqueued or not, which
+                                                         * we detect via the state transition instead. */
+                                                        if (v->state == VARLINK_PROCESSED_METHOD)
+                                                                r = 0;
+                                                }
 
                                                 if (sentinel != POINTER_MAX)
                                                         free(sentinel);
