@@ -185,7 +185,7 @@ const char* default_root_shell_at(int rfd) {
 
         assert(rfd >= 0 || rfd == AT_FDCWD);
 
-        int r = chaseat(rfd, DEFAULT_USER_SHELL, CHASE_AT_RESOLVE_IN_ROOT, NULL, NULL);
+        int r = chaseat(rfd, rfd, DEFAULT_USER_SHELL, /* flags= */ 0, NULL, NULL);
         if (r < 0 && r != -ENOENT)
                 log_debug_errno(r, "Failed to look up shell '%s': %m", DEFAULT_USER_SHELL);
         if (r > 0)

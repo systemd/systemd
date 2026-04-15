@@ -339,8 +339,8 @@ static int process_locale(int rfd, sd_varlink **mute_console_link) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, etc_locale_conf(),
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
+        pfd = chase_and_open_parent_at(rfd, rfd, etc_locale_conf(),
+                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/locale.conf: %m");
@@ -474,8 +474,8 @@ static int process_keymap(int rfd, sd_varlink **mute_console_link) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, etc_vconsole_conf(),
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
+        pfd = chase_and_open_parent_at(rfd, rfd, etc_vconsole_conf(),
+                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/vconsole.conf: %m");
@@ -590,8 +590,8 @@ static int process_timezone(int rfd, sd_varlink **mute_console_link) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, etc_localtime(),
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
+        pfd = chase_and_open_parent_at(rfd, rfd, etc_localtime(),
+                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/localtime: %m");
@@ -703,9 +703,7 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, etc_hostname(),
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN,
-                                       &f);
+        pfd = chase_and_open_parent_at(rfd, rfd, etc_hostname(), CHASE_MKDIR_0755|CHASE_WARN, &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/hostname: %m");
 
@@ -738,8 +736,8 @@ static int process_machine_id(int rfd) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, "/etc/machine-id",
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
+        pfd = chase_and_open_parent_at(rfd, rfd, "/etc/machine-id",
+                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/machine-id: %m");
@@ -848,7 +846,7 @@ static int find_shell(int rfd, const char *path) {
         if (!valid_shell(path))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid shell", path);
 
-        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT, NULL, NULL);
+        r = chaseat(rfd, rfd, path, /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve shell %s: %m", path);
 
@@ -1052,8 +1050,8 @@ static int process_root_account(int rfd, sd_varlink **mute_console_link) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, "/etc/passwd",
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
+        pfd = chase_and_open_parent_at(rfd, rfd, "/etc/passwd",
+                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        NULL);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/passwd: %m");
@@ -1169,8 +1167,8 @@ static int process_kernel_cmdline(int rfd) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, "/etc/kernel/cmdline",
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
+        pfd = chase_and_open_parent_at(rfd, rfd, "/etc/kernel/cmdline",
+                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/kernel/cmdline: %m");
@@ -1202,7 +1200,7 @@ static int reset_one(int rfd, const char *path) {
         assert(rfd >= 0);
         assert(path);
 
-        pfd = chase_and_open_parent_at(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_WARN|CHASE_NOFOLLOW, &f);
+        pfd = chase_and_open_parent_at(rfd, rfd, path, CHASE_WARN|CHASE_NOFOLLOW, &f);
         if (pfd == -ENOENT)
                 return 0;
         if (pfd < 0)

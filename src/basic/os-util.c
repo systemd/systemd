@@ -172,10 +172,10 @@ int open_os_release_at(int rfd, char **ret_path, int *ret_fd) {
 
         e = secure_getenv("SYSTEMD_OS_RELEASE");
         if (e)
-                return chaseat(rfd, e, CHASE_AT_RESOLVE_IN_ROOT, ret_path, ret_fd);
+                return chaseat(rfd, rfd, e, /* flags= */ 0, ret_path, ret_fd);
 
         FOREACH_STRING(path, "/etc/os-release", "/usr/lib/os-release") {
-                r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT, ret_path, ret_fd);
+                r = chaseat(rfd, rfd, path, /* flags= */ 0, ret_path, ret_fd);
                 if (r != -ENOENT)
                         return r;
         }
@@ -238,7 +238,7 @@ int open_extension_release_at(
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "The extension name %s is invalid.", extension);
 
         p = strjoina(image_class_release_info[image_class].release_file_path_prefix, extension);
-        r = chaseat(rfd, p, CHASE_AT_RESOLVE_IN_ROOT, ret_path, ret_fd);
+        r = chaseat(rfd, rfd, p, /* flags= */ 0, ret_path, ret_fd);
         log_full_errno_zerook(LOG_DEBUG, MIN(r, 0), "Checking for %s: %m", p);
         if (r != -ENOENT)
                 return r;
@@ -249,7 +249,7 @@ int open_extension_release_at(
          * xattr is checked to ensure the author of the image considers it OK if names do not match. */
 
         p = image_class_release_info[image_class].release_file_directory;
-        r = chase_and_opendirat(rfd, p, CHASE_AT_RESOLVE_IN_ROOT, &dir_path, &dir);
+        r = chase_and_opendirat(rfd, rfd, p, /* chase_flags= */ 0, &dir_path, &dir);
         if (r < 0)
                 return log_debug_errno(r, "Cannot open %s, ignoring: %m", p);
 

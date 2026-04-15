@@ -478,6 +478,18 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
+#  define ASSERT_PATH_EQ(expr1, expr2) __coverity_check__(path_equal((expr1), (expr2)))
+#else
+#  define ASSERT_PATH_EQ(expr1, expr2)                                                                          \
+        ({                                                                                                      \
+                const char *_expr1 = (expr1), *_expr2 = (expr2);                                                \
+                if (!path_equal(_expr1, _expr2))                                                                 \
+                        log_test_failed("Expected \"%s == %s\", got \"%s != %s\"",                              \
+                                        #expr1, #expr2, strnull(_expr1), strnull(_expr2));                      \
+        })
+#endif
+
+#ifdef __COVERITY__
 #  define ASSERT_NOT_STREQ(expr1, expr2) __coverity_check__(!streq_ptr((expr1), (expr2)))
 #else
 #  define ASSERT_NOT_STREQ(expr1, expr2)                                                                        \
