@@ -25,4 +25,10 @@ executables += [
                 'link_with' : boot_link_with,
                 'dependencies' : [libopenssl],
         },
+        test_template + {
+                'sources' : files(
+                        'test-bootspec-util.c',
+                        'bootspec-util.c',
+                ),
+        },
 ]
