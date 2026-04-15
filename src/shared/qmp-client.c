@@ -114,7 +114,7 @@ static void qmp_client_dispatch_event(QmpClient *c, sd_json_variant *v) {
         if (r < 0)
                 return;
 
-        r = c->event_callback(c, p.event, p.data, c->event_userdata);
+        r = c->event_callback(c, p.event, p.data, v, c->event_userdata);
         if (r < 0)
                 json_stream_log_errno(&c->stream, r, "Event callback returned error, ignoring: %m");
 }
@@ -277,7 +277,7 @@ static void qmp_client_emit_synthetic_shutdown(QmpClient *c) {
                 return;
         }
 
-        r = c->event_callback(c, "SHUTDOWN", data, c->event_userdata);
+        r = c->event_callback(c, "SHUTDOWN", data, /* raw= */ NULL, c->event_userdata);
         if (r < 0)
                 json_stream_log_errno(&c->stream, r, "Event callback returned error, ignoring: %m");
 }

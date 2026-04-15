@@ -3,10 +3,16 @@
 
 #include "shared-forward.h"
 
+/* `raw` is the full event variant including the "timestamp" field (and anything QEMU may
+ * attach in future), or NULL for internally-synthesised events such as the SHUTDOWN that
+ * fires when the QMP transport dies. Consumers that want to forward the original wire
+ * message verbatim (e.g. proxies) can enqueue `raw` directly instead of reconstructing it
+ * from `event` + `data`. */
 typedef int (*qmp_event_callback_t)(
                 QmpClient *client,
                 const char *event,
                 sd_json_variant *data,
+                sd_json_variant *raw,
                 void *userdata);
 
 typedef void (*qmp_disconnect_callback_t)(

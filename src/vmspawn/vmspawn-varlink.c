@@ -262,6 +262,7 @@ static int on_qmp_event(
                 QmpClient *client,
                 const char *event,
                 sd_json_variant *data,
+                sd_json_variant *raw,
                 void *userdata) {
 
         VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
