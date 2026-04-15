@@ -552,13 +552,26 @@ result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-test2.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}},"mode":"fail"}')
 echo "$result" | grep '"context"' >/dev/null
 
-# Streaming: should get intermediate state updates and a final result
+# Streaming with notifyJobChanges: should get intermediate state updates and a final result
 defer_transient_cleanup varlink-transient-test3.service
 result=$(varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-test3.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}')
-echo "$result" | grep '"job"' | grep '"State"' >/dev/null
-echo "$result" | grep '"job"' | grep '"Result"' >/dev/null
-echo "$result" | grep '"done"' >/dev/null
+    '{"context":{"ID":"varlink-transient-test3.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}},"notifyJobChanges":true}')
+echo "$result" | grep '"job"' | grep '"State"' | grep '"waiting"' >/dev/null
+echo "$result" | grep '"job"' | grep '"Result"' | grep '"done"' >/dev/null
+
+# Fire-and-forget: --more without notify flags should return immediately with context+runtime
+defer_transient_cleanup varlink-transient-fireforget.service
+result=$(varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-fireforget.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | grep '"context"' >/dev/null
+echo "$result" | grep '"runtime"' >/dev/null
+
+# Streaming with notifyUnitChanges: should get unit state change notifications
+defer_transient_cleanup varlink-transient-unitnotify.service
+result=$(varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-unitnotify.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}},"notifyUnitChanges":true}')
+echo "$result" | grep '"unitChange"' >/dev/null
+echo "$result" | grep '"activeState"' >/dev/null
 
 # Error: unit already exists - create a long-running service, then try to create it again while it's active
 defer_transient_cleanup varlink-transient-exists.service
@@ -571,9 +584,8 @@ timeout 10 bash -c 'until systemctl is-active varlink-transient-exists.service; 
 # Multiple ExecStart commands (oneshot allows multiple)
 defer_transient_cleanup varlink-transient-multi.service
 result=$(varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-multi.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"},{"path":"/bin/true"}]}}}')
-echo "$result" | grep '"job"' | grep '"Result"' >/dev/null
-echo "$result" | grep '"done"' >/dev/null
+    '{"context":{"ID":"varlink-transient-multi.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"},{"path":"/bin/true"}]}},"notifyJobChanges":true}')
+echo "$result" | grep '"job"' | grep '"Result"' | grep '"done"' >/dev/null
 
 # Transient service with Description and RemainAfterExit
 defer_transient_cleanup varlink-transient-desc.service

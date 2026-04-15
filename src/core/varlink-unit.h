@@ -25,6 +25,7 @@ int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters,
 
 int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 
+void varlink_unit_send_change_signal(Unit *u);
 void varlink_job_send_change_signal(Job *j);
 void varlink_job_send_removed_signal(Job *j);
 
