@@ -19,6 +19,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "vmspawn-qmp.h"
+#include "vmspawn-qmp-proxy.h"
 
 DEFINE_PRIVATE_HASH_OPS_FULL(
                 pending_job_hash_ops,
@@ -811,6 +812,10 @@ PendingJob* pending_job_free(PendingJob *j) {
 VmspawnQmpBridge* vmspawn_qmp_bridge_free(VmspawnQmpBridge *b) {
         if (!b)
                 return NULL;
+
+        /* Drain any AcquireQMP acquirers before releasing the QmpClient: their
+         * JsonStreams share the same sd_event and back-point into this bridge. */
+        vmspawn_qmp_proxy_drain(b);
 
         hashmap_free(b->pending_jobs);
 

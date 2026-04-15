@@ -56,6 +56,7 @@ struct QmpClient {
 
         QmpClientState state;
         sd_json_variant *current;  /* most recently parsed message, pending dispatch */
+        sd_json_variant *greeting; /* cached greeting variant, for replay via get_greeting() */
 };
 
 static void qmp_slot_hash_func(const QmpSlot *p, struct siphash *state) {
@@ -113,7 +114,7 @@ static void qmp_client_dispatch_event(QmpClient *c, sd_json_variant *v) {
         if (r < 0)
                 return;
 
-        r = c->event_callback(c, p.event, p.data, c->event_userdata);
+        r = c->event_callback(c, p.event, p.data, v, c->event_userdata);
         if (r < 0)
                 json_stream_log_errno(&c->stream, r, "Event callback returned error, ignoring: %m");
 }
@@ -276,7 +277,7 @@ static void qmp_client_emit_synthetic_shutdown(QmpClient *c) {
                 return;
         }
 
-        r = c->event_callback(c, "SHUTDOWN", data, c->event_userdata);
+        r = c->event_callback(c, "SHUTDOWN", data, /* raw= */ NULL, c->event_userdata);
         if (r < 0)
                 json_stream_log_errno(&c->stream, r, "Event callback returned error, ignoring: %m");
 }
@@ -293,10 +294,17 @@ static bool qmp_client_handle_disconnect(QmpClient *c) {
         if (c->defer_event_source)
                 (void) sd_event_source_set_enabled(c->defer_event_source, SD_EVENT_OFF);
 
-        qmp_client_fail_pending(c, -ECONNRESET);
-        qmp_client_emit_synthetic_shutdown(c);
+        /* Fire the disconnect callback BEFORE failing pending commands: consumers may need
+         * to tear down per-command state (for example, proxies tracking outstanding
+         * commands via weak back-pointers into their slot userdata) before the slot
+         * callbacks fire with -ECONNRESET. Firing in the reverse order would have the
+         * slot callbacks run on consumer state that hasn't been prepared for a teardown
+         * yet. */
         if (c->disconnect_callback)
                 c->disconnect_callback(c, c->disconnect_userdata);
+
+        qmp_client_fail_pending(c, -ECONNRESET);
+        qmp_client_emit_synthetic_shutdown(c);
 
         return true;
 }
@@ -341,6 +349,10 @@ static int qmp_client_dispatch_handshake(QmpClient *c) {
                 if (!sd_json_variant_by_key(v, "QMP"))
                         return json_stream_log_errno(&c->stream, SYNTHETIC_ERRNO(EPROTO),
                                                      "Expected QMP greeting, got something else");
+
+                /* Stash a ref for later replay to consumers that wrap additional
+                 * clients over this connection. */
+                c->greeting = sd_json_variant_ref(v);
 
                 c->state = QMP_CLIENT_HANDSHAKE_GREETING_RECEIVED;
 
@@ -483,6 +495,11 @@ bool qmp_client_is_disconnected(QmpClient *c) {
         return c->state == QMP_CLIENT_DISCONNECTED;
 }
 
+bool qmp_client_is_running(QmpClient *c) {
+        assert(c);
+        return c->state == QMP_CLIENT_RUNNING;
+}
+
 /* Map our state to the transport phase used for POLLIN / salvage / timeout decisions. */
 static JsonStreamPhase qmp_client_phase(void *userdata) {
         QmpClient *c = ASSERT_PTR(userdata);
@@ -563,6 +580,7 @@ static void qmp_client_clear(QmpClient *c) {
         qmp_client_handle_disconnect(c);
         qmp_client_detach_event(c);
         qmp_client_clear_current(c);
+        c->greeting = sd_json_variant_unref(c->greeting);
         json_stream_done(&c->stream);
         c->slots = set_free(c->slots);
 }
@@ -719,30 +737,30 @@ static int qmp_client_stage_fds(QmpClient *c, QmpClientArgs *args) {
         return 0;
 }
 
-int qmp_client_invoke(
+uint64_t qmp_client_reserve_id(QmpClient *c) {
+        assert(c);
+        return c->next_id++;
+}
+
+int qmp_client_invoke_raw(
                 QmpClient *c,
-                const char *command,
+                sd_json_variant *cmd,
+                uint64_t id,
                 QmpClientArgs *args,
                 qmp_command_callback_t callback,
                 void *userdata) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL;
         _cleanup_free_ QmpSlot *pending = NULL;
         /* Closes any fds in args not yet handed to the stream on every early-return path;
          * TAKE_PTR()'d on the success path below once stage_fds has consumed them. */
         _cleanup_(qmp_client_args_close_fdsp) QmpClientArgs *fds_owner = args;
-        uint64_t id;
         int r;
 
         assert(c);
-        assert(command);
+        assert(cmd);
         assert(callback);
 
         r = qmp_client_ensure_running(c);
-        if (r < 0)
-                return r;
-
-        r = qmp_client_build_command(c, command, args ? args->arguments : NULL, &cmd, &id);
         if (r < 0)
                 return r;
 
@@ -784,6 +802,39 @@ int qmp_client_invoke(
         return 0;
 }
 
+int qmp_client_invoke(
+                QmpClient *c,
+                const char *command,
+                QmpClientArgs *args,
+                qmp_command_callback_t callback,
+                void *userdata) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL;
+        /* Close any fds in args on every early-return path below (ensure_running,
+         * build_command); on the success path TAKE_PTR hands ownership to
+         * qmp_client_invoke_raw's own cleanup hook. */
+        _cleanup_(qmp_client_args_close_fdsp) QmpClientArgs *fds_owner = args;
+        uint64_t id;
+        int r;
+
+        assert(c);
+        assert(command);
+        assert(callback);
+
+        /* Drain the handshake first so build_command's next_id sits after the ids the
+         * handshake itself consumed for qmp_capabilities. */
+        r = qmp_client_ensure_running(c);
+        if (r < 0)
+                return r;
+
+        r = qmp_client_build_command(c, command, args ? args->arguments : NULL, &cmd, &id);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(fds_owner);
+        return qmp_client_invoke_raw(c, cmd, id, args, callback, userdata);
+}
+
 void qmp_client_bind_event(QmpClient *c, qmp_event_callback_t callback, void *userdata) {
         assert(c);
         c->event_callback = callback;
@@ -809,6 +860,11 @@ sd_event* qmp_client_get_event(QmpClient *c) {
 unsigned qmp_client_next_fdset_id(QmpClient *c) {
         assert(c);
         return c->next_fdset_id++;
+}
+
+sd_json_variant* qmp_client_get_greeting(QmpClient *c) {
+        assert(c);
+        return c->greeting;
 }
 
 bool qmp_schema_has_member(sd_json_variant *schema, const char *member_name) {

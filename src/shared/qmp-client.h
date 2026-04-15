@@ -3,10 +3,16 @@
 
 #include "shared-forward.h"
 
+/* `raw` is the full event variant including the "timestamp" field (and anything QEMU may
+ * attach in future), or NULL for internally-synthesised events such as the SHUTDOWN that
+ * fires when the QMP transport dies. Consumers that want to forward the original wire
+ * message verbatim (e.g. proxies) can enqueue `raw` directly instead of reconstructing it
+ * from `event` + `data`. */
 typedef int (*qmp_event_callback_t)(
                 QmpClient *client,
                 const char *event,
                 sd_json_variant *data,
+                sd_json_variant *raw,
                 void *userdata);
 
 typedef void (*qmp_disconnect_callback_t)(
@@ -54,10 +60,29 @@ bool qmp_client_is_idle(QmpClient *c);
 /* True iff the connection is dead. Stable terminal state — once set, it stays set. */
 bool qmp_client_is_disconnected(QmpClient *c);
 
+/* True iff the handshake has completed and the client is ready to forward commands. */
+bool qmp_client_is_running(QmpClient *c);
+
 /* Async send. Returns 0 on send (callback will fire later), negative errno on failure. */
 int qmp_client_invoke(
                 QmpClient *client,
                 const char *command,
+                QmpClientArgs *args,
+                qmp_command_callback_t callback,
+                void *userdata);
+
+/* Allocate and reserve an internal id for a command that the caller will build themselves.
+ * Used by consumers that need to construct the full command variant outside the client and
+ * have the response correlate back through qmp_client_invoke_raw(). */
+uint64_t qmp_client_reserve_id(QmpClient *client);
+
+/* Async send of a pre-built command. The cmd variant must already contain "execute" (or
+ * "exec-oob") and "id": <id> fields — the id is the value previously obtained from
+ * qmp_client_reserve_id(). Same return contract as qmp_client_invoke(). */
+int qmp_client_invoke_raw(
+                QmpClient *client,
+                sd_json_variant *cmd,
+                uint64_t id,
                 QmpClientArgs *args,
                 qmp_command_callback_t callback,
                 void *userdata);
@@ -71,6 +96,12 @@ unsigned qmp_client_next_fdset_id(QmpClient *client);
 QmpClient* qmp_client_unref(QmpClient *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(QmpClient *, qmp_client_unref);
+
+/* Borrowed pointer to the QMP greeting variant received from QEMU during handshake, or
+ * NULL if not yet received. Consumers that need to replay the greeting (e.g. when
+ * wrapping additional clients over the same underlying connection) can use this to
+ * reproduce exactly what QEMU sent without synthesising one. */
+sd_json_variant* qmp_client_get_greeting(QmpClient *client);
 
 /* Returns true iff any object entry in schema (result of query-qmp-schema) has a member with this
  * name. QEMU's introspection replaces type names with opaque numeric ids, so lookup-by-type-name is

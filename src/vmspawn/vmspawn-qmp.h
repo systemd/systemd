@@ -3,7 +3,13 @@
 
 #include <net/ethernet.h>
 
+#include "list.h"
 #include "shared-forward.h"
+
+/* Opaque, defined in vmspawn-qmp-proxy.c. Tracked here so the bridge's drain/free path
+ * can reach every outstanding AcquireQMP upgrade without pulling the proxy header into
+ * unrelated translation units. */
+typedef struct AcquiredQmp AcquiredQmp;
 
 /* Pending job continuation — called when a QMP background job reaches "concluded" state.
  * Used by blockdev-create to chain remaining drive setup after the job completes. */
@@ -28,6 +34,8 @@ typedef struct VmspawnQmpBridge {
         QmpClient *qmp;
         Hashmap *pending_jobs;  /* job_id (string, owned) -> PendingJob* */
         VmspawnQmpFeatureFlags features;
+        LIST_HEAD(AcquiredQmp, acquired);  /* Upgraded AcquireQMP channels, multiplexed over qmp */
+        size_t n_acquired;                 /* Length of the acquired list, for the cap check */
 } VmspawnQmpBridge;
 
 VmspawnQmpBridge* vmspawn_qmp_bridge_free(VmspawnQmpBridge *b);
