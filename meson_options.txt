@@ -237,6 +237,8 @@ option('libcryptsetup-plugins-dir', type : 'string',
        description : 'directory for libcryptsetup plugins')
 option('shellprofiledir', type : 'string',
        description : 'directory for Shell profile drop-ins ["no" disables]')
+option('link-osc-context-dropin', type : 'combo', choices : ['auto', 'true', 'false'], value: 'auto',
+       description : 'control whether to install osc context shell profile dropin')
 option('docdir', type : 'string',
        description : 'documentation directory')
 option('install-sysconfdir', type : 'combo', choices : ['true', 'no-samples', 'false'], value : 'true',
