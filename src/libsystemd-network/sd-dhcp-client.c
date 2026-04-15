@@ -629,6 +629,9 @@ static void client_set_state(sd_dhcp_client *client, DHCPState state) {
                 ;
         }
 
+        /* FIXME:
+         * If the state callback changes the state, we may not safely free/stop the client, and the state
+         * machine diagram becomes needlessly complicated. Introduce a guard to avoid that. */
         if (client->state_callback)
                 client->state_callback(client, state, client->state_userdata);
 }
