@@ -555,8 +555,8 @@ echo "$result" | grep '"context"' >/dev/null
 defer_transient_cleanup varlink-transient-test3.service
 result=$(varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-test3.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}')
-echo "$result" | grep '"state"' >/dev/null
-echo "$result" | grep '"result"' >/dev/null
+echo "$result" | grep '"job"' | grep '"State"' >/dev/null
+echo "$result" | grep '"job"' | grep '"Result"' >/dev/null
 echo "$result" | grep '"done"' >/dev/null
 
 # Error: unit already exists - create a long-running service, then try to create it again while it's active
@@ -569,7 +569,7 @@ timeout 10 bash -c 'until systemctl is-active varlink-transient-exists.service; 
 defer_transient_cleanup varlink-transient-multi.service
 result=$(varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-multi.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"},{"path":"/bin/true"}]}}}')
-echo "$result" | grep '"result"' >/dev/null
+echo "$result" | grep '"job"' | grep '"Result"' >/dev/null
 echo "$result" | grep '"done"' >/dev/null
 
 # Transient service with Description and RemainAfterExit
