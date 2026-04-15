@@ -1537,6 +1537,17 @@ char* strrstr_internal(const char *haystack, const char *needle) {
         return NULL;
 }
 
+char* strrstr_no_case_internal(const char *haystack, const char *needle) {
+        if (!haystack || !needle)
+                return NULL;
+
+        for (const char *p = strchr(haystack, 0); p > haystack; p--)
+                if (startswith_no_case(p, needle))
+                        return (char*) p;
+
+        return (char*) startswith_no_case(haystack, needle);
+}
+
 size_t str_common_prefix(const char *a, const char *b) {
         assert(a);
         assert(b);
