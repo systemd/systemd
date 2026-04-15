@@ -1126,7 +1126,7 @@ static int boot_entries_find_unified_addons(
         assert(ret_addons);
         assert(config);
 
-        r = chase_and_opendirat(d_fd, addon_dir, CHASE_AT_RESOLVE_IN_ROOT, &full, &d);
+        r = chase_and_opendirat(d_fd, d_fd, addon_dir, /* chase_flags= */ 0, &full, &d);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)

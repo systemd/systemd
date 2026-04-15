@@ -337,7 +337,7 @@ static int verify_esp(
 
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -EBADF;
-        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &p, &fd);
+        r = chaseat(rfd, rfd, path, CHASE_TRIGGER_AUTOFS, &p, &fd);
         if (r < 0)
                 return log_full_errno((searching && r == -ENOENT) ||
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR,
@@ -441,7 +441,7 @@ int find_esp_and_warn_at_full(
                                                "$SYSTEMD_ESP_PATH does not refer to an absolute path, refusing to use it: \"%s\"",
                                                path);
 
-                r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &p, &fd);
+                r = chaseat(rfd, rfd, path, CHASE_TRIGGER_AUTOFS, &p, &fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve path \"%s\": %m", path);
 
@@ -735,7 +735,7 @@ static int verify_xbootldr(
 
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -EBADF;
-        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &p, &fd);
+        r = chaseat(rfd, rfd, path, CHASE_TRIGGER_AUTOFS, &p, &fd);
         if (r < 0)
                 return log_full_errno((searching && r == -ENOENT) ||
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR,
@@ -809,7 +809,7 @@ int find_xbootldr_and_warn_at_full(
                                                "$SYSTEMD_XBOOTLDR_PATH does not refer to an absolute path, refusing to use it: \"%s\"",
                                                path);
 
-                r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &p, &fd);
+                r = chaseat(rfd, rfd, path, CHASE_TRIGGER_AUTOFS, &p, &fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve path \"%s\": %m", p);
 
