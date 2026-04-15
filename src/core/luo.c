@@ -232,6 +232,22 @@ int manager_luo_restore_fd_stores(Manager *m) {
                                                           cgroup_path, fdname, idx);
                                         continue;
                                 }
+                        } else if (streq(type, "luo_session")) {
+                                sd_json_variant *sname_json = sd_json_variant_by_key(entry, "session_name");
+                                if (!sname_json || !sd_json_variant_is_string(sname_json)) {
+                                        log_warning("LUO mapping for cgroup '%s' fd '%s': missing or invalid session_name.", cgroup_path, fdname);
+                                        continue;
+                                }
+
+                                const char *sname = sd_json_variant_string(sname_json);
+                                fd = luo_retrieve_session(device_fd, sname);
+                                if (fd < 0) {
+                                        log_warning_errno(fd, "Failed to retrieve LUO session '%s' for cgroup '%s' name '%s': %m",
+                                                          sname, cgroup_path, fdname);
+                                        continue;
+                                }
+
+                                log_debug("Retrieved LUO session '%s' for unit fd store '%s'.", sname, fdname);
                         } else {
                                 log_warning("LUO mapping for cgroup '%s' fd '%s': unknown type '%s', skipping.",
                                             cgroup_path, fdname, type);
@@ -447,7 +463,8 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
         if (!fds)
                 return log_oom();
 
-        /* Build a JSON object: { "cgroup_path": [ { "type": "fd", "name": "...", "fd_index": N }, ... ], ... }
+        /* Build a JSON object: { "cgroup_path": [ { "type": "fd", "name": "...", "fd_index": N },
+         *                                         { "type": "luo_session", "name": "...", "session_name": "..." } ], ... }
          * This is passed to systemd-shutdown which will create a LUO session and preserve the fds. */
         HASHMAP_FOREACH(u, m->units) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *entries = NULL;
@@ -472,7 +489,23 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
                 }
 
                 LIST_FOREACH(fd_store, fs, s->fd_store) {
+                        _cleanup_free_ char *session_name = NULL;
                         int copy;
+
+                        /* Check if this fd is itself a LUO session, as those cannot be nested and need
+                         * special handling */
+                        r = fd_get_luo_session_name(fs->fd, &session_name);
+                        if (r < 0 && r != -EMEDIUMTYPE)
+                                return log_error_errno(r, "Failed to check if fd '%s' of unit '%s' is a LUO session: %m",
+                                                       fs->fdname, u->id);
+
+                        /* Ensure nobody tries to hijack our session, as we will create this later before
+                         * kexec */
+                        if (streq_ptr(session_name, LUO_SESSION_NAME)) {
+                                log_warning("Skipping fd '%s' of unit '%s' for LUO serialization, as the session name '%s' infringes systemd's namespace.",
+                                            fs->fdname, u->id, session_name);
+                                continue;
+                        }
 
                         copy = fdset_put_dup(fds, fs->fd);
                         if (copy < 0)
@@ -480,9 +513,10 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
 
                         r = sd_json_variant_append_arraybo(
                                         &entries,
-                                        SD_JSON_BUILD_PAIR_STRING("type", "fd"),
+                                        SD_JSON_BUILD_PAIR_STRING("type", session_name ? "luo_session" : "fd"),
                                         SD_JSON_BUILD_PAIR_STRING("name", fs->fdname),
-                                        SD_JSON_BUILD_PAIR_INTEGER("fd_index", copy));
+                                        SD_JSON_BUILD_PAIR_INTEGER("fd_index", copy),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("session_name", session_name));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON for LUO serialization: %m");
 

@@ -203,6 +203,13 @@ mapping of fds back to their original service units, so that when those
 services are re-activated the fds are passed to them using the normal fdstore
 protocol.
 
+Services that need to preserve additional kernel state may also create their
+own LUO sessions by opening `/dev/liveupdate` directly (see the kernel
+documentation linked above) and push the obtained session fd into their
+fdstore. PID 1 detects such fds and arranges for them to survive the kexec as
+well, so that the session, and any supported file descriptors preserved inside
+it, is handed back to the service on the other side of the reboot.
+
 ## Initrd Transitions
 
 The fdstore may also be used to pass file descriptors for resources from the
