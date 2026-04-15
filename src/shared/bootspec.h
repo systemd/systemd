@@ -34,11 +34,11 @@ typedef struct BootEntry {
         BootEntryType type;
         BootEntrySource source;
         bool reported_by_loader;
-        char *id;       /* This is the file basename (including extension!) */
-        char *id_old;   /* Old-style ID, for deduplication purposes. */
-        char *id_without_profile; /* id without profile suffixed */
-        char *path;     /* This is the full path to the drop-in file */
-        char *root;     /* The root path in which the drop-in was found, i.e. to which 'kernel', 'efi' and 'initrd' are relative */
+        char *id;                 /* This is the file basename (including extension, but with tries counters stripped) */
+        char *id_old;             /* Old-style ID, for deduplication purposes (for type1: same as the regular id, but with extension stripped too). */
+        char *id_without_profile; /* ID without profile suffixed */
+        char *path;               /* This is the full path to the drop-in file (i.e. prefixed with 'root' field below) */
+        char *root;               /* The root path in which the drop-in was found, i.e. to which 'kernel', 'efi' and 'initrd' are relative */
         char *title;
         char *show_title;
         char *sort_key;
