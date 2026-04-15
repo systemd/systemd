@@ -1614,7 +1614,7 @@ static int run_install(InstallContext *c) {
                 }
 
                 r = install_binaries(c, arch);
-                if (r < 0)
+                if (r < 0 && !IN_SET(r, -ESTALE, -ESRCH))
                         return r;
 
                 if (c->operation == INSTALL_NEW) {
