@@ -9,41 +9,20 @@
 #include "dhcp-client-internal.h"
 #include "dhcp-lease-internal.h"
 #include "dhcp-message.h"
-#include "dhcp-network.h"
+#include "fd-util.h"
 #include "fuzz.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "tests.h"
 
-int dhcp_network_bind_raw_socket(
-                int ifindex,
-                union sockaddr_union *link,
-                uint32_t id,
-                const struct hw_addr_data *hw_addr,
-                const struct hw_addr_data *bcast_addr,
-                uint16_t arp_type,
-                uint16_t port,
-                bool so_priority_set,
-                int so_priority) {
-
-        return ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
-}
-
-int dhcp_network_send_raw_socket(int fd, const union sockaddr_union *link, const struct iovec_wrapper *iovw) {
-        return 0;
-}
-
-int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int ip_service_type) {
-        return ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
-}
-
-int dhcp_network_send_udp_socket(int fd, be32_t address, uint16_t port, const struct iovec_wrapper *iovw) {
-        return 0;
-}
-
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        static const uint8_t mac_addr[] = {'A', 'B', 'C', '1', '2', '3'};
-        static const uint8_t bcast_addr[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+        static const struct hw_addr_data hw_addr = {
+                .length = ETH_ALEN,
+                .ether = {{ 'A', 'B', 'C', '1', '2', '3' }},
+        }, bcast_addr = {
+                .length = ETH_ALEN,
+                .ether = {{ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }},
+        };
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_NETWORK_TEST_MODE", "1", /* overwrite= */ true));
 
@@ -57,10 +36,25 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         ASSERT_OK(sd_dhcp_client_new(&client));
         ASSERT_NOT_NULL(client);
 
+        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
+        client->socket_fd = TAKE_FD(socket_fd[0]);
+
+        /* Set a fake socket address, as the client will never call dhcp_network_bind_raw_socket() when
+         * socket_fd is set. */
+        client->link.ll = (struct sockaddr_ll) {
+                .sll_family = AF_PACKET,
+                .sll_protocol = htobe16(ETH_P_IP),
+                .sll_ifindex = 42,
+                .sll_hatype = ARPHRD_ETHER,
+                .sll_halen = bcast_addr.length,
+        };
+        memcpy(client->link.ll.sll_addr, bcast_addr.bytes, bcast_addr.length);
+
         ASSERT_OK(sd_dhcp_client_attach_event(client, e, /* priority= */ 0));
 
         ASSERT_OK(sd_dhcp_client_set_ifindex(client, 42));
-        ASSERT_OK(sd_dhcp_client_set_mac(client, mac_addr, bcast_addr, ETH_ALEN, ARPHRD_ETHER));
+        ASSERT_OK(sd_dhcp_client_set_mac(client, hw_addr.bytes, bcast_addr.bytes, hw_addr.length, ARPHRD_ETHER));
 
         ASSERT_OK(sd_dhcp_client_start(client));
         client->xid = 2;
