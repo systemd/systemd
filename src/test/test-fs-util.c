@@ -16,6 +16,7 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -738,6 +739,65 @@ TEST(xopenat_regular) {
         assert_se(xopenat_full(AT_FDCWD, "/tmp/xopenat-regular-test", O_RDWR|O_CLOEXEC|O_CREAT|O_EXCL, XO_REGULAR, 0600) == -EEXIST);
 
         assert_se(unlink("/tmp/xopenat-regular-test") >= 0);
+}
+
+TEST(xopenat_socket) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+
+        /* Create a Unix domain socket via bind(). */
+        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        ASSERT_OK(fd);
+
+        const char *sockpath = strjoina(t, "/test.sock");
+        union sockaddr_union sa = { .un.sun_family = AF_UNIX };
+        strncpy(sa.un.sun_path, sockpath, sizeof(sa.un.sun_path) - 1);
+        ASSERT_OK_ERRNO(bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sockpath) + 1));
+        fd = safe_close(fd);
+
+        /* XO_SOCKET requires O_PATH. */
+        fd = xopenat_full(tfd, "test.sock", O_PATH|O_CLOEXEC, XO_SOCKET, 0);
+        ASSERT_OK(fd);
+        fd = safe_close(fd);
+
+        /* Reopen via empty path should also work. */
+        fd = ASSERT_OK(xopenat_full(tfd, "test.sock", O_PATH|O_CLOEXEC, 0, 0));
+        _cleanup_close_ int fd2 = xopenat_full(fd, NULL, O_PATH|O_CLOEXEC, XO_SOCKET, 0);
+        ASSERT_OK(fd2);
+        fd = safe_close(fd);
+
+        /* Non-socket inodes must be rejected. */
+        ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0755));
+        ASSERT_ERROR(xopenat_full(tfd, "dir", O_PATH|O_CLOEXEC, XO_SOCKET, 0), EISDIR);
+
+        fd = ASSERT_OK_ERRNO(openat(tfd, "reg", O_CREAT|O_CLOEXEC, 0600));
+        fd = safe_close(fd);
+        ASSERT_ERROR(xopenat_full(tfd, "reg", O_PATH|O_CLOEXEC, XO_SOCKET, 0), ENOTSOCK);
+
+        /* Reopen via empty path of a non-socket fd must also be rejected. */
+        fd = ASSERT_OK(xopenat_full(tfd, "reg", O_PATH|O_CLOEXEC, 0, 0));
+        ASSERT_ERROR(xopenat_full(fd, NULL, O_PATH|O_CLOEXEC, XO_SOCKET, 0), ENOTSOCK);
+        fd = safe_close(fd);
+
+        fd = ASSERT_OK(xopenat_full(tfd, "dir", O_PATH|O_CLOEXEC, 0, 0));
+        ASSERT_ERROR(xopenat_full(fd, NULL, O_PATH|O_CLOEXEC, XO_SOCKET, 0), EISDIR);
+        fd = safe_close(fd);
+}
+
+TEST(xopenat_trigger_automount) {
+        _cleanup_close_ int fd = -EBADF;
+
+        /* We can't easily set up an autofs mount in a test, but we can verify that
+         * XO_TRIGGER_AUTOMOUNT works on a regular path and produces the same inode as a
+         * plain O_PATH open. */
+        fd = xopenat_full(AT_FDCWD, "/usr", O_PATH|O_CLOEXEC|O_DIRECTORY, XO_TRIGGER_AUTOMOUNT, 0);
+        ASSERT_OK(fd);
+
+        _cleanup_close_ int fd2 = xopenat_full(AT_FDCWD, "/usr", O_PATH|O_CLOEXEC|O_DIRECTORY, 0, 0);
+        ASSERT_OK(fd2);
+        ASSERT_OK_POSITIVE(fd_inode_same(fd, fd2));
 }
 
 TEST(xopenat_lock_full) {
