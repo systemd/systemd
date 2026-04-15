@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Helper for TEST-91-LIVEUPDATE: creates memfds and stores them in the fd store,
- * or verifies that inherited fd store entries contain the expected content.
+ * creates a LUO session directly via /dev/liveupdate and stores a memfd in it,
+ * or verifies everything after kexec.
  *
  * Usage:
- *   test-luo store - create memfds with test data and push them to the fd store
- *   test-luo check - verify fd store content matches expectations
+ *   test-luo store - create memfds and a LUO session, push all to the fd store
+ *   test-luo check - verify fd store content and LUO session memfd after kexec
  */
 
 #include <stdlib.h>
@@ -16,6 +17,7 @@
 
 #include "fd-util.h"
 #include "log.h"
+#include "luo-util.h"
 #include "main-func.h"
 #include "memfd-util.h"
 #include "parse-util.h"
@@ -25,8 +27,10 @@
 
 #define TEST_DATA_1 "liveupdate-test-data-1"
 #define TEST_DATA_2 "liveupdate-test-data-2"
+#define SESSION_MEMFD_DATA "luo-session-memfd-test-data"
+#define SESSION_MEMFD_TOKEN UINT64_C(42)
 
-static int do_store(void) {
+static int do_store(const char *prefix) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
         int r;
 
@@ -48,6 +52,33 @@ static int do_store(void) {
 
         log_info("Stored 2 memfds in fd store.");
 
+        /* Create a LUO session directly via /dev/liveupdate, put a memfd in it, and store the session fd */
+        _cleanup_close_ int device_fd = -EBADF, session_fd = -EBADF, session_memfd = -EBADF;
+        const char *session_name = strjoina(prefix, "-direct");
+
+        device_fd = luo_open_device();
+        if (device_fd < 0)
+                return log_error_errno(device_fd, "Failed to open /dev/liveupdate: %m");
+
+        session_fd = luo_create_session(device_fd, session_name);
+        if (session_fd < 0)
+                return log_error_errno(session_fd, "Failed to create LUO session '%s': %m", session_name);
+
+        session_memfd = memfd_new_and_seal("session-test", SESSION_MEMFD_DATA, strlen(SESSION_MEMFD_DATA));
+        if (session_memfd < 0)
+                return log_error_errno(session_memfd, "Failed to create session memfd: %m");
+
+        r = luo_session_preserve_fd(session_fd, session_memfd, SESSION_MEMFD_TOKEN);
+        if (r < 0)
+                return log_error_errno(r, "Failed to preserve memfd in session: %m");
+
+        r = sd_pid_notifyf_with_fds(0, false, &session_fd, 1, "FDSTORE=1\nFDNAME=%s-direct", prefix);
+        if (r < 0)
+                return log_error_errno(r, "Failed to store session fd in fd store: %m");
+        TAKE_FD(session_fd);
+
+        log_info("Stored LUO session '%s' with memfd in fd store.", session_name);
+
         /* Wait for PID 1 to actually process all our FDSTORE notifications before we exit, otherwise
          * the cgroup-based pidref to unit lookup may fail once we're gone, and the fds end up closed. */
         r = sd_notify_barrier(0, 5 * USEC_PER_SEC);
@@ -57,9 +88,10 @@ static int do_store(void) {
         return 0;
 }
 
-static int do_check(void) {
+static int do_check(const char *prefix) {
         const char *e;
         _cleanup_strv_free_ char **names = NULL;
+        const char *session_fdname = strjoina(prefix, "-direct");
         size_t n_fds;
         int r;
 
@@ -146,6 +178,53 @@ static int do_check(void) {
 
         log_info("All fd store checks passed.");
 
+        /* Verify the LUO session fd survived and its memfd content is intact */
+        int session_fd = -EBADF;
+        size_t idx = 0;
+        STRV_FOREACH(name, names) {
+                if (idx >= n_fds)
+                        break;
+                if (streq(*name, session_fdname)) {
+                        session_fd = SD_LISTEN_FDS_START + idx;
+                        break;
+                }
+                idx++;
+        }
+
+        if (session_fd < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "LUO session fd '%s' not found in fd store", session_fdname);
+
+        r = fd_is_luo_session(session_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if fd is LUO session: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "fd '%s' is not a LUO session!", session_fdname);
+
+        _cleanup_close_ int session_memfd = luo_session_retrieve_fd(session_fd, SESSION_MEMFD_TOKEN);
+        if (session_memfd < 0)
+                return log_error_errno(session_memfd, "Failed to retrieve memfd from session: %m");
+
+        char sbuf[256];
+        ssize_t sn = pread(session_memfd, sbuf, sizeof(sbuf) - 1, 0);
+        if (sn < 0)
+                return log_error_errno(errno, "Failed to read session memfd: %m");
+        sbuf[sn] = '\0';
+
+        if (!streq(sbuf, SESSION_MEMFD_DATA))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Session memfd content mismatch: expected '%s', got '%s'",
+                                       SESSION_MEMFD_DATA, sbuf);
+
+        /* Remove the LUO session fd from the fd store as well. */
+        r = sd_pid_notifyf(0, /* unset_environment= */ false,
+                           "FDSTOREREMOVE=1\nFDNAME=%s", session_fdname);
+        if (r < 0)
+                return log_error_errno(r, "Failed to remove fd '%s' from fd store: %m", session_fdname);
+
+        log_info("Verified LUO session memfd content matches.");
+
         /* Wait for PID 1 to actually process all our FDSTORE notifications before we exit, otherwise
          * the cgroup-based pidref to unit lookup may fail once we're gone, and the fds end up closed. */
         r = sd_notify_barrier(0, 5 * USEC_PER_SEC);
@@ -156,13 +235,15 @@ static int do_check(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        if (argc != 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Usage: %s store|check", argv[0]);
+        if (argc < 2 || argc > 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Usage: %s store|check [PREFIX]", argv[0]);
+
+        const char *prefix = argc > 2 ? argv[2] : "luosession";
 
         if (streq(argv[1], "store"))
-                return do_store();
+                return do_store(prefix);
         if (streq(argv[1], "check"))
-                return do_check();
+                return do_check(prefix);
 
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command: %s", argv[1]);
 }
