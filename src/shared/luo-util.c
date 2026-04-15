@@ -2,7 +2,9 @@
 
 #include <fcntl.h>
 #include <linux/liveupdate.h>
+#include <linux/magic.h>
 #include <sys/ioctl.h>
+#include <sys/vfs.h>
 
 #include "sd-json.h"
 
@@ -15,6 +17,7 @@
 #include "luo-util.h"
 #include "memfd-util.h"
 #include "parse-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 
 /* Kernel API defined at https://docs.kernel.org/userspace-api/liveupdate.html The /dev/liveupdate is a
@@ -209,9 +212,12 @@ int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd) 
                 return log_error_errno(session_fd, "Failed to create LUO session '%s': %m", LUO_SESSION_NAME);
 
         /* Build the mapping JSON for the new kernel's PID 1 and preserve each fd.
-         * JSON format:   { "unit_id": [ {"type": "fd", "name": "...", "token": N}, ... ], ... }
+         * JSON format:   { "unit_id": [ {"type": "fd", "name": "...", "token": N},
+         *                               {"type": "luo_session", "name": "...", "sessionName": "..."} ], ... }
          *
-         * For regular fds: type=fd, preserved in the systemd session with the given LUO token. */
+         * For regular fds: type=fd, preserved in the systemd session with the given LUO token.
+         * For LUO session fds: type=luo_session, the session survives kexec independently, as it cannot be
+         * nested. */
         JSON_VARIANT_OBJECT_FOREACH(unit_id, entries, serialization) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *fd_list = NULL;
                 sd_json_variant *entry;
@@ -260,6 +266,24 @@ int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd) 
                                         return log_error_errno(r, "Failed to build LUO mapping: %m");
 
                                 ++token;
+                        } else if (streq(type, "luo_session")) {
+                                sd_json_variant *sname_json = sd_json_variant_by_key(entry, "sessionName");
+                                if (!sname_json || !sd_json_variant_is_string(sname_json)) {
+                                        log_warning("LUO mapping for unit '%s' fd '%s': missing or invalid sessionName, skipping.", unit_id, name);
+                                        continue;
+                                }
+
+                                /* Remember the FDStore name to session name mapping */
+                                r = sd_json_variant_append_arraybo(
+                                                &fd_list,
+                                                SD_JSON_BUILD_PAIR_STRING("type", "luo_session"),
+                                                SD_JSON_BUILD_PAIR_STRING("name", name),
+                                                SD_JSON_BUILD_PAIR_STRING("sessionName", sd_json_variant_string(sname_json)));
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to build LUO mapping for session fd: %m");
+
+                                log_debug("LUO session fd '%s' (session '%s') recorded in mapping.",
+                                          name, sd_json_variant_string(sname_json));
                         } else
                                 log_warning("Unknown fd type '%s' for unit '%s' fd '%s', skipping.", type, unit_id, name);
                 }
@@ -300,4 +324,62 @@ int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd) 
          * otherwise the kernel discards the session. */
         *ret_session_fd = TAKE_FD(session_fd);
         return 1;
+}
+
+static int fd_get_luo_session_path(int fd, char **ret) {
+        _cleanup_free_ char *path = NULL;
+        struct statfs sfs;
+        int r;
+
+        assert(fd >= 0);
+
+        if (fstatfs(fd, &sfs) < 0)
+                return -errno;
+
+        // TODO: switch to LUO specific inode magic once available
+        if (!F_TYPE_EQUAL(sfs.f_type, ANON_INODE_FS_MAGIC))
+                return -EMEDIUMTYPE;
+
+        r = fd_get_path(fd, &path);
+        if (r < 0)
+                return r;
+
+        if (!startswith(path, "anon_inode:[luo_session]"))
+                return -EMEDIUMTYPE;
+
+        if (ret)
+                *ret = TAKE_PTR(path);
+
+        return 0;
+}
+
+int fd_is_luo_session(int fd) {
+        int r;
+
+        r = fd_get_luo_session_path(fd, /* ret= */ NULL);
+        if (r == -EMEDIUMTYPE)
+                return false;
+        if (r < 0)
+                return r;
+
+        return true;
+}
+
+int fd_get_luo_session_name(int fd, char **ret) {
+        _cleanup_free_ char *path = NULL;
+        const char *name;
+        int r;
+
+        assert(ret);
+
+        r = fd_get_luo_session_path(fd, &path);
+        if (r < 0)
+                return r;
+
+        /* Path is "anon_inode:[luo_session] <session_name>" */
+        name = startswith(path, "anon_inode:[luo_session] ");
+        if (isempty(name))
+                return -EMEDIUMTYPE; /* Has no session name suffix */
+
+        return strdup_to(ret, name);
 }
