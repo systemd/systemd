@@ -730,30 +730,30 @@ static int qmp_client_stage_fds(QmpClient *c, QmpClientArgs *args) {
         return 0;
 }
 
-int qmp_client_invoke(
+uint64_t qmp_client_reserve_id(QmpClient *c) {
+        assert(c);
+        return c->next_id++;
+}
+
+int qmp_client_invoke_raw(
                 QmpClient *c,
-                const char *command,
+                sd_json_variant *cmd,
+                uint64_t id,
                 QmpClientArgs *args,
                 qmp_command_callback_t callback,
                 void *userdata) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL;
         _cleanup_free_ QmpSlot *pending = NULL;
         /* Closes any fds in args not yet handed to the stream on every early-return path;
          * TAKE_PTR()'d on the success path below once stage_fds has consumed them. */
         _cleanup_(qmp_client_args_close_fdsp) QmpClientArgs *fds_owner = args;
-        uint64_t id;
         int r;
 
         assert(c);
-        assert(command);
+        assert(cmd);
         assert(callback);
 
         r = qmp_client_ensure_running(c);
-        if (r < 0)
-                return r;
-
-        r = qmp_client_build_command(c, command, args ? args->arguments : NULL, &cmd, &id);
         if (r < 0)
                 return r;
 
@@ -793,6 +793,39 @@ int qmp_client_invoke(
         TAKE_PTR(pending);
         TAKE_PTR(fds_owner);
         return 0;
+}
+
+int qmp_client_invoke(
+                QmpClient *c,
+                const char *command,
+                QmpClientArgs *args,
+                qmp_command_callback_t callback,
+                void *userdata) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL;
+        /* Close any fds in args on every early-return path below (ensure_running,
+         * build_command); on the success path TAKE_PTR hands ownership to
+         * qmp_client_invoke_raw's own cleanup hook. */
+        _cleanup_(qmp_client_args_close_fdsp) QmpClientArgs *fds_owner = args;
+        uint64_t id;
+        int r;
+
+        assert(c);
+        assert(command);
+        assert(callback);
+
+        /* Drain the handshake first so build_command's next_id sits after the ids the
+         * handshake itself consumed for qmp_capabilities. */
+        r = qmp_client_ensure_running(c);
+        if (r < 0)
+                return r;
+
+        r = qmp_client_build_command(c, command, args ? args->arguments : NULL, &cmd, &id);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(fds_owner);
+        return qmp_client_invoke_raw(c, cmd, id, args, callback, userdata);
 }
 
 void qmp_client_bind_event(QmpClient *c, qmp_event_callback_t callback, void *userdata) {

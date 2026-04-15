@@ -65,6 +65,22 @@ int qmp_client_invoke(
                 qmp_command_callback_t callback,
                 void *userdata);
 
+/* Allocate and reserve an internal id for a command that the caller will build themselves.
+ * Used by consumers that need to construct the full command variant outside the client and
+ * have the response correlate back through qmp_client_invoke_raw(). */
+uint64_t qmp_client_reserve_id(QmpClient *client);
+
+/* Async send of a pre-built command. The cmd variant must already contain "execute" (or
+ * "exec-oob") and "id": <id> fields — the id is the value previously obtained from
+ * qmp_client_reserve_id(). Same return contract as qmp_client_invoke(). */
+int qmp_client_invoke_raw(
+                QmpClient *client,
+                sd_json_variant *cmd,
+                uint64_t id,
+                QmpClientArgs *args,
+                qmp_command_callback_t callback,
+                void *userdata);
+
 void qmp_client_bind_event(QmpClient *c, qmp_event_callback_t callback, void *userdata);
 void qmp_client_bind_disconnect(QmpClient *c, qmp_disconnect_callback_t callback, void *userdata);
 int qmp_client_set_description(QmpClient *c, const char *description);
