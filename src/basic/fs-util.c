@@ -3,6 +3,7 @@
 #include <linux/falloc.h>
 #include <stdlib.h>
 #include <sys/file.h>
+#include <sys/mount.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -1130,6 +1131,45 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
         }
 }
 
+static int openat_with_automount(int dir_fd, const char *path, int open_flags, mode_t mode) {
+        /* When XO_TRIGGER_AUTOMOUNT is set we want to trigger automounts on the path. open() with O_PATH
+         * does not do that, so we use open_tree() without OPEN_TREE_CLONE which is equivalent to open() with
+         * O_PATH except that it does trigger automounts. Some sandboxes reject open_tree() with EPERM or
+         * ENOSYS, in which case we fall back to plain openat(): autofs wouldn't work inside a restricted
+         * mount namespace anyway. */
+
+        static bool can_open_tree = true;
+        int r;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+
+        if (can_open_tree) {
+                r = RET_NERRNO(open_tree(dir_fd, path,
+                                         OPEN_TREE_CLOEXEC |
+                                         (FLAGS_SET(open_flags, O_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0)));
+                if (r >= 0) {
+                        /* open_tree() doesn't honor O_DIRECTORY, so enforce it ourselves to match
+                         * the openat() fallback's behavior. */
+                        if (FLAGS_SET(open_flags, O_DIRECTORY)) {
+                                int q = fd_verify_directory(r);
+                                if (q < 0) {
+                                        safe_close(r);
+                                        return q;
+                                }
+                        }
+
+                        return r;
+                }
+                if (r != -EPERM && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        return r;
+
+                can_open_tree = false;
+        }
+
+        return RET_NERRNO(openat(dir_fd, path, open_flags, mode));
+}
+
 int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode) {
         _cleanup_close_ int fd = -EBADF;
         bool made_dir = false, made_file = false;
@@ -1137,8 +1177,19 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
 
         assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
 
-        /* An inode cannot be both a directory and a regular file at the same time. */
+        /* An inode can only be one of a directory, a regular file or a socket at the same time. */
         assert(!(FLAGS_SET(open_flags, O_DIRECTORY) && FLAGS_SET(xopen_flags, XO_REGULAR)));
+        assert(!(FLAGS_SET(xopen_flags, XO_REGULAR) && FLAGS_SET(xopen_flags, XO_SOCKET)));
+        assert(!(FLAGS_SET(open_flags, O_DIRECTORY) && FLAGS_SET(xopen_flags, XO_SOCKET)));
+        /* Sockets cannot be open()ed, only pinned via O_PATH. */
+        assert(!FLAGS_SET(xopen_flags, XO_SOCKET) || FLAGS_SET(open_flags, O_PATH));
+        /* XO_TRIGGER_AUTOMOUNT requires O_PATH and does not support creating inodes. XO_SUBVOLUME
+         * requires O_CREAT, and XO_NOCOW needs a writable fd for its chattr ioctl, so neither is
+         * compatible with XO_TRIGGER_AUTOMOUNT. */
+        assert(!FLAGS_SET(xopen_flags, XO_TRIGGER_AUTOMOUNT) ||
+               (FLAGS_SET(open_flags, O_PATH) && !FLAGS_SET(open_flags, O_CREAT)));
+        assert(!(FLAGS_SET(xopen_flags, XO_TRIGGER_AUTOMOUNT) && FLAGS_SET(xopen_flags, XO_SUBVOLUME)));
+        assert(!(FLAGS_SET(xopen_flags, XO_TRIGGER_AUTOMOUNT) && FLAGS_SET(xopen_flags, XO_NOCOW)));
 
         /* This is like openat(), but has a few tricks up its sleeves, extending behaviour:
          *
@@ -1153,6 +1204,10 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
          *
          *   • if XO_REGULAR is specified will return an error if inode is not a regular file.
          *
+         *   • if XO_SOCKET is specified will return an error if inode is not a socket.
+         *
+         *   • if XO_TRIGGER_AUTOMOUNT is specified O_PATH fds will trigger automounts.
+         *
          *   • If mode is specified as MODE_INVALID, we'll use 0755 for dirs, and 0644 for regular files.
          *
          *   • The dir fd can be passed as XAT_FDROOT, in which case any relative paths will be taken relative to the root fs.
@@ -1166,6 +1221,12 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
 
                 if (FLAGS_SET(xopen_flags, XO_REGULAR)) {
                         r = fd_verify_regular(dir_fd);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (FLAGS_SET(xopen_flags, XO_SOCKET)) {
+                        r = fd_verify_socket(dir_fd);
                         if (r < 0)
                                 return r;
                 }
@@ -1217,9 +1278,11 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                  * first */
 
                 if (FLAGS_SET(open_flags, O_PATH)) {
-                        fd = openat(dir_fd, path, open_flags, mode);
+                        fd = FLAGS_SET(xopen_flags, XO_TRIGGER_AUTOMOUNT) ?
+                                openat_with_automount(dir_fd, path, open_flags, mode) :
+                                RET_NERRNO(openat(dir_fd, path, open_flags, mode));
                         if (fd < 0) {
-                                r = -errno;
+                                r = fd;
                                 goto error;
                         }
 
@@ -1266,12 +1329,26 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                                 }
                         }
                 }
+        } else if (FLAGS_SET(xopen_flags, XO_TRIGGER_AUTOMOUNT)) {
+                fd = openat_with_automount(dir_fd, path, open_flags, mode);
+                if (fd < 0) {
+                        r = fd;
+                        goto error;
+                }
         } else {
+                /* XO_SOCKET also lands here: it requires O_PATH (see asserts above) so openat() pins
+                 * the inode without connecting, and fd_verify_socket() below enforces the type. */
                 fd = openat_report_new(dir_fd, path, open_flags, mode, &made_file);
                 if (fd < 0) {
                         r = fd;
                         goto error;
                 }
+        }
+
+        if (FLAGS_SET(xopen_flags, XO_SOCKET)) {
+                r = fd_verify_socket(fd);
+                if (r < 0)
+                        goto error;
         }
 
         if (call_label_ops_post) {
