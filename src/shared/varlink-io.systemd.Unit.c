@@ -1411,6 +1411,18 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(frozen),
                 SD_VARLINK_DEFINE_ENUM_VALUE(concurrency));
 
+/* Field names match the D-Bus Job properties (Id, JobType, State) */
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                Job,
+                SD_VARLINK_FIELD_COMMENT("The numeric job ID"),
+                SD_VARLINK_DEFINE_FIELD(Id, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The job type"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(JobType, JobType, 0),
+                SD_VARLINK_FIELD_COMMENT("Current job state, set in intermediate streaming notifications"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(State, JobState, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Final job result, set in the final streaming reply"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Result, JobResult, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_ERROR(UnitExists);
 static SD_VARLINK_DEFINE_ERROR(UnitTypeNotSupported);
 static SD_VARLINK_DEFINE_ERROR(BadUnitSetting);
@@ -1426,14 +1438,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Unit runtime state."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("ID of the enqueued start job. Set in streaming notifications."),
-                SD_VARLINK_DEFINE_OUTPUT(jobId, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Job type. Set in streaming notifications."),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(jobType, JobType, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Current job state. Set in streaming intermediate notifications."),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(state, JobState, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Final job result. Set in streaming final reply."),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(result, JobResult, SD_VARLINK_NULLABLE));
+                SD_VARLINK_FIELD_COMMENT("The job that was enqueued. Set in streaming notifications."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(job, Job, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 SetProperties,
@@ -1563,6 +1569,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_JobState,
                 SD_VARLINK_SYMBOL_COMMENT("Job result"),
                 &vl_type_JobResult,
+                SD_VARLINK_SYMBOL_COMMENT("A job object"),
+                &vl_type_Job,
                 SD_VARLINK_SYMBOL_COMMENT("Service-specific context"),
                 &vl_type_ServiceContext,
 
