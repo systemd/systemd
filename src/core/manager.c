@@ -2637,6 +2637,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                 assert(u->in_dbus_queue);
 
                 bus_unit_send_change_signal(u);
+                varlink_unit_send_change_signal(u);
                 n++;
 
                 if (budget != UINT_MAX)
