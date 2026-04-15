@@ -639,9 +639,10 @@ void varlink_job_send_change_signal(Job *j) {
 
         (void) sd_varlink_notifybo(
                         j->varlink,
-                        SD_JSON_BUILD_PAIR_INTEGER("jobId", j->id),
-                        JSON_BUILD_PAIR_ENUM("jobType", job_type_to_string(j->type)),
-                        JSON_BUILD_PAIR_ENUM("state", job_state_to_string(j->state)));
+                        SD_JSON_BUILD_PAIR_OBJECT("job",
+                                SD_JSON_BUILD_PAIR_INTEGER("Id", j->id),
+                                JSON_BUILD_PAIR_ENUM("JobType", job_type_to_string(j->type)),
+                                JSON_BUILD_PAIR_ENUM("State", job_state_to_string(j->state))));
 }
 
 void varlink_job_send_removed_signal(Job *j) {
@@ -655,9 +656,10 @@ void varlink_job_send_removed_signal(Job *j) {
                         j->varlink,
                         SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, j->unit),
                         SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, j->unit),
-                        SD_JSON_BUILD_PAIR_INTEGER("jobId", j->id),
-                        JSON_BUILD_PAIR_ENUM("jobType", job_type_to_string(j->type)),
-                        JSON_BUILD_PAIR_ENUM("result", job_result_to_string(j->result)));
+                        SD_JSON_BUILD_PAIR_OBJECT("job",
+                                SD_JSON_BUILD_PAIR_INTEGER("Id", j->id),
+                                JSON_BUILD_PAIR_ENUM("JobType", job_type_to_string(j->type)),
+                                JSON_BUILD_PAIR_ENUM("Result", job_result_to_string(j->result))));
 
         j->varlink = sd_varlink_unref(j->varlink);
 }
@@ -953,11 +955,16 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         assert(!j->varlink);
         j->varlink = sd_varlink_ref(link);
 
-        return sd_varlink_notifybo(
-                        link,
-                        SD_JSON_BUILD_PAIR_INTEGER("jobId", job_id),
-                        JSON_BUILD_PAIR_ENUM("jobType", job_type_to_string(JOB_START)),
-                        JSON_BUILD_PAIR_ENUM("state", job_state_to_string(j->state)));
+        /* Send initial job notification only if job changes were requested */
+        if (notify_job)
+                return sd_varlink_notifybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_OBJECT("job",
+                                        SD_JSON_BUILD_PAIR_INTEGER("Id", job_id),
+                                        JSON_BUILD_PAIR_ENUM("JobType", job_type_to_string(JOB_START)),
+                                        JSON_BUILD_PAIR_ENUM("State", job_state_to_string(j->state))));
+
+        return 0;
 }
 
 typedef struct UnitSetPropertiesParameters {
