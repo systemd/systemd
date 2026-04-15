@@ -922,8 +922,8 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                                                 "Invalid hardlink path name '%s' in entry, refusing.", target);
 
                                         _cleanup_close_ int target_fd = -EBADF;
-                                        r = chaseat(tree_fd, target,
-                                                    CHASE_PROHIBIT_SYMLINKS|CHASE_AT_RESOLVE_IN_ROOT|CHASE_NOFOLLOW,
+                                        r = chaseat(tree_fd, tree_fd, target,
+                                                    CHASE_PROHIBIT_SYMLINKS|CHASE_NOFOLLOW,
                                                     /* ret_path= */ NULL, &target_fd);
                                         if (r < 0)
                                                 return log_error_errno(
@@ -953,8 +953,8 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
 
                                                 _cleanup_close_ int target_parent_fd = -EBADF;
                                                 _cleanup_free_ char *target_filename = NULL;
-                                                r = chaseat(tree_fd, target,
-                                                            CHASE_PROHIBIT_SYMLINKS|CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_EXTRACT_FILENAME|CHASE_NOFOLLOW,
+                                                r = chaseat(tree_fd, tree_fd, target,
+                                                            CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_EXTRACT_FILENAME|CHASE_NOFOLLOW,
                                                             &target_filename, &target_parent_fd);
                                                 if (r < 0)
                                                         return log_error_errno(r, "Failed to find inode '%s' which shall be hardlinked as '%s': %m",
