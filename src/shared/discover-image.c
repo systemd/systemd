@@ -891,7 +891,7 @@ int image_find(RuntimeScope scope,
                 _cleanup_closedir_ DIR *d = NULL;
                 _cleanup_free_ char *search_path = NULL;
 
-                r = chase_and_opendirat(rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &search_path, &d);
+                r = chase_and_opendirat(rfd, rfd, *s, /* chase_flags= */ 0, &search_path, &d);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -907,7 +907,7 @@ int image_find(RuntimeScope scope,
                                 return -ENOMEM;
 
                         /* Follow symlinks only inside given root */
-                        r = chaseat(rfd, fname_path, CHASE_AT_RESOLVE_IN_ROOT, &chased_path, &fd);
+                        r = chaseat(rfd, rfd, fname_path, /* flags= */ 0, &chased_path, &fd);
                         if (r == -ENOENT)
                                 continue;
                         if (r < 0)
@@ -1097,7 +1097,7 @@ int image_discover(
                 _cleanup_closedir_ DIR *d = NULL;
                 _cleanup_free_ char *search_path = NULL;
 
-                r = chase_and_opendirat(rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &search_path, &d);
+                r = chase_and_opendirat(rfd, rfd, *s, /* chase_flags= */ 0, &search_path, &d);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -1121,7 +1121,7 @@ int image_discover(
                                 return -ENOMEM;
 
                         /* Follow symlinks only inside given root */
-                        r = chaseat(rfd, fname_path, CHASE_AT_RESOLVE_IN_ROOT, &chased_path, &fd);
+                        r = chaseat(rfd, rfd, fname_path, /* flags= */ 0, &chased_path, &fd);
                         if (r == -ENOENT)
                                 continue;
                         if (r < 0)

@@ -1032,7 +1032,7 @@ int mstack_bind_mounts(
 
         if (mstack->usr_mount_fd >= 0) {
                 _cleanup_close_ int subdir_fd = -EBADF;
-                r = chaseat(root_fd, "usr", CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
+                r = chaseat(root_fd, root_fd, "usr", CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to open mount point inode '%s': %m", where);
 
@@ -1051,7 +1051,7 @@ int mstack_bind_mounts(
                 assert(m->mount_fd >= 0);
 
                 _cleanup_close_ int subdir_fd = -EBADF;
-                r = chaseat(root_fd, m->where, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
+                r = chaseat(root_fd, root_fd, m->where, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to open mount point inode '%s': %m", m->where);
 
