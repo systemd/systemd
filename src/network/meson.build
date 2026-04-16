@@ -130,6 +130,7 @@ networkctl_sources = files(
         'networkctl-address-label.c',
         'networkctl-config-file.c',
         'networkctl-description.c',
+        'networkctl-dhcp-option.c',
         'networkctl-dump-util.c',
         'networkctl-journal.c',
         'networkctl-link-info.c',
