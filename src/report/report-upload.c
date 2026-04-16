@@ -14,6 +14,8 @@
 #include "curl-util.h"
 #include <curl/easy.h>   /* Sadly this fails if ordered first. */
 
+#define SERVER_ANSWER_MAX (1*1024*1024u)
+
 static size_t output_callback(char *buf,
                               size_t size,
                               size_t nmemb,
@@ -27,6 +29,13 @@ static size_t output_callback(char *buf,
         log_debug("Got an answer from the server (%zu bytes)", nmemb);
 
         if (nmemb != 0) {
+                size_t new_size = saturate_add(iovw_size(&context->upload_answer), nmemb);
+
+                if (new_size > SERVER_ANSWER_MAX) {
+                        log_warning("Server answer too long (%zu > %u), refusing.", new_size, SERVER_ANSWER_MAX);
+                        return 0;
+                }
+
                 if (memchr(buf, 0, nmemb)) {
                         log_warning("Server answer contains an embedded NUL, refusing.");
                         return 0;
