@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <locale.h>
 #include <unistd.h>
 
@@ -13,9 +12,11 @@
 #include "export-raw.h"
 #include "export-tar.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "import-common.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "runtime-scope.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -44,6 +45,8 @@ static void on_tar_finished(TarExport *export, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
+VERB(verb_export_tar, "tar", "NAME [FILE]", 2, 3, 0,
+     "Export a TAR image");
 static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(tar_export_unrefp) TarExport *export = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -125,6 +128,8 @@ static void on_raw_finished(RawExport *export, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
+VERB(verb_export_raw, "raw", "NAME [FILE]", 2, 3, 0,
+     "Export a RAW image");
 static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(raw_export_unrefp) RawExport *export = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -189,111 +194,90 @@ static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userda
 }
 
 static int help(void) {
-        printf("%1$s [OPTIONS...] {COMMAND} ...\n"
-               "\n%4$sExport disk images.%5$s\n"
-               "\n%2$sCommands:%3$s\n"
-               "  tar NAME [FILE]              Export a TAR image\n"
-               "  raw NAME [FILE]              Export a RAW image\n"
-               "\n%2$sOptions:%3$s\n"
-               "  -h --help                    Show this help\n"
-               "     --version                 Show package version\n"
-               "     --format=FORMAT           Select format\n"
-               "     --class=CLASS             Select image class (machine, sysext, confext,\n"
-               "                               portable)\n"
-               "     --system                  Operate in per-system mode\n"
-               "     --user                    Operate in per-user mode\n",
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
+        int r;
+
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, options);
+
+        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
+               "%sExport disk images.%s\n"
+               "\n%sCommands:%s\n",
                program_invocation_short_name,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
                ansi_normal());
+
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n",
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
 
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP_HIDDEN(help);
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_FORMAT,
-                ARG_CLASS,
-                ARG_SYSTEM,
-                ARG_USER,
-        };
-
-        static const struct option options[] = {
-                { "help",    no_argument,       NULL, 'h'         },
-                { "version", no_argument,       NULL, ARG_VERSION },
-                { "format",  required_argument, NULL, ARG_FORMAT  },
-                { "class",   required_argument, NULL, ARG_CLASS   },
-                { "system",  no_argument,       NULL, ARG_SYSTEM  },
-                { "user",    no_argument,       NULL, ARG_USER    },
-                {}
-        };
-
-        int c;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_FORMAT:
-                        arg_compress = compression_from_string_harder(optarg);
+                OPTION_LONG("format", "FORMAT", "Select format"):
+                        arg_compress = compression_from_string_harder(arg);
                         if (arg_compress < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown format: %s", optarg);
+                                                       "Unknown format: %s", arg);
                         break;
 
-                case ARG_CLASS:
-                        arg_class = image_class_from_string(optarg);
+                OPTION_LONG("class", "CLASS",
+                            "Select image class (machine, sysext, confext, portable)"):
+                        arg_class = image_class_from_string(arg);
                         if (arg_class < 0)
-                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", optarg);
-
+                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", arg);
                         break;
 
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, "Operate in per-system mode"):
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
-                case ARG_USER:
+                OPTION_LONG("user", NULL, "Operate in per-user mode"):
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (arg_runtime_scope == RUNTIME_SCOPE_USER)
                 arg_import_flags |= IMPORT_FOREIGN_UID;
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
-}
-
-static int export_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0, verb_help       },
-                { "tar",  2,        3,        0, verb_export_tar },
-                { "raw",  2,        3,        0, verb_export_raw },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 static int run(int argc, char *argv[]) {
@@ -302,13 +286,14 @@ static int run(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
         (void) ignore_signals(SIGPIPE);
 
-        return export_main(argc, argv);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);
