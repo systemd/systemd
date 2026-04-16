@@ -1155,7 +1155,7 @@ static int manager_create_session_by_bus(
         if (isempty(desktop))
                 desktop = NULL;
         else {
-                if (!string_is_safe(desktop))
+                if (!string_is_safe(desktop, STRING_ALLOW_GLOBS))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Invalid desktop string %s", desktop);
         }
