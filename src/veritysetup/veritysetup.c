@@ -221,7 +221,7 @@ static int parse_options(const char *options) {
                         arg_hash_offset = off;
                 } else if ((val = startswith(word, "salt="))) {
 
-                        if (!string_is_safe(val))
+                        if (!string_is_safe(val, STRING_NO_BACKSLASHES|STRING_NO_QUOTES))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "salt= is not valid.");
 
                         if (isempty(val)) {

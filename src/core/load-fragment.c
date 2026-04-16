@@ -990,7 +990,7 @@ int config_parse_exec(
                                            ignore ? ", ignoring" : "", rvalue);
                                 return ignore ? 0 : -ENOEXEC;
                         }
-                        if (!string_is_safe(path)) {
+                        if (!string_is_safe(path, STRING_NO_BACKSLASHES|STRING_NO_QUOTES)) {
                                 log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
                                            "Executable path contains special characters%s: %s",
                                            ignore ? ", ignoring" : "", path);
