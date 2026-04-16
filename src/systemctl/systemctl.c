@@ -27,6 +27,7 @@
 #include "systemctl-compat-shutdown.h"
 #include "systemctl-logind.h"
 #include "time-util.h"
+#include "utf8.h"
 
 char **arg_types = NULL;
 char **arg_states = NULL;
@@ -68,6 +69,7 @@ char *arg_image = NULL;
 usec_t arg_when = 0;
 bool arg_stdin = false;
 const char *arg_reboot_argument = NULL;
+char *arg_kernel_cmdline = NULL;
 enum action arg_action = ACTION_SYSTEMCTL;
 BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 const char *arg_host = NULL;
@@ -98,6 +100,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_kill_whom, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_reboot_argument, unsetp);
+STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_host, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_boot_loader_entry, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_clean_what, strv_freep);
@@ -305,6 +308,9 @@ static int systemctl_help(void) {
                "                         Boot into a specific boot loader entry on next boot\n"
                "     --reboot-argument=ARG\n"
                "                         Specify argument string to pass to reboot()\n"
+               "     --kernel-cmdline=CMDLINE\n"
+               "                         Append to the kernel command line when loading the\n"
+               "                         kernel from the booted boot loader entry\n"
                "     --plain             Print unit dependencies as a list instead of a tree\n"
                "     --timestamp=FORMAT  Change format of printed timestamps (pretty, unix,\n"
                "                             us, utc, us+utc)\n"
@@ -434,6 +440,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_WAIT,
                 ARG_WHAT,
                 ARG_REBOOT_ARG,
+                ARG_KERNEL_CMDLINE,
                 ARG_TIMESTAMP_STYLE,
                 ARG_READ_ONLY,
                 ARG_MKDIR,
@@ -505,6 +512,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "show-transaction",    no_argument,       NULL, 'T'                     },
                 { "what",                required_argument, NULL, ARG_WHAT                },
                 { "reboot-argument",     required_argument, NULL, ARG_REBOOT_ARG          },
+                { "kernel-cmdline",      required_argument, NULL, ARG_KERNEL_CMDLINE      },
                 { "timestamp",           required_argument, NULL, ARG_TIMESTAMP_STYLE     },
                 { "read-only",           no_argument,       NULL, ARG_READ_ONLY           },
                 { "mkdir",               no_argument,       NULL, ARG_MKDIR               },
@@ -958,6 +966,19 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_REBOOT_ARG:
                         arg_reboot_argument = optarg;
+                        break;
+
+                case ARG_KERNEL_CMDLINE:
+                        if (!utf8_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--kernel-cmdline= argument is not valid UTF-8: %s", optarg);
+                        if (string_has_cc(optarg, NULL))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--kernel-cmdline= argument contains control characters: %s", optarg);
+
+                        r = free_and_strdup_warn(&arg_kernel_cmdline, optarg);
+                        if (r < 0)
+                                 return r;
                         break;
 
                 case ARG_TIMESTAMP_STYLE:
