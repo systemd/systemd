@@ -459,3 +459,18 @@ libshared_fdisk = static_library(
                         userspace],
         c_args : ['-fvisibility=default'],
         build_by_default : false)
+
+# A small shared file that is linked into a few places.
+# It is not part of libshared because this code needs libcurl and
+# we don't want to link libshared to libcurl.
+if conf.get('HAVE_LIBCURL') == 1
+        libcurlutil_static = static_library(
+                'curl-util',
+                'curl-util.c',
+                implicit_include_directories : false,
+                dependencies : [userspace, libcurl],
+                include_directories : includes,
+                build_by_default : false)
+else
+        libcurlutil_static = []
+endif

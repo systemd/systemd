@@ -5,6 +5,19 @@
 
 #include "shared-forward.h"
 
+#define easy_setopt(curl, log_level, opt, value) ({                     \
+        CURLcode code = curl_easy_setopt(ASSERT_PTR(curl), opt, value); \
+        if (code)                                                       \
+                log_full(log_level,                                     \
+                         "curl_easy_setopt %s failed: %s",              \
+                         #opt, curl_easy_strerror(code));               \
+        code == CURLE_OK;                                               \
+})
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURL*, curl_easy_cleanup, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURLM*, curl_multi_cleanup, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct curl_slist*, curl_slist_free_all, NULL);
+
 typedef struct CurlGlue CurlGlue;
 
 typedef struct CurlGlue {
@@ -30,7 +43,4 @@ void curl_glue_remove_and_free(CurlGlue *g, CURL *c);
 struct curl_slist *curl_slist_new(const char *first, ...) _sentinel_;
 int curl_header_strdup(const void *contents, size_t sz, const char *field, char **value);
 int curl_parse_http_time(const char *t, usec_t *ret);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURL*, curl_easy_cleanup, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURLM*, curl_multi_cleanup, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct curl_slist*, curl_slist_free_all, NULL);
+int curl_append_to_header(struct curl_slist **list, char **headers);
