@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -24,6 +23,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hostname-util.h"
@@ -38,9 +38,9 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "mount-util.h"
+#include "options.h"
 #include "os-util.h"
 #include "parse-argument.h"
-#include "parse-util.h"
 #include "password-quality-util.h"
 #include "path-util.h"
 #include "plymouth-util.h"
@@ -1240,380 +1240,252 @@ static int process_reset(int rfd) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-firstboot", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...]\n"
-               "\n%3$sConfigures basic settings of the system.%4$s\n\n"
-               "  -h --help                       Show this help\n"
-               "     --version                    Show package version\n"
-               "     --root=PATH                  Operate on an alternate filesystem root\n"
-               "     --image=PATH                 Operate on disk image as filesystem root\n"
-               "     --image-policy=POLICY        Specify disk image dissection policy\n"
-               "     --locale=LOCALE              Set primary locale (LANG=)\n"
-               "     --locale-messages=LOCALE     Set message locale (LC_MESSAGES=)\n"
-               "     --keymap=KEYMAP              Set keymap\n"
-               "     --timezone=TIMEZONE          Set timezone\n"
-               "     --hostname=NAME              Set hostname\n"
-               "     --setup-machine-id           Set a random machine ID\n"
-               "     --machine-id=ID              Set specified machine ID\n"
-               "     --root-password=PASSWORD     Set root password from plaintext password\n"
-               "     --root-password-file=FILE    Set root password from file\n"
-               "     --root-password-hashed=HASH  Set root password from hashed password\n"
-               "     --root-shell=SHELL           Set root shell\n"
-               "     --kernel-command-line=CMDLINE\n"
-               "                                  Set kernel command line\n"
-               "     --prompt-locale              Prompt the user for locale settings\n"
-               "     --prompt-keymap              Prompt the user for keymap settings\n"
-               "     --prompt-keymap-auto         Prompt the user for keymap settings if invoked\n"
-               "                                  on local console\n"
-               "     --prompt-timezone            Prompt the user for timezone\n"
-               "     --prompt-hostname            Prompt the user for hostname\n"
-               "     --prompt-root-password       Prompt the user for root password\n"
-               "     --prompt-root-shell          Prompt the user for root shell\n"
-               "     --prompt                     Prompt for all of the above\n"
-               "     --copy-locale                Copy locale from host\n"
-               "     --copy-keymap                Copy keymap from host\n"
-               "     --copy-timezone              Copy timezone from host\n"
-               "     --copy-root-password         Copy root password from host\n"
-               "     --copy-root-shell            Copy root shell from host\n"
-               "     --copy                       Copy locale, keymap, timezone, root password\n"
-               "     --force                      Overwrite existing files\n"
-               "     --delete-root-password       Delete root password\n"
-               "     --welcome=no                 Disable the welcome text\n"
-               "     --chrome=no                  Don't show color bar at top and bottom of\n"
-               "                                  terminal\n"
-               "     --mute-console=yes           Tell kernel/PID 1 to not write to the console\n"
-               "                                  while running\n"
-               "     --reset                      Remove existing files\n"
-               "\nSee the %2$s for details.\n",
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...]\n\n"
+               "%sConfigures basic settings of the system.%s\n\n",
                program_invocation_short_name,
-               link,
                ansi_highlight(),
                ansi_normal());
 
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_LOCALE,
-                ARG_LOCALE_MESSAGES,
-                ARG_KEYMAP,
-                ARG_TIMEZONE,
-                ARG_HOSTNAME,
-                ARG_SETUP_MACHINE_ID,
-                ARG_MACHINE_ID,
-                ARG_ROOT_PASSWORD,
-                ARG_ROOT_PASSWORD_FILE,
-                ARG_ROOT_PASSWORD_HASHED,
-                ARG_ROOT_SHELL,
-                ARG_KERNEL_COMMAND_LINE,
-                ARG_PROMPT,
-                ARG_PROMPT_LOCALE,
-                ARG_PROMPT_KEYMAP,
-                ARG_PROMPT_KEYMAP_AUTO,
-                ARG_PROMPT_TIMEZONE,
-                ARG_PROMPT_HOSTNAME,
-                ARG_PROMPT_ROOT_PASSWORD,
-                ARG_PROMPT_ROOT_SHELL,
-                ARG_COPY,
-                ARG_COPY_LOCALE,
-                ARG_COPY_KEYMAP,
-                ARG_COPY_TIMEZONE,
-                ARG_COPY_ROOT_PASSWORD,
-                ARG_COPY_ROOT_SHELL,
-                ARG_FORCE,
-                ARG_DELETE_ROOT_PASSWORD,
-                ARG_WELCOME,
-                ARG_CHROME,
-                ARG_RESET,
-                ARG_MUTE_CONSOLE,
-        };
-
-        static const struct option options[] = {
-                { "help",                    no_argument,       NULL, 'h'                         },
-                { "version",                 no_argument,       NULL, ARG_VERSION                 },
-                { "root",                    required_argument, NULL, ARG_ROOT                    },
-                { "image",                   required_argument, NULL, ARG_IMAGE                   },
-                { "image-policy",            required_argument, NULL, ARG_IMAGE_POLICY            },
-                { "locale",                  required_argument, NULL, ARG_LOCALE                  },
-                { "locale-messages",         required_argument, NULL, ARG_LOCALE_MESSAGES         },
-                { "keymap",                  required_argument, NULL, ARG_KEYMAP                  },
-                { "timezone",                required_argument, NULL, ARG_TIMEZONE                },
-                { "hostname",                required_argument, NULL, ARG_HOSTNAME                },
-                { "setup-machine-id",        no_argument,       NULL, ARG_SETUP_MACHINE_ID        },
-                { "machine-id",              required_argument, NULL, ARG_MACHINE_ID              },
-                { "root-password",           required_argument, NULL, ARG_ROOT_PASSWORD           },
-                { "root-password-file",      required_argument, NULL, ARG_ROOT_PASSWORD_FILE      },
-                { "root-password-hashed",    required_argument, NULL, ARG_ROOT_PASSWORD_HASHED    },
-                { "root-shell",              required_argument, NULL, ARG_ROOT_SHELL              },
-                { "kernel-command-line",     required_argument, NULL, ARG_KERNEL_COMMAND_LINE     },
-                { "prompt",                  no_argument,       NULL, ARG_PROMPT                  },
-                { "prompt-locale",           no_argument,       NULL, ARG_PROMPT_LOCALE           },
-                { "prompt-keymap",           no_argument,       NULL, ARG_PROMPT_KEYMAP           },
-                { "prompt-keymap-auto",      no_argument,       NULL, ARG_PROMPT_KEYMAP_AUTO      },
-                { "prompt-timezone",         no_argument,       NULL, ARG_PROMPT_TIMEZONE         },
-                { "prompt-hostname",         no_argument,       NULL, ARG_PROMPT_HOSTNAME         },
-                { "prompt-root-password",    no_argument,       NULL, ARG_PROMPT_ROOT_PASSWORD    },
-                { "prompt-root-shell",       no_argument,       NULL, ARG_PROMPT_ROOT_SHELL       },
-                { "copy",                    no_argument,       NULL, ARG_COPY                    },
-                { "copy-locale",             no_argument,       NULL, ARG_COPY_LOCALE             },
-                { "copy-keymap",             no_argument,       NULL, ARG_COPY_KEYMAP             },
-                { "copy-timezone",           no_argument,       NULL, ARG_COPY_TIMEZONE           },
-                { "copy-root-password",      no_argument,       NULL, ARG_COPY_ROOT_PASSWORD      },
-                { "copy-root-shell",         no_argument,       NULL, ARG_COPY_ROOT_SHELL         },
-                { "force",                   no_argument,       NULL, ARG_FORCE                   },
-                { "delete-root-password",    no_argument,       NULL, ARG_DELETE_ROOT_PASSWORD    },
-                { "welcome",                 required_argument, NULL, ARG_WELCOME                 },
-                { "chrome",                  required_argument, NULL, ARG_CHROME                  },
-                { "reset",                   no_argument,       NULL, ARG_RESET                   },
-                { "mute-console",            required_argument, NULL, ARG_MUTE_CONSOLE            },
-                {}
-        };
-
-        int r, c;
-
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+        int r;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, true, &arg_root);
+                OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
+                        r = parse_path_argument(arg, true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, false, &arg_image);
+                OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
+                        r = parse_path_argument(arg, false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
+                        r = parse_image_policy_argument(arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_LOCALE:
-                        r = free_and_strdup(&arg_locale, optarg);
+                OPTION_LONG("locale", "LOCALE", "Set primary locale (LANG=)"):
+                        r = free_and_strdup_warn(&arg_locale, arg);
                         if (r < 0)
-                                return log_oom();
-
+                                return r;
                         break;
 
-                case ARG_LOCALE_MESSAGES:
-                        r = free_and_strdup(&arg_locale_messages, optarg);
+                OPTION_LONG("locale-messages", "LOCALE", "Set message locale (LC_MESSAGES=)"):
+                        r = free_and_strdup_warn(&arg_locale_messages, arg);
                         if (r < 0)
-                                return log_oom();
-
+                                return r;
                         break;
 
-                case ARG_KEYMAP:
-                        if (!keymap_is_valid(optarg))
+                OPTION_LONG("keymap", "KEYMAP", "Set keymap"):
+                        if (!keymap_is_valid(arg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Keymap %s is not valid.", optarg);
+                                                       "Keymap %s is not valid.", arg);
 
-                        r = free_and_strdup(&arg_keymap, optarg);
+                        r = free_and_strdup_warn(&arg_keymap, arg);
                         if (r < 0)
-                                return log_oom();
-
+                                return r;
                         break;
 
-                case ARG_TIMEZONE:
-                        if (!timezone_is_valid(optarg, LOG_ERR))
+                OPTION_LONG("timezone", "TIMEZONE", "Set timezone"):
+                        if (!timezone_is_valid(arg, LOG_ERR))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Timezone %s is not valid.", optarg);
+                                                       "Timezone %s is not valid.", arg);
 
-                        r = free_and_strdup(&arg_timezone, optarg);
+                        r = free_and_strdup_warn(&arg_timezone, arg);
                         if (r < 0)
-                                return log_oom();
-
+                                return r;
                         break;
 
-                case ARG_ROOT_PASSWORD:
-                        r = free_and_strdup(&arg_root_password, optarg);
-                        if (r < 0)
-                                return log_oom();
-
-                        arg_root_password_is_hashed = false;
-                        break;
-
-                case ARG_ROOT_PASSWORD_FILE:
-                        arg_root_password = mfree(arg_root_password);
-
-                        r = read_one_line_file(optarg, &arg_root_password);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to read %s: %m", optarg);
-
-                        arg_root_password_is_hashed = false;
-                        break;
-
-                case ARG_ROOT_PASSWORD_HASHED:
-                        r = free_and_strdup(&arg_root_password, optarg);
-                        if (r < 0)
-                                return log_oom();
-
-                        arg_root_password_is_hashed = true;
-                        break;
-
-                case ARG_ROOT_SHELL:
-                        r = free_and_strdup(&arg_root_shell, optarg);
-                        if (r < 0)
-                                return log_oom();
-
-                        break;
-
-                case ARG_HOSTNAME:
-                        if (!hostname_is_valid(optarg, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK))
+                OPTION_LONG("hostname", "NAME", "Set hostname"):
+                        if (!hostname_is_valid(arg, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Host name %s is not valid.", optarg);
+                                                       "Host name %s is not valid.", arg);
 
-                        r = free_and_strdup(&arg_hostname, optarg);
+                        r = free_and_strdup_warn(&arg_hostname, arg);
                         if (r < 0)
-                                return log_oom();
+                                return r;
 
                         hostname_cleanup(arg_hostname);
                         break;
 
-                case ARG_SETUP_MACHINE_ID:
+                OPTION_LONG("setup-machine-id", NULL, "Set a random machine ID"):
                         r = sd_id128_randomize(&arg_machine_id);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to generate randomized machine ID: %m");
-
                         break;
 
-                case ARG_MACHINE_ID:
-                        r = sd_id128_from_string(optarg, &arg_machine_id);
+                OPTION_LONG("machine-id", "ID", "Set specified machine ID"):
+                        r = sd_id128_from_string(arg, &arg_machine_id);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse machine id %s.", optarg);
-
+                                return log_error_errno(r, "Failed to parse machine id %s.", arg);
                         break;
 
-                case ARG_KERNEL_COMMAND_LINE:
-                        r = free_and_strdup(&arg_kernel_cmdline, optarg);
+                OPTION_LONG("root-password", "PASSWORD", "Set root password from plaintext password"):
+                        r = free_and_strdup_warn(&arg_root_password, arg);
                         if (r < 0)
-                                return log_oom();
+                                return r;
 
+                        arg_root_password_is_hashed = false;
                         break;
 
-                case ARG_PROMPT:
+                OPTION_LONG("root-password-file", "FILE", "Set root password from file"):
+                        arg_root_password = mfree(arg_root_password);
+
+                        r = read_one_line_file(arg, &arg_root_password);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read %s: %m", arg);
+
+                        arg_root_password_is_hashed = false;
+                        break;
+
+                OPTION_LONG("root-password-hashed", "HASH", "Set root password from hashed password"):
+                        r = free_and_strdup_warn(&arg_root_password, arg);
+                        if (r < 0)
+                                return r;
+
+                        arg_root_password_is_hashed = true;
+                        break;
+
+                OPTION_LONG("root-shell", "SHELL", "Set root shell"):
+                        r = free_and_strdup_warn(&arg_root_shell, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("kernel-command-line", "CMDLINE", "Set kernel command line"):
+                        r = free_and_strdup_warn(&arg_kernel_cmdline, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("prompt-locale", NULL, "Prompt the user for locale settings"):
+                        arg_prompt_locale = true;
+                        break;
+
+                OPTION_LONG("prompt-keymap", NULL, "Prompt the user for keymap settings"):
+                        arg_prompt_keymap = true;
+                        arg_prompt_keymap_auto = false;
+                        break;
+
+                OPTION_LONG("prompt-keymap-auto", NULL,
+                            "Prompt the user for keymap settings if invoked on local console"):
+                        arg_prompt_keymap_auto = true;
+                        break;
+
+                OPTION_LONG("prompt-timezone", NULL, "Prompt the user for timezone"):
+                        arg_prompt_timezone = true;
+                        break;
+
+                OPTION_LONG("prompt-hostname", NULL, "Prompt the user for hostname"):
+                        arg_prompt_hostname = true;
+                        break;
+
+                OPTION_LONG("prompt-root-password", NULL, "Prompt the user for root password"):
+                        arg_prompt_root_password = true;
+                        break;
+
+                OPTION_LONG("prompt-root-shell", NULL, "Prompt the user for root shell"):
+                        arg_prompt_root_shell = true;
+                        break;
+
+                OPTION_LONG("prompt", NULL, "Prompt for all of the above"):
                         arg_prompt_locale = arg_prompt_keymap = arg_prompt_timezone = arg_prompt_hostname =
                                 arg_prompt_root_password = arg_prompt_root_shell = true;
                         arg_prompt_keymap_auto = false;
                         break;
 
-                case ARG_PROMPT_LOCALE:
-                        arg_prompt_locale = true;
+                OPTION_LONG("copy-locale", NULL, "Copy locale from host"):
+                        arg_copy_locale = true;
                         break;
 
-                case ARG_PROMPT_KEYMAP:
-                        arg_prompt_keymap = true;
-                        arg_prompt_keymap_auto = false;
+                OPTION_LONG("copy-keymap", NULL, "Copy keymap from host"):
+                        arg_copy_keymap = true;
                         break;
 
-                case ARG_PROMPT_KEYMAP_AUTO:
-                        arg_prompt_keymap_auto = true;
+                OPTION_LONG("copy-timezone", NULL, "Copy timezone from host"):
+                        arg_copy_timezone = true;
                         break;
 
-                case ARG_PROMPT_TIMEZONE:
-                        arg_prompt_timezone = true;
+                OPTION_LONG("copy-root-password", NULL, "Copy root password from host"):
+                        arg_copy_root_password = true;
                         break;
 
-                case ARG_PROMPT_HOSTNAME:
-                        arg_prompt_hostname = true;
+                OPTION_LONG("copy-root-shell", NULL, "Copy root shell from host"):
+                        arg_copy_root_shell = true;
                         break;
 
-                case ARG_PROMPT_ROOT_PASSWORD:
-                        arg_prompt_root_password = true;
-                        break;
-
-                case ARG_PROMPT_ROOT_SHELL:
-                        arg_prompt_root_shell = true;
-                        break;
-
-                case ARG_COPY:
+                OPTION_LONG("copy", NULL, "Copy all of the above"):
                         arg_copy_locale = arg_copy_keymap = arg_copy_timezone = arg_copy_root_password =
                                 arg_copy_root_shell = true;
                         break;
 
-                case ARG_COPY_LOCALE:
-                        arg_copy_locale = true;
-                        break;
-
-                case ARG_COPY_KEYMAP:
-                        arg_copy_keymap = true;
-                        break;
-
-                case ARG_COPY_TIMEZONE:
-                        arg_copy_timezone = true;
-                        break;
-
-                case ARG_COPY_ROOT_PASSWORD:
-                        arg_copy_root_password = true;
-                        break;
-
-                case ARG_COPY_ROOT_SHELL:
-                        arg_copy_root_shell = true;
-                        break;
-
-                case ARG_FORCE:
+                OPTION_LONG("force", NULL, "Overwrite existing files"):
                         arg_force = true;
                         break;
 
-                case ARG_DELETE_ROOT_PASSWORD:
+                OPTION_LONG("delete-root-password", NULL, "Delete root password"):
                         arg_delete_root_password = true;
                         break;
 
-                case ARG_WELCOME:
-                        r = parse_boolean(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --welcome= argument: %s", optarg);
-
-                        arg_welcome = r;
-                        break;
-
-                case ARG_CHROME:
-                        r = parse_boolean_argument("--chrome=", optarg, &arg_chrome);
+                OPTION_LONG("welcome", "BOOL", "Whether to show the welcome text"):
+                        r = parse_boolean_argument("--welcome=", arg, &arg_welcome);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_RESET:
+                OPTION_LONG("chrome", "BOOL",
+                            "Whether to show a color bar at top and bottom of terminal"):
+                        r = parse_boolean_argument("--chrome=", arg, &arg_chrome);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("mute-console", "BOOL",
+                            "Whether to disallow kernel/PID 1 writes to the console while running"):
+                        r = parse_boolean_argument("--mute-console=", arg, &arg_mute_console);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("reset", NULL, "Remove existing files"):
                         arg_reset = true;
                         break;
-
-                case ARG_MUTE_CONSOLE:
-                        r = parse_boolean_argument("--mute-console=", optarg, &arg_mute_console);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (arg_delete_root_password && (arg_copy_root_password || arg_root_password || arg_prompt_root_password))
