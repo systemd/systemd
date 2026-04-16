@@ -1266,6 +1266,15 @@ RestartMaxDelaySec=160s</programlisting>
         See the <ulink url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink>
         overview for details.</para>
 
+        <para>Setting this to <constant>yes</constant> also ensures the file descriptor store is kept loaded
+        across a <literal>kexec</literal>-based reboot on kernels supporting the <ulink
+        url="https://docs.kernel.org/userspace-api/liveupdate.html">Live Update Orchestrator</ulink>,
+        so that compatible file descriptors (such as <citerefentry
+        project='man-pages'><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>)
+        are preserved and handed back to the service on the other side. See the <ulink
+        url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink> overview for
+        details.</para>
+
         <para>Use <command>systemctl clean --what=fdstore …</command> to release the file descriptor store
         explicitly.</para>
 
