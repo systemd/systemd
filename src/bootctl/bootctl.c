@@ -72,6 +72,7 @@ bool arg_dry_run = false;
 ImagePolicy *arg_image_policy = NULL;
 bool arg_varlink = false;
 bool arg_secure_boot_auto_enroll = false;
+bool arg_keep_fallback = false;
 char *arg_certificate = NULL;
 CertificateSourceType arg_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
 char *arg_certificate_source = NULL;
@@ -571,6 +572,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return r;
                         break;
 
+                OPTION_LONG("keep-fallback", NULL, "Preserve current EFI binary as fallback when updating"):
+                        arg_keep_fallback = true;
+                        break;
+
                 OPTION_LONG("private-key", "PATH|URI",
                             "Private key for Secure Boot auto-enrollment"):
                         r = free_and_strdup_warn(&arg_private_key, arg);
@@ -628,6 +633,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         if (arg_dry_run && args[0] && !STR_IN_SET(args[0], "unlink", "cleanup"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--dry-run is only supported with --unlink or --cleanup");
+
+        if (arg_keep_fallback && args[0] && !streq(args[0], "update"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                               "--keep-fallback is only supported with 'update'.");
 
         if (arg_secure_boot_auto_enroll) {
 #if HAVE_OPENSSL
