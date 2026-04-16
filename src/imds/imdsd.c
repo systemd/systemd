@@ -18,6 +18,7 @@
 #include "chase.h"
 #include "copy.h"
 #include "creds-util.h"
+#include "curl-util.h"
 #include "device-private.h"
 #include "dns-rr.h"
 #include "errno-util.h"
@@ -52,8 +53,6 @@
 #include "varlink-util.h"
 #include "web-util.h"
 #include "xattr-util.h"
-
-#include "../import/curl-util.h"
 
 /* This implements a client to the AWS' and Azure's "Instance Metadata Service", as well as GCP's "VM
  * Metadata", i.e.:
@@ -1113,20 +1112,14 @@ static int context_acquire_data(Context *c) {
                 if (!token_header)
                         return context_log_oom(c);
 
-                struct curl_slist *n = curl_slist_append(c->request_header_data, token_header);
-                if (!n)
-                        return context_log_oom(c);
-
-                c->request_header_data = n;
+                r = curl_append_to_header(&c->request_header_data, STRV_MAKE(token_header));
+                if (r < 0)
+                        return context_log_errno(c, LOG_ERR, r, "Failed to create curl header: %m");
         }
 
-        STRV_FOREACH(i, arg_extra_header) {
-                struct curl_slist *n = curl_slist_append(c->request_header_data, *i);
-                if (!n)
-                        return context_log_oom(c);
-
-                c->request_header_data = n;
-        }
+        r = curl_append_to_header(&c->request_header_data, arg_extra_header);
+        if (r < 0)
+                return context_log_errno(c, LOG_ERR, r, "Failed to create curl header: %m");
 
         if (c->request_header_data)
                 if (curl_easy_setopt(c->curl_data, CURLOPT_HTTPHEADER, c->request_header_data) != CURLE_OK)
@@ -2248,10 +2241,6 @@ static int help(void) {
 
 static bool http_header_name_valid(const char *a) {
         return a && ascii_is_valid(a) && !string_has_cc(a, /* ok= */ NULL) && !strchr(a, ':');
-}
-
-static bool http_header_valid(const char *a) {
-        return a && ascii_is_valid(a) && !string_has_cc(a, /* ok= */ NULL) && strchr(a, ':');
 }
 
 static int parse_argv(int argc, char *argv[]) {
