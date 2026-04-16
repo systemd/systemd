@@ -112,8 +112,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                         break;
 
-                OPTION_FULL(OPTION_OPTIONAL_ARG, 'x', "xattr", "BOOL",
-                            "Show cgroup extended attributes"):
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "xattr", "BOOL",
+                                  "Show cgroup extended attributes"): {}
+                OPTION_SHORT('x', NULL, "Same as --xattr=true"):
                         if (arg) {
                                 r = parse_boolean(arg);
                                 if (r < 0)
@@ -124,8 +125,9 @@ static int parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_output_flags, OUTPUT_CGROUP_XATTRS, r);
                         break;
 
-                OPTION_FULL(OPTION_OPTIONAL_ARG, 'c', "cgroup-id", "BOOL",
-                            "Show cgroup ID"):
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "cgroup-id", "BOOL",
+                                  "Show cgroup ID"): {}
+                OPTION_SHORT('c', NULL, "Same as --cgroup-id=true"):
                         if (arg) {
                                 r = parse_boolean(arg);
                                 if (r < 0)
