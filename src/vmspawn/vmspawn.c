@@ -4001,6 +4001,10 @@ static int verify_arguments(void) {
                         log_warning("--grow-image has no effect with --image-disk-type=scsi-cd (CD-ROMs are read-only).");
         }
 
+        if (arg_grow_image && arg_image_format == IMAGE_FORMAT_QCOW2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--grow-image is not supported for qcow2 images, use 'qemu-img resize FILE SIZE'.");
+
         return 0;
 }
 
