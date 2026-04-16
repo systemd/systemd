@@ -56,6 +56,8 @@ struct QmpClient {
 
         QmpClientState state;
         sd_json_variant *current;  /* most recently parsed message, pending dispatch */
+
+        void *userdata;
 };
 
 static void qmp_slot_hash_func(const QmpSlot *p, struct siphash *state) {
@@ -481,6 +483,21 @@ bool qmp_client_is_idle(QmpClient *c) {
 bool qmp_client_is_disconnected(QmpClient *c) {
         assert(c);
         return c->state == QMP_CLIENT_DISCONNECTED;
+}
+
+void* qmp_client_set_userdata(QmpClient *c, void *userdata) {
+        void *old;
+
+        assert(c);
+
+        old = c->userdata;
+        c->userdata = userdata;
+        return old;
+}
+
+void* qmp_client_get_userdata(QmpClient *c) {
+        assert(c);
+        return c->userdata;
 }
 
 /* Map our state to the transport phase used for POLLIN / salvage / timeout decisions. */
