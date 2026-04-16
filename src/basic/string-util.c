@@ -984,7 +984,10 @@ char* strrep(const char *s, unsigned n) {
         assert(s);
 
         l = strlen(s);
-        p = r = malloc(l * n + 1);
+        if (!MUL_ASSIGN_SAFE(&l, n))
+                return NULL;
+
+        p = r = malloc(l + 1);
         if (!r)
                 return NULL;
 
