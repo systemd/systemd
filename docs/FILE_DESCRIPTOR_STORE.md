@@ -181,6 +181,28 @@ continuously).
 For further details see [Resource
 Pass-Through](https://www.freedesktop.org/software/systemd/man/latest/systemd-soft-reboot.service.html#Resource%20Pass-Through).
 
+## Kernel Live Update (kexec)
+
+On kernels that support the [Live Update
+Orchestrator](https://docs.kernel.org/next/userspace-api/liveupdate.html)
+(LUO), the fdstore may also be preserved across a `kexec`-based reboot into a
+new kernel. This allows updating the kernel itself without losing pinned
+resources such as serialized service state, analogous to soft reboot, but for
+the kernel.
+
+Only file descriptors that reference LUO-compatible kernel objects can be
+preserved this way. Currently the kernel supports `memfd` only for LUO, but
+more types are being worked on. Other kinds of file descriptors (sockets,
+regular files, etc.) will be dropped from the store during the kexec transition.
+
+LUO preservation of the fdstore is triggered automatically whenever an LUO
+reboot is initiated and is gated by a similar rule as soft-reboot: the service
+must have `FileDescriptorStorePreserve=yes` set, so that its fdstore remains
+loaded. On the other side of the kexec, the system manager rebuilds the
+mapping of fds back to their original service units, so that when those
+services are re-activated the fds are passed to them using the normal fdstore
+protocol.
+
 ## Initrd Transitions
 
 The fdstore may also be used to pass file descriptors for resources from the
