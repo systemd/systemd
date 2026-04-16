@@ -533,6 +533,26 @@ TEST(endswith_no_case) {
         assert_se(!endswith_no_case("foobar", "FOOBARFOOFOO"));
 }
 
+TEST(strrstr_no_case) {
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "bar"), "bar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "BAR"), "bar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "bAR"), "bar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "FOO"), "foobar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "foo"), "foobar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "FoO"), "foobar");
+        ASSERT_STREQ(strrstr_no_case("aXaXa", "x"), "Xa");
+        ASSERT_STREQ(strrstr_no_case("aXaXa", "X"), "Xa");
+        ASSERT_STREQ(strrstr_no_case("xHello", "hello"), "Hello");
+        ASSERT_STREQ(strrstr_no_case("Hello", "l"), "lo");
+        ASSERT_STREQ(strrstr_no_case("Hello", ""), "");
+        ASSERT_STREQ(strrstr_no_case("", ""), "");
+
+        ASSERT_NULL(strrstr_no_case("hello", "xyz"));
+        ASSERT_NULL(strrstr_no_case("", "x"));
+        ASSERT_NULL(strrstr_no_case(NULL, "x"));
+        ASSERT_NULL(strrstr_no_case("x", NULL));
+}
+
 TEST(delete_chars) {
         char *s, input[] = "   hello, waldo.   abc";
 
@@ -1446,6 +1466,115 @@ TEST(str_common_prefix) {
         ASSERT_EQ(str_common_prefix("systemd-networkd", "s"), 1U);
         ASSERT_EQ(str_common_prefix("", "systemd-networkd"), 0U);
         ASSERT_EQ(str_common_prefix("systemd-networkd", ""), 0U);
+}
+
+TEST(string_is_safe) {
+        /* NULL is always rejected, regardless of flags. */
+        assert_se(!string_is_safe(NULL, 0));
+        assert_se(!string_is_safe(NULL, STRING_NON_EMPTY));
+        assert_se(!string_is_safe(NULL, STRING_ASCII));
+        assert_se(!string_is_safe(NULL, STRING_NO_QUOTES));
+        assert_se(!string_is_safe(NULL, STRING_NO_GLOBS));
+        assert_se(!string_is_safe(NULL, STRING_FILENAME));
+
+        /* Baseline (flags=0): non-NULL accepted, control chars and invalid UTF-8 rejected. */
+        assert_se(string_is_safe("", 0));
+        assert_se(string_is_safe("hello", 0));
+        assert_se(string_is_safe("hello world", 0));
+        assert_se(string_is_safe("\"'*?[", 0));           /* quotes and globs allowed by baseline */
+        assert_se(string_is_safe("über", 0));             /* valid UTF-8 allowed */
+        assert_se(string_is_safe("ünïcödé", 0));
+
+        assert_se(!string_is_safe("abc\x01", 0));         /* control char */
+        assert_se(!string_is_safe("\t", 0));
+        assert_se(!string_is_safe("\n", 0));
+        assert_se(!string_is_safe("abc\x1f", 0));
+        assert_se(!string_is_safe("abc\x7f", 0));         /* DEL */
+        assert_se(!string_is_safe("ab\xc3\x28", 0));      /* invalid UTF-8 continuation */
+        assert_se(!string_is_safe("\xff", 0));            /* not valid UTF-8 */
+
+        /* STRING_NON_EMPTY. */
+        assert_se(!string_is_safe("", STRING_NON_EMPTY));
+        assert_se(string_is_safe("x", STRING_NON_EMPTY));
+        assert_se(string_is_safe("hello", STRING_NON_EMPTY));
+
+        /* STRING_ASCII: high bytes rejected, low ASCII accepted, control chars still rejected. */
+        assert_se(string_is_safe("", STRING_ASCII));
+        assert_se(string_is_safe("hello", STRING_ASCII));
+        assert_se(string_is_safe("hello world 123!@#$%^&()", STRING_ASCII));
+        assert_se(!string_is_safe("über", STRING_ASCII));
+        assert_se(!string_is_safe("\x80", STRING_ASCII));
+        assert_se(!string_is_safe("\xff", STRING_ASCII));
+        assert_se(!string_is_safe("abc\x01", STRING_ASCII));
+        assert_se(!string_is_safe("abc\x7f", STRING_ASCII));
+
+        /* STRING_NO_QUOTES. */
+        assert_se(string_is_safe("hello", STRING_NO_QUOTES));
+        assert_se(string_is_safe("hello world", STRING_NO_QUOTES));
+        assert_se(string_is_safe("*?[", STRING_NO_QUOTES));       /* globs still allowed */
+        assert_se(!string_is_safe("\"", STRING_NO_QUOTES));
+        assert_se(!string_is_safe("'", STRING_NO_QUOTES));
+        assert_se(!string_is_safe("hello\"world", STRING_NO_QUOTES));
+        assert_se(!string_is_safe("it's", STRING_NO_QUOTES));
+
+        /* STRING_NO_GLOBS. */
+        assert_se(string_is_safe("hello", STRING_NO_GLOBS));
+        assert_se(string_is_safe("hello\"'world", STRING_NO_GLOBS)); /* quotes still allowed */
+        assert_se(string_is_safe("ab]c", STRING_NO_GLOBS));          /* ']' is not in GLOB_CHARS */
+        assert_se(!string_is_safe("*", STRING_NO_GLOBS));
+        assert_se(!string_is_safe("?", STRING_NO_GLOBS));
+        assert_se(!string_is_safe("[", STRING_NO_GLOBS));
+        assert_se(!string_is_safe("foo*bar", STRING_NO_GLOBS));
+        assert_se(!string_is_safe("foo?bar", STRING_NO_GLOBS));
+        assert_se(!string_is_safe("foo[bar", STRING_NO_GLOBS));
+
+        /* STRING_FILENAME: rejects empty, ".", "..", and strings with '/'. */
+        assert_se(string_is_safe("hello", STRING_FILENAME));
+        assert_se(string_is_safe("hello.txt", STRING_FILENAME));
+        assert_se(string_is_safe("...", STRING_FILENAME));
+        assert_se(string_is_safe(".hidden", STRING_FILENAME));
+        assert_se(!string_is_safe("", STRING_FILENAME));
+        assert_se(!string_is_safe(".", STRING_FILENAME));
+        assert_se(!string_is_safe("..", STRING_FILENAME));
+        assert_se(!string_is_safe("/", STRING_FILENAME));
+        assert_se(!string_is_safe("/foo", STRING_FILENAME));
+        assert_se(!string_is_safe("foo/bar", STRING_FILENAME));
+
+        /* Pairwise combinations. */
+        assert_se(!string_is_safe("", STRING_NON_EMPTY | STRING_ASCII));
+        assert_se(!string_is_safe("über", STRING_NON_EMPTY | STRING_ASCII));
+        assert_se(string_is_safe("hello", STRING_NON_EMPTY | STRING_ASCII));
+
+        assert_se(string_is_safe("ab_cd", STRING_NO_QUOTES | STRING_NO_GLOBS));
+        assert_se(!string_is_safe("ab\"cd", STRING_NO_QUOTES | STRING_NO_GLOBS));
+        assert_se(!string_is_safe("ab*cd", STRING_NO_QUOTES | STRING_NO_GLOBS));
+        assert_se(!string_is_safe("ab'*cd", STRING_NO_QUOTES | STRING_NO_GLOBS));
+
+        assert_se(string_is_safe("hello.txt", STRING_NON_EMPTY | STRING_FILENAME));
+        assert_se(!string_is_safe("", STRING_NON_EMPTY | STRING_FILENAME));
+        assert_se(!string_is_safe("foo/bar", STRING_NON_EMPTY | STRING_FILENAME));
+
+        assert_se(string_is_safe("foo?bar", STRING_ASCII | STRING_NO_QUOTES));  /* globs ok */
+        assert_se(!string_is_safe("foo\"bar", STRING_ASCII | STRING_NO_QUOTES));
+        assert_se(!string_is_safe("über", STRING_ASCII | STRING_NO_QUOTES));
+
+        /* All flags combined. */
+        StringSafeFlags all = STRING_NON_EMPTY | STRING_ASCII | STRING_NO_QUOTES | STRING_NO_GLOBS | STRING_FILENAME;
+        assert_se(string_is_safe("hello.txt", all));
+        assert_se(string_is_safe("foo-bar_baz.conf", all));
+        assert_se(string_is_safe("a", all));
+        assert_se(!string_is_safe("", all));                   /* fails STRING_NON_EMPTY */
+        assert_se(!string_is_safe("über", all));               /* fails STRING_ASCII */
+        assert_se(!string_is_safe("foo\"bar", all));           /* fails STRING_NO_QUOTES */
+        assert_se(!string_is_safe("foo'bar", all));            /* fails STRING_NO_QUOTES */
+        assert_se(!string_is_safe("foo*bar", all));            /* fails STRING_NO_GLOBS */
+        assert_se(!string_is_safe("foo?bar", all));            /* fails STRING_NO_GLOBS */
+        assert_se(!string_is_safe("foo[bar", all));            /* fails STRING_NO_GLOBS */
+        assert_se(!string_is_safe("foo/bar", all));            /* fails STRING_FILENAME */
+        assert_se(!string_is_safe(".", all));                  /* fails STRING_FILENAME */
+        assert_se(!string_is_safe("..", all));                 /* fails STRING_FILENAME */
+        assert_se(!string_is_safe("foo\x01""bar", all));       /* fails baseline control-char check */
+        assert_se(!string_is_safe(NULL, all));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
