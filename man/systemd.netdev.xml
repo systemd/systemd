@@ -2683,7 +2683,10 @@ Ports=eth2</programlisting>
       <varlistentry>
         <term><varname>Table=</varname></term>
         <listitem>
-          <para>The numeric routing table identifier. This setting is compulsory.</para>
+          <para>The routing table identifier. Takes a route table name or number. Route table names
+          may be predefined or configured with <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          This setting is compulsory.</para>
 
         <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
