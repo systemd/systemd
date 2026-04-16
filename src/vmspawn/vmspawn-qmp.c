@@ -6,9 +6,11 @@
 
 #include "sd-event.h"
 #include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
+#include "errno-util.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
@@ -19,6 +21,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "vmspawn-qmp.h"
+#include "vmspawn-util.h"
 
 DEFINE_PRIVATE_HASH_OPS_FULL(
                 pending_job_hash_ops,
@@ -28,22 +31,89 @@ DEFINE_PRIVATE_HASH_OPS_FULL(
 DriveInfo* drive_info_new(void) {
         DriveInfo *d = new0(DriveInfo, 1);
         if (d) {
+                d->n_ref = 1;
                 d->fd = -EBADF;
                 d->overlay_fd = -EBADF;
+                d->pcie_port_idx = -1;
         }
         return d;
 }
 
-DriveInfo* drive_info_free(DriveInfo *d) {
+int vmspawn_qmp_bridge_allocate_pcie_port(VmspawnQmpBridge *bridge, const char *owner_id, char **ret_name, int *ret_idx) {
+        assert(bridge);
+        assert(owner_id);
+        assert(ret_name);
+        assert(ret_idx);
+
+        for (unsigned i = 0; i < VMSPAWN_PCIE_HOTPLUG_SPARES; i++) {
+                if (bridge->hotplug_port_owner[i])
+                        continue;
+
+                _cleanup_free_ char *owner = strdup(owner_id);
+                _cleanup_free_ char *name = NULL;
+                if (!owner || asprintf(&name, "vmspawn-hotplug-pci-root-port-%u", i) < 0)
+                        return -ENOMEM;
+
+                bridge->hotplug_port_owner[i] = TAKE_PTR(owner);
+                *ret_name = TAKE_PTR(name);
+                *ret_idx = (int) i;
+                return 0;
+        }
+
+        return -EBUSY;
+}
+
+void vmspawn_qmp_bridge_release_pcie_port_by_idx(VmspawnQmpBridge *bridge, int idx) {
+        assert(bridge);
+
+        if (idx < 0)
+                return;
+
+        assert((unsigned) idx < VMSPAWN_PCIE_HOTPLUG_SPARES);
+        bridge->hotplug_port_owner[idx] = mfree(bridge->hotplug_port_owner[idx]);
+}
+
+int vmspawn_qmp_bridge_release_pcie_port_by_id(VmspawnQmpBridge *bridge, const char *owner_id) {
+        assert(bridge);
+        assert(owner_id);
+
+        for (unsigned i = 0; i < VMSPAWN_PCIE_HOTPLUG_SPARES; i++)
+                if (streq_ptr(bridge->hotplug_port_owner[i], owner_id)) {
+                        bridge->hotplug_port_owner[i] = mfree(bridge->hotplug_port_owner[i]);
+                        return 1;
+                }
+
+        return 0;
+}
+
+DriveInfo* drive_info_ref(DriveInfo *d) {
         if (!d)
                 return NULL;
+
+        assert(d->n_ref > 0);
+        d->n_ref++;
+        return d;
+}
+
+DriveInfo* drive_info_unref(DriveInfo *d) {
+        if (!d)
+                return NULL;
+
+        assert(d->n_ref > 0);
+        if (--d->n_ref > 0)
+                return NULL;
+
+        if (d->bridge)
+                vmspawn_qmp_bridge_release_pcie_port_by_idx(d->bridge, d->pcie_port_idx);
 
         free(d->path);
         free(d->format);
         free(d->disk_driver);
         free(d->serial);
-        free(d->node_name);
         free(d->pcie_port);
+        free(d->id);
+        free(d->fdset_path);
+        sd_varlink_unref(d->link);
         safe_close(d->fd);
         safe_close(d->overlay_fd);
         return mfree(d);
@@ -52,7 +122,7 @@ DriveInfo* drive_info_free(DriveInfo *d) {
 void drive_infos_done(DriveInfos *infos) {
         assert(infos);
         FOREACH_ARRAY(d, infos->drives, infos->n_drives)
-                drive_info_free(*d);
+                drive_info_unref(*d);
         infos->drives = mfree(infos->drives);
         infos->n_drives = 0;
         infos->scsi_pcie_port = mfree(infos->scsi_pcie_port);
@@ -97,9 +167,7 @@ void machine_config_done(MachineConfig *c) {
         vsock_info_done(&c->vsock);
 }
 
-/* Generic async QMP setup-completion callback. The userdata argument carries the
- * command name (as a string literal) for logging. On failure, request a clean
- * event loop exit so vmspawn shuts down instead of running a VM with missing devices. */
+/* Generic completion callback; userdata is a string literal label. Exits the event loop on boot-time failures. */
 static int on_qmp_complete(
                 QmpClient *client,
                 sd_json_variant *result,
@@ -107,29 +175,41 @@ static int on_qmp_complete(
                 int error,
                 void *userdata) {
 
-        const char *label = ASSERT_PTR(userdata);
-
         assert(client);
+
+        VmspawnQmpBridge *bridge = ASSERT_PTR(qmp_client_get_userdata(client));
+        const char *label = ASSERT_PTR(userdata);
 
         if (error < 0) {
                 log_error_errno(error, "%s failed: %s", label, strna(error_desc));
+
+                if (bridge->setup_done)
+                        return 0;
+
                 return sd_event_exit(qmp_client_get_event(client), error);
         }
 
         return 0;
 }
 
-/* Send add-fd via SCM_RIGHTS; return /dev/fdset/N. Allocations run before invoke so a late
- * OOM cannot orphan an fdset on QEMU's side; *ret_path is only written on full success. */
-static int qmp_fdset_add(QmpClient *qmp, int fd_consume, char **ret_path) {
+/* Send add-fd via SCM_RIGHTS; return /dev/fdset/N and the numeric fdset id. */
+static int qmp_fdset_add(
+                QmpClient *qmp,
+                int fd_consume,
+                qmp_command_callback_t callback,
+                void *userdata,
+                char **ret_path,
+                uint64_t *ret_fdset_id) {
+
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
         _cleanup_close_ int fd = fd_consume;
         _cleanup_free_ char *path = NULL;
-        unsigned id;
+        uint64_t id;
         int r;
 
         assert(qmp);
         assert(fd_consume >= 0);
+        assert(callback);
         assert(ret_path);
 
         id = qmp_client_next_fdset_id(qmp);
@@ -138,16 +218,41 @@ static int qmp_fdset_add(QmpClient *qmp, int fd_consume, char **ret_path) {
         if (r < 0)
                 return r;
 
-        if (asprintf(&path, "/dev/fdset/%u", id) < 0)
+        if (asprintf(&path, "/dev/fdset/%" PRIu64, id) < 0)
                 return -ENOMEM;
 
         r = qmp_client_invoke(qmp, "add-fd", QMP_CLIENT_ARGS_FD(args, TAKE_FD(fd)),
-                              on_qmp_complete, (void*) "add-fd");
+                              callback, userdata);
         if (r < 0)
                 return r;
 
         *ret_path = TAKE_PTR(path);
+        if (ret_fdset_id)
+                *ret_fdset_id = id;
         return 0;
+}
+
+/* Issue remove-fd for an fdset whose dup is now held by a blockdev. The fdset
+ * persists until the dup is closed (in raw_close at blockdev-del time) — see
+ * QEMU's monitor/fds.c:177-181 on the fds/dup_fds split. */
+static int qmp_fdset_remove(
+                QmpClient *qmp,
+                uint64_t fdset_id,
+                qmp_command_callback_t callback,
+                void *userdata) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
+        int r;
+
+        assert(qmp);
+        assert(callback);
+
+        r = sd_json_buildo(&args, SD_JSON_BUILD_PAIR_UNSIGNED("fdset-id", fdset_id));
+        if (r < 0)
+                return r;
+
+        return qmp_client_invoke(qmp, "remove-fd", QMP_CLIENT_ARGS(args),
+                                 callback, userdata);
 }
 
 typedef struct QmpFileNodeParams {
@@ -208,16 +313,18 @@ static int qmp_build_blockdev_add_format(const QmpFormatNodeParams *p, sd_json_v
                         SD_JSON_BUILD_PAIR_CONDITION(!!p->backing, "backing", SD_JSON_BUILD_STRING(p->backing)));
 }
 
-/* Build device_add JSON arguments for a drive */
-static int qmp_build_device_add(const DriveInfo *drive, sd_json_variant **ret) {
+/* qmp_name is the fully-qualified QMP name ("bd-<id>"); used as both the
+ * qdev id and the drive-backend reference. */
+static int qmp_build_device_add(const DriveInfo *drive, const char *qmp_name, sd_json_variant **ret) {
         assert(drive);
+        assert(qmp_name);
         assert(ret);
 
         return sd_json_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR_STRING("driver", drive->disk_driver),
-                        SD_JSON_BUILD_PAIR_STRING("drive", drive->node_name),
-                        SD_JSON_BUILD_PAIR_STRING("id", drive->node_name),
+                        SD_JSON_BUILD_PAIR_STRING("drive", qmp_name),
+                        SD_JSON_BUILD_PAIR_STRING("id", qmp_name),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(drive->flags, QMP_DRIVE_BOOT), "bootindex", SD_JSON_BUILD_INTEGER(1)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!drive->serial, "serial", SD_JSON_BUILD_STRING(drive->serial)),
                         SD_JSON_BUILD_PAIR_CONDITION(STR_IN_SET(drive->disk_driver, "scsi-hd", "scsi-cd"),
@@ -225,6 +332,43 @@ static int qmp_build_device_add(const DriveInfo *drive, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !STR_IN_SET(drive->disk_driver, "scsi-hd", "scsi-cd") && !!drive->pcie_port,
                                         "bus", SD_JSON_BUILD_STRING(drive->pcie_port)));
+}
+
+/* Inline form: one blockdev-add creates format+file; one blockdev-del tears
+ * down the whole tree. Used for regular boot drives and hotplug. */
+static int qmp_build_blockdev_add_inline(
+                const char *node_name,
+                const char *format,
+                const char *filename,
+                const char *file_driver,
+                QmpDriveFlags flags,
+                VmspawnQmpFeatureFlags features,
+                sd_json_variant **ret) {
+
+        bool use_io_uring = FLAGS_SET(features, VMSPAWN_QMP_FEATURE_IO_URING);
+        bool use_discard_no_unref = FLAGS_SET(flags, QMP_DRIVE_DISCARD_NO_UNREF);
+
+        assert(node_name);
+        assert(format);
+        assert(filename);
+        assert(file_driver);
+        assert(ret);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("node-name", node_name),
+                        SD_JSON_BUILD_PAIR_STRING("driver", format),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, QMP_DRIVE_READ_ONLY), "read-only", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, QMP_DRIVE_DISCARD), "discard", JSON_BUILD_CONST_STRING("unmap")),
+                        SD_JSON_BUILD_PAIR_CONDITION(use_discard_no_unref, "discard-no-unref", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR("file", SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR_STRING("driver", file_driver),
+                                        SD_JSON_BUILD_PAIR_STRING("filename", filename),
+                                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, QMP_DRIVE_READ_ONLY), "read-only", SD_JSON_BUILD_BOOLEAN(true)),
+                                        SD_JSON_BUILD_PAIR_CONDITION(use_io_uring, "aio", JSON_BUILD_CONST_STRING("io_uring")),
+                                        SD_JSON_BUILD_PAIR("cache", SD_JSON_BUILD_OBJECT(
+                                                        SD_JSON_BUILD_PAIR_BOOLEAN("direct", false),
+                                                        SD_JSON_BUILD_PAIR_BOOLEAN("no-flush", FLAGS_SET(flags, QMP_DRIVE_NO_FLUSH)))))));
 }
 
 /* Issue blockdev-add for a file node. */
@@ -340,17 +484,17 @@ static int on_ephemeral_create_concluded(QmpClient *qmp, void *userdata) {
                 return r;
 
         /* device_add: attach to virtual hardware. Build a temporary DriveInfo as a
-         * read-only view into the continuation context to reuse qmp_build_device_add(). */
+         * read-only view into the continuation context to reuse qmp_build_device_add().
+         * ctx->node_name is already the bd-prefixed QMP name. */
         const DriveInfo tmp = {
                 .disk_driver = ctx->disk_driver,
-                .node_name   = ctx->node_name,
                 .serial      = ctx->serial,
                 .pcie_port   = ctx->pcie_port,
                 .flags       = ctx->flags & QMP_DRIVE_BOOT,
                 .fd          = -EBADF,
                 .overlay_fd  = -EBADF,
         };
-        r = qmp_build_device_add(&tmp, &device_args);
+        r = qmp_build_device_add(&tmp, ctx->node_name, &device_args);
         if (r < 0)
                 return log_error_errno(r, "Failed to build device_add JSON for '%s': %m", ctx->node_name);
 
@@ -374,10 +518,19 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
         assert(drive->fd >= 0);
         assert(drive->overlay_fd >= 0);
 
-        /* Node names: <name>-base-file, <name>-base-fmt, <name>-overlay-file, <name> */
-        _cleanup_free_ char *base_file_node = strjoin(drive->node_name, "-base-file");
-        _cleanup_free_ char *base_fmt_node = strjoin(drive->node_name, "-base-fmt");
-        _cleanup_free_ char *overlay_file_node = strjoin(drive->node_name, "-overlay-file");
+        _cleanup_free_ char *drive_id = NULL;
+        if (asprintf(&drive_id, "bd%" PRIu64, bridge->next_id++) < 0)
+                return log_oom();
+
+        /* QMP names all carry the bd- prefix so DEVICE_DELETED filtering works
+         * uniformly across ephemeral, boot-time, and hotplug drives. */
+        _cleanup_free_ char *qmp_name = strjoin(QMP_BLOCK_QDEV_PREFIX, drive_id);
+        if (!qmp_name)
+                return log_oom();
+
+        _cleanup_free_ char *base_file_node = strjoin(qmp_name, "-base-file");
+        _cleanup_free_ char *base_fmt_node = strjoin(qmp_name, "-base-fmt");
+        _cleanup_free_ char *overlay_file_node = strjoin(qmp_name, "-overlay-file");
         if (!base_file_node || !base_fmt_node || !overlay_file_node)
                 return log_oom();
 
@@ -389,12 +542,16 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
 
         /* Step 1-2: Pass both fds to QEMU */
         _cleanup_free_ char *base_path = NULL;
-        r = qmp_fdset_add(qmp, TAKE_FD(drive->fd), &base_path);
+        uint64_t base_fdset_id;
+        r = qmp_fdset_add(qmp, TAKE_FD(drive->fd),
+                          on_qmp_complete, (void*) "add-fd", &base_path, &base_fdset_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to send add-fd for base image '%s': %m", drive->path);
 
         _cleanup_free_ char *overlay_path = NULL;
-        r = qmp_fdset_add(qmp, TAKE_FD(drive->overlay_fd), &overlay_path);
+        uint64_t overlay_fdset_id;
+        r = qmp_fdset_add(qmp, TAKE_FD(drive->overlay_fd),
+                          on_qmp_complete, (void*) "add-fd", &overlay_path, &overlay_fdset_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to send add-fd for overlay of '%s': %m", drive->path);
 
@@ -410,6 +567,12 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
         r = qmp_add_file_node(qmp, &base_file_params);
         if (r < 0)
                 return log_error_errno(r, "Failed to send blockdev-add for base file '%s': %m", drive->path);
+
+        /* The base file node now holds a dup of the fd; release the monitor's
+         * original so the fdset auto-frees when raw_close runs at teardown. */
+        r = qmp_fdset_remove(qmp, base_fdset_id, on_qmp_complete, (void*) "remove-fd");
+        if (r < 0)
+                return log_error_errno(r, "Failed to send remove-fd for base image '%s': %m", drive->path);
 
         /* Step 4: Base image format node (read-only) */
         QmpFormatNodeParams base_fmt_params = {
@@ -443,6 +606,11 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
         if (r < 0)
                 return log_error_errno(r, "Failed to send blockdev-add for overlay file '%s': %m", drive->path);
 
+        /* Same as for base: the overlay file node has the dup. */
+        r = qmp_fdset_remove(qmp, overlay_fdset_id, on_qmp_complete, (void*) "remove-fd");
+        if (r < 0)
+                return log_error_errno(r, "Failed to send remove-fd for overlay of '%s': %m", drive->path);
+
         /* Step 6: Fire blockdev-create to format the overlay */
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *create_options = NULL;
         r = sd_json_buildo(&create_options,
@@ -454,7 +622,7 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
         if (r < 0)
                 return log_error_errno(r, "Failed to build blockdev-create options: %m");
 
-        _cleanup_free_ char *job_id = strjoin("create-", drive->node_name);
+        _cleanup_free_ char *job_id = strjoin("create-", qmp_name);
         if (!job_id)
                 return log_oom();
 
@@ -476,7 +644,7 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
                 ectx_flags |= QMP_DRIVE_DISCARD_NO_UNREF;
 
         *ectx = (EphemeralDriveCtx) {
-                .node_name          = strdup(drive->node_name),
+                .node_name          = strdup(qmp_name),
                 .overlay_file_node  = strdup(overlay_file_node),
                 .base_fmt_node      = strdup(base_fmt_node),
                 .disk_driver        = strdup(drive->disk_driver),
@@ -498,81 +666,346 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
         TAKE_PTR(ectx);
 
         r = qmp_client_invoke(qmp, "blockdev-create", QMP_CLIENT_ARGS(cmd_args), on_qmp_complete, (void*) "blockdev-create");
-        if (r < 0)
+        if (r < 0) {
+                _cleanup_(pending_job_freep) PendingJob *dead = hashmap_remove(bridge->pending_jobs, job_id);
                 return log_error_errno(r, "Failed to send blockdev-create for '%s': %m", drive->path);
+        }
 
         log_debug("Queued ephemeral drive setup for '%s' (job %s)", drive->path, job_id);
         return 0;
 }
 
-/* Set up a regular (non-ephemeral) drive: single file node + format node + device_add. */
-static int qmp_setup_regular_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, DriveInfo *drive) {
-        int r;
+static int qmp_setup_regular_drive(VmspawnQmpBridge *bridge, DriveInfo *drive) {
+        _cleanup_(drive_info_unrefp) DriveInfo *owned = drive;
 
         assert(bridge);
-        assert(qmp);
         assert(drive);
         assert(drive->fd >= 0);
+        assert(!drive->id);
 
-        /* Node names: <name>-file, <name> */
-        _cleanup_free_ char *file_node_name = strjoin(drive->node_name, "-file");
-        if (!file_node_name)
+        if (asprintf(&owned->id, "bd%" PRIu64, bridge->next_id) < 0)
                 return log_oom();
+        bridge->next_id++;
 
-        _cleanup_free_ char *fdset_path = NULL;
-        r = qmp_fdset_add(qmp, TAKE_FD(drive->fd), &fdset_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to send add-fd for '%s': %m", drive->path);
+        return vmspawn_qmp_add_block_device(bridge, TAKE_PTR(owned));
+}
 
-        QmpFileNodeParams file_params = {
-                .node_name = file_node_name,
-                .filename  = fdset_path,
-                .driver    = FLAGS_SET(drive->flags, QMP_DRIVE_BLOCK_DEVICE) ? "host_device" : "file",
-                .flags     = drive->flags & (QMP_DRIVE_READ_ONLY|QMP_DRIVE_NO_FLUSH),
-        };
-        if (FLAGS_SET(bridge->features, VMSPAWN_QMP_FEATURE_IO_URING))
-                file_params.flags |= QMP_DRIVE_IO_URING;
-        r = qmp_add_file_node(qmp, &file_params);
-        if (r < 0)
-                return log_error_errno(r, "Failed to send blockdev-add for '%s': %m", drive->path);
+static int reply_qmp_error(sd_varlink *link, const char *error_desc, int error) {
+        assert(link);
 
-        QmpFormatNodeParams fmt_params = {
-                .node_name      = drive->node_name,
-                .format         = drive->format,
-                .file_node_name = file_node_name,
-                .flags          = drive->flags & (QMP_DRIVE_READ_ONLY|QMP_DRIVE_DISCARD),
-        };
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *fmt_args = NULL;
-        r = qmp_build_blockdev_add_format(&fmt_params, &fmt_args);
-        if (r < 0)
-                return r;
+        if (ERRNO_IS_DISCONNECT(error))
+                return sd_varlink_error(link, "io.systemd.MachineInstance.NotConnected", NULL);
+        if (error_desc)
+                log_warning("QMP error: %s", error_desc);
+        return sd_varlink_error_errno(link, error < 0 ? error : -EIO);
+}
 
-        r = qmp_client_invoke(qmp, "blockdev-add", QMP_CLIENT_ARGS(fmt_args), on_qmp_complete, (void*) "blockdev-add");
-        if (r < 0)
-                return log_error_errno(r, "Failed to send blockdev-add format for '%s': %m", drive->path);
+static int reply_qmp_add_error(sd_varlink *link, const char *error_desc, int error) {
+        assert(link);
 
-        /* device_add: attach to virtual hardware */
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *device_args = NULL;
-        r = qmp_build_device_add(drive, &device_args);
-        if (r < 0)
-                return r;
+        if (error_desc && strcasestr(error_desc, "duplicate"))
+                return sd_varlink_error(link, "io.systemd.VirtualMachineInstance.BlockDeviceIdInUse", NULL);
+        return reply_qmp_error(link, error_desc, error);
+}
 
-        r = qmp_client_invoke(qmp, "device_add", QMP_CLIENT_ARGS(device_args), on_qmp_complete, (void*) "device_add");
-        if (r < 0)
-                return log_error_errno(r, "Failed to send device_add for '%s': %m", drive->path);
+/* After the pipelined remove-fd at add time, QEMU auto-frees the fdset when
+ * raw_close (during blockdev-del) releases the last dup. So teardown only
+ * needs to fire blockdev-del. */
+void vmspawn_qmp_block_device_teardown(QmpClient *client, const char *id, unsigned stages) {
+        assert(client);
+        assert(id);
 
-        log_debug("Queued drive setup for '%s'", drive->path);
+        if (!FLAGS_SET(stages, BLOCK_DEVICE_ADD_STAGE_BLOCKDEV_ADD))
+                return;
+
+        _cleanup_free_ char *qmp_name = strjoin(QMP_BLOCK_QDEV_PREFIX, id);
+        if (!qmp_name) {
+                (void) log_oom();
+                return;
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
+        if (sd_json_buildo(&args, SD_JSON_BUILD_PAIR_STRING("node-name", qmp_name)) >= 0)
+                (void) qmp_client_invoke(client, "blockdev-del", QMP_CLIENT_ARGS(args),
+                                         on_qmp_complete, (void*) "teardown blockdev-del");
+}
+
+/* FAILED bit marks the rollback_mask after the first error fires, so cascading
+ * stage callbacks become no-ops. Hotplug replies to the link; boot-time tears
+ * down the event loop. */
+static int drive_info_add_fail(DriveInfo *d, int error, const char *error_desc) {
+        assert(d);
+
+        if (FLAGS_SET(d->rollback_mask, BLOCK_DEVICE_ADD_STAGE_FAILED))
+                return 0;
+
+        vmspawn_qmp_block_device_teardown(d->bridge->qmp, d->id, d->rollback_mask);
+        d->rollback_mask = BLOCK_DEVICE_ADD_STAGE_FAILED;
+
+        if (d->link) {
+                (void) reply_qmp_add_error(d->link, error_desc, error);
+                d->link = sd_varlink_unref(d->link);
+                return 0;
+        }
+
+        log_error_errno(error, "Block device '%s' setup failed: %s",
+                        strna(d->id), strna(error_desc));
+        return sd_event_exit(qmp_client_get_event(d->bridge->qmp), error);
+}
+
+/* Shared by the intermediate stages that don't need to record a rollback bit
+ * (add-fd, remove-fd). Just forwards errors to drive_info_add_fail so cascades
+ * from earlier stage failures get suppressed via the FAILED sentinel. */
+static int on_add_observe_stage(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        _cleanup_(drive_info_unrefp) DriveInfo *d = ASSERT_PTR(userdata);
+        assert(client);
+
+        if (error < 0)
+                return drive_info_add_fail(d, error, error_desc);
         return 0;
 }
 
-/* Configure a single drive via QMP. Dispatches to ephemeral or regular setup. */
-static int qmp_setup_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, DriveInfo *drive) {
+static int on_add_blockdev_stage(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        _cleanup_(drive_info_unrefp) DriveInfo *d = ASSERT_PTR(userdata);
+        assert(client);
+
+        if (error < 0)
+                return drive_info_add_fail(d, error, error_desc);
+
+        d->rollback_mask |= BLOCK_DEVICE_ADD_STAGE_BLOCKDEV_ADD;
+
+        /* A sync error after blockdev-add was queued may have marked the chain FAILED.
+         * The blockdev node we just created is orphaned — tear it down retroactively. */
+        if (FLAGS_SET(d->rollback_mask, BLOCK_DEVICE_ADD_STAGE_FAILED))
+                vmspawn_qmp_block_device_teardown(d->bridge->qmp, d->id,
+                                                  BLOCK_DEVICE_ADD_STAGE_BLOCKDEV_ADD);
+        return 0;
+}
+
+static int on_add_device_add_complete(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        _cleanup_(drive_info_unrefp) DriveInfo *d = ASSERT_PTR(userdata);
+
+        assert(client);
+
+        if (error < 0)
+                return drive_info_add_fail(d, error, error_desc);
+
+        if (FLAGS_SET(d->rollback_mask, BLOCK_DEVICE_ADD_STAGE_FAILED))
+                return 0;
+
+        /* Commit: port stays reserved under owner id until DEVICE_DELETED. */
+        d->pcie_port_idx = -1;
+
+        if (d->link)
+                (void) sd_varlink_replybo(d->link, SD_JSON_BUILD_PAIR_STRING("id", d->id));
+
+        log_info("Block device '%s' attached", d->id);
+        return 0;
+}
+
+static int on_scsi_controller_complete(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        assert(client);
+
+        VmspawnQmpBridge *bridge = ASSERT_PTR(qmp_client_get_userdata(client));
+
+        if (error < 0) {
+                vmspawn_qmp_bridge_release_pcie_port_by_idx(bridge, bridge->scsi_controller_port_idx);
+                bridge->scsi_controller_port_idx = -1;
+                log_warning("virtio-scsi-pci controller setup failed: %s", strna(error_desc));
+                if (!bridge->setup_done)
+                        return sd_event_exit(qmp_client_get_event(client), error);
+                return 0;
+        }
+
+        bridge->scsi_controller_created = true;
+        return 0;
+}
+
+static int qmp_setup_scsi_controller(VmspawnQmpBridge *bridge, const char *pcie_port) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
+        int r;
+
+        assert(bridge);
+
+        r = sd_json_buildo(
+                        &args,
+                        SD_JSON_BUILD_PAIR_STRING("driver", "virtio-scsi-pci"),
+                        SD_JSON_BUILD_PAIR_STRING("id", "vmspawn_scsi"),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!pcie_port, "bus", SD_JSON_BUILD_STRING(pcie_port)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build SCSI controller JSON: %m");
+
+        r = qmp_client_invoke(bridge->qmp, "device_add", QMP_CLIENT_ARGS(args),
+                              on_scsi_controller_complete, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to send SCSI controller device_add: %m");
+
+        log_debug("Queued virtio-scsi-pci controller setup");
+        return 0;
+}
+
+int vmspawn_qmp_add_block_device(VmspawnQmpBridge *bridge, DriveInfo *drive) {
+        int r;
+
+        assert(bridge);
         assert(drive);
+        assert(drive->id);
+        assert(drive->format);
+        assert(drive->disk_driver);
+        assert(drive->fd >= 0);
 
-        if (drive->overlay_fd >= 0)
-                return qmp_setup_ephemeral_drive(bridge, qmp, drive);
+        _cleanup_(drive_info_unrefp) DriveInfo *owned = drive, *slot_ref = NULL;
+        drive->bridge = bridge;
 
-        return qmp_setup_regular_drive(bridge, qmp, drive);
+        _cleanup_free_ char *qmp_name = strjoin(QMP_BLOCK_QDEV_PREFIX, drive->id);
+        if (!qmp_name)
+                return log_oom();
+
+        /* First SCSI hotplug needs a virtio-scsi-pci controller to attach to. */
+        if (STR_IN_SET(drive->disk_driver, "scsi-hd", "scsi-cd") && !bridge->scsi_controller_created) {
+                _cleanup_free_ char *controller_port = NULL;
+                int controller_port_idx = -1;
+                if (ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS) {
+                        r = vmspawn_qmp_bridge_allocate_pcie_port(bridge, "vmspawn_scsi",
+                                                                  &controller_port, &controller_port_idx);
+                        if (r == -EBUSY)
+                                return log_error_errno(r, "No PCIe hotplug ports left for SCSI controller");
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                r = qmp_setup_scsi_controller(bridge, controller_port);
+                if (r < 0) {
+                        vmspawn_qmp_bridge_release_pcie_port_by_idx(bridge, controller_port_idx);
+                        return r;
+                }
+
+                bridge->scsi_controller_port_idx = controller_port_idx;
+        }
+
+        uint64_t fdset_id;
+        slot_ref = drive_info_ref(drive);
+        r = qmp_fdset_add(bridge->qmp, TAKE_FD(drive->fd),
+                          on_add_observe_stage, slot_ref, &drive->fdset_path, &fdset_id);
+        if (r < 0)
+                return r;
+        TAKE_PTR(slot_ref);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *blockdev_args = NULL;
+        r = qmp_build_blockdev_add_inline(
+                        qmp_name, drive->format, drive->fdset_path,
+                        FLAGS_SET(drive->flags, QMP_DRIVE_BLOCK_DEVICE) ? "host_device" : "file",
+                        drive->flags, bridge->features, &blockdev_args);
+        if (r < 0)
+                return r;
+
+        slot_ref = drive_info_ref(drive);
+        r = qmp_client_invoke(bridge->qmp, "blockdev-add", QMP_CLIENT_ARGS(blockdev_args),
+                              on_add_blockdev_stage, slot_ref);
+        if (r < 0)
+                return r;
+        TAKE_PTR(slot_ref);
+
+        /* Release the monitor's original fd; the blockdev-add above took a dup.
+         * From this point on, blockdev-add is live in QEMU's command queue, so a sync
+         * error here must mark FAILED — the blockdev-add callback will see it and
+         * issue retroactive teardown. */
+        slot_ref = drive_info_ref(drive);
+        r = qmp_fdset_remove(bridge->qmp, fdset_id, on_add_observe_stage, slot_ref);
+        if (r < 0) {
+                drive->rollback_mask |= BLOCK_DEVICE_ADD_STAGE_FAILED;
+                return r;
+        }
+        TAKE_PTR(slot_ref);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *device_args = NULL;
+        r = qmp_build_device_add(drive, qmp_name, &device_args);
+        if (r < 0) {
+                drive->rollback_mask |= BLOCK_DEVICE_ADD_STAGE_FAILED;
+                return r;
+        }
+
+        slot_ref = drive_info_ref(drive);
+        r = qmp_client_invoke(bridge->qmp, "device_add", QMP_CLIENT_ARGS(device_args),
+                              on_add_device_add_complete, slot_ref);
+        if (r < 0) {
+                drive->rollback_mask |= BLOCK_DEVICE_ADD_STAGE_FAILED;
+                return r;
+        }
+        TAKE_PTR(slot_ref);
+
+        TAKE_PTR(owned);
+        return 0;
+}
+
+static int on_remove_device_del_complete(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = ASSERT_PTR(userdata);
+
+        assert(client);
+
+        if (error < 0) {
+                if (error_desc && strstr(error_desc, "not found"))
+                        return sd_varlink_error(link, "io.systemd.VirtualMachineInstance.NoSuchBlockDevice", NULL);
+                return reply_qmp_error(link, error_desc, error);
+        }
+
+        return sd_varlink_reply(link, NULL);
+}
+
+int vmspawn_qmp_remove_block_device(VmspawnQmpBridge *bridge, sd_varlink *link, const char *id) {
+        int r;
+
+        assert(bridge);
+        assert(link);
+        assert(id);
+
+        _cleanup_free_ char *qmp_name = strjoin(QMP_BLOCK_QDEV_PREFIX, id);
+        if (!qmp_name)
+                return log_oom();
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
+        r = sd_json_buildo(&args, SD_JSON_BUILD_PAIR_STRING("id", qmp_name));
+        if (r < 0)
+                return r;
+
+        sd_varlink_ref(link);
+        r = qmp_client_invoke(bridge->qmp, "device_del", QMP_CLIENT_ARGS(args),
+                              on_remove_device_del_complete, link);
+        if (r < 0) {
+                sd_varlink_unref(link);
+                return r;
+        }
+        return 0;
 }
 
 int vmspawn_qmp_setup_network(VmspawnQmpBridge *bridge, NetworkInfo *network) {
@@ -762,31 +1195,13 @@ int vmspawn_qmp_setup_vsock(VmspawnQmpBridge *bridge, VsockInfo *vsock) {
 static bool drives_need_scsi_controller(DriveInfos *drives) {
         assert(drives);
 
-        FOREACH_ARRAY(d, drives->drives, drives->n_drives)
-                if (STR_IN_SET((*d)->disk_driver, "scsi-hd", "scsi-cd"))
+        FOREACH_ARRAY(d, drives->drives, drives->n_drives) {
+                DriveInfo *drive = *d;
+                if (STR_IN_SET(drive->disk_driver, "scsi-hd", "scsi-cd"))
                         return true;
+        }
 
         return false;
-}
-
-static int qmp_setup_scsi_controller(QmpClient *qmp, const char *pcie_port) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
-        int r;
-
-        r = sd_json_buildo(
-                        &args,
-                        SD_JSON_BUILD_PAIR_STRING("driver", "virtio-scsi-pci"),
-                        SD_JSON_BUILD_PAIR_STRING("id", "vmspawn_scsi"),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!pcie_port, "bus", SD_JSON_BUILD_STRING(pcie_port)));
-        if (r < 0)
-                return log_error_errno(r, "Failed to build SCSI controller JSON: %m");
-
-        r = qmp_client_invoke(qmp, "device_add", QMP_CLIENT_ARGS(args), on_qmp_complete, (void*) "device_add");
-        if (r < 0)
-                return log_error_errno(r, "Failed to send SCSI controller device_add: %m");
-
-        log_debug("Queued virtio-scsi-pci controller setup");
-        return 0;
 }
 
 int vmspawn_qmp_setup_drives(VmspawnQmpBridge *bridge, DriveInfos *drives) {
@@ -801,13 +1216,16 @@ int vmspawn_qmp_setup_drives(VmspawnQmpBridge *bridge, DriveInfos *drives) {
          * bridge->features is passed to each file node setup call. */
 
         if (drives_need_scsi_controller(drives)) {
-                r = qmp_setup_scsi_controller(qmp, drives->scsi_pcie_port);
+                r = qmp_setup_scsi_controller(bridge, drives->scsi_pcie_port);
                 if (r < 0)
                         return r;
         }
 
         FOREACH_ARRAY(d, drives->drives, drives->n_drives) {
-                r = qmp_setup_drive(bridge, qmp, *d);
+                if ((*d)->overlay_fd >= 0)
+                        r = qmp_setup_ephemeral_drive(bridge, qmp, *d);
+                else
+                        r = qmp_setup_regular_drive(bridge, TAKE_PTR(*d));
                 if (r < 0)
                         return r;
         }
@@ -828,6 +1246,9 @@ VmspawnQmpBridge* vmspawn_qmp_bridge_free(VmspawnQmpBridge *b) {
                 return NULL;
 
         hashmap_free(b->pending_jobs);
+
+        FOREACH_ELEMENT(owner, b->hotplug_port_owner)
+                free(*owner);
 
         qmp_client_unref(b->qmp);
         return mfree(b);
@@ -996,6 +1417,8 @@ int vmspawn_qmp_init(VmspawnQmpBridge **ret, int fd, sd_event *event) {
         if (!bridge)
                 return log_oom();
 
+        bridge->scsi_controller_port_idx = -1;
+
         r = qmp_client_connect_fd(&bridge->qmp, fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to create QMP client: %m");
@@ -1057,9 +1480,9 @@ static int on_cont_complete(
                 int error,
                 void *userdata) {
 
-        VmspawnQmpBridge *bridge = ASSERT_PTR(qmp_client_get_userdata(client));
-
         assert(client);
+
+        VmspawnQmpBridge *bridge = ASSERT_PTR(qmp_client_get_userdata(client));
 
         if (error < 0) {
                 log_error_errno(error, "Failed to resume QEMU execution: %s", strna(error_desc));
