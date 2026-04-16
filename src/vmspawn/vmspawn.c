@@ -851,7 +851,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("ssh-key-type", "TYPE", "Choose what type of SSH key to pass"):
-                        if (!string_is_safe(arg))
+                        if (!string_is_safe(arg, STRING_ALLOW_EMPTY|STRING_ALLOW_GLOBS))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value for --ssh-key-type=: %s", arg);
 
                         r = free_and_strdup_warn(&arg_ssh_key_type, arg);
