@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
-
 #include "sd-json.h"
 #include "sd-messages.h"
 #include "sd-varlink.h"
@@ -10,8 +8,10 @@
 #include "build.h"
 #include "efi-loader.h"
 #include "escape.h"
+#include "format-table.h"
 #include "json-util.h"
 #include "main-func.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "pcrextend-util.h"
 #include "pretty-print.h"
@@ -42,95 +42,63 @@ STATIC_DESTRUCTOR_REGISTER(arg_nvpcr_name, freep);
 
 #define EXTENSION_STRING_SAFE_LIMIT 1024
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-pcrextend", "8", &link);
         if (r < 0)
                 return log_oom();
 
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
         printf("%1$s  [OPTIONS...] WORD\n"
                "%1$s  [OPTIONS...] --file-system=PATH\n"
                "%1$s  [OPTIONS...] --machine-id\n"
                "%1$s  [OPTIONS...] --product-id\n"
-               "\n%5$sExtend a TPM2 PCR with boot phase, machine ID, or file system ID.%6$s\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help              Show this help\n"
-               "     --version           Print version\n"
-               "     --bank=DIGEST       Select TPM PCR bank (SHA1, SHA256)\n"
-               "     --pcr=INDEX         Select TPM PCR index (0…23)\n"
-               "     --nvpcr=NAME        Select TPM PCR mode nvindex name\n"
-               "     --tpm2-device=PATH  Use specified TPM2 device\n"
-               "     --graceful          Exit gracefully if no TPM2 device is found\n"
-               "     --file-system=PATH  Measure UUID/labels of file system into PCR 15\n"
-               "     --machine-id        Measure machine ID into PCR 15\n"
-               "     --product-id        Measure SMBIOS product ID into NvPCR 'hardware'\n"
-               "     --early             Run in early boot mode, without access to /var/\n"
-               "     --event-type=TYPE   Event type to include in the event log\n"
-               "\nSee the %2$s for details.\n",
+               "\n%2$sExtend a TPM2 PCR with boot phase, machine ID, or file system ID.%3$s\n",
                program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
                ansi_normal());
 
+        printf("\n%sOptions:%s\n",
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_BANK,
-                ARG_PCR,
-                ARG_NVPCR,
-                ARG_TPM2_DEVICE,
-                ARG_GRACEFUL,
-                ARG_FILE_SYSTEM,
-                ARG_MACHINE_ID,
-                ARG_PRODUCT_ID,
-                ARG_EARLY,
-                ARG_EVENT_TYPE,
-        };
-
-        static const struct option options[] = {
-                { "help",        no_argument,       NULL, 'h'             },
-                { "version",     no_argument,       NULL, ARG_VERSION     },
-                { "bank",        required_argument, NULL, ARG_BANK        },
-                { "pcr",         required_argument, NULL, ARG_PCR         },
-                { "nvpcr",       required_argument, NULL, ARG_NVPCR       },
-                { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
-                { "graceful",    no_argument,       NULL, ARG_GRACEFUL    },
-                { "file-system", required_argument, NULL, ARG_FILE_SYSTEM },
-                { "machine-id",  no_argument,       NULL, ARG_MACHINE_ID  },
-                { "product-id",  no_argument,       NULL, ARG_PRODUCT_ID  },
-                { "early",       no_argument,       NULL, ARG_EARLY       },
-                { "event-type",  required_argument, NULL, ARG_EVENT_TYPE  },
-                {}
-        };
-
-        int c, r;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+        int r;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
+                OPTION_COMMON_HELP:
+                        return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_BANK: {
+                OPTION_LONG("bank", "DIGEST", "Select TPM PCR bank (SHA1, SHA256)"): {
                         const EVP_MD *implementation;
 
-                        implementation = EVP_get_digestbyname(optarg);
+                        implementation = EVP_get_digestbyname(arg);
                         if (!implementation)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", arg);
 
                         if (strv_extend(&arg_banks, EVP_MD_name(implementation)) < 0)
                                 return log_oom();
@@ -138,36 +106,36 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_PCR:
-                        if (isempty(optarg)) {
+                OPTION_LONG("pcr", "INDEX", "Select TPM PCR index (0…23)"):
+                        if (isempty(arg)) {
                                 arg_pcr_mask = 0;
                                 break;
                         }
 
-                        r = tpm2_pcr_index_from_string(optarg);
+                        r = tpm2_pcr_index_from_string(arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse PCR index: %s", optarg);
+                                return log_error_errno(r, "Failed to parse PCR index: %s", arg);
 
                         arg_pcr_mask |= INDEX_TO_MASK(uint32_t, r);
                         break;
 
-                case ARG_NVPCR:
-                        if (!tpm2_nvpcr_name_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NvPCR name is not valid: %s", optarg);
+                OPTION_LONG("nvpcr", "NAME", "Select TPM PCR mode nvindex name"):
+                        if (!tpm2_nvpcr_name_is_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NvPCR name is not valid: %s", arg);
 
-                        r = free_and_strdup_warn(&arg_nvpcr_name, optarg);
+                        r = free_and_strdup_warn(&arg_nvpcr_name, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_TPM2_DEVICE: {
+                OPTION_LONG("tpm2-device", "PATH", "Use specified TPM2 device"): {
                         _cleanup_free_ char *device = NULL;
 
-                        if (streq(optarg, "list"))
+                        if (streq(arg, "list"))
                                 return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
-                        if (!streq(optarg, "auto")) {
-                                device = strdup(optarg);
+                        if (!streq(arg, "auto")) {
+                                device = strdup(arg);
                                 if (!device)
                                         return log_oom();
                         }
@@ -176,43 +144,41 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_GRACEFUL:
+                OPTION_LONG("graceful", NULL,
+                            "Exit gracefully if no TPM2 device is found"):
                         arg_graceful = true;
                         break;
 
-                case ARG_FILE_SYSTEM:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_file_system);
+                OPTION_LONG("file-system", "PATH",
+                            "Measure UUID/labels of file system into PCR 15"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_file_system);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_MACHINE_ID:
+                OPTION_LONG("machine-id", NULL, "Measure machine ID into PCR 15"):
                         arg_machine_id = true;
                         break;
 
-                case ARG_PRODUCT_ID:
+                OPTION_LONG("product-id", NULL,
+                            "Measure SMBIOS product ID into NvPCR 'hardware'"):
                         arg_product_id = true;
                         break;
 
-                case ARG_EARLY:
+                OPTION_LONG("early", NULL,
+                            "Run in early boot mode, without access to /var/"):
                         arg_early = true;
                         break;
 
-                case ARG_EVENT_TYPE:
-                        if (streq(optarg, "help"))
+                OPTION_LONG("event-type", "TYPE",
+                            "Event type to include in the event log"):
+                        if (streq(arg, "help"))
                                 return DUMP_STRING_TABLE(tpm2_userspace_event_type, Tpm2UserspaceEventType, _TPM2_USERSPACE_EVENT_TYPE_MAX);
 
-                        arg_event_type = tpm2_userspace_event_type_from_string(optarg);
+                        arg_event_type = tpm2_userspace_event_type_from_string(arg);
                         if (arg_event_type < 0)
-                                return log_error_errno(arg_event_type, "Failed to parse --event-type= argument: %s", optarg);
+                                return log_error_errno(arg_event_type, "Failed to parse --event-type= argument: %s", arg);
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (!!arg_file_system + arg_machine_id + arg_product_id > 1)
@@ -237,6 +203,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return r;
         }
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
@@ -482,15 +449,18 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
+
+        size_t n_args = strv_length(args);
 
         if (arg_varlink)
                 return vl_server(); /* Invocation as Varlink service */
 
         if (arg_file_system) {
-                if (optind != argc)
+                if (n_args != 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected no argument.");
 
                 r = pcrextend_file_system_word(arg_file_system, &word, NULL);
@@ -501,7 +471,7 @@ static int run(int argc, char *argv[]) {
 
         } else if (arg_machine_id) {
 
-                if (optind != argc)
+                if (n_args != 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected no argument.");
 
                 r = pcrextend_machine_id_word(&word);
@@ -512,7 +482,7 @@ static int run(int argc, char *argv[]) {
 
         } else if (arg_product_id)  {
 
-                if (optind != argc)
+                if (n_args != 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected no argument.");
 
                 r = pcrextend_product_id_word(&word);
@@ -521,10 +491,10 @@ static int run(int argc, char *argv[]) {
 
                 event = TPM2_EVENT_PRODUCT_ID;
         } else {
-                if (optind+1 != argc)
+                if (n_args != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected a single argument.");
 
-                word = strdup(argv[optind]);
+                word = strdup(args[0]);
                 if (!word)
                         return log_oom();
 
