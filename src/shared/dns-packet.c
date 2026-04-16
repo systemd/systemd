@@ -2861,7 +2861,7 @@ int dns_packet_ede_rcode(DnsPacket *p, int *ret_ede_rcode, char **ret_ede_msg) {
                                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                        "EDNS0 truncated EDE info code.");
 
-                        r = make_cstring((char *) d + 6, length - 2U, MAKE_CSTRING_ALLOW_TRAILING_NUL, &msg);
+                        r = make_cstring(d + 6, length - 2U, MAKE_CSTRING_ALLOW_TRAILING_NUL, &msg);
                         if (r < 0)
                                 return log_debug_errno(r, "Invalid EDE text in opt.");
 
