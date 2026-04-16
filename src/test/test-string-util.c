@@ -325,6 +325,8 @@ TEST(strrep) {
 
         ASSERT_STREQ(onea, "waldo");
         ASSERT_STREQ(threea, "waldowaldowaldo");
+
+        ASSERT_NULL(strrep("waldo", SIZE_MAX - 1));
 }
 
 TEST(string_has_cc) {

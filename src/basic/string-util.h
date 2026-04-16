@@ -193,7 +193,7 @@ int strextendf_with_separator(char **x, const char *separator, const char *forma
         })
 #define strprepend(x, ...) strprepend_with_separator(x, NULL, __VA_ARGS__)
 
-char* strrep(const char *s, unsigned n);
+char* strrep(const char *s, size_t n);
 
 #define strrepa(s, n)                                                   \
         ({                                                              \
