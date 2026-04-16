@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <stdlib.h>
 #include <sys/random.h>
 #include <sys/stat.h>
@@ -14,18 +13,20 @@
 #include "build.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "options.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "random-util.h"
 #include "sha256.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "sync-util.h"
+#include "verbs.h"
 #include "xattr-util.h"
 
 typedef enum SeedAction {
@@ -296,75 +297,75 @@ static int save_seed_file(
         return 0;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-random-seed", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] COMMAND\n"
-               "\n%5$sLoad and save the system random seed at boot and shutdown.%6$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "  load                Load a random seed saved on disk into the kernel entropy pool\n"
-               "  save                Save a new random seed on disk\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help           Show this help\n"
-               "     --version        Show package version\n"
-               "\nSee the %2$s for details.\n",
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, options);
+
+        printf("%s [OPTIONS...] COMMAND\n"
+               "\n%sLoad and save the system random seed at boot and shutdown.%s\n"
+               "\nCommands:\n",
                program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
                ansi_normal());
 
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\nOptions:\n");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static const char* const seed_action_table[_ACTION_MAX] = {
-        [ACTION_LOAD] = "load",
-        [ACTION_SAVE] = "save",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(seed_action, SeedAction);
+VERB_FULL(verb_set_action, "load", NULL, VERB_ANY, 1, 0, ACTION_LOAD,
+          "Load a random seed saved on disk into the kernel entropy pool");
+VERB_FULL(verb_set_action, "save", NULL, VERB_ANY, 1, 0, ACTION_SAVE,
+          "Save a new random seed on disk");
+static int verb_set_action(int argc, char *argv[], uintptr_t data, void *userdata) {
+        arg_action = data;
+        return 0;
+}
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-        };
-
-        static const struct option options[] = {
-                { "help",    no_argument, NULL, 'h'         },
-                { "version", no_argument, NULL, ARG_VERSION },
-                {}
-        };
-
-        int c;
-
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-                case 'h':
-                        return help(0, NULL, NULL);
-                case ARG_VERSION:
-                        return version();
-                case '?':
-                        return -EINVAL;
+        OptionParser state = { argc, argv };
+        const char *arg;
+        int r;
 
-                default:
-                        assert_not_reached();
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
                 }
 
-        if (optind + 1 != argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires one argument.");
-
-        arg_action = seed_action_from_string(argv[optind]);
-        if (arg_action < 0)
-                return log_error_errno(arg_action, "Unknown action '%s'", argv[optind]);
+        r = dispatch_verb_with_args(option_parser_get_args(&state), NULL);
+        if (r < 0)
+                return r;
 
         return 1;
 }
