@@ -85,7 +85,7 @@ void machine_config_done(MachineConfig *c) {
 /* Generic async QMP setup-completion callback. The userdata argument carries the
  * command name (as a string literal) for logging. On failure, request a clean
  * event loop exit so vmspawn shuts down instead of running a VM with missing devices. */
-static int on_qmp_setup_complete(
+static int on_qmp_complete(
                 QmpClient *client,
                 sd_json_variant *result,
                 const char *error_desc,
@@ -127,7 +127,7 @@ static int qmp_fdset_add(QmpClient *qmp, int fd_consume, char **ret_path) {
                 return -ENOMEM;
 
         r = qmp_client_invoke(qmp, "add-fd", QMP_CLIENT_ARGS_FD(args, TAKE_FD(fd)),
-                              on_qmp_setup_complete, (void*) "add-fd");
+                              on_qmp_complete, (void*) "add-fd");
         if (r < 0)
                 return r;
 
@@ -221,7 +221,7 @@ static int qmp_add_file_node(QmpClient *qmp, const QmpFileNodeParams *p) {
         if (r < 0)
                 return r;
 
-        return qmp_client_invoke(qmp, "blockdev-add", QMP_CLIENT_ARGS(args), on_qmp_setup_complete, (void*) "blockdev-add");
+        return qmp_client_invoke(qmp, "blockdev-add", QMP_CLIENT_ARGS(args), on_qmp_complete, (void*) "blockdev-add");
 }
 
 /* Get the virtual size of an image from the fd directly. For raw images the virtual size
@@ -320,7 +320,7 @@ static int on_ephemeral_create_concluded(QmpClient *qmp, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build overlay format JSON for '%s': %m", ctx->node_name);
 
-        r = qmp_client_invoke(qmp, "blockdev-add", QMP_CLIENT_ARGS(fmt_args), on_qmp_setup_complete, (void*) "blockdev-add");
+        r = qmp_client_invoke(qmp, "blockdev-add", QMP_CLIENT_ARGS(fmt_args), on_qmp_complete, (void*) "blockdev-add");
         if (r < 0)
                 return r;
 
@@ -339,7 +339,7 @@ static int on_ephemeral_create_concluded(QmpClient *qmp, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build device_add JSON for '%s': %m", ctx->node_name);
 
-        r = qmp_client_invoke(qmp, "device_add", QMP_CLIENT_ARGS(device_args), on_qmp_setup_complete, (void*) "device_add");
+        r = qmp_client_invoke(qmp, "device_add", QMP_CLIENT_ARGS(device_args), on_qmp_complete, (void*) "device_add");
         if (r < 0)
                 return r;
 
@@ -408,7 +408,7 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
         if (r < 0)
                 return r;
 
-        r = qmp_client_invoke(qmp, "blockdev-add", QMP_CLIENT_ARGS(base_fmt_args), on_qmp_setup_complete, (void*) "blockdev-add");
+        r = qmp_client_invoke(qmp, "blockdev-add", QMP_CLIENT_ARGS(base_fmt_args), on_qmp_complete, (void*) "blockdev-add");
         if (r < 0)
                 return log_error_errno(r, "Failed to send blockdev-add for base format '%s': %m", drive->path);
 
@@ -424,7 +424,7 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
         if (r < 0)
                 return r;
 
-        r = qmp_client_invoke(qmp, "blockdev-add", QMP_CLIENT_ARGS(overlay_file_args), on_qmp_setup_complete, (void*) "blockdev-add");
+        r = qmp_client_invoke(qmp, "blockdev-add", QMP_CLIENT_ARGS(overlay_file_args), on_qmp_complete, (void*) "blockdev-add");
         if (r < 0)
                 return log_error_errno(r, "Failed to send blockdev-add for overlay file '%s': %m", drive->path);
 
@@ -482,7 +482,7 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
 
         TAKE_PTR(ectx);
 
-        r = qmp_client_invoke(qmp, "blockdev-create", QMP_CLIENT_ARGS(cmd_args), on_qmp_setup_complete, (void*) "blockdev-create");
+        r = qmp_client_invoke(qmp, "blockdev-create", QMP_CLIENT_ARGS(cmd_args), on_qmp_complete, (void*) "blockdev-create");
         if (r < 0)
                 return log_error_errno(r, "Failed to send blockdev-create for '%s': %m", drive->path);
 
@@ -532,7 +532,7 @@ static int qmp_setup_regular_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, Dri
         if (r < 0)
                 return r;
 
-        r = qmp_client_invoke(qmp, "blockdev-add", QMP_CLIENT_ARGS(fmt_args), on_qmp_setup_complete, (void*) "blockdev-add");
+        r = qmp_client_invoke(qmp, "blockdev-add", QMP_CLIENT_ARGS(fmt_args), on_qmp_complete, (void*) "blockdev-add");
         if (r < 0)
                 return log_error_errno(r, "Failed to send blockdev-add format for '%s': %m", drive->path);
 
@@ -542,7 +542,7 @@ static int qmp_setup_regular_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, Dri
         if (r < 0)
                 return r;
 
-        r = qmp_client_invoke(qmp, "device_add", QMP_CLIENT_ARGS(device_args), on_qmp_setup_complete, (void*) "device_add");
+        r = qmp_client_invoke(qmp, "device_add", QMP_CLIENT_ARGS(device_args), on_qmp_complete, (void*) "device_add");
         if (r < 0)
                 return log_error_errno(r, "Failed to send device_add for '%s': %m", drive->path);
 
@@ -585,7 +585,7 @@ int vmspawn_qmp_setup_network(VmspawnQmpBridge *bridge, NetworkInfo *network) {
                         return log_error_errno(r, "Failed to build getfd JSON: %m");
 
                 r = qmp_client_invoke(qmp, "getfd", QMP_CLIENT_ARGS_FD(getfd_args, TAKE_FD(network->fd)),
-                                      on_qmp_setup_complete, (void*) "getfd");
+                                      on_qmp_complete, (void*) "getfd");
                 if (r < 0)
                         return log_error_errno(r, "Failed to send getfd for TAP fd: %m");
         }
@@ -606,7 +606,7 @@ int vmspawn_qmp_setup_network(VmspawnQmpBridge *bridge, NetworkInfo *network) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build netdev_add JSON: %m");
 
-        r = qmp_client_invoke(qmp, "netdev_add", QMP_CLIENT_ARGS(netdev_args), on_qmp_setup_complete, (void*) "netdev_add");
+        r = qmp_client_invoke(qmp, "netdev_add", QMP_CLIENT_ARGS(netdev_args), on_qmp_complete, (void*) "netdev_add");
         if (r < 0)
                 return log_error_errno(r, "Failed to send netdev_add: %m");
 
@@ -623,7 +623,7 @@ int vmspawn_qmp_setup_network(VmspawnQmpBridge *bridge, NetworkInfo *network) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build NIC device_add JSON: %m");
 
-        r = qmp_client_invoke(qmp, "device_add", QMP_CLIENT_ARGS(device_args), on_qmp_setup_complete, (void*) "device_add");
+        r = qmp_client_invoke(qmp, "device_add", QMP_CLIENT_ARGS(device_args), on_qmp_complete, (void*) "device_add");
         if (r < 0)
                 return log_error_errno(r, "Failed to send NIC device_add: %m");
 
@@ -658,7 +658,7 @@ static int vmspawn_qmp_setup_one_virtiofs(QmpClient *qmp, const VirtiofsInfo *vf
         if (r < 0)
                 return log_error_errno(r, "Failed to build chardev-add JSON for '%s': %m", vfs->id);
 
-        r = qmp_client_invoke(qmp, "chardev-add", QMP_CLIENT_ARGS(chardev_args), on_qmp_setup_complete, (void*) "chardev-add");
+        r = qmp_client_invoke(qmp, "chardev-add", QMP_CLIENT_ARGS(chardev_args), on_qmp_complete, (void*) "chardev-add");
         if (r < 0)
                 return log_error_errno(r, "Failed to send chardev-add '%s': %m", vfs->id);
 
@@ -675,7 +675,7 @@ static int vmspawn_qmp_setup_one_virtiofs(QmpClient *qmp, const VirtiofsInfo *vf
         if (r < 0)
                 return log_error_errno(r, "Failed to build virtiofs device_add JSON for '%s': %m", vfs->id);
 
-        r = qmp_client_invoke(qmp, "device_add", QMP_CLIENT_ARGS(device_args), on_qmp_setup_complete, (void*) "device_add");
+        r = qmp_client_invoke(qmp, "device_add", QMP_CLIENT_ARGS(device_args), on_qmp_complete, (void*) "device_add");
         if (r < 0)
                 return log_error_errno(r, "Failed to send virtiofs device_add '%s': %m", vfs->id);
 
@@ -720,7 +720,7 @@ int vmspawn_qmp_setup_vsock(VmspawnQmpBridge *bridge, VsockInfo *vsock) {
                 return log_error_errno(r, "Failed to build getfd JSON for VSOCK: %m");
 
         r = qmp_client_invoke(qmp, "getfd", QMP_CLIENT_ARGS_FD(getfd_args, TAKE_FD(vsock->fd)),
-                              on_qmp_setup_complete, (void*) "getfd");
+                              on_qmp_complete, (void*) "getfd");
         if (r < 0)
                 return log_error_errno(r, "Failed to send getfd for VSOCK fd: %m");
 
@@ -736,7 +736,7 @@ int vmspawn_qmp_setup_vsock(VmspawnQmpBridge *bridge, VsockInfo *vsock) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build VSOCK device_add JSON: %m");
 
-        r = qmp_client_invoke(qmp, "device_add", QMP_CLIENT_ARGS(device_args), on_qmp_setup_complete, (void*) "device_add");
+        r = qmp_client_invoke(qmp, "device_add", QMP_CLIENT_ARGS(device_args), on_qmp_complete, (void*) "device_add");
         if (r < 0)
                 return log_error_errno(r, "Failed to send VSOCK device_add: %m");
 
@@ -766,7 +766,7 @@ static int qmp_setup_scsi_controller(QmpClient *qmp, const char *pcie_port) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build SCSI controller JSON: %m");
 
-        r = qmp_client_invoke(qmp, "device_add", QMP_CLIENT_ARGS(args), on_qmp_setup_complete, (void*) "device_add");
+        r = qmp_client_invoke(qmp, "device_add", QMP_CLIENT_ARGS(args), on_qmp_complete, (void*) "device_add");
         if (r < 0)
                 return log_error_errno(r, "Failed to send SCSI controller device_add: %m");
 
