@@ -4666,7 +4666,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 IN_SET(c, ARG_STORAGE, ARG_FS_TYPE) ?
                                 &arg_identity_extra_this_machine : &arg_identity_extra;
 
-                        if (!isempty(optarg) && !string_is_safe(optarg))
+                        if (!string_is_safe(optarg, STRING_NON_EMPTY|STRING_NO_QUOTES))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Parameter for field %s not valid: %s", field, optarg);
 
