@@ -5,19 +5,6 @@
 #include "utf8.h"
 #include "web-util.h"
 
-bool http_etag_is_valid(const char *etag) {
-        if (isempty(etag))
-                return false;
-
-        if (!endswith(etag, "\""))
-                return false;
-
-        if (!STARTSWITH_SET(etag, "\"", "W/\""))
-                return false;
-
-        return true;
-}
-
 bool http_url_is_valid(const char *url) {
         const char *p;
 
@@ -61,4 +48,17 @@ bool documentation_url_is_valid(const char *url) {
                 return false;
 
         return ascii_is_valid(p);
+}
+
+bool http_etag_is_valid(const char *etag) {
+        if (isempty(etag))
+                return false;
+
+        if (!endswith(etag, "\""))
+                return false;
+
+        if (!STARTSWITH_SET(etag, "\"", "W/\""))
+                return false;
+
+        return true;
 }
