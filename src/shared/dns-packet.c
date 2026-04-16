@@ -868,12 +868,10 @@ int dns_packet_append_opt(
 
                         0, DNS_EDNS_OPT_DAU, /* OPTION_CODE */
 #if HAVE_OPENSSL
-                        0, 7, /* LIST_LENGTH */
+                        0, 5, /* LIST_LENGTH */
 #else
-                        0, 6, /* LIST_LENGTH */
+                        0, 4, /* LIST_LENGTH */
 #endif
-                        DNSSEC_ALGORITHM_RSASHA1,
-                        DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
                         DNSSEC_ALGORITHM_RSASHA256,
                         DNSSEC_ALGORITHM_RSASHA512,
                         DNSSEC_ALGORITHM_ECDSAP256SHA256,

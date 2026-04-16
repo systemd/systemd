@@ -496,15 +496,13 @@ static const EVP_MD* algorithm_to_implementation_id(uint8_t algorithm) {
 
         /* Translates a DNSSEC signature algorithm into an openssl digest identifier.
          *
-         * Note that we implement all algorithms listed as "Must implement" and "Recommended to Implement" in
-         * RFC6944. We don't implement any algorithms that are listed as "Optional" or "Must Not Implement".
-         * Specifically, we do not implement RSAMD5, DSASHA1, DH, DSA-NSEC3-SHA1, and GOST-ECC. */
+         * Note that we implement all algorithms listed as "Recommended" for signing/validation and "Must"
+         * for implementation in RFC9904. We don't implement any algorithms that are listed as "May" or "Must
+         * Not".  Also confrom with recommendations in RFC9905 and RFC9906 to deprecate SHA1 and ECC-GOST,
+         * some of which were never implemented. Note SHA1 signatures are already often blocked in many
+         * OpenSSL implementations, thus support for SHA1 based signatures is also no longer implemented. */
 
         switch (algorithm) {
-
-        case DNSSEC_ALGORITHM_RSASHA1:
-        case DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1:
-                return EVP_sha1();
 
         case DNSSEC_ALGORITHM_RSASHA256:
         case DNSSEC_ALGORITHM_ECDSAP256SHA256:
@@ -665,8 +663,6 @@ static int dnssec_rrset_verify_sig(
 
         switch (rrsig->rrsig.algorithm) {
 
-        case DNSSEC_ALGORITHM_RSASHA1:
-        case DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1:
         case DNSSEC_ALGORITHM_RSASHA256:
         case DNSSEC_ALGORITHM_RSASHA512:
                 return dnssec_rsa_verify(
