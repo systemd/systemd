@@ -271,7 +271,7 @@ typedef enum MakeCStringMode {
         _MAKE_CSTRING_MODE_INVALID = -1,
 } MakeCStringMode;
 
-int make_cstring(const char *s, size_t n, MakeCStringMode mode, char **ret);
+int make_cstring(const void *s, size_t n, MakeCStringMode mode, char **ret);
 
 size_t strspn_from_end(const char *str, const char *accept) _pure_;
 
