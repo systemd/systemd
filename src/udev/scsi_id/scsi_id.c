@@ -15,6 +15,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "parse-util.h"
 #include "scsi_id.h"
 #include "string-util.h"
 #include "strv.h"
@@ -234,7 +235,7 @@ static void help(void) {
 
 static int set_options(int argc, char **argv,
                        char *maj_min_dev) {
-        int option;
+        int option, r;
 
         /*
          * optind is a global extern used by getopt. Since we can call
@@ -279,7 +280,11 @@ static int set_options(int argc, char **argv,
                         break;
 
                 case 's':
-                        sg_version = atoi(optarg);
+                        r = safe_atoi(optarg, &sg_version);
+                        if (r < 0)
+                                return log_error_errno(r,
+                                                       "Invalid SG version '%s'",
+                                                       optarg);
                         if (sg_version < 3 || sg_version > 4)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown SG version '%s'",
