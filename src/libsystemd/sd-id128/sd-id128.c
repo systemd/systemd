@@ -147,7 +147,7 @@ int id128_get_machine_at(int rfd, sd_id128_t *ret) {
                 return sd_id128_get_machine(ret);
 
         _cleanup_close_ int fd =
-                chase_and_openat(rfd, "/etc/machine-id", CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, O_RDONLY|O_CLOEXEC|O_NOCTTY, /* ret_path= */ NULL);
+                chase_and_openat(rfd, rfd, "/etc/machine-id", CHASE_MUST_BE_REGULAR, O_RDONLY|O_CLOEXEC|O_NOCTTY, /* ret_path= */ NULL);
         if (fd < 0)
                 return fd;
 
