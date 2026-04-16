@@ -9489,7 +9489,6 @@ DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(tpm2_pcr_index, int, TPM2_P
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(tpm2_pcr_index, int);
 
 bool tpm2_nvpcr_name_is_valid(const char *name) {
-        return filename_is_valid(name) &&
-                string_is_safe(name) &&
+        return string_is_safe(name, STRING_FILENAME) &&
                 tpm2_pcr_index_from_string(name) < 0; /* don't allow nvpcrs to be name like pcrs */
 }
