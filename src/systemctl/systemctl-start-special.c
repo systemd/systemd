@@ -28,6 +28,9 @@ static int load_kexec_kernel(void) {
         int r;
 
         if (kexec_loaded()) {
+                if (arg_kernel_cmdline)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--kernel-cmdline= specified but kexec kernel already loaded");
                 log_debug("Kexec kernel already loaded.");
                 return 0;
         }
@@ -76,6 +79,9 @@ static int load_kexec_kernel(void) {
 
         _cleanup_free_ char *options = strv_join(e->options, " ");
         if (!options)
+                return log_oom();
+
+        if (!isempty(arg_kernel_cmdline) && !strextend_with_separator(&options, " ", arg_kernel_cmdline))
                 return log_oom();
 
         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
