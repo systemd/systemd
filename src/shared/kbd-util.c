@@ -129,19 +129,10 @@ int get_keymaps(char ***ret) {
 }
 
 bool keymap_is_valid(const char *name) {
-        if (isempty(name))
+        if (!string_is_safe(name, STRING_NON_EMPTY|STRING_NO_BACKSLASHES|STRING_NO_QUOTES|STRING_NO_GLOBS|STRING_FILENAME))
                 return false;
 
         if (strlen(name) >= 128)
-                return false;
-
-        if (!utf8_is_valid(name))
-                return false;
-
-        if (!filename_is_valid(name))
-                return false;
-
-        if (!string_is_safe(name))
                 return false;
 
         return true;
