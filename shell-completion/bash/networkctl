@@ -51,7 +51,7 @@ _networkctl() {
 
     local -A VERBS=(
         [STANDALONE]='label reload'
-        [LINKS]='status list lldp delete renew up down forcerenew reconfigure'
+        [LINKS]='status list lldp delete renew up down forcerenew reconfigure dhcp-lease'
         [FILES_OR_LINKS]='edit cat'
         [FILES]='mask unmask'
         [BOOL]='persistent-storage'

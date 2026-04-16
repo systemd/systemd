@@ -12,6 +12,7 @@
 #include "networkctl.h"
 #include "networkctl-address-label.h"
 #include "networkctl-config-file.h"
+#include "networkctl-dhcp-lease.h"
 #include "networkctl-list.h"
 #include "networkctl-lldp.h"
 #include "networkctl-misc.h"
@@ -42,6 +43,8 @@ VERB_SCOPE(, verb_list_links,                 "list",               "[PATTERN...
            "List links");
 VERB_SCOPE(, verb_link_status,                "status",             "[PATTERN...]",  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Show link status");
+VERB_SCOPE(, verb_dhcp_lease,                 "dhcp-lease",         "INTERFACE [CODE[:TYPE]...]", 2, VERB_ANY, VERB_ONLINE_ONLY,
+           "Show DHCP lease");
 VERB_SCOPE(, verb_link_lldp_status,           "lldp",               "[PATTERN...]",  VERB_ANY, VERB_ANY, 0,
            "Show LLDP neighbors");
 VERB_SCOPE(, verb_list_address_labels,        "label",              NULL,            1,        1,        0,
