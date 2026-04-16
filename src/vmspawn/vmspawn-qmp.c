@@ -25,19 +25,34 @@ DEFINE_PRIVATE_HASH_OPS_FULL(
                 char, string_hash_func, string_compare_func, free,
                 PendingJob, pending_job_free);
 
-void drive_info_done(DriveInfo *info) {
-        assert(info);
-        info->serial = mfree(info->serial);
-        info->node_name = mfree(info->node_name);
-        info->pcie_port = mfree(info->pcie_port);
-        info->fd = safe_close(info->fd);
-        info->overlay_fd = safe_close(info->overlay_fd);
+DriveInfo* drive_info_new(void) {
+        DriveInfo *d = new0(DriveInfo, 1);
+        if (d) {
+                d->fd = -EBADF;
+                d->overlay_fd = -EBADF;
+        }
+        return d;
+}
+
+DriveInfo* drive_info_free(DriveInfo *d) {
+        if (!d)
+                return NULL;
+
+        free(d->path);
+        free(d->format);
+        free(d->disk_driver);
+        free(d->serial);
+        free(d->node_name);
+        free(d->pcie_port);
+        safe_close(d->fd);
+        safe_close(d->overlay_fd);
+        return mfree(d);
 }
 
 void drive_infos_done(DriveInfos *infos) {
         assert(infos);
         FOREACH_ARRAY(d, infos->drives, infos->n_drives)
-                drive_info_done(d);
+                drive_info_free(*d);
         infos->drives = mfree(infos->drives);
         infos->n_drives = 0;
         infos->scsi_pcie_port = mfree(infos->scsi_pcie_port);
@@ -748,7 +763,7 @@ static bool drives_need_scsi_controller(DriveInfos *drives) {
         assert(drives);
 
         FOREACH_ARRAY(d, drives->drives, drives->n_drives)
-                if (STR_IN_SET(d->disk_driver, "scsi-hd", "scsi-cd"))
+                if (STR_IN_SET((*d)->disk_driver, "scsi-hd", "scsi-cd"))
                         return true;
 
         return false;
@@ -792,7 +807,7 @@ int vmspawn_qmp_setup_drives(VmspawnQmpBridge *bridge, DriveInfos *drives) {
         }
 
         FOREACH_ARRAY(d, drives->drives, drives->n_drives) {
-                r = qmp_setup_drive(bridge, qmp, d);
+                r = qmp_setup_drive(bridge, qmp, *d);
                 if (r < 0)
                         return r;
         }
