@@ -75,6 +75,8 @@ int option_parse(
 
         /* Check and initialize */
         if (state->optind == 0) {
+                assert(state->mode >= 0 && state->mode < _OPTION_PARSER_MODE_MAX);
+
                 if (state->argc < 1 || strv_isempty(state->argv))
                         return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "argv cannot be empty");
 
@@ -109,7 +111,7 @@ int option_parse(
                                 /* Looks like we found an option parameter */
                                 break;
 
-                        if (state->stop_at_first_nonoption) {
+                        if (state->mode == OPTION_PARSER_STOP_AT_FIRST_NONOPTION) {
                                 state->parsing_stopped = true;
                                 return 0;
                         }

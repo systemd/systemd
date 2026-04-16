@@ -92,13 +92,22 @@ typedef struct Option {
 extern const Option __start_SYSTEMD_OPTIONS[];
 extern const Option __stop_SYSTEMD_OPTIONS[];
 
+typedef enum OptionParserMode {
+        /* The default mode. This is the implicit default and doesn't have to be specified. */
+        OPTION_PARSER_NORMAL = 0,
+
+        /* Same as "+…" for getopt_long — only parse options before the first positional argument. */
+        OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
+
+        _OPTION_PARSER_MODE_MAX,
+} OptionParserMode;
+
 typedef struct OptionParser {
         /* Those three should stay first so that it's possible to initialize the struct as { argc, argv }
-         * or { argc, argv, true/false }. */
+         * or { argc, argv, mode }. */
         int argc;                     /* The original argc. */
         char **argv;                  /* The argv array, possibly reordered. */
-        bool stop_at_first_nonoption; /* Same as "+…" for getopt_long — only parse options before the first
-                                       * positional argument. */
+        OptionParserMode mode;
 
         bool parsing_stopped;         /* We processed "--" or an option that terminates option parsing. */
         int optind;                   /* Position of the parameter being handled.
