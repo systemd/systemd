@@ -437,7 +437,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         }
 
         /* Too short packet? */
-        if (iov.iov_len < sizeof(struct ntp_msg)) {
+        if ((size_t) len < sizeof(struct ntp_msg)) {
                 log_warning("Invalid response from server. Disconnecting.");
                 return manager_connect(m);
         }
