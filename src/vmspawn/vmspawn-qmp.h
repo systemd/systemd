@@ -28,6 +28,7 @@ typedef struct VmspawnQmpBridge {
         QmpClient *qmp;
         Hashmap *pending_jobs;  /* job_id (string, owned) -> PendingJob* */
         VmspawnQmpFeatureFlags features;
+        bool setup_done;
 } VmspawnQmpBridge;
 
 VmspawnQmpBridge* vmspawn_qmp_bridge_free(VmspawnQmpBridge *b);
