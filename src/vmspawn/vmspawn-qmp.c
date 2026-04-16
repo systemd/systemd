@@ -1042,6 +1042,8 @@ static int on_cont_complete(
                 int error,
                 void *userdata) {
 
+        VmspawnQmpBridge *bridge = ASSERT_PTR(qmp_client_get_userdata(client));
+
         assert(client);
 
         if (error < 0) {
@@ -1049,6 +1051,8 @@ static int on_cont_complete(
                 return sd_event_exit(qmp_client_get_event(client), error);
         }
 
+        /* VM is running — all boot-time device setup has completed. */
+        bridge->setup_done = true;
         return 0;
 }
 

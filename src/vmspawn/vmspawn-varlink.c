@@ -387,6 +387,7 @@ int vmspawn_varlink_setup(
         ctx->bridge = bridge;
         qmp_client_bind_event(ctx->bridge->qmp, on_qmp_event, ctx);
         qmp_client_bind_disconnect(ctx->bridge->qmp, on_qmp_disconnect, ctx);
+        qmp_client_set_userdata(ctx->bridge->qmp, ctx->bridge);
 
         log_debug("Varlink control server listening on %s", listen_address);
 
