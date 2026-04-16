@@ -1882,6 +1882,9 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
                 if (image_is_host(image))
                         continue; /* We already enroll the host ourselves */
 
+                if (image->type == IMAGE_MSTACK)
+                        continue; /* systemd-sysupdate doesn't support mstack images yet */
+
                 r = target_new(m, class, image->name, image->path, &t);
                 if (r < 0)
                         return r;
