@@ -111,20 +111,14 @@ bool log_namespace_name_valid(const char *s) {
          * (so that /var/log/journal/<machine-id>.<namespace> can be created based on it). Also make sure it
          * is suitable as unit instance name, and does not contain fishy characters. */
 
-        if (!filename_is_valid(s))
+        /* Let's avoid globbing for now */
+        if (!string_is_safe(s, STRING_NON_EMPTY|STRING_NO_QUOTES|STRING_NO_GLOBS|STRING_FILENAME))
                 return false;
 
         if (strlen(s) > LOG_NAMESPACE_MAX)
                 return false;
 
         if (!unit_instance_is_valid(s))
-                return false;
-
-        if (!string_is_safe(s))
-                return false;
-
-        /* Let's avoid globbing for now */
-        if (string_is_glob(s))
                 return false;
 
         return true;
