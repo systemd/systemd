@@ -4,7 +4,39 @@
 
 #include "sd-netlink.h"
 
+#include "networkd-route-util.h"
 #include "vrf.h"
+
+int config_parse_vrf_table(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Vrf *vrf = ASSERT_PTR(userdata);
+        uint32_t *table = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = manager_get_route_table_from_string(vrf->meta.manager, rvalue, table);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        return 0;
+}
 
 static int netdev_vrf_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         assert(!link);
