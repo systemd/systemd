@@ -44,6 +44,7 @@ extern bool arg_dry_run;
 extern ImagePolicy *arg_image_policy;
 extern bool arg_varlink;
 extern bool arg_secure_boot_auto_enroll;
+extern bool arg_keep_fallback;
 extern char *arg_certificate;
 extern CertificateSourceType arg_certificate_source_type;
 extern char *arg_certificate_source;
