@@ -54,6 +54,9 @@ bool qmp_client_is_idle(QmpClient *c);
 /* True iff the connection is dead. Stable terminal state — once set, it stays set. */
 bool qmp_client_is_disconnected(QmpClient *c);
 
+void* qmp_client_set_userdata(QmpClient *c, void *userdata);
+void* qmp_client_get_userdata(QmpClient *c);
+
 /* Async send. Returns 0 on send (callback will fire later), negative errno on failure. If
  * ret_slot is non-NULL, returns a reference to a QmpSlot which can be used to cancel the call
  * (by unreffing it before the reply arrives). */
