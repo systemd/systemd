@@ -65,23 +65,27 @@ typedef enum QmpDriveFlags {
         QMP_DRIVE_DISCARD_NO_UNREF = 1u << 6,  /* qcow2 only */
 } QmpDriveFlags;
 
-/* Drive info for QMP-based drive setup */
+/* Drive info for QMP-based drive setup. All string fields are owned.
+ * Each DriveInfo is individually heap-allocated so it can be handed off
+ * to the block device registry via TAKE_PTR. */
 typedef struct DriveInfo {
-        const char *path;          /* kept for logging only — not passed to QEMU */
-        const char *format;        /* "raw" or "qcow2" */
-        const char *disk_driver;   /* "virtio-blk-pci", "scsi-hd", "scsi-cd", "nvme" */
-        char *serial;              /* owned */
-        char *node_name;           /* owned */
-        char *pcie_port;           /* owned: pcie-root-port id for device_add bus (NULL on non-PCIe) */
-        int fd;                    /* pre-opened image fd (owned, -EBADF if unused) */
-        int overlay_fd;            /* pre-opened anonymous overlay fd for ephemeral (owned, -EBADF if unused) */
+        char *path;                /* original path (for logging; not passed to QEMU) */
+        char *format;              /* "raw" or "qcow2" */
+        char *disk_driver;         /* "virtio-blk-pci", "scsi-hd", "scsi-cd", "nvme" */
+        char *serial;
+        char *node_name;
+        char *pcie_port;           /* pcie-root-port id for device_add bus (NULL on non-PCIe) */
+        int fd;                    /* pre-opened image fd (-EBADF if unused) */
+        int overlay_fd;            /* pre-opened anonymous overlay fd for ephemeral (-EBADF if unused) */
         QmpDriveFlags flags;
 } DriveInfo;
 
-void drive_info_done(DriveInfo *info);
+DriveInfo* drive_info_new(void);
+DriveInfo* drive_info_free(DriveInfo *d);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DriveInfo *, drive_info_free);
 
 typedef struct DriveInfos {
-        DriveInfo *drives;
+        DriveInfo **drives;     /* array of individually heap-allocated entries */
         size_t n_drives;
         char *scsi_pcie_port;  /* owned: pcie-root-port id for SCSI controller (NULL if no SCSI or non-PCIe) */
 } DriveInfos;
