@@ -192,6 +192,7 @@ jobs:
         env:
           CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
           CLAUDE_CODE_USE_BEDROCK: "1"
+          CLAUDE_CODE_USE_MANTLE: "1"
         run: |
           mkdir -p ~/.claude
 
@@ -369,7 +370,7 @@ jobs:
           PROMPT
 
           claude \
-            --model us.anthropic.claude-opus-4-6-v1 \
+            --model anthropic.claude-opus-4-7 \
             --effort max \
             --max-turns 200 \
             --setting-sources user \
