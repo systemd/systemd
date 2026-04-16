@@ -593,7 +593,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv, /* stop_at_first_nonoption= */ true };
+        OptionParser state = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
         const Option *opt;
         const char *arg;
 
