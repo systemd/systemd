@@ -41,7 +41,6 @@
 #include "options.h"
 #include "os-util.h"
 #include "parse-argument.h"
-#include "parse-util.h"
 #include "password-quality-util.h"
 #include "path-util.h"
 #include "plymouth-util.h"
@@ -1465,11 +1464,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("welcome", "BOOL", "Whether to show the welcome text"):
-                        r = parse_boolean(arg);
+                        r = parse_boolean_argument("--welcome=", arg, &arg_welcome);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --welcome= argument: %s", arg);
-
-                        arg_welcome = r;
+                                return r;
                         break;
 
                 OPTION_LONG("chrome", "BOOL",
