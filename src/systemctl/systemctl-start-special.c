@@ -78,6 +78,9 @@ static int load_kexec_kernel(void) {
         if (!options)
                 return log_oom();
 
+        if (!isempty(arg_kexec_cmdline) && !strextend_with_separator(&options, " ", arg_kexec_cmdline))
+                return log_oom();
+
         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
                  "%s %s kernel=\"%s\" cmdline=\"%s\"%s%s%s",
                  arg_dry_run ? "Would call" : "Calling",
