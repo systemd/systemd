@@ -65,3 +65,32 @@ systemctl start systemd-report-basic.socket
 # Test facts via direct Varlink call on existing socket
 varlinkctl --more call /run/systemd/report/io.systemd.Basic io.systemd.Facts.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.Basic io.systemd.Facts.Describe {}
+
+# Test HTTP upload (plain http)
+FAKE_SERVER=/usr/lib/systemd/tests/integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units/fake-report-server.py
+CERTDIR=$(mktemp -d)
+
+at_exit() {
+    set +e
+    systemctl stop fake-report-server fake-report-server-tls
+    rm -rf "$CERTDIR"
+}
+trap at_exit EXIT
+
+systemd-run -p Type=notify --unit=fake-report-server "$FAKE_SERVER"
+systemctl status fake-report-server
+
+"$REPORT" metrics --url=http://localhost:8089/
+"$REPORT" facts --url=http://localhost:8089/
+
+# Test HTTPS upload with generated TLS certificates
+openssl req -x509 -newkey rsa:2048 -keyout "$CERTDIR/server.key" -out "$CERTDIR/server.crt" \
+    -days 1 -nodes -subj "/CN=localhost" 2>/dev/null
+
+systemd-run -p Type=notify --unit=fake-report-server-tls \
+    "$FAKE_SERVER" --cert="$CERTDIR/server.crt" --key="$CERTDIR/server.key" --port=8090
+systemctl status fake-report-server-tls
+
+"$REPORT" metrics --url=https://localhost:8090/ --key=- --trust="$CERTDIR/server.crt"
+"$REPORT" facts --url=https://localhost:8090/ --key=- --trust="$CERTDIR/server.crt" \
+          --extra-header='Authorization: Bearer magic string'

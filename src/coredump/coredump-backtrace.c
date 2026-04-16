@@ -50,7 +50,7 @@ int coredump_backtrace(int argc, char *argv[]) {
         } else {
                 /* The imported iovecs are not supposed to be freed by us so let's copy and merge them at the
                  * end of the array. */
-                r = iovw_append(&context.iovw, &importer.iovw);
+                r = iovw_append_iovw(&context.iovw, &importer.iovw);
                 if (r < 0)
                         return r;
         }
