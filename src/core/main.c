@@ -502,7 +502,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
                 }
 
-                if (!string_is_safe(value)) {
+                if (!string_is_safe(value, /* flags= */ 0)) {
                         log_warning("Watchdog pretimeout governor '%s' is not valid, ignoring.", value);
                         return 0;
                 }

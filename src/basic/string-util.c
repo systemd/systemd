@@ -1099,25 +1099,40 @@ int strdup_to_full(char **ret, const char *src) {
         }
 };
 
-bool string_is_safe(const char *p) {
-        if (!p)
+bool string_is_safe(const char *p, StringSafeFlags flags) {
+
+        /* Baseline checks are:
+         *   • No control characters (i.e. 0…31 + 127)
+         *   • UTF-8 valid (well, technically we skip this test if STRING_ASCII is set, since that is a tighter test)
+         */
+
+        if (FLAGS_SET(flags, STRING_ALLOW_EMPTY) ? !p : isempty(p))
                 return false;
 
-        /* Checks if the specified string contains no quotes or control characters */
+        if (!FLAGS_SET(flags, STRING_ASCII) && !utf8_is_valid(p))
+                return false;
 
         for (const char *t = p; *t; t++) {
-                if (*t > 0 && *t < ' ') /* no control characters */
+                if ((*t > 0 && *t < ' ') || *t == 0x7f) /* never allow control characters */
                         return false;
 
-                if (strchr(QUOTES "\\\x7f", *t))
+                if (!FLAGS_SET(flags, STRING_ALLOW_BACKSLASHES) && *t == '\\')
+                        return false;
+
+                if (!FLAGS_SET(flags, STRING_ALLOW_QUOTES) && strchr(QUOTES, *t))
+                        return false;
+
+                if (!FLAGS_SET(flags, STRING_ALLOW_GLOBS) && strchr(GLOB_CHARS, *t))
+                        return false;
+
+                if (FLAGS_SET(flags, STRING_ASCII) && (uint8_t) *t >= 0x80)
                         return false;
         }
 
-        return true;
-}
+        if (FLAGS_SET(flags, STRING_FILENAME) && !filename_is_valid(p))
+                return false;
 
-bool string_is_safe_ascii(const char *p) {
-        return ascii_is_valid(p) && string_is_safe(p);
+        return true;
 }
 
 char* str_realloc(char *p) {
