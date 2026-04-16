@@ -220,8 +220,15 @@ static inline int strdup_to(char **ret, const char *src) {
         return r < 0 ? r : 0;  /* Suppress return value of 1. */
 }
 
-bool string_is_safe(const char *p) _pure_;
-bool string_is_safe_ascii(const char *p) _pure_;
+typedef enum StringSafeFlags {
+        STRING_NON_EMPTY = 1 << 0, /* Verify string is not empty */
+        STRING_ASCII     = 1 << 1, /* Verify string is 7-Bit ASCII (rather than just UTF-8) */
+        STRING_NO_QUOTES = 1 << 2, /* Verify string has no quotes */
+        STRING_NO_GLOBS  = 1 << 3, /* Verify string has no ? or *, [ */
+        STRING_FILENAME  = 1 << 4, /* Verify the string is valid as regular filename */
+} StringSafeFlags;
+
+bool string_is_safe(const char *p, StringSafeFlags flags) _pure_;
 
 DISABLE_WARNING_STRINGOP_TRUNCATION;
 static inline void strncpy_exact(char *buf, const char *src, size_t buf_len) {
