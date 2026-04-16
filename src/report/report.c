@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
-
 #include "sd-event.h"
 #include "sd-varlink.h"
 
@@ -13,10 +11,12 @@
 #include "format-table.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "path-lookup.h"
 #include "pretty-print.h"
 #include "recurse-dir.h"
+#include "report.h"
 #include "runtime-scope.h"
 #include "set.h"
 #include "sort-util.h"
@@ -26,6 +26,7 @@
 #include "time-util.h"
 #include "varlink-idl-util.h"
 #include "verbs.h"
+#include "web-util.h"
 
 #define METRICS_OR_FACTS_MAX 4096U
 #define METRICS_OR_FACTS_LINKS_MAX 128U
@@ -36,27 +37,19 @@ static bool arg_legend = true;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
 static char **arg_matches = NULL;
+char *arg_url = NULL;
+char *arg_key = NULL;
+char *arg_cert = NULL;
+char *arg_trust = NULL;
+char **arg_extra_headers = NULL;
+usec_t arg_network_timeout_usec = TIMEOUT_USEC;
 
 STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
-
-typedef enum Action {
-        ACTION_LIST_METRICS,
-        ACTION_DESCRIBE_METRICS,
-        ACTION_LIST_FACTS,
-        ACTION_DESCRIBE_FACTS,
-        _ACTION_MAX,
-        _ACTION_INVALID = -EINVAL,
-} Action;
-
-/* The structure for collected "metrics" or "facts". The fields
- * are prefixed with just "metrics" for brevity. */
-typedef struct Context {
-        Action action;
-        sd_event *event;
-        Set *link_infos;
-        sd_json_variant **metrics;  /* Collected metrics or facts for sorting */
-        size_t n_metrics, n_skipped_metrics, n_invalid_metrics;
-} Context;
+STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_extra_headers, strv_freep);
 
 typedef struct LinkInfo {
         Context *context;
@@ -77,9 +70,12 @@ static void context_done(Context *context) {
         if (!context)
                 return;
 
-        set_free(context->link_infos);
+        context->event = sd_event_unref(context->event);
+        context->link_infos = set_free(context->link_infos);
         sd_json_variant_unref_many(context->metrics, context->n_metrics);
-        sd_event_unref(context->event);
+        context->metrics = NULL;
+        context->n_metrics = 0;
+        iovw_done_free(&context->upload_answer);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkInfo*, link_info_free);
@@ -570,6 +566,7 @@ static int output_collected(Context *context) {
         }
 
         _cleanup_(table_unrefp) Table *table = NULL;
+
         switch(context->action) {
 
         case ACTION_LIST_METRICS:
@@ -708,6 +705,10 @@ static int readdir_sources(char **ret_directory, DirectoryEntries **ret) {
         return m > 0;
 }
 
+VERB_FULL(verb_metrics, "metrics", "[MATCH…]", VERB_ANY, VERB_ANY, 0, ACTION_LIST_METRICS,
+          "Acquire list of metrics and their values");
+VERB_FULL(verb_metrics, "describe-metrics", "[MATCH…]", VERB_ANY, VERB_ANY, 0, ACTION_DESCRIBE_METRICS,
+          "Describe available metrics");
 static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) {
         Action action = data;
         int r;
@@ -768,7 +769,10 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                r = output_collected(&context);
+                if (arg_url)
+                        r = upload_collected(&context);
+                else
+                        r = output_collected(&context);
                 if (r < 0)
                         return r;
         }
@@ -788,6 +792,10 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
         return 0;
 }
 
+VERB_FULL(verb_facts, "facts", "[MATCH…]", VERB_ANY, VERB_ANY, 0, ACTION_LIST_FACTS,
+          "Acquire list of facts and their values");
+VERB_FULL(verb_facts, "describe-facts", "[MATCH…]", VERB_ANY, VERB_ANY, 0, ACTION_DESCRIBE_FACTS,
+          "Describe available facts");
 static int verb_facts(int argc, char *argv[], uintptr_t data, void *userdata) {
         Action action = data;
         int r;
@@ -848,7 +856,10 @@ static int verb_facts(int argc, char *argv[], uintptr_t data, void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                r = output_collected(&context);
+                if (arg_url)
+                        r = upload_collected(&context);
+                else
+                        r = output_collected(&context);
                 if (r < 0)
                         return r;
         }
@@ -868,6 +879,7 @@ static int verb_facts(int argc, char *argv[], uintptr_t data, void *userdata) {
         return 0;
 }
 
+VERB_NOARG(verb_list_sources, "list-sources", "Show list of known metrics sources");
 static int verb_list_sources(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -925,143 +937,158 @@ static int verb_list_sources(int argc, char *argv[], uintptr_t _data, void *user
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *verbs = NULL, *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-report", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] COMMAND ...\n"
-               "\n%5$sAcquire metrics and facts from local sources.%6$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "  metrics [MATCH...]    Acquire list of metrics and their values\n"
-               "  describe-metrics [MATCH...]\n"
-               "                        Describe available metrics\n"
-               "  facts [MATCH...]      Acquire list of facts and their values\n"
-               "  describe-facts [MATCH...]\n"
-               "                        Describe available facts\n"
-               "  list-sources          Show list of known metrics sources\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "     --no-pager         Do not pipe output into a pager\n"
-               "     --no-legend        Do not show the headers and footers\n"
-               "     --user             Connect to user service manager\n"
-               "     --system           Connect to system service manager (default)\n"
-               "     --json=pretty|short\n"
-               "                        Configure JSON output\n"
-               "  -j                    Equivalent to --json=pretty (on TTY) or --json=short\n"
-               "                        (otherwise)\n"
-               "\nSee the %2$s for details.\n",
-               program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
-               ansi_highlight(),
-               ansi_normal());
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
 
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, options, verbs);
+
+        printf("%s [OPTIONS...] COMMAND ...\n"
+               "\n%sAcquire metrics and facts from local sources.%s\n"
+               "\n%sCommands:%s\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
+               ansi_normal());
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n",
+               ansi_underline(),
+               ansi_normal());
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP_HIDDEN(help);
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_USER,
-                ARG_SYSTEM,
-                ARG_JSON,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
-                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
-                { "user",      no_argument,       NULL, ARG_USER      },
-                { "system",    no_argument,       NULL, ARG_SYSTEM    },
-                { "json",      required_argument, NULL, ARG_JSON      },
-                {}
-        };
-
-        int c, r;
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hj", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_NO_LEGEND:
+                OPTION_COMMON_NO_LEGEND:
                         arg_legend = false;
                         break;
 
-                case ARG_USER:
+                OPTION_LONG("user", NULL, "Connect to user service manager"):
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, "Connect to system service manager (default)"):
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
-
                         break;
 
-                case 'j':
+                OPTION_COMMON_LOWERCASE_J:
                         arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
 
-                case '?':
-                        return -EINVAL;
+                OPTION_LONG("url", "URL",
+                            "Upload to this address"):
+                        r = free_and_strdup_warn(&arg_url, arg);
+                        if (r < 0)
+                                return r;
+                        break;
 
-                default:
-                        assert_not_reached();
+                OPTION_LONG("key", "FILENAME",
+                            "Specify key in PEM format (default: \"" REPORT_PRIV_KEY_FILE "\")"):
+                        r = free_and_strdup_warn(&arg_key, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("cert", "FILENAME",
+                            "Specify certificate in PEM format (default: \"" REPORT_CERT_FILE "\")"):
+                        r = free_and_strdup_warn(&arg_cert, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("trust", "FILENAME|all",
+                            "Specify CA certificate or disable checking (default: \"" REPORT_TRUST_FILE "\")"):
+                        r = free_and_strdup_warn(&arg_trust, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("network-timeout", "SEC", "Specify timeout for network upload operation"):
+                        r = parse_sec(arg, &arg_network_timeout_usec);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --network-timeout value: %s", arg);
+                        break;
+
+                OPTION_LONG("extra-header", "NAME: VALUE",
+                            "Inject additional header into the upload request"):
+                        if (isempty(arg)) {
+                                arg_extra_headers = strv_free(arg_extra_headers);
+                                break;
+                        }
+
+                        if (!http_header_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid HTTP header: %s", arg);
+
+                        if (strv_extend(&arg_extra_headers, arg) < 0)
+                                return log_oom();
+                        break;
                 }
 
+        if ((arg_url || arg_key || arg_cert || arg_trust || arg_extra_headers) && !HAVE_LIBCURL)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without libcurl.");
+
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
-static int report_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "help",             VERB_ANY, 1,        0, verb_help                                  },
-                { "metrics",          VERB_ANY, VERB_ANY, 0, verb_metrics,      ACTION_LIST_METRICS     },
-                { "describe-metrics", VERB_ANY, VERB_ANY, 0, verb_metrics,      ACTION_DESCRIBE_METRICS },
-                { "facts",            VERB_ANY, VERB_ANY, 0, verb_facts,        ACTION_LIST_FACTS       },
-                { "describe-facts",   VERB_ANY, VERB_ANY, 0, verb_facts,        ACTION_DESCRIBE_FACTS   },
-                { "list-sources",     VERB_ANY, 1,        0, verb_list_sources                          },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
-}
-
 static int run(int argc, char *argv[]) {
+        char **args = NULL;
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        return report_main(argc, argv);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);
