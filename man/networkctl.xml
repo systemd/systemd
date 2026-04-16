@@ -289,6 +289,122 @@
 
       <varlistentry>
         <term>
+          <command>dhcp-lease</command>
+          <replaceable>INTERFACE</replaceable>
+          <optional><replaceable>CODE<optional><replaceable>:FORMAT</replaceable></optional></replaceable></optional>
+          …
+        </term>
+
+        <listitem>
+          <para>Show the DHCP message of the acquired lease (i.e. the received DHCPACK message). Takes an
+          interface name and optional DHCP option codes. If no option code is specified, both the DHCP
+          message header and all options are shown. If one or more option codes are specified, only the
+          specified options are shown.</para>
+
+          <para>When called with the <option>--json=</option> option, the entire DHCP message is shown in
+          JSON format. In that case, any specified option codes are ignored.</para>
+
+          <para>By default, each option is displayed in a human-readable format, depending on the option.
+          For example, DNS server addresses are shown as a list of IP addresses (e.g.
+          <literal>192.0.2.1</literal>), and the lease time is shown as a human-readable duration (e.g.
+          <literal>8h</literal>).</para>
+
+          <para>Each option code may optionally be followed by a formatter, separated by a colon (e.g.
+          <literal>42:address</literal>). This can be useful if the default formatting is not appropriate.
+          </para>
+
+          <para>The following formatters are supported:</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>auto</option></term>
+              <listitem>
+                <para>Use the default formatting.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>hex</option></term>
+              <listitem>
+                <para>Show the raw bytes in hexadecimal, separated by colons.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>flag</option></term>
+              <listitem>
+                <para>Treat the option as having zero-length data and display <literal>yes</literal>.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>bool</option></term>
+              <listitem>
+                <para>Treat the option as a 1-byte boolean and display <literal>yes</literal> or <literal>no</literal>.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>uint8</option></term>
+              <listitem>
+                <para>Treat the option as a 1-byte unsigned integer.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>uint16</option></term>
+              <listitem>
+                <para>Treat the option as a 2-byte unsigned integer.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>time</option></term>
+              <listitem>
+                <para>Treat the option as a 4-byte time value in seconds and display it as a human-readable duration.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>string</option></term>
+              <listitem>
+                <para>Treat the option as a string.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>address</option></term>
+              <listitem>
+                <para>Treat the option as one or more IPv4 addresses and display them in human-readable form.</para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+
+          <para>Produces output similar to:
+          <programlisting>$ networkctl dhcp-lease eth0
+Header:
+              KEY VALUE
+   Hardware Type: ETHER
+Hardware Address: 41:42:43:31:32:33
+  Client Address: 192.0.2.123
+  Server Address: 192.0.2.1
+
+Options:
+CODE NAME               DATA
+   1 subnet mask        255.255.255.0
+   3 router             192.0.2.1
+   6 domain name server 192.0.2.1
+  12 hostname           test-node
+  15 domain name        lan
+  28 broadcast address  192.0.2.255
+  42 NTP server         192.0.2.11
+                        192.0.2.12
+  51 lease time         1d
+  53 message type       5
+  54 server identifier  192.0.2.1
+  58 renewal time       11h 5min 38s
+  59 rebinding time     20h 5min 38s
+ 119 domain search      hoge.example.com
+                        foo.example.com</programlisting>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
           <command>lldp</command>
           <optional><replaceable>PATTERN…</replaceable></optional>
         </term>
