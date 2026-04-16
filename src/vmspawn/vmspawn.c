@@ -104,8 +104,7 @@
 #define DISK_SERIAL_MAX_LEN_NVME        20
 #define DISK_SERIAL_MAX_LEN_VIRTIO_BLK  20
 
-/* Spare pcie-root-ports reserved for future runtime hotplug beyond the pre-wired devices. */
-#define VMSPAWN_PCIE_HOTPLUG_SPARES 10u
+/* VMSPAWN_PCIE_HOTPLUG_SPARES lives in vmspawn-qmp.h */
 
 /* An enum controlling how auxiliary state for the VM are maintained, i.e. the TPM state and the EFI variable
  * NVRAM. */
@@ -2382,7 +2381,7 @@ static int prepare_primary_drive(const char *runtime_dir, DriveInfos *drives) {
         if (r < 0)
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", arg_image);
 
-        _cleanup_(drive_info_freep) DriveInfo *d = drive_info_new();
+        _cleanup_(drive_info_unrefp) DriveInfo *d = drive_info_new();
         if (!d)
                 return log_oom();
 
@@ -2406,8 +2405,7 @@ static int prepare_primary_drive(const char *runtime_dir, DriveInfos *drives) {
 
         d->path = strdup(arg_image);
         d->format = strdup(image_format_to_string(arg_image_format));
-        d->node_name = strdup("vmspawn");
-        if (!d->path || !d->format || !d->node_name)
+        if (!d->path || !d->format)
                 return log_oom();
         d->fd = TAKE_FD(image_fd);
         if (S_ISBLK(st.st_mode))
@@ -2443,7 +2441,6 @@ static int prepare_extra_drives(DriveInfos *drives) {
 
         assert(drives);
 
-        size_t extra_idx = 0;
         FOREACH_ARRAY(drive, arg_extra_drives.drives, arg_extra_drives.n_drives) {
                 _cleanup_free_ char *drive_fn = NULL;
                 r = path_extract_filename(drive->path, &drive_fn);
@@ -2452,7 +2449,7 @@ static int prepare_extra_drives(DriveInfos *drives) {
 
                 DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
 
-                _cleanup_(drive_info_freep) DriveInfo *d = drive_info_new();
+                _cleanup_(drive_info_unrefp) DriveInfo *d = drive_info_new();
                 if (!d)
                         return log_oom();
 
@@ -2484,9 +2481,6 @@ static int prepare_extra_drives(DriveInfos *drives) {
                         d->flags |= QMP_DRIVE_BLOCK_DEVICE;
                 d->flags |= QMP_DRIVE_NO_FLUSH;
 
-                if (asprintf(&d->node_name, "vmspawn_extra_%zu", extra_idx++) < 0)
-                        return log_oom();
-
                 drives->drives[drives->n_drives++] = TAKE_PTR(d);
         }
 
@@ -2511,11 +2505,12 @@ static int assign_pcie_ports(MachineConfig *c) {
         /* Drives: non-SCSI drives get individual ports, SCSI controller gets one port */
         bool need_scsi = false;
         FOREACH_ARRAY(d, drives->drives, drives->n_drives) {
-                if (STR_IN_SET((*d)->disk_driver, "scsi-hd", "scsi-cd")) {
+                DriveInfo *drive = *d;
+                if (STR_IN_SET(drive->disk_driver, "scsi-hd", "scsi-cd")) {
                         need_scsi = true;
                         continue;
                 }
-                if (asprintf(&(*d)->pcie_port, "vmspawn-pcieport-%zu", port++) < 0)
+                if (asprintf(&drive->pcie_port, "vmspawn-pcieport-%zu", port++) < 0)
                         return log_oom();
         }
         if (need_scsi)

@@ -29,12 +29,14 @@
 #include "cgroup-util.h"
 #include "edit-util.h"
 #include "env-util.h"
+#include "fd-util.h"
 #include "format-ifname.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "hostname-util.h"
 #include "import-util.h"
 #include "in-addr-util.h"
+#include "json-util.h"
 #include "label-util.h"
 #include "log.h"
 #include "logs-show.h"
@@ -107,6 +109,7 @@ static const char *arg_uid = NULL;
 static char **arg_setenv = NULL;
 static unsigned arg_max_addresses = 1;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+static const char *arg_disk_id = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_setenv, strv_freep);
@@ -1276,6 +1279,159 @@ static int verb_resume(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return verb_vm_control(argc, argv, "io.systemd.MachineInstance.Resume");
 }
 
+static int verb_attach_disk(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_free_ char *address = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        int r;
+
+        r = machine_get_control_address(argv[1], &address);
+        if (r == -EOPNOTSUPP)
+                return log_error_errno(r, "Machine '%s' does not expose a varlink control socket.", argv[1]);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_connect_address(&vl, address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to machine control socket: %m");
+
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable fd passing: %m");
+
+        /* QEMU's fdset match is strict on O_ACCMODE: a read-only blockdev-add
+         * refuses an O_RDWR fd, so respect arg_read_only at open time. */
+        int open_flags = (arg_read_only ? O_RDONLY : O_RDWR) | O_CLOEXEC;
+        _cleanup_close_ int image_fd = open(argv[2], open_flags);
+        if (image_fd < 0 && !arg_read_only && errno == EACCES)
+                image_fd = open(argv[2], O_RDONLY|O_CLOEXEC);
+        if (image_fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", argv[2]);
+
+        int fd_idx = sd_varlink_push_fd(vl, image_fd);
+        if (fd_idx < 0)
+                return log_error_errno(fd_idx, "Failed to push fd: %m");
+        TAKE_FD(image_fd);
+
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.VirtualMachineInstance.AddBlockDevice",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("fileDescriptor", fd_idx),
+                        SD_JSON_BUILD_PAIR_STRING("format", "raw"),
+                        SD_JSON_BUILD_PAIR_STRING("driver", "virtio_blk"),
+                        SD_JSON_BUILD_PAIR_CONDITION(arg_read_only, "readOnly", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!arg_disk_id, "id", SD_JSON_BUILD_STRING(arg_disk_id)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call AddBlockDevice: %m");
+        if (error_id)
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply),
+                                       "AddBlockDevice failed: %s", error_id);
+
+        const char *id = NULL;
+        if (reply)
+                id = sd_json_variant_string(sd_json_variant_by_key(reply, "id"));
+        if (id)
+                log_info("Attached disk '%s' as '%s'", argv[2], id);
+
+        return 0;
+}
+
+static int verb_detach_disk(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_free_ char *address = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        int r;
+
+        r = machine_get_control_address(argv[1], &address);
+        if (r == -EOPNOTSUPP)
+                return log_error_errno(r, "Machine '%s' does not expose a varlink control socket.", argv[1]);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_connect_address(&vl, address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to machine control socket: %m");
+
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.VirtualMachineInstance.RemoveBlockDevice",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_STRING("id", argv[2]));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call RemoveBlockDevice: %m");
+        if (error_id)
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply),
+                                       "RemoveBlockDevice failed: %s", error_id);
+
+        log_info("Requested removal of block device '%s'", argv[2]);
+        return 0;
+}
+
+static int verb_list_disks(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_free_ char *address = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        int r;
+
+        r = machine_get_control_address(argv[1], &address);
+        if (r == -EOPNOTSUPP)
+                return log_error_errno(r, "Machine '%s' does not expose a varlink control socket.", argv[1]);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_connect_address(&vl, address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to machine control socket: %m");
+
+        r = sd_varlink_collectb(
+                        vl,
+                        "io.systemd.VirtualMachineInstance.ListBlockDevices",
+                        &reply,
+                        &error_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to call ListBlockDevices: %m");
+        if (error_id)
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply),
+                                       "ListBlockDevices failed: %s", error_id);
+
+        _cleanup_(table_unrefp) Table *table = table_new("id", "format", "read-only");
+        if (!table)
+                return log_oom();
+
+        size_t n = sd_json_variant_elements(reply);
+        for (size_t i = 0; i < n; i++) {
+                sd_json_variant *entry = sd_json_variant_by_index(reply, i);
+                const char *id = NULL, *format = NULL;
+                bool read_only = false;
+
+                sd_json_variant *v;
+                v = sd_json_variant_by_key(entry, "id");
+                if (v && sd_json_variant_is_string(v))
+                        id = sd_json_variant_string(v);
+                v = sd_json_variant_by_key(entry, "format");
+                if (v && sd_json_variant_is_string(v))
+                        format = sd_json_variant_string(v);
+                v = sd_json_variant_by_key(entry, "readOnly");
+                if (v)
+                        read_only = sd_json_variant_boolean(v);
+
+                r = table_add_many(table,
+                                   TABLE_STRING, strna(id),
+                                   TABLE_STRING, strna(format),
+                                   TABLE_BOOLEAN, read_only);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        return show_table(table, "block devices");
+}
+
 static const char *select_copy_method(bool copy_from, bool force) {
         if (force)
                 return copy_from ? "CopyFromMachineWithFlags" : "CopyToMachineWithFlags";
@@ -2301,6 +2457,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MAX_ADDRESSES,
                 ARG_SYSTEM,
                 ARG_USER,
+                ARG_DISK_ID,
         };
 
         static const struct option options[] = {
@@ -2332,6 +2489,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "max-addresses",   required_argument, NULL, ARG_MAX_ADDRESSES   },
                 { "user",            no_argument,       NULL, ARG_USER            },
                 { "system",          no_argument,       NULL, ARG_SYSTEM          },
+                { "disk-id",         required_argument, NULL, ARG_DISK_ID         },
                 {}
         };
 
@@ -2559,6 +2717,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
+                case ARG_DISK_ID:
+                        arg_disk_id = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -2603,6 +2765,9 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "kill",            2,        VERB_ANY, 0,            verb_kill_machine      },
                 { "pause",           2,        VERB_ANY, 0,            verb_pause             },
                 { "resume",          2,        VERB_ANY, 0,            verb_resume            },
+                { "attach-disk",     3,        3,        0,            verb_attach_disk       },
+                { "detach-disk",     3,        3,        0,            verb_detach_disk       },
+                { "list-disks",      2,        2,        0,            verb_list_disks        },
                 { "login",           VERB_ANY, 2,        0,            verb_login_machine     },
                 { "shell",           VERB_ANY, VERB_ANY, 0,            verb_shell_machine     },
                 { "bind",            3,        4,        0,            verb_bind_mount        },
