@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <openssl/evp.h>
 #include <sys/file.h>
 #include <unistd.h>
@@ -38,6 +37,7 @@
 #include "list.h"
 #include "main-func.h"
 #include "mkdir-label.h"
+#include "options.h"
 #include "ordered-set.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -2500,6 +2500,8 @@ static int event_log_load_and_process(EventLog **ret) {
         return 0;
 }
 
+VERB(verb_show_log, "log", NULL, VERB_ANY, 1, VERB_DEFAULT,
+     "Show measurement log");
 static int verb_show_log(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *log_table = NULL, *pcr_table = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
@@ -2613,6 +2615,8 @@ static int event_log_record_to_cel(EventLogRecord *record, uint64_t *recnum, sd_
         return 0;
 }
 
+VERB_NOARG(verb_show_cel, "cel",
+           "Show measurement log in TCG CEL-JSON format");
 static int verb_show_cel(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
@@ -2648,6 +2652,8 @@ static int verb_show_cel(int argc, char *argv[], uintptr_t _data, void *userdata
         return 0;
 }
 
+VERB_NOARG(verb_list_components, "list-components",
+           "List defined .pcrlock components");
 static int verb_list_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(event_log_freep) EventLog *el = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -3348,6 +3354,8 @@ static int tpm2_pcr_prediction_run(
         return 0;
 }
 
+VERB_NOARG(verb_predict, "predict",
+           "Predict PCR values");
 static int verb_predict(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(tpm2_pcr_prediction_done) Tpm2PCRPrediction context = {
                 arg_pcr_mask != 0 ? arg_pcr_mask : DEFAULT_PCR_MASK,
@@ -3927,6 +3935,8 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         return 1; /* installed new policy */
 }
 
+VERB_NOARG(verb_make_policy, "make-policy",
+           "Predict PCR values and generate TPM2 policy from it");
 static int verb_make_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -4027,6 +4037,8 @@ static int remove_policy(void) {
         return ret;
 }
 
+VERB_NOARG(verb_remove_policy, "remove-policy",
+           "Remove TPM2 policy");
 static int verb_remove_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return remove_policy();
 }
@@ -4061,6 +4073,8 @@ static int test_tpm2_support_pcrlock(Tpm2Support *ret) {
         return 0;
 }
 
+VERB_NOARG(verb_is_supported, "is-supported",
+           "Tests if TPM2 supports necessary features");
 static int verb_is_supported(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -4140,6 +4154,10 @@ static bool event_log_record_is_separator(const EventLogRecord *rec) {
         return rec->event_payload_valid == EVENT_PAYLOAD_VALID_YES; /* Insist the record is consistent */
 }
 
+VERB_GROUP("Protections");
+
+VERB(verb_lock_firmware, "lock-firmware-code", NULL, VERB_ANY, 2, 0,
+     "Generate a .pcrlock file from current firmware code");
 static int verb_lock_firmware(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array_early = NULL, *array_late = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
@@ -4259,6 +4277,8 @@ static int verb_lock_firmware(int argc, char *argv[], uintptr_t _data, void *use
         return write_pcrlock(array_late, default_pcrlock_late_path);
 }
 
+VERB_NOARG(verb_unlock_firmware, "unlock-firmware-code",
+           "Remove .pcrlock file for firmware code");
 static int verb_unlock_firmware(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char *default_pcrlock_early_path, *default_pcrlock_late_path;
         int r;
@@ -4285,6 +4305,14 @@ static int verb_unlock_firmware(int argc, char *argv[], uintptr_t _data, void *u
         return 0;
 }
 
+VERB(verb_lock_firmware, "lock-firmware-config", NULL, VERB_ANY, 2, 0,
+     "Generate a .pcrlock file from current firmware configuration");
+
+VERB_NOARG(verb_unlock_firmware, "unlock-firmware-config",
+           "Remove .pcrlock file for firmware configuration");
+
+VERB_NOARG(verb_lock_secureboot_policy, "lock-secureboot-policy",
+           "Generate a .pcrlock file from current SecureBoot policy");
 static int verb_lock_secureboot_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         static const struct {
                 sd_id128_t id;
@@ -4358,6 +4386,8 @@ static int verb_lock_secureboot_policy(int argc, char *argv[], uintptr_t _data, 
         return write_pcrlock(array, PCRLOCK_SECUREBOOT_POLICY_PATH);
 }
 
+VERB_NOARG(verb_unlock_secureboot_policy, "unlock-secureboot-policy",
+           "Remove .pcrlock file for SecureBoot policy");
 static int verb_unlock_secureboot_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_SECUREBOOT_POLICY_PATH);
 }
@@ -4479,6 +4509,8 @@ static int event_log_ensure_secureboot_consistency(EventLog *el) {
         return 0;
 }
 
+VERB_NOARG(verb_lock_secureboot_authority, "lock-secureboot-authority",
+           "Generate a .pcrlock file from current SecureBoot authority");
 static int verb_lock_secureboot_authority(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
@@ -4558,10 +4590,14 @@ static int verb_lock_secureboot_authority(int argc, char *argv[], uintptr_t _dat
         return write_pcrlock(array, PCRLOCK_SECUREBOOT_AUTHORITY_PATH);
 }
 
+VERB_NOARG(verb_unlock_secureboot_authority, "unlock-secureboot-authority",
+           "Remove .pcrlock file for SecureBoot authority");
 static int verb_unlock_secureboot_authority(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_SECUREBOOT_AUTHORITY_PATH);
 }
 
+VERB(verb_lock_gpt, "lock-gpt", "[DISK]", VERB_ANY, 2, 0,
+     "Generate a .pcrlock file from GPT header");
 static int verb_lock_gpt(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *record = NULL;
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
@@ -4675,10 +4711,14 @@ static int verb_lock_gpt(int argc, char *argv[], uintptr_t _data, void *userdata
         return write_pcrlock(array, PCRLOCK_GPT_PATH);
 }
 
+VERB_NOARG(verb_unlock_gpt, "unlock-gpt",
+           "Remove .pcrlock file for GPT header");
 static int verb_unlock_gpt(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_GPT_PATH);
 }
 
+VERB(verb_lock_pe, "lock-pe", "[BINARY]", VERB_ANY, 2, 0,
+     "Generate a .pcrlock file from PE binary");
 static int verb_lock_pe(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -4734,6 +4774,8 @@ static int verb_lock_pe(int argc, char *argv[], uintptr_t _data, void *userdata)
         return write_pcrlock(array, NULL);
 }
 
+VERB_NOARG(verb_unlock_simple, "unlock-pe",
+           "Remove .pcrlock file for PE binary");
 static int verb_unlock_simple(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(NULL);
 }
@@ -4747,6 +4789,8 @@ static void section_hashes_array_done(SectionHashArray *array) {
                 free((*array)[i]);
 }
 
+VERB(verb_lock_uki, "lock-uki", "[UKI]", VERB_ANY, 2, 0,
+     "Generate a .pcrlock file from UKI PE binary");
 static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *pe_digests = NULL;
         _cleanup_(section_hashes_array_done) SectionHashArray section_hashes = {};
@@ -4842,6 +4886,11 @@ static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata
         return write_pcrlock(array, NULL);
 }
 
+VERB_NOARG(verb_unlock_simple, "unlock-uki",
+           "Remove .pcrlock file for UKI PE binary");
+
+VERB_NOARG(verb_lock_machine_id, "lock-machine-id",
+           "Generate a .pcrlock file from current machine ID");
 static int verb_lock_machine_id(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL, *array = NULL;
         _cleanup_free_ char *word = NULL;
@@ -4862,6 +4911,8 @@ static int verb_lock_machine_id(int argc, char *argv[], uintptr_t _data, void *u
         return write_pcrlock(array, PCRLOCK_MACHINE_ID_PATH);
 }
 
+VERB_NOARG(verb_unlock_machine_id, "unlock-machine-id",
+           "Remove .pcrlock file for machine ID");
 static int verb_unlock_machine_id(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_MACHINE_ID_PATH);
 }
@@ -4894,6 +4945,8 @@ static int pcrlock_file_system_path(const char *normalized_path, char **ret) {
         return 0;
 }
 
+VERB(verb_lock_file_system, "lock-file-system", "[PATH]", VERB_ANY, 2, 0,
+     "Generate a .pcrlock file from current root fs + /var/");
 static int verb_lock_file_system(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char* paths[3] = {};
         int r;
@@ -4947,6 +5000,8 @@ static int verb_lock_file_system(int argc, char *argv[], uintptr_t _data, void *
         return 0;
 }
 
+VERB(verb_unlock_file_system, "unlock-file-system", "[PATH]", VERB_ANY, 2, 0,
+     "Remove .pcrlock file for root fs + /var/");
 static int verb_unlock_file_system(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char* paths[3] = {};
         int r;
@@ -4977,6 +5032,8 @@ static int verb_unlock_file_system(int argc, char *argv[], uintptr_t _data, void
         return 0;
 }
 
+VERB(verb_lock_kernel_cmdline, "lock-kernel-cmdline", "[FILE]", VERB_ANY, 2, 0,
+     "Generate a .pcrlock file from kernel command line");
 static int verb_lock_kernel_cmdline(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL, *array = NULL;
         _cleanup_free_ char *cmdline = NULL;
@@ -5014,10 +5071,14 @@ static int verb_lock_kernel_cmdline(int argc, char *argv[], uintptr_t _data, voi
         return 0;
 }
 
+VERB_NOARG(verb_unlock_kernel_cmdline, "unlock-kernel-cmdline",
+           "Remove .pcrlock file for kernel command line");
 static int verb_unlock_kernel_cmdline(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_KERNEL_CMDLINE_PATH);
 }
 
+VERB(verb_lock_kernel_initrd, "lock-kernel-initrd", "FILE", VERB_ANY, 2, 0,
+     "Generate a .pcrlock file from an initrd file");
 static int verb_lock_kernel_initrd(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *records = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -5041,10 +5102,14 @@ static int verb_lock_kernel_initrd(int argc, char *argv[], uintptr_t _data, void
         return 0;
 }
 
+VERB_NOARG(verb_unlock_kernel_initrd, "unlock-kernel-initrd",
+           "Remove .pcrlock file for an initrd file");
 static int verb_unlock_kernel_initrd(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_KERNEL_INITRD_PATH);
 }
 
+VERB(verb_lock_raw, "lock-raw", "[FILE]", VERB_ANY, 2, 0,
+     "Generate a .pcrlock file from raw data");
 static int verb_lock_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *records = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -5068,162 +5133,107 @@ static int verb_lock_raw(int argc, char *argv[], uintptr_t _data, void *userdata
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *commands = NULL, *protections = NULL, *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-pcrlock", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s  [OPTIONS...] COMMAND ...\n"
-               "\n%5$sManage a TPM2 PCR lock.%6$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "  log                         Show measurement log\n"
-               "  cel                         Show measurement log in TCG CEL-JSON format\n"
-               "  list-components             List defined .pcrlock components\n"
-               "  predict                     Predict PCR values\n"
-               "  make-policy                 Predict PCR values and generate TPM2 policy from it\n"
-               "  remove-policy               Remove TPM2 policy\n"
-               "  is-supported                Tests if TPM2 supports necessary features\n"
-               "\n%3$sProtections:%4$s\n"
-               "  lock-firmware-code          Generate a .pcrlock file from current firmware code\n"
-               "  unlock-firmware-code        Remove .pcrlock file for firmware code\n"
-               "  lock-firmware-config        Generate a .pcrlock file from current firmware configuration\n"
-               "  unlock-firmware-config      Remove .pcrlock file for firmware configuration\n"
-               "  lock-secureboot-policy      Generate a .pcrlock file from current SecureBoot policy\n"
-               "  unlock-secureboot-policy    Remove .pcrlock file for SecureBoot policy\n"
-               "  lock-secureboot-authority   Generate a .pcrlock file from current SecureBoot authority\n"
-               "  unlock-secureboot-authority Remove .pcrlock file for SecureBoot authority\n"
-               "  lock-gpt [DISK]             Generate a .pcrlock file from GPT header\n"
-               "  unlock-gpt                  Remove .pcrlock file for GPT header\n"
-               "  lock-pe [BINARY]            Generate a .pcrlock file from PE binary\n"
-               "  unlock-pe                   Remove .pcrlock file for PE binary\n"
-               "  lock-uki [UKI]              Generate a .pcrlock file from UKI PE binary\n"
-               "  unlock-uki                  Remove .pcrlock file for UKI PE binary\n"
-               "  lock-machine-id             Generate a .pcrlock file from current machine ID\n"
-               "  unlock-machine-id           Remove .pcrlock file for machine ID\n"
-               "  lock-file-system [PATH]     Generate a .pcrlock file from current root fs + /var/\n"
-               "  unlock-file-system [PATH]   Remove .pcrlock file for root fs + /var/\n"
-               "  lock-kernel-cmdline [FILE]  Generate a .pcrlock file from kernel command line\n"
-               "  unlock-kernel-cmdline       Remove .pcrlock file for kernel command line\n"
-               "  lock-kernel-initrd FILE     Generate a .pcrlock file from an initrd file\n"
-               "  unlock-kernel-initrd        Remove .pcrlock file for an initrd file\n"
-               "  lock-raw [FILE]             Generate a .pcrlock file from raw data\n"
-               "  unlock-raw                  Remove .pcrlock file for raw data\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help                   Show this help\n"
-               "     --version                Print version\n"
-               "     --no-pager               Do not pipe output into a pager\n"
-               "     --json=pretty|short|off  Generate JSON output\n"
-               "     --raw-description        Show raw firmware record data as description in table\n"
-               "     --pcr=NR                 Generate .pcrlock for specified PCR\n"
-               "     --nv-index=NUMBER        Use the specified NV index, instead of a random one\n"
-               "     --components=PATH        Directory to read .pcrlock files from\n"
-               "     --location=STRING[:STRING]\n"
-               "                              Do not process components beyond this component name\n"
-               "     --recovery-pin=MODE      Controls whether to show, hide, or ask for a recovery PIN\n"
-               "     --pcrlock=PATH           .pcrlock file to write expected PCR measurement to\n"
-               "     --policy=PATH            JSON file to write policy output to\n"
-               "     --force                  Write policy even if it matches existing policy\n"
-               "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
-               "                              Boot entry token to use for this installation\n"
-               "  -q --quiet                  Suppress unnecessary output\n"
-               "\nSee the %2$s for details.\n",
+        r = verbs_get_help_table(&commands);
+        if (r < 0)
+                return r;
+
+        r = verbs_get_help_table_group("Protections", &protections);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, commands, protections, options);
+
+        printf("%s  [OPTIONS...] COMMAND ...\n"
+               "\n%sManage a TPM2 PCR lock.%s\n",
                program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
                ansi_normal());
 
+        printf("\n%sCommands:%s\n", ansi_underline(), ansi_normal());
+        r = table_print_or_warn(commands);
+        if (r < 0)
+                return r;
+
+        printf("\n%sProtections:%s\n", ansi_underline(), ansi_normal());
+        r = table_print_or_warn(protections);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n", ansi_underline(), ansi_normal());
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_NOARG(verb_unlock_simple, "unlock-raw",
+           "Remove .pcrlock file for raw data");
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_JSON,
-                ARG_RAW_DESCRIPTION,
-                ARG_PCR,
-                ARG_NV_INDEX,
-                ARG_COMPONENTS,
-                ARG_LOCATION,
-                ARG_RECOVERY_PIN,
-                ARG_PCRLOCK,
-                ARG_POLICY,
-                ARG_FORCE,
-                ARG_ENTRY_TOKEN,
-        };
+VERB_COMMON_HELP_HIDDEN(help);
 
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
-                { "json",            required_argument, NULL, ARG_JSON            },
-                { "raw-description", no_argument,       NULL, ARG_RAW_DESCRIPTION },
-                { "pcr",             required_argument, NULL, ARG_PCR             },
-                { "nv-index",        required_argument, NULL, ARG_NV_INDEX        },
-                { "components",      required_argument, NULL, ARG_COMPONENTS      },
-                { "location",        required_argument, NULL, ARG_LOCATION        },
-                { "recovery-pin",    required_argument, NULL, ARG_RECOVERY_PIN    },
-                { "pcrlock",         required_argument, NULL, ARG_PCRLOCK         },
-                { "policy",          required_argument, NULL, ARG_POLICY          },
-                { "force",           no_argument,       NULL, ARG_FORCE           },
-                { "entry-token",     required_argument, NULL, ARG_ENTRY_TOKEN     },
-                { "quiet",           no_argument,       NULL, 'q'                 },
-                {}
-        };
-
-        bool auto_location = true;
-        int c, r;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hq", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+        bool auto_location = true;
+        int r;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
 
-                case ARG_RAW_DESCRIPTION:
+                OPTION_LONG("raw-description", NULL,
+                            "Show raw firmware record data as description in table"):
                         arg_raw_description = true;
                         break;
 
-                case ARG_PCR: {
-                        r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_pcr_mask);
+                OPTION_LONG("pcr", "NR",
+                            "Generate .pcrlock for specified PCR"):
+                        r = tpm2_parse_pcr_argument_to_mask(arg, &arg_pcr_mask);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse PCR specification: %s", optarg);
-
+                                return log_error_errno(r, "Failed to parse PCR specification: %s", arg);
                         break;
-                }
 
-                case ARG_NV_INDEX:
-                        if (isempty(optarg))
+                OPTION_LONG("nv-index", "NUMBER",
+                            "Use the specified NV index, instead of a random one"):
+                        if (isempty(arg))
                                 arg_nv_index = 0;
                         else {
                                 uint32_t u;
 
-                                r = safe_atou32_full(optarg, 16, &u);
+                                r = safe_atou32_full(arg, 16, &u);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --nv-index= argument: %s", optarg);
+                                        return log_error_errno(r, "Failed to parse --nv-index= argument: %s", arg);
 
                                 if (u < TPM2_NV_INDEX_FIRST || u > TPM2_NV_INDEX_LAST)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument for --nv-index= outside of valid range 0x%" PRIx32 "…0x%"  PRIx32 ": 0x%" PRIx32,
@@ -5233,10 +5243,11 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
-                case ARG_COMPONENTS: {
+                OPTION_LONG("components", "PATH",
+                            "Directory to read .pcrlock files from"): {
                         _cleanup_free_ char *p = NULL;
 
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &p);
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &p);
                         if (r < 0)
                                 return r;
 
@@ -5247,21 +5258,22 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_LOCATION: {
+                OPTION_LONG("location", "START[:END]",
+                            "Do not process components beyond this component name"): {
                         _cleanup_free_ char *start = NULL, *end = NULL;
                         const char *e;
 
                         auto_location = false;
 
-                        if (isempty(optarg)) {
+                        if (isempty(arg)) {
                                 arg_location_start = mfree(arg_location_start);
                                 arg_location_end = mfree(arg_location_end);
                                 break;
                         }
 
-                        e = strchr(optarg, ':');
+                        e = strchr(arg, ':');
                         if (e) {
-                                start = strndup(optarg, e - optarg);
+                                start = strndup(arg, e - arg);
                                 if (!start)
                                         return log_oom();
 
@@ -5269,11 +5281,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (!end)
                                         return log_oom();
                         } else {
-                                start = strdup(optarg);
+                                start = strdup(arg);
                                 if (!start)
                                         return log_oom();
 
-                                end = strdup(optarg);
+                                end = strdup(arg);
                                 if (!end)
                                         return log_oom();
                         }
@@ -5288,17 +5300,19 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_RECOVERY_PIN:
-                        arg_recovery_pin = recovery_pin_mode_from_string(optarg);
+                OPTION_LONG("recovery-pin", "MODE",
+                            "Controls whether to show, hide, or ask for a recovery PIN"):
+                        arg_recovery_pin = recovery_pin_mode_from_string(arg);
                         if (arg_recovery_pin < 0)
-                                return log_error_errno(arg_recovery_pin, "Failed to parse --recovery-pin= mode: %s", optarg);
+                                return log_error_errno(arg_recovery_pin, "Failed to parse --recovery-pin= mode: %s", arg);
                         break;
 
-                case ARG_PCRLOCK:
-                        if (empty_or_dash(optarg))
+                OPTION_LONG("pcrlock", "PATH",
+                            ".pcrlock file to write expected PCR measurement to"):
+                        if (empty_or_dash(arg))
                                 arg_pcrlock_path = mfree(arg_pcrlock_path);
                         else {
-                                r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_pcrlock_path);
+                                r = parse_path_argument(arg, /* suppress_root= */ false, &arg_pcrlock_path);
                                 if (r < 0)
                                         return r;
                         }
@@ -5306,36 +5320,34 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_pcrlock_auto = false;
                         break;
 
-                case ARG_POLICY:
-                        if (empty_or_dash(optarg))
+                OPTION_LONG("policy", "PATH",
+                            "JSON file to write policy output to"):
+                        if (empty_or_dash(arg))
                                 arg_policy_path = mfree(arg_policy_path);
                         else {
-                                r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_policy_path);
+                                r = parse_path_argument(arg, /* suppress_root= */ false, &arg_policy_path);
                                 if (r < 0)
                                         return r;
                         }
 
                         break;
 
-                case ARG_FORCE:
+                OPTION_LONG("force", NULL,
+                            "Write policy even if it matches existing policy"):
                         arg_force = true;
                         break;
 
-                case ARG_ENTRY_TOKEN:
-                        r = parse_boot_entry_token_type(optarg, &arg_entry_token_type, &arg_entry_token);
+                OPTION_LONG("entry-token", "TOKEN",
+                            "Boot entry token to use for this installation "
+                            "(machine-id, os-id, os-image-id, auto, literal:…)"):
+                        r = parse_boot_entry_token_type(arg, &arg_entry_token_type, &arg_entry_token);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'q':
+                OPTION('q', "quiet", NULL, "Suppress unnecessary output"):
                         arg_quiet = true;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (auto_location) {
@@ -5359,47 +5371,8 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_pager_flags |= PAGER_DISABLE;
         }
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
-}
-
-static int pcrlock_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "help",                        VERB_ANY, VERB_ANY, 0,            verb_help                        },
-                { "log",                         VERB_ANY, 1,        VERB_DEFAULT, verb_show_log                    },
-                { "cel",                         VERB_ANY, 1,        0,            verb_show_cel                    },
-                { "list-components",             VERB_ANY, 1,        0,            verb_list_components             },
-                { "predict",                     VERB_ANY, 1,        0,            verb_predict                     },
-                { "lock-firmware-code",          VERB_ANY, 2,        0,            verb_lock_firmware               },
-                { "unlock-firmware-code",        VERB_ANY, 1,        0,            verb_unlock_firmware             },
-                { "lock-firmware-config",        VERB_ANY, 2,        0,            verb_lock_firmware               },
-                { "unlock-firmware-config",      VERB_ANY, 1,        0,            verb_unlock_firmware             },
-                { "lock-secureboot-policy",      VERB_ANY, 1,        0,            verb_lock_secureboot_policy      },
-                { "unlock-secureboot-policy",    VERB_ANY, 1,        0,            verb_unlock_secureboot_policy    },
-                { "lock-secureboot-authority",   VERB_ANY, 1,        0,            verb_lock_secureboot_authority   },
-                { "unlock-secureboot-authority", VERB_ANY, 1,        0,            verb_unlock_secureboot_authority },
-                { "lock-gpt",                    VERB_ANY, 2,        0,            verb_lock_gpt                    },
-                { "unlock-gpt",                  VERB_ANY, 1,        0,            verb_unlock_gpt                  },
-                { "lock-pe",                     VERB_ANY, 2,        0,            verb_lock_pe                     },
-                { "unlock-pe",                   VERB_ANY, 1,        0,            verb_unlock_simple               },
-                { "lock-uki",                    VERB_ANY, 2,        0,            verb_lock_uki                    },
-                { "unlock-uki",                  VERB_ANY, 1,        0,            verb_unlock_simple               },
-                { "lock-machine-id",             VERB_ANY, 1,        0,            verb_lock_machine_id             },
-                { "unlock-machine-id",           VERB_ANY, 1,        0,            verb_unlock_machine_id           },
-                { "lock-file-system",            VERB_ANY, 2,        0,            verb_lock_file_system            },
-                { "unlock-file-system",          VERB_ANY, 2,        0,            verb_unlock_file_system          },
-                { "lock-kernel-cmdline",         VERB_ANY, 2,        0,            verb_lock_kernel_cmdline         },
-                { "unlock-kernel-cmdline",       VERB_ANY, 1,        0,            verb_unlock_kernel_cmdline       },
-                { "lock-kernel-initrd",          VERB_ANY, 2,        0,            verb_lock_kernel_initrd          },
-                { "unlock-kernel-initrd",        VERB_ANY, 1,        0,            verb_unlock_kernel_initrd        },
-                { "lock-raw",                    VERB_ANY, 2,        0,            verb_lock_raw                    },
-                { "unlock-raw",                  VERB_ANY, 1,        0,            verb_unlock_simple               },
-                { "make-policy",                 VERB_ANY, 1,        0,            verb_make_policy                 },
-                { "remove-policy",               VERB_ANY, 1,        0,            verb_remove_policy               },
-                { "is-supported",                VERB_ANY, 1,        0,            verb_is_supported                },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -5493,7 +5466,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -5525,7 +5499,7 @@ static int run(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        return pcrlock_main(argc, argv);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
