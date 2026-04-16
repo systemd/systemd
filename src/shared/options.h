@@ -6,10 +6,11 @@
 
 typedef enum OptionFlags {
         OPTION_OPTIONAL_ARG        = 1U << 0,  /* Same as optional_argument in getopt */
-        OPTION_STOPS_PARSING       = 1U << 1,  /* This option acts like "--" */
-        OPTION_GROUP_MARKER        = 1U << 2,  /* Fake option entry to separate groups */
-        OPTION_HELP_ENTRY          = 1U << 3,  /* Fake option entry to insert an additional help line */
-        OPTION_HELP_ENTRY_VERBATIM = 1U << 4,  /* Same, but use the long_code in the first column as written */
+        OPTION_POSITIONAL_ENTRY    = 1U << 1,  /* The "option" to handle positional arguments */
+        OPTION_STOPS_PARSING       = 1U << 2,  /* This option acts like "--" */
+        OPTION_GROUP_MARKER        = 1U << 3,  /* Fake option entry to separate groups */
+        OPTION_HELP_ENTRY          = 1U << 4,  /* Fake option entry to insert an additional help line */
+        OPTION_HELP_ENTRY_VERBATIM = 1U << 5,  /* Same, but use the long_code in the first column as written */
 } OptionFlags;
 
 typedef struct Option {
@@ -50,6 +51,7 @@ typedef struct Option {
 #define OPTION_LONG_FLAGS(fl, lc, mv, h) OPTION_FULL(fl, /* sc= */ 0, lc, mv, h)
 #define OPTION_SHORT(sc, mv, h) OPTION(sc, /* lc= */ NULL, mv, h)
 #define OPTION_SHORT_FLAGS(fl, sc, mv, h) OPTION_FULL(fl, sc, /* lc= */ NULL, mv, h)
+#define OPTION_POSITIONAL OPTION_FULL(OPTION_POSITIONAL_ENTRY, /* sc= */ 0, "(positional)", /* mv= */ NULL, /* h= */ NULL)
 #define OPTION_HELP_VERBATIM(lc, h) OPTION_FULL(OPTION_HELP_ENTRY_VERBATIM, /* sc= */ 0, lc, /* mv= */ NULL, h)
 
 #define OPTION_COMMON_HELP \
@@ -92,13 +94,26 @@ typedef struct Option {
 extern const Option __start_SYSTEMD_OPTIONS[];
 extern const Option __stop_SYSTEMD_OPTIONS[];
 
+typedef enum OptionParserMode {
+        /* The default mode. This is the implicit default and doesn't have to be specified. */
+        OPTION_PARSER_NORMAL = 0,
+
+        /* Same as "+…" for getopt_long — only parse options before the first positional argument. */
+        OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
+
+        /* Same as "-…" for getopt_long — return positional arguments as "options" to be handled by the
+         * option handler specified with OPTION_POSITIONAL. */
+        OPTION_PARSER_RETURN_POSITIONAL_ARGS,
+
+        _OPTION_PARSER_MODE_MAX,
+} OptionParserMode;
+
 typedef struct OptionParser {
         /* Those three should stay first so that it's possible to initialize the struct as { argc, argv }
-         * or { argc, argv, true/false }. */
+         * or { argc, argv, mode }. */
         int argc;                     /* The original argc. */
         char **argv;                  /* The argv array, possibly reordered. */
-        bool stop_at_first_nonoption; /* Same as "+…" for getopt_long — only parse options before the first
-                                       * positional argument. */
+        OptionParserMode mode;
 
         bool parsing_stopped;         /* We processed "--" or an option that terminates option parsing. */
         int optind;                   /* Position of the parameter being handled.
