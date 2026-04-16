@@ -76,6 +76,7 @@ extern char *arg_image;
 extern usec_t arg_when;
 extern bool arg_stdin;
 extern const char *arg_reboot_argument;
+extern char *arg_kernel_cmdline;
 extern enum action arg_action;
 extern BusTransport arg_transport;
 extern const char *arg_host;
