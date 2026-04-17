@@ -41,17 +41,6 @@ int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
         return 0;
 }
 
-int iovw_append(struct iovec_wrapper *iovw, const void *data, size_t len) {
-        if (len == 0)
-                return 0;
-
-        void *c = memdup(data, len);
-        if (!c)
-                return -ENOMEM;
-
-        return iovw_put(iovw, c, len);
-}
-
 int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
         /* Move data into iovw or free on error */
         int r;
@@ -61,6 +50,17 @@ int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
                 free(data);
 
         return r;
+}
+
+int iovw_append(struct iovec_wrapper *iovw, const void *data, size_t len) {
+        if (len == 0)
+                return 0;
+
+        void *c = memdup(data, len);
+        if (!c)
+                return -ENOMEM;
+
+        return iovw_consume(iovw, c, len);
 }
 
 int iovw_put_string_field_full(struct iovec_wrapper *iovw, bool replace, const char *field, const char *value) {

@@ -12,8 +12,8 @@ void iovw_done_free(struct iovec_wrapper *iovw);
 void iovw_done(struct iovec_wrapper *iovw);
 
 int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len);
-int iovw_append(struct iovec_wrapper *iovw, const void *data, size_t len);
 int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len);
+int iovw_append(struct iovec_wrapper *iovw, const void *data, size_t len);
 
 static inline bool iovw_isempty(const struct iovec_wrapper *iovw) {
         return !iovw || iovw->count == 0;
