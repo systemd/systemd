@@ -567,14 +567,10 @@ static int resource_load_from_web(
                                         return r;
 
                                 assert(h.iov_len == sizeof(instance->metadata.sha256sum));
+                                assert(!instance->metadata.sha256sum_set);
 
-                                if (instance->metadata.sha256sum_set) {
-                                        if (memcmp(instance->metadata.sha256sum, h.iov_base, h.iov_len) != 0)
-                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 sum parsed from filename and manifest don't match at line %zu, refusing.", line_nr);
-                                } else {
-                                        memcpy(instance->metadata.sha256sum, h.iov_base, h.iov_len);
-                                        instance->metadata.sha256sum_set = true;
-                                }
+                                memcpy(instance->metadata.sha256sum, h.iov_base, h.iov_len);
+                                instance->metadata.sha256sum_set = true;
 
                                 /* Web resources can only be a source, not a target, so
                                  * can never be partial or pending. */

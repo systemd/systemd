@@ -399,7 +399,7 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
                         found.growfs = r;
                         break;
 
-                case PATTERN_SHA256SUM: {
+                case PATTERN_SHA256SUM: { /* only check, nothing else (deprecated) */
                         _cleanup_free_ void *d = NULL;
                         size_t l;
 
@@ -414,8 +414,6 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
 
                         assert(!found.sha256sum_set);
                         assert(l == sizeof(found.sha256sum));
-                        memcpy(found.sha256sum, d, l);
-                        found.sha256sum_set = true;
                         break;
                 }
 
