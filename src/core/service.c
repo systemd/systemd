@@ -5210,7 +5210,7 @@ static void service_notify_message(
 
                 e = empty_to_null(e);
 
-                if (e && !string_is_safe_ascii(e)) {
+                if (e && !string_is_safe(e, STRING_ASCII)) {
                         _cleanup_free_ char *escaped = cescape(e);
                         log_unit_warning(u, "Got invalid %s string, ignoring: %s", i->tag, strna(escaped));
                 } else if (free_and_strdup_warn(status_error, e) > 0)

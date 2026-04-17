@@ -543,7 +543,7 @@ static int event_log_record_parse_variable_data(
         if (!p)
                 return log_oom_debug();
 
-        if (!string_is_safe(p))
+        if (!string_is_safe(p, STRING_ALLOW_GLOBS))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Unsafe EFI variable string in record.");
 
         *ret_variable_uuid = efi_guid_to_id128(vdata->variableName);
@@ -627,7 +627,7 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to make C string from EFI action string: %m");
 
-                if (!string_is_safe(d)) {
+                if (!string_is_safe(d, STRING_ALLOW_GLOBS|STRING_ALLOW_EMPTY|STRING_ALLOW_BACKSLASHES)) {
                         log_warning("Unsafe EFI action string in record, ignoring.");
                         goto invalid;
                 }

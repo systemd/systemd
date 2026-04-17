@@ -969,12 +969,14 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_KERNEL_CMDLINE:
-                        if (!utf8_is_valid(optarg))
+                        if (isempty(optarg)) {
+                                arg_kernel_cmdline = mfree(arg_kernel_cmdline);
+                                return 0;
+                        }
+
+                        if (!string_is_safe(optarg, STRING_ALLOW_GLOBS|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--kernel-cmdline= argument is not valid UTF-8: %s", optarg);
-                        if (string_has_cc(optarg, NULL))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--kernel-cmdline= argument contains control characters: %s", optarg);
+                                                       "--kernel-cmdline= argument contains invalid characters: %s", optarg);
 
                         r = free_and_strdup_warn(&arg_kernel_cmdline, optarg);
                         if (r < 0)
