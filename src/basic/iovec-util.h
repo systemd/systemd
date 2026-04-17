@@ -38,6 +38,9 @@ char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const ch
 void iovec_array_free(struct iovec *iovec, size_t n_iovec) _nonnull_if_nonzero_(1, 2);
 
 int iovec_memcmp(const struct iovec *a, const struct iovec *b) _pure_;
+static inline bool iovec_equal(const struct iovec *a, const struct iovec *b) {
+        return iovec_memcmp(a, b) == 0;
+}
 
 struct iovec* iovec_memdup(const struct iovec *source, struct iovec *ret);
 
