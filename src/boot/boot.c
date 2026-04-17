@@ -1918,11 +1918,15 @@ static void config_select_default_entry(Config *config) {
         }
 
         /* select the first suitable entry */
-        for (i = 0; i < config->n_entries; i++)
+        for (i = 0; i < config->n_entries; i++) {
+                if (config->entries[i]->profile > 0)
+                        continue; /* For now, never select any non-default profile */
+
                 if (LOADER_TYPE_MAY_AUTO_SELECT(config->entries[i]->type)) {
                         config->idx_default = i;
                         return;
                 }
+        }
 
         /* If no configured entry to select from was found, enable the menu. */
         config->idx_default = 0;
