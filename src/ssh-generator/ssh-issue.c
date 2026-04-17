@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -8,116 +7,25 @@
 #include "ansi-color.h"
 #include "build.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "ssh-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tmpfile-util.h"
+#include "verbs.h"
 #include "virt.h"
-
-static enum {
-        ACTION_MAKE_VSOCK,
-        ACTION_RM_VSOCK,
-} arg_action = ACTION_MAKE_VSOCK;
 
 static char *arg_issue_path = NULL;
 static bool arg_issue_stdout = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_issue_path, freep);
-
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-ssh-issue", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        printf("%s [OPTIONS...] --make-vsock\n"
-               "%s [OPTIONS...] --rm-vsock\n"
-               "\n%sCreate ssh /run/issue.d/ file reporting VSOCK address.%s\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "     --issue-path=PATH Change path to /run/issue.d/50-ssh-vsock.issue\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               link);
-
-        return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_MAKE_VSOCK = 0x100,
-                ARG_RM_VSOCK,
-                ARG_ISSUE_PATH,
-                ARG_VERSION,
-        };
-
-        static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'            },
-                { "version",    no_argument,       NULL, ARG_VERSION    },
-                { "make-vsock", no_argument,       NULL, ARG_MAKE_VSOCK },
-                { "rm-vsock",   no_argument,       NULL, ARG_RM_VSOCK   },
-                { "issue-path", required_argument, NULL, ARG_ISSUE_PATH },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_MAKE_VSOCK:
-                        arg_action = ACTION_MAKE_VSOCK;
-                        break;
-
-                case ARG_RM_VSOCK:
-                        arg_action = ACTION_RM_VSOCK;
-                        break;
-
-                case ARG_ISSUE_PATH:
-                        if (empty_or_dash(optarg)) {
-                                arg_issue_path = mfree(arg_issue_path);
-                                arg_issue_stdout = true;
-                                break;
-                        }
-
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_issue_path);
-                        if (r < 0)
-                                return r;
-
-                        arg_issue_stdout = false;
-                        break;
-                }
-        }
-
-        if (!arg_issue_path && !arg_issue_stdout) {
-                arg_issue_path = strdup("/run/issue.d/50-ssh-vsock.issue");
-                if (!arg_issue_path)
-                        return log_oom();
-        }
-
-        return 1;
-}
 
 static int acquire_cid(unsigned *ret_cid) {
         int r;
@@ -141,79 +49,183 @@ static int acquire_cid(unsigned *ret_cid) {
         return vsock_get_local_cid_or_warn(ret_cid);
 }
 
+VERB_NOARG(verb_make_vsock, "make-vsock",
+           "Generate the issue file");
+static int verb_make_vsock(int argc, char *argv[], uintptr_t _data, void *_userdata) {
+        unsigned cid;
+        int r;
+
+        r = acquire_cid(&cid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_debug("Not running in a VSOCK enabled VM, skipping.");
+                return 0;
+        }
+
+        _cleanup_(unlink_and_freep) char *t = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
+        FILE *out;
+
+        if (arg_issue_path)  {
+                r = mkdir_parents(arg_issue_path, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create parent directories of '%s': %m", arg_issue_path);
+
+                r = fopen_tmpfile_linkable(arg_issue_path, O_WRONLY|O_CLOEXEC, &t, &f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create '%s': %m", arg_issue_path);
+
+                out = f;
+        } else
+                out = stdout;
+
+        fprintf(out,
+                "Try contacting this VM's SSH server via 'ssh vsock%%%u' from host.\n"
+                "\n", cid);
+
+        if (f) {
+                if (fchmod(fileno(f), 0644) < 0)
+                        return log_error_errno(errno, "Failed to adjust access mode of '%s': %m", arg_issue_path);
+
+                r = flink_tmpfile(f, t, arg_issue_path, LINK_TMPFILE_REPLACE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to move '%s' into place: %m", arg_issue_path);
+        }
+
+        return 0;
+}
+
+VERB_NOARG(verb_rm_vsock, "rm-vsock",
+           "Remove the issue file");
+static int verb_rm_vsock(int argc, char *argv[], uintptr_t _data, void *_userdata) {
+        if (arg_issue_path) {
+                if (unlink(arg_issue_path) < 0) {
+                        if (errno != ENOENT)
+                                return log_error_errno(errno, "Failed to remove '%s': %m", arg_issue_path);
+
+                        log_debug_errno(errno, "File '%s' does not exist, no operation executed.", arg_issue_path);
+                } else
+                        log_debug("Successfully removed '%s'.", arg_issue_path);
+        } else
+                log_notice("STDOUT selected for issue file, not removing.");
+
+        return 0;
+}
+
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-ssh-issue", "1", &link);
+        if (r < 0)
+                return log_oom();
+
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, options);
+
+        printf("%s [OPTIONS...] COMMAND\n"
+               "\n%sCreate/remove ssh /run/issue.d/ file reporting VSOCK address.%s\n"
+               "\n%sCommands:%s\n",
+               program_invocation_short_name,
+               ansi_highlight(), ansi_normal(),
+               ansi_underline(), ansi_normal());
+
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n",
+               ansi_underline(), ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        assert(argc >= 0);
+        assert(argv);
+        assert(ret_args);
+
+        OptionParser state = { argc, argv };
+        const Option *opt;
+        const char *arg, *verb = NULL;
+        int r;
+
+        FOREACH_OPTION_FULL(&state, c, &opt, &arg, /* on_error= */ return c)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_LONG("make-vsock", NULL, /* help= */ NULL): {}
+                OPTION_LONG("rm-vsock", NULL, /* help= */ NULL):
+                        verb = opt->long_code;
+                        break;
+
+                OPTION_LONG("issue-path", "PATH",
+                            "Change path to /run/issue.d/50-ssh-vsock.issue"):
+                        if (empty_or_dash(arg)) {
+                                arg_issue_path = mfree(arg_issue_path);
+                                arg_issue_stdout = true;
+                                break;
+                        }
+
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_issue_path);
+                        if (r < 0)
+                                return r;
+
+                        arg_issue_stdout = false;
+                        break;
+                }
+
+        if (!arg_issue_path && !arg_issue_stdout) {
+                arg_issue_path = strdup("/run/issue.d/50-ssh-vsock.issue");
+                if (!arg_issue_path)
+                        return log_oom();
+        }
+
+        char **args;
+        if (verb) {
+                if (option_parser_get_n_args(&state) > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid use of compat option --make-vsock/--rm-vsock.");
+                log_warning("Options --make-vsock/--rm-vsock have been replaced by make-vsock/rm-vsock verbs.");
+                args = strv_new(verb);
+        } else
+                args = strv_copy(option_parser_get_args(&state));
+        if (!args)
+                return log_oom();
+
+        *ret_args = args;
+        return 1;
+}
+
 static int run(int argc, char* argv[]) {
+        _cleanup_free_ char **args = NULL;
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        switch (arg_action) {
-        case ACTION_MAKE_VSOCK: {
-                unsigned cid;
-
-                r = acquire_cid(&cid);
-                if (r < 0)
-                        return r;
-                if (r == 0) {
-                        log_debug("Not running in a VSOCK enabled VM, skipping.");
-                        break;
-                }
-
-                _cleanup_(unlink_and_freep) char *t = NULL;
-                _cleanup_(fclosep) FILE *f = NULL;
-                FILE *out;
-
-                if (arg_issue_path)  {
-                        r = mkdir_parents(arg_issue_path, 0755);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create parent directories of '%s': %m", arg_issue_path);
-
-                        r = fopen_tmpfile_linkable(arg_issue_path, O_WRONLY|O_CLOEXEC, &t, &f);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create '%s': %m", arg_issue_path);
-
-                        out = f;
-                } else
-                        out = stdout;
-
-                fprintf(out,
-                        "Try contacting this VM's SSH server via 'ssh vsock%%%u' from host.\n"
-                        "\n", cid);
-
-                if (f) {
-                        if (fchmod(fileno(f), 0644) < 0)
-                                return log_error_errno(errno, "Failed to adjust access mode of '%s': %m", arg_issue_path);
-
-                        r = flink_tmpfile(f, t, arg_issue_path, LINK_TMPFILE_REPLACE);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to move '%s' into place: %m", arg_issue_path);
-                }
-
-                break;
-        }
-
-        case ACTION_RM_VSOCK:
-                if (arg_issue_path) {
-                        if (unlink(arg_issue_path) < 0) {
-                                if (errno != ENOENT)
-                                        return log_error_errno(errno, "Failed to remove '%s': %m", arg_issue_path);
-
-                                log_debug_errno(errno, "File '%s' does not exist, no operation executed.", arg_issue_path);
-                        } else
-                                log_debug("Successfully removed '%s'.", arg_issue_path);
-                } else
-                        log_notice("STDOUT selected for issue file, not removing.");
-
-                break;
-
-        default:
-                assert_not_reached();
-        }
-
-        return 0;
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);
