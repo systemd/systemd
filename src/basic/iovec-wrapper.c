@@ -199,3 +199,30 @@ char* iovw_to_cstring(const struct iovec_wrapper *iovw) {
 
         return ans;
 }
+
+int iovw_concat(const struct iovec_wrapper *iovw, struct iovec *ret) {
+        assert(iovw);
+        assert(ret);
+
+        size_t len = 0;
+        FOREACH_ARRAY(i, iovw->iovec, iovw->count) {
+                if (len > SIZE_MAX - i->iov_len)
+                        return -E2BIG;
+
+                len += i->iov_len;
+        }
+
+        /* Always allocate one more byte to make the result can be used as NUL-terminated string. */
+        _cleanup_free_ uint8_t *buf = malloc(len + 1);
+        if (!buf)
+                return -ENOMEM;
+
+        uint8_t *p = buf;
+        FOREACH_ARRAY(i, iovw->iovec, iovw->count)
+                p = mempcpy(p, i->iov_base, i->iov_len);
+
+        *p = 0;
+
+        *ret = IOVEC_MAKE(TAKE_PTR(buf), len);
+        return 0;
+}

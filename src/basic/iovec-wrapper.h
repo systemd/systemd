@@ -39,3 +39,4 @@ void iovw_rebase(struct iovec_wrapper *iovw, void *old, void *new);
 size_t iovw_size(const struct iovec_wrapper *iovw);
 int iovw_append_iovw(struct iovec_wrapper *target, const struct iovec_wrapper *source);
 char* iovw_to_cstring(const struct iovec_wrapper *iovw);
+int iovw_concat(const struct iovec_wrapper *iovw, struct iovec *ret);
