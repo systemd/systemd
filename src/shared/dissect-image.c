@@ -3728,7 +3728,7 @@ static char *build_auxiliary_path(const char *image, const char *suffix) {
 
         e = endswith(image, ".raw");
         if (!e)
-                return strjoin(e, suffix);
+                return strjoin(image, suffix);
 
         n = new(char, e - image + strlen(suffix) + 1);
         if (!n)
