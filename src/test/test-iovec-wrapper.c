@@ -279,6 +279,24 @@ TEST(iovw_append_iovw) {
         ASSERT_EQ(source.count, 2U);
 }
 
+TEST(iovw_concat) {
+        _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
+
+        /* Empty wrapper -> empty string with 0 length */
+        _cleanup_(iovec_done) struct iovec iov = {};
+        ASSERT_OK(iovw_concat(&iovw, &iov));
+        ASSERT_FALSE(iovec_is_set(&iov));
+        ASSERT_STREQ(iov.iov_base, "");
+        iovec_done(&iov);
+
+        ASSERT_OK(iovw_put(&iovw, (char*) "foo", 3));
+        ASSERT_OK(iovw_put(&iovw, (char*) "\0", 1));
+        ASSERT_OK(iovw_put(&iovw, (char*) "bar", 4));
+
+        ASSERT_OK(iovw_concat(&iovw, &iov));
+        ASSERT_EQ(iovec_memcmp(&iov, &IOVEC_MAKE("foo\0bar\0", 8)), 0);
+}
+
 TEST(iovw_to_cstring) {
         _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
         _cleanup_free_ char *s;
