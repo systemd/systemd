@@ -23,6 +23,19 @@
         fi
     }
 
+(( $+functions[_machinectl_disks] )) ||
+    _machinectl_disks() {
+        local machine=$1 a b
+        local -a _disks
+        _disks=("${(fo)$(machinectl --no-legend --no-pager list-disks "$machine" 2>/dev/null | while read -r a b; do printf -- '%s\n' $a; done)}")
+        typeset -U _disks
+        if [[ -n "$_disks" ]]; then
+            _describe 'disks' _disks
+        else
+            _message 'no disks'
+        fi
+    }
+
 (( $+functions[_machinectl_commands] )) || _machinectl_commands()
 {
     local -a _machinectl_cmds
@@ -57,6 +70,10 @@
         "remove:Remove an image"
         "set-limits:Set image or pool size limit (disk quota)"
         "clean:Remove hidden (or all) images"
+
+        "attach-disk:Hotplug a block device into a VM"
+        "detach-disk:Hot-remove a block device from a VM"
+        "list-disks:List block devices attached to a VM"
 
         "pull-tar:Download a TAR container image"
         "pull-raw:Download a RAW container or VM image"
@@ -103,6 +120,23 @@
 
         image-status|show-image|remove)
             _machinectl_images ;;
+
+        attach-disk)
+            if (( CURRENT == 2 )); then _sd_machines
+            elif (( CURRENT == 3 )); then _files
+            else stop=1
+            fi ;;
+
+        detach-disk)
+            if (( CURRENT == 2 )); then _sd_machines
+            elif (( CURRENT == 3 )); then _machinectl_disks "$words[2]"
+            else stop=1
+            fi ;;
+
+        list-disks)
+            if (( CURRENT == 2 )); then _sd_machines
+            else stop=1
+            fi ;;
 
         edit|cat)
             if (( CURRENT == 2 )); then _machinectl_images
@@ -183,7 +217,8 @@ _arguments \
     '(-l --full)'{-l,--full}'[Do not ellipsize cgroup members.]' \
     '--kill-whom=[Whom to send signal to.]:killwhom:(leader all)' \
     '(-s --signal)'{-s+,--signal=}'[Which signal to send.]:signal:_signals' \
-    '--read-only[Create read-only bind mount.]' \
+    '--read-only[Create read-only bind mount or attach disk read-only.]' \
+    '--disk-id=[Caller-chosen id for an attached block device.]:disk id' \
     '--mkdir[Create directory before bind mounting, if missing.]' \
     '(-n --lines)'{-n+,--lines=}'[Number of journal entries to show.]:integer' \
     '(-o --output)'{-o+,--output=}'[Change journal output mode.]:output modes:_sd_outputmodes' \
