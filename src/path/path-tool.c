@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
 
 #include "sd-path.h"
@@ -8,12 +7,15 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "errno-util.h"
+#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "pager.h"
 #include "pretty-print.h"
 #include "sort-util.h"
 #include "string-util.h"
+#include "strv.h"
 
 static const char *arg_suffix = NULL;
 static PagerFlags arg_pager_flags = 0;
@@ -172,72 +174,57 @@ static int print_path(const char *n) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-path", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [NAME...]\n"
-               "\n%sShow system and user paths.%s\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "     --suffix=SUFFIX    Suffix to append to paths\n"
-               "     --no-pager         Do not pipe output into a pager\n"
-               "\nSee the %s for details.\n",
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...] [NAME...]\n\n"
+               "%sShow system and user paths.%s\n\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_normal(),
-               link);
+               ansi_normal());
 
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_SUFFIX,
-                ARG_NO_PAGER,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "suffix",    required_argument, NULL, ARG_SUFFIX    },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
-                {}
-        };
-
-        int c;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_SUFFIX:
-                        arg_suffix = optarg;
+                OPTION_LONG("suffix", "SUFFIX", "Suffix to append to paths"):
+                        arg_suffix = arg;
                         break;
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
@@ -246,15 +233,16 @@ static int run(int argc, char* argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        if (optind >= argc)
+        if (strv_isempty(args))
                 return list_paths();
 
-        for (int i = optind; i < argc; i++)
-                RET_GATHER(r, print_path(argv[i]));
+        STRV_FOREACH(i, args)
+                RET_GATHER(r, print_path(*i));
         return r;
 }
 
