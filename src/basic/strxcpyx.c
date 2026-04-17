@@ -64,6 +64,8 @@ size_t strpcpyf_full(char **dest, size_t size, bool *ret_truncated, const char *
         i = vsnprintf(*dest, size, src, va);
         va_end(va);
 
+        assert(i >= 0);
+
         if (i < (int) size) {
                 *dest += i;
                 size -= i;
