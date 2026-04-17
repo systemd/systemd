@@ -38,7 +38,7 @@ int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
                 return -ENOMEM;
 
         iovw->iovec[iovw->count++] = IOVEC_MAKE(data, len);
-        return 0;
+        return 1;
 }
 
 int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
@@ -46,7 +46,7 @@ int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
         int r;
 
         r = iovw_put(iovw, data, len);
-        if (r < 0)
+        if (r <= 0)
                 free(data);
 
         return r;
