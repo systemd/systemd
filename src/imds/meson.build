@@ -8,27 +8,19 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-imdsd',
                 'public' : true,
-                'sources' : files(
-                        'imdsd.c',
-                        'imds-util.c'
-                ),
-                'link_with' : [libcurlutil_static, libshared],
-                'dependencies' : [libcurl],
+                'sources' : files('imdsd.c'),
+                'extract' : files('imds-util.c'),
         },
         libexec_template + {
                 'name' : 'systemd-imds',
                 'public' : true,
-                'sources' : files(
-                        'imds-tool.c',
-                        'imds-util.c'
-                ),
+                'sources' : files('imds-tool.c'),
+                'objects' : ['systemd-imdsd'],
         },
         generator_template + {
                 'name' : 'systemd-imds-generator',
-                'sources' : files(
-                        'imds-generator.c',
-                        'imds-util.c'
-                ),
+                'sources' : files('imds-generator.c'),
+                'objects' : ['systemd-imdsd'],
         },
 ]
 
