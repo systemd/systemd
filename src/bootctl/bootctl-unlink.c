@@ -227,6 +227,7 @@ int verb_unlink(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         r = boot_config_load_and_select(
                         &config,
+                        arg_root,
                         arg_esp_path,
                         esp_devid,
                         arg_xbootldr_path,
