@@ -27,18 +27,18 @@ TEST(iovw_put) {
         ASSERT_EQ(memcmp(iovw.iovec[2].iov_base, "q", 1), 0);
 }
 
-TEST(iovw_append) {
+TEST(iovw_extend) {
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
 
-        /* iovw_append copies the data; the wrapper owns the copies. */
+        /* iovw_extend() copies the data; the wrapper owns the copies. */
         char buf[4] = { 'o', 'n', 'e', '\0' };
-        ASSERT_OK(iovw_append(&iovw, buf, 3));
+        ASSERT_OK(iovw_extend(&iovw, buf, 3));
         ASSERT_EQ(iovw.count, 1U);
         ASSERT_EQ(iovw.iovec[0].iov_len, 3U);
         ASSERT_EQ(memcmp(iovw.iovec[0].iov_base, "one", 3), 0);
 
         /* Insert with a NUL */
-        ASSERT_OK_ZERO(iovw_append(&iovw, buf, 4));
+        ASSERT_OK(iovw_extend(&iovw, buf, 4));
         ASSERT_EQ(iovw.count, 2U);
         ASSERT_EQ(iovw.iovec[1].iov_len, 4U);
         ASSERT_EQ(memcmp(iovw.iovec[1].iov_base, "one\0", 4), 0);
@@ -58,10 +58,9 @@ TEST(iovw_consume) {
         /* iovw_consume moves ownership in place, no copy */
         ASSERT_PTR_EQ(iovw.iovec[0].iov_base, p);
 
-        /* Zero-length: iovw_put returns 0 without adding anything, and does not free the payload.
-         * Confirm by strdup'ing something and explicitly freeing it afterwards. */
-        _cleanup_free_ char *q = strdup("");
-        ASSERT_NOT_NULL(q);
+        /* Zero-length: iovw_put returns 0 without adding anything. Even in that case, iovw_consume() frees
+         * the payload. Confirm by strdup'ing something to verify that when running with sanitizer/valgrind. */
+        char *q = ASSERT_NOT_NULL(strdup(""));
         ASSERT_OK_ZERO(iovw_consume(&iovw, q, 0));
         ASSERT_EQ(iovw.count, 1U);
 }
@@ -189,13 +188,13 @@ TEST(iovw_size) {
         ASSERT_EQ(iovw_size(&iovw), 12U);
 }
 
-TEST(iovw_append_iovw) {
+TEST(iovw_extend_iovw) {
         _cleanup_(iovw_done_free) struct iovec_wrapper target = {};
         _cleanup_(iovw_done) struct iovec_wrapper source = {};
 
         /* Appending an empty/NULL source is a no-op */
-        ASSERT_OK_ZERO(iovw_append_iovw(&target, NULL));
-        ASSERT_OK_ZERO(iovw_append_iovw(&target, &source));
+        ASSERT_OK_ZERO(iovw_extend_iovw(&target, NULL));
+        ASSERT_OK_ZERO(iovw_extend_iovw(&target, &source));
         ASSERT_EQ(target.count, 0U);
 
         ASSERT_OK(iovw_put(&source, (char*) "one", 3));
@@ -207,7 +206,7 @@ TEST(iovw_append_iovw) {
         ASSERT_NOT_NULL(seed);
         ASSERT_OK(iovw_put(&target, seed, strlen(seed)));
 
-        ASSERT_OK(iovw_append_iovw(&target, &source));
+        ASSERT_OK(iovw_extend_iovw(&target, &source));
         ASSERT_EQ(target.count, 3U);
 
         /* Appended entries must be fresh copies, not aliases of the source entries */
