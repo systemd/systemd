@@ -113,6 +113,36 @@ TEST(iovw_consume) {
         ASSERT_EQ(iovw.count, 1U);
 }
 
+TEST(iovw_consume_iov) {
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+
+        ASSERT_OK_ZERO(iovw_consume_iov(&iovw, NULL));
+        ASSERT_EQ(iovw.count, 0U);
+
+        ASSERT_OK_ZERO(iovw_consume_iov(&iovw, &(struct iovec) {}));
+        ASSERT_EQ(iovw.count, 0U);
+
+        struct iovec iov = {
+                .iov_base = ASSERT_NOT_NULL(strdup("consumed")),
+                .iov_len = strlen("consumed"),
+        };
+        ASSERT_OK(iovw_consume_iov(&iovw, &iov));
+        ASSERT_EQ(iovw.count, 1U);
+        /* iovw_consume_iov takes the ownership of the buffer, and emptifies the iovec. */
+        ASSERT_NULL(iov.iov_base);
+        ASSERT_EQ(iov.iov_len, 0U);
+
+        iov = (struct iovec) {
+                .iov_base = ASSERT_NOT_NULL(strdup("")),
+                .iov_len = 0,
+        };
+        ASSERT_OK_ZERO(iovw_consume_iov(&iovw, &iov));
+        ASSERT_EQ(iovw.count, 1U);
+        /* zero length iovec is also freed */
+        ASSERT_NULL(iov.iov_base);
+        ASSERT_EQ(iov.iov_len, 0U);
+}
+
 TEST(iovw_isempty) {
         ASSERT_TRUE(iovw_isempty(NULL));
 
