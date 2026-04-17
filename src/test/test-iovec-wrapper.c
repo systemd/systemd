@@ -3,8 +3,36 @@
 #include <sys/uio.h>
 
 #include "alloc-util.h"
+#include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "tests.h"
+
+TEST(iovw_compare) {
+        _cleanup_(iovw_done) struct iovec_wrapper a1 = {}, a2 = {}, b = {};
+
+        ASSERT_OK(iovw_put(&a1, (char*) "foo", 3));
+        ASSERT_OK(iovw_put(&a1, (char*) "aaaaa", 5));
+
+        ASSERT_OK(iovw_put(&a2, (char*) "foo", 3));
+        ASSERT_OK(iovw_put(&a2, (char*) "aaaaa", 5));
+
+        ASSERT_OK(iovw_put(&b, (char*) "foo", 3));
+        ASSERT_OK(iovw_put(&b, (char*) "bbbbb", 5));
+
+        ASSERT_EQ(iovw_compare(&a1, &a1), 0);
+        ASSERT_EQ(iovw_compare(&a1, &a2), 0);
+        ASSERT_EQ(iovw_compare(&a2, &a1), 0);
+        ASSERT_EQ(iovw_compare(&a1, &b), -1);
+        ASSERT_EQ(iovw_compare(&b, &a1), 1);
+        ASSERT_EQ(iovw_compare(&b, &b), 0);
+
+        ASSERT_TRUE(iovw_equal(&a1, &a1));
+        ASSERT_TRUE(iovw_equal(&a1, &a2));
+        ASSERT_TRUE(iovw_equal(&a2, &a1));
+        ASSERT_FALSE(iovw_equal(&a1, &b));
+        ASSERT_FALSE(iovw_equal(&b, &a1));
+        ASSERT_TRUE(iovw_equal(&b, &b));
+}
 
 TEST(iovw_put) {
         _cleanup_(iovw_done) struct iovec_wrapper iovw = {};

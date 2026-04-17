@@ -23,6 +23,24 @@ void iovw_done_free(struct iovec_wrapper *iovw) {
         iovw_done(iovw);
 }
 
+int iovw_compare(const struct iovec_wrapper *a, const struct iovec_wrapper *b) {
+        int r;
+
+        if (a == b)
+                return 0;
+
+        if (!a || !b)
+                return CMP(!!a, !!b);
+
+        for (size_t i = 0, n = MIN(a->count, b->count); i < n; i++) {
+                r = iovec_memcmp(a->iovec + i, b->iovec + i);
+                if (r != 0)
+                        return r;
+        }
+
+        return CMP(a->count, b->count);
+}
+
 int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
         assert(iovw);
 
