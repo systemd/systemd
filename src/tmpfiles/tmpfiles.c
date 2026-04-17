@@ -449,13 +449,17 @@ static bool supports_ignore_if_target_missing(ItemType t) {
         return t == CREATE_SYMLINK;
 }
 
-static struct Item* find_glob(OrderedHashmap *h, const char *match) {
+/* Search for 'match' in all config items besides 'except' (which may be NULL if there is no exception) */
+static struct Item* find_glob(OrderedHashmap *h, const char *match, Item *except) {
         ItemArray *j;
 
         ORDERED_HASHMAP_FOREACH(j, h)
-                FOREACH_ARRAY(item, j->items, j->n_items)
+                FOREACH_ARRAY(item, j->items, j->n_items) {
+                        if (except && item == except)
+                                continue;
                         if (fnmatch(item->path, match, FNM_PATHNAME|FNM_PERIOD) == 0)
                                 return item;
+                }
         return NULL;
 }
 
@@ -738,7 +742,7 @@ static bool item_cleanup(
                 return false;
         }
 
-        if (find_glob(c->globs, pathname)) {
+        if (find_glob(c->globs, pathname, i)) {
                 log_debug("Ignoring \"%s\": a separate glob exists.", pathname);
                 return false;
         }
@@ -3237,11 +3241,21 @@ static int clean_including_item(
         struct statx sx;
         bool mountpoint;
         int r;
-
-        parent_path = path_join(instance, "..");
-        if (!parent_path) {
-                return log_oom();
+        /* Check whether item is a directory or file and determine parent path accordingly */
+        struct stat st;
+        if (stat(instance, &st) < 0)
+                return log_error_errno(errno, "Failed to stat(%s) for %s: %m", instance, i->path);
+        if (S_ISDIR(st.st_mode)) {
+                parent_path = path_join(instance, "..");
+                if (!parent_path) {
+                        return log_oom();
+                }
+        } else {
+                r = path_extract_directory(instance, &parent_path);
+                if (r < 0)
+                        return log_error_errno(r, "Unable to determine parent directory of '%s' for %s: %m", instance, i->path);
         }
+
         r = opendir_and_stat(parent_path, &d, &sx, &mountpoint);
         if (r <= 0)
                 return r;
