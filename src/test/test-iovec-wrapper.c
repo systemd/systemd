@@ -84,6 +84,67 @@ TEST(iovw_put) {
         ASSERT_EQ(memcmp(iovw.iovec[2].iov_base, "q", 1), 0);
 }
 
+TEST(iovw_put_iov) {
+        /* iovw_put_iov() does not copy the input, hence do not use iovw_done_free */
+        _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
+
+        /* Appending an empty/NULL source is a no-op */
+        ASSERT_OK_ZERO(iovw_put_iov(&iovw, NULL));
+        ASSERT_OK_ZERO(iovw_put_iov(&iovw, &(struct iovec) {}));
+        ASSERT_EQ(iovw.count, 0U);
+
+        ASSERT_OK(iovw_put_iov(&iovw, &IOVEC_MAKE_STRING("aaa")));
+        ASSERT_OK(iovw_put_iov(&iovw, &IOVEC_MAKE_STRING("bbb")));
+        ASSERT_OK(iovw_put_iov(&iovw, &IOVEC_MAKE_STRING("ccc")));
+        ASSERT_EQ(iovw.count, 3U);
+        ASSERT_EQ(iovec_memcmp(&iovw.iovec[0], &IOVEC_MAKE_STRING("aaa")), 0);
+        ASSERT_EQ(iovec_memcmp(&iovw.iovec[1], &IOVEC_MAKE_STRING("bbb")), 0);
+        ASSERT_EQ(iovec_memcmp(&iovw.iovec[2], &IOVEC_MAKE_STRING("ccc")), 0);
+}
+
+TEST(iovw_put_iovw) {
+        _cleanup_(iovw_done) struct iovec_wrapper target = {}, source = {};
+
+        /* Appending an empty/NULL source is a no-op */
+        ASSERT_OK_ZERO(iovw_put_iovw(&target, NULL));
+        ASSERT_OK_ZERO(iovw_put_iovw(&target, &source));
+        ASSERT_EQ(target.count, 0U);
+
+        ASSERT_OK(iovw_put_iov(&source, &IOVEC_MAKE_STRING("aaa")));
+        ASSERT_OK(iovw_put_iov(&source, &IOVEC_MAKE_STRING("bbb")));
+        ASSERT_OK(iovw_put_iov(&source, &IOVEC_MAKE_STRING("ccc")));
+        ASSERT_EQ(source.count, 3U);
+
+        /* Pre-seed target with one entry to check that append adds on top rather than replacing */
+        ASSERT_OK(iovw_put_iov(&target, &IOVEC_MAKE_STRING("xxx")));
+        ASSERT_OK(iovw_put_iov(&target, &IOVEC_MAKE_STRING("yyy")));
+        ASSERT_OK(iovw_put_iov(&target, &IOVEC_MAKE_STRING("zzz")));
+        ASSERT_EQ(target.count, 3U);
+
+        ASSERT_OK(iovw_put_iovw(&target, &source));
+        ASSERT_EQ(target.count, 6U);
+        ASSERT_EQ(iovec_memcmp(&target.iovec[0], &IOVEC_MAKE_STRING("xxx")), 0);
+        ASSERT_EQ(iovec_memcmp(&target.iovec[1], &IOVEC_MAKE_STRING("yyy")), 0);
+        ASSERT_EQ(iovec_memcmp(&target.iovec[2], &IOVEC_MAKE_STRING("zzz")), 0);
+        ASSERT_EQ(iovec_memcmp(&target.iovec[3], &IOVEC_MAKE_STRING("aaa")), 0);
+        ASSERT_EQ(iovec_memcmp(&target.iovec[4], &IOVEC_MAKE_STRING("bbb")), 0);
+        ASSERT_EQ(iovec_memcmp(&target.iovec[5], &IOVEC_MAKE_STRING("ccc")), 0);
+
+        /* iovw_put_iovw() does not copy data, hence the pointers must be equal */
+        ASSERT_PTR_EQ(target.iovec[3].iov_base, source.iovec[0].iov_base);
+        ASSERT_PTR_EQ(target.iovec[4].iov_base, source.iovec[1].iov_base);
+        ASSERT_PTR_EQ(target.iovec[5].iov_base, source.iovec[2].iov_base);
+
+        /* Source is unchanged */
+        ASSERT_EQ(source.count, 3U);
+        ASSERT_EQ(iovec_memcmp(&source.iovec[0], &IOVEC_MAKE_STRING("aaa")), 0);
+        ASSERT_EQ(iovec_memcmp(&source.iovec[1], &IOVEC_MAKE_STRING("bbb")), 0);
+        ASSERT_EQ(iovec_memcmp(&source.iovec[2], &IOVEC_MAKE_STRING("ccc")), 0);
+
+        /* Cannot pass the same objects */
+        ASSERT_ERROR(iovw_put_iovw(&target, &target), EINVAL);
+}
+
 TEST(iovw_extend) {
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
 
@@ -179,6 +240,36 @@ TEST(iovw_consume) {
         char *q = ASSERT_NOT_NULL(strdup(""));
         ASSERT_OK_ZERO(iovw_consume(&iovw, q, 0));
         ASSERT_EQ(iovw.count, 1U);
+}
+
+TEST(iovw_consume_iov) {
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+
+        ASSERT_OK_ZERO(iovw_consume_iov(&iovw, NULL));
+        ASSERT_EQ(iovw.count, 0U);
+
+        ASSERT_OK_ZERO(iovw_consume_iov(&iovw, &(struct iovec) {}));
+        ASSERT_EQ(iovw.count, 0U);
+
+        struct iovec iov = {
+                .iov_base = ASSERT_NOT_NULL(strdup("consumed")),
+                .iov_len = strlen("consumed"),
+        };
+        ASSERT_OK(iovw_consume_iov(&iovw, &iov));
+        ASSERT_EQ(iovw.count, 1U);
+        /* iovw_consume_iov takes the ownership of the buffer, and emptifies the iovec. */
+        ASSERT_NULL(iov.iov_base);
+        ASSERT_EQ(iov.iov_len, 0U);
+
+        iov = (struct iovec) {
+                .iov_base = ASSERT_NOT_NULL(strdup("")),
+                .iov_len = 0,
+        };
+        ASSERT_OK_ZERO(iovw_consume_iov(&iovw, &iov));
+        ASSERT_EQ(iovw.count, 1U);
+        /* zero length iovec is also freed */
+        ASSERT_NULL(iov.iov_base);
+        ASSERT_EQ(iov.iov_len, 0U);
 }
 
 TEST(iovw_isempty) {
