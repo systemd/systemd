@@ -3,8 +3,36 @@
 #include <sys/uio.h>
 
 #include "alloc-util.h"
+#include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "tests.h"
+
+TEST(iovw_compare) {
+        _cleanup_(iovw_done) struct iovec_wrapper a1 = {}, a2 = {}, b = {};
+
+        ASSERT_OK(iovw_put(&a1, (char*) "foo", 3));
+        ASSERT_OK(iovw_put(&a1, (char*) "aaaaa", 5));
+
+        ASSERT_OK(iovw_put(&a2, (char*) "foo", 3));
+        ASSERT_OK(iovw_put(&a2, (char*) "aaaaa", 5));
+
+        ASSERT_OK(iovw_put(&b, (char*) "foo", 3));
+        ASSERT_OK(iovw_put(&b, (char*) "bbbbb", 5));
+
+        ASSERT_EQ(iovw_compare(&a1, &a1), 0);
+        ASSERT_EQ(iovw_compare(&a1, &a2), 0);
+        ASSERT_EQ(iovw_compare(&a2, &a1), 0);
+        ASSERT_EQ(iovw_compare(&a1, &b), -1);
+        ASSERT_EQ(iovw_compare(&b, &a1), 1);
+        ASSERT_EQ(iovw_compare(&b, &b), 0);
+
+        ASSERT_TRUE(iovw_equal(&a1, &a1));
+        ASSERT_TRUE(iovw_equal(&a1, &a2));
+        ASSERT_TRUE(iovw_equal(&a2, &a1));
+        ASSERT_FALSE(iovw_equal(&a1, &b));
+        ASSERT_FALSE(iovw_equal(&b, &a1));
+        ASSERT_TRUE(iovw_equal(&b, &b));
+}
 
 TEST(iovw_put) {
         _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
@@ -27,18 +55,18 @@ TEST(iovw_put) {
         ASSERT_EQ(memcmp(iovw.iovec[2].iov_base, "q", 1), 0);
 }
 
-TEST(iovw_append) {
+TEST(iovw_extend) {
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
 
-        /* iovw_append copies the data; the wrapper owns the copies. */
+        /* iovw_extend() copies the data; the wrapper owns the copies. */
         char buf[4] = { 'o', 'n', 'e', '\0' };
-        ASSERT_OK(iovw_append(&iovw, buf, 3));
+        ASSERT_OK(iovw_extend(&iovw, buf, 3));
         ASSERT_EQ(iovw.count, 1U);
         ASSERT_EQ(iovw.iovec[0].iov_len, 3U);
         ASSERT_EQ(memcmp(iovw.iovec[0].iov_base, "one", 3), 0);
 
         /* Insert with a NUL */
-        ASSERT_OK_ZERO(iovw_append(&iovw, buf, 4));
+        ASSERT_OK(iovw_extend(&iovw, buf, 4));
         ASSERT_EQ(iovw.count, 2U);
         ASSERT_EQ(iovw.iovec[1].iov_len, 4U);
         ASSERT_EQ(memcmp(iovw.iovec[1].iov_base, "one\0", 4), 0);
@@ -58,10 +86,9 @@ TEST(iovw_consume) {
         /* iovw_consume moves ownership in place, no copy */
         ASSERT_PTR_EQ(iovw.iovec[0].iov_base, p);
 
-        /* Zero-length: iovw_put returns 0 without adding anything, and does not free the payload.
-         * Confirm by strdup'ing something and explicitly freeing it afterwards. */
-        _cleanup_free_ char *q = strdup("");
-        ASSERT_NOT_NULL(q);
+        /* Zero-length: iovw_put returns 0 without adding anything. Even in that case, iovw_consume() frees
+         * the payload. Confirm by strdup'ing something to verify that when running with sanitizer/valgrind. */
+        char *q = ASSERT_NOT_NULL(strdup(""));
         ASSERT_OK_ZERO(iovw_consume(&iovw, q, 0));
         ASSERT_EQ(iovw.count, 1U);
 }
@@ -189,13 +216,13 @@ TEST(iovw_size) {
         ASSERT_EQ(iovw_size(&iovw), 12U);
 }
 
-TEST(iovw_append_iovw) {
+TEST(iovw_extend_iovw) {
         _cleanup_(iovw_done_free) struct iovec_wrapper target = {};
         _cleanup_(iovw_done) struct iovec_wrapper source = {};
 
         /* Appending an empty/NULL source is a no-op */
-        ASSERT_OK_ZERO(iovw_append_iovw(&target, NULL));
-        ASSERT_OK_ZERO(iovw_append_iovw(&target, &source));
+        ASSERT_OK_ZERO(iovw_extend_iovw(&target, NULL));
+        ASSERT_OK_ZERO(iovw_extend_iovw(&target, &source));
         ASSERT_EQ(target.count, 0U);
 
         ASSERT_OK(iovw_put(&source, (char*) "one", 3));
@@ -207,7 +234,7 @@ TEST(iovw_append_iovw) {
         ASSERT_NOT_NULL(seed);
         ASSERT_OK(iovw_put(&target, seed, strlen(seed)));
 
-        ASSERT_OK(iovw_append_iovw(&target, &source));
+        ASSERT_OK(iovw_extend_iovw(&target, &source));
         ASSERT_EQ(target.count, 3U);
 
         /* Appended entries must be fresh copies, not aliases of the source entries */
@@ -221,6 +248,28 @@ TEST(iovw_append_iovw) {
 
         /* Source is unchanged */
         ASSERT_EQ(source.count, 2U);
+
+        /* Cannot pass the same objects */
+        ASSERT_ERROR(iovw_extend_iovw(&target, &target), EINVAL);
+}
+
+TEST(iovw_concat) {
+        _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
+
+        /* Empty wrapper -> empty string with 0 length */
+        _cleanup_(iovec_done) struct iovec iov = {};
+        ASSERT_OK(iovw_concat(&iovw, &iov));
+        ASSERT_FALSE(iovec_is_set(&iov));
+        ASSERT_STREQ(iov.iov_base, "");
+        iovec_done(&iov);
+
+        ASSERT_OK(iovw_put(&iovw, (char*) "foo", 3));
+        ASSERT_OK(iovw_put(&iovw, (char*) "/", 1));
+        ASSERT_OK(iovw_put(&iovw, (char*) "bar", 3));
+
+        ASSERT_OK(iovw_concat(&iovw, &iov));
+        ASSERT_EQ(iovec_memcmp(&iov, &IOVEC_MAKE_STRING("foo/bar")), 0);
+        ASSERT_STREQ(iov.iov_base, "foo/bar");
 }
 
 TEST(iovw_to_cstring) {
