@@ -24,6 +24,7 @@
 #include "percent-util.h"
 #include "set.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "varlink-io.systemd.oom.h"
 #include "varlink-io.systemd.service.h"
@@ -83,6 +84,11 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                         return r;
                 if (r < 0)
                         continue;
+
+                if (!STR_IN_SET(message.property, "ManagedOOMSwap", "ManagedOOMMemoryPressure")) {
+                        log_debug("Ignoring ManagedOOM cgroup message with invalid property: %s", message.property);
+                        continue;
+                }
 
                 if (uid != 0) {
                         uid_t cg_uid;
