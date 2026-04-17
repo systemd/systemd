@@ -84,7 +84,13 @@ int name_to_handle_at_loop(
                 h->handle_bytes = n;
 
                 if (ret_unique_mnt_id) {
-                        uint64_t mnt_id;
+                        /* Here, explicitly initialize mnt_id, otherwise valgrind complains:
+                         *
+                         * ==175708== Conditional jump or move depends on uninitialised value(s)
+                         * ==175708==    at 0x4BC33D1: inode_same_at (stat-util.c:610)
+                         * ==175708==    by 0x4BF1972: inode_same (stat-util.h:86)
+                         */
+                        uint64_t mnt_id = 0;
 
                         /* The kernel will still use this as uint64_t pointer */
                         r = name_to_handle_at(fd, path, h, (int *) &mnt_id, flags|AT_HANDLE_MNT_ID_UNIQUE);
