@@ -17,7 +17,10 @@ static inline bool iovw_equal(const struct iovec_wrapper *a, const struct iovec_
 }
 
 int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len);
+int iovw_put_iov(struct iovec_wrapper *iovw, const struct iovec *iov);
+int iovw_put_iovw(struct iovec_wrapper *iovw, const struct iovec_wrapper *source);
 int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len);
+int iovw_consume_iov(struct iovec_wrapper *iovw, struct iovec *iov);
 int iovw_extend(struct iovec_wrapper *iovw, const void *data, size_t len);
 int iovw_extend_iov(struct iovec_wrapper *iovw, const struct iovec *iov);
 int iovw_extend_iovw(struct iovec_wrapper *iovw, const struct iovec_wrapper *source);
