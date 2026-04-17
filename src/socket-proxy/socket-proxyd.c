@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -15,8 +14,10 @@
 #include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "resolve-private.h"
@@ -24,6 +25,7 @@
 #include "socket-forward.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 
 static unsigned arg_connections_max = 256;
@@ -382,8 +384,8 @@ static int add_listen_socket(Context *context, int fd) {
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_free_ char *time_link = NULL;
+        _cleanup_free_ char *link = NULL, *time_link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-socket-proxyd", "8", &link);
@@ -393,61 +395,49 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
         printf("%1$s [HOST:PORT]\n"
-               "%1$s [SOCKET]\n\n"
-               "%2$sBidirectionally proxy local sockets to another (possibly remote) socket.%3$s\n\n"
-               "  -c --connections-max=  Set the maximum number of connections to be accepted\n"
-               "     --exit-idle-time=   Exit when without a connection for this duration. See\n"
-               "                         the %4$s for time span format\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "\nSee the %5$s for details.\n",
+               "%1$s [SOCKET]\n"
+               "\n%2$sBidirectionally proxy local sockets to another (possibly remote) socket.%3$s\n\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_normal(),
-               time_link,
-               link);
+               ansi_normal());
 
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee %s for --exit-idle-time= time span format.\n"
+               "See the %s for details.\n",
+               time_link, link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_EXIT_IDLE,
-                ARG_IGNORE_ENV
-        };
-
-        static const struct option options[] = {
-                { "connections-max", required_argument, NULL, 'c'           },
-                { "exit-idle-time",  required_argument, NULL, ARG_EXIT_IDLE },
-                { "help",            no_argument,       NULL, 'h'           },
-                { "version",         no_argument,       NULL, ARG_VERSION   },
-                {}
-        };
-
-        int c, r;
-
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "c:h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+        int r;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case 'c':
-                        r = safe_atou(optarg, &arg_connections_max);
-                        if (r < 0) {
-                                log_error("Failed to parse --connections-max= argument: %s", optarg);
-                                return r;
-                        }
+                OPTION('c', "connections-max", "NUMBER",
+                       "Set the maximum number of connections to be accepted"):
+                        r = safe_atou(arg, &arg_connections_max);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --connections-max= argument: %s", arg);
 
                         if (arg_connections_max < 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -455,28 +445,22 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_EXIT_IDLE:
-                        r = parse_sec(optarg, &arg_exit_idle_time);
+                OPTION_LONG("exit-idle-time", "TIME",
+                            "Exit when without a connection for this duration"):
+                        r = parse_sec(arg, &arg_exit_idle_time);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --exit-idle-time= argument: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --exit-idle-time= argument: %s", arg);
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        if (optind >= argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not enough parameters.");
+        char **args = option_parser_get_args(&state);
+        size_t n = strv_length(args);
+        if (n < 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not enough parameters.");
+        if (n > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many parameters.");
 
-        if (argc != optind+1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Too many parameters.");
-
-        arg_remote_host = argv[optind];
+        arg_remote_host = args[0];
         return 1;
 }
 
