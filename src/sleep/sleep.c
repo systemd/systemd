@@ -5,7 +5,6 @@
 ***/
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <poll.h>
 #include <stdlib.h>
 #include <sys/timerfd.h>
@@ -33,20 +32,21 @@
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "hibernate-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "os-util.h"
 #include "pretty-print.h"
 #include "sleep-config.h"
 #include "special.h"
 #include "strv.h"
 #include "time-util.h"
+#include "verbs.h"
 
 #define DEFAULT_HIBERNATE_DELAY_USEC_NO_BATTERY (2 * USEC_PER_HOUR)
-
-static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 
 #if ENABLE_EFI
 static int determine_auto_swap(sd_device *device) {
@@ -235,15 +235,16 @@ static int lock_all_homes(void) {
 
 static int execute(
                 const SleepConfig *sleep_config,
+                SleepOperation main_operation,
                 SleepOperation operation,
                 const char *action) {
 
         const char *arguments[] = {
                 NULL,
                 "pre",
-                /* NB: we use 'arg_operation' instead of 'operation' here, as we want to communicate the overall
-                 * operation here, not the specific one, in case of s2h. */
-                sleep_operation_to_string(arg_operation),
+                /* NB: we use 'main_operation' instead of 'operation' here, as we want to communicate
+                 * the overall operation here, not the specific one, in case of s2h. */
+                sleep_operation_to_string(main_operation),
                 NULL
         };
         static const char* const dirs[] = {
@@ -325,19 +326,19 @@ static int execute(
         log_struct(LOG_INFO,
                    LOG_MESSAGE_ID(SD_MESSAGE_SLEEP_START_STR),
                    LOG_MESSAGE("Performing sleep operation '%s'...", sleep_operation_to_string(operation)),
-                   LOG_ITEM("SLEEP=%s", sleep_operation_to_string(arg_operation)));
+                   LOG_ITEM("SLEEP=%s", sleep_operation_to_string(main_operation)));
 
         r = write_state(state_fd, sleep_config->states[operation]);
         if (r < 0)
                 log_struct_errno(LOG_ERR, r,
                                  LOG_MESSAGE_ID(SD_MESSAGE_SLEEP_STOP_STR),
                                  LOG_MESSAGE("Failed to put system to sleep. System resumed again: %m"),
-                                 LOG_ITEM("SLEEP=%s", sleep_operation_to_string(arg_operation)));
+                                 LOG_ITEM("SLEEP=%s", sleep_operation_to_string(main_operation)));
         else
                 log_struct(LOG_INFO,
                            LOG_MESSAGE_ID(SD_MESSAGE_SLEEP_STOP_STR),
-                           LOG_MESSAGE("System returned from sleep operation '%s'.", sleep_operation_to_string(arg_operation)),
-                           LOG_ITEM("SLEEP=%s", sleep_operation_to_string(arg_operation)));
+                           LOG_MESSAGE("System returned from sleep operation '%s'.", sleep_operation_to_string(main_operation)),
+                           LOG_ITEM("SLEEP=%s", sleep_operation_to_string(main_operation)));
 
         arguments[1] = "post";
         (void) execute_directories(
@@ -396,7 +397,7 @@ static int check_wakeup_type(void) {
         return false;
 }
 
-static int custom_timer_suspend(const SleepConfig *sleep_config) {
+static int custom_timer_suspend(const SleepConfig *sleep_config, SleepOperation main_operation) {
         usec_t hibernate_timestamp;
         int r;
 
@@ -456,7 +457,7 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
                 if (timerfd_settime(tfd, 0, &ts, NULL) < 0)
                         return log_error_errno(errno, "Error setting battery estimate timer: %m");
 
-                r = execute(sleep_config, SLEEP_SUSPEND, NULL);
+                r = execute(sleep_config, main_operation, SLEEP_SUSPEND, NULL);
                 if (r < 0)
                         return r;
 
@@ -506,7 +507,7 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
         return 1;
 }
 
-static int execute_s2h(const SleepConfig *sleep_config) {
+static int execute_s2h(const SleepConfig *sleep_config, SleepOperation main_operation) {
         _cleanup_close_ int tfd = -EBADF;
         usec_t hibernate_timestamp = 0;
         int r;
@@ -559,7 +560,7 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                         }
 
                         log_debug("Attempting to suspend...");
-                        r = execute(sleep_config, SLEEP_SUSPEND, NULL);
+                        r = execute(sleep_config, main_operation, SLEEP_SUSPEND, NULL);
                         if (r < 0)
                                 return r;
 
@@ -592,7 +593,7 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                         return 0;
                 }
         } else {
-                r = custom_timer_suspend(sleep_config);
+                r = custom_timer_suspend(sleep_config, main_operation);
                 if (r < 0)
                         return log_debug_errno(r, "Suspend cycle with manual battery discharge rate estimation failed: %m");
                 if (r == 0)
@@ -602,11 +603,11 @@ static int execute_s2h(const SleepConfig *sleep_config) {
         /* For above custom timer, if 1 is returned, system will directly hibernate */
 
         log_debug("Attempting to hibernate");
-        r = execute(sleep_config, SLEEP_HIBERNATE, NULL);
+        r = execute(sleep_config, main_operation, SLEEP_HIBERNATE, NULL);
         if (r < 0) {
                 log_notice("Couldn't hibernate, will try to suspend again.");
 
-                r = execute(sleep_config, SLEEP_SUSPEND, "suspend-after-failed-hibernate");
+                r = execute(sleep_config, main_operation, SLEEP_SUSPEND, "suspend-after-failed-hibernate");
                 if (r < 0)
                         return r;
         }
@@ -616,95 +617,63 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-suspend.service", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%s COMMAND\n\n"
-               "Suspend the system, hibernate the system, or both.\n\n"
-               "  -h --help              Show this help and exit\n"
-               "  --version              Print version string and exit\n"
-               "\nCommands:\n"
-               "  suspend                Suspend the system\n"
-               "  hibernate              Hibernate the system\n"
-               "  hybrid-sleep           Both hibernate and suspend the system\n"
-               "  suspend-then-hibernate Initially suspend and then hibernate\n"
-               "                         the system after a fixed period of time or\n"
-               "                         when battery is low\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               link);
-
-        return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'           },
-                { "version",      no_argument,       NULL, ARG_VERSION   },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-
-                }
-
-        if (argc - optind != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Usage: %s COMMAND",
-                                       program_invocation_short_name);
-
-        arg_operation = sleep_operation_from_string(argv[optind]);
-        if (arg_operation < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command '%s'.", argv[optind]);
-
-        return 1 /* work to do */;
-}
-
-static int run(int argc, char *argv[]) {
-        _cleanup_(unit_freezer_freep) UnitFreezer *user_slice_freezer = NULL;
-        _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
-        int r;
-
-        log_setup();
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r;
-
-        r = parse_sleep_config(&sleep_config);
+        r = verbs_get_help_table(&verbs);
         if (r < 0)
                 return r;
 
-        if (!sleep_config->allow[arg_operation])
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, options);
+
+        printf("%s COMMAND\n"
+               "\n%sSuspend the system, hibernate the system, or both.%s\n"
+               "\nCommands:\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal());
+
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\nOptions:\n");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
+        return 0;
+}
+
+VERB_FULL(verb_operate, "suspend", NULL, VERB_ANY, 1, 0, SLEEP_SUSPEND,
+          "Suspend the system");
+VERB_FULL(verb_operate, "hibernate", NULL, VERB_ANY, 1, 0, SLEEP_HIBERNATE,
+          "Hibernate the system");
+VERB_FULL(verb_operate, "hybrid-sleep", NULL, VERB_ANY, 1, 0, SLEEP_HYBRID_SLEEP,
+          "Both hibernate and suspend the system");
+VERB_FULL(verb_operate, "suspend-then-hibernate", NULL, VERB_ANY, 1, 0, SLEEP_SUSPEND_THEN_HIBERNATE,
+          "Initially suspend and then hibernate the system after a fixed period of time or when battery is low");
+static int verb_operate(int argc, char *argv[], uintptr_t data, void *userdata) {
+        _cleanup_(unit_freezer_freep) UnitFreezer *user_slice_freezer = NULL;
+        SleepOperation operation = data;
+        const SleepConfig *sleep_config = ASSERT_PTR(userdata);
+        int r;
+
+        assert(0 <= operation && operation < _SLEEP_OPERATION_MAX);
+
+        if (!sleep_config->allow[operation])
                 return log_error_errno(SYNTHETIC_ERRNO(EACCES),
                                        "Sleep operation \"%s\" is disabled by configuration, refusing.",
-                                       sleep_operation_to_string(arg_operation));
+                                       sleep_operation_to_string(operation));
 
         /* Freeze the user sessions */
         r = getenv_bool("SYSTEMD_SLEEP_FREEZE_USER_SESSIONS");
@@ -721,14 +690,14 @@ static int run(int argc, char *argv[]) {
                            "This is not recommended, and might result in unexpected behavior, particularly\n"
                            "in suspend-then-hibernate operations or setups with encrypted home directories.");
 
-        switch (arg_operation) {
+        switch (operation) {
 
         case SLEEP_SUSPEND_THEN_HIBERNATE:
-                r = execute_s2h(sleep_config);
+                r = execute_s2h(sleep_config, operation);
                 break;
 
         case SLEEP_HYBRID_SLEEP:
-                r = execute(sleep_config, SLEEP_HYBRID_SLEEP, NULL);
+                r = execute(sleep_config, operation, SLEEP_HYBRID_SLEEP, NULL);
                 if (r < 0) {
                         /* If we can't hybrid sleep, then let's try to suspend at least. After all, the user
                          * asked us to do both: suspend + hibernate, and it's almost certainly the
@@ -736,14 +705,13 @@ static int run(int argc, char *argv[]) {
 
                         log_notice_errno(r, "Couldn't hybrid sleep, will try to suspend instead: %m");
 
-                        r = execute(sleep_config, SLEEP_SUSPEND, "suspend-after-failed-hybrid-sleep");
+                        r = execute(sleep_config, operation, SLEEP_SUSPEND, "suspend-after-failed-hybrid-sleep");
                 }
-
                 break;
 
         case SLEEP_SUSPEND:
         case SLEEP_HIBERNATE:
-                r = execute(sleep_config, arg_operation, NULL);
+                r = execute(sleep_config, operation, operation, NULL);
                 break;
 
         default:
@@ -754,6 +722,45 @@ static int run(int argc, char *argv[]) {
                 RET_GATHER(r, unit_freezer_thaw(user_slice_freezer));
 
         return r;
+}
+
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        assert(argc >= 0);
+        assert(argv);
+        assert(ret_args);
+
+        OptionParser state = { argc, argv };
+
+        FOREACH_OPTION(&state, c, /* arg= */ NULL, /* on_error= */ return c)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
+                }
+
+        *ret_args = option_parser_get_args(&state);
+        return 1;
+}
+
+static int run(int argc, char *argv[]) {
+        _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
+        char **args = NULL;
+        int r;
+
+        log_setup();
+
+        r = parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
+
+        r = parse_sleep_config(&sleep_config);
+        if (r < 0)
+                return r;
+
+        return dispatch_verb_with_args(args, sleep_config);
 }
 
 DEFINE_MAIN_FUNCTION(run);
