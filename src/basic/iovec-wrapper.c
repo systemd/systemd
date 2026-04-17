@@ -59,6 +59,34 @@ int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
         return 1;
 }
 
+int iovw_put_iov(struct iovec_wrapper *iovw, const struct iovec *iov) {
+        assert(iovw);
+        assert(iov);
+
+        return iovw_put(iovw, iov->iov_base, iov->iov_len);
+}
+
+int iovw_put_iovw(struct iovec_wrapper *iovw, const struct iovec_wrapper *source) {
+        assert(iovw);
+
+        if (iovw_isempty(source))
+                return 0;
+
+        /* We will reallocate iovw->iovec, hence the source cannot point to the same object. */
+        if (iovw == source)
+                return -EINVAL;
+
+        if (iovw->count > SIZE_MAX - source->count)
+                return -E2BIG;
+        if (iovw->count + source->count > IOV_MAX)
+                return -E2BIG;
+
+        if (!GREEDY_REALLOC_APPEND(iovw->iovec, iovw->count, source->iovec, source->count))
+                return -ENOMEM;
+
+        return 0;
+}
+
 int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
         /* Move data into iovw or free on error */
         int r;
@@ -66,6 +94,16 @@ int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
         r = iovw_put(iovw, data, len);
         if (r <= 0)
                 free(data);
+
+        return r;
+}
+
+int iovw_consume_iov(struct iovec_wrapper *iovw, struct iovec *iov) {
+        int r;
+
+        r = iovw_put_iov(iovw, iov);
+        if (r <= 0)
+                iovec_done(iov);
 
         return r;
 }
