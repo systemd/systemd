@@ -3,8 +3,56 @@
 #include <sys/uio.h>
 
 #include "alloc-util.h"
+#include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "tests.h"
+
+TEST(iovw_compare) {
+        _cleanup_(iovw_done) struct iovec_wrapper a1 = {}, a2 = {}, b = {}, c = {}, e = {};
+
+        ASSERT_OK(iovw_put(&a1, (char*) "foo", 3));
+        ASSERT_OK(iovw_put(&a1, (char*) "aaaaa", 5));
+
+        ASSERT_OK(iovw_put(&a2, (char*) "foo", 3));
+        ASSERT_OK(iovw_put(&a2, (char*) "aaaaa", 5));
+
+        ASSERT_OK(iovw_put(&b, (char*) "foo", 3));
+        ASSERT_OK(iovw_put(&b, (char*) "bbbbb", 5));
+
+        ASSERT_OK(iovw_put(&c, (char*) "foo", 3));
+
+        ASSERT_EQ(iovw_compare(&a1, &a1), 0);
+        ASSERT_EQ(iovw_compare(&a1, &a2), 0);
+        ASSERT_EQ(iovw_compare(&a2, &a1), 0);
+        ASSERT_LT(iovw_compare(&a1, &b), 0);
+        ASSERT_GT(iovw_compare(&b, &a1), 0);
+        ASSERT_EQ(iovw_compare(&b, &b), 0);
+        ASSERT_GT(iovw_compare(&a1, &c), 0);
+        ASSERT_LT(iovw_compare(&c, &a1), 0);
+        ASSERT_EQ(iovw_compare(&c, &c), 0);
+        ASSERT_GT(iovw_compare(&a1, &e), 0);
+        ASSERT_LT(iovw_compare(&e, &a1), 0);
+        ASSERT_EQ(iovw_compare(&e, &e), 0);
+        ASSERT_GT(iovw_compare(&a1, NULL), 0);
+        ASSERT_LT(iovw_compare(NULL, &a1), 0);
+        ASSERT_EQ(iovw_compare(NULL, NULL), 0);
+
+        ASSERT_TRUE(iovw_equal(&a1, &a1));
+        ASSERT_TRUE(iovw_equal(&a1, &a2));
+        ASSERT_TRUE(iovw_equal(&a2, &a1));
+        ASSERT_FALSE(iovw_equal(&a1, &b));
+        ASSERT_FALSE(iovw_equal(&b, &a1));
+        ASSERT_TRUE(iovw_equal(&b, &b));
+        ASSERT_FALSE(iovw_equal(&a1, &c));
+        ASSERT_FALSE(iovw_equal(&c, &a1));
+        ASSERT_TRUE(iovw_equal(&c, &c));
+        ASSERT_FALSE(iovw_equal(&a1, &e));
+        ASSERT_FALSE(iovw_equal(&e, &a1));
+        ASSERT_TRUE(iovw_equal(&e, &e));
+        ASSERT_FALSE(iovw_equal(&a1, NULL));
+        ASSERT_FALSE(iovw_equal(NULL, &a1));
+        ASSERT_TRUE(iovw_equal(NULL, NULL));
+}
 
 TEST(iovw_put) {
         _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
