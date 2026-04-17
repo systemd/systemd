@@ -15,6 +15,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "parse-util.h"
 #include "scsi_id.h"
 #include "string-util.h"
 #include "strv.h"
@@ -279,7 +280,10 @@ static int set_options(int argc, char **argv,
                         break;
 
                 case 's':
-                        sg_version = atoi(optarg);
+                        if (safe_atoi(optarg, &sg_version) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid SG version '%s'",
+                                                       optarg);
                         if (sg_version < 3 || sg_version > 4)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown SG version '%s'",
