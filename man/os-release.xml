@@ -750,8 +750,9 @@ VERSION_ID=32</programlisting>
 
       <programlisting><xi:include href="check-os-release-simple.py" parse="text" /></programlisting>
 
-      <para>See docs for <ulink url="https://docs.python.org/3/library/platform.html#platform.freedesktop_os_release">
-      <function>platform.freedesktop_os_release</function></ulink> for more details.
+      <para>See docs for <function><ulink
+      url="https://docs.python.org/3/library/platform.html#platform.freedesktop_os_release">platform.freedesktop_os_release</ulink></function>
+      for more details.
       </para>
     </example>
 
