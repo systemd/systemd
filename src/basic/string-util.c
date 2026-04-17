@@ -1292,7 +1292,7 @@ char* string_replace_char(char *str, char old_char, char new_char) {
         return str;
 }
 
-int make_cstring(const char *s, size_t n, MakeCStringMode mode, char **ret) {
+int make_cstring(const void *s, size_t n, MakeCStringMode mode, char **ret) {
         char *b;
 
         assert(s || n == 0);
@@ -1311,11 +1311,11 @@ int make_cstring(const char *s, size_t n, MakeCStringMode mode, char **ret) {
 
                 b = new0(char, 1);
         } else {
-                const char *nul;
+                const uint8_t *nul;
 
                 nul = memchr(s, 0, n);
                 if (nul) {
-                        if (nul < s + n - 1 || /* embedded NUL? */
+                        if (nul < (const uint8_t*) s + n - 1 || /* embedded NUL? */
                             mode == MAKE_CSTRING_REFUSE_TRAILING_NUL)
                                 return -EINVAL;
 

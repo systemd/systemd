@@ -252,8 +252,8 @@ int dnr_parse_svc_params(const uint8_t *option, size_t len, sd_dns_resolver *res
                         return -EBADMSG;
 
                 case DNS_SVC_PARAM_KEY_DOHPATH:
-                        r = make_cstring((const char*) &option[offset], plen,
-                                        MAKE_CSTRING_REFUSE_TRAILING_NUL, &dohpath);
+                        r = make_cstring(&option[offset], plen,
+                                         MAKE_CSTRING_REFUSE_TRAILING_NUL, &dohpath);
                         if (ERRNO_IS_NEG_RESOURCE(r))
                                 return r;
                         if (r < 0)
