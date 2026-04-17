@@ -28,6 +28,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "login-util.h"
 #include "logind.h"
 #include "logind-dbus.h"
@@ -1678,6 +1679,51 @@ bool session_is_self(const char *name) {
 
 bool session_is_auto(const char *name) {
         return streq_ptr(name, "auto");
+}
+
+int session_build_json(Session *s, sd_json_variant **ret) {
+        dual_timestamp idle_ts = DUAL_TIMESTAMP_NULL;
+        int idle;
+
+        assert(s);
+        assert(s->user);
+        assert(ret);
+
+        idle = session_get_idle_hint(s, &idle_ts);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("Id", s->id),
+                        SD_JSON_BUILD_PAIR("User",
+                                           SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("UID", s->user->user_record->uid),
+                                                           SD_JSON_BUILD_PAIR_STRING("Name", s->user->user_record->user_name))),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("Timestamp", &s->timestamp),
+                        SD_JSON_BUILD_PAIR_CONDITION(s->vtnr > 0, "VTNr", SD_JSON_BUILD_UNSIGNED(s->vtnr)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Seat", s->seat ? s->seat->id : NULL),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("TTY", s->tty),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Display", s->display),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Remote", s->remote),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteHost", s->remote_host),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteUser", s->remote_user),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Service", s->service),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Desktop", s->desktop),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Scope", s->scope),
+                        JSON_BUILD_PAIR_PIDREF_NON_NULL("Leader", &s->leader),
+                        SD_JSON_BUILD_PAIR_CONDITION(audit_session_is_valid(s->audit_id),
+                                                     "Audit", SD_JSON_BUILD_UNSIGNED(s->audit_id)),
+                        JSON_BUILD_PAIR_ENUM("Type", session_type_to_string(s->type)),
+                        JSON_BUILD_PAIR_ENUM("Class", session_class_to_string(s->class)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Active", session_is_active(s)),
+                        SD_JSON_BUILD_PAIR_STRING("State", session_state_to_string(session_get_state(s))),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("IdleHint", idle > 0),
+                        SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&idle_ts),
+                                                     "IdleSinceHint", SD_JSON_BUILD_UNSIGNED(idle_ts.realtime)),
+                        SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&idle_ts),
+                                                     "IdleSinceHintMonotonic", SD_JSON_BUILD_UNSIGNED(idle_ts.monotonic)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanIdle", SESSION_CLASS_CAN_IDLE(s->class)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanLock", SESSION_CLASS_CAN_LOCK(s->class)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("LockedHint", s->locked_hint));
 }
 
 static const char* const session_state_table[_SESSION_STATE_MAX] = {
