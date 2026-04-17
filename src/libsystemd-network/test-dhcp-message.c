@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
+#include "dhcp-message-dump.h"
 #include "dhcp-option.h"
 #include "dhcp-route.h"
 #include "dns-packet.h"
@@ -444,6 +445,10 @@ TEST(dhcp_message) {
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw3 = {};
         ASSERT_OK(dhcp_message_build(m3, &iovw3));
         ASSERT_TRUE(iovw_equal(&iovw, &iovw3));
+
+        /* dump */
+        ASSERT_OK(dump_dhcp_header(m, /* flags= */ 0));
+        ASSERT_OK(dump_dhcp_options(m, /* args= */ NULL, /* flags= */ 0));
 }
 
 static void test_domains_one(size_t len, const uint8_t *data, char * const *expected) {
@@ -480,6 +485,8 @@ static void test_domains_one(size_t len, const uint8_t *data, char * const *expe
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_SIP_SERVER, len + 1 - (len + 1) / 2, sip + (len + 1) / 2));
         ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_SIP_SERVER, &strv));
         ASSERT_TRUE(strv_equal(strv, expected));
+
+        ASSERT_OK(dump_dhcp_options(m, /* args= */ NULL, /* flags= */ 0));
 }
 
 static void test_domains_fail(size_t len, const uint8_t *data) {
@@ -702,6 +709,8 @@ TEST(dnr) {
         ASSERT_EQ(resolvers[1].transports, SD_DNS_ALPN_DOT);
         ASSERT_EQ(resolvers[1].port, 33u);
         ASSERT_NULL(resolvers[1].dohpath);
+
+        ASSERT_OK(dump_dhcp_options(m, /* args= */ NULL, /* flags= */ 0));
 
         /* missing DoH path */
         static uint8_t invalid[] = {
