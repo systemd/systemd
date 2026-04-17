@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -257,54 +256,22 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         return 1;
 }
 
-static int varlink_connect_auto(sd_varlink **ret, const char *where) {
+static int connect_varlink(sd_varlink **ret, const char *where) {
         int r;
 
         assert(ret);
         assert(where);
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-
-        if (STARTSWITH_SET(where, "/", "./")) { /* If the string starts with a slash or dot slash we use it as a file system path */
-                _cleanup_close_ int fd = -EBADF;
-                struct stat st;
-
-                fd = open(where, O_PATH|O_CLOEXEC);
-                if (fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", where);
-
-                if (fstat(fd, &st) < 0)
-                        return log_error_errno(errno, "Failed to stat '%s': %m", where);
-
-                if (S_ISSOCK(st.st_mode)) {
-                        /* Is this a socket in the fs? Then connect() to it. */
-
-                        r = sd_varlink_connect_address(&vl, FORMAT_PROC_FD_PATH(fd));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to connect to '%s': %m", where);
-
-                } else if (S_ISREG(st.st_mode) && (st.st_mode & 0111)) {
-                        /* Is this an executable binary? Then fork it off. */
-
-                        r = sd_varlink_connect_exec(&vl, where, STRV_MAKE(where)); /* Ideally we'd use FORMAT_PROC_FD_PATH(fd) here too, but that breaks the #! logic */
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to spawn '%s' process: %m", where);
-                } else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unrecognized path '%s' is neither an AF_UNIX socket, nor an executable binary.", where);
-        } else {
-                /* Otherwise assume this is an URL */
-                r = sd_varlink_connect_url(&vl, where);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to connect to URL '%s': %m", where);
-        }
+        r = varlink_connect_auto(ret, where);
+        if (r < 0)
+                return r;
 
         if (arg_timeout != 0) {
-                r = sd_varlink_set_relative_timeout(vl, arg_timeout);
+                r = sd_varlink_set_relative_timeout(*ret, arg_timeout);
                 if (r < 0)
                         log_warning_errno(r, "Failed to set Varlink timeout, ignoring: %m");
         }
 
-        *ret = TAKE_PTR(vl);
         return 0;
 }
 
@@ -332,7 +299,7 @@ static int verb_info(int argc, char *argv[], uintptr_t _data, void *userdata) {
         assert(argc == 2);
         url = argv[1];
 
-        r = varlink_connect_auto(&vl, url);
+        r = connect_varlink(&vl, url);
         if (r < 0)
                 return r;
 
@@ -437,7 +404,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
                 if (!varlink_idl_interface_name_is_valid(*i))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid Varlink interface name: '%s'", *i);
 
-        r = varlink_connect_auto(&vl, url);
+        r = connect_varlink(&vl, url);
         if (r < 0)
                 return r;
 
@@ -655,7 +622,7 @@ static int varlink_call_and_upgrade(const char *url, const char *method, sd_json
         const char *error_id = NULL;
         int r;
 
-        r = varlink_connect_auto(&vl, url);
+        r = connect_varlink(&vl, url);
         if (r < 0)
                 return r;
 
@@ -818,7 +785,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
          * mirrors how we do this in our C APIs too, where we are happy to accept NULL instead of a proper
          * JsonVariant object for method calls. */
 
-        r = varlink_connect_auto(&vl, url);
+        r = connect_varlink(&vl, url);
         if (r < 0)
                 return r;
 

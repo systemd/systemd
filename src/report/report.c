@@ -35,7 +35,7 @@
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
 static char **arg_matches = NULL;
 char *arg_url = NULL;
 char *arg_key = NULL;
@@ -43,6 +43,7 @@ char *arg_cert = NULL;
 char *arg_trust = NULL;
 char **arg_extra_headers = NULL;
 usec_t arg_network_timeout_usec = TIMEOUT_USEC;
+const char *arg_process = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
@@ -771,6 +772,8 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
 
                 if (arg_url)
                         r = upload_collected(&context);
+                else if (arg_process)
+                        r = process_collected(&context);
                 else
                         r = output_collected(&context);
                 if (r < 0)
@@ -858,6 +861,8 @@ static int verb_facts(int argc, char *argv[], uintptr_t data, void *userdata) {
 
                 if (arg_url)
                         r = upload_collected(&context);
+                else if (arg_process)
+                        r = process_collected(&context);
                 else
                         r = output_collected(&context);
                 if (r < 0)
@@ -1068,6 +1073,12 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                         if (strv_extend(&arg_extra_headers, arg) < 0)
                                 return log_oom();
+                        break;
+
+                OPTION_LONG("process", "PATH",
+                            "Process the results via a varlink on PATH "
+                            "(a URL, or a path to a binary or a socket)"):
+                        arg_process = arg;
                         break;
                 }
 

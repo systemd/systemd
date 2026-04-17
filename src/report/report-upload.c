@@ -8,6 +8,7 @@
 #include "strv.h"
 #include "time-util.h"
 #include "utf8.h"
+#include "varlink-util.h"
 #include "version.h"
 
 #if HAVE_LIBCURL
@@ -50,6 +51,7 @@ static size_t output_callback(char *buf,
 
         return nmemb;
 }
+#endif
 
 static int build_json_report(Context *context, sd_json_variant **ret) {
         /* Convert the variant array to a JSON report. */
@@ -77,7 +79,6 @@ static int build_json_report(Context *context, sd_json_variant **ret) {
                 return log_error_errno(r, "Failed to build JSON data: %m");
         return 0;
 }
-#endif
 
 int upload_collected(Context *context) {
 #if HAVE_LIBCURL
@@ -87,7 +88,7 @@ int upload_collected(Context *context) {
         int r;
 
         {
-                /* Convert our variant array to a JSON report.
+                /* Generate a JSON report in text form.
                  * We won't need the JSON structure again, so free it quickly. */
 
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *vl = NULL;
@@ -210,4 +211,34 @@ int upload_collected(Context *context) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "Compiled without libcurl.");
 #endif
+}
+
+int process_collected(Context *context) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *report = NULL, *params = NULL;
+        int r;
+
+        r = varlink_connect_auto(&vl, arg_process);
+        if (r < 0)
+                return r;
+
+        r = build_json_report(context, &report);
+        if (r < 0)
+                return r;
+
+        r = sd_json_buildo(&params,
+                           SD_JSON_BUILD_PAIR_VARIANT("report", report));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON data: %m");
+
+        sd_json_variant *reply = NULL;
+        r = varlink_call_and_log(vl, "io.systemd.Report.Upload", params, &reply);
+        if (r < 0)
+                return r;
+
+        log_info("Upload was successful; reply follows:");
+        r = sd_json_variant_dump(reply, arg_json_format_flags, /* f= */ NULL, /* prefix= */ ">>> ");
+        if (r < 0)
+                return log_error_errno(r, "Failed to dump json object: %m");
+        return 0;
 }
