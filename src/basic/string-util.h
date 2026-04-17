@@ -312,4 +312,8 @@ char* strrstr_internal(const char *haystack, const char *needle) _pure_;
 #define strrstr(haystack, needle) \
         const_generic(haystack, strrstr_internal(haystack, needle))
 
+char* strrstr_no_case_internal(const char *haystack, const char *needle) _pure_;
+#define strrstr_no_case(haystack, needle) \
+        const_generic(haystack, strrstr_no_case_internal(haystack, needle))
+
 size_t str_common_prefix(const char *a, const char *b) _pure_;

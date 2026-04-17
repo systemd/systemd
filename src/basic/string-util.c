@@ -1519,15 +1519,30 @@ char* strrstr_internal(const char *haystack, const char *needle) {
 
         /* Special case: for the empty string we return the very last possible occurrence, i.e. *after* the
          * last char, not before. */
-        if (*needle == 0)
+        if (needle[0] == 0)
                 return (char*) strchr(haystack, 0);
+
+        /* Special case: for single character strings, just use optimized strrchr() */
+        if (needle[1] == 0)
+                return (char*) strrchr(haystack, needle[0]);
 
         for (const char *p = strstr(haystack, needle), *q; p; p = q) {
                 q = strstr(p + 1, needle);
                 if (!q)
-                        return (char *) p;
+                        return (char*) p;
         }
         return NULL;
+}
+
+char* strrstr_no_case_internal(const char *haystack, const char *needle) {
+        if (!haystack || !needle)
+                return NULL;
+
+        for (const char *p = strchr(haystack, 0); p > haystack; p--)
+                if (startswith_no_case(p, needle))
+                        return (char*) p;
+
+        return startswith_no_case(haystack, needle) ? (char*) haystack : NULL;
 }
 
 size_t str_common_prefix(const char *a, const char *b) {
