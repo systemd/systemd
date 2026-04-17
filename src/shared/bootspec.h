@@ -20,25 +20,35 @@ typedef enum BootEntrySource {
         _BOOT_ENTRY_SOURCE_INVALID = -EINVAL,
 } BootEntrySource;
 
-typedef struct BootEntryAddon {
-        char *location;
-        char *cmdline;
-} BootEntryAddon;
+typedef enum BootEntryExtraType {
+        BOOT_ENTRY_ADDON,
+        BOOT_ENTRY_CONFEXT,
+        BOOT_ENTRY_SYSEXT,
+        BOOT_ENTRY_CREDENTIAL,
+        _BOOT_ENTRY_EXTRA_TYPE_MAX,
+        _BOOT_ENTRY_EXTRA_TYPE_INVALID = -EINVAL,
+} BootEntryExtraType;
 
-typedef struct BootEntryAddons {
-        BootEntryAddon *items;
+typedef struct BootEntryExtra {
+        BootEntryExtraType type;
+        char *location;
+        char *cmdline; /* only for BOOT_ENTRY_ADDON */
+} BootEntryExtra;
+
+typedef struct BootEntryExtras {
+        BootEntryExtra *items;
         size_t n_items;
-} BootEntryAddons;
+} BootEntryExtras;
 
 typedef struct BootEntry {
         BootEntryType type;
         BootEntrySource source;
         bool reported_by_loader;
-        char *id;       /* This is the file basename (including extension!) */
-        char *id_old;   /* Old-style ID, for deduplication purposes. */
-        char *id_without_profile; /* id without profile suffixed */
-        char *path;     /* This is the full path to the drop-in file */
-        char *root;     /* The root path in which the drop-in was found, i.e. to which 'kernel', 'efi' and 'initrd' are relative */
+        char *id;                 /* This is the file basename (including extension, but with tries counters stripped) */
+        char *id_old;             /* Old-style ID, for deduplication purposes (same as the regular id, but with extension stripped too). */
+        char *id_without_profile; /* ID without profile suffixed */
+        char *path;               /* This is the full path to the drop-in file (i.e. prefixed with 'root' field below) */
+        char *root;               /* The root path in which the drop-in was found, i.e. to which 'kernel', 'efi' and 'initrd' are relative */
         char *title;
         char *show_title;
         char *sort_key;
@@ -46,8 +56,8 @@ typedef struct BootEntry {
         char *machine_id;
         char *architecture;
         char **options;
-        BootEntryAddons local_addons;
-        const BootEntryAddons *global_addons; /* Backpointer into the BootConfig; we don't own this here */
+        BootEntryExtras local_extras;
+        const BootEntryExtras *global_extras; /* Backpointer into the BootConfig; we don't own this here */
         char *kernel;        /* linux is #defined to 1, yikes! */
         char *efi;
         char *uki;
@@ -84,7 +94,7 @@ typedef struct BootConfig {
         BootEntry *entries;
         size_t n_entries;
 
-        BootEntryAddons global_addons[_BOOT_ENTRY_SOURCE_MAX];
+        BootEntryExtras global_extras[_BOOT_ENTRY_SOURCE_MAX];
 
         ssize_t default_entry;
         ssize_t selected_entry;
@@ -114,6 +124,16 @@ static inline const BootEntry* boot_config_default_entry(const BootConfig *confi
 
         assert((size_t) config->default_entry < config->n_entries);
         return config->entries + config->default_entry;
+}
+
+static inline const BootEntry* boot_config_selected_entry(const BootConfig *config) {
+        assert(config);
+
+        if (config->selected_entry < 0)
+                return NULL;
+
+        assert((size_t) config->selected_entry < config->n_entries);
+        return config->entries + config->selected_entry;
 }
 
 void boot_config_free(BootConfig *config);
@@ -152,3 +172,7 @@ int show_boot_entries(
 int boot_filename_extract_tries(const char *fname, char **ret_stripped, unsigned *ret_tries_left, unsigned *ret_tries_done);
 
 int boot_entry_to_json(const BootConfig *c, size_t i, sd_json_variant **ret);
+
+int pe_find_uki_sections(int fd, const char *path, unsigned profile, char **ret_osrelease, char **ret_profile, char **ret_cmdline);
+
+int bootspec_extract_osrelease(const char *text, char **ret_good_name, char **ret_good_version, char **ret_good_sort_key, char **ret_os_id, char **ret_os_version_id, char **ret_image_id, char **ret_image_version);

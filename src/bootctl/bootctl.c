@@ -9,18 +9,21 @@
 #include "bootctl.h"
 #include "bootctl-cleanup.h"
 #include "bootctl-install.h"
+#include "bootctl-link.h"
 #include "bootctl-random-seed.h"
 #include "bootctl-reboot-to-firmware.h"
 #include "bootctl-set-efivar.h"
 #include "bootctl-status.h"
 #include "bootctl-uki.h"
 #include "bootctl-unlink.h"
+#include "bootspec-util.h"
 #include "build.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "find-esp.h"
 #include "format-table.h"
 #include "image-policy.h"
@@ -32,6 +35,7 @@
 #include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "string-table.h"
@@ -78,6 +82,13 @@ char *arg_certificate_source = NULL;
 char *arg_private_key = NULL;
 KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
 char *arg_private_key_source = NULL;
+uint64_t arg_keep_free = KEEP_FREE_BYTES_DEFAULT;
+bool arg_oldest = false;
+char *arg_entry_title = NULL;
+char *arg_entry_version = NULL;
+uint64_t arg_entry_commit = 0;
+char **arg_extras = NULL;
+unsigned arg_tries_left = UINT_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -91,6 +102,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_entry_title, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_entry_version, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_extras, strv_freep);
 
 static const char* const install_source_table[_INSTALL_SOURCE_MAX] = {
         [INSTALL_SOURCE_IMAGE] = "image",
@@ -103,13 +117,14 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(install_source, InstallSource);
 int acquire_esp(
                 int unprivileged_mode,
                 bool graceful,
+                int *ret_fd,
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
                 uint64_t *ret_psize,
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
-        char *np;
+        _cleanup_free_ char *np = NULL;
         int r;
 
         /* Find the ESP, and log about errors. Note that find_esp_and_warn() will log in all error cases on
@@ -118,7 +133,7 @@ int acquire_esp(
          * we simply eat up the error here, so that --list and --status work too, without noise about
          * this). */
 
-        r = find_esp_and_warn_full(arg_root, arg_esp_path, unprivileged_mode, &np, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid);
+        r = find_esp_and_warn_full(arg_root, arg_esp_path, unprivileged_mode, &np, ret_fd, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid);
         if (r == -ENOKEY) {
                 if (graceful)
                         return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_INFO, r,
@@ -134,22 +149,31 @@ int acquire_esp(
         free_and_replace(arg_esp_path, np);
         log_debug("Using EFI System Partition at %s.", arg_esp_path);
 
-        return 0;
+        return 1;
 }
 
 int acquire_xbootldr(
                 int unprivileged_mode,
+                int *ret_fd,
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
-        char *np;
+        _cleanup_free_ char *np = NULL;
         int r;
 
-        r = find_xbootldr_and_warn_full(arg_root, arg_xbootldr_path, unprivileged_mode, &np, ret_uuid, ret_devid);
-        if (r == -ENOKEY || path_equal(np, arg_esp_path)) {
-                log_debug("Didn't find an XBOOTLDR partition, using the ESP as $BOOT.");
+        _cleanup_close_ int fd = -EBADF;
+        r = find_xbootldr_and_warn_full(arg_root, arg_xbootldr_path, unprivileged_mode, &np, ret_fd ? &fd : NULL, ret_uuid, ret_devid);
+        if (r == -ENOKEY || (r >= 0 && arg_esp_path && path_equal(np, arg_esp_path))) {
+
+                if (arg_esp_path)
+                        log_debug("Didn't find an XBOOTLDR partition, using the ESP as $BOOT.");
+                else
+                        log_debug("Found neither an XBOOTLDR partition, nor an ESP.");
+
                 arg_xbootldr_path = mfree(arg_xbootldr_path);
 
+                if (ret_fd)
+                        *ret_fd = -EBADF;
                 if (ret_uuid)
                         *ret_uuid = SD_ID128_NULL;
                 if (ret_devid)
@@ -161,6 +185,9 @@ int acquire_xbootldr(
 
         free_and_replace(arg_xbootldr_path, np);
         log_debug("Using XBOOTLDR partition at %s as $BOOT.", arg_xbootldr_path);
+
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
 
         return 1;
 }
@@ -199,9 +226,14 @@ static int print_loader_or_stub_path(void) {
         }
 
         sd_id128_t esp_uuid;
-        r = acquire_esp(/* unprivileged_mode= */ false, /* graceful= */ false,
-                        /* ret_part= */ NULL, /* ret_pstart= */ NULL, /* ret_psize= */ NULL,
-                        &esp_uuid, /* ret_devid= */ NULL);
+        r = acquire_esp(/* unprivileged_mode= */ false,
+                        /* graceful= */ false,
+                        /* ret_fd= */ NULL,
+                        /* ret_part= */ NULL,
+                        /* ret_pstart= */ NULL,
+                        /* ret_psize= */ NULL,
+                        &esp_uuid,
+                        /* ret_devid= */ NULL);
         if (r < 0)
                 return r;
 
@@ -211,7 +243,10 @@ static int print_loader_or_stub_path(void) {
         else if (arg_print_stub_path) { /* In case of the stub, also look for things in the xbootldr partition */
                 sd_id128_t xbootldr_uuid;
 
-                r = acquire_xbootldr(/* unprivileged_mode= */ false, &xbootldr_uuid, /* ret_devid= */ NULL);
+                r = acquire_xbootldr(/* unprivileged_mode= */ false,
+                                     /* ret_fd= */ NULL,
+                                     &xbootldr_uuid,
+                                     /* ret_devid= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -329,8 +364,11 @@ VERB_GROUP("Boot Loader Specification Commands");
 VERB_SCOPE_NOARG(, verb_list, "list",
            "List boot loader entries");
 
-VERB_SCOPE(, verb_unlink, "unlink", "ID", 2, 2, 0,
+VERB_SCOPE(, verb_unlink, "unlink", "ID", VERB_ANY, 2, 0,
            "Remove boot loader entry");
+
+VERB_SCOPE(, verb_link, "link", "KERNEL", 2, 2, 0,
+           "Create boot loader entry for specified kernel");
 
 VERB_SCOPE_NOARG(, verb_cleanup, "cleanup",
            "Remove files in ESP not referenced in any boot entry");
@@ -538,7 +576,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("efi-boot-option-description", "DESCRIPTION",
                             "Description of the entry in the boot option list"):
-                        if (isempty(arg) || !(string_is_safe(arg) && utf8_is_valid(arg))) {
+                        if (!string_is_safe(arg, STRING_NON_EMPTY)) {
                                 _cleanup_free_ char *escaped = cescape(arg);
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Invalid --efi-boot-option-description=: %s", strna(escaped));
@@ -606,7 +644,122 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_LONG("oldest", "BOOL",
+                            "Delete oldest boot menu entry"):
+                        r = parse_boolean_argument("--oldest=", arg, &arg_oldest);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                OPTION_LONG("keep-free", "BYTES",
+                            "How much space to keep free on ESP/XBOOTLDR"):
+
+                        if (isempty(arg))
+                                arg_keep_free = KEEP_FREE_BYTES_DEFAULT;
+                        else {
+                                r = parse_size(arg, 1024, &arg_keep_free);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --keep-free=: %s", arg);
+                        }
+
+                        break;
+
+                OPTION_LONG("entry-title", "TITLE",
+                            "Selects the entry title for the new boot menu entry"):
+
+                        if (isempty(arg)) {
+                                arg_entry_title = mfree(arg_entry_title);
+                                break;
+                        }
+
+                        if (!efi_loader_entry_title_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid boot menu entry title: %s", arg);
+
+                        r = free_and_strdup_warn(&arg_entry_title, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("entry-version", "VERSION",
+                            "Selects the entry version for the new boot menu entry"):
+                        if (isempty(arg)) {
+                                arg_entry_version = mfree(arg_entry_version);
+                                break;
+                        }
+
+                        if (!version_is_valid_versionspec(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid boot menu entry version: %s", arg);
+
+                        r = free_and_strdup_warn(&arg_entry_version, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("entry-commit", "NR",
+                            "Selects the entry commit version for the new boot menu entry"): {
+                        if (isempty(arg)) {
+                                arg_entry_commit = 0;
+                                break;
+                        }
+
+                        uint64_t n;
+                        r = safe_atou64(arg, &n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --entry-commit= parameter: %s", arg);
+                        if (!entry_commit_valid(n))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid entry commit number.");
+
+                        arg_entry_commit = n;
+                        break;
                 }
+
+                OPTION('X', "extra", "PATH",
+                       "Pass extra resource (confext, sysext, credential) to the invoked UKI of the boot menu entry"): {
+
+                        if (isempty(arg)) {
+                                arg_extras = strv_free(arg_extras);
+                                break;
+                        }
+
+                        _cleanup_free_ char *x = NULL;
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &x);
+                        if (r < 0)
+                                return r;
+
+                        _cleanup_free_ char *fn = NULL;
+                        r = path_extract_filename(x, &fn);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract filename from '%s': %m", x);
+                        if (!efi_loader_entry_resource_filename_valid(fn))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Extra filename '%s' is not suitable for reference in a boot menu entry.", fn);
+
+                        r = strv_consume(&arg_extras, TAKE_PTR(x));
+                        if (r < 0)
+                                return log_oom();
+
+                        strv_uniq(arg_extras);
+                        break;
+                }
+
+                OPTION_LONG("tries-left", "NR",
+                            "Set boot menu entries tries-left counter to the specified value"): {
+                        if (isempty(arg)) {
+                                arg_tries_left = UINT_MAX;
+                                break;
+                        }
+
+                        unsigned u;
+                        r = safe_atou(arg, &u);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse tries left counter: %s", arg);
+                        if (u >= UINT_MAX)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Tries left counter too large, refusing: %u", u);
+
+                        arg_tries_left = u;
+                        break;
+                }}
 
         char **args = option_parser_get_args(&state);
 
@@ -675,7 +828,9 @@ static int vl_server(void) {
                         "io.systemd.BootControl.ListBootEntries",     vl_method_list_boot_entries,
                         "io.systemd.BootControl.SetRebootToFirmware", vl_method_set_reboot_to_firmware,
                         "io.systemd.BootControl.GetRebootToFirmware", vl_method_get_reboot_to_firmware,
-                        "io.systemd.BootControl.Install",             vl_method_install);
+                        "io.systemd.BootControl.Install",             vl_method_install,
+                        "io.systemd.BootControl.Link",                vl_method_link,
+                        "io.systemd.BootControl.Unlink",              vl_method_unlink);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 

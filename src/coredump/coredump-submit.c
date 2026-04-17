@@ -305,7 +305,6 @@ static int save_external_coredump(
         if (storage_on_tmpfs && config->compress) {
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
                 uint64_t cgroup_limit = UINT64_MAX;
-                struct statvfs sv;
 
                 /* If we can't get the cgroup limit, just ignore it, but don't fail,
                  * try anyway with the config settings. */
@@ -335,8 +334,9 @@ static int save_external_coredump(
                 /* tmpfs might get full quickly, so check the available space too. But don't worry about
                  * errors here, failing to access the storage location will be better logged when writing to
                  * it. */
-                if (fstatvfs(fd, &sv) >= 0)
-                        max_size = MIN((uint64_t)sv.f_frsize * (uint64_t)sv.f_bfree, max_size);
+                uint64_t free_bytes;
+                if (vfs_free_bytes(fd, &free_bytes) >= 0)
+                        max_size = MIN(free_bytes, max_size);
                 /* Impose a lower minimum, otherwise we will miss the basic headers. */
                 max_size = MAX(PROCESS_SIZE_MIN, max_size);
                 /* Ensure we can always switch to compressing on the fly in case we are running out of space

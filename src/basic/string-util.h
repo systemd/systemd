@@ -220,8 +220,16 @@ static inline int strdup_to(char **ret, const char *src) {
         return r < 0 ? r : 0;  /* Suppress return value of 1. */
 }
 
-bool string_is_safe(const char *p) _pure_;
-bool string_is_safe_ascii(const char *p) _pure_;
+typedef enum StringSafeFlags {
+        STRING_NON_EMPTY      = 1 << 0, /* Verify string is not empty */
+        STRING_ASCII          = 1 << 1, /* Verify string is 7-Bit ASCII (rather than just UTF-8) */
+        STRING_NO_BACKSLASHES = 1 << 2, /* Verify string has no backslashes (\) */
+        STRING_NO_QUOTES      = 1 << 3, /* Verify string has no quotes (" or ') */
+        STRING_NO_GLOBS       = 1 << 4, /* Verify string has no globs (?, * or [) */
+        STRING_FILENAME       = 1 << 5, /* Verify the string is valid as regular filename */
+} StringSafeFlags;
+
+bool string_is_safe(const char *p, StringSafeFlags flags) _pure_;
 
 DISABLE_WARNING_STRINGOP_TRUNCATION;
 static inline void strncpy_exact(char *buf, const char *src, size_t buf_len) {
@@ -311,5 +319,9 @@ ssize_t strlevenshtein(const char *x, const char *y);
 char* strrstr_internal(const char *haystack, const char *needle) _pure_;
 #define strrstr(haystack, needle) \
         const_generic(haystack, strrstr_internal(haystack, needle))
+
+char* strrstr_no_case_internal(const char *haystack, const char *needle) _pure_;
+#define strrstr_no_case(haystack, needle) \
+        const_generic(haystack, strrstr_no_case_internal(haystack, needle))
 
 size_t str_common_prefix(const char *a, const char *b) _pure_;

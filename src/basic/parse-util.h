@@ -83,6 +83,11 @@ static inline int safe_atou64(const char *s, uint64_t *ret_u) {
         return safe_atollu(s, (unsigned long long*) ret_u);
 }
 
+static inline int safe_atou64_full(const char *s, unsigned base, uint64_t *ret_u) {
+        assert_cc(sizeof(uint64_t) == sizeof(unsigned long long));
+        return safe_atollu_full(s, base, (unsigned long long*) ret_u);
+}
+
 static inline int safe_atoi64(const char *s, int64_t *ret_i) {
         assert_cc(sizeof(int64_t) == sizeof(long long));
         return safe_atolli(s, (long long*) ret_i);
