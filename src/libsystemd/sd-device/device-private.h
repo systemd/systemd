@@ -16,13 +16,29 @@ int device_get_property_bool(sd_device *device, const char *key);
 int device_get_property_int(sd_device *device, const char *key, int *ret);
 int device_get_property_uint(sd_device *device, const char *key, unsigned *ret);
 int device_get_ifname(sd_device *device, const char **ret);
-int device_get_sysattr_int(sd_device *device, const char *sysattr, int *ret_value);
-int device_get_sysattr_unsigned_full(sd_device *device, const char *sysattr, unsigned base, unsigned *ret_value);
-static inline int device_get_sysattr_unsigned(sd_device *device, const char *sysattr, unsigned *ret_value) {
-        return device_get_sysattr_unsigned_full(device, sysattr, 0, ret_value);
+int device_get_sysattr_streq(sd_device *device, const char *sysattr, const char *expected);
+int device_get_sysattr_safe_string_full(sd_device *device, const char *ok, const char *sysattr, const char **ret);
+static inline int device_get_sysattr_safe_string(sd_device *device, const char *sysattr, const char **ret) {
+        return device_get_sysattr_safe_string_full(device, NULL, sysattr, ret);
 }
-int device_get_sysattr_u32(sd_device *device, const char *sysattr, uint32_t *ret_value);
-int device_get_sysattr_u64(sd_device *device, const char *sysattr, uint64_t *ret_value);
+int device_get_sysattr_int(sd_device *device, const char *sysattr, int *ret);
+int device_get_sysattr_unsigned_full(sd_device *device, const char *sysattr, unsigned base, unsigned *ret);
+static inline int device_get_sysattr_unsigned(sd_device *device, const char *sysattr, unsigned *ret) {
+        return device_get_sysattr_unsigned_full(device, sysattr, 0, ret);
+}
+int device_get_sysattr_u8_full(sd_device *device, const char *sysattr, unsigned base, uint8_t *ret);
+static inline int device_get_sysattr_u8(sd_device *device, const char *sysattr, uint8_t *ret) {
+        return device_get_sysattr_u8_full(device, sysattr, 0, ret);
+}
+int device_get_sysattr_u16_full(sd_device *device, const char *sysattr, unsigned base, uint16_t *ret);
+static inline int device_get_sysattr_u16(sd_device *device, const char *sysattr, uint16_t *ret) {
+        return device_get_sysattr_u16_full(device, sysattr, 0, ret);
+}
+int device_get_sysattr_u32_full(sd_device *device, const char *sysattr, unsigned base, uint32_t *ret);
+static inline int device_get_sysattr_u32(sd_device *device, const char *sysattr, uint32_t *ret) {
+        return device_get_sysattr_u32_full(device, sysattr, 0, ret);
+}
+int device_get_sysattr_u64(sd_device *device, const char *sysattr, uint64_t *ret);
 int device_get_sysattr_bool(sd_device *device, const char *sysattr);
 int device_get_devlink_priority(sd_device *device, int *ret);
 int device_get_devnode_mode(sd_device *device, mode_t *ret);

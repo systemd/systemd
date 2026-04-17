@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <linux/input.h>
 
+#include "device-private.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "parse-util.h"
@@ -85,7 +86,7 @@ static void get_cap_mask(
         unsigned long val;
         int r;
 
-        if (sd_device_get_sysattr_value(pdev, attr, &v) < 0)
+        if (device_get_sysattr_safe_string(pdev, attr, &v) < 0)
                 v = "";
 
         xsprintf(text, "%s", v);
@@ -130,17 +131,14 @@ static void get_cap_mask(
 }
 
 static struct input_id get_input_id(sd_device *dev) {
-        const char *v;
         struct input_id id = {};
 
-        if (sd_device_get_sysattr_value(dev, "id/bustype", &v) >= 0)
-                (void) safe_atoux16(v, &id.bustype);
-        if (sd_device_get_sysattr_value(dev, "id/vendor", &v) >= 0)
-                (void) safe_atoux16(v, &id.vendor);
-        if (sd_device_get_sysattr_value(dev, "id/product", &v) >= 0)
-                (void) safe_atoux16(v, &id.product);
-        if (sd_device_get_sysattr_value(dev, "id/version", &v) >= 0)
-                (void) safe_atoux16(v, &id.version);
+        assert(dev);
+
+        (void) device_get_sysattr_u16_full(dev, "id/bustype", 16, &id.bustype);
+        (void) device_get_sysattr_u16_full(dev, "id/vendor",  16, &id.vendor);
+        (void) device_get_sysattr_u16_full(dev, "id/product", 16, &id.product);
+        (void) device_get_sysattr_u16_full(dev, "id/version", 16, &id.version);
 
         return id;
 }
@@ -386,9 +384,7 @@ static int builtin_input_id(UdevEvent *event, int argc, char *argv[]) {
         /* walk up the parental chain until we find the real input device; the
          * argument is very likely a subdevice of this, like eventN */
         for (pdev = dev; pdev; ) {
-                const char *s;
-
-                if (sd_device_get_sysattr_value(pdev, "capabilities/ev", &s) >= 0)
+                if (sd_device_get_sysattr_value(pdev, "capabilities/ev", /* ret= */ NULL) >= 0)
                         break;
 
                 if (sd_device_get_parent_with_subsystem_devtype(pdev, "input", NULL, &pdev) >= 0)

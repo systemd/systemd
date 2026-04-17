@@ -22,7 +22,6 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
-#include "escape.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -32,16 +31,9 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev-builtin.h"
-#include "utf8.h"
 
 #define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)
 #define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
-
-static int log_invalid_device_attr(sd_device *dev, const char *attr, const char *value) {
-        _cleanup_free_ char *escaped = cescape(value);
-        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
-                                      "Invalid %s value '%s'.", attr, strnull(escaped));
-}
 
 static int device_get_parent_skip_virtio(sd_device *dev, sd_device **ret) {
         int r;
@@ -183,7 +175,7 @@ static int get_port_specifier(sd_device *dev, char **ret) {
         assert(ret);
 
         /* First, try to use the kernel provided front panel port name for multiple port PCI device. */
-        r = device_get_sysattr_value_filtered(dev, "phys_port_name", &phys_port_name);
+        r = device_get_sysattr_safe_string_filtered(dev, "phys_port_name", &phys_port_name);
         if (r >= 0 && !isempty(phys_port_name)) {
                 if (naming_scheme_has(NAMING_SR_IOV_R)) {
                         int vf_id = -1;
@@ -200,9 +192,6 @@ static int get_port_specifier(sd_device *dev, char **ret) {
                                 return 1;
                         }
                 }
-
-                if (!utf8_is_valid(phys_port_name) || string_has_cc(phys_port_name, /* ok= */ NULL))
-                        return log_invalid_device_attr(dev, "phys_port_name", phys_port_name);
 
                 /* Otherwise, use phys_port_name as is. */
                 buf = strjoin("n", phys_port_name);
@@ -260,7 +249,7 @@ static int pci_get_onboard_index(sd_device *dev, unsigned *ret) {
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "Naming scheme does not allow onboard index==0.");
         if (!is_valid_onboard_index(idx))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENOENT),
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "Not a valid onboard index: %u", idx);
 
         *ret = idx;
@@ -304,12 +293,9 @@ static int names_pci_onboard_label(UdevEvent *event, sd_device *pci_dev, const c
         assert(prefix);
 
         /* retrieve on-board label from firmware */
-        r = device_get_sysattr_value_filtered(pci_dev, "label", &label);
+        r = device_get_sysattr_safe_string_filtered(pci_dev, "label", &label);
         if (r < 0)
                 return log_device_debug_errno(pci_dev, r, "Failed to get PCI onboard label: %m");
-
-        if (!utf8_is_valid(label) || string_has_cc(label, /* ok= */ NULL))
-                return log_invalid_device_attr(dev, "label", label);
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%s%s",
@@ -360,7 +346,7 @@ static bool is_pci_bridge(sd_device *dev) {
 
         assert(dev);
 
-        if (device_get_sysattr_value_filtered(dev, "modalias", &v) < 0)
+        if (device_get_sysattr_safe_string_filtered(dev, "modalias", &v) < 0)
                 return false;
 
         if (!startswith(v, "pci:"))
@@ -402,7 +388,7 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, 
                 return 0;
         }
 
-        if (device_get_sysattr_value_filtered(dev, "function_id", &attr) < 0) {
+        if (device_get_sysattr_safe_string_filtered(dev, "function_id", &attr) < 0) {
                 *ret = 0;
                 return 0;
         }
@@ -465,7 +451,7 @@ static int pci_get_hotplug_slot_from_address(
                 if (!path)
                         return log_oom_debug();
 
-                if (device_get_sysattr_value_filtered(pci, path, &address) < 0)
+                if (device_get_sysattr_safe_string_filtered(pci, path, &address) < 0)
                         continue;
 
                 /* match slot address with device by stripping the function */
@@ -544,7 +530,7 @@ static int get_device_firmware_node_sun(sd_device *dev, uint32_t *ret) {
         assert(dev);
         assert(ret);
 
-        r = device_get_sysattr_value_filtered(dev, "firmware_node/sun", &attr);
+        r = device_get_sysattr_safe_string_filtered(dev, "firmware_node/sun", &attr);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to read firmware_node/sun, ignoring: %m");
 
@@ -724,7 +710,8 @@ static int names_vio(UdevEvent *event, const char *prefix) {
                                               "VIO bus ID and slot ID have invalid length: %s", s);
 
         if (!in_charset(s, HEXDIGITS))
-                return log_invalid_device_attr(dev, "VIO bus ID and slot ID", s);
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "VIO bus ID and slot ID contain invalid characters: %s", s);
 
         /* Parse only slot ID (the last 4 hexdigits). */
         r = safe_atou_full(s + 4, 16, &slotid);
@@ -780,7 +767,8 @@ static int names_platform(UdevEvent *event, const char *prefix) {
                 return -EOPNOTSUPP;
 
         if (!in_charset(vendor, validchars))
-                return log_invalid_device_attr(dev, "platform vendor", vendor);
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "Platform vendor contains invalid characters: %s", vendor);
 
         ascii_strlower(vendor);
 
@@ -876,7 +864,7 @@ static int names_devicetree_alias_prefix(UdevEvent *event, const char *prefix, c
                 if (!alias_index)
                         continue;
 
-                if (device_get_sysattr_value_filtered(aliases_dev, alias, &alias_path) < 0)
+                if (device_get_sysattr_safe_string_filtered(aliases_dev, alias, &alias_path) < 0)
                         continue;
 
                 if (!path_equal(ofnode_path, alias_path))
@@ -895,7 +883,7 @@ static int names_devicetree_alias_prefix(UdevEvent *event, const char *prefix, c
                 }
 
                 /* ...but make sure we don't have an alias conflict */
-                if (i == 0 && device_get_sysattr_value_filtered(aliases_dev, conflict, NULL) >= 0)
+                if (i == 0 && device_get_sysattr_safe_string_filtered(aliases_dev, conflict, NULL) >= 0)
                         return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
                                         "DeviceTree alias conflict: %s and %s both exist.",
                                         alias_prefix, alias_prefix_0);
@@ -1208,7 +1196,7 @@ static int names_mac(UdevEvent *event, const char *prefix) {
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "addr_assign_type=%u, MAC address is not permanent.", assign_type);
 
-        r = device_get_sysattr_value_filtered(dev, "address", &s);
+        r = device_get_sysattr_safe_string_filtered(dev, "address", &s);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to read 'address' attribute: %m");
 
@@ -1253,14 +1241,12 @@ static int names_netdevsim(UdevEvent *event, const char *prefix) {
         if (r < 0)
                 return log_device_debug_errno(netdevsimdev, r, "Failed to get device sysnum: %m");
 
-        r = device_get_sysattr_value_filtered(dev, "phys_port_name", &phys_port_name);
+        r = device_get_sysattr_safe_string_filtered(dev, "phys_port_name", &phys_port_name);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get 'phys_port_name' attribute: %m");
         if (isempty(phys_port_name))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                               "The 'phys_port_name' attribute is empty.");
-        if (!utf8_is_valid(phys_port_name) || string_has_cc(phys_port_name, /* ok= */ NULL))
-                return log_invalid_device_attr(dev, "phys_port_name", phys_port_name);
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%si%un%s", prefix, addr, phys_port_name))

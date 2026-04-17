@@ -20,6 +20,7 @@
 #include "constants.h"
 #include "daemon-util.h"
 #include "device-private.h"
+#include "device-util.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "escape.h"
@@ -456,12 +457,14 @@ static int get_sysattr(sd_device *device, const char *key, char **ret) {
         if (!device)
                 return -ENODEV;
 
-        r = sd_device_get_sysattr_value(device, key, &s);
+        r = device_get_sysattr_safe_string(device, key, &s);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(device, r, "Failed to read '%s' attribute: %m", key);
 
         if (!string_is_safe_for_dbus(s))
-                return -ENXIO;
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENXIO),
+                                              "'%s' attribute is not safe for exposing through DBus: %s",
+                                              key, s);
 
         return strdup_to(ret, empty_to_null(s));
 }
@@ -717,7 +720,7 @@ static const char* fallback_chassis_by_device_tree(Context *c) {
         if (!c->device_tree)
                 return NULL;
 
-        r = sd_device_get_sysattr_value(c->device_tree, "chassis-type", &type);
+        r = device_get_sysattr_safe_string(c->device_tree, "chassis-type", &type);
         if (r < 0) {
                 log_debug_errno(r, "Failed to read device-tree chassis type, ignoring: %m");
                 return NULL;

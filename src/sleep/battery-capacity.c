@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "battery-capacity.h"
 #include "battery-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -368,20 +369,13 @@ int battery_trip_point_alarm_exists(void) {
                 return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
 
         FOREACH_DEVICE(e, dev) {
-                const char *alarm_attr;
-                int has_alarm;
-
                 has_battery = true;
 
-                r = sd_device_get_sysattr_value(dev, "alarm", &alarm_attr);
+                int has_alarm;
+                r = device_get_sysattr_int(dev, "alarm", &has_alarm);
                 if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to read battery alarm attribute: %m");
+                        return log_device_debug_errno(dev, r, "Failed to read/parse battery alarm attribute: %m");
 
-                r = safe_atoi(alarm_attr, &has_alarm);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r,
-                                                      "Failed to parse battery alarm attribute '%s': %m",
-                                                      alarm_attr);
                 if (has_alarm <= 0)
                         return false;
         }

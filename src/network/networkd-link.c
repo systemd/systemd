@@ -23,6 +23,7 @@
 #include "alloc-util.h"
 #include "arphrd-util.h"
 #include "bitfield.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "dns-domain.h"
 #include "errno-util.h"
@@ -66,7 +67,6 @@
 #include "networkd-wifi.h"
 #include "networkd-wwan-bus.h"
 #include "ordered-set.h"
-#include "parse-util.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -1335,13 +1335,9 @@ static int link_get_network(Link *link, Network **ret) {
                         continue;
 
                 if (network->match.ifname && link->dev) {
-                        uint8_t name_assign_type = NET_NAME_UNKNOWN;
-                        const char *attr;
-
-                        if (sd_device_get_sysattr_value(link->dev, "name_assign_type", &attr) >= 0)
-                                (void) safe_atou8(attr, &name_assign_type);
-
-                        warn = name_assign_type == NET_NAME_ENUM;
+                        uint8_t name_assign_type;
+                        if (device_get_sysattr_u8(link->dev, "name_assign_type", &name_assign_type) >= 0)
+                                warn = name_assign_type == NET_NAME_ENUM;
                 }
 
                 log_link_full(link, warn ? LOG_WARNING : LOG_DEBUG,

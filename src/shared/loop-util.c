@@ -15,6 +15,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "data-fd-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
@@ -994,7 +995,7 @@ int loop_device_open(
 #endif
                 nr = info.lo_number;
 
-                if (sd_device_get_sysattr_value(dev, "loop/backing_file", &s) >= 0) {
+                if (device_get_sysattr_safe_string(dev, "loop/backing_file", &s) >= 0) {
                         backing_file = strdup(s);
                         if (!backing_file)
                                 return -ENOMEM;

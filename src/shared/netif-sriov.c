@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "ether-addr-util.h"
 #include "netif-sriov.h"
@@ -267,28 +268,11 @@ int sr_iov_set_netlink_message(SRIOV *sr_iov, SRIOVAttribute attr, sd_netlink_me
 }
 
 int sr_iov_get_num_vfs(sd_device *device, uint32_t *ret) {
-        const char *str;
-        uint32_t n;
-        int r;
-
-        assert(device);
-        assert(ret);
-
-        r = sd_device_get_sysattr_value(device, "device/sriov_numvfs", &str);
-        if (r < 0)
-                return r;
-
-        r = safe_atou32(str, &n);
-        if (r < 0)
-                return r;
-
-        *ret = n;
-        return 0;
+        return device_get_sysattr_u32(device, "device/sriov_numvfs", ret);
 }
 
 int sr_iov_set_num_vfs(sd_device *device, uint32_t num_vfs, OrderedHashmap *sr_iov_by_section) {
         char val[DECIMAL_STR_MAX(uint32_t)];
-        const char *str;
         int r;
 
         assert(device);
@@ -327,14 +311,9 @@ int sr_iov_set_num_vfs(sd_device *device, uint32_t num_vfs, OrderedHashmap *sr_i
          * maximum allowed number of VFs from the sriov_totalvfs sysattr. Note that the sysattr
          * currently exists only for PCI drivers. Hence, ignore -ENOENT.
          * TODO: netdevsim provides the information in debugfs. */
-        r = sd_device_get_sysattr_value(device, "device/sriov_totalvfs", &str);
+        uint32_t max_num_vfs;
+        r = device_get_sysattr_u32(device, "device/sriov_totalvfs", &max_num_vfs);
         if (r >= 0) {
-                uint32_t max_num_vfs;
-
-                r = safe_atou32(str, &max_num_vfs);
-                if (r < 0)
-                        return log_device_debug_errno(device, r, "Failed to parse device/sriov_totalvfs sysfs attribute '%s': %m", str);
-
                 if (num_vfs > max_num_vfs)
                         return log_device_debug_errno(device, SYNTHETIC_ERRNO(ERANGE),
                                                       "Specified number of virtual functions is out of range. "

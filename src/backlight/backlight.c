@@ -68,13 +68,9 @@ static int has_multiple_graphics_cards(void) {
                 return r;
 
         FOREACH_DEVICE(e, dev) {
-                const char *s;
-                unsigned long c;
+                uint32_t c;
 
-                if (sd_device_get_sysattr_value(dev, "class", &s) < 0)
-                        continue;
-
-                if (safe_atolu(s, &c) < 0)
+                if (device_get_sysattr_u32(dev, "class", &c) < 0)
                         continue;
 
                 if (c != PCI_CLASS_GRAPHICS_CARD)
@@ -182,7 +178,7 @@ static int same_device(sd_device *a, sd_device *b) {
 
 static int validate_device(sd_device *device) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *enumerate = NULL;
-        const char *v, *sysname;
+        const char *sysname;
         sd_device *parent;
         int r;
 
@@ -207,10 +203,10 @@ static int validate_device(sd_device *device) {
         if (r > 0)
                 return true; /* We assume LED device is always valid. */
 
-        r = sd_device_get_sysattr_value(device, "type", &v);
+        r = device_get_sysattr_streq(device, "type", "raw");
         if (r < 0)
                 return log_device_debug_errno(device, r, "Failed to read 'type' sysattr: %m");
-        if (!streq(v, "raw"))
+        if (r == 0)
                 return true;
 
         r = find_pci_or_platform_parent(device, &parent);
@@ -283,7 +279,7 @@ static int validate_device(sd_device *device) {
                                 const char *other_sysname = NULL, *other_type = NULL;
 
                                 (void) sd_device_get_sysname(other, &other_sysname);
-                                (void) sd_device_get_sysattr_value(other, "type", &other_type);
+                                (void) device_get_sysattr_safe_string(other, "type", &other_type);
                                 log_device_debug(device,
                                                  "Found another %s backlight device %s on the same PCI, skipping.",
                                                  strna(other_type), strna(other_sysname));
@@ -297,7 +293,7 @@ static int validate_device(sd_device *device) {
                                 const char *other_sysname = NULL, *other_type = NULL;
 
                                 (void) sd_device_get_sysname(other, &other_sysname);
-                                (void) sd_device_get_sysattr_value(other, "type", &other_type);
+                                (void) device_get_sysattr_safe_string(other, "type", &other_type);
                                 log_device_debug(device,
                                                  "Found another %s backlight device %s, which has higher precedence, skipping.",
                                                  strna(other_type), strna(other_sysname));
@@ -420,20 +416,15 @@ static int shall_clamp(sd_device *device, unsigned *ret) {
 }
 
 static int read_brightness(sd_device *device, unsigned max_brightness, unsigned *ret_brightness) {
-        const char *value;
         unsigned brightness;
         int r;
 
         assert(device);
         assert(ret_brightness);
 
-        r = sd_device_get_sysattr_value(device, "brightness", &value);
+        r = device_get_sysattr_unsigned(device, "brightness", &brightness);
         if (r < 0)
-                return log_device_debug_errno(device, r, "Failed to read 'brightness' attribute: %m");
-
-        r = safe_atou(value, &brightness);
-        if (r < 0)
-                return log_device_debug_errno(device, r, "Failed to parse 'brightness' attribute: %s", value);
+                return log_device_debug_errno(device, r, "Failed to read/parse 'brightness' attribute: %m");
 
         if (brightness > max_brightness)
                 return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
