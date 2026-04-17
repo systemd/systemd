@@ -429,13 +429,6 @@
             <entry>Formatted decimal integer</entry>
             <entry>Useful when operating with kernel image files, as per <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot Assessment</ulink></entry>
           </row>
-
-          <row>
-            <entry><literal>@h</literal></entry>
-            <entry>SHA256 hash of compressed file</entry>
-            <entry>64 hexadecimal characters</entry>
-            <entry>The SHA256 hash of the compressed file; not useful for <constant>url-file</constant> or <constant>url-tar</constant> where the SHA256 hash is already included in the manifest file anyway</entry>
-          </row>
         </tbody>
       </tgroup>
     </table>
