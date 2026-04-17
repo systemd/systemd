@@ -3235,17 +3235,41 @@ static int clean_including_item(
 
         usec_t cutoff = n - i->age;
 
-        /* Find parent path so we can get stats on the directory that holds instance file|dir */
         _cleanup_free_ char *parent_path = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         struct statx sx;
         bool mountpoint;
         int r;
-        /* Check whether item is a directory or file and determine parent path accordingly */
+        _cleanup_close_ int fd = -EBADF;
+
+        /* Find parent path so we can get stats on the directory that holds instance file|dir */
+        fd = path_open_safe(instance); /* provides file opened with O_PATH which is needed for statx */
+        if (fd == -ENOENT)
+                return 0; /* ignore files that have disappeared since being sent to us */
+        if (fd < 0)
+                return fd;
+        /* Check whether item is a directory or file and determine parent path accordingly.
+         * We must determine the parent directory to open globbed filenames at that directory. */
+        r = xstatx_full(fd,
+                        /* path= */ NULL,
+                        /* statx_flags= */ AT_EMPTY_PATH|AT_NO_AUTOMOUNT,
+                        /* xstatx_flags= */ 0,
+                        /* mandatory_mask= */ STATX_TYPE,
+                        /* optional_mask= */ 0,
+                        /* mandatory_attributes= */ 0,
+                        &sx);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                /* FUSE, NFS mounts, SELinux might return EACCES */
+                return log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_ERR, r, "statx(%s) for %s failed: %m", instance, i->path);
+
         struct stat st;
         if (stat(instance, &st) < 0)
                 return log_error_errno(errno, "Failed to stat(%s) for %s: %m", instance, i->path);
         if (S_ISDIR(st.st_mode)) {
+                /* Append /.. to get the actual parent of the dir, not a (possible) symlink's parent,
+                 * so that item_cleanup() (below) can restore dir timestamps to the correct parent */
                 parent_path = path_join(instance, "..");
                 if (!parent_path) {
                         return log_oom();
