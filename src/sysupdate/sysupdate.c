@@ -586,7 +586,7 @@ static int context_show_version(Context *c, const char *version) {
         bool show_fs_columns = false, show_partition_columns = false,
                 have_fs_attributes = false, have_partition_attributes = false,
                 have_size = false, have_tries = false, have_no_auto = false,
-                have_read_only = false, have_growfs = false, have_sha256 = false;
+                have_read_only = false, have_growfs = false;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_strv_free_ char **changelog_urls = NULL;
@@ -618,7 +618,7 @@ static int context_show_version(Context *c, const char *version) {
                        FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED) ? ansi_highlight() : "", yes_no(FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED)), ansi_normal(),
                        us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal());
 
-        t = table_new("type", "path", "ptuuid", "ptflags", "mtime", "mode", "size", "tries-done", "tries-left", "noauto", "ro", "growfs", "sha256");
+        t = table_new("type", "path", "ptuuid", "ptflags", "mtime", "mode", "size", "tries-done", "tries-left", "noauto", "ro", "growfs");
         if (!t)
                 return log_oom();
 
@@ -764,18 +764,6 @@ static int context_show_version(Context *c, const char *version) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                if (i->metadata.sha256sum_set) {
-                        _cleanup_free_ char *formatted = NULL;
-
-                        have_sha256 = true;
-
-                        formatted = hexmem(i->metadata.sha256sum, sizeof(i->metadata.sha256sum));
-                        if (!formatted)
-                                return log_oom();
-
-                        r = table_add_cell(t, NULL, TABLE_STRING, formatted);
-                } else
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -800,8 +788,6 @@ static int context_show_version(Context *c, const char *version) {
                 (void) table_hide_column_from_display(t, 10);
         if (!have_growfs)
                 (void) table_hide_column_from_display(t, 11);
-        if (!have_sha256)
-                (void) table_hide_column_from_display(t, 12);
 
         if (!sd_json_format_enabled(arg_json_format_flags)) {
                 printf("%s%s%s Version: %s\n"
