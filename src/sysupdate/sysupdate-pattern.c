@@ -399,9 +399,11 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
                         found.growfs = r;
                         break;
 
-                case PATTERN_SHA256SUM: {
+                case PATTERN_SHA256SUM: { /* only check, nothing else (deprecated) */
                         _cleanup_free_ void *d = NULL;
                         size_t l;
+
+                        log_once(LOG_WARNING, "@h pattern matching has been removed. It matches any hash string with the correct length now.");
 
                         if (strlen(t) != sizeof(found.sha256sum) * 2)
                                 goto nope;
@@ -414,8 +416,6 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
 
                         assert(!found.sha256sum_set);
                         assert(l == sizeof(found.sha256sum));
-                        memcpy(found.sha256sum, d, l);
-                        found.sha256sum_set = true;
                         break;
                 }
 

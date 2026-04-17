@@ -109,6 +109,11 @@ CHANGES WITH 261 in spe:
           link flags, or passed to systemd's meson build options via
           '-Dc_link_args=-Wl,--push-state,--no-as-needed,-lm,--pop-state'.
 
+        * systemd-sysupdate does not support matching update candidate files
+          with the "@h" pattern anymore. For backwards compatibility the pattern
+          is still recognized and will match on hashes of the correct length,
+          but not match the exact hash value.
+
         Changes in the system and service manager:
 
         * PID1 now supports the kernel's Live Update Orchestration (LUO) /
