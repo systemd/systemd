@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "efi-log.h"
 #include "initrd.h"
 #include "iovec-util-fundamental.h"
 #include "proto/device-path.h"
@@ -109,16 +110,16 @@ EFI_STATUS initrd_register(
 }
 
 EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
-        EFI_STATUS err;
         struct initrd_loader *loader;
+        EFI_STATUS err;
 
         if (!initrd_handle)
                 return EFI_SUCCESS;
 
-        /* get the LoadFile2 protocol that we allocated earlier */
+        /* Get the LoadFile2 protocol that we allocated earlier */
         err = BS->HandleProtocol(initrd_handle, MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL), (void **) &loader);
         if (err != EFI_SUCCESS)
-                return err;
+                return log_debug_status(err, "Failed to acquire LoadFile2 protocol on our own initrd handle: %m");
 
         /* uninstall all protocols thus destroying the handle */
         err = BS->UninstallMultipleProtocolInterfaces(
@@ -127,9 +128,8 @@ EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
                         loader,
                         NULL);
         if (err != EFI_SUCCESS)
-                return err;
+                return log_debug_status(err, "Failed to uninstall LoadFile2 protocol from our own initrd handle: %m");
 
-        initrd_handle = NULL;
         free(loader);
         return EFI_SUCCESS;
 }
