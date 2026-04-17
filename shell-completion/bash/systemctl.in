@@ -137,7 +137,7 @@ _systemctl () {
                       --show-transaction -T --mkdir --read-only'
         [ARG]='--host -H --kill-whom --property -p -P --signal -s --type -t --state --job-mode --root
                --preset-mode -n --lines -o --output -M --machine --message --timestamp --check-inhibitors --what
-               --image --boot-loader-menu --boot-loader-entry --reboot-argument --drop-in'
+               --image --boot-loader-menu --boot-loader-entry --reboot-argument --kernel-cmdline --drop-in'
     )
 
     if __contains_word "--user" ${COMP_WORDS[*]}; then
