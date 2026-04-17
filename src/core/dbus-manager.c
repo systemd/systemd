@@ -387,13 +387,16 @@ static int property_set_pretimeout_watchdog_governor(
                 sd_bus_error *reterr_error) {
 
         Manager *m = ASSERT_PTR(userdata);
-        char *governor;
+        const char *governor;
         int r;
 
         r = sd_bus_message_read(value, "s", &governor);
         if (r < 0)
                 return r;
-        if (!string_is_safe(governor))
+
+        if (isempty(governor))
+                governor = NULL;
+        else if (!string_is_safe(governor, /* flags= */ 0))
                 return -EINVAL;
 
         return manager_override_watchdog_pretimeout_governor(m, governor);
