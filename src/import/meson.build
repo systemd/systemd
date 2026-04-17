@@ -4,10 +4,6 @@ if conf.get('ENABLE_IMPORTD') != 1
         subdir_done()
 endif
 
-common_deps = [
-        libcurl,
-]
-
 executables += [
         libexec_template + {
                 'name' : 'systemd-importd',
@@ -21,7 +17,7 @@ executables += [
                         'import-common.c',
                         'qcow2-util.c',
                 ),
-                'dependencies' : [common_deps, threads],
+                'dependencies' : threads,
         },
         libexec_template + {
                 'name' : 'systemd-pull',
@@ -35,10 +31,7 @@ executables += [
                         'pull-tar.c',
                 ),
                 'objects' : ['systemd-importd'],
-                'link_with' : [libcurlutil_static, libshared],
-                'dependencies' : common_deps + [
-                        libopenssl,
-                ],
+                'dependencies' : libopenssl,
         },
         libexec_template + {
                 'name' : 'systemd-import',
@@ -49,7 +42,6 @@ executables += [
                         'import-tar.c',
                 ),
                 'objects' : ['systemd-importd'],
-                'dependencies' : common_deps,
         },
         libexec_template + {
                 'name' : 'systemd-import-fs',
@@ -58,7 +50,6 @@ executables += [
                         'import-fs.c',
                 ),
                 'objects' : ['systemd-importd'],
-                'dependencies' : common_deps,
         },
         libexec_template + {
                 'name' : 'systemd-export',
@@ -69,14 +60,12 @@ executables += [
                         'export-raw.c',
                 ),
                 'objects' : ['systemd-importd'],
-                'dependencies' : common_deps,
         },
         executable_template + {
                 'name' : 'importctl',
                 'public' : true,
                 'sources' : files('importctl.c'),
                 'objects': ['systemd-importd'],
-                'dependencies' : common_deps,
         },
         generator_template + {
                 'name' : 'systemd-import-generator',
@@ -89,13 +78,11 @@ executables += [
         test_template + {
                 'sources' : files('test-qcow2.c'),
                 'objects' : ['systemd-importd'],
-                'dependencies' : common_deps,
                 'type' : 'manual',
         },
         test_template + {
                 'sources' : files('test-oci-util.c'),
                 'objects': ['systemd-importd'],
-                'dependencies' : common_deps,
         },
 ]
 

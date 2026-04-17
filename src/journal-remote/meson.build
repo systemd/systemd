@@ -65,7 +65,7 @@ executables += [
                 'sources' : systemd_journal_upload_sources,
                 'extract' : systemd_journal_upload_extract_sources,
                 'objects' : ['systemd-journal-remote'],
-                'dependencies' : common_deps + [libcurl],
+                'dependencies' : common_deps,
         },
         test_template + {
                 'sources' : files('test-journal-header-util.c'),
