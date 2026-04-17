@@ -1255,6 +1255,14 @@ RestartMaxDelaySec=160s</programlisting>
         is removed, the service manager exits, or the file descriptors get <constant>EPOLLHUP</constant> or
         <constant>EPOLLERR</constant>.</para>
 
+        <para>Setting this to <constant>yes</constant> also ensures the file descriptor store is kept loaded
+        across a <literal>kexec</literal>-based reboot on kernels supporting the Live Update Orchestrator,
+        so that compatible file descriptors (such as <citerefentry
+        project='man-pages'><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>)
+        are preserved and handed back to the service on the other side. See the <ulink
+        url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink> overview for
+        details.</para>
+
         <para>Use <command>systemctl clean --what=fdstore …</command> to release the file descriptor store
         explicitly.</para>
 
