@@ -797,8 +797,126 @@ EOF
     systemctl stop "$RUN0UNIT3"
 }
 
+teardown_varlink() (
+    set +ex
+
+    systemctl stop test-varlink-inhibit.service 2>/dev/null
+    cleanup_session
+
+    return 0
+)
+
 testcase_varlink() {
-    varlinkctl introspect /run/systemd/io.systemd.Login
+    local session uid session_out user_out seat_out inhibitor_out
+
+    if [[ ! -c /dev/tty2 ]]; then
+        echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
+        return
+    fi
+
+    trap teardown_varlink RETURN
+
+    local VARLINK_SOCKET="/run/systemd/io.systemd.Login"
+
+    : "--- Introspect ---"
+    varlinkctl introspect "$VARLINK_SOCKET"
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method DescribeSession" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSessions" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method DescribeUser" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListUsers" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method DescribeSeat" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSeats" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListInhibitors" >/dev/null
+
+    : "--- Setup test session ---"
+    create_session
+    session=$(loginctl --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
+    uid=$(id -ru logind-test-user)
+    loginctl activate "$session"
+
+    : "--- DescribeSession ---"
+    session_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeSession "{\"Id\":\"$session\"}")
+    echo "$session_out" | jq -e ".Session.Id == \"$session\"" >/dev/null
+    echo "$session_out" | jq -e ".Session.User.UID == $uid" >/dev/null
+    echo "$session_out" | jq -e '.Session.User.Name == "logind-test-user"' >/dev/null
+    echo "$session_out" | jq -e '.Session.TTY == "tty2"' >/dev/null
+    echo "$session_out" | jq -e '.Session.Remote == false' >/dev/null
+    echo "$session_out" | jq -e '.Session.Type' >/dev/null
+    echo "$session_out" | jq -e '.Session.Class' >/dev/null
+    echo "$session_out" | jq -e '.Session.State' >/dev/null
+    echo "$session_out" | jq -e '.Session.Active == true' >/dev/null
+
+    # nonexistent session
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeSession '{"Id":"nonexistent-session-id"}')
+
+    : "--- ListSessions ---"
+    varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSessions '{}' \
+        | jq --seq -e --arg s "$session" 'select(.Session.Id == $s)' >/dev/null
+    test "$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSessions '{}' | wc -l)" -ge 2
+    # without --more should fail
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListSessions '{}')
+
+    : "--- DescribeUser ---"
+    user_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeUser "{\"UID\":$uid}")
+    echo "$user_out" | jq -e ".User.UID == $uid" >/dev/null
+    echo "$user_out" | jq -e '.User.Name == "logind-test-user"' >/dev/null
+    echo "$user_out" | jq -e '.User.State' >/dev/null
+    echo "$user_out" | jq -e '.User.Linger == false' >/dev/null
+    echo "$user_out" | jq -e ".User.Sessions[] | select(.Id == \"$session\")" >/dev/null
+
+    # default UID should resolve to the caller's user. Invoke from inside the
+    # test user's scope so logind's peer-cgroup lookup maps back to logind-test-user.
+    default_user_out=$(systemd-run --user --pipe --wait -M "logind-test-user@.host" \
+                           varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeUser '{}')
+    echo "$default_user_out" | jq -e --argjson u "$uid" '.User.UID == $u' >/dev/null
+
+    # nonexistent UID
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeUser '{"UID":4294967294}')
+
+    : "--- ListUsers ---"
+    varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListUsers '{}' | grep "logind-test-user" >/dev/null
+    test "$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListUsers '{}' | wc -l)" -ge 2
+    # without --more should fail
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListUsers '{}')
+
+    : "--- DescribeSeat ---"
+    seat_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeSeat '{"Id":"seat0"}')
+    echo "$seat_out" | jq -e '.Seat.Id == "seat0"' >/dev/null
+    echo "$seat_out" | jq -e '.Seat.CanTTY == true' >/dev/null
+    echo "$seat_out" | jq -e ".Seat.Sessions[] | select(.Id == \"$session\")" >/dev/null
+
+    # nonexistent seat
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeSeat '{"Id":"seat-nonexistent"}')
+
+    # self/auto resolution from a context without a session must fail with NoSuchSeat,
+    # not leak NoSuchSession from the peer-session lookup
+    for id_arg in '{"Id":"self"}' '{}' '{"Id":"auto"}'; do
+        self_err=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeSeat "$id_arg" 2>&1 || true)
+        echo "$self_err" | grep NoSuchSeat >/dev/null
+        (! echo "$self_err" | grep NoSuchSession >/dev/null)
+    done
+
+    : "--- ListSeats ---"
+    varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSeats '{}' | grep "seat0" >/dev/null
+    # without --more should fail
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListSeats '{}')
+
+    : "--- ListInhibitors ---"
+    systemd-run --unit=test-varlink-inhibit.service --service-type=exec \
+        systemd-inhibit --what=shutdown --who="varlink-test" --why="testing varlink" --mode=block \
+            sleep infinity
+    timeout 10 bash -c "until varlinkctl call --more '$VARLINK_SOCKET' io.systemd.Login.ListInhibitors '{}' 2>/dev/null | grep varlink-test >/dev/null; do sleep 0.5; done"
+
+    inhibitor_out=$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListInhibitors '{}')
+    echo "$inhibitor_out" | grep '"Who":"varlink-test"' >/dev/null
+    echo "$inhibitor_out" | grep '"What":"shutdown"' >/dev/null
+    echo "$inhibitor_out" | grep '"Mode":"block"' >/dev/null
+    echo "$inhibitor_out" | grep '"Why":"testing varlink"' >/dev/null
+
+    # without --more should fail
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListInhibitors '{}')
+
+    systemctl stop test-varlink-inhibit.service
 }
 
 testcase_restart() {
