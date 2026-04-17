@@ -2796,6 +2796,21 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       </varlistentry>
 
       <varlistentry>
+        <term><option>--kernel-cmdline=</option></term>
+
+        <listitem>
+          <para>When used with <command>kexec</command>, append the specified string to the kernel command
+          line options of the kexec kernel. The kernel command line is taken from the boot loader entry of
+          the currently booted kernel (as selected automatically when no kexec kernel is preloaded, see
+          <command>kexec</command> above). This string is appended verbatim, separated from the existing
+          options by a single space. <command>systemctl kexec</command> will fail if this option is specified
+          when a kexec kernel is already loaded.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--plain</option></term>
 
         <listitem>
