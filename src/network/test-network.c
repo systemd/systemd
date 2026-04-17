@@ -11,6 +11,7 @@
 #include "networkd-route-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "vrf.h"
 
 TEST(deserialize_in_addr) {
         _cleanup_free_ struct in_addr *addresses = NULL;
@@ -148,6 +149,29 @@ TEST(route_tables) {
         test_route_tables_one(manager, "default", 253);
         test_route_tables_one(manager, "main", 254);
         test_route_tables_one(manager, "local", 255);
+}
+
+TEST(vrf_table) {
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        Vrf vrf = {};
+
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
+        ASSERT_OK(manager_setup(manager));
+
+        vrf.meta.manager = manager;
+
+        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", 0, "default", &vrf.table, &vrf));
+        ASSERT_EQ(vrf.table, 253U);
+
+        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "vrf-test:1234", manager, manager));
+        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", 0, "vrf-test", &vrf.table, &vrf));
+        ASSERT_EQ(vrf.table, 1234U);
+
+        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", 0, "5678", &vrf.table, &vrf));
+        ASSERT_EQ(vrf.table, 5678U);
+
+        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", 0, "no-such-table", &vrf.table, &vrf));
+        ASSERT_EQ(vrf.table, 5678U);
 }
 
 TEST(manager_enumerate) {
