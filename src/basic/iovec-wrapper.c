@@ -41,17 +41,6 @@ int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
         return 0;
 }
 
-int iovw_append(struct iovec_wrapper *iovw, const void *data, size_t len) {
-        if (len == 0)
-                return 0;
-
-        void *c = memdup(data, len);
-        if (!c)
-                return -ENOMEM;
-
-        return iovw_put(iovw, c, len);
-}
-
 int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
         /* Move data into iovw or free on error */
         int r;
@@ -61,6 +50,17 @@ int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
                 free(data);
 
         return r;
+}
+
+int iovw_append(struct iovec_wrapper *iovw, const void *data, size_t len) {
+        if (len == 0)
+                return 0;
+
+        void *c = memdup(data, len);
+        if (!c)
+                return -ENOMEM;
+
+        return iovw_consume(iovw, c, len);
 }
 
 int iovw_put_string_field_full(struct iovec_wrapper *iovw, bool replace, const char *field, const char *value) {
@@ -126,7 +126,6 @@ size_t iovw_size(const struct iovec_wrapper *iovw) {
 }
 
 int iovw_append_iovw(struct iovec_wrapper *target, const struct iovec_wrapper *source) {
-        size_t original_count;
         int r;
 
         assert(target);
@@ -136,18 +135,10 @@ int iovw_append_iovw(struct iovec_wrapper *target, const struct iovec_wrapper *s
         if (iovw_isempty(source))
                 return 0;
 
-        original_count = target->count;
+        size_t original_count = target->count;
 
         FOREACH_ARRAY(iovec, source->iovec, source->count) {
-                void *dup;
-
-                dup = memdup(iovec->iov_base, iovec->iov_len);
-                if (!dup) {
-                        r = -ENOMEM;
-                        goto rollback;
-                }
-
-                r = iovw_consume(target, dup, iovec->iov_len);
+                r = iovw_append(target, iovec->iov_base, iovec->iov_len);
                 if (r < 0)
                         goto rollback;
         }
