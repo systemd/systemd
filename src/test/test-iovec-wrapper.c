@@ -38,7 +38,7 @@ TEST(iovw_append) {
         ASSERT_EQ(memcmp(iovw.iovec[0].iov_base, "one", 3), 0);
 
         /* Insert with a NUL */
-        ASSERT_OK_ZERO(iovw_append(&iovw, buf, 4));
+        ASSERT_OK(iovw_append(&iovw, buf, 4));
         ASSERT_EQ(iovw.count, 2U);
         ASSERT_EQ(iovw.iovec[1].iov_len, 4U);
         ASSERT_EQ(memcmp(iovw.iovec[1].iov_base, "one\0", 4), 0);
@@ -58,10 +58,9 @@ TEST(iovw_consume) {
         /* iovw_consume moves ownership in place, no copy */
         ASSERT_PTR_EQ(iovw.iovec[0].iov_base, p);
 
-        /* Zero-length: iovw_put returns 0 without adding anything, and does not free the payload.
-         * Confirm by strdup'ing something and explicitly freeing it afterwards. */
-        _cleanup_free_ char *q = strdup("");
-        ASSERT_NOT_NULL(q);
+        /* Zero-length: iovw_put returns 0 without adding anything. Even in that case, iovw_consume() frees
+         * the payload. Confirm by strdup'ing something to verify that when running with sanitizer/valgrind. */
+        char *q = ASSERT_NOT_NULL(strdup(""));
         ASSERT_OK_ZERO(iovw_consume(&iovw, q, 0));
         ASSERT_EQ(iovw.count, 1U);
 }
