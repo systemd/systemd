@@ -84,18 +84,23 @@ TEST(iovw_put) {
         ASSERT_EQ(memcmp(iovw.iovec[2].iov_base, "q", 1), 0);
 }
 
-TEST(iovw_append) {
+TEST(iovw_extend) {
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
 
-        /* iovw_append copies the data; the wrapper owns the copies. */
+        /* Appending an empty/NULL source is a no-op */
+        ASSERT_OK_ZERO(iovw_extend(&iovw, NULL, 0));
+        ASSERT_OK_ZERO(iovw_extend(&iovw, "foo", 0));
+        ASSERT_EQ(iovw.count, 0U);
+
+        /* iovw_extend() copies the data; the wrapper owns the copies. */
         char buf[4] = { 'o', 'n', 'e', '\0' };
-        ASSERT_OK(iovw_append(&iovw, buf, 3));
+        ASSERT_OK(iovw_extend(&iovw, buf, 3));
         ASSERT_EQ(iovw.count, 1U);
         ASSERT_EQ(iovw.iovec[0].iov_len, 3U);
         ASSERT_EQ(memcmp(iovw.iovec[0].iov_base, "one", 3), 0);
 
         /* Insert with a NUL */
-        ASSERT_OK(iovw_append(&iovw, buf, 4));
+        ASSERT_OK(iovw_extend(&iovw, buf, 4));
         ASSERT_EQ(iovw.count, 2U);
         ASSERT_EQ(iovw.iovec[1].iov_len, 4U);
         ASSERT_EQ(memcmp(iovw.iovec[1].iov_base, "one\0", 4), 0);
@@ -103,6 +108,60 @@ TEST(iovw_append) {
         /* Mutating the caller's buffer does not affect what's stored */
         memset(buf, 'X', sizeof buf);
         ASSERT_EQ(memcmp(iovw.iovec[0].iov_base, "one", 3), 0);
+}
+
+TEST(iovw_extend_iov) {
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+
+        /* Appending an empty/NULL source is a no-op */
+        ASSERT_OK_ZERO(iovw_extend_iov(&iovw, NULL));
+        ASSERT_OK_ZERO(iovw_extend_iov(&iovw, &(struct iovec) {}));
+        ASSERT_EQ(iovw.count, 0U);
+
+        ASSERT_OK(iovw_extend_iov(&iovw, &IOVEC_MAKE_STRING("aaa")));
+        ASSERT_OK(iovw_extend_iov(&iovw, &IOVEC_MAKE_STRING("bbb")));
+        ASSERT_OK(iovw_extend_iov(&iovw, &IOVEC_MAKE_STRING("ccc")));
+        ASSERT_EQ(iovw.count, 3U);
+        ASSERT_EQ(iovec_memcmp(&iovw.iovec[0], &IOVEC_MAKE_STRING("aaa")), 0);
+        ASSERT_EQ(iovec_memcmp(&iovw.iovec[1], &IOVEC_MAKE_STRING("bbb")), 0);
+        ASSERT_EQ(iovec_memcmp(&iovw.iovec[2], &IOVEC_MAKE_STRING("ccc")), 0);
+}
+
+TEST(iovw_extend_iovw) {
+        _cleanup_(iovw_done_free) struct iovec_wrapper target = {};
+        _cleanup_(iovw_done) struct iovec_wrapper source = {};
+
+        /* Appending an empty/NULL source is a no-op */
+        ASSERT_OK_ZERO(iovw_extend_iovw(&target, NULL));
+        ASSERT_OK_ZERO(iovw_extend_iovw(&target, &source));
+        ASSERT_EQ(target.count, 0U);
+
+        ASSERT_OK(iovw_put(&source, (char*) "one", 3));
+        ASSERT_OK(iovw_put(&source, (char*) "twotwo", 6));
+        ASSERT_EQ(source.count, 2U);
+
+        /* Pre-seed target with one entry to check that append adds on top rather than replacing */
+        char *seed = strdup("zero");
+        ASSERT_NOT_NULL(seed);
+        ASSERT_OK(iovw_put(&target, seed, strlen(seed)));
+
+        ASSERT_OK(iovw_extend_iovw(&target, &source));
+        ASSERT_EQ(target.count, 3U);
+
+        /* Appended entries must be fresh copies, not aliases of the source entries */
+        ASSERT_TRUE(target.iovec[1].iov_base != source.iovec[0].iov_base);
+        ASSERT_TRUE(target.iovec[2].iov_base != source.iovec[1].iov_base);
+
+        ASSERT_EQ(target.iovec[1].iov_len, 3U);
+        ASSERT_EQ(memcmp(target.iovec[1].iov_base, "one", 3), 0);
+        ASSERT_EQ(target.iovec[2].iov_len, 6U);
+        ASSERT_EQ(memcmp(target.iovec[2].iov_base, "twotwo", 6), 0);
+
+        /* Source is unchanged */
+        ASSERT_EQ(source.count, 2U);
+
+        /* Cannot pass the same objects */
+        ASSERT_ERROR(iovw_extend_iovw(&target, &target), EINVAL);
 }
 
 TEST(iovw_consume) {
@@ -243,40 +302,6 @@ TEST(iovw_size) {
         ASSERT_OK(iovw_put(&iovw, (char*) "efghij", 6));
         ASSERT_OK(iovw_put(&iovw, (char*) "kl", 2));
         ASSERT_EQ(iovw_size(&iovw), 12U);
-}
-
-TEST(iovw_append_iovw) {
-        _cleanup_(iovw_done_free) struct iovec_wrapper target = {};
-        _cleanup_(iovw_done) struct iovec_wrapper source = {};
-
-        /* Appending an empty/NULL source is a no-op */
-        ASSERT_OK_ZERO(iovw_append_iovw(&target, NULL));
-        ASSERT_OK_ZERO(iovw_append_iovw(&target, &source));
-        ASSERT_EQ(target.count, 0U);
-
-        ASSERT_OK(iovw_put(&source, (char*) "one", 3));
-        ASSERT_OK(iovw_put(&source, (char*) "twotwo", 6));
-        ASSERT_EQ(source.count, 2U);
-
-        /* Pre-seed target with one entry to check that append adds on top rather than replacing */
-        char *seed = strdup("zero");
-        ASSERT_NOT_NULL(seed);
-        ASSERT_OK(iovw_put(&target, seed, strlen(seed)));
-
-        ASSERT_OK(iovw_append_iovw(&target, &source));
-        ASSERT_EQ(target.count, 3U);
-
-        /* Appended entries must be fresh copies, not aliases of the source entries */
-        ASSERT_TRUE(target.iovec[1].iov_base != source.iovec[0].iov_base);
-        ASSERT_TRUE(target.iovec[2].iov_base != source.iovec[1].iov_base);
-
-        ASSERT_EQ(target.iovec[1].iov_len, 3U);
-        ASSERT_EQ(memcmp(target.iovec[1].iov_base, "one", 3), 0);
-        ASSERT_EQ(target.iovec[2].iov_len, 6U);
-        ASSERT_EQ(memcmp(target.iovec[2].iov_base, "twotwo", 6), 0);
-
-        /* Source is unchanged */
-        ASSERT_EQ(source.count, 2U);
 }
 
 TEST(iovw_concat) {

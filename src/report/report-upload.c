@@ -41,7 +41,7 @@ static size_t output_callback(char *buf,
                         return 0;
                 }
 
-                r = iovw_append(&context->upload_answer, buf, nmemb);
+                r = iovw_extend(&context->upload_answer, buf, nmemb);
                 if (r < 0) {
                         log_warning("Failed to store server answer (%zu bytes): out of memory", nmemb);
                         return 0;  /* Returning < nmemb signals failure */
