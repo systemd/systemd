@@ -109,7 +109,7 @@ int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return r;
 
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
-        r = boot_config_load_and_select(&config, arg_esp_path, esp_devid, arg_xbootldr_path, xbootldr_devid);
+        r = boot_config_load_and_select(&config, arg_root, arg_esp_path, esp_devid, arg_xbootldr_path, xbootldr_devid);
         if (r < 0)
                 return r;
 

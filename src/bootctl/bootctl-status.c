@@ -615,9 +615,11 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (arg_esp_path || arg_xbootldr_path) {
                 _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
 
-                k = boot_config_load_and_select(&config,
-                                                arg_esp_path, esp_devid,
-                                                arg_xbootldr_path, xbootldr_devid);
+                k = boot_config_load_and_select(
+                                &config,
+                                arg_root,
+                                arg_esp_path, esp_devid,
+                                arg_xbootldr_path, xbootldr_devid);
                 RET_GATHER(r, k);
 
                 if (k >= 0)
@@ -654,7 +656,7 @@ int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = boot_config_load_and_select(&config, arg_esp_path, esp_devid, arg_xbootldr_path, xbootldr_devid);
+        r = boot_config_load_and_select(&config, arg_root, arg_esp_path, esp_devid, arg_xbootldr_path, xbootldr_devid);
         if (r < 0)
                 return r;
 
@@ -700,7 +702,7 @@ int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, s
         if (r < 0)
                 return r;
 
-        r = boot_config_load_and_select(&config, arg_esp_path, esp_devid, arg_xbootldr_path, xbootldr_devid);
+        r = boot_config_load_and_select(&config, arg_root, arg_esp_path, esp_devid, arg_xbootldr_path, xbootldr_devid);
         if (r < 0)
                 return r;
 
