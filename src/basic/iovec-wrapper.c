@@ -171,31 +171,41 @@ rollback:
         return r;
 }
 
-char* iovw_to_cstring(const struct iovec_wrapper *iovw) {
-        size_t size;
-        char *p, *ans;
+int iovw_concat(const struct iovec_wrapper *iovw, struct iovec *ret) {
+        assert(iovw);
+        assert(ret);
 
+        /* Squish a series of iovecs into a single iovec. */
+
+        size_t len = iovw_size(iovw);
+        if (len == SIZE_MAX)
+                return -E2BIG;  /* Prevent theoretical overflow */
+
+        /* Always allocate one more byte to make the result usable as a NUL-terminated string. */
+        _cleanup_free_ uint8_t *buf = malloc(len + 1);
+        if (!buf)
+                return -ENOMEM;
+
+        uint8_t *p = buf;
+        FOREACH_ARRAY(i, iovw->iovec, iovw->count)
+                p = mempcpy(p, i->iov_base, i->iov_len);
+
+        *p = 0;
+
+        *ret = IOVEC_MAKE(TAKE_PTR(buf), len);
+        return 0;
+}
+
+char* iovw_to_cstring(const struct iovec_wrapper *iovw) {
         assert(iovw);
 
         /* Squish a series of iovecs into a C string. Embedded NULs are not allowed.
          * The caller is expected to filter them out when populating the data. */
 
-        size = iovw_size(iovw);
-        if (size == SIZE_MAX)
-                return NULL;  /* Prevent theoretical overflow */
-        size ++;
-
-        p = ans = new(char, size);
-        if (!ans)
+        _cleanup_(iovec_done) struct iovec iov = {};
+        if (iovw_concat(iovw, &iov) < 0)
                 return NULL;
 
-        FOREACH_ARRAY(iovec, iovw->iovec, iovw->count) {
-                assert(!memchr(iovec->iov_base, 0, iovec->iov_len));
-
-                p = mempcpy(p, iovec->iov_base, iovec->iov_len);
-        }
-
-        *p = '\0';
-
-        return ans;
+        assert(!memchr(iov.iov_base, 0, iov.iov_len));
+        return TAKE_PTR(iov.iov_base);
 }
