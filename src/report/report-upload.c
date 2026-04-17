@@ -12,7 +12,6 @@
 
 #if HAVE_LIBCURL
 #include "curl-util.h"
-#include <curl/easy.h>   /* Sadly this fails if ordered first. */
 
 #define SERVER_ANSWER_MAX (1*1024*1024u)
 
@@ -86,6 +85,10 @@ int upload_collected(Context *context) {
         _cleanup_free_ char *json = NULL;
         int r;
 
+        r = dlopen_curl();
+        if (r < 0)
+                return r;
+
         {
                 /* Convert our variant array to a JSON report.
                  * We won't need the JSON structure again, so free it quickly. */
@@ -110,7 +113,7 @@ int upload_collected(Context *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create curl header: %m");
 
-        _cleanup_(curl_easy_cleanupp) CURL *curl = curl_easy_init();
+        _cleanup_(curl_easy_cleanupp) CURL *curl = sym_curl_easy_init();
         if (!curl)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOSR),
                                        "Call to curl_easy_init failed.");
@@ -173,18 +176,18 @@ int upload_collected(Context *context) {
         if (!easy_setopt(curl, LOG_ERR, CURLOPT_POSTFIELDS, json))
                 return -EXFULL;
 
-        CURLcode code = curl_easy_perform(curl);
+        CURLcode code = sym_curl_easy_perform(curl);
         if (code != CURLE_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Upload to %s failed: %s", arg_url,
-                                       empty_to_null(&error[0]) ?: curl_easy_strerror(code));
+                                       empty_to_null(&error[0]) ?: sym_curl_easy_strerror(code));
 
         long status;
-        code = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+        code = sym_curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
         if (code != CURLE_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                        "Failed to retrieve response code: %s",
-                                       curl_easy_strerror(code));
+                                       sym_curl_easy_strerror(code));
 
         _cleanup_free_ char *ans = iovw_to_cstring(&context->upload_answer);
         if (!ans)

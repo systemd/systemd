@@ -6,6 +6,7 @@
 #include "bpf-dlopen.h"
 #include "compress.h"
 #include "cryptsetup-util.h"
+#include "curl-util.h"
 #include "elf-util.h"
 #include "gcrypt-util.h"
 #include "idn-util.h"
@@ -45,6 +46,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_bzip2, HAVE_BZIP2);
         ASSERT_DLOPEN(dlopen_bpf, HAVE_LIBBPF);
         ASSERT_DLOPEN(dlopen_cryptsetup, HAVE_LIBCRYPTSETUP);
+        ASSERT_DLOPEN(dlopen_curl, HAVE_LIBCURL);
         ASSERT_DLOPEN(dlopen_dw, HAVE_ELFUTILS);
         ASSERT_DLOPEN(dlopen_elf, HAVE_ELFUTILS);
         ASSERT_DLOPEN(dlopen_gcrypt, HAVE_GCRYPT);
