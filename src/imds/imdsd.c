@@ -257,9 +257,9 @@ static void context_reset_for_refresh(Context *c) {
                 c->curl_data = NULL;
         }
 
-        curl_slist_free_all(c->request_header_token);
+        sym_curl_slist_free_all(c->request_header_token);
         c->request_header_token = NULL;
-        curl_slist_free_all(c->request_header_data);
+        sym_curl_slist_free_all(c->request_header_data);
         c->request_header_data = NULL;
 
         c->cache_fd = safe_close(c->cache_fd);
@@ -723,9 +723,9 @@ static int context_acquire_http_status(Context *c, CURL *curl, long *ret_status)
          */
 
         long status;
-        CURLcode code = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+        CURLcode code = sym_curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
         if (code != CURLE_OK)
-                return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", curl_easy_strerror(code));
+                return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code));
 
         context_log(c, LOG_DEBUG, "Got HTTP error code %li.", status);
 
@@ -906,7 +906,7 @@ static void curl_glue_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
         /* Called whenever libcurl did its thing and reports a download being complete or having failed */
 
         Context *c = NULL;
-        if (curl_easy_getinfo(curl, CURLINFO_PRIVATE, (char**) &c) != CURLE_OK)
+        if (sym_curl_easy_getinfo(curl, CURLINFO_PRIVATE, (char**) &c) != CURLE_OK)
                 return;
 
         switch (result) {
@@ -927,7 +927,7 @@ static void curl_glue_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
         case CURLE_GOT_NOTHING:
         case CURLE_SEND_ERROR:
         case CURLE_RECV_ERROR:
-                context_log(c, LOG_INFO, "Connection error from curl: %s", curl_easy_strerror(result));
+                context_log(c, LOG_INFO, "Connection error from curl: %s", sym_curl_easy_strerror(result));
 
                 /* Automatically retry on some transient errors from curl itself */
                 r = context_schedule_retry(c);
@@ -939,7 +939,7 @@ static void curl_glue_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
         default:
                 return context_fail_full(
                                 c,
-                                context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EHOSTDOWN), "Transfer failed: %s", curl_easy_strerror(result)),
+                                context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EHOSTDOWN), "Transfer failed: %s", sym_curl_easy_strerror(result)),
                                 "io.systemd.InstanceMetadata.CommunicationFailure");
         }
 
@@ -1122,25 +1122,25 @@ static int context_acquire_data(Context *c) {
                 return context_log_errno(c, LOG_ERR, r, "Failed to create curl header: %m");
 
         if (c->request_header_data)
-                if (curl_easy_setopt(c->curl_data, CURLOPT_HTTPHEADER, c->request_header_data) != CURLE_OK)
+                if (sym_curl_easy_setopt(c->curl_data, CURLOPT_HTTPHEADER, c->request_header_data) != CURLE_OK)
                         return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to set HTTP request header.");
 
-        if (curl_easy_setopt(c->curl_data, CURLOPT_WRITEFUNCTION, data_write_callback) != CURLE_OK)
+        if (sym_curl_easy_setopt(c->curl_data, CURLOPT_WRITEFUNCTION, data_write_callback) != CURLE_OK)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to set CURL write function.");
 
-        if (curl_easy_setopt(c->curl_data, CURLOPT_WRITEDATA, c) != CURLE_OK)
+        if (sym_curl_easy_setopt(c->curl_data, CURLOPT_WRITEDATA, c) != CURLE_OK)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to set CURL write function userdata.");
 
-        if (curl_easy_setopt(c->curl_data, CURLOPT_SOCKOPTFUNCTION, setsockopt_callback) != CURLE_OK)
+        if (sym_curl_easy_setopt(c->curl_data, CURLOPT_SOCKOPTFUNCTION, setsockopt_callback) != CURLE_OK)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to set CURL setsockopt function.");
 
-        if (curl_easy_setopt(c->curl_data, CURLOPT_SOCKOPTDATA, c) != CURLE_OK)
+        if (sym_curl_easy_setopt(c->curl_data, CURLOPT_SOCKOPTDATA, c) != CURLE_OK)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to set CURL setsockopt function userdata.");
 
-        if (curl_easy_setopt(c->curl_data, CURLOPT_LOCALPORT, 1L) != CURLE_OK)
+        if (sym_curl_easy_setopt(c->curl_data, CURLOPT_LOCALPORT, 1L) != CURLE_OK)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to set CURL setsockopt local port");
 
-        if (curl_easy_setopt(c->curl_data, CURLOPT_LOCALPORTRANGE, 1023L) != CURLE_OK)
+        if (sym_curl_easy_setopt(c->curl_data, CURLOPT_LOCALPORTRANGE, 1023L) != CURLE_OK)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to set CURL setsockopt local port range");
 
         r = curl_glue_add(c->glue, c->curl_data);
@@ -1216,22 +1216,22 @@ static int context_acquire_token(Context *c) {
                         return context_log_oom(c);
         }
 
-        if (curl_easy_setopt(c->curl_token, CURLOPT_HTTPHEADER, c->request_header_token) != CURLE_OK)
+        if (sym_curl_easy_setopt(c->curl_token, CURLOPT_HTTPHEADER, c->request_header_token) != CURLE_OK)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to set HTTP request header.");
 
-        if (curl_easy_setopt(c->curl_token, CURLOPT_CUSTOMREQUEST, "PUT") != CURLE_OK)
+        if (sym_curl_easy_setopt(c->curl_token, CURLOPT_CUSTOMREQUEST, "PUT") != CURLE_OK)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to set HTTP request method.");
 
-        if (curl_easy_setopt(c->curl_token, CURLOPT_WRITEFUNCTION, token_write_callback) != CURLE_OK)
+        if (sym_curl_easy_setopt(c->curl_token, CURLOPT_WRITEFUNCTION, token_write_callback) != CURLE_OK)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to set CURL write function.");
 
-        if (curl_easy_setopt(c->curl_token, CURLOPT_WRITEDATA, c) != CURLE_OK)
+        if (sym_curl_easy_setopt(c->curl_token, CURLOPT_WRITEDATA, c) != CURLE_OK)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to set CURL write function userdata.");
 
-        if (curl_easy_setopt(c->curl_token, CURLOPT_SOCKOPTFUNCTION, setsockopt_callback) != CURLE_OK)
+        if (sym_curl_easy_setopt(c->curl_token, CURLOPT_SOCKOPTFUNCTION, setsockopt_callback) != CURLE_OK)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to set CURL setsockopt function.");
 
-        if (curl_easy_setopt(c->curl_token, CURLOPT_SOCKOPTDATA, c) != CURLE_OK)
+        if (sym_curl_easy_setopt(c->curl_token, CURLOPT_SOCKOPTDATA, c) != CURLE_OK)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EIO), "Failed to set CURL setsockopt function userdata.");
 
         r = curl_glue_add(c->glue, c->curl_token);
@@ -3068,6 +3068,10 @@ static int run(int argc, char* argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
+                return r;
+
+        r = dlopen_curl();
+        if (r < 0)
                 return r;
 
         r = environment_server_info();
