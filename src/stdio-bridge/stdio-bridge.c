@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <poll.h>
 #include <unistd.h>
 
@@ -11,9 +10,11 @@
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "errno-util.h"
+#include "format-table.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "time-util.h"
 
@@ -23,84 +24,66 @@ static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static bool arg_quiet = false;
 
 static int help(void) {
-        printf("%s [OPTIONS...]\n\n"
-               "Forward messages between a pipe or socket and a D-Bus bus.\n\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "  -p --bus-path=PATH     Path to the bus address (default: %s)\n"
-               "     --system            Connect to system bus\n"
-               "     --user              Connect to user bus\n"
-               "  -M --machine=CONTAINER Name of local container to connect to\n"
-               "  -q --quiet             Fail silently instead of logging errors\n",
-               program_invocation_short_name, DEFAULT_SYSTEM_BUS_ADDRESS);
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...]\n"
+               "\nForward messages between a pipe or socket and a D-Bus bus.\n\n",
+               program_invocation_short_name);
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_USER,
-                ARG_SYSTEM,
-        };
-
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'         },
-                { "version",         no_argument,       NULL, ARG_VERSION },
-                { "bus-path",        required_argument, NULL, 'p'         },
-                { "user",            no_argument,       NULL, ARG_USER    },
-                { "system",          no_argument,       NULL, ARG_SYSTEM  },
-                { "machine",         required_argument, NULL, 'M'         },
-                { "quiet",           no_argument,       NULL, 'q'         },
-                {},
-        };
-
-        int c, r;
-
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:M:", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+        int r;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_USER:
+                OPTION_LONG("user", NULL, "Connect to user bus"):
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, "Connect to system bus"):
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
-                case 'p':
-                        arg_bus_path = optarg;
+                OPTION('p', "bus-path", "PATH",
+                       "Path to the bus address (default: " DEFAULT_SYSTEM_BUS_ADDRESS ")"):
+                        arg_bus_path = arg;
                         break;
 
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_bus_path, &arg_transport);
+                OPTION_COMMON_MACHINE:
+                        r = parse_machine_argument(arg, &arg_bus_path, &arg_transport);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'q':
+                OPTION('q', "quiet", NULL, "Fail silently instead of logging errors"):
                         arg_quiet = true;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        if (argc > optind)
+        if (option_parser_get_n_args(&state) > 0)
                 return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_ERR, SYNTHETIC_ERRNO(EINVAL),
                                       "%s takes no arguments.",
                                       program_invocation_short_name);
