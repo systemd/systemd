@@ -2879,7 +2879,7 @@ static EFI_STATUS expand_path(
                 if (IN_SET(err, EFI_NOT_FOUND, EFI_INVALID_PARAMETER))
                         continue; /* Skip over LoadFile() handles that after all don't consider themselves
                                    * appropriate for this kind of path */
-                if (err != EFI_BUFFER_TOO_SMALL) {
+                if (!IN_SET(err, EFI_SUCCESS, EFI_BUFFER_TOO_SMALL)) {
                         log_warning_status(err, "Failed to get file via LoadFile() protocol, ignoring: %m");
                         continue;
                 }
