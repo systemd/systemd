@@ -12,6 +12,7 @@
 #include "networkctl.h"
 #include "networkctl-address-label.h"
 #include "networkctl-config-file.h"
+#include "networkctl-dhcp-lease.h"
 #include "networkctl-list.h"
 #include "networkctl-lldp.h"
 #include "networkctl-misc.h"
@@ -51,6 +52,8 @@ static int help(void) {
                "\nCommands:\n"
                "  list [PATTERN...]      List links\n"
                "  status [PATTERN...]    Show link status\n"
+               "  dhcp-lease INTERFACE [OPTION[:TYPE]...]\n"
+               "                         Show DHCP lease\n"
                "  lldp [PATTERN...]      Show LLDP neighbors\n"
                "  label                  Show current address label entries in the kernel\n"
                "  delete DEVICES...      Delete virtual netdevs\n"
@@ -225,6 +228,7 @@ static int networkctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "list",               VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, verb_list_links                    },
                 { "status",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_link_status                   },
+                { "dhcp-lease",         2,        VERB_ANY, VERB_ONLINE_ONLY,              verb_dhcp_lease                    },
                 { "lldp",               VERB_ANY, VERB_ANY, 0,                             verb_link_lldp_status              },
                 { "label",              1,        1,        0,                             verb_list_address_labels           },
                 { "delete",             2,        VERB_ANY, 0,                             verb_link_delete                   },
