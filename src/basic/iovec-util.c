@@ -21,8 +21,11 @@ size_t iovec_total_size(const struct iovec *iovec, size_t n) {
 
         assert(iovec || n == 0);
 
-        FOREACH_ARRAY(j, iovec, n)
+        FOREACH_ARRAY(j, iovec, n) {
+                if (j->iov_len > SIZE_MAX - sum)
+                        return SIZE_MAX; /* Indicate overflow. */
                 sum += j->iov_len;
+        }
 
         return sum;
 }

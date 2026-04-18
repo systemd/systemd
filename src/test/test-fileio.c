@@ -702,13 +702,13 @@ TEST(write_data_file_atomic_at) {
 
         _cleanup_(iovec_done) struct iovec ra = {};
         ASSERT_OK(read_full_file("/tmp/wdfa", (char**) &ra.iov_base, &ra.iov_len));
-        ASSERT_EQ(iovec_memcmp(&a, &ra), 0);
+        ASSERT_TRUE(iovec_equal(&a, &ra));
         ASSERT_OK_ERRNO(unlink("/tmp/wdfa"));
 
         ASSERT_OK(write_data_file_atomic_at(XAT_FDROOT, "tmp/wdfa", &a, /* flags= */ 0));
         iovec_done(&ra);
         ASSERT_OK(read_full_file("/tmp/wdfa", (char**) &ra.iov_base, &ra.iov_len));
-        ASSERT_EQ(iovec_memcmp(&a, &ra), 0);
+        ASSERT_TRUE(iovec_equal(&a, &ra));
         ASSERT_OK_ERRNO(unlink("/tmp/wdfa"));
 
         ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, NULL, &a, /* flags= */ 0), EINVAL);
@@ -724,13 +724,13 @@ TEST(write_data_file_atomic_at) {
         ASSERT_OK(write_data_file_atomic_at(AT_FDCWD, "wdfa", &a, /* flags= */ 0));
         iovec_done(&ra);
         ASSERT_OK(read_full_file("/tmp/wdfa", (char**) &ra.iov_base, &ra.iov_len));
-        ASSERT_EQ(iovec_memcmp(&a, &ra), 0);
+        ASSERT_TRUE(iovec_equal(&a, &ra));
         ASSERT_OK_ERRNO(unlink("/tmp/wdfa"));
 
         ASSERT_OK(write_data_file_atomic_at(XAT_FDROOT, "tmp/wdfa", &a, /* flags= */ 0));
         iovec_done(&ra);
         ASSERT_OK(read_full_file("/tmp/wdfa", (char**) &ra.iov_base, &ra.iov_len));
-        ASSERT_EQ(iovec_memcmp(&a, &ra), 0);
+        ASSERT_TRUE(iovec_equal(&a, &ra));
         ASSERT_OK_ERRNO(unlink("/tmp/wdfa"));
 
         ASSERT_OK_ERRNO(chdir(cwd));
@@ -739,7 +739,7 @@ TEST(write_data_file_atomic_at) {
         ASSERT_OK(write_data_file_atomic_at(XAT_FDROOT, "tmp/zzz/wdfa", &a, WRITE_DATA_FILE_MKDIR_0755));
         iovec_done(&ra);
         ASSERT_OK(read_full_file("/tmp/zzz/wdfa", (char**) &ra.iov_base, &ra.iov_len));
-        ASSERT_EQ(iovec_memcmp(&a, &ra), 0);
+        ASSERT_TRUE(iovec_equal(&a, &ra));
         ASSERT_OK_ERRNO(unlink("/tmp/zzz/wdfa"));
 
         ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, "/tmp/zzz", &a, /* flags= */ 0), EEXIST);
