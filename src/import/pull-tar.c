@@ -445,7 +445,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 else if (j == p->settings_job)
                         log_info_errno(j->error, "Settings file could not be retrieved, proceeding without.");
                 else
-                        assert("unexpected job");
+                        assert_not_reached();
         }
 
         /* This is invoked if either the download completed successfully, or the download was skipped because
