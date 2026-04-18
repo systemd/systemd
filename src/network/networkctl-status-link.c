@@ -577,7 +577,7 @@ static int link_status_one(
 
         } else if (streq_ptr(info->netdev_kind, "vlan") && info->vlan_id > 0) {
                 r = table_add_many(table,
-                                   TABLE_FIELD, "VLan Id",
+                                   TABLE_FIELD, "VLAN ID",
                                    TABLE_UINT16, info->vlan_id);
                 if (r < 0)
                         return table_log_add_error(r);
