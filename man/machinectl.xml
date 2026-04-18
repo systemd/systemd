@@ -390,6 +390,62 @@
       </varlistentry>
     </variablelist></refsect2>
 
+    <refsect2><title>Virtual Machine Block Device Commands</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>attach-disk</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<option>--disk-id=</option><replaceable>ID</replaceable>] [<option>--read-only</option>]</term>
+
+        <listitem><para>Hotplugs a block device into a running virtual machine managed by
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        Takes the machine name, followed by a path to a raw or qcow2 image file or a block device
+        node. The image descriptor is passed to vmspawn over the control socket; the caller does
+        not need to place the file inside the guest's mount namespace.</para>
+
+        <para>If <option>--disk-id=</option> is given, the argument becomes the varlink-visible
+        id of the new device (matching <literal>[A-Za-z0-9_-]+</literal>, up to 28 characters);
+        otherwise the server auto-assigns an id of the form <literal>bd<replaceable>N</replaceable></literal>.
+        On success the (possibly auto-assigned) id is printed to standard output. When
+        <option>--read-only</option> is given, the device is presented to the guest as
+        read-only.</para>
+
+        <para>Only virtio-blk devices are attached from this verb. For lower-level control
+        (SCSI, NVMe, custom driver options) use the
+        <literal>io.systemd.VirtualMachineInstance.AddBlockDevice</literal> varlink method
+        directly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>detach-disk</command> <replaceable>NAME</replaceable> <replaceable>ID</replaceable></term>
+
+        <listitem><para>Hot-removes a previously attached block device from a running
+        virtual machine. Takes the machine name and the device id (as reported by
+        <command>list-disks</command> or returned by <command>attach-disk</command>).</para>
+
+        <para>The detach is asynchronous: the guest is asked to release the device via
+        ACPI eject, and the host-side cleanup (blockdev and fdset teardown) happens once
+        the guest has acknowledged. Subscribers of
+        <literal>io.systemd.MachineInstance.SubscribeEvents</literal> observe a
+        <literal>BlockDeviceRemoved</literal> event when the teardown completes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-disks</command> <replaceable>NAME</replaceable></term>
+
+        <listitem><para>Lists the block devices currently attached to a running virtual
+        machine, including both boot-time drives (from
+        <option>--image=</option>/<option>--extra-drive=</option>) and drives added at
+        runtime via <command>attach-disk</command>. For each device prints the id, image
+        format and read-only flag.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+    </variablelist></refsect2>
+
     <refsect2><title>Image Commands</title>
 
     <variablelist>
@@ -675,7 +731,23 @@
 
         <para>When used with <command>clone</command> a read-only container or VM image is created.</para>
 
+        <para>When used with <command>attach-disk</command>, the block device is presented to
+        the guest as read-only.</para>
+
         <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--disk-id=</option></term>
+
+        <listitem><para>Used with <command>attach-disk</command>. Sets the caller-chosen id
+        for the new block device, matching <literal>[A-Za-z0-9_-]+</literal> and up to 28
+        characters long. If omitted, the server auto-assigns an id of the form
+        <literal>bd<replaceable>N</replaceable></literal>. The id is the handle used by
+        <command>detach-disk</command> and appears in <command>list-disks</command>
+        output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>
