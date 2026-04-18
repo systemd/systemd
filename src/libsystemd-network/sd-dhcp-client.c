@@ -1769,7 +1769,7 @@ static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
 
         r = client_set_lease_timeouts(client);
         if (r < 0)
-                log_dhcp_client_errno(client, r, "Failed to set lease timeouts: %m");
+                return log_dhcp_client_errno(client, r, "Failed to set lease timeouts: %m");
 
         client_notify(client, notify_event);
         return 0;
