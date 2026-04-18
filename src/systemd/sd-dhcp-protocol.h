@@ -91,7 +91,7 @@ enum {
         SD_DHCP_OPTION_NIS_SERVER_ADDR                = 65,  /* [RFC2132] */
         SD_DHCP_OPTION_BOOT_SERVER_NAME               = 66,  /* [RFC2132] */
         SD_DHCP_OPTION_BOOT_FILENAME                  = 67,  /* [RFC2132] */
-        SD_DHCP_OPTION_HOME_AGENT_ADDRESSES           = 68,  /* [RFC2132] */
+        SD_DHCP_OPTION_HOME_AGENT_ADDRESS             = 68,  /* [RFC2132] */
         SD_DHCP_OPTION_SMTP_SERVER                    = 69,  /* [RFC2132] */
         SD_DHCP_OPTION_POP3_SERVER                    = 70,  /* [RFC2132] */
         SD_DHCP_OPTION_NNTP_SERVER                    = 71,  /* [RFC2132] */
