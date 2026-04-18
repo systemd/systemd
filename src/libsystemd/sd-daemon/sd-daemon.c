@@ -621,7 +621,7 @@ static int pid_notify_with_fds_internal(
                         msghdr.msg_control = NULL;
                         msghdr.msg_controllen = 0;
                 }
-        } while (!iovec_increment(msghdr.msg_iov, msghdr.msg_iovlen, n));
+        } while (!iovec_inc_many(msghdr.msg_iov, msghdr.msg_iovlen, n));
 
         if (address.sockaddr.sa.sa_family == AF_VSOCK && IN_SET(type, SOCK_STREAM, SOCK_SEQPACKET)) {
                 /* For AF_VSOCK, we need to close the socket to signal the end of the message. */

@@ -1422,7 +1422,7 @@ static int dissect_image(
                                                         /* ret_root_hash_sig= */ NULL);
                                         if (r < 0)
                                                 return r;
-                                        if (iovec_memcmp(&verity->root_hash, &root_hash) != 0) {
+                                        if (!iovec_equal(&verity->root_hash, &root_hash)) {
                                                 if (DEBUG_LOGGING) {
                                                         _cleanup_free_ char *found = NULL, *expected = NULL;
 
@@ -3023,7 +3023,7 @@ static int verity_can_reuse(
         r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, root_hash_existing.iov_base, &root_hash_existing.iov_len, NULL, 0);
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_volume_key_get failed: %m");
-        if (iovec_memcmp(&verity->root_hash, &root_hash_existing) != 0)
+        if (!iovec_equal(&verity->root_hash, &root_hash_existing))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but root hashes are different.");
 
         /* Ensure that, if signatures are supported, we only reuse the device if the previous mount used the
@@ -4048,7 +4048,7 @@ int dissected_image_load_verity_sig_partition(
 
         /* Check if specified root hash matches if it is specified */
         if (iovec_is_set(&verity->root_hash) &&
-            iovec_memcmp(&verity->root_hash, &root_hash) != 0) {
+            !iovec_equal(&verity->root_hash, &root_hash)) {
                 _cleanup_free_ char *a = NULL, *b = NULL;
 
                 a = hexmem(root_hash.iov_base, root_hash.iov_len);
