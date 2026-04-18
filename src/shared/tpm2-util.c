@@ -7176,7 +7176,7 @@ static int tpm2_nvpcr_write_anchor_secret(
         if (r < 0) {
                 if (r != -ENOENT)
                         return log_error_errno(r, "Failed to read '%s' file: %m", joined);
-        } else if (iovec_memcmp(&existing, credential) == 0) {
+        } else if (iovec_equal(&existing, credential)) {
                 log_debug("Anchor secret file '%s' already matches expectations, not updating.", joined);
                 return 0;
         } else
@@ -8460,8 +8460,8 @@ int tpm2_pcrlock_policy_from_credentials(
                         continue;
                 }
 
-                if ((!srk || iovec_memcmp(srk, &loaded_policy.srk_handle) == 0) &&
-                    (!nv || iovec_memcmp(nv, &loaded_policy.nv_handle) == 0)) {
+                if ((!srk || iovec_equal(srk, &loaded_policy.srk_handle)) &&
+                    (!nv || iovec_equal(nv, &loaded_policy.nv_handle))) {
                         *ret = TAKE_STRUCT(loaded_policy);
                         return 1;
                 }
