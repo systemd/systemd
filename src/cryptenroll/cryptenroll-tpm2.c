@@ -72,7 +72,7 @@ static int search_policy_hash(
                                         if (r < 0)
                                                 return log_error_errno(r, "Invalid hex data in 'tpm2-policy-hash' field item : %m");
 
-                                        if (iovec_memcmp(policy_hash + j, &thash) != 0) {
+                                        if (!iovec_equal(policy_hash + j, &thash)) {
                                                 match = false;
                                                 break;
                                         }
@@ -91,7 +91,7 @@ static int search_policy_hash(
                         if (r < 0)
                                 return log_error_errno(r, "Invalid hex data in 'tpm2-policy-hash' field: %m");
 
-                        if (iovec_memcmp(policy_hash + 0, &thash) == 0)
+                        if (iovec_equal(policy_hash + 0, &thash))
                                 return keyslot; /* Found entry with same hash. */
                 }
         }
@@ -566,7 +566,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
-                if (iovec_memcmp(&secret, &secret2) != 0)
+                if (!iovec_equal(&secret, &secret2))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 seal/unseal verification failed.");
         }
 

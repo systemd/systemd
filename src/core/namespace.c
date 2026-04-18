@@ -1049,7 +1049,7 @@ static bool verity_has_later_duplicates(MountList *ml, const MountEntry *needle)
         for (const MountEntry *m = needle + 1; m < ml->mounts + ml->n_mounts; m++) {
                 if (m->mode != MOUNT_EXTENSION_IMAGE)
                         continue;
-                if (iovec_memcmp(&m->verity.root_hash, &needle->verity.root_hash) == 0)
+                if (iovec_equal(&m->verity.root_hash, &needle->verity.root_hash))
                         return true;
         }
 

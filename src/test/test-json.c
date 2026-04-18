@@ -1206,8 +1206,8 @@ TEST(json_iovec) {
         assert_se(json_variant_unbase64_iovec(sd_json_variant_by_key(j, "nr1"), &a) >= 0);
         assert_se(json_variant_unhex_iovec(sd_json_variant_by_key(j, "nr2"), &b) >= 0);
 
-        assert_se(iovec_memcmp(&iov1, &a) == 0);
-        assert_se(iovec_memcmp(&iov2, &b) == 0);
+        assert_se(iovec_equal(&iov1, &a));
+        assert_se(iovec_equal(&iov2, &b));
         assert_se(iovec_memcmp(&iov2, &a) < 0);
         assert_se(iovec_memcmp(&iov1, &b) > 0);
 }

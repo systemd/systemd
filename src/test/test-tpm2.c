@@ -1271,7 +1271,7 @@ static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
                         &srk,
                         &unsealed_secret) >= 0);
 
-        assert_se(iovec_memcmp(&secret, &unsealed_secret) == 0);
+        assert_se(iovec_equal(&secret, &unsealed_secret));
 }
 
 static void check_seal_unseal(Tpm2Context *c) {
