@@ -32,6 +32,7 @@ typedef enum VerifyESPFlags {
         VERIFY_ESP_UNPRIVILEGED_MODE = 1 << 1, /* Call into udev rather than blkid */
         VERIFY_ESP_SKIP_FSTYPE_CHECK = 1 << 2, /* Skip filesystem check */
         VERIFY_ESP_SKIP_DEVICE_CHECK = 1 << 3, /* Skip device node check  */
+        VERIFY_ESP_SKIP_ROOTFS_CHECK = 1 << 4, /* Skip rootfs check  */
 } VerifyESPFlags;
 
 static VerifyESPFlags verify_esp_flags_init(int unprivileged_mode, const char *env_name_for_relaxing) {
@@ -49,7 +50,7 @@ static VerifyESPFlags verify_esp_flags_init(int unprivileged_mode, const char *e
         if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $%s environment variable, assuming false.", env_name_for_relaxing);
         else if (r > 0)
-                flags |= VERIFY_ESP_SKIP_FSTYPE_CHECK | VERIFY_ESP_SKIP_DEVICE_CHECK;
+                flags |= VERIFY_ESP_SKIP_FSTYPE_CHECK | VERIFY_ESP_SKIP_DEVICE_CHECK | VERIFY_ESP_SKIP_ROOTFS_CHECK;
 
         if (detect_container() > 0)
                 flags |= VERIFY_ESP_SKIP_DEVICE_CHECK;
@@ -380,9 +381,11 @@ static int verify_esp(
                                               "File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
         }
 
-        r = verify_fsroot_dir(pfd, p, flags, FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK) ? NULL : &devid);
-        if (r < 0)
-                return r;
+        if (!FLAGS_SET(flags, VERIFY_ESP_SKIP_FSROOT_CHECK)) {
+                r = verify_fsroot_dir(pfd, p, flags, FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK) ? NULL : &devid);
+                if (r < 0)
+                        return r;
+        }
 
         /* In a container we don't have access to block devices, skip this part of the verification, we trust
          * the container manager set everything up correctly on its own. */
@@ -753,9 +756,11 @@ static int verify_xbootldr(
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR,
                                       r, "Failed to open parent directory of \"%s\": %m", path);
 
-        r = verify_fsroot_dir(pfd, p, flags, FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK) ? NULL : &devid);
-        if (r < 0)
-                return r;
+        if (!FLAGS_SET(flags, VERIFY_ESP_SKIP_FSROOT_CHECK)) {
+                r = verify_fsroot_dir(pfd, p, flags, FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK) ? NULL : &devid);
+                if (r < 0)
+                        return r;
+        }
 
         if (FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK))
                 goto finish;
