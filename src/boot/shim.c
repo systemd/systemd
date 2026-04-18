@@ -46,6 +46,32 @@ bool shim_loader_available(void) {
         return BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, &shim_image_loader) == EFI_SUCCESS;
 }
 
+static EFI_STATUS load_file_from_simple_filesystem(const EFI_DEVICE_PATH *device_path, char **file_buffer, size_t *file_size) {
+        EFI_STATUS err;
+        EFI_HANDLE device_handle;
+        EFI_DEVICE_PATH *file_dp = (EFI_DEVICE_PATH *) device_path;
+
+        assert(device_path);
+        assert(file_buffer);
+        assert(file_size);
+
+        err = BS->LocateDevicePath(MAKE_GUID_PTR(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL), &file_dp, &device_handle);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        _cleanup_file_close_ EFI_FILE *root = NULL;
+        err = open_volume(device_handle, &root);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        _cleanup_free_ char16_t *dp_str = NULL;
+        err = device_path_to_str(file_dp, &dp_str);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        return file_read(root, dp_str, 0, 0, file_buffer, file_size);
+}
+
 static bool shim_validate(
                 const void *ctx, const EFI_DEVICE_PATH *device_path, const void *file_buffer, size_t file_size) {
 
@@ -56,24 +82,7 @@ static bool shim_validate(
                 if (!device_path)
                         return false;
 
-                EFI_HANDLE device_handle;
-                EFI_DEVICE_PATH *file_dp = (EFI_DEVICE_PATH *) device_path;
-                err = BS->LocateDevicePath(
-                                MAKE_GUID_PTR(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL), &file_dp, &device_handle);
-                if (err != EFI_SUCCESS)
-                        return false;
-
-                _cleanup_file_close_ EFI_FILE *root = NULL;
-                err = open_volume(device_handle, &root);
-                if (err != EFI_SUCCESS)
-                        return false;
-
-                _cleanup_free_ char16_t *dp_str = NULL;
-                err = device_path_to_str(file_dp, &dp_str);
-                if (err != EFI_SUCCESS)
-                        return false;
-
-                err = file_read(root, dp_str, 0, 0, &file_buffer_owned, &file_size);
+                err = load_file_from_simple_filesystem(device_path, &file_buffer_owned, &file_size);
                 if (err != EFI_SUCCESS)
                         return false;
 
@@ -111,12 +120,21 @@ EFI_STATUS shim_load_image(
         if (have_shim)
                 install_security_override(shim_validate, NULL);
 
+        _cleanup_free_ char *source_buffer = NULL;
+        size_t source_size = 0;
+
+        /* For some AMI firmware, LoadImage does not read correctly when the file comes the ESP from an
+         * optical drive. But the simple filesystem protocol does work. So we try to load it. If that does
+         * not work, we let LoadImage try instead.
+         */
+        (void) load_file_from_simple_filesystem(device_path, &source_buffer, &source_size);
+
         EFI_STATUS ret = BS->LoadImage(
                         /* BootPolicy= */ boot_policy,
                         parent,
                         (EFI_DEVICE_PATH *) device_path,
-                        /* SourceBuffer= */ NULL,
-                        /* SourceSize= */ 0,
+                        source_buffer,
+                        source_size,
                         ret_image);
         if (have_shim)
                 uninstall_security_override();
