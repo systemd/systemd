@@ -11,7 +11,7 @@ extern const struct iovec iovec_empty;    /* Points to an empty, but valid (i.e.
 
 size_t iovec_total_size(const struct iovec *iovec, size_t n) _nonnull_if_nonzero_(1, 2);
 
-bool iovec_increment(struct iovec *iovec, size_t n, size_t k) _nonnull_if_nonzero_(1, 2);
+bool iovec_inc_many(struct iovec *iovec, size_t n, size_t k) _nonnull_if_nonzero_(1, 2);
 
 struct iovec* iovec_make_string(struct iovec *iovec, const char *s);
 
