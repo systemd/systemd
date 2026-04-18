@@ -141,6 +141,7 @@ static int test_event_callback(
                 QmpClient *client,
                 const char *event,
                 sd_json_variant *data,
+                sd_json_variant *raw,
                 void *userdata) {
 
         bool *event_received = ASSERT_PTR(userdata);
