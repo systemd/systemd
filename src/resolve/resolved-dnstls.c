@@ -333,6 +333,9 @@ ssize_t dnstls_stream_writev(DnsStream *stream, const struct iovec *iov, size_t 
            single buffer. Suboptimal, but better than multiple SSL_write calls. */
         count = iovec_total_size(iov, iovcnt);
         buf = new(char, count);
+        if (!buf)
+                return -ENOMEM;
+
         for (size_t i = 0, pos = 0; i < iovcnt; pos += iov[i].iov_len, i++)
                 memcpy(buf + pos, iov[i].iov_base, iov[i].iov_len);
 
