@@ -316,6 +316,27 @@ int dhcp_message_append_option_sub_tlv(sd_dhcp_message *message, uint8_t code, T
         return dhcp_message_append_option(message, code, iov.iov_len, iov.iov_base);
 }
 
+int dhcp_message_append_option_length_prefixed_data(
+                sd_dhcp_message *message,
+                uint8_t code,
+                size_t length_size,
+                const struct iovec_wrapper *iovw) {
+
+        int r;
+
+        assert(message);
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = iovw_merge(iovw, length_size, &iov);
+        if (r < 0)
+                return r;
+
+        if (!iovec_is_set(&iov))
+                return 0;
+
+        return dhcp_message_append_option(message, code, iov.iov_len, iov.iov_base);
+}
+
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret) {
         int r;
 
@@ -598,6 +619,34 @@ int dhcp_message_get_option_sub_tlv(sd_dhcp_message *message, uint8_t code, TLVF
 
         if (ret)
                 *ret = TAKE_PTR(tlv);
+        return 0;
+}
+
+int dhcp_message_get_option_length_prefixed_data(
+                sd_dhcp_message *message,
+                uint8_t code,
+                size_t length_size,
+                struct iovec_wrapper *ret) {
+
+        int r;
+
+        assert(message);
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_message_get_option_alloc(message, code, &iov);
+        if (r < 0)
+                return r;
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+        r = iovec_split(&iov, length_size, &iovw);
+        if (r < 0)
+                return r;
+
+        if (iovw_isempty(&iovw))
+                return -ENODATA;
+
+        if (ret)
+                *ret = TAKE_STRUCT(iovw);
         return 0;
 }
 
