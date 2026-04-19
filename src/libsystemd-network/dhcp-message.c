@@ -179,6 +179,24 @@ int dhcp_message_append_option_addresses(sd_dhcp_message *message, uint8_t code,
         if (size_multiply_overflow(sizeof(struct in_addr), n_addr))
                 return -ENOBUFS;
 
+        if (code == SD_DHCP_OPTION_SIP_SERVER) {
+                if (dhcp_message_has_option(message, SD_DHCP_OPTION_SIP_SERVER))
+                        return -EEXIST;
+
+                size_t len = size_add(1, sizeof(struct in_addr) * n_addr);
+                if (len == SIZE_MAX)
+                        return -ENOBUFS;
+
+                _cleanup_free_ uint8_t *buf = new(uint8_t, len);
+                if (!buf)
+                        return -ENOMEM;
+
+                buf[0] = 1; /* 'enc' field, 0: domains, 1: addresses */
+                memcpy(buf + 1, addr, sizeof(struct in_addr) * n_addr);
+
+                return dhcp_message_append_option(message, code, len, buf);
+        }
+
         return dhcp_message_append_option(message, code, sizeof(struct in_addr) * n_addr, addr);
 }
 
@@ -413,10 +431,21 @@ int dhcp_message_get_option_addresses(sd_dhcp_message *message, uint8_t code, si
 
         assert(message);
 
-        _cleanup_(iovec_done) struct iovec iov = {};
-        r = dhcp_message_get_option_alloc(message, code, &iov);
+        _cleanup_(iovec_done) struct iovec iov_free = {};
+        r = dhcp_message_get_option_alloc(message, code, &iov_free);
         if (r < 0)
                 return r;
+
+        struct iovec iov = iov_free;
+        if (code == SD_DHCP_OPTION_SIP_SERVER) {
+                if (!iovec_is_set(&iov))
+                        return -EBADMSG;
+
+                if (*(uint8_t*) iov.iov_base != 1) /* 'enc' field, 0: domains, 1: addresses */
+                        return -ENODATA;
+
+                iovec_inc(&iov, 1);
+        }
 
         if (iov.iov_len % sizeof(struct in_addr) != 0)
                 return -EBADMSG;
@@ -425,8 +454,17 @@ int dhcp_message_get_option_addresses(sd_dhcp_message *message, uint8_t code, si
         if (n == 0)
                 return -ENODATA;
 
-        if (ret_addr)
-                *ret_addr = (struct in_addr*) TAKE_PTR(iov.iov_base);
+        if (ret_addr) {
+                if (code == SD_DHCP_OPTION_SIP_SERVER) {
+                        struct in_addr *addr = newdup(struct in_addr, iov.iov_base, n);
+                        if (!addr)
+                                return -ENOMEM;
+                        *ret_addr = addr;
+                } else {
+                        *ret_addr = iov.iov_base;
+                        TAKE_STRUCT(iov_free);
+                }
+        }
         if (ret_n_addr)
                 *ret_n_addr = n;
         return 0;
@@ -601,7 +639,7 @@ int dhcp_message_get_option_domains(sd_dhcp_message *message, uint8_t code, char
 
         assert(message);
 
-        /* This is mostly for SD_DHCP_OPTION_DOMAIN_SEARCH. */
+        /* This is mostly for SD_DHCP_OPTION_DOMAIN_SEARCH and SD_DHCP_OPTION_SIP_SERVER. */
 
         _cleanup_(iovec_done) struct iovec iov = {};
         r = dhcp_message_get_option_alloc(message, code, &iov);
@@ -610,6 +648,17 @@ int dhcp_message_get_option_domains(sd_dhcp_message *message, uint8_t code, char
 
         const uint8_t *buf = iov.iov_base;
         size_t len = iov.iov_len;
+
+        if (code == SD_DHCP_OPTION_SIP_SERVER) {
+                if (len == 0)
+                        return -EBADMSG;
+
+                if (buf[0] != 0) /* 'enc' field, 0: domains, 1: addresses */
+                        return -ENODATA;
+
+                len--;
+                buf++;
+        }
 
         _cleanup_strv_free_ char **names = NULL;
         size_t n_names = 0;
