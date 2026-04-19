@@ -9,7 +9,7 @@ REMOTE_OUT="$(mktemp -d)"
 unzstd --stdout "/usr/lib/systemd/tests/testdata/test-journals/afl-corrupted-journals.tar.zst" | tar -xC "$JOURNAL_DIR/"
 while read -r file; do
     filename="${file##*/}"
-    unzstd "$file" -o "$JOURNAL_DIR/${filename%*.zst}"
+    unzstd "$file" -o "$JOURNAL_DIR/${filename%*.zst}.journal"
 done < <(find /usr/lib/systemd/tests/testdata/test-journals/corrupted/ -name "*.zst")
 # First, try each of them sequentially. Skip this part when running with plain
 # QEMU, as it is excruciatingly slow
