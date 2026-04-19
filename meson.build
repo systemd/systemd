@@ -1155,7 +1155,7 @@ conf.set10('HAVE_LIBMOUNT', have)
 libmount_cflags = libmount.partial_dependency(includes: true, compile_args: true)
 
 libfdisk = dependency('fdisk',
-                      version : '>= 2.32',
+                      version : '>= 2.35',
                       disabler : true,
                       required : get_option('fdisk'))
 conf.set10('HAVE_LIBFDISK', libfdisk.found())
