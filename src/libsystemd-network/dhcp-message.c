@@ -10,6 +10,7 @@
 #include "iovec-wrapper.h"
 #include "ip-util.h"
 #include "network-common.h"
+#include "string-util.h"
 
 static sd_dhcp_message* dhcp_message_free(sd_dhcp_message *message) {
         if (!message)
@@ -174,6 +175,21 @@ int dhcp_message_append_option_addresses(sd_dhcp_message *message, uint8_t code,
         return dhcp_message_append_option(message, code, sizeof(struct in_addr) * n_addr, addr);
 }
 
+int dhcp_message_append_option_string(sd_dhcp_message *message, uint8_t code, const char *data) {
+        assert(message);
+
+        if (isempty(data))
+                return 0;
+
+        if (!string_is_safe(data, STRING_ALLOW_EMPTY | STRING_ALLOW_BACKSLASHES | STRING_ALLOW_QUOTES | STRING_ALLOW_GLOBS))
+                return -EINVAL;
+
+        if (dhcp_message_has_option(message, code))
+                return -EEXIST;
+
+        return dhcp_message_append_option(message, code, strlen(data), data);
+}
+
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret) {
         int r;
 
@@ -265,6 +281,27 @@ int dhcp_message_get_option_addresses(sd_dhcp_message *message, uint8_t code, si
                 *ret_addr = (struct in_addr*) TAKE_PTR(iov.iov_base);
         if (ret_n_addr)
                 *ret_n_addr = n;
+        return 0;
+}
+
+int dhcp_message_get_option_string(sd_dhcp_message *message, uint8_t code, char **ret) {
+        int r;
+
+        assert(message);
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_message_get_option_alloc(message, code, &iov);
+        if (r < 0)
+                return r;
+
+        if (memchr(iov.iov_base, 0, iov.iov_len))
+                return -EBADMSG;
+
+        if (!string_is_safe(iov.iov_base, STRING_ALLOW_EMPTY | STRING_ALLOW_BACKSLASHES | STRING_ALLOW_QUOTES | STRING_ALLOW_GLOBS))
+                return -EBADMSG;
+
+        if (ret)
+                *ret = TAKE_PTR(iov.iov_base);
         return 0;
 }
 
