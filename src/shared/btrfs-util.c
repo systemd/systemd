@@ -95,15 +95,21 @@ int btrfs_subvol_get_read_only_fd(int fd) {
         return !!(flags & BTRFS_SUBVOL_RDONLY);
 }
 
-int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
+int btrfs_get_block_device_at_full(int dir_fd, const char *path, uint64_t *ret_devid, char **ret_path, dev_t *ret) {
         struct btrfs_ioctl_fs_info_args fsi = {};
         _cleanup_close_ int fd = -EBADF;
         uint64_t id;
         int r;
 
+        /*
+         * Returns:
+         * ret_devid - the device id in the filesystem for the block device returned
+         * ret_path - the path to the return block device
+         * ret - the returned block device
+         */
+
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
-        assert(ret);
 
         fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
@@ -120,7 +126,12 @@ int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
 
         /* We won't do this for btrfs RAID */
         if (fsi.num_devices != 1) {
-                *ret = 0;
+                if (ret_devid)
+                        *ret_devid = 0;
+                if (ret_path)
+                        *ret_path = NULL;
+                if (ret)
+                        *ret = 0;
                 return 0;
         }
 
@@ -129,6 +140,7 @@ int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
                         .devid = id,
                 };
                 struct stat st;
+                _cleanup_free_ char *device_path = NULL;
 
                 if (ioctl(fd, BTRFS_IOC_DEV_INFO, &di) < 0) {
                         if (errno == ENODEV)
@@ -156,7 +168,16 @@ int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
                 if (major(st.st_rdev) == 0)
                         return -ENODEV;
 
-                *ret = st.st_rdev;
+                device_path = strdup((char*) di.path);
+                if (!device_path)
+                        return -ENOMEM;
+
+                if (ret_path)
+                        *ret_path = TAKE_PTR(device_path);
+                if (ret)
+                        *ret = st.st_rdev;
+                if (ret_devid)
+                        *ret_devid = id;
                 return 1;
         }
 
@@ -2165,4 +2186,55 @@ int btrfs_get_file_physical_offset_fd(int fd, uint64_t *ret) {
         }
 
         return -ENODATA;
+}
+
+int btrfs_replace(int fdmntpnt, uint64_t device_id, const char *target) {
+        struct btrfs_ioctl_dev_replace_args replace = {
+                .cmd = BTRFS_IOCTL_DEV_REPLACE_CMD_START,
+                .result = UINT64_MAX,
+                .start = {
+                        .srcdevid = device_id,
+                        .cont_reading_from_srcdev_mode = BTRFS_IOCTL_DEV_REPLACE_CONT_READING_FROM_SRCDEV_MODE_ALWAYS,
+                },
+        };
+        int r;
+
+        assert(fdmntpnt >= 0);
+        assert(target);
+
+        if (strlen(target) >= sizeof(replace.start.tgtdev_name))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Path to the btrfs replace target is too long");
+        strncpy((char *)replace.start.tgtdev_name, target, sizeof(replace.start.tgtdev_name));
+
+        r = ioctl(fdmntpnt, BTRFS_IOC_DEV_REPLACE, &replace);
+        if (r < 0)
+                return -errno;
+
+        switch (replace.result) {
+        case BTRFS_IOCTL_DEV_REPLACE_RESULT_NO_ERROR:
+                break;
+        case BTRFS_IOCTL_DEV_REPLACE_RESULT_NOT_STARTED:
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "btrfs replace was not started");
+        case BTRFS_IOCTL_DEV_REPLACE_RESULT_ALREADY_STARTED:
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "btrfs replace was already started on this device");
+        case BTRFS_IOCTL_DEV_REPLACE_RESULT_SCRUB_INPROGRESS:
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "btrfs scrub is in progress");
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "An unknown btrfs error status occurred");
+        }
+
+        return 0;
+}
+
+int btrfs_resize_max(int fdmntpnt, uint64_t devid) {
+        struct btrfs_ioctl_vol_args args = {};
+        int r;
+
+        assert(fdmntpnt >= 0);
+
+        r = snprintf(args.name, sizeof(args.name), "%" PRIu64 ":max", devid);
+        if ((size_t)r >= sizeof(args.name))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Device identifier too long for btrfs resize");
+
+        return RET_NERRNO(ioctl(fdmntpnt, BTRFS_IOC_RESIZE, &args));
 }
