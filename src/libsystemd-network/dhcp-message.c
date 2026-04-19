@@ -12,6 +12,8 @@
 #include "iovec-wrapper.h"
 #include "ip-util.h"
 #include "network-common.h"
+#include "set.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "utf8.h"
 
@@ -200,6 +202,35 @@ int dhcp_message_append_option_client_id(sd_dhcp_message *message, const sd_dhcp
                 return -EEXIST;
 
         return dhcp_message_append_option(message, SD_DHCP_OPTION_CLIENT_IDENTIFIER, id->size, id->raw);
+}
+
+static int cmp_uint8(const uint8_t *a, const uint8_t *b) {
+        assert(a);
+        assert(b);
+
+        return CMP(*a, *b);
+}
+
+int dhcp_message_append_option_parameter_request_list(sd_dhcp_message *message, Set *prl) {
+        assert(message);
+
+        size_t len = set_size(prl);
+        if (len == 0)
+                return 0;
+
+        _cleanup_free_ uint8_t *buf = new(uint8_t, len);
+        if (!buf)
+                return -ENOMEM;
+
+        uint8_t *p = buf;
+        void *q;
+        SET_FOREACH(q, prl)
+                *p++ = PTR_TO_UINT8(q);
+
+        /* Sort the option to make the message reproducible. */
+        typesafe_qsort(buf, len, cmp_uint8);
+
+        return dhcp_message_append_option(message, SD_DHCP_OPTION_PARAMETER_REQUEST_LIST, len, buf);
 }
 
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret) {
@@ -398,6 +429,34 @@ int dhcp_message_get_option_client_id(sd_dhcp_message *message, sd_dhcp_client_i
                 return r;
 
         return sd_dhcp_client_id_set_raw(ret, buf, len);
+}
+
+int dhcp_message_get_option_parameter_request_list(sd_dhcp_message *message, Set **ret) {
+        int r;
+
+        assert(message);
+
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t len;
+        r = dhcp_message_get_option_alloc(message, SD_DHCP_OPTION_PARAMETER_REQUEST_LIST, &len, (void**) &buf);
+        if (r < 0)
+                return r;
+
+        if (len == 0)
+                return -ENODATA;
+
+        if (!ret)
+                return 0;
+
+        _cleanup_set_free_ Set *prl = NULL;
+        FOREACH_ARRAY(i, buf, len) {
+                r = set_ensure_put(&prl, /* hash_ops= */ NULL, UINT8_TO_PTR(*i));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(prl);
+        return 0;
 }
 
 static int dhcp_message_verify_header(

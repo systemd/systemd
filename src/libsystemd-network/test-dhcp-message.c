@@ -10,6 +10,7 @@
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "random-util.h"
+#include "set.h"
 #include "strv.h"
 #include "tests.h"
 
@@ -90,6 +91,12 @@ static void verify_client_id(sd_dhcp_message *m, const sd_dhcp_client_id *expect
         ASSERT_EQ(client_id_compare_func(&id, expected), 0);
 }
 
+static void verify_prl(sd_dhcp_message *m, Set *expected) {
+        _cleanup_set_free_ Set *set = NULL;
+        ASSERT_OK(dhcp_message_get_option_parameter_request_list(m, &set));
+        ASSERT_TRUE(set_equal(set, expected));
+}
+
 TEST(dhcp_message) {
         _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
 
@@ -120,6 +127,10 @@ TEST(dhcp_message) {
                 .raw = { 1, 3, 3, 3, 3, 3, 3, },
                 .size = 7,
         };
+
+        _cleanup_set_free_ Set *prl = NULL;
+        for (uint8_t i = SD_DHCP_OPTION_PRIVATE_BASE; i <= SD_DHCP_OPTION_PRIVATE_LAST; i++)
+                ASSERT_OK(set_ensure_put(&prl, /* hash_ops= */ NULL, UINT_TO_PTR(i)));
 
         const char *vendor_class = "hogehoge";
         char **root_path = STRV_MAKE("/path/to/root", "/hogehoge/foofoo");
@@ -189,6 +200,11 @@ TEST(dhcp_message) {
         ASSERT_OK(dhcp_message_append_option_client_id(m, &id));
         verify_client_id(m, &id);
 
+        /* parameter request list */
+        ASSERT_OK(dhcp_message_append_option_parameter_request_list(m, prl));
+        ASSERT_OK(dhcp_message_append_option_parameter_request_list(m, prl));
+        verify_prl(m, prl);
+
         /* build and parse */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
         ASSERT_OK(dhcp_message_build(m, &iovw));
@@ -218,6 +234,7 @@ TEST(dhcp_message) {
         verify_address(m2, &addr);
         verify_addresses(m2, ELEMENTSOF(ntp), ntp);
         verify_client_id(m2, &id);
+        verify_prl(m2, prl);
 
         /* build again, and verify the packet */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw2 = {};
