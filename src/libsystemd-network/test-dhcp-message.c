@@ -70,7 +70,8 @@ static void verify_address(sd_dhcp_message *m, const struct in_addr *expected) {
 
 static void verify_addresses(
                 sd_dhcp_message *m,
-                size_t n_ntp, const struct in_addr *ntp) {
+                size_t n_ntp, const struct in_addr *ntp,
+                size_t n_sip, const struct in_addr *sip) {
 
         struct in_addr a;
         ASSERT_OK(dhcp_message_get_option_be32(m, SD_DHCP_OPTION_NTP_SERVER, &a.s_addr));
@@ -83,6 +84,14 @@ static void verify_addresses(
         ASSERT_OK(dhcp_message_get_option_addresses(m, SD_DHCP_OPTION_NTP_SERVER, &n, &addrs));
         ASSERT_EQ(n, n_ntp);
         ASSERT_EQ(memcmp(addrs, ntp, sizeof(struct in_addr) * n), 0);
+
+        ASSERT_ERROR(dhcp_message_get_option_be32(m, SD_DHCP_OPTION_SIP_SERVER, NULL), EBADMSG);
+        ASSERT_ERROR(dhcp_message_get_option_address(m, SD_DHCP_OPTION_SIP_SERVER, NULL), EBADMSG);
+
+        addrs = mfree(addrs);
+        ASSERT_OK(dhcp_message_get_option_addresses(m, SD_DHCP_OPTION_SIP_SERVER, &n, &addrs));
+        ASSERT_EQ(n, n_sip);
+        ASSERT_EQ(memcmp(addrs, sip, sizeof(struct in_addr) * n), 0);
 }
 
 static void verify_client_id(sd_dhcp_message *m, const sd_dhcp_client_id *expected) {
@@ -154,6 +163,14 @@ TEST(dhcp_message) {
                 { .s_addr = htobe32(0xC0000202) },
                 { .s_addr = htobe32(0xC0000203) },
                 { .s_addr = htobe32(0xC0000204) },
+        };
+
+        /* 192.0.2.17 - 20 */
+        struct in_addr sip[4] = {
+                { .s_addr = htobe32(0xC0000211) },
+                { .s_addr = htobe32(0xC0000212) },
+                { .s_addr = htobe32(0xC0000213) },
+                { .s_addr = htobe32(0xC0000214) },
         };
 
         sd_dhcp_client_id id = {
@@ -245,7 +262,10 @@ TEST(dhcp_message) {
         /* multiple addresses */
         ASSERT_OK(dhcp_message_append_option_address(m, SD_DHCP_OPTION_NTP_SERVER, &ntp[0]));
         ASSERT_OK(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_NTP_SERVER, ELEMENTSOF(ntp) - 1, ntp + 1));
-        verify_addresses(m, ELEMENTSOF(ntp), ntp);
+        ASSERT_OK(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_SIP_SERVER, ELEMENTSOF(sip), sip));
+        ASSERT_ERROR(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_SIP_SERVER, ELEMENTSOF(sip), sip), EEXIST);
+        ASSERT_OK(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_SIP_SERVER, 0, NULL));
+        verify_addresses(m, ELEMENTSOF(ntp), ntp, ELEMENTSOF(sip), sip);
 
         /* client ID */
         ASSERT_OK(dhcp_message_append_option_client_id(m, &id));
@@ -309,7 +329,7 @@ TEST(dhcp_message) {
         verify_u16(m2, 512);
         verify_sec(m2, lease_time);
         verify_address(m2, &addr);
-        verify_addresses(m2, ELEMENTSOF(ntp), ntp);
+        verify_addresses(m2, ELEMENTSOF(ntp), ntp, ELEMENTSOF(sip), sip);
         verify_client_id(m2, &id);
         verify_prl(m2, prl);
         verify_hostname(m2, hostname);
@@ -337,6 +357,24 @@ static void test_domains_one(size_t len, const uint8_t *data, char * const *expe
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, len / 2, data));
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, len - len / 2, data + len / 2));
         ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_DOMAIN_SEARCH, &strv));
+        ASSERT_TRUE(strv_equal(strv, expected));
+
+        strv = strv_free(strv);
+
+        _cleanup_free_ uint8_t *sip = new(uint8_t, len + 1);
+        sip[0] = 0;
+        memcpy(sip + 1, data, len);
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_SIP_SERVER, len + 1, sip));
+        ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_SIP_SERVER, &strv));
+        ASSERT_TRUE(strv_equal(strv, expected));
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_SIP_SERVER);
+        strv = strv_free(strv);
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_SIP_SERVER, (len + 1) / 2, sip));
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_SIP_SERVER, len + 1 - (len + 1) / 2, sip + (len + 1) / 2));
+        ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_SIP_SERVER, &strv));
         ASSERT_TRUE(strv_equal(strv, expected));
 }
 

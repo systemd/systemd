@@ -189,6 +189,24 @@ int dhcp_message_append_option_addresses(sd_dhcp_message *message, uint8_t code,
         if (n_addr == 0)
                 return 0;
 
+        if (code == SD_DHCP_OPTION_SIP_SERVER) {
+                if (message_has_option(message, SD_DHCP_OPTION_SIP_SERVER))
+                        return -EEXIST;
+
+                if (n_addr > (SIZE_MAX - 1) / sizeof(struct in_addr))
+                        return -ENOBUFS;
+
+                size_t len = 1 + sizeof(struct in_addr) * n_addr;
+                _cleanup_free_ uint8_t *buf = new(uint8_t, len);
+                if (!buf)
+                        return -ENOMEM;
+
+                buf[0] = 1; /* 'enc' field, 0: domains, 1: addresses */
+                memcpy(buf + 1, addr, sizeof(struct in_addr) * n_addr);
+
+                return dhcp_message_append_option(message, SD_DHCP_OPTION_SIP_SERVER, len, buf);
+        }
+
         if (n_addr > SIZE_MAX / sizeof(struct in_addr))
                 return -ENOBUFS;
 
@@ -507,6 +525,16 @@ int dhcp_message_get_option_addresses(sd_dhcp_message *message, uint8_t code, si
         if (r < 0)
                 return r;
 
+        if (code == SD_DHCP_OPTION_SIP_SERVER) {
+                if (len == 0)
+                        return -EBADMSG;
+
+                if (buf[0] != 1) /* 'enc' field, 0: domains, 1: addresses */
+                        return -ENODATA;
+
+                len--;
+        }
+
         if (len % sizeof(struct in_addr) != 0)
                 return -EBADMSG;
 
@@ -514,8 +542,15 @@ int dhcp_message_get_option_addresses(sd_dhcp_message *message, uint8_t code, si
         if (n == 0)
                 return -ENODATA;
 
-        if (ret_addr)
-                *ret_addr = (struct in_addr*) TAKE_PTR(buf);
+        if (ret_addr) {
+                if (code == SD_DHCP_OPTION_SIP_SERVER) {
+                        struct in_addr *addr = newdup(struct in_addr, buf + 1, n);
+                        if (!addr)
+                                return -ENOMEM;
+                        *ret_addr = addr;
+                } else
+                        *ret_addr = (struct in_addr*) TAKE_PTR(buf);
+        }
         if (ret_n_addr)
                 *ret_n_addr = n;
         return 0;
@@ -671,13 +706,25 @@ int dhcp_message_get_option_domains(sd_dhcp_message *message, uint8_t code, char
 
         assert(message);
 
-        /* This is mostly for SD_DHCP_OPTION_DOMAIN_SEARCH. */
+        /* This is mostly for SD_DHCP_OPTION_DOMAIN_SEARCH and SD_DHCP_OPTION_SIP_SERVER. */
 
         _cleanup_free_ uint8_t *buf = NULL;
         size_t len;
         r = dhcp_message_get_option_alloc(message, code, &len, (void**) &buf);
         if (r < 0)
                 return r;
+
+        uint8_t *array = buf;
+        if (code == SD_DHCP_OPTION_SIP_SERVER) {
+                if (len == 0)
+                        return -EBADMSG;
+
+                if (buf[0] != 0) /* 'enc' field, 0: domains, 1: addresses */
+                        return -ENODATA;
+
+                len--;
+                array++;
+        }
 
         _cleanup_strv_free_ char **names = NULL;
         size_t n_names = 0;
@@ -686,7 +733,7 @@ int dhcp_message_get_option_domains(sd_dhcp_message *message, uint8_t code, char
         size_t n = 0;
 
         for (size_t pos = 0, jump_barrier = 0, next_chunk = 0; pos < len;) {
-                uint8_t c = buf[pos++];
+                uint8_t c = array[pos++];
 
                 if (c == 0) {
                         /* End of name */
@@ -715,7 +762,7 @@ int dhcp_message_get_option_domains(sd_dhcp_message *message, uint8_t code, char
                 } else if (c <= 63) {
                         /* Literal label */
 
-                        const char *label = (const char*) (buf + pos);
+                        const char *label = (const char*) (array + pos);
                         pos += c;
 
                         if (pos >= len)
@@ -743,7 +790,7 @@ int dhcp_message_get_option_domains(sd_dhcp_message *message, uint8_t code, char
                         if (next_chunk == 0)
                                 next_chunk = pos + 1;
 
-                        pos = ((size_t) (c & ~0xc0) << 8) | ((size_t) buf[pos]);
+                        pos = ((size_t) (c & ~0xc0) << 8) | ((size_t) array[pos]);
 
                         /* Jumps are limited to a "prior occurrence" (RFC-1035 4.1.4) */
                         if (pos >= jump_barrier)
