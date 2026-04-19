@@ -21,35 +21,36 @@ size_t iovec_total_size(const struct iovec *iovec, size_t n) {
 
         assert(iovec || n == 0);
 
-        FOREACH_ARRAY(j, iovec, n)
+        FOREACH_ARRAY(j, iovec, n) {
+                if (j->iov_len > SIZE_MAX - sum)
+                        return SIZE_MAX; /* Indicate overflow. */
                 sum += j->iov_len;
+        }
 
         return sum;
 }
 
-bool iovec_increment(struct iovec *iovec, size_t n, size_t k) {
+bool iovec_inc_many(struct iovec *iovec, size_t n, size_t k) {
         assert(iovec || n == 0);
 
         /* Returns true if there is nothing else to send (bytes written cover all of the iovec),
          * false if there's still work to do. */
 
         FOREACH_ARRAY(j, iovec, n) {
-                size_t sub;
-
                 if (j->iov_len == 0)
                         continue;
                 if (k == 0)
                         return false;
 
-                sub = MIN(j->iov_len, k);
-                j->iov_len -= sub;
-                j->iov_base = (uint8_t*) j->iov_base + sub;
+                size_t sub = MIN(j->iov_len, k);
+                iovec_inc(j, sub);
                 k -= sub;
         }
 
         assert(k == 0); /* Anything else would mean that we wrote more bytes than available,
                          * or the kernel reported writing more bytes than sent. */
-        return true;
+
+        return iovec_total_size(iovec, n) == 0;
 }
 
 struct iovec* iovec_make_string(struct iovec *iovec, const char *s) {

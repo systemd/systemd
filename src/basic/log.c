@@ -557,7 +557,7 @@ static int write_to_syslog(
                 if (!syslog_is_stream)
                         break;
 
-                if (iovec_increment(iovec, ELEMENTSOF(iovec), n))
+                if (iovec_inc_many(iovec, ELEMENTSOF(iovec), n))
                         break;
         }
 

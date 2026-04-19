@@ -430,7 +430,7 @@ static int process_magic_file(
         /* Even if we ignore if people have non-empty files for this file, let's nonetheless warn about it,
          * so that people fix it. After all we want to retain liberty to maybe one day place some useful data
          * inside it */
-        if (iovec_memcmp(&IOVEC_MAKE(expected_hash, sizeof(expected_hash)), hash) != 0)
+        if (!iovec_equal(&IOVEC_MAKE(expected_hash, sizeof(expected_hash)), hash))
                 log_warning("Hash of best before marker file '%s' has unexpected value, proceeding anyway.", fn);
 
         usec_t best_before;
