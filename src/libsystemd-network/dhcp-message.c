@@ -294,6 +294,28 @@ int dhcp_message_append_option_hostname(sd_dhcp_message *message, uint8_t flags,
         return dhcp_message_append_option_fqdn(message, flags, is_client, hostname);
 }
 
+int dhcp_message_append_option_sub_tlv(sd_dhcp_message *message, uint8_t code, TLV *tlv) {
+        int r;
+
+        assert(message);
+
+        if (tlv_isempty(tlv))
+                return 0;
+
+        if (dhcp_message_has_option(message, code))
+                return -EEXIST;
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = tlv_build(tlv, &iov);
+        if (r < 0)
+                return r;
+
+        if (!iovec_is_set(&iov))
+                return 0;
+
+        return dhcp_message_append_option(message, code, iov.iov_len, iov.iov_base);
+}
+
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret) {
         int r;
 
@@ -550,6 +572,33 @@ int dhcp_message_get_option_hostname(sd_dhcp_message *message, char **ret) {
 
         /* Then, fall back to Host Name option. */
         return dhcp_message_get_option_dns_name(message, SD_DHCP_OPTION_HOST_NAME, ret);
+}
+
+int dhcp_message_get_option_sub_tlv(sd_dhcp_message *message, uint8_t code, TLVFlag flags, TLV **ret) {
+        int r;
+
+        assert(message);
+        assert(!FLAGS_SET(flags, TLV_TEMPORAL));
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_message_get_option_alloc(message, code, &iov);
+        if (r < 0)
+                return r;
+
+        _cleanup_(tlv_unrefp) TLV *tlv = tlv_new(flags);
+        if (!tlv)
+                return -ENOMEM;
+
+        r = tlv_parse(tlv, &iov);
+        if (r < 0)
+                return r;
+
+        if (tlv_isempty(tlv))
+                return -ENODATA;
+
+        if (ret)
+                *ret = TAKE_PTR(tlv);
+        return 0;
 }
 
 static int dhcp_message_verify_header(
