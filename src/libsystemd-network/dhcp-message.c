@@ -10,6 +10,8 @@
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "ip-util.h"
+#include "string-util.h"
+#include "utf8.h"
 
 static sd_dhcp_message* dhcp_message_free(sd_dhcp_message *message) {
         if (!message)
@@ -110,6 +112,18 @@ int dhcp_message_append_option(sd_dhcp_message *message, uint8_t code, size_t le
 int dhcp_message_append_options(sd_dhcp_message *message, Hashmap *options) {
         assert(message);
         return dhcp_options_append_many(&message->options, options);
+}
+
+int dhcp_message_append_option_string(sd_dhcp_message *message, uint8_t code, const char *data) {
+        assert(message);
+
+        if (isempty(data))
+                return 0;
+
+        if (message_has_option(message, code))
+                return -EEXIST;
+
+        return dhcp_message_append_option(message, code, strlen(data), data);
 }
 
 int dhcp_message_append_option_flag(sd_dhcp_message *message, uint8_t code) {
@@ -234,6 +248,27 @@ int dhcp_message_get_option_alloc_iovec(sd_dhcp_message *message, uint8_t code, 
         assert(message);
         assert(ret);
         return dhcp_message_get_option_alloc(message, code, &ret->iov_len, &ret->iov_base);
+}
+
+int dhcp_message_get_option_string(sd_dhcp_message *message, uint8_t code, char **ret) {
+        int r;
+
+        assert(message);
+
+        _cleanup_free_ char *s = NULL;
+        r = dhcp_message_get_option_alloc(message, code, /* ret_size= */ NULL, (void**) &s);
+        if (r < 0)
+                return r;
+
+        if (isempty(s))
+                return -ENODATA;
+
+        if (!utf8_is_valid(s) || string_has_cc(s, /* ok= */ NULL))
+                return -EBADMSG;
+
+        if (ret)
+                *ret = TAKE_PTR(s);
+        return 0;
 }
 
 int dhcp_message_get_option_flag(sd_dhcp_message *message, uint8_t code) {

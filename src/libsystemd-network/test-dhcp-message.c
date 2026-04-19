@@ -2,12 +2,14 @@
 
 #include <net/if_arp.h>
 
+#include "alloc-util.h"
 #include "dhcp-message.h"
 #include "dhcp-option.h"
 #include "ether-addr-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "random-util.h"
+#include "strv.h"
 #include "tests.h"
 
 static void verify_header(sd_dhcp_message *m, uint32_t xid, const struct hw_addr_data *hw_addr) {
@@ -16,6 +18,19 @@ static void verify_header(sd_dhcp_message *m, uint32_t xid, const struct hw_addr
         struct hw_addr_data a;
         ASSERT_OK(dhcp_message_get_hw_addr(m, &a));
         ASSERT_TRUE(hw_addr_equal(&a, hw_addr));
+}
+
+static void verify_string(sd_dhcp_message *m, const char *expected) {
+        _cleanup_free_ char *s = NULL;
+        ASSERT_OK(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, &s));
+        ASSERT_STREQ(s, expected);
+}
+
+static void verify_multiple_strings(sd_dhcp_message *m, char * const *expected) {
+        _cleanup_free_ char *s = NULL;
+        ASSERT_OK(dhcp_message_get_option_string(m, SD_DHCP_OPTION_ROOT_PATH, &s));
+        _cleanup_free_ char *joined = ASSERT_NOT_NULL(strv_join(expected, /* separator= */ ""));
+        ASSERT_STREQ(s, joined);
 }
 
 static void verify_flag(sd_dhcp_message *m) {
@@ -57,6 +72,9 @@ TEST(dhcp_message) {
         /* 192.0.2.42 */
         struct in_addr addr = { .s_addr = htobe32(0xC000022a) };
 
+        const char *vendor_class = "hogehoge";
+        char **root_path = STRV_MAKE("/path/to/root", "/hogehoge/foofoo");
+
         ASSERT_OK(dhcp_message_init_header(
                                   m,
                                   BOOTREQUEST,
@@ -69,6 +87,19 @@ TEST(dhcp_message) {
 
         ASSERT_ERROR(dhcp_message_append_option(m, SD_DHCP_OPTION_PAD, 0, NULL), EINVAL);
         ASSERT_ERROR(dhcp_message_append_option(m, SD_DHCP_OPTION_END, 0, NULL), EINVAL);
+
+        /* string */
+        ASSERT_ERROR(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, NULL), ENODATA);
+        ASSERT_OK(dhcp_message_append_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, "hogehoge"));
+        ASSERT_ERROR(dhcp_message_append_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, vendor_class), EEXIST);
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER);
+        ASSERT_OK(dhcp_message_append_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, vendor_class));
+        verify_string(m, vendor_class);
+
+        /* multiple strings */
+        STRV_FOREACH(s, root_path)
+                ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_ROOT_PATH, strlen(*s), *s));
+        verify_multiple_strings(m, root_path);
 
         /* flag */
         ASSERT_ERROR(dhcp_message_get_option_flag(m, SD_DHCP_OPTION_RAPID_COMMIT), ENODATA);
@@ -113,6 +144,8 @@ TEST(dhcp_message) {
 
         /* verify parsed message */
         verify_header(m2, xid, &hw_addr);
+        verify_string(m2, vendor_class);
+        verify_multiple_strings(m2, root_path);
         verify_flag(m2);
         verify_u8(m2, DHCP_DISCOVER);
         verify_u16(m2, 512);
