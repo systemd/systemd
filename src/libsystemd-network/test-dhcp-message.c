@@ -66,6 +66,23 @@ static void verify_address(sd_dhcp_message *m, const struct in_addr *expected) {
         ASSERT_EQ(a.s_addr, expected->s_addr);
 }
 
+static void verify_addresses(
+                sd_dhcp_message *m,
+                size_t n_ntp, const struct in_addr *ntp) {
+
+        struct in_addr a;
+        ASSERT_OK(dhcp_message_get_option_be32(m, SD_DHCP_OPTION_NTP_SERVER, &a.s_addr));
+        ASSERT_EQ(a.s_addr, ntp->s_addr);
+        ASSERT_OK(dhcp_message_get_option_address(m, SD_DHCP_OPTION_NTP_SERVER, &a));
+        ASSERT_EQ(a.s_addr, ntp->s_addr);
+
+        size_t n;
+        _cleanup_free_ struct in_addr *addrs = NULL;
+        ASSERT_OK(dhcp_message_get_option_addresses(m, SD_DHCP_OPTION_NTP_SERVER, &n, &addrs));
+        ASSERT_EQ(n, n_ntp);
+        ASSERT_EQ(memcmp(addrs, ntp, sizeof(struct in_addr) * n), 0);
+}
+
 TEST(dhcp_message) {
         _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
 
@@ -83,6 +100,14 @@ TEST(dhcp_message) {
 
         /* 192.0.2.42 */
         struct in_addr addr = { .s_addr = htobe32(0xC000022a) };
+
+        /* 192.0.2.1 - 4 */
+        struct in_addr ntp[4] = {
+                { .s_addr = htobe32(0xC0000201) },
+                { .s_addr = htobe32(0xC0000202) },
+                { .s_addr = htobe32(0xC0000203) },
+                { .s_addr = htobe32(0xC0000204) },
+        };
 
         const char *vendor_class = "hogehoge";
         char **root_path = STRV_MAKE("/path/to/root", "/hogehoge/foofoo");
@@ -143,6 +168,11 @@ TEST(dhcp_message) {
         ASSERT_OK(dhcp_message_append_option_address(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, &addr));
         verify_address(m, &addr);
 
+        /* multiple addresses */
+        ASSERT_OK(dhcp_message_append_option_address(m, SD_DHCP_OPTION_NTP_SERVER, &ntp[0]));
+        ASSERT_OK(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_NTP_SERVER, ELEMENTSOF(ntp) - 1, ntp + 1));
+        verify_addresses(m, ELEMENTSOF(ntp), ntp);
+
         /* build and parse */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
         ASSERT_OK(dhcp_message_build(m, &iovw));
@@ -170,6 +200,7 @@ TEST(dhcp_message) {
         verify_u16(m2, 512);
         verify_sec(m2, lease_time);
         verify_address(m2, &addr);
+        verify_addresses(m2, ELEMENTSOF(ntp), ntp);
 
         /* build again, and verify the packet */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw2 = {};

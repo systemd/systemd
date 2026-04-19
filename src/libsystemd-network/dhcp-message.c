@@ -175,6 +175,19 @@ int dhcp_message_append_option_address(sd_dhcp_message *message, uint8_t code, c
         return dhcp_message_append_option_be32(message, code, addr->s_addr);
 }
 
+int dhcp_message_append_option_addresses(sd_dhcp_message *message, uint8_t code, size_t n_addr, const struct in_addr *addr) {
+        assert(message);
+        assert(n_addr == 0 || addr);
+
+        if (n_addr == 0)
+                return 0;
+
+        if (n_addr > SIZE_MAX / sizeof(struct in_addr))
+                return -ENOBUFS;
+
+        return dhcp_message_append_option(message, code, sizeof(struct in_addr) * n_addr, addr);
+}
+
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret) {
         assert(message);
 
@@ -331,6 +344,31 @@ int dhcp_message_get_option_sec(sd_dhcp_message *message, uint8_t code, bool max
 int dhcp_message_get_option_address(sd_dhcp_message *message, uint8_t code, struct in_addr *ret) {
         assert(message);
         return dhcp_message_get_option_be32(message, code, ret ? &ret->s_addr : NULL);
+}
+
+int dhcp_message_get_option_addresses(sd_dhcp_message *message, uint8_t code, size_t *ret_n_addr, struct in_addr **ret_addr) {
+        int r;
+
+        assert(message);
+
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t len;
+        r = dhcp_message_get_option_alloc(message, code, &len, (void**) &buf);
+        if (r < 0)
+                return r;
+
+        if (len % sizeof(struct in_addr) != 0)
+                return -EBADMSG;
+
+        size_t n = len / sizeof(struct in_addr);
+        if (n == 0)
+                return -ENODATA;
+
+        if (ret_addr)
+                *ret_addr = (struct in_addr*) TAKE_PTR(buf);
+        if (ret_n_addr)
+                *ret_n_addr = n;
+        return 0;
 }
 
 static int dhcp_message_verify_header(
