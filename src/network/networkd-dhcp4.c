@@ -1477,7 +1477,6 @@ static bool link_dhcp4_ipv6_only_mode(Link *link) {
 }
 
 static int dhcp4_configure(Link *link) {
-        sd_dhcp_option *send_option;
         void *request_options;
         int r;
 
@@ -1487,9 +1486,13 @@ static int dhcp4_configure(Link *link) {
         if (link->dhcp_client)
                 return log_link_debug_errno(link, SYNTHETIC_ERRNO(EBUSY), "DHCPv4 client is already configured.");
 
-        r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
+        r = sd_dhcp_client_new(&link->dhcp_client);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to allocate DHCPv4 client: %m");
+
+        r = sd_dhcp_client_set_anonymize(link->dhcp_client, link->network->dhcp_anonymize);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to anonymize requests: %m");
 
         r = sd_dhcp_client_set_bootp(link->dhcp_client, link->network->dhcp_use_bootp);
         if (r < 0)
@@ -1619,21 +1622,13 @@ static int dhcp4_configure(Link *link) {
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for '%u': %m", option);
                 }
 
-                ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_options) {
-                        r = sd_dhcp_client_add_option(link->dhcp_client, send_option);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
-                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set send option: %m");
-                }
+                r = dhcp_client_set_extra_options(link->dhcp_client, link->network->dhcp_client_send_options);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set extra options: %m");
 
-                ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_vendor_options) {
-                        r = sd_dhcp_client_add_vendor_option(link->dhcp_client, send_option);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
-                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set send option: %m");
-                }
+                r = dhcp_client_set_vendor_options(link->dhcp_client, link->network->dhcp_client_send_vendor_options);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set vendor options: %m");
 
                 r = dhcp4_set_hostname(link);
                 if (r < 0)
@@ -1652,11 +1647,9 @@ static int dhcp4_configure(Link *link) {
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set MUD URL: %m");
                 }
 
-                if (link->network->dhcp_user_class) {
-                        r = sd_dhcp_client_set_user_class(link->dhcp_client, link->network->dhcp_user_class);
-                        if (r < 0)
-                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set user class: %m");
-                }
+                r = dhcp_client_set_user_class(link->dhcp_client, &link->network->dhcp_user_class);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set user class: %m");
         }
 
         if (link->network->dhcp_client_port > 0) {
@@ -1733,6 +1726,8 @@ int dhcp4_update_mac(Link *link) {
 }
 
 int dhcp4_update_ipv6_connectivity(Link *link) {
+        int r;
+
         assert(link);
 
         if (!link->network)
@@ -1744,16 +1739,20 @@ int dhcp4_update_ipv6_connectivity(Link *link) {
         if (!link->dhcp_client)
                 return 0;
 
-        /* If the client is running, set the current connectivity. */
-        if (sd_dhcp_client_is_running(link->dhcp_client))
-                return sd_dhcp_client_set_ipv6_connectivity(link->dhcp_client, link_has_ipv6_connectivity(link));
+        bool have = link_has_ipv6_connectivity(link);
+        r = sd_dhcp_client_set_ipv6_connectivity(link->dhcp_client, have);
+        if (r < 0)
+                return r;
 
-        /* If the client has been already stopped or not started yet, let's check the current connectivity
-         * and start the client if necessary. */
-        if (link_has_ipv6_connectivity(link))
-                return 0;
+        /* If we do not have IPv6 connectivity, and the client has been already stopped or not started yet,
+         * let's start the client if possible. */
+        if (!have && !sd_dhcp_client_is_running(link->dhcp_client)) {
+                r = dhcp4_start_full(link, /* set_ipv6_connectivity= */ false);
+                if (r < 0)
+                        return r;
+        }
 
-        return dhcp4_start_full(link, /* set_ipv6_connectivity= */ false);
+        return 0;
 }
 
 int dhcp4_start_full(Link *link, bool set_ipv6_connectivity) {
@@ -1805,8 +1804,10 @@ int dhcp4_renew(Link *link) {
                 return dhcp4_start(link);
 
         /* The client may be waiting for IPv6 connectivity. Let's restart the client in that case. */
-        if (dhcp_client_get_state(link->dhcp_client) != DHCP_STATE_BOUND)
-                return sd_dhcp_client_interrupt_ipv6_only_mode(link->dhcp_client);
+        if (sd_dhcp_client_is_waiting_for_ipv6_connectivity(link->dhcp_client)) {
+                sd_dhcp_client_stop(link->dhcp_client);
+                return dhcp4_start(link);
+        }
 
         /* Otherwise, send a RENEW command. */
         return sd_dhcp_client_send_renew(link->dhcp_client);
