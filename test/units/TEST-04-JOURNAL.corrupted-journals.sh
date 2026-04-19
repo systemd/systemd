@@ -20,6 +20,7 @@ if [[ "$(systemd-detect-virt -v)" != "qemu" ]]; then
         timeout 10 journalctl --file="$file" --boot >/dev/null || [[ $? -lt 124 ]]
         timeout 10 journalctl --file="$file" --verify >/dev/null || [[ $? -lt 124 ]]
         timeout 10 journalctl --file="$file" --output=export >/dev/null || [[ $? -lt 124 ]]
+        timeout 10 journalctl --file="$file" --grep=. >/dev/null || [[ $? -lt 124 ]]
         timeout 10 journalctl --file="$file" --fields >/dev/null || [[ $? -lt 124 ]]
         timeout 10 journalctl --file="$file" --list-boots >/dev/null || [[ $? -lt 124 ]]
         if [[ -x /usr/lib/systemd/systemd-journal-remote ]]; then
@@ -36,6 +37,7 @@ fi
 timeout 30 journalctl --directory="$JOURNAL_DIR" --boot >/dev/null || [[ $? -lt 124 ]]
 timeout 30 journalctl --directory="$JOURNAL_DIR" --verify >/dev/null || [[ $? -lt 124 ]]
 timeout 30 journalctl --directory="$JOURNAL_DIR" --output=export >/dev/null || [[ $? -lt 124 ]]
+timeout 30 journalctl --directory="$JOURNAL_DIR" --grep=. >/dev/null || [[ $? -lt 124 ]]
 timeout 30 journalctl --directory="$JOURNAL_DIR" --fields >/dev/null || [[ $? -lt 124 ]]
 timeout 30 journalctl --directory="$JOURNAL_DIR" --list-boots >/dev/null || [[ $? -lt 124 ]]
 if [[ -x /usr/lib/systemd/systemd-journal-remote ]]; then

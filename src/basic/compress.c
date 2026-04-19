@@ -1233,7 +1233,9 @@ static int decompress_startswith_zstd(
                 log_debug("ZSTD decoder failed: %s", sym_ZSTD_getErrorName(k));
                 return zstd_ret_to_errno(k);
         }
-        assert(output.pos >= prefix_len + 1);
+
+        if (output.pos < prefix_len + 1)
+                return -EBADMSG;
 
         return memcmp(*buffer, prefix, prefix_len) == 0 &&
                 ((const uint8_t*) *buffer)[prefix_len] == extra;
