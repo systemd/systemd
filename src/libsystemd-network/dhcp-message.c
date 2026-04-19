@@ -167,6 +167,12 @@ int dhcp_message_append_option_sec(sd_dhcp_message *message, uint8_t code, usec_
         return dhcp_message_append_option_be32(message, code, usec_to_be32_sec(usec));
 }
 
+int dhcp_message_append_option_address(sd_dhcp_message *message, uint8_t code, const struct in_addr *addr) {
+        assert(message);
+        assert(addr);
+        return dhcp_message_append_option_be32(message, code, addr->s_addr);
+}
+
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret) {
         int r;
 
@@ -230,6 +236,11 @@ int dhcp_message_get_option_sec(sd_dhcp_message *message, uint8_t code, bool max
         if (ret)
                 *ret = be32_sec_to_usec(t, max_as_infinity);
         return 0;
+}
+
+int dhcp_message_get_option_address(sd_dhcp_message *message, uint8_t code, struct in_addr *ret) {
+        assert(message);
+        return dhcp_message_get_option_be32(message, code, ret ? &ret->s_addr : NULL);
 }
 
 static int dhcp_message_verify_header(
