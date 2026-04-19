@@ -39,6 +39,7 @@ int dhcp_message_append_option_client_id(sd_dhcp_message *message, const sd_dhcp
 int dhcp_message_append_option_parameter_request_list(sd_dhcp_message *message, Set *prl);
 int dhcp_message_append_option_hostname(sd_dhcp_message *message, uint8_t flags, bool is_client, const char *hostname);
 int dhcp_message_append_option_vendor_specific(sd_dhcp_message *message, Hashmap *options);
+int dhcp_message_append_option_user_class(sd_dhcp_message *message, const struct iovec_wrapper *user_class);
 
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret);
 int dhcp_message_get_option_alloc(sd_dhcp_message *message, uint8_t code, size_t *ret_size, void **ret_data);
@@ -57,6 +58,7 @@ int dhcp_message_get_option_fqdn(sd_dhcp_message *message, uint8_t *ret_flags, c
 int dhcp_message_get_option_dns_name(sd_dhcp_message *message, uint8_t code, char **ret);
 int dhcp_message_get_option_hostname(sd_dhcp_message *message, char **ret);
 int dhcp_message_get_option_vendor_specific(sd_dhcp_message *message, Hashmap **ret);
+int dhcp_message_get_option_user_class(sd_dhcp_message *message, struct iovec_wrapper *ret);
 
 int dhcp_message_parse(
                 const struct iovec *iov,

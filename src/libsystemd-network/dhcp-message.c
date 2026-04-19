@@ -311,6 +311,32 @@ int dhcp_message_append_option_vendor_specific(sd_dhcp_message *message, Hashmap
         return dhcp_message_append_option(message, SD_DHCP_OPTION_VENDOR_SPECIFIC, iov.iov_len, iov.iov_base);
 }
 
+int dhcp_message_append_option_user_class(sd_dhcp_message *message, const struct iovec_wrapper *user_class) {
+        assert(message);
+
+        if (iovw_isempty(user_class))
+                return 0;
+
+        size_t len = size_add(iovw_size(user_class), user_class->count);
+        if (len == SIZE_MAX)
+                return -ENOBUFS;
+
+        _cleanup_free_ uint8_t *buf = new(uint8_t, len);
+        if (!buf)
+                return -ENOMEM;
+
+        uint8_t *p = buf;
+        FOREACH_ARRAY(iov, user_class->iovec, user_class->count) {
+                if (iov->iov_len == 0 || iov->iov_len > UINT8_MAX)
+                        return -EINVAL;
+
+                *p++ = iov->iov_len;
+                p = mempcpy(p, iov->iov_base, iov->iov_len);
+        }
+
+        return dhcp_message_append_option(message, SD_DHCP_OPTION_USER_CLASS, len, buf);
+}
+
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret) {
         assert(message);
 
@@ -659,6 +685,41 @@ int dhcp_message_get_option_vendor_specific(sd_dhcp_message *message, Hashmap **
 
         if (ret)
                 *ret = TAKE_PTR(options);
+        return 0;
+}
+
+int dhcp_message_get_option_user_class(sd_dhcp_message *message, struct iovec_wrapper *ret) {
+        int r;
+
+        assert(message);
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_message_get_option_alloc_iovec(message, SD_DHCP_OPTION_USER_CLASS, &iov);
+        if (r < 0)
+                return r;
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+        for (struct iovec i = iov; iovec_is_set(&i);) {
+                uint8_t len = *(uint8_t*) i.iov_base;
+                if (len == 0)
+                        return -EBADMSG;
+
+                iovec_inc(&i, 1);
+                if (i.iov_len < len)
+                        return -EBADMSG;
+
+                r = iovw_extend(&iovw, i.iov_base, len);
+                if (r < 0)
+                        return r;
+
+                iovec_inc(&i, len);
+        }
+
+        if (iovw_isempty(&iovw))
+                return -ENODATA;
+
+        if (ret)
+                *ret = TAKE_STRUCT(iovw);
         return 0;
 }
 
