@@ -128,6 +128,12 @@ static void verify_sub_tlv(sd_dhcp_message *m, TLV *expected) {
         ASSERT_TRUE(iovec_equal(&iov, &iov_expected));
 }
 
+static void verify_length_prefixed_data(sd_dhcp_message *m, const struct iovec_wrapper *expected) {
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+        ASSERT_OK(dhcp_message_get_option_length_prefixed_data(m, SD_DHCP_OPTION_USER_CLASS, 1, &iovw));
+        ASSERT_TRUE(iovw_equal(&iovw, expected));
+}
+
 TEST(dhcp_message) {
         _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
 
@@ -166,6 +172,16 @@ TEST(dhcp_message) {
         const char *hostname = "test-node.example.com";
         const char *vendor_class = "hogehoge";
         char **root_path = STRV_MAKE("/path/to/root", "/hogehoge/foofoo");
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper user_class = {}, user_class_1 = {}, user_class_2 = {};
+        FOREACH_STRING(s, "hoge", "foo", "bar") {
+                ASSERT_OK(iovw_extend(&user_class, s, strlen(s)));
+                ASSERT_OK(iovw_extend(&user_class_1, s, strlen(s)));
+        }
+        FOREACH_STRING(s, "aaa", "bbb", "ccc") {
+                ASSERT_OK(iovw_extend(&user_class, s, strlen(s)));
+                ASSERT_OK(iovw_extend(&user_class_2, s, strlen(s)));
+        }
 
         _cleanup_(tlv_done) TLV vendor = TLV_INIT(TLV_DHCP4_SUBOPTION);
         for (unsigned i = 0; i < 3; i++) {
@@ -269,6 +285,11 @@ TEST(dhcp_message) {
         ASSERT_ERROR(dhcp_message_append_option_sub_tlv(m, SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION, &vendor), EEXIST);
         verify_sub_tlv(m, &vendor);
 
+        /* user class */
+        ASSERT_OK(dhcp_message_append_option_length_prefixed_data(m, SD_DHCP_OPTION_USER_CLASS, 1, &user_class_1));
+        ASSERT_OK(dhcp_message_append_option_length_prefixed_data(m, SD_DHCP_OPTION_USER_CLASS, 1, &user_class_2));
+        verify_length_prefixed_data(m, &user_class);
+
         /* build and parse */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
         ASSERT_OK(dhcp_message_build(m, &iovw));
@@ -301,6 +322,7 @@ TEST(dhcp_message) {
         verify_prl(m2, prl);
         verify_hostname(m2, hostname);
         verify_sub_tlv(m2, &vendor);
+        verify_length_prefixed_data(m2, &user_class);
 
         /* build again, and verify the packet */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw2 = {};
