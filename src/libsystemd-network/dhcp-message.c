@@ -3,6 +3,7 @@
 #include <net/if_arp.h>
 
 #include "alloc-util.h"
+#include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
 #include "dhcp-option.h"
 #include "ether-addr-util.h"
@@ -188,6 +189,19 @@ int dhcp_message_append_option_addresses(sd_dhcp_message *message, uint8_t code,
         return dhcp_message_append_option(message, code, sizeof(struct in_addr) * n_addr, addr);
 }
 
+int dhcp_message_append_option_client_id(sd_dhcp_message *message, const sd_dhcp_client_id *id) {
+        assert(message);
+        assert(id);
+
+        if (!sd_dhcp_client_id_is_set(id))
+                return -EINVAL;
+
+        if (message_has_option(message, SD_DHCP_OPTION_CLIENT_IDENTIFIER))
+                return -EEXIST;
+
+        return dhcp_message_append_option(message, SD_DHCP_OPTION_CLIENT_IDENTIFIER, id->size, id->raw);
+}
+
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret) {
         assert(message);
 
@@ -369,6 +383,21 @@ int dhcp_message_get_option_addresses(sd_dhcp_message *message, uint8_t code, si
         if (ret_n_addr)
                 *ret_n_addr = n;
         return 0;
+}
+
+int dhcp_message_get_option_client_id(sd_dhcp_message *message, sd_dhcp_client_id *ret) {
+        int r;
+
+        assert(message);
+        assert(ret);
+
+        _cleanup_free_ void *buf = NULL;
+        size_t len;
+        r = dhcp_message_get_option_alloc(message, SD_DHCP_OPTION_CLIENT_IDENTIFIER, &len, &buf);
+        if (r < 0)
+                return r;
+
+        return sd_dhcp_client_id_set_raw(ret, buf, len);
 }
 
 static int dhcp_message_verify_header(
