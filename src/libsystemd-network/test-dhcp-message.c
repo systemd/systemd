@@ -62,6 +62,8 @@ static void verify_address(sd_dhcp_message *m, const struct in_addr *expected) {
         struct in_addr a;
         ASSERT_OK(dhcp_message_get_option_be32(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, &a.s_addr));
         ASSERT_EQ(a.s_addr, expected->s_addr);
+        ASSERT_OK(dhcp_message_get_option_address(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, &a));
+        ASSERT_EQ(a.s_addr, expected->s_addr);
 }
 
 TEST(dhcp_message) {
@@ -136,6 +138,9 @@ TEST(dhcp_message) {
         /* address */
         ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, addr.s_addr));
         ASSERT_ERROR(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, addr.s_addr), EEXIST);
+        ASSERT_ERROR(dhcp_message_append_option_address(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, &addr), EEXIST);
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS);
+        ASSERT_OK(dhcp_message_append_option_address(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, &addr));
         verify_address(m, &addr);
 
         /* build and parse */
