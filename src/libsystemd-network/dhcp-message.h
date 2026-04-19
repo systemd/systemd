@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-dhcp-client-id.h"
 #include "sd-forward.h"
 
 #include "sparse-endian.h"
@@ -38,6 +39,7 @@ int dhcp_message_append_option_sec(sd_dhcp_message *message, uint8_t code, usec_
 int dhcp_message_append_option_address(sd_dhcp_message *message, uint8_t code, const struct in_addr *addr);
 int dhcp_message_append_option_addresses(sd_dhcp_message *message, uint8_t code, size_t n_addr, const struct in_addr *addr);
 int dhcp_message_append_option_string(sd_dhcp_message *message, uint8_t code, const char *data);
+int dhcp_message_append_option_client_id(sd_dhcp_message *message, const sd_dhcp_client_id *id);
 
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret);
 int dhcp_message_get_option_alloc(sd_dhcp_message *message, uint8_t code, struct iovec *ret);
@@ -49,6 +51,7 @@ int dhcp_message_get_option_sec(sd_dhcp_message *message, uint8_t code, bool max
 int dhcp_message_get_option_address(sd_dhcp_message *message, uint8_t code, struct in_addr *ret);
 int dhcp_message_get_option_addresses(sd_dhcp_message *message, uint8_t code, size_t *ret_n_addr, struct in_addr **ret_addr);
 int dhcp_message_get_option_string(sd_dhcp_message *message, uint8_t code, char **ret);
+int dhcp_message_get_option_client_id(sd_dhcp_message *message, sd_dhcp_client_id *ret);
 
 int dhcp_message_parse(
                 const struct iovec *iov,
