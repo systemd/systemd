@@ -292,6 +292,25 @@ int dhcp_message_append_option_hostname(sd_dhcp_message *message, uint8_t flags,
         return dhcp_message_append_option_fqdn(message, flags, is_client, hostname);
 }
 
+int dhcp_message_append_option_vendor_specific(sd_dhcp_message *message, Hashmap *options) {
+        int r;
+
+        assert(message);
+
+        if (hashmap_isempty(options))
+                return 0; /* No data to append. */
+
+        if (message_has_option(message, SD_DHCP_OPTION_VENDOR_SPECIFIC))
+                return -EEXIST;
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_options_build(options, &iov);
+        if (r < 0)
+                return r;
+
+        return dhcp_message_append_option(message, SD_DHCP_OPTION_VENDOR_SPECIFIC, iov.iov_len, iov.iov_base);
+}
+
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret) {
         assert(message);
 
@@ -618,6 +637,29 @@ int dhcp_message_get_option_hostname(sd_dhcp_message *message, char **ret) {
 
         /* Then, fall back to Host Name option. */
         return dhcp_message_get_option_dns_name(message, SD_DHCP_OPTION_HOST_NAME, ret);
+}
+
+int dhcp_message_get_option_vendor_specific(sd_dhcp_message *message, Hashmap **ret) {
+        int r;
+
+        assert(message);
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_message_get_option_alloc_iovec(message, SD_DHCP_OPTION_VENDOR_SPECIFIC, &iov);
+        if (r < 0)
+                return r;
+
+        _cleanup_hashmap_free_ Hashmap *options = NULL;
+        r = dhcp_options_parse(&options, &iov);
+        if (r < 0)
+                return r;
+
+        if (hashmap_isempty(options))
+                return -ENODATA;
+
+        if (ret)
+                *ret = TAKE_PTR(options);
+        return 0;
 }
 
 static int dhcp_message_verify_header(

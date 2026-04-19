@@ -103,6 +103,27 @@ static void verify_hostname(sd_dhcp_message *m, const char *expected) {
         ASSERT_STREQ(s, expected);
 }
 
+static void verify_vendor(sd_dhcp_message *m, Hashmap *expected) {
+        _cleanup_(iovec_done) struct iovec iov1 = {}, iov2 = {}, iov_expected = {};
+
+        ASSERT_OK(dhcp_options_build(expected, &iov_expected));
+
+        ASSERT_OK(dhcp_message_get_option_alloc_iovec(m, SD_DHCP_OPTION_VENDOR_SPECIFIC, &iov1));
+        ASSERT_TRUE(iovec_equal(&iov1, &iov_expected));
+
+        _cleanup_hashmap_free_ Hashmap *v = NULL;
+        ASSERT_OK(dhcp_message_get_option_vendor_specific(m, &v));
+        ASSERT_EQ(hashmap_size(v), hashmap_size(expected));
+        sd_dhcp_option *option;
+        HASHMAP_FOREACH(option, expected) {
+                sd_dhcp_option *o = ASSERT_NOT_NULL(hashmap_get(v, UINT8_TO_PTR(option->option)));
+                ASSERT_EQ(memcmp_nn(o->data, o->length, option->data, option->length), 0);
+        }
+
+        ASSERT_OK(dhcp_options_build(v, &iov2));
+        ASSERT_TRUE(iovec_equal(&iov2, &iov_expected));
+}
+
 TEST(dhcp_message) {
         _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
 
@@ -141,6 +162,13 @@ TEST(dhcp_message) {
         const char *hostname = "test-node.example.com";
         const char *vendor_class = "hogehoge";
         char **root_path = STRV_MAKE("/path/to/root", "/hogehoge/foofoo");
+
+        _cleanup_hashmap_free_ Hashmap *vendor = NULL;
+        for (unsigned i = 0; i < 3; i++) {
+                uint8_t buf[255];
+                memset(buf, 42 + i, sizeof(buf));
+                ASSERT_OK(dhcp_options_append(&vendor, i + 1, 255, buf));
+        }
 
         ASSERT_OK(dhcp_message_init_header(
                                   m,
@@ -226,6 +254,13 @@ TEST(dhcp_message) {
         ASSERT_OK(dhcp_message_append_option_hostname(m, /* flags= */ 0, /* is_client= */ false, hostname));
         verify_hostname(m, hostname);
 
+        /* vendor specific */
+        ASSERT_OK(dhcp_message_append_option_vendor_specific(m, vendor));
+        ASSERT_ERROR(dhcp_message_append_option_vendor_specific(m, vendor), EEXIST);
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_VENDOR_SPECIFIC);
+        ASSERT_OK(dhcp_message_append_option_vendor_specific(m, vendor));
+        verify_vendor(m, vendor);
+
         /* build and parse */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
         ASSERT_OK(dhcp_message_build(m, &iovw));
@@ -257,6 +292,7 @@ TEST(dhcp_message) {
         verify_client_id(m2, &id);
         verify_prl(m2, prl);
         verify_hostname(m2, hostname);
+        verify_vendor(m2, vendor);
 
         /* build again, and verify the packet */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw2 = {};
