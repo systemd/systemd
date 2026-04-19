@@ -2,12 +2,14 @@
 
 #include <net/if_arp.h>
 
+#include "alloc-util.h"
 #include "dhcp-message.h"
 #include "dhcp-protocol.h"
 #include "ether-addr-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "random-util.h"
+#include "strv.h"
 #include "tests.h"
 
 static void verify_header(sd_dhcp_message *m, uint32_t xid, const struct hw_addr_data *hw_addr) {
@@ -69,6 +71,19 @@ static void verify_addresses(
         ASSERT_EQ(memcmp(addrs, ntp, sizeof(struct in_addr) * n), 0);
 }
 
+static void verify_string(sd_dhcp_message *m, const char *expected) {
+        _cleanup_free_ char *s = NULL;
+        ASSERT_OK(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, &s));
+        ASSERT_STREQ(s, expected);
+}
+
+static void verify_multiple_strings(sd_dhcp_message *m, char * const *expected) {
+        _cleanup_free_ char *s = NULL;
+        ASSERT_OK(dhcp_message_get_option_string(m, SD_DHCP_OPTION_ROOT_PATH, &s));
+        _cleanup_free_ char *joined = ASSERT_NOT_NULL(strv_join(expected, /* separator= */ ""));
+        ASSERT_STREQ(s, joined);
+}
+
 TEST(dhcp_message) {
         _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
 
@@ -95,6 +110,9 @@ TEST(dhcp_message) {
                 { .s_addr = htobe32(0xC0000204) },
         };
 
+        const char *vendor_class = "hogehoge";
+        char **root_path = STRV_MAKE("/path/to/root", "/hogehoge/foofoo");
+
         ASSERT_OK(dhcp_message_init_header(
                                   m,
                                   BOOTREQUEST,
@@ -107,6 +125,11 @@ TEST(dhcp_message) {
 
         ASSERT_ERROR(dhcp_message_append_option(m, SD_DHCP_OPTION_PAD, 0, NULL), EINVAL);
         ASSERT_ERROR(dhcp_message_append_option(m, SD_DHCP_OPTION_END, 0, NULL), EINVAL);
+
+        /* multiple strings */
+        STRV_FOREACH(s, root_path)
+                ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_ROOT_PATH, strlen(*s), *s));
+        verify_multiple_strings(m, root_path);
 
         /* flag */
         ASSERT_ERROR(dhcp_message_get_option_flag(m, SD_DHCP_OPTION_RAPID_COMMIT), ENODATA);
@@ -143,6 +166,19 @@ TEST(dhcp_message) {
         ASSERT_OK(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_NTP_SERVER, ELEMENTSOF(ntp) - 1, ntp + 1));
         verify_addresses(m, ELEMENTSOF(ntp), ntp);
 
+        /* string */
+        ASSERT_ERROR(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, NULL), ENODATA);
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, 0, NULL));
+        ASSERT_ERROR(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, NULL), ENODATA);
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, 1, "\0"));
+        ASSERT_ERROR(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, NULL), ENODATA);
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, 9, "hoge\0hoge"));
+        ASSERT_ERROR(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, NULL), EBADMSG);
+        ASSERT_ERROR(dhcp_message_append_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, vendor_class), EEXIST);
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER);
+        ASSERT_OK(dhcp_message_append_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, vendor_class));
+        verify_string(m, vendor_class);
+
         /* build and parse */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
         ASSERT_OK(dhcp_message_build(m, &iovw));
@@ -163,12 +199,14 @@ TEST(dhcp_message) {
 
         /* verify parsed message */
         verify_header(m2, xid, &hw_addr);
+        verify_multiple_strings(m2, root_path);
         verify_flag(m2);
         verify_u8(m2, DHCP_DISCOVER);
         verify_u16(m2, 512);
         verify_sec(m2, lease_time);
         verify_address(m2, &addr);
         verify_addresses(m2, ELEMENTSOF(ntp), ntp);
+        verify_string(m2, vendor_class);
 
         /* build again, and verify the packet */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw2 = {};
