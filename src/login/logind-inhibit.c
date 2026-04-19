@@ -533,6 +533,7 @@ int inhibitor_build_json(Inhibitor *i, sd_json_variant **ret) {
         assert(i);
         assert(ret);
         assert(i->mode >= 0 && i->mode < _INHIBIT_MODE_MAX);
+        assert(inhibit_what_is_valid(i->what));
 
         return sd_json_buildo(
                         ret,
