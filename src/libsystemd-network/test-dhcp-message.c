@@ -97,6 +97,12 @@ static void verify_prl(sd_dhcp_message *m, Set *expected) {
         ASSERT_TRUE(set_equal(set, expected));
 }
 
+static void verify_hostname(sd_dhcp_message *m, const char *expected) {
+        _cleanup_free_ char *s = NULL;
+        ASSERT_OK(dhcp_message_get_option_hostname(m, &s));
+        ASSERT_STREQ(s, expected);
+}
+
 TEST(dhcp_message) {
         _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
 
@@ -132,6 +138,7 @@ TEST(dhcp_message) {
         for (uint8_t i = SD_DHCP_OPTION_PRIVATE_BASE; i <= SD_DHCP_OPTION_PRIVATE_LAST; i++)
                 ASSERT_OK(set_ensure_put(&prl, /* hash_ops= */ NULL, UINT_TO_PTR(i)));
 
+        const char *hostname = "test-node.example.com";
         const char *vendor_class = "hogehoge";
         char **root_path = STRV_MAKE("/path/to/root", "/hogehoge/foofoo");
 
@@ -205,6 +212,20 @@ TEST(dhcp_message) {
         ASSERT_OK(dhcp_message_append_option_parameter_request_list(m, prl));
         verify_prl(m, prl);
 
+        /* hostname */
+        ASSERT_OK(dhcp_message_append_option_hostname(m, /* flags= */ 0, /* is_client= */ false, "hogehoge"));
+        ASSERT_ERROR(dhcp_message_append_option_hostname(m, /* flags= */ 0, /* is_client= */ false, hostname), EEXIST);
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_FQDN);
+        ASSERT_ERROR(dhcp_message_append_option_hostname(m, /* flags= */ 0, /* is_client= */ false, hostname), EEXIST);
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_HOST_NAME);
+        ASSERT_OK(dhcp_message_append_option_hostname(m, /* flags= */ 0, /* is_client= */ false, "hogehoge.example.com"));
+        ASSERT_ERROR(dhcp_message_append_option_hostname(m, /* flags= */ 0, /* is_client= */ false, hostname), EEXIST);
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_HOST_NAME);
+        ASSERT_ERROR(dhcp_message_append_option_hostname(m, /* flags= */ 0, /* is_client= */ false, hostname), EEXIST);
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_FQDN);
+        ASSERT_OK(dhcp_message_append_option_hostname(m, /* flags= */ 0, /* is_client= */ false, hostname));
+        verify_hostname(m, hostname);
+
         /* build and parse */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
         ASSERT_OK(dhcp_message_build(m, &iovw));
@@ -235,6 +256,7 @@ TEST(dhcp_message) {
         verify_addresses(m2, ELEMENTSOF(ntp), ntp);
         verify_client_id(m2, &id);
         verify_prl(m2, prl);
+        verify_hostname(m2, hostname);
 
         /* build again, and verify the packet */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw2 = {};

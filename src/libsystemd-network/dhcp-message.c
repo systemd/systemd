@@ -6,8 +6,11 @@
 #include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
 #include "dhcp-option.h"
+#include "dns-domain.h"
+#include "errno-util.h"
 #include "ether-addr-util.h"
 #include "hashmap.h"
+#include "hostname-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "ip-util.h"
@@ -231,6 +234,62 @@ int dhcp_message_append_option_parameter_request_list(sd_dhcp_message *message, 
         typesafe_qsort(buf, len, cmp_uint8);
 
         return dhcp_message_append_option(message, SD_DHCP_OPTION_PARAMETER_REQUEST_LIST, len, buf);
+}
+
+static int dhcp_message_append_option_fqdn(sd_dhcp_message *message, uint8_t flags, bool is_client, const char *fqdn) {
+        int r;
+
+        assert(message);
+        assert(fqdn);
+
+        /* FIXME: Allow long fqdn, as now we support long option. */
+        uint8_t buf[3 + DHCP_MAX_FQDN_LENGTH];
+
+        /* RFC 4702 section 2.1
+         * The "E" bit indicates the encoding of the Domain Name field. 1 indicates canonical wire format,
+         * without compression. This encoding SHOULD be used by clients and MUST be supported by servers.
+         * A server MUST use the same encoding as that used by the client. A server that does not support
+         * the deprecated ASCII encoding MUST ignore Client FQDN options that use that encoding.
+         *
+         * Here, we unconditionally set the 'E' flag. Hence, sd_dhcp_server must ignore the option if a
+         * client does not set the 'E' flag in the request. */
+        buf[0] = flags | DHCP_FQDN_FLAG_E;
+
+        /* RFC 4702 section 2.2
+         * The two 1-octet RCODE1 and RCODE2 fields are deprecated. A client SHOULD set these to 0 when
+         * sending the option and SHOULD ignore them on receipt. A server SHOULD set these to 255 when
+         * sending the option and MUST ignore them on receipt. */
+        buf[1] = is_client ? 0 : 255;
+        buf[2] = is_client ? 0 : 255;
+
+        r = dns_name_to_wire_format(fqdn, buf + 3, sizeof(buf) - 3, false);
+        if (r <= 0)
+                return r;
+
+        return dhcp_message_append_option(message, SD_DHCP_OPTION_FQDN, 3 + r, buf);
+}
+
+int dhcp_message_append_option_hostname(sd_dhcp_message *message, uint8_t flags, bool is_client, const char *hostname) {
+        assert(message);
+
+        /* Hostname (12) or FQDN (81)
+         *
+         * RFC 4702 section 3.1
+         * clients that send the Client FQDN option in their messages MUST NOT also send the Host Name option. */
+
+        if (isempty(hostname))
+                return 0;
+
+        if (message_has_option(message, SD_DHCP_OPTION_HOST_NAME))
+                return -EEXIST;
+
+        if (message_has_option(message, SD_DHCP_OPTION_FQDN))
+                return -EEXIST;
+
+        if (dns_name_is_single_label(hostname))
+                return dhcp_message_append_option_string(message, SD_DHCP_OPTION_HOST_NAME, hostname);
+
+        return dhcp_message_append_option_fqdn(message, flags, is_client, hostname);
 }
 
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret) {
@@ -457,6 +516,108 @@ int dhcp_message_get_option_parameter_request_list(sd_dhcp_message *message, Set
 
         *ret = TAKE_PTR(prl);
         return 0;
+}
+
+static int normalize_dns_name(const char *name, char **ret) {
+        int r;
+
+        assert(name);
+
+        _cleanup_free_ char *normalized = NULL;
+        r = dns_name_normalize(name, /* flags= */ 0, &normalized);
+        if (r < 0)
+                return r;
+
+        if (is_localhost(normalized))
+                return -EINVAL;
+
+        if (dns_name_is_root(normalized))
+                return -EINVAL;
+
+        if (ret)
+                *ret = TAKE_PTR(normalized);
+        return 0;
+}
+
+int dhcp_message_get_option_fqdn(sd_dhcp_message *message, uint8_t *ret_flags, char **ret_fqdn) {
+        int r;
+
+        assert(message);
+
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t len;
+        r = dhcp_message_get_option_alloc(message, SD_DHCP_OPTION_FQDN, &len, (void**) &buf);
+        if (r < 0)
+                return r;
+
+        if (len <= 3)
+                return -EBADMSG;
+
+        if (!FLAGS_SET(buf[0], DHCP_FQDN_FLAG_E))
+                return -EOPNOTSUPP;
+
+        const uint8_t *p = buf + 3;
+        len -= 3;
+
+        _cleanup_free_ char *name = NULL;
+        r = dns_name_from_wire_format(&p, &len, &name);
+        if (r < 0)
+                return r;
+
+        if (isempty(name))
+                return -ENODATA;
+
+        if (!utf8_is_valid(name) || string_has_cc(name, /* ok= */ NULL))
+                return -EBADMSG;
+
+        _cleanup_free_ char *normalized = NULL;
+        r = normalize_dns_name(name, &normalized);
+        if (r < 0)
+                return r;
+
+        if (ret_flags)
+                *ret_flags = buf[0];
+        if (ret_fqdn)
+                *ret_fqdn = TAKE_PTR(normalized);
+        return 0;
+}
+
+int dhcp_message_get_option_dns_name(sd_dhcp_message *message, uint8_t code, char **ret) {
+        int r;
+
+        assert(message);
+
+        /* Mainly for Host Name or Domain Name options. */
+
+        _cleanup_free_ char *name = NULL;
+        r = dhcp_message_get_option_string(message, code, &name);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *normalized = NULL;
+        r = normalize_dns_name(name, &normalized);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = TAKE_PTR(normalized);
+        return 0;
+}
+
+int dhcp_message_get_option_hostname(sd_dhcp_message *message, char **ret) {
+        int r;
+
+        assert(message);
+
+        /* FQDN option always takes precedence. */
+        r = dhcp_message_get_option_fqdn(message, /* ret_flags= */ NULL, ret);
+        if (ERRNO_IS_NEG_RESOURCE(r))
+                return r;
+        if (r >= 0)
+                return 0;
+
+        /* Then, fall back to Host Name option. */
+        return dhcp_message_get_option_dns_name(message, SD_DHCP_OPTION_HOST_NAME, ret);
 }
 
 static int dhcp_message_verify_header(
