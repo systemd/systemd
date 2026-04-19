@@ -3,6 +3,7 @@
 #include <net/if_arp.h>
 
 #include "alloc-util.h"
+#include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
 #include "dhcp-protocol.h"
 #include "ether-addr-util.h"
@@ -84,6 +85,12 @@ static void verify_multiple_strings(sd_dhcp_message *m, char * const *expected) 
         ASSERT_STREQ(s, joined);
 }
 
+static void verify_client_id(sd_dhcp_message *m, const sd_dhcp_client_id *expected) {
+        sd_dhcp_client_id id = {};
+        ASSERT_OK(dhcp_message_get_option_client_id(m, &id));
+        ASSERT_EQ(client_id_compare_func(&id, expected), 0);
+}
+
 TEST(dhcp_message) {
         _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
 
@@ -108,6 +115,11 @@ TEST(dhcp_message) {
                 { .s_addr = htobe32(0xC0000202) },
                 { .s_addr = htobe32(0xC0000203) },
                 { .s_addr = htobe32(0xC0000204) },
+        };
+
+        sd_dhcp_client_id id = {
+                .raw = { 1, 3, 3, 3, 3, 3, 3, },
+                .size = 7,
         };
 
         const char *vendor_class = "hogehoge";
@@ -179,6 +191,10 @@ TEST(dhcp_message) {
         ASSERT_OK(dhcp_message_append_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, vendor_class));
         verify_string(m, vendor_class);
 
+        /* client ID */
+        ASSERT_OK(dhcp_message_append_option_client_id(m, &id));
+        verify_client_id(m, &id);
+
         /* build and parse */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
         ASSERT_OK(dhcp_message_build(m, &iovw));
@@ -207,6 +223,7 @@ TEST(dhcp_message) {
         verify_address(m2, &addr);
         verify_addresses(m2, ELEMENTSOF(ntp), ntp);
         verify_string(m2, vendor_class);
+        verify_client_id(m2, &id);
 
         /* build again, and verify the packet */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw2 = {};
