@@ -3662,7 +3662,7 @@ static int unpeel_get_fd(const char *mount_path, int *ret_fd) {
                         _exit(EXIT_FAILURE);
                 }
                 if (r > 0) {
-                        log_debug_errno(r, "'%s' is still an overlay after opening mount tree: %m", mount_path);
+                        log_debug("'%s' is still an overlay after opening mount tree", mount_path);
                         _exit(EXIT_FAILURE);
                 }
 
