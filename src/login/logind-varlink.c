@@ -353,7 +353,7 @@ static int vl_method_list_sessions(sd_varlink *link, sd_json_variant *parameters
         if (r != 0)
                 return r;
 
-        r = sd_varlink_set_sentinel(link, /* error_id= */ NULL);
+        r = sd_varlink_set_sentinel(link, "io.systemd.Login.NoSuchSession");
         if (r < 0)
                 return r;
 
@@ -447,7 +447,7 @@ static int vl_method_list_users(sd_varlink *link, sd_json_variant *parameters, s
         if (r != 0)
                 return r;
 
-        r = sd_varlink_set_sentinel(link, /* error_id= */ NULL);
+        r = sd_varlink_set_sentinel(link, "io.systemd.Login.NoSuchUser");
         if (r < 0)
                 return r;
 
@@ -540,7 +540,7 @@ static int vl_method_list_seats(sd_varlink *link, sd_json_variant *parameters, s
         if (r != 0)
                 return r;
 
-        r = sd_varlink_set_sentinel(link, /* error_id= */ NULL);
+        r = sd_varlink_set_sentinel(link, "io.systemd.Login.NoSuchSeat");
         if (r < 0)
                 return r;
 
@@ -570,7 +570,7 @@ static int vl_method_list_inhibitors(sd_varlink *link, sd_json_variant *paramete
         if (r != 0)
                 return r;
 
-        r = sd_varlink_set_sentinel(link, /* error_id= */ NULL);
+        r = sd_varlink_set_sentinel(link, "io.systemd.Login.NoSuchInhibitor");
         if (r < 0)
                 return r;
 
