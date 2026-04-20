@@ -36,6 +36,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "login-util.h"
 #include "logind-session.h"
 #include "logind.h"
@@ -49,6 +50,7 @@
 #include "logind-user.h"
 #include "logind-user-dbus.h"
 #include "logind-utmp.h"
+#include "logind-varlink.h"
 #include "mkdir-label.h"
 #include "os-util.h"
 #include "parse-util.h"
@@ -77,6 +79,8 @@
  * allow 4k.
  */
 #define WALL_MESSAGE_MAX 4096U
+
+#define SHUTDOWN_SCHEDULE_FILE "/run/systemd/shutdown/scheduled"
 
 static int get_sender_session(
                 Manager *m,
@@ -1942,6 +1946,19 @@ static int send_prepare_for(Manager *m, const HandleActionData *a, bool _active)
 
         assert(IN_SET(a->inhibit_what, INHIBIT_SHUTDOWN, INHIBIT_SLEEP));
 
+        /* Also notify Varlink subscribers */
+        {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *data = NULL;
+                (void) sd_json_buildo(
+                                &data,
+                                SD_JSON_BUILD_PAIR_BOOLEAN("Active", active),
+                                SD_JSON_BUILD_PAIR_STRING("Type", handle_action_to_string(a->handle)));
+                (void) manager_varlink_notify_manager_event(
+                                m,
+                                a->inhibit_what == INHIBIT_SHUTDOWN ? "PrepareForShutdown" : "PrepareForSleep",
+                                data);
+        }
+
         /* We need to send both old and new signal for backward compatibility. The newer one allows clients
          * to know which type of reboot is going to happen, as they might be doing different actions (e.g.:
          * on soft-reboot), and it is sent first, so that clients know that if they receive the old one
@@ -2115,7 +2132,7 @@ static int delay_shutdown_or_sleep(
         return 0;
 }
 
-static void cancel_delayed_action(Manager *m) {
+void cancel_delayed_action(Manager *m) {
         assert(m);
 
         (void) sd_event_source_set_enabled(m->inhibit_timeout_source, SD_EVENT_OFF);
@@ -2443,7 +2460,30 @@ static usec_t nologin_timeout_usec(usec_t elapse) {
         return LESS_BY(elapse, 5 * USEC_PER_MINUTE);
 }
 
-static int update_schedule_file(Manager *m) {
+void reset_scheduled_shutdown(Manager *m) {
+        assert(m);
+
+        m->scheduled_shutdown_timeout_source = sd_event_source_disable_unref(m->scheduled_shutdown_timeout_source);
+        m->wall_message_timeout_source = sd_event_source_disable_unref(m->wall_message_timeout_source);
+        m->nologin_timeout_source = sd_event_source_disable_unref(m->nologin_timeout_source);
+
+        m->scheduled_shutdown_action = _HANDLE_ACTION_INVALID;
+        m->scheduled_shutdown_timeout = USEC_INFINITY;
+        m->scheduled_shutdown_uid = UID_INVALID;
+        m->scheduled_shutdown_tty = mfree(m->scheduled_shutdown_tty);
+        m->shutdown_dry_run = false;
+
+        if (m->unlink_nologin) {
+                (void) unlink_or_warn("/run/nologin");
+                m->unlink_nologin = false;
+        }
+
+        (void) unlink(SHUTDOWN_SCHEDULE_FILE);
+
+        manager_send_changed(m, "ScheduledShutdown");
+}
+
+int update_schedule_file(Manager *m) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -2539,7 +2579,7 @@ error:
         return r;
 }
 
-static int manager_setup_shutdown_timers(Manager* m) {
+int manager_setup_shutdown_timers(Manager* m) {
         int r;
 
         assert(m);
