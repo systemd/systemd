@@ -31,7 +31,7 @@ int load_volume_key_password(
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire password from environment: %m");
         if (r > 0) {
-                r = crypt_volume_key_get(
+                r = sym_crypt_volume_key_get(
                                 cd,
                                 CRYPT_ANY_SLOT,
                                 ret_vk,
@@ -81,7 +81,7 @@ int load_volume_key_password(
 
                         r = -EPERM;
                         STRV_FOREACH(p, passwords) {
-                                r = crypt_volume_key_get(
+                                r = sym_crypt_volume_key_get(
                                                 cd,
                                                 CRYPT_ANY_SLOT,
                                                 ret_vk,
@@ -114,7 +114,7 @@ int enroll_password(
         assert(cd);
         assert(iovec_is_set(volume_key));
 
-        assert_se(node = crypt_get_device_name(cd));
+        assert_se(node = sym_crypt_get_device_name(cd));
 
         r = getenv_steal_erase("NEWPASSWORD", &new_password);
         if (r < 0)
@@ -123,7 +123,7 @@ int enroll_password(
                 _cleanup_free_ char *disk_path = NULL, *id = NULL;
                 unsigned i = 5;
 
-                assert_se(node = crypt_get_device_name(cd));
+                assert_se(node = sym_crypt_get_device_name(cd));
 
                 (void) suggest_passwords();
 
@@ -196,7 +196,7 @@ int enroll_password(
         else if (r == 0)
                 log_warning("Specified password does not pass quality checks (%s), proceeding anyway.", error);
 
-        keyslot = crypt_keyslot_add_by_volume_key(
+        keyslot = sym_crypt_keyslot_add_by_volume_key(
                         cd,
                         CRYPT_ANY_SLOT,
                         volume_key->iov_base,
