@@ -35,6 +35,7 @@ _bootctl() {
         [STANDALONE]='-h --help --version
                       -p --print-esp-path -x --print-boot-path --print-loader-path
                       --print-stub-path -R --print-root-device -RR
+                      --print-efi-architecture
                       --no-pager --graceful -q --quiet --all-architectures
                       --dry-run'
         [ARG]='--esp-path --boot-path --root --image --image-policy --install-source
@@ -86,7 +87,7 @@ _bootctl() {
         [STANDALONE]='help status install update remove is-installed random-seed list set-timeout set-timeout-oneshot cleanup'
         [BOOTENTRY]='set-default set-oneshot set-sysfail unlink'
         [BOOLEAN]='reboot-to-firmware'
-        [FILE]='kernel-identify kernel-inspect'
+        [FILE]='kernel-identify kernel-inspect link'
     )
 
     for ((i=0; i < COMP_CWORD; i++)); do

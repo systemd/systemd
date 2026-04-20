@@ -111,8 +111,8 @@ static int set_system_token(void) {
         return 0;
 }
 
-int install_random_seed(const char *esp) {
-        _cleanup_close_ int esp_fd = -EBADF, loader_dir_fd = -EBADF, fd = -EBADF;
+int install_random_seed(const char *esp, int esp_fd) {
+        _cleanup_close_ int loader_dir_fd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *tmp = NULL;
         uint8_t buffer[RANDOM_EFI_SEED_SIZE];
         struct sha256_ctx hash_state;
@@ -120,15 +120,12 @@ int install_random_seed(const char *esp) {
         int r;
 
         assert(esp);
+        assert(esp_fd >= 0);
 
         assert_cc(RANDOM_EFI_SEED_SIZE == SHA256_DIGEST_SIZE);
 
         if (!arg_install_random_seed)
                 return 0;
-
-        esp_fd = open(esp, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
-        if (esp_fd < 0)
-                return log_error_errno(errno, "Failed to open ESP directory '%s': %m", esp);
 
         (void) random_seed_verify_permissions(esp_fd, S_IFDIR);
 
@@ -204,7 +201,8 @@ int install_random_seed(const char *esp) {
 int verb_random_seed(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
-        r = find_esp_and_warn(arg_root, arg_esp_path, /* unprivileged_mode= */ false, &arg_esp_path);
+        _cleanup_close_ int esp_fd = -EBADF;
+        r = find_esp_and_warn(arg_root, arg_esp_path, /* unprivileged_mode= */ false, &arg_esp_path, &esp_fd);
         if (r == -ENOKEY) {
                 /* find_esp_and_warn() doesn't warn about ENOKEY, so let's do that on our own */
                 if (arg_graceful() == ARG_GRACEFUL_NO)
@@ -216,7 +214,7 @@ int verb_random_seed(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = install_random_seed(arg_esp_path);
+        r = install_random_seed(arg_esp_path, esp_fd);
         if (r < 0)
                 return r;
 
