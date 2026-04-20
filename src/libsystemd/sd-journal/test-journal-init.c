@@ -28,41 +28,39 @@ int main(int argc, char *argv[]) {
 
         log_info("Running %d loops", I);
 
-        assert_se(mkdtemp(t));
+        ASSERT_NOT_NULL(mkdtemp(t));
         (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL);
 
         for (i = 0; i < I; i++) {
-                r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_ASSUME_IMMUTABLE);
-                assert_se(r == 0);
+                ASSERT_OK_ZERO(sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_ASSUME_IMMUTABLE));
 
                 sd_journal_close(j);
 
-                r = sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE);
-                assert_se(r == 0);
+                ASSERT_OK_ZERO(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
 
-                assert_se(sd_journal_seek_head(j) == 0);
-                assert_se(j->current_location.type == LOCATION_HEAD);
+                ASSERT_OK_ZERO(sd_journal_seek_head(j));
+                ASSERT_EQ(j->current_location.type, (LocationType) LOCATION_HEAD);
 
                 r = pidref_safe_fork("(journal-fork-test)", FORK_WAIT|FORK_LOG, NULL);
                 if (r == 0) {
-                        assert_se(j);
+                        ASSERT_NOT_NULL(j);
                         ASSERT_RETURN_EXPECTED_SE(sd_journal_get_realtime_usec(j, NULL) == -ECHILD);
                         ASSERT_RETURN_EXPECTED_SE(sd_journal_seek_tail(j) == -ECHILD);
-                        assert_se(j->current_location.type == LOCATION_HEAD);
+                        ASSERT_EQ(j->current_location.type, (LocationType) LOCATION_HEAD);
                         sd_journal_close(j);
                         _exit(EXIT_SUCCESS);
                 }
 
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 sd_journal_close(j);
 
                 j = NULL;
-                ASSERT_RETURN_EXPECTED(assert_se(sd_journal_open_directory(&j, t, SD_JOURNAL_LOCAL_ONLY) == -EINVAL));
-                assert_se(j == NULL);
+                ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_open_directory(&j, t, SD_JOURNAL_LOCAL_ONLY), EINVAL));
+                ASSERT_NULL(j);
         }
 
-        assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+        ASSERT_OK(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL));
 
         return 0;
 }
