@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "log.h"
 #include "logind.h"
 #include "logind-brightness.h"
@@ -26,6 +27,7 @@
 #include "logind-seat-dbus.h"
 #include "logind-session.h"
 #include "logind-session-dbus.h"
+#include "logind-varlink.h"
 #include "logind-session-device.h"
 #include "logind-user.h"
 #include "logind-user-dbus.h"
@@ -845,6 +847,13 @@ int session_send_signal(Session *s, bool new_session) {
         p = session_bus_path(s);
         if (!p)
                 return -ENOMEM;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *data = NULL;
+        (void) sd_json_buildo(&data, SD_JSON_BUILD_PAIR_STRING("Id", s->id));
+        (void) manager_varlink_notify_manager_event(
+                        s->manager,
+                        new_session ? "SessionNew" : "SessionRemoved",
+                        data);
 
         return sd_bus_emit_signal(
                         s->manager->bus,

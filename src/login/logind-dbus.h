@@ -60,4 +60,9 @@ int manager_create_session(
                 char * const *extra_device_access,
                 Session **ret_session);
 
+void reset_scheduled_shutdown(Manager *m);
+int manager_setup_shutdown_timers(Manager *m);
+int update_schedule_file(Manager *m);
+void cancel_delayed_action(Manager *m);
+
 extern const BusObjectImplementation manager_object;
