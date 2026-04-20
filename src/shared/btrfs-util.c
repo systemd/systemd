@@ -1014,7 +1014,7 @@ int btrfs_subvol_remove_at(int dir_fd, const char *path, BtrfsRemoveFlags flags)
 
         assert(path);
 
-        fd = chase_and_openat(dir_fd, path, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_CLOEXEC, &subvolume);
+        fd = chase_and_openat(XAT_FDROOT, dir_fd, path, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_CLOEXEC, &subvolume);
         if (fd < 0)
                 return fd;
 
@@ -1427,7 +1427,7 @@ int btrfs_subvol_snapshot_at_full(
         if (old_fd < 0)
                 return old_fd;
 
-        new_fd = chase_and_openat(dir_fdt, to, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_CLOEXEC, &subvolume);
+        new_fd = chase_and_openat(XAT_FDROOT, dir_fdt, to, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_CLOEXEC, &subvolume);
         if (new_fd < 0)
                 return new_fd;
 

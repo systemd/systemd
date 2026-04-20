@@ -23,6 +23,7 @@ int is_symlink(const char *path);
 
 int stat_verify_socket(const struct stat *st);
 int statx_verify_socket(const struct statx *stx);
+int fd_verify_socket(int fd);
 int is_socket(const char *path);
 
 int stat_verify_linked(const struct stat *st);
