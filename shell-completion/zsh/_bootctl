@@ -28,6 +28,10 @@ _bootctl_unlink() {
     _bootctl_comp_ids
 }
 
+_bootctl_link() {
+    _files
+}
+
 _bootctl_reboot-to-firmware() {
     local -a _completions
     _completions=( yes no )
@@ -52,6 +56,7 @@ _bootctl_reboot-to-firmware() {
         "set-timeout:Set the menu timeout"
         "set-timeout-oneshot:Set the menu timeout for the next boot only"
         "unlink:Remove boot loader entry"
+        "link:Add boot loader entry"
         "cleanup:Remove files in ESP not referenced in any boot entry"
     )
     if (( CURRENT == 1 )); then
