@@ -3647,6 +3647,12 @@ int manager_reload(Manager *m) {
         /* 💀 This is the point of no return, from here on there is no way back. 💀 */
         reloading = NULL;
 
+        /* Bump before sending the Reloading signal, so any client that reads
+         * ReloadCount in response to that signal observes the new value.
+         * Saturate at UINT64_MAX so the counter never wraps back to 0. */
+        if (m->reload_count < UINT64_MAX)
+                m->reload_count++;
+
         bus_manager_send_reloading(m, true);
 
         /* Start by flushing out all jobs and units, all generated units, all runtime environments, all dynamic users
