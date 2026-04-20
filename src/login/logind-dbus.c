@@ -78,6 +78,8 @@
  */
 #define WALL_MESSAGE_MAX 4096U
 
+#define SHUTDOWN_SCHEDULE_FILE "/run/systemd/shutdown/scheduled"
+
 static int get_sender_session(
                 Manager *m,
                 sd_bus_message *message,
@@ -2115,7 +2117,7 @@ static int delay_shutdown_or_sleep(
         return 0;
 }
 
-static void cancel_delayed_action(Manager *m) {
+void cancel_delayed_action(Manager *m) {
         assert(m);
 
         (void) sd_event_source_set_enabled(m->inhibit_timeout_source, SD_EVENT_OFF);
@@ -2443,7 +2445,30 @@ static usec_t nologin_timeout_usec(usec_t elapse) {
         return LESS_BY(elapse, 5 * USEC_PER_MINUTE);
 }
 
-static int update_schedule_file(Manager *m) {
+void reset_scheduled_shutdown(Manager *m) {
+        assert(m);
+
+        m->scheduled_shutdown_timeout_source = sd_event_source_disable_unref(m->scheduled_shutdown_timeout_source);
+        m->wall_message_timeout_source = sd_event_source_disable_unref(m->wall_message_timeout_source);
+        m->nologin_timeout_source = sd_event_source_disable_unref(m->nologin_timeout_source);
+
+        m->scheduled_shutdown_action = _HANDLE_ACTION_INVALID;
+        m->scheduled_shutdown_timeout = USEC_INFINITY;
+        m->scheduled_shutdown_uid = UID_INVALID;
+        m->scheduled_shutdown_tty = mfree(m->scheduled_shutdown_tty);
+        m->shutdown_dry_run = false;
+
+        if (m->unlink_nologin) {
+                (void) unlink_or_warn("/run/nologin");
+                m->unlink_nologin = false;
+        }
+
+        (void) unlink(SHUTDOWN_SCHEDULE_FILE);
+
+        manager_send_changed(m, "ScheduledShutdown");
+}
+
+int update_schedule_file(Manager *m) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -2539,7 +2564,7 @@ error:
         return r;
 }
 
-static int manager_setup_shutdown_timers(Manager* m) {
+int manager_setup_shutdown_timers(Manager* m) {
         int r;
 
         assert(m);
