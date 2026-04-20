@@ -3595,7 +3595,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         if (current->n_suppress == 0) {
                                 _cleanup_free_ char *c = NULL;
 
-                                if (command == _JSON_BUILD_STRING_UNDERSCORIFY) {
+                                if (command == _JSON_BUILD_STRING_UNDERSCORIFY && p) {
                                         c = strdup(p);
                                         if (!c) {
                                                 r = -ENOMEM;
