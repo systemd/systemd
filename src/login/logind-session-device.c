@@ -9,6 +9,7 @@
 
 #include "sd-bus.h"
 #include "sd-device.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "daemon-util.h"
@@ -16,6 +17,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "logind.h"
 #include "logind-device.h"
 #include "logind-seat.h"
@@ -32,7 +34,7 @@ enum SessionDeviceNotifications {
         SESSION_DEVICE_RELEASE,
 };
 
-static int session_device_notify(SessionDevice *sd, enum SessionDeviceNotifications type) {
+static int session_device_notify_bus(SessionDevice *sd, enum SessionDeviceNotifications type) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *path = NULL;
         const char *t = NULL;
@@ -40,12 +42,10 @@ static int session_device_notify(SessionDevice *sd, enum SessionDeviceNotificati
         int r;
 
         assert(sd);
+        assert(sd->session->controller);
 
         major = major(sd->dev);
         minor = minor(sd->dev);
-
-        if (!sd->session->controller)
-                return 0;
 
         path = session_bus_path(sd->session);
         if (!path)
@@ -94,6 +94,56 @@ static int session_device_notify(SessionDevice *sd, enum SessionDeviceNotificati
         }
 
         return sd_bus_send(sd->session->manager->bus, m, NULL);
+}
+
+static int session_device_notify_varlink(SessionDevice *sd, enum SessionDeviceNotifications type) {
+        uint32_t major, minor;
+        const char *t = NULL;
+
+        assert(sd);
+        assert(sd->session->controller_varlink);
+
+        major = major(sd->dev);
+        minor = minor(sd->dev);
+
+        switch (type) {
+
+        case SESSION_DEVICE_RESUME:
+                t = "resume";
+                break;
+
+        case SESSION_DEVICE_TRY_PAUSE:
+                t = "pause";
+                break;
+
+        case SESSION_DEVICE_PAUSE:
+                t = "force";
+                break;
+
+        case SESSION_DEVICE_RELEASE:
+                t = "gone";
+                break;
+
+        default:
+                return -EINVAL;
+        }
+
+        return sd_varlink_notifybo(
+                        sd->session->controller_varlink,
+                        SD_JSON_BUILD_PAIR_STRING("Type", t),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Major", major),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("Minor", minor));
+}
+
+static int session_device_notify(SessionDevice *sd, enum SessionDeviceNotifications type) {
+        assert(sd);
+
+        if (sd->session->controller)
+                return session_device_notify_bus(sd, type);
+        if (sd->session->controller_varlink)
+                return session_device_notify_varlink(sd, type);
+
+        return 0;
 }
 
 static void sd_eviocrevoke(int fd) {
