@@ -23,13 +23,22 @@ _public_ const char *cryptsetup_token_version(void) {
         return TOKEN_VERSION_MAJOR "." TOKEN_VERSION_MINOR " systemd-v" PROJECT_VERSION_FULL " (" GIT_VERSION ")";
 }
 
-static int log_debug_open_error(struct crypt_device *cd, int r) {
+static int log_debug_open_error(struct crypt_device *cd, int token, int r) {
         if (r == -EAGAIN)
                 return crypt_log_debug_errno(cd, r, "TPM2 device not found.");
-        if (r == -ENXIO)
-                return crypt_log_debug_errno(cd, r, "No matching TPM2 token data found.");
+        if (r == -ENXIO) {
+                /* Remap to -EPERM so libcryptsetup's CRYPT_ANY_TOKEN loop keeps iterating. */
+                (void) crypt_log_debug_errno(cd, r, "Token %d: no matching TPM2 token data found.", token);
+                return -EPERM;
+        }
+        if (IN_SET(r, -EREMCHG, -EREMOTE)) {
+                /* Remap as above. Note: For now without -EUCLEAN because currently the only error it
+                 * reports won't be solved by moving to another token. */
+                (void) crypt_log_debug_errno(cd, r, "Token %d: TPM policy does not match current system state, skipping.", token);
+                return -EPERM;
+        }
 
-        return crypt_log_debug_errno(cd, r, TOKEN_NAME " open failed: %m.");
+        return crypt_log_debug_errno(cd, r, "Token %d: open failed: %m.", token);
 }
 
 _public_ int cryptsetup_token_open_pin(
@@ -73,8 +82,11 @@ _public_ int cryptsetup_token_open_pin(
                 params = *(systemd_tpm2_plugin_params *)usrptr;
 
         r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
-        if (r < 0)
-                return crypt_log_debug_errno(cd, r, "Failed to parse token JSON data: %m");
+        if (r < 0) {
+                /* Remap to -EPERM so libcryptsetup keeps iterating past a broken token. */
+                (void) crypt_log_debug_errno(cd, r, "Token %d: failed to parse JSON data: %m", token);
+                return -EPERM;
+        }
 
         struct iovec *blobs = NULL, *policy_hash = NULL;
         size_t n_blobs = 0, n_policy_hash = 0;
@@ -98,10 +110,13 @@ _public_ int cryptsetup_token_open_pin(
                         &pcrlock_nv,
                         &flags);
         if (r < 0)
-                return log_debug_open_error(cd, r);
+                return log_debug_open_error(cd, token, r);
 
-        if (params.search_pcr_mask != UINT32_MAX && hash_pcr_mask != params.search_pcr_mask)
-                return crypt_log_debug_errno(cd, ENXIO, "PCR mask doesn't match expectation (%" PRIu32 " vs. %" PRIu32 ")", hash_pcr_mask, params.search_pcr_mask);
+        if (params.search_pcr_mask != UINT32_MAX && hash_pcr_mask != params.search_pcr_mask) {
+                /* Remap to -EPERM so libcryptsetup keeps iterating to the next token. */
+                (void) crypt_log_debug_errno(cd, ENXIO, "Token %d: PCR mask doesn't match expectation (%" PRIu32 " vs. %" PRIu32 ")", token, hash_pcr_mask, params.search_pcr_mask);
+                return -EPERM;
+        }
 
         r = acquire_luks2_key(
                         params.device,
@@ -123,12 +138,12 @@ _public_ int cryptsetup_token_open_pin(
                         flags,
                         &decrypted_key);
         if (r < 0)
-                return log_debug_open_error(cd, r);
+                return log_debug_open_error(cd, token, r);
 
         /* Before using this key as passphrase we base64 encode it, for compat with homed */
         base64_encoded_size = base64mem(decrypted_key.iov_base, decrypted_key.iov_len, &base64_encoded);
         if (base64_encoded_size < 0)
-                return log_debug_open_error(cd, base64_encoded_size);
+                return log_debug_open_error(cd, token, base64_encoded_size);
 
         /* free'd automatically by libcryptsetup */
         *ret_password = TAKE_PTR(base64_encoded);
