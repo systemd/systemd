@@ -77,32 +77,32 @@ int read_partition_info(
         assert(t);
         assert(ret);
 
-        p = fdisk_table_get_partition(t, i);
+        p = sym_fdisk_table_get_partition(t, i);
         if (!p)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata.");
 
-        if (fdisk_partition_is_used(p) <= 0) {
+        if (sym_fdisk_partition_is_used(p) <= 0) {
                 *ret = (PartitionInfo) PARTITION_INFO_NULL;
                 return 0; /* not found! */
         }
 
-        if (fdisk_partition_has_partno(p) <= 0 ||
-            fdisk_partition_has_start(p) <= 0 ||
-            fdisk_partition_has_size(p) <= 0)
+        if (sym_fdisk_partition_has_partno(p) <= 0 ||
+            sym_fdisk_partition_has_start(p) <= 0 ||
+            sym_fdisk_partition_has_size(p) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Found a partition without a number, position or size.");
 
-        partno = fdisk_partition_get_partno(p);
+        partno = sym_fdisk_partition_get_partno(p);
 
-        start = fdisk_partition_get_start(p);
-        ssz = fdisk_get_sector_size(c);
+        start = sym_fdisk_partition_get_start(p);
+        ssz = sym_fdisk_get_sector_size(c);
         assert(start <= UINT64_MAX / ssz);
         start *= ssz;
 
-        size = fdisk_partition_get_size(p);
+        size = sym_fdisk_partition_get_size(p);
         assert(size <= UINT64_MAX / ssz);
         size *= ssz;
 
-        label = fdisk_partition_get_name(p);
+        label = sym_fdisk_partition_get_name(p);
         if (!label)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Found a partition without a label.");
 
@@ -118,7 +118,7 @@ int read_partition_info(
         if (r < 0)
                 return log_error_errno(r, "Failed to get partition flags: %m");
 
-        r = fdisk_partition_to_string(p, c, FDISK_FIELD_DEVICE, &device);
+        r = sym_fdisk_partition_to_string(p, c, FDISK_FIELD_DEVICE, &device);
         if (r != 0)
                 return log_error_errno(r, "Failed to get partition device name: %m");
 
@@ -161,18 +161,22 @@ int find_suitable_partition(
         POINTER_MAY_BE_NULL(partition_type);
         assert(ret);
 
+        r = dlopen_fdisk();
+        if (r < 0)
+                return r;
+
         r = fdisk_new_context_at(AT_FDCWD, device, /* read_only= */ true, /* sector_size= */ UINT32_MAX, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to create fdisk context from '%s': %m", device);
 
-        if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
+        if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
                 return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has no GPT disk label, not suitable.", device);
 
-        r = fdisk_get_partitions(c, &t);
+        r = sym_fdisk_get_partitions(c, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire partition table: %m");
 
-        n_partitions = fdisk_table_get_nents(t);
+        n_partitions = sym_fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++)  {
                 _cleanup_(partition_info_destroy) PartitionInfo pinfo = PARTITION_INFO_NULL;
 
@@ -226,11 +230,15 @@ int patch_partition(
         if (change == 0) /* Nothing to do */
                 return 0;
 
+        r = dlopen_fdisk();
+        if (r < 0)
+                return r;
+
         r = fdisk_new_context_at(AT_FDCWD, device, /* read_only= */ false, /* sector_size= */ UINT32_MAX, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to create fdisk context from '%s': %m", device);
 
-        assert_se((fd = fdisk_get_devfd(c)) >= 0);
+        assert_se((fd = sym_fdisk_get_devfd(c)) >= 0);
 
         /* Make sure udev doesn't read the device while we make changes (this lock is released automatically
          * by the kernel when the fd is closed, i.e. when the fdisk context is freed, hence no explicit
@@ -238,21 +246,21 @@ int patch_partition(
         if (flock(fd, LOCK_EX) < 0)
                 return log_error_errno(errno, "Failed to lock block device '%s': %m", device);
 
-        if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
+        if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
                 return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has no GPT disk label, not suitable.", device);
 
-        r = fdisk_get_partition(c, info->partno, &pa);
+        r = sym_fdisk_get_partition(c, info->partno, &pa);
         if (r < 0)
                 return log_error_errno(r, "Failed to read partition %zu of GPT label of '%s': %m", info->partno, device);
 
         if (change & PARTITION_LABEL) {
-                r = fdisk_partition_set_name(pa, info->label);
+                r = sym_fdisk_partition_set_name(pa, info->label);
                 if (r < 0)
                         return log_error_errno(r, "Failed to update partition label: %m");
         }
 
         if (change & PARTITION_UUID) {
-                r = fdisk_partition_set_uuid(pa, SD_ID128_TO_UUID_STRING(info->uuid));
+                r = sym_fdisk_partition_set_uuid(pa, SD_ID128_TO_UUID_STRING(info->uuid));
                 if (r < 0)
                         return log_error_errno(r, "Failed to update partition UUID: %m");
         }
@@ -260,15 +268,15 @@ int patch_partition(
         if (change & PARTITION_TYPE) {
                 _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *pt = NULL;
 
-                pt = fdisk_new_parttype();
+                pt = sym_fdisk_new_parttype();
                 if (!pt)
                         return log_oom();
 
-                r = fdisk_parttype_set_typestr(pt, SD_ID128_TO_UUID_STRING(info->type));
+                r = sym_fdisk_parttype_set_typestr(pt, SD_ID128_TO_UUID_STRING(info->type));
                 if (r < 0)
                         return log_error_errno(r, "Failed to initialize partition type: %m");
 
-                r = fdisk_partition_set_type(pa, pt);
+                r = sym_fdisk_partition_set_type(pa, pt);
                 if (r < 0)
                         return log_error_errno(r, "Failed to update partition type: %m");
         }
@@ -328,11 +336,11 @@ int patch_partition(
                 }
         }
 
-        r = fdisk_set_partition(c, info->partno, pa);
+        r = sym_fdisk_set_partition(c, info->partno, pa);
         if (r < 0)
                 return log_error_errno(r, "Failed to update partition: %m");
 
-        r = fdisk_write_disklabel(c);
+        r = sym_fdisk_write_disklabel(c);
         if (r < 0)
                 return log_error_errno(r, "Failed to write updated partition table: %m");
 
