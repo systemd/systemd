@@ -181,6 +181,13 @@ int statx_verify_socket(const struct statx *stx) {
         return mode_verify_socket(stx->stx_mode);
 }
 
+int fd_verify_socket(int fd) {
+        if (IN_SET(fd, AT_FDCWD, XAT_FDROOT))
+                return -EISDIR;
+
+        return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_socket, /* verify= */ true);
+}
+
 int is_socket(const char *path) {
         assert(!isempty(path));
         return verify_stat_at(AT_FDCWD, path, /* follow= */ true, stat_verify_socket, /* verify= */ false);
