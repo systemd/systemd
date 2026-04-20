@@ -45,15 +45,14 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
         uint64_t start, end;
         int r;
 
-        mmap_cache = mmap_cache_new();
-        assert_se(mmap_cache);
+        ASSERT_NOT_NULL(mmap_cache = mmap_cache_new());
 
         /* journal_file_open() requires a valid machine id */
         if (sd_id128_get_machine(NULL) < 0)
                 return log_tests_skipped("No valid machine ID found");
 
-        assert_se(mkdtemp_malloc("/tmp/journal-append-XXXXXX", &tempdir) >= 0);
-        assert_se(chdir(tempdir) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/journal-append-XXXXXX", &tempdir));
+        ASSERT_OK_ERRNO(chdir(tempdir));
         (void) chattr_path(tempdir, FS_NOCOW_FL, FS_NOCOW_FL);
 
         log_debug("Opening journal %s/system.journal", tempdir);
@@ -72,13 +71,13 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open the journal: %m");
 
-        assert_se(mj);
+        ASSERT_NOT_NULL(mj);
 
         /* Add a couple of initial messages */
         for (int i = 0; i < 10; i++) {
                 _cleanup_free_ char *message = NULL;
 
-                assert_se(asprintf(&message, "MESSAGE=Initial message %d", i) >= 0);
+                ASSERT_OK_ERRNO(asprintf(&message, "MESSAGE=Initial message %d", i));
                 r = journal_append_message(mj, message);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write to the journal: %m");
@@ -101,11 +100,9 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
                 uint8_t b;
 
                 /* Flip a bit in the journal file */
-                r = pread(mj->fd, &b, 1, offset);
-                assert_se(r == 1);
+                ASSERT_EQ(pread(mj->fd, &b, 1, offset), 1);
                 b |= 0x1;
-                r = pwrite(mj->fd, &b, 1, offset);
-                assert_se(r == 1);
+                ASSERT_EQ(pwrite(mj->fd, &b, 1, offset), 1);
 
                 /* Close and reopen the journal to flush all caches and remap
                  * the corrupted journal */
@@ -130,7 +127,7 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
                 }
 
                 /* Try to write something to the (possibly corrupted) journal */
-                assert_se(asprintf(&message, "MESSAGE=Hello world %" PRIu64, offset) >= 0);
+                ASSERT_OK_ERRNO(asprintf(&message, "MESSAGE=Hello world %" PRIu64, offset));
                 r = journal_append_message(mj, message);
                 if (r < 0) {
                         /* We care only about crashes or sanitizer errors,
@@ -173,8 +170,8 @@ int main(int argc, char *argv[]) {
                 {}
         };
 
-        assert_se(argc >= 0);
-        assert_se(argv);
+        ASSERT_GE(argc, 0);
+        ASSERT_NOT_NULL(argv);
 
         while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
                 switch (c) {
