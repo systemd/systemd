@@ -224,4 +224,48 @@ EOF
     rmdir /tmp/dditest
 fi
 
+# Ensure we iterate over foreign tokens, e.g., other PCR signing keys or LUKS
+# slots for other TPMs (e.g., external drives). This test makes it so that the
+# first tokens don't unseal but the last one will. This way we check that
+# iteration works.
+if openssl_supports_kdf SSKDF; then
+    # Foreign PCR-policy pubkeys (no matching signatures will be available)
+    openssl genpkey -algorithm RSA -out /tmp/unknown1.priv.pem -pkeyopt rsa_keygen_bits:2048
+    openssl rsa -in /tmp/unknown1.priv.pem -pubout -out /tmp/unknown1.pem
+    openssl genpkey -algorithm RSA -out /tmp/unknown2.priv.pem -pkeyopt rsa_keygen_bits:2048
+    openssl rsa -in /tmp/unknown2.priv.pem -pubout -out /tmp/unknown2.pem
+
+    # Foreign TPM pub key, created from random transient primary under the null hierarchy.
+    # Note: This hits TPM2_RC_SIZE not TPM2_RC_INTEGRITY but both are handled the same.
+    tpm2_createprimary -C n -c /tmp/unknown-srk.ctx
+    tpm2_readpublic -c /tmp/unknown-srk.ctx -o /tmp/unknown-srk.pub
+    tpm2_flushcontext -t
+
+    # Empty signature meaing nothing is found for the foreign PCR-policy pubkeys
+    echo '{}' > /tmp/empty-pcrsig.json
+
+    systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
+    # Token 1: unknown pubkey, unseal fails at signature lookup (ENXIO)
+    PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrlock= \
+        --tpm2-public-key=/tmp/unknown1.pem --tpm2-public-key-pcrs=11 "$IMAGE"
+    # Token 2: unknown pubkey and unknown SRK (EREMOTE)
+    PASSWORD=passphrase systemd-cryptenroll --tpm2-device-key=/tmp/unknown-srk.pub --tpm2-pcrlock= \
+        --tpm2-public-key=/tmp/unknown2.pem --tpm2-public-key-pcrs=11 "$IMAGE"
+    # Token 3: no pubkey, current-PCR-7 policy, unseals successfully
+    PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrlock= --tpm2-public-key= --tpm2-pcrs=7 "$IMAGE"
+    # Note: Not covered yet is a plain PCR mismatch, the NV index missing/corrupted, and different PCR masks.
+
+    # This should iterate over the tokens reporting failures until we reach token 3.
+    # Do it for both the token module and fallback path because iteration differs there.
+    for mod in 1 0; do
+        SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=$mod \
+            systemd-cryptsetup attach test-volume "$IMAGE" - \
+            tpm2-device=auto,tpm2-signature=/tmp/empty-pcrsig.json,headless=1
+        systemd-cryptsetup detach test-volume
+    done
+
+    rm -f /tmp/unknown1.priv.pem /tmp/unknown1.pem /tmp/unknown2.priv.pem /tmp/unknown2.pem \
+          /tmp/unknown-srk.pub /tmp/unknown-srk.ctx /tmp/empty-pcrsig.json
+fi
+
 rm -f "$IMAGE" "$PRIMARY"
