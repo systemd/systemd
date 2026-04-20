@@ -1494,7 +1494,7 @@ static int on_cont_complete(
 
         assert(client);
 
-        VmspawnQmpBridge *bridge = ASSERT_PTR(qmp_client_get_userdata(client));
+        VmspawnQmpBridge *bridge = ASSERT_PTR(userdata);
 
         if (error < 0) {
                 log_error_errno(error, "Failed to resume QEMU execution: %s", strna(error_desc));
@@ -1509,5 +1509,5 @@ static int on_cont_complete(
 int vmspawn_qmp_start(VmspawnQmpBridge *bridge) {
         assert(bridge);
 
-        return qmp_client_invoke(bridge->qmp, "cont", /* args= */ NULL, on_cont_complete, /* userdata= */ NULL);
+        return qmp_client_invoke(bridge->qmp, "cont", /* args= */ NULL, on_cont_complete, bridge);
 }
