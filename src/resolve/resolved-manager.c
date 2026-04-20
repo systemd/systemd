@@ -2156,9 +2156,9 @@ static int dns_configuration_json_append(
                         JSON_BUILD_PAIR_CONDITION_BOOLEAN(dnssec_mode >= 0, "dnssecSupported", dnssec_supported),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("dnssec", dnssec_mode_to_string(dnssec_mode)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("dnsOverTLS", dns_over_tls_mode_to_string(dns_over_tls_mode)),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("llmnr", resolve_support_to_string(llmnr_support)),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("mDNS", resolve_support_to_string(mdns_support)),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("resolvConfMode", resolv_conf_mode_to_string(resolv_conf_mode)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY("llmnr", resolve_support_to_string(llmnr_support)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY("mDNS", resolve_support_to_string(mdns_support)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY("resolvConfMode", resolv_conf_mode_to_string(resolv_conf_mode)),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("scopes", scopes_json));
 }
 
