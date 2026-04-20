@@ -173,8 +173,11 @@ int acquire_tpm2_key(
                                 ret_decrypted_key);
                 if (r == -EREMOTE)
                         return log_error_errno(r, "TPM key integrity check failed or NV index unusable. Key enrolled in superblock most likely does not belong to this TPM.");
-                if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
-                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r)) {
+                        log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                        /* Normalize to -EPERM so callers don't confuse it with -ENOANO's "needs PIN" meaning. */
+                        return -EPERM;
+                }
                 if (r == -ENXIO)
                         return log_error_errno(r, "No signature for current PCR policy in TPM2 signature JSON, token does not apply to current boot state: %m");
                 if (r < 0)
@@ -227,8 +230,11 @@ int acquire_tpm2_key(
                                 ret_decrypted_key);
                 if (r == -EREMOTE)
                         return log_error_errno(r, "TPM key integrity check failed or NV index unusable. Key enrolled in superblock most likely does not belong to this TPM.");
-                if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
-                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r)) {
+                        log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                        /* Normalize to -EPERM so callers don't confuse it with -ENOANO's "needs PIN" meaning. */
+                        return -EPERM;
+                }
                 if (r == -ENXIO)
                         return log_error_errno(r, "No signature for current PCR policy in TPM2 signature JSON, token does not apply to current boot state: %m");
                 if (r == -ENOLCK)
