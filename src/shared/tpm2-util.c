@@ -2450,7 +2450,10 @@ int tpm2_load(
         if (rc == TPM2_RC_LOCKOUT)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOLCK),
                                        "TPM2 device is in dictionary attack lockout mode.");
-        if ((rc & ~(TPM2_RC_N_MASK|TPM2_RC_P)) == TPM2_RC_INTEGRITY) /* Return a recognizable error if this key does not belong to the local TPM */
+        uint32_t masked_rc = rc & ~(TPM2_RC_N_MASK|TPM2_RC_P);
+        if (masked_rc == TPM2_RC_INTEGRITY || masked_rc == TPM2_RC_SIZE)
+                /* Return a recognizable error if this key does not belong to the local TPM
+                 * (TPM2_RC_INTEGRITY if for a different parent, TPM2_RC_SIZE if different template). */
                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTE),
                                        "Key invalid or does not belong to current TPM.");
         if (rc != TSS2_RC_SUCCESS)
@@ -2670,7 +2673,10 @@ static int tpm2_import(
                         seed,
                         symmetric ?: &(TPMT_SYM_DEF_OBJECT){ .algorithm = TPM2_ALG_NULL, },
                         ret_private);
-        if ((rc & ~(TPM2_RC_N_MASK|TPM2_RC_P)) == TPM2_RC_INTEGRITY) /* Return a recognizable error if this key does not belong to the local TPM */
+        uint32_t masked_rc = rc & ~(TPM2_RC_N_MASK|TPM2_RC_P);
+        if (masked_rc == TPM2_RC_INTEGRITY || masked_rc == TPM2_RC_SIZE)
+                /* Return a recognizable error if this key does not belong to the local TPM
+                 * (TPM2_RC_INTEGRITY if for a different parent, TPM2_RC_SIZE if different template). */
                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTE),
                                        "Key invalid or does not belong to current TPM.");
         if (rc != TSS2_RC_SUCCESS)
