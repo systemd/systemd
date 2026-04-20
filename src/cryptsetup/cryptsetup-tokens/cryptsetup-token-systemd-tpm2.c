@@ -26,7 +26,7 @@ _public_ const char *cryptsetup_token_version(void) {
 static int log_debug_open_error(struct crypt_device *cd, int r) {
         if (r == -EAGAIN)
                 return crypt_log_debug_errno(cd, r, "TPM2 device not found.");
-        if (r == -ENXIO)
+        if (r == -ENOSTR)
                 return crypt_log_debug_errno(cd, r, "No matching TPM2 token data found.");
 
         return crypt_log_debug_errno(cd, r, TOKEN_NAME " open failed: %m.");
