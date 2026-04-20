@@ -373,7 +373,9 @@ EOF
     if $have_updatectl; then
         systemctl start systemd-sysupdated
         "$SYSUPDATE" --verify=no check-new
-        updatectl update
+        updatectl update |& tee "$WORKDIR"/updatectl-update-6
+        grep "Done" "$WORKDIR"/updatectl-update-6
+        (! grep "Already up-to-date" "$WORKDIR"/updatectl-update-6)
     else
         # If no updatectl, gracefully fall back to systemd-sysupdate
         update_now "$update_type"
