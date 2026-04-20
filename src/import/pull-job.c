@@ -6,6 +6,8 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "compress.h"
+#include "crypto-util.h"
 #include "curl-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -57,7 +59,7 @@ PullJob* pull_job_unref(PullJob *j) {
         j->compress = compressor_free(j->compress);
 
         if (j->checksum_ctx)
-                EVP_MD_CTX_free(j->checksum_ctx);
+                sym_EVP_MD_CTX_free(j->checksum_ctx);
 
         free(j->url);
         free(j->etag);
@@ -138,7 +140,7 @@ int pull_job_restart(PullJob *j, const char *new_url) {
         j->compress = compressor_free(j->compress);
 
         if (j->checksum_ctx) {
-                EVP_MD_CTX_free(j->checksum_ctx);
+                sym_EVP_MD_CTX_free(j->checksum_ctx);
                 j->checksum_ctx = NULL;
         }
 
@@ -279,7 +281,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                         goto finish;
                 }
 
-                r = EVP_DigestFinal_ex(j->checksum_ctx, j->checksum.iov_base, &checksum_len);
+                r = sym_EVP_DigestFinal_ex(j->checksum_ctx, j->checksum.iov_base, &checksum_len);
                 if (r == 0) {
                         r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get checksum.");
                         goto finish;
@@ -294,7 +296,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                                 goto finish;
                         }
 
-                        log_debug("%s of %s is %s.", EVP_MD_CTX_get0_name(j->checksum_ctx), pull_job_description(j), h);
+                        log_debug("%s of %s is %s.", sym_EVP_MD_CTX_get0_name(j->checksum_ctx), pull_job_description(j), h);
                 }
 
                 if (iovec_is_set(&j->expected_checksum) &&
@@ -448,7 +450,7 @@ static int pull_job_write_compressed(PullJob *j, const struct iovec *data) {
                                        "Content length incorrect.");
 
         if (j->checksum_ctx) {
-                r = EVP_DigestUpdate(j->checksum_ctx, data->iov_base, data->iov_len);
+                r = sym_EVP_DigestUpdate(j->checksum_ctx, data->iov_base, data->iov_len);
                 if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Could not hash chunk.");
@@ -485,11 +487,15 @@ static int pull_job_open_disk(PullJob *j) {
         }
 
         if (j->calc_checksum) {
-                j->checksum_ctx = EVP_MD_CTX_new();
+                r = dlopen_libcrypto(LOG_ERR);
+                if (r < 0)
+                        return r;
+
+                j->checksum_ctx = sym_EVP_MD_CTX_new();
                 if (!j->checksum_ctx)
                         return log_oom();
 
-                r = EVP_DigestInit_ex(j->checksum_ctx, EVP_sha256(), NULL);
+                r = sym_EVP_DigestInit_ex(j->checksum_ctx, sym_EVP_sha256(), NULL);
                 if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Failed to initialize hash context.");

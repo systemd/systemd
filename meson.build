@@ -1258,6 +1258,7 @@ libgnutls_cflags = libgnutls.partial_dependency(includes: true, compile_args: tr
 libopenssl = dependency('openssl',
                         version : '>= 3.0.0',
                         required : get_option('openssl'))
+libopenssl_cflags = libopenssl.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_OPENSSL', libopenssl.found())
 
 libp11kit = dependency('p11-kit-1',
