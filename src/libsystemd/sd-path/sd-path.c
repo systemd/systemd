@@ -282,6 +282,9 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
         case SD_PATH_USER_DESKTOP:
                 return from_xdg_user_dir("XDG_DESKTOP_DIR", buffer, ret);
 
+        case SD_PATH_USER_PROJECTS:
+                return from_xdg_user_dir("XDG_PROJECTS_DIR", buffer, ret);
+
         case SD_PATH_SYSTEMD_UTIL:
                 *ret = PREFIX_NOSLASH "/lib/systemd";
                 return 0;
