@@ -12,6 +12,7 @@
 #include "chase.h"
 #include "chown-recursive.h"
 #include "copy.h"
+#include "crypto-util.h"
 #include "cryptsetup-util.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -2004,6 +2005,10 @@ static int run(int argc, char *argv[]) {
         start = now(CLOCK_MONOTONIC);
 
         log_setup();
+
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
+                return r;
 
         cryptsetup_enable_logging(NULL);
 

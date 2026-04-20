@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "crypto-util.h"
 #include "efi-loader.h"
 #include "escape.h"
 #include "format-table.h"
@@ -96,11 +97,15 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("bank", "DIGEST", "Select TPM PCR bank (SHA1, SHA256)"): {
                         const EVP_MD *implementation;
 
-                        implementation = EVP_get_digestbyname(arg);
+                        r = dlopen_libcrypto(LOG_ERR);
+                        if (r < 0)
+                                return r;
+
+                        implementation = sym_EVP_get_digestbyname(arg);
                         if (!implementation)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", arg);
 
-                        if (strv_extend(&arg_banks, EVP_MD_name(implementation)) < 0)
+                        if (strv_extend(&arg_banks, sym_EVP_MD_get0_name(implementation)) < 0)
                                 return log_oom();
 
                         break;
