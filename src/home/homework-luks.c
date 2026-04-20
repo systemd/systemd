@@ -1919,11 +1919,11 @@ static int make_partition_table(
         assert(ret_size);
         assert(ret_disk_uuid);
 
-        t = fdisk_new_parttype();
+        t = sym_fdisk_new_parttype();
         if (!t)
                 return log_oom();
 
-        r = fdisk_parttype_set_typestr(t, SD_GPT_USER_HOME_STR);
+        r = sym_fdisk_parttype_set_typestr(t, SD_GPT_USER_HOME_STR);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize partition type: %m");
 
@@ -1931,27 +1931,27 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 
-        r = fdisk_create_disklabel(c, "gpt");
+        r = sym_fdisk_create_disklabel(c, "gpt");
         if (r < 0)
                 return log_error_errno(r, "Failed to create GPT disk label: %m");
 
-        p = fdisk_new_partition();
+        p = sym_fdisk_new_partition();
         if (!p)
                 return log_oom();
 
-        r = fdisk_partition_set_type(p, t);
+        r = sym_fdisk_partition_set_type(p, t);
         if (r < 0)
                 return log_error_errno(r, "Failed to set partition type: %m");
 
-        r = fdisk_partition_partno_follow_default(p, 1);
+        r = sym_fdisk_partition_partno_follow_default(p, 1);
         if (r < 0)
                 return log_error_errno(r, "Failed to place partition at first free partition index: %m");
 
         /* Use same sector size as the fdisk context when converting to bytes */
-        fdisk_sector_size = fdisk_get_sector_size(c);
+        fdisk_sector_size = sym_fdisk_get_sector_size(c);
         assert(fdisk_sector_size > 0);
 
-        first_lba = fdisk_get_first_lba(c); /* Boundary where usable space starts */
+        first_lba = sym_fdisk_get_first_lba(c); /* Boundary where usable space starts */
         assert(first_lba <= UINT64_MAX / fdisk_sector_size);
         start = DISK_SIZE_ROUND_UP(first_lba * fdisk_sector_size);
 
@@ -1960,38 +1960,38 @@ static int make_partition_table(
         if (start == UINT64_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Overflow while rounding up start LBA.");
 
-        last_lba = fdisk_get_last_lba(c); /* One sector before boundary where usable space ends */
+        last_lba = sym_fdisk_get_last_lba(c); /* One sector before boundary where usable space ends */
         assert(last_lba < UINT64_MAX / fdisk_sector_size);
         end = DISK_SIZE_ROUND_DOWN((last_lba + 1) * fdisk_sector_size);
 
         if (end <= start)
                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Resulting partition size zero or negative.");
 
-        r = fdisk_partition_set_start(p, start / fdisk_sector_size);
+        r = sym_fdisk_partition_set_start(p, start / fdisk_sector_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to place partition at offset %" PRIu64 ": %m", start);
 
-        r = fdisk_partition_set_size(p, (end - start) / fdisk_sector_size);
+        r = sym_fdisk_partition_set_size(p, (end - start) / fdisk_sector_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to end partition at offset %" PRIu64 ": %m", end);
 
-        r = fdisk_partition_set_name(p, label);
+        r = sym_fdisk_partition_set_name(p, label);
         if (r < 0)
                 return log_error_errno(r, "Failed to set partition name: %m");
 
-        r = fdisk_partition_set_uuid(p, SD_ID128_TO_UUID_STRING(uuid));
+        r = sym_fdisk_partition_set_uuid(p, SD_ID128_TO_UUID_STRING(uuid));
         if (r < 0)
                 return log_error_errno(r, "Failed to set partition UUID: %m");
 
-        r = fdisk_add_partition(c, p, NULL);
+        r = sym_fdisk_add_partition(c, p, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add partition: %m");
 
-        r = fdisk_write_disklabel(c);
+        r = sym_fdisk_write_disklabel(c);
         if (r < 0)
                 return log_error_errno(r, "Failed to write disk label: %m");
 
-        r = fdisk_get_disklabel_id(c, &disk_uuid_as_string);
+        r = sym_fdisk_get_disklabel_id(c, &disk_uuid_as_string);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine disk label UUID: %m");
 
@@ -1999,17 +1999,17 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to parse disk label UUID: %m");
 
-        r = fdisk_get_partition(c, 0, &q);
+        r = sym_fdisk_get_partition(c, 0, &q);
         if (r < 0)
                 return log_error_errno(r, "Failed to read created partition metadata: %m");
 
-        assert(fdisk_partition_has_start(q));
-        offset = fdisk_partition_get_start(q);
+        assert(sym_fdisk_partition_has_start(q));
+        offset = sym_fdisk_partition_get_start(q);
         if (offset > UINT64_MAX / fdisk_sector_size)
                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Partition offset too large.");
 
-        assert(fdisk_partition_has_size(q));
-        size = fdisk_partition_get_size(q);
+        assert(sym_fdisk_partition_has_size(q));
+        size = sym_fdisk_partition_get_size(q);
         if (size > UINT64_MAX / fdisk_sector_size)
                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Partition size too large.");
 
@@ -2206,6 +2206,10 @@ int home_create_luks(
         assert(!setup->temporary_image_path);
         assert(setup->image_fd < 0);
         assert(ret_home);
+
+        r = dlopen_fdisk();
+        if (r < 0)
+                return r;
 
         r = dlopen_cryptsetup();
         if (r < 0)
@@ -2806,10 +2810,10 @@ static int prepare_resize_partition(
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 
-        if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
+        if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOMEDIUM), "Disk has no GPT partition table.");
 
-        r = fdisk_get_disklabel_id(c, &disk_uuid_as_string);
+        r = sym_fdisk_get_disklabel_id(c, &disk_uuid_as_string);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire disk UUID: %m");
 
@@ -2817,34 +2821,36 @@ static int prepare_resize_partition(
         if (r < 0)
                 return log_error_errno(r, "Failed to parse disk UUID: %m");
 
-        r = fdisk_get_partitions(c, &t);
+        r = sym_fdisk_get_partitions(c, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire partition table: %m");
 
-        n_partitions = fdisk_table_get_nents(t);
+        n_partitions = sym_fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++)  {
                 struct fdisk_partition *p;
                 uint64_t fdisk_sector_size;
 
-                p = fdisk_table_get_partition(t, i);
+                p = sym_fdisk_table_get_partition(t, i);
                 if (!p)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata.");
 
-                if (fdisk_partition_is_used(p) <= 0)
+                if (sym_fdisk_partition_is_used(p) <= 0)
                         continue;
-                if (fdisk_partition_has_start(p) <= 0 || fdisk_partition_has_size(p) <= 0 || fdisk_partition_has_end(p) <= 0)
+                if (sym_fdisk_partition_has_start(p) <= 0 ||
+                        sym_fdisk_partition_has_size(p) <= 0 ||
+                        sym_fdisk_partition_has_end(p) <= 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Found partition without a size.");
 
-                fdisk_sector_size = fdisk_get_sector_size(c);
+                fdisk_sector_size = sym_fdisk_get_sector_size(c);
                 assert(fdisk_sector_size > 0);
-                if (fdisk_partition_get_start(p) == partition_offset / fdisk_sector_size &&
-                    fdisk_partition_get_size(p) == old_partition_size / fdisk_sector_size) {
+                if (sym_fdisk_partition_get_start(p) == partition_offset / fdisk_sector_size &&
+                    sym_fdisk_partition_get_size(p) == old_partition_size / fdisk_sector_size) {
 
                         if (found)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ), "Partition found twice, refusing.");
 
                         found = p;
-                } else if (fdisk_partition_get_end(p) > partition_offset / fdisk_sector_size)
+                } else if (sym_fdisk_partition_get_end(p) > partition_offset / fdisk_sector_size)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't extend, not last partition in image.");
         }
 
@@ -2876,12 +2882,12 @@ static int get_maximum_partition_size(
                 return log_error_errno(r, "Failed to create fdisk context: %m");
 
         /* Get the probed sector size by fdisk */
-        fdisk_sector_size = fdisk_get_sector_size(c);
-        start_lba = fdisk_partition_get_start(p);
+        fdisk_sector_size = sym_fdisk_get_sector_size(c);
+        start_lba = sym_fdisk_partition_get_start(p);
         assert(start_lba <= UINT64_MAX / fdisk_sector_size);
         start = start_lba * fdisk_sector_size;
 
-        last_lba = fdisk_get_last_lba(c); /* One sector before boundary where usable space ends */
+        last_lba = sym_fdisk_get_last_lba(c); /* One sector before boundary where usable space ends */
         assert(last_lba < UINT64_MAX / fdisk_sector_size);
         end = DISK_SIZE_ROUND_DOWN((last_lba + 1) * fdisk_sector_size);
 
@@ -2898,14 +2904,14 @@ static int ask_cb(struct fdisk_context *c, struct fdisk_ask *ask, void *userdata
 
         assert(c);
 
-        switch (fdisk_ask_get_type(ask)) {
+        switch (sym_fdisk_ask_get_type(ask)) {
 
         case FDISK_ASKTYPE_STRING:
                 result = new(char, 37);
                 if (!result)
                         return log_oom();
 
-                fdisk_ask_string_set_result(ask, sd_id128_to_uuid_string(*(sd_id128_t*) userdata, result));
+                sym_fdisk_ask_string_set_result(ask, sd_id128_to_uuid_string(*(sd_id128_t*) userdata, result));
                 break;
 
         default:
@@ -2943,31 +2949,31 @@ static int apply_resize_partition(
                 return log_error_errno(r, "Failed to open device: %m");
 
         /* Before writing our partition patch the final size in */
-        r = fdisk_partition_size_explicit(p, 1);
+        r = sym_fdisk_partition_size_explicit(p, 1);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable explicit partition size: %m");
 
-        r = fdisk_partition_set_size(p, new_partition_size / ssz);
+        r = sym_fdisk_partition_set_size(p, new_partition_size / ssz);
         if (r < 0)
                 return log_error_errno(r, "Failed to change partition size: %m");
 
-        r = fdisk_create_disklabel(c, "gpt");
+        r = sym_fdisk_create_disklabel(c, "gpt");
         if (r < 0)
                 return log_error_errno(r, "Failed to create GPT disk label: %m");
 
-        r = fdisk_apply_table(c, t);
+        r = sym_fdisk_apply_table(c, t);
         if (r < 0)
                 return log_error_errno(r, "Failed to apply partition table: %m");
 
-        r = fdisk_set_ask(c, ask_cb, &disk_uuids);
+        r = sym_fdisk_set_ask(c, ask_cb, &disk_uuids);
         if (r < 0)
                 return log_error_errno(r, "Failed to set libfdisk query function: %m");
 
-        r = fdisk_set_disklabel_id(c);
+        r = sym_fdisk_set_disklabel_id(c);
         if (r < 0)
                 return log_error_errno(r, "Failed to change disklabel ID: %m");
 
-        r = fdisk_write_disklabel(c);
+        r = sym_fdisk_write_disklabel(c);
         if (r < 0)
                 return log_error_errno(r, "Failed to write disk label: %m");
 
@@ -3239,6 +3245,10 @@ int home_resize_luks(
         assert(h);
         assert(user_record_storage(h) == USER_LUKS);
         assert(setup);
+
+        r = dlopen_fdisk();
+        if (r < 0)
+                return r;
 
         r = dlopen_cryptsetup();
         if (r < 0)
