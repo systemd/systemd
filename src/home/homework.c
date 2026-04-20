@@ -37,6 +37,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "mount-util.h"
+#include "openssl-util.h"
 #include "path-util.h"
 #include "recovery-key.h"
 #include "rm-rf.h"
@@ -2004,6 +2005,10 @@ static int run(int argc, char *argv[]) {
         start = now(CLOCK_MONOTONIC);
 
         log_setup();
+
+        r = dlopen_libcrypto();
+        if (r < 0)
+                return log_error_errno(r, "Failed to load OpenSSL: %m");
 
         cryptsetup_enable_logging(NULL);
 

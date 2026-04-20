@@ -16,6 +16,7 @@
 #include "libmount-util.h"
 #include "main-func.h"
 #include "module-util.h"
+#include "openssl-util.h"
 #include "pam-util.h"
 #include "password-quality-util-passwdqc.h"
 #include "password-quality-util-pwquality.h"
@@ -61,6 +62,8 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libpam, HAVE_PAM);
         ASSERT_DLOPEN(dlopen_libseccomp, HAVE_SECCOMP);
         ASSERT_DLOPEN(dlopen_libselinux, HAVE_SELINUX);
+        ASSERT_DLOPEN(dlopen_libcrypto, HAVE_OPENSSL);
+        ASSERT_DLOPEN(dlopen_libssl, HAVE_OPENSSL);
         ASSERT_DLOPEN(dlopen_xz, HAVE_XZ);
         ASSERT_DLOPEN(dlopen_lz4, HAVE_LZ4);
         ASSERT_DLOPEN(dlopen_p11kit, HAVE_P11KIT);
