@@ -24,6 +24,7 @@ extern bool arg_print_dollar_boot_path;
 extern bool arg_print_loader_path;
 extern bool arg_print_stub_path;
 extern unsigned arg_print_root_device;
+extern bool arg_print_efi_architecture;
 extern int arg_touch_variables;
 extern bool arg_install_random_seed;
 extern PagerFlags arg_pager_flags;
@@ -50,6 +51,13 @@ extern char *arg_certificate_source;
 extern char *arg_private_key;
 extern KeySourceType arg_private_key_source_type;
 extern char *arg_private_key_source;
+extern uint64_t arg_keep_free;
+extern bool arg_oldest;
+extern char *arg_entry_title;
+extern char *arg_entry_version;
+extern uint64_t arg_entry_commit;
+extern char **arg_extras;
+extern unsigned arg_tries_left;
 
 static inline const char* arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */
@@ -66,3 +74,5 @@ int acquire_xbootldr(int unprivileged_mode, int *ret_fd, sd_id128_t *ret_uuid, d
  * string, but we limit the length to something reasonable to prevent from the firmware
  * having to deal with a potentially too long string. */
 #define EFI_BOOT_OPTION_DESCRIPTION_MAX ((size_t) 255)
+
+#define KEEP_FREE_BYTES_DEFAULT (5U * U64_MB)
