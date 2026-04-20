@@ -1597,6 +1597,7 @@ int boot_config_load_auto(
                         override_esp_path,
                         /* unprivileged_mode= */ false,
                         &esp_where,
+                        /* ret_fd= */ NULL,
                         /* ret_part= */ NULL,
                         /* ret_pstart= */ NULL,
                         /* ret_psize= */ NULL,
@@ -1610,6 +1611,7 @@ int boot_config_load_auto(
                         override_xbootldr_path,
                         /* unprivileged_mode= */ false,
                         &xbootldr_where,
+                        /* ret_fd= */ NULL,
                         /* ret_uuid= */ NULL,
                         &xbootldr_devid);
         if (r < 0 && r != -ENOKEY)
