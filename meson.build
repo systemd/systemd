@@ -1261,6 +1261,7 @@ libmicrohttpd = dependency('libmicrohttpd',
                            version : '>= 0.9.33',
                            required : get_option('microhttpd'))
 conf.set10('HAVE_MICROHTTPD', libmicrohttpd.found())
+libmicrohttpd_cflags = libmicrohttpd.partial_dependency(includes: true, compile_args: true)
 
 libcryptsetup = get_option('libcryptsetup')
 libcryptsetup_plugins = get_option('libcryptsetup-plugins')
@@ -1332,6 +1333,7 @@ libgnutls = dependency('gnutls',
                        version : '>= 3.1.4',
                        required : get_option('gnutls'))
 conf.set10('HAVE_GNUTLS', libgnutls.found())
+libgnutls_cflags = libgnutls.partial_dependency(includes: true, compile_args: true)
 
 libopenssl = dependency('openssl',
                         version : '>= 3.0.0',

@@ -302,6 +302,7 @@ executables += [
                 'dependencies' : [
                         libblkid_cflags,
                         libkmod_cflags,
+                        libmicrohttpd_cflags,
                         libmount_cflags,
                         libp11kit_cflags,
                         libseccomp_cflags,
