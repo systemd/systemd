@@ -70,7 +70,7 @@ endif
 resolve_common_template = {
         'dependencies' : [
                 libidn2_cflags,
-                libopenssl,
+                libopenssl_cflags,
                 libm,
                 threads,
         ],
