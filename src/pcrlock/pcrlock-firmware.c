@@ -149,13 +149,13 @@ int validate_firmware_header(
                         continue;
                 }
 
-                implementation = EVP_get_digestbyname(a);
+                implementation = sym_EVP_get_digestbyname(a);
                 if (!implementation) {
                         log_notice("Event log advertises hash algorithm '%s' we don't implement, can't validate.", a);
                         continue;
                 }
 
-                if (EVP_MD_size(implementation) !=  id->digestSizes[i].digestSize)
+                if (sym_EVP_MD_get_size(implementation) !=  id->digestSizes[i].digestSize)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Advertised digest size for '%s' is wrong, refusing.", a);
         }
 

@@ -118,14 +118,14 @@ int user_record_verify(UserRecord *ur, EVP_PKEY *public_key) {
                 if (r < 0)
                         return r;
 
-                md_ctx = EVP_MD_CTX_new();
+                md_ctx = sym_EVP_MD_CTX_new();
                 if (!md_ctx)
                         return -ENOMEM;
 
-                if (EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, public_key) <= 0)
+                if (sym_EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, public_key) <= 0)
                         return -EIO;
 
-                if (EVP_DigestVerify(md_ctx, signature, signature_size, (uint8_t*) text, strlen(text)) <= 0) {
+                if (sym_EVP_DigestVerify(md_ctx, signature, signature_size, (uint8_t*) text, strlen(text)) <= 0) {
                         n_bad++;
                         continue;
                 }
