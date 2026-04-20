@@ -385,6 +385,10 @@ int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const
  * different PCR signing key/policy, or even a different TPM. The caller should keep trying other tokens. */
 #define ERRNO_IS_NEG_TPM2_TOKEN_MISMATCH(r) IN_SET(r, -EPERM, -ENOANO, -EREMCHG, -ENXIO, -EREMOTE)
 
+/* On load/import the return codes mean the key was wrapped for a different parent (INTEGRITY) or used a
+ * different template (SIZE), so it's probably not for our TPM. */
+#define TPM2_RC_IS_FOREIGN_KEY(rc) IN_SET((rc) & ~(TPM2_RC_N_MASK|TPM2_RC_P), TPM2_RC_INTEGRITY, TPM2_RC_SIZE)
+
 #if HAVE_OPENSSL
 int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret);
 int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret);
