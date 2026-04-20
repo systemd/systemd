@@ -5322,7 +5322,7 @@ static int verb_list_signing_keys(int argc, char *argv[], uintptr_t _data, void 
                                 return log_error_errno(r, "Failed to parse PEM: %m");
 
                         _cleanup_free_ void *der = NULL;
-                        int n = i2d_PUBKEY(key, (unsigned char**) &der);
+                        int n = sym_i2d_PUBKEY(key, (unsigned char**) &der);
                         if (n < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to encode key as DER.");
 
