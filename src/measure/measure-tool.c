@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "build.h"
+#include "crypto-util.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "fd-util.h"
@@ -15,7 +16,6 @@
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
-#include "openssl-util.h"
 #include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -178,11 +178,15 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Select TPM bank (SHA1, SHA256, SHA384, SHA512)"): {
                         const EVP_MD *implementation;
 
-                        implementation = EVP_get_digestbyname(arg);
+                        r = dlopen_libcrypto(LOG_ERR);
+                        if (r < 0)
+                                return r;
+
+                        implementation = sym_EVP_get_digestbyname(arg);
                         if (!implementation)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", arg);
 
-                        if (strv_extend(&arg_banks, EVP_MD_name(implementation)) < 0)
+                        if (strv_extend(&arg_banks, sym_EVP_MD_get0_name(implementation)) < 0)
                                 return log_oom();
 
                         break;
@@ -529,7 +533,7 @@ static void evp_md_ctx_free_all(EVP_MD_CTX **md[]) {
                 return;
 
         for (size_t i = 0; (*md)[i]; i++)
-                EVP_MD_CTX_free((*md)[i]);
+                sym_EVP_MD_CTX_free((*md)[i]);
 
         *md = mfree(*md);
 }
@@ -546,22 +550,22 @@ static int pcr_state_extend(PcrState *pcr_state, const void *data, size_t sz) {
 
         /* Extends a (virtual) PCR by the given data */
 
-        mc = EVP_MD_CTX_new();
+        mc = sym_EVP_MD_CTX_new();
         if (!mc)
                 return log_oom();
 
-        if (EVP_DigestInit_ex(mc, pcr_state->md, NULL) != 1)
+        if (sym_EVP_DigestInit_ex(mc, pcr_state->md, NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize %s context.", pcr_state->bank);
 
         /* First thing we do, is hash the old PCR value */
-        if (EVP_DigestUpdate(mc, pcr_state->value, pcr_state->value_size) != 1)
+        if (sym_EVP_DigestUpdate(mc, pcr_state->value, pcr_state->value_size) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run digest.");
 
         /* Then, we hash the new data */
-        if (EVP_DigestUpdate(mc, data, sz) != 1)
+        if (sym_EVP_DigestUpdate(mc, data, sz) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run digest.");
 
-        if (EVP_DigestFinal_ex(mc, pcr_state->value, &value_size) != 1)
+        if (sym_EVP_DigestFinal_ex(mc, pcr_state->value, &value_size) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finalize hash context.");
 
         assert(value_size == pcr_state->value_size);
@@ -629,11 +633,11 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                         return log_oom();
 
                 for (size_t i = 0; i < n; i++) {
-                        mdctx[i] = EVP_MD_CTX_new();
+                        mdctx[i] = sym_EVP_MD_CTX_new();
                         if (!mdctx[i])
                                 return log_oom();
 
-                        if (EVP_DigestInit_ex(mdctx[i], pcr_states[i].md, NULL) != 1)
+                        if (sym_EVP_DigestInit_ex(mdctx[i], pcr_states[i].md, NULL) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to initialize data %s context.", pcr_states[i].bank);
                 }
@@ -648,7 +652,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                                 break;
 
                         for (size_t i = 0; i < n; i++)
-                                if (EVP_DigestUpdate(mdctx[i], buffer, sz) != 1)
+                                if (sym_EVP_DigestUpdate(mdctx[i], buffer, sz) != 1)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run digest.");
 
                         m += sz;
@@ -668,7 +672,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                                 return log_oom();
 
                         /* Measure name of section */
-                        if (EVP_Digest(unified_sections[c], strlen(unified_sections[c]) + 1, data_hash, &data_hash_size, pcr_states[i].md, NULL) != 1)
+                        if (sym_EVP_Digest(unified_sections[c], strlen(unified_sections[c]) + 1, data_hash, &data_hash_size, pcr_states[i].md, NULL) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to hash section name with %s.", pcr_states[i].bank);
 
                         assert(data_hash_size == (unsigned) pcr_states[i].value_size);
@@ -678,7 +682,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                                 return r;
 
                         /* Retrieve hash of data and measure it */
-                        if (EVP_DigestFinal_ex(mdctx[i], data_hash, &data_hash_size) != 1)
+                        if (sym_EVP_DigestFinal_ex(mdctx[i], data_hash, &data_hash_size) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finalize hash context.");
 
                         assert(data_hash_size == (unsigned) pcr_states[i].value_size);
@@ -719,7 +723,7 @@ static int measure_phase(PcrState *pcr_states, size_t n, const char *phase) {
                         _cleanup_free_ void *b = NULL;
                         int bsz;
 
-                        bsz = EVP_MD_size(pcr_states[i].md);
+                        bsz = sym_EVP_MD_get_size(pcr_states[i].md);
                         assert(bsz > 0);
 
                         b = malloc(bsz);
@@ -727,7 +731,7 @@ static int measure_phase(PcrState *pcr_states, size_t n, const char *phase) {
                                 return log_oom();
 
                         /* First hash the word itself */
-                        if (EVP_Digest(*word, wl, b, NULL, pcr_states[i].md, NULL) != 1)
+                        if (sym_EVP_Digest(*word, wl, b, NULL, pcr_states[i].md, NULL) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash word '%s'.", *word);
 
                         /* And then extend the PCR with the resulting hash */
@@ -757,13 +761,13 @@ static int pcr_states_allocate(PcrState **ret) {
                 _cleanup_free_ char *b = NULL;
                 int sz;
 
-                assert_se(implementation = EVP_get_digestbyname(*d)); /* Must work, we already checked while parsing  command line */
+                assert_se(implementation = sym_EVP_get_digestbyname(*d)); /* Must work, we already checked while parsing  command line */
 
-                b = strdup(EVP_MD_name(implementation));
+                b = strdup(sym_EVP_MD_get0_name(implementation));
                 if (!b)
                         return log_oom();
 
-                sz = EVP_MD_size(implementation);
+                sz = sym_EVP_MD_get_size(implementation);
                 if (sz <= 0 || sz >= INT_MAX)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected digest size: %i", sz);
 
@@ -986,11 +990,11 @@ static int build_policy_digest(bool sign) {
                 if (!pubkeyf)
                         return log_error_errno(errno, "Failed to open public key file '%s': %m", arg_public_key);
 
-                pubkey = PEM_read_PUBKEY(pubkeyf, NULL, NULL, NULL);
+                pubkey = sym_PEM_read_PUBKEY(pubkeyf, NULL, NULL, NULL);
                 if (!pubkey)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse public key '%s'.", arg_public_key);
         } else if (certificate) {
-                pubkey = X509_get_pubkey(certificate);
+                pubkey = sym_X509_get_pubkey(certificate);
                 if (!pubkey)
                         return log_error_errno(
                                         SYNTHETIC_ERRNO(EIO),
@@ -1026,7 +1030,7 @@ static int build_policy_digest(bool sign) {
                 for (size_t i = 0; i < n; i++) {
                         PcrState *p = pcr_states + i;
 
-                        int tpmalg = tpm2_hash_alg_from_string(EVP_MD_name(p->md));
+                        int tpmalg = tpm2_hash_alg_from_string(sym_EVP_MD_get0_name(p->md));
                         if (tpmalg < 0)
                                 return log_error_errno(tpmalg, "Unsupported PCR bank");
 
@@ -1044,19 +1048,19 @@ static int build_policy_digest(bool sign) {
                         size_t ss = 0;
                         if (privkey) {
                                 /* We always use SHA256 for signing currently. Regardless of the bank. */
-                                const EVP_MD *sha256 = ASSERT_PTR(EVP_get_digestbyname("sha256"));
+                                const EVP_MD *sha256 = ASSERT_PTR(sym_EVP_get_digestbyname("sha256"));
 
                                 r = digest_and_sign(sha256, privkey, pcr_policy_digest.buffer, pcr_policy_digest.size, &sig, &ss);
                                 if (r == -EADDRNOTAVAIL)
-                                        return log_error_errno(r, "Hash algorithm '%s' not available while signing. (Maybe OS security policy disables this algorithm?)", EVP_MD_name(p->md));
+                                        return log_error_errno(r, "Hash algorithm '%s' not available while signing. (Maybe OS security policy disables this algorithm?)", sym_EVP_MD_get0_name(p->md));
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to sign PCR policy with hash algorithm '%s': %m", EVP_MD_name(p->md));
+                                        return log_error_errno(r, "Failed to sign PCR policy with hash algorithm '%s': %m", sym_EVP_MD_get0_name(p->md));
                         }
 
                         _cleanup_free_ void *pubkey_fp = NULL;
                         size_t pubkey_fp_size = 0;
                         if (pubkey) {
-                                r = pubkey_fingerprint(pubkey, EVP_sha256(), &pubkey_fp, &pubkey_fp_size);
+                                r = pubkey_fingerprint(pubkey, sym_EVP_sha256(), &pubkey_fp, &pubkey_fp_size);
                                 if (r < 0)
                                         return r;
                         }
@@ -1119,6 +1123,10 @@ static int run(int argc, char *argv[]) {
         char **args = NULL;
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
+                return r;
+
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
                 return r;
 
         return dispatch_verb_with_args(args, NULL);

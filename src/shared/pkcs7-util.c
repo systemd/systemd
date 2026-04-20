@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
-#include "openssl-util.h"
+#include "crypto-util.h"
 #include "pkcs7-util.h"
 #include "log.h"
 
@@ -28,6 +28,10 @@ int pkcs7_extract_signers(
                 Signer **ret_signers,
                 size_t *ret_n_signers) {
 
+#if HAVE_OPENSSL
+        int r;
+#endif
+
         assert(ret_signers);
         assert(ret_n_signers);
 
@@ -35,16 +39,20 @@ int pkcs7_extract_signers(
                 return -EBADMSG;
 
 #if HAVE_OPENSSL
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         const unsigned char *d = sig->iov_base;
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
-        p7 = d2i_PKCS7(/* a= */ NULL, &d, (long) sig->iov_len);
+        p7 = sym_d2i_PKCS7(/* a= */ NULL, &d, (long) sig->iov_len);
         if (!p7)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse PKCS7 DER signature data.");
 
-        STACK_OF(PKCS7_SIGNER_INFO) *sinfos = PKCS7_get_signer_info(p7);
+        STACK_OF(PKCS7_SIGNER_INFO) *sinfos = sym_PKCS7_get_signer_info(p7);
         if (!sinfos)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "No signature information in PKCS7 signature?");
-        int n = sk_PKCS7_SIGNER_INFO_num(sinfos);
+        int n = sym_sk_PKCS7_SIGNER_INFO_num(sinfos);
         if (n == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "No signatures in PKCS7 signature, refusing.");
         if (n > SIGNERS_MAX) /* safety net, in case people send us weirdly complex signatures */
@@ -59,17 +67,17 @@ int pkcs7_extract_signers(
         CLEANUP_ARRAY(signers, n_signers, signer_free_many);
 
         for (int i = 0; i < n; i++) {
-                PKCS7_SIGNER_INFO *si = sk_PKCS7_SIGNER_INFO_value(PKCS7_get_signer_info(p7), i);
+                PKCS7_SIGNER_INFO *si = sym_sk_PKCS7_SIGNER_INFO_value(sym_PKCS7_get_signer_info(p7), i);
                 if (!si)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to get signer information.");
 
                 _cleanup_(signer_done) Signer signer = {};
 
                 _cleanup_free_ unsigned char *p = NULL;
-                int len = i2d_X509_NAME(si->issuer_and_serial->issuer, &p);
+                int len = sym_i2d_X509_NAME(si->issuer_and_serial->issuer, &p);
                 signer.issuer = IOVEC_MAKE(TAKE_PTR(p), len);
 
-                len = i2d_ASN1_INTEGER(si->issuer_and_serial->serial, &p);
+                len = sym_i2d_ASN1_INTEGER(si->issuer_and_serial->serial, &p);
                 signer.serial = IOVEC_MAKE(TAKE_PTR(p), len);
 
                 signers[n_signers++] = TAKE_STRUCT(signer);
