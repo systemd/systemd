@@ -1202,7 +1202,9 @@ static int context_install(
         }
 
         (void) sd_notifyf(/* unset_environment=*/ false,
-                          "STATUS=Installing '%s'.", us->version);
+                          "READY=1\n"
+                          "X_SYSUPDATE_VERSION=%s\n"
+                          "STATUS=Installing '%s'.", us->version, us->version);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
                 Instance *inst = us->instances[i];
