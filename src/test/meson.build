@@ -290,7 +290,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-cryptolib.c'),
-                'dependencies' : libopenssl,
+                'dependencies' : libopenssl_cflags,
                 'conditions' : ['HAVE_OPENSSL'],
         },
         test_template + {
@@ -408,13 +408,13 @@ executables += [
                 'conditions' : ['ENABLE_NSS'],
         },
         test_template + {
-                'sources' : files('test-openssl.c'),
-                'dependencies' : libopenssl,
+                'sources' : files('test-crypto-util.c'),
+                'dependencies' : libopenssl_cflags,
                 'conditions' : ['HAVE_OPENSSL'],
         },
         test_template + {
                 'sources' : files('test-pkcs7-util.c'),
-                'dependencies' : libopenssl,
+                'dependencies' : libopenssl_cflags,
                 'conditions' : ['HAVE_OPENSSL'],
         },
         test_template + {
@@ -491,7 +491,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-tpm2.c'),
-                'dependencies' : libopenssl,
+                'dependencies' : libopenssl_cflags,
                 'timeout' : 120,
         },
         test_template + {

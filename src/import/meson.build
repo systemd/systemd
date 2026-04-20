@@ -37,7 +37,7 @@ executables += [
                 'objects' : ['systemd-importd'],
                 'link_with' : [libcurlutil_static, libshared],
                 'dependencies' : common_deps + [
-                        libopenssl,
+                        libopenssl_cflags,
                 ],
         },
         libexec_template + {
