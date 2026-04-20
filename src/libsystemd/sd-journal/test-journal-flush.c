@@ -108,14 +108,13 @@ static void test_journal_flush_one(int argc, char *argv[]) {
         unsigned n, limit;
         int r;
 
-        assert_se(m = mmap_cache_new());
-        assert_se(mkdtemp_malloc("/var/tmp/test-journal-flush.XXXXXX", &dn) >= 0);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-journal-flush.XXXXXX", &dn));
         (void) chattr_path(dn, FS_NOCOW_FL, FS_NOCOW_FL);
 
-        assert_se(fn = path_join(dn, "test.journal"));
+        ASSERT_NOT_NULL(fn = path_join(dn, "test.journal"));
 
-        r = journal_file_open(-EBADF, fn, O_CREAT|O_RDWR, 0, 0644, 0, NULL, m, NULL, &new_journal);
-        assert_se(r >= 0);
+        ASSERT_OK(journal_file_open(-EBADF, fn, O_CREAT|O_RDWR, 0, 0644, 0, NULL, m, NULL, &new_journal));
 
         if (argc > 1)
                 r = sd_journal_open_files(&j, (const char **) strv_skip(argv, 1), SD_JOURNAL_ASSUME_IMMUTABLE);
@@ -124,7 +123,7 @@ static void test_journal_flush_one(int argc, char *argv[]) {
                 if (r < 0)
                         r = sd_journal_open(&j, SD_JOURNAL_ASSUME_IMMUTABLE);
         }
-        assert_se(r == 0);
+        ASSERT_OK_ZERO(r);
 
         sd_journal_set_data_threshold(j, 0);
 
@@ -135,21 +134,21 @@ static void test_journal_flush_one(int argc, char *argv[]) {
                 JournalFile *f;
 
                 f = j->current_file;
-                assert_se(f && f->current_offset > 0);
+                ASSERT_TRUE(f && f->current_offset > 0);
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
                 if (r < 0)
                         log_error_errno(r, "journal_file_move_to_object failed: %m");
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 r = journal_file_copy_entry(f, new_journal, o, f->current_offset, NULL, NULL);
                 if (r < 0)
                         log_warning_errno(r, "journal_file_copy_entry failed: %m");
-                assert_se(r >= 0 ||
-                          IN_SET(r, -EBADMSG,         /* corrupted file */
-                                    -EPROTONOSUPPORT, /* unsupported compression */
-                                    -EIO,             /* file rotated */
-                                    -EREMCHG));       /* clock rollback */
+                ASSERT_TRUE(r >= 0 ||
+                            IN_SET(r, -EBADMSG,         /* corrupted file */
+                                      -EPROTONOSUPPORT, /* unsupported compression */
+                                      -EIO,             /* file rotated */
+                                      -EREMCHG));       /* clock rollback */
 
                 if (++n >= limit)
                         break;
@@ -160,43 +159,43 @@ static void test_journal_flush_one(int argc, char *argv[]) {
 
         /* Open the new journal before archiving and offlining the file. */
         sd_journal_close(j);
-        assert_se(sd_journal_open_directory(&j, dn, SD_JOURNAL_ASSUME_IMMUTABLE) >= 0);
+        ASSERT_OK(sd_journal_open_directory(&j, dn, SD_JOURNAL_ASSUME_IMMUTABLE));
 
         /* Read the online journal. */
-        assert_se(sd_journal_seek_tail(j) >= 0);
-        assert_se(sd_journal_step_one(j, 0) > 0);
+        ASSERT_OK(sd_journal_seek_tail(j));
+        ASSERT_OK_POSITIVE(sd_journal_step_one(j, 0));
         printf("current_journal: %s (%i)\n", j->current_file->path, j->current_file->fd);
-        assert_se(show_journal_entry(stdout, j, OUTPUT_EXPORT, 0, 0, NULL, NULL, NULL, &(dual_timestamp) {}, &(sd_id128_t) {}) >= 0);
+        ASSERT_OK(show_journal_entry(stdout, j, OUTPUT_EXPORT, 0, 0, NULL, NULL, NULL, &(dual_timestamp) {}, &(sd_id128_t) {}));
 
         uint64_t p;
-        assert_se(journal_file_tail_end_by_mmap(j->current_file, &p) >= 0);
+        ASSERT_OK(journal_file_tail_end_by_mmap(j->current_file, &p));
         for (uint64_t q = ALIGN64(p + 1); q < (uint64_t) j->current_file->last_stat.st_size; q = ALIGN64(q + 1)) {
                 Object *o;
 
                 r = journal_file_move_to_object(j->current_file, OBJECT_UNUSED, q, &o);
-                assert_se(IN_SET(r, -EBADMSG, -EADDRNOTAVAIL));
+                ASSERT_TRUE(IN_SET(r, -EBADMSG, -EADDRNOTAVAIL));
         }
 
         /* Archive and offline file. */
-        assert_se(journal_file_archive(new_journal, NULL) >= 0);
-        assert_se(journal_file_set_offline(new_journal, /* wait= */ true) >= 0);
+        ASSERT_OK(journal_file_archive(new_journal, NULL));
+        ASSERT_OK(journal_file_set_offline(new_journal, /* wait= */ true));
 
         /* Read the archived and offline journal. */
         for (uint64_t q = ALIGN64(p + 1); q < (uint64_t) j->current_file->last_stat.st_size; q = ALIGN64(q + 1)) {
                 Object *o;
 
                 r = journal_file_move_to_object(j->current_file, OBJECT_UNUSED, q, &o);
-                assert_se(IN_SET(r, -EBADMSG, -EADDRNOTAVAIL, -EIDRM));
+                ASSERT_TRUE(IN_SET(r, -EBADMSG, -EADDRNOTAVAIL, -EIDRM));
         }
 }
 
 TEST(journal_flush) {
-        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
         test_journal_flush_one(saved_argc, saved_argv);
 }
 
 TEST(journal_flush_compact) {
-        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         test_journal_flush_one(saved_argc, saved_argv);
 }
 
