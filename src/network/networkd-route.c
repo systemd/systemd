@@ -21,6 +21,7 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
+#include "networkd-xlat.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"
@@ -1218,6 +1219,11 @@ static int process_route_one(
                         link_enter_failed(link);
                 }
         }
+
+        /* Stop CLAT if a native IPv4 default gateway appeared in the main table */
+        if (link && type == RTM_NEWROUTE && tmp->family == AF_INET && tmp->dst_prefixlen == 0 &&
+            tmp->table == RT_TABLE_MAIN)
+                (void) xlat_check_route(link);
 
         return 1;
 }
