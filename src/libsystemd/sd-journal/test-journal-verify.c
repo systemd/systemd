@@ -22,19 +22,15 @@
 
 static void bit_toggle(const char *fn, uint64_t p) {
         uint8_t b;
-        ssize_t r;
         int fd;
 
-        fd = open(fn, O_RDWR|O_CLOEXEC);
-        assert_se(fd >= 0);
+        ASSERT_OK_ERRNO(fd = open(fn, O_RDWR|O_CLOEXEC));
 
-        r = pread(fd, &b, 1, p/8);
-        assert_se(r == 1);
+        ASSERT_EQ(pread(fd, &b, 1, p/8), 1);
 
         b ^= 1 << (p % 8);
 
-        r = pwrite(fd, &b, 1, p/8);
-        assert_se(r == 1);
+        ASSERT_EQ(pwrite(fd, &b, 1, p/8), 1);
 
         safe_close(fd);
 }
@@ -44,8 +40,7 @@ static int raw_verify(const char *fn, const char *verification_key) {
         JournalFile *f;
         int r;
 
-        m = mmap_cache_new();
-        assert_se(m != NULL);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
 
         r = journal_file_open(
                         /* fd= */ -EBADF,
@@ -77,8 +72,7 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
         uint64_t start, end;
         int r;
 
-        m = mmap_cache_new();
-        assert_se(m != NULL);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
 
         /* journal_file_open() requires a valid machine id */
         if (sd_id128_get_machine(NULL) < 0)
@@ -86,13 +80,13 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(mkdtemp(t));
-        assert_se(chdir(t) >= 0);
+        ASSERT_NOT_NULL(mkdtemp(t));
+        ASSERT_OK_ERRNO(chdir(t));
         (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL);
 
         log_info("Generating a test journal");
 
-        assert_se(journal_file_open(
+        ASSERT_OK_ZERO(journal_file_open(
                                 /* fd= */ -EBADF,
                                 "test.journal",
                                 O_RDWR|O_CREAT,
@@ -102,7 +96,7 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
                                 /* metrics= */ NULL,
                                 m,
                                 /* template= */ NULL,
-                                &df) == 0);
+                                &df));
 
         for (size_t n = 0; n < N_ENTRIES; n++) {
                 _cleanup_free_ char *test = NULL;
@@ -110,9 +104,9 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
                 struct dual_timestamp ts;
 
                 dual_timestamp_now(&ts);
-                assert_se(asprintf(&test, "RANDOM=%li", random() % RANDOM_RANGE));
+                ASSERT_OK_ERRNO(asprintf(&test, "RANDOM=%li", random() % RANDOM_RANGE));
                 iovec = IOVEC_MAKE_STRING(test);
-                assert_se(journal_file_append_entry(
+                ASSERT_OK_ZERO(journal_file_append_entry(
                                         df,
                                         &ts,
                                         /* boot_id= */ NULL,
@@ -121,14 +115,14 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
                                         /* seqnum= */ NULL,
                                         /* seqnum_id= */ NULL,
                                         /* ret_object= */ NULL,
-                                        /* ret_offset= */ NULL) == 0);
+                                        /* ret_offset= */ NULL));
         }
 
         (void) journal_file_offline_close(df);
 
         log_info("Verifying with key: %s", strna(verification_key));
 
-        assert_se(journal_file_open(
+        ASSERT_OK_ZERO(journal_file_open(
                                 /* fd= */ -EBADF,
                                 "test.journal",
                                 O_RDONLY,
@@ -138,11 +132,11 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
                                 /* metrics= */ NULL,
                                 m,
                                 /* template= */ NULL,
-                                &f) == 0);
+                                &f));
         journal_file_print_header(f);
         journal_file_dump(f);
 
-        assert_se(journal_file_verify(f, verification_key, &from, &to, &total, true) >= 0);
+        ASSERT_OK(journal_file_verify(f, verification_key, &from, &to, &total, true));
 
         if (verification_key && JOURNAL_HEADER_SEALED(f->header))
                 log_info("=> Validated from %s to %s, %s missing",
@@ -151,7 +145,7 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
                          FORMAT_TIMESPAN(total > to ? total - to : 0, 0));
 
         (void) journal_file_close(f);
-        assert_se(stat("test.journal", &st) >= 0);
+        ASSERT_OK_ERRNO(stat("test.journal", &st));
 
         start = 38448 * 8 + 0;
         end = max_iterations < 0 ? (uint64_t)st.st_size * 8 : start + max_iterations;
@@ -171,7 +165,7 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
                 bit_toggle("test.journal", p);
         }
 
-        assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+        ASSERT_OK(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL));
 
         return 0;
 }
@@ -187,10 +181,10 @@ int main(int argc, char *argv[]) {
                 max_iterations = -1;
         }
 
-        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
         run_test(verification_key, max_iterations);
 
-        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         run_test(verification_key, max_iterations);
 
 #if HAVE_GCRYPT
@@ -199,10 +193,10 @@ int main(int argc, char *argv[]) {
         if (argc <= 1) {
                 verification_key = "c262bd-85187f-0b1b04-877cc5/1c7af8-35a4e900";
 
-                assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
                 run_test(verification_key, max_iterations);
 
-                assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
                 run_test(verification_key, max_iterations);
         }
 #endif
