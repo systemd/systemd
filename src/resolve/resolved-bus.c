@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -17,6 +18,7 @@
 #include "dns-question.h"
 #include "dns-rr.h"
 #include "format-util.h"
+#include "json-util.h"
 #include "path-util.h"
 #include "resolve-util.h"
 #include "resolved-bus.h"
@@ -2333,6 +2335,120 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
         return 0;
 }
 
+#define LOGIND_VARLINK_RETRY_MIN_USEC (1 * USEC_PER_SEC)
+#define LOGIND_VARLINK_RETRY_MAX_USEC (60 * USEC_PER_SEC)
+
+static int manager_connect_logind_varlink(Manager *m);
+
+static int on_logind_reconnect_retry(sd_event_source *s, uint64_t usec, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        r = manager_connect_logind_varlink(m);
+        if (r < 0) {
+                log_debug_errno(r, "Retry: still failed to connect to logind Varlink, will retry: %m");
+                m->logind_varlink_retry_delay = MIN(m->logind_varlink_retry_delay * 2, LOGIND_VARLINK_RETRY_MAX_USEC);
+                return sd_event_source_set_time_relative(s, m->logind_varlink_retry_delay);
+        }
+
+        log_debug("Reconnected to logind Varlink PrepareForSleep subscription.");
+        return 0;
+}
+
+static int manager_schedule_logind_reconnect(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->logind_varlink_retry_delay == 0)
+                m->logind_varlink_retry_delay = LOGIND_VARLINK_RETRY_MIN_USEC;
+
+        if (m->logind_varlink_retry_event)
+                return sd_event_source_set_time_relative(m->logind_varlink_retry_event,
+                                                         m->logind_varlink_retry_delay);
+
+        r = sd_event_add_time_relative(m->event,
+                                       &m->logind_varlink_retry_event,
+                                       CLOCK_MONOTONIC,
+                                       m->logind_varlink_retry_delay,
+                                       /* accuracy= */ 0,
+                                       on_logind_reconnect_retry, m);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(m->logind_varlink_retry_event, "resolved-logind-reconnect");
+        return 0;
+}
+
+static int on_logind_event(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        if (error_id || !FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
+                log_warning("Logind Varlink subscription for PrepareForSleep ended%s%s; will reconnect.",
+                            error_id ? ": " : "", strempty(error_id));
+                m->logind_varlink = sd_varlink_unref(m->logind_varlink);
+                (void) manager_schedule_logind_reconnect(m);
+                return 0;
+        }
+
+        const char *event = sd_json_variant_string(sd_json_variant_by_key(parameters, "Event"));
+        if (!streq_ptr(event, "PrepareForSleep"))
+                return 0;
+
+        sd_json_variant *data = sd_json_variant_by_key(parameters, "Data");
+        if (!data)
+                return 0;
+
+        bool active = sd_json_variant_boolean(sd_json_variant_by_key(data, "Active"));
+        if (active)
+                return 0;
+
+        log_debug("Coming back from suspend (via Varlink), closing all TCP connections...");
+        (void) dns_stream_disconnect_all(m);
+
+        log_debug("Coming back from suspend (via Varlink), resetting all probed server features...");
+        manager_reset_server_features(m);
+
+        log_debug("Coming back from suspend (via Varlink), verifying all RRs...");
+        manager_verify_all(m);
+
+        return 0;
+}
+
+static int manager_connect_logind_varlink(Manager *m) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        assert(m);
+
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Login");
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_set_relative_timeout(vl, USEC_INFINITY);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_attach_event(vl, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return r;
+
+        (void) sd_varlink_set_userdata(vl, m);
+
+        r = sd_varlink_bind_reply(vl, on_logind_event);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_observe(vl, "io.systemd.Login.SubscribeManagerEvents", NULL);
+        if (r < 0)
+                return r;
+
+        m->logind_varlink = TAKE_PTR(vl);
+        m->logind_varlink_retry_delay = LOGIND_VARLINK_RETRY_MIN_USEC;
+        m->logind_varlink_retry_event = sd_event_source_disable_unref(m->logind_varlink_retry_event);
+        return 0;
+}
+
 int manager_connect_bus(Manager *m) {
         int r;
 
@@ -2361,16 +2477,21 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        r = bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        bus_login_mgr,
-                        "PrepareForSleep",
-                        match_prepare_for_sleep,
-                        NULL,
-                        m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
+        r = manager_connect_logind_varlink(m);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to subscribe to logind events via Varlink, falling back to D-Bus: %m");
+
+                r = bus_match_signal_async(
+                                m->bus,
+                                NULL,
+                                bus_login_mgr,
+                                "PrepareForSleep",
+                                match_prepare_for_sleep,
+                                NULL,
+                                m);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
+        }
 
         return 0;
 }

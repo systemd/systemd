@@ -24,6 +24,9 @@ typedef struct Manager {
         sd_varlink_server *varlink_server;
         sd_varlink_server *varlink_resolve_hook_server;
         sd_varlink_server *varlink_metrics_server;
+        sd_varlink *logind_varlink;
+        sd_event_source *logind_varlink_retry_event;
+        usec_t logind_varlink_retry_delay;
         Set *query_filter_subscriptions;
         sd_device_monitor *device_monitor;
         Hashmap *polkit_registry;

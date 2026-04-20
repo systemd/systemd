@@ -6,6 +6,8 @@
 #include "sd-bus.h"
 #include "sd-varlink.h"
 
+#include "varlink-util.h"
+
 #include "ask-password-api.h"
 #include "bitfield.h"
 #include "build.h"
@@ -5207,19 +5209,33 @@ static int fallback_shell(int argc, char *argv[]) {
         if (incomplete > 0) {
                 /* We are still in an "incomplete" session here. Now upgrade it to a full one. This will make logind
                  * start the user@.service instance for us. */
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1/session/self",
-                                "org.freedesktop.login1.Session",
-                                "SetClass",
-                                &error,
-                                /* ret_reply= */ NULL,
-                                "s",
-                                "user");
-                if (r < 0)
-                        return log_error_errno(r, "Failed to upgrade session: %s", bus_error_message(&error, r));
+
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Login");
+                if (r >= 0) {
+                        r = varlink_callbo_and_log(
+                                        vl, "io.systemd.Login.SetClass", NULL,
+                                        SD_JSON_BUILD_PAIR_STRING("Id", "self"),
+                                        SD_JSON_BUILD_PAIR_STRING("Class", "user"));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to upgrade session via Varlink.");
+                } else {
+                        log_debug_errno(r, "Failed to connect to Varlink, falling back to D-Bus: %m");
+
+                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                        r = sd_bus_call_method(
+                                        bus,
+                                        "org.freedesktop.login1",
+                                        "/org/freedesktop/login1/session/self",
+                                        "org.freedesktop.login1.Session",
+                                        "SetClass",
+                                        &error,
+                                        /* ret_reply= */ NULL,
+                                        "s",
+                                        "user");
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to upgrade session: %s", bus_error_message(&error, r));
+                }
 
                 if (setenv("XDG_SESSION_CLASS", "user", /* overwrite= */ true) < 0) /* Update the XDG_SESSION_CLASS environment variable to match the above */
                         return log_error_errno(errno, "Failed to set $XDG_SESSION_CLASS: %m");
