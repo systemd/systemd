@@ -101,7 +101,14 @@ basic_tests() {
 testcase_bootctl_basic() {
     assert_in "$(bootctl --print-esp-path)" "^(/boot/|/efi)$"
     assert_in "$(bootctl --print-boot-path)" "^(/boot/|/efi)$"
+
     bootctl --print-root-device
+    bootctl --print-root-device --print-root-device
+    bootctl --print-esp-path
+    bootctl --print-boot-path
+    bootctl --print-loader-path
+    bootctl --print-stub-path
+    bootctl --print-efi-architecture
 
     basic_tests
 }
