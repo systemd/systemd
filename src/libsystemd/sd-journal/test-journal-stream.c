@@ -15,12 +15,12 @@
 #include "tests.h"
 #include "time-util.h"
 
-#define N_ENTRIES 200
+#define N_ENTRIES 200u
 
 static void verify_contents(sd_journal *j, unsigned skip) {
         unsigned i;
 
-        assert_se(j);
+        ASSERT_NOT_NULL(j);
 
         i = 0;
         SD_JOURNAL_FOREACH(j) {
@@ -29,32 +29,32 @@ static void verify_contents(sd_journal *j, unsigned skip) {
                 size_t l;
                 unsigned u = 0;
 
-                assert_se(sd_journal_get_cursor(j, &k) >= 0);
+                ASSERT_OK(sd_journal_get_cursor(j, &k));
                 printf("cursor: %s\n", k);
                 free(k);
 
-                assert_se(sd_journal_get_data(j, "MAGIC", &d, &l) >= 0);
+                ASSERT_OK(sd_journal_get_data(j, "MAGIC", &d, &l));
                 printf("\t%.*s\n", (int) l, (const char*) d);
 
-                assert_se(sd_journal_get_data(j, "NUMBER", &d, &l) >= 0);
-                assert_se(k = strndup(d, l));
+                ASSERT_OK(sd_journal_get_data(j, "NUMBER", &d, &l));
+                ASSERT_NOT_NULL(k = strndup(d, l));
                 printf("\t%s\n", k);
 
                 if (skip > 0) {
-                        assert_se(safe_atou(k + 7, &u) >= 0);
-                        assert_se(i == u);
+                        ASSERT_OK(safe_atou(k + 7, &u));
+                        ASSERT_EQ(i, u);
                         i += skip;
                 }
 
                 free(k);
 
-                assert_se(sd_journal_get_cursor(j, &c) >= 0);
-                assert_se(sd_journal_test_cursor(j, c) > 0);
+                ASSERT_OK(sd_journal_get_cursor(j, &c));
+                ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, c));
                 free(c);
         }
 
         if (skip > 0)
-                assert_se(i == N_ENTRIES);
+                ASSERT_EQ(i, N_ENTRIES);
 }
 
 static void run_test(void) {
@@ -68,16 +68,15 @@ static void run_test(void) {
         size_t l;
         dual_timestamp previous_ts = DUAL_TIMESTAMP_NULL;
 
-        m = mmap_cache_new();
-        assert_se(m != NULL);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
 
-        assert_se(mkdtemp(t));
-        assert_se(chdir(t) >= 0);
+        ASSERT_NOT_NULL(mkdtemp(t));
+        ASSERT_OK_ERRNO(chdir(t));
         (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL);
 
-        assert_se(journal_file_open(-EBADF, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &one) == 0);
-        assert_se(journal_file_open(-EBADF, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &two) == 0);
-        assert_se(journal_file_open(-EBADF, "three.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &three) == 0);
+        ASSERT_OK_ZERO(journal_file_open(-EBADF, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &one));
+        ASSERT_OK_ZERO(journal_file_open(-EBADF, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &two));
+        ASSERT_OK_ZERO(journal_file_open(-EBADF, "three.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &three));
 
         for (i = 0; i < N_ENTRIES; i++) {
                 char *p, *q;
@@ -94,20 +93,20 @@ static void run_test(void) {
 
                 previous_ts = ts;
 
-                assert_se(asprintf(&p, "NUMBER=%u", i) >= 0);
+                ASSERT_OK_ERRNO(asprintf(&p, "NUMBER=%u", i));
                 iovec[0] = IOVEC_MAKE(p, strlen(p));
 
-                assert_se(asprintf(&q, "MAGIC=%s", i % 5 == 0 ? "quux" : "waldo") >= 0);
+                ASSERT_OK_ERRNO(asprintf(&q, "MAGIC=%s", i % 5 == 0 ? "quux" : "waldo"));
 
                 iovec[1] = IOVEC_MAKE(q, strlen(q));
 
                 if (i % 10 == 0)
-                        assert_se(journal_file_append_entry(three, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL) == 0);
+                        ASSERT_OK_ZERO(journal_file_append_entry(three, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL));
                 else {
                         if (i % 3 == 0)
-                                assert_se(journal_file_append_entry(two, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL) == 0);
+                                ASSERT_OK_ZERO(journal_file_append_entry(two, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL));
 
-                        assert_se(journal_file_append_entry(one, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL) == 0);
+                        ASSERT_OK_ZERO(journal_file_append_entry(one, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL));
                 }
 
                 free(p);
@@ -118,27 +117,27 @@ static void run_test(void) {
         (void) journal_file_offline_close(two);
         (void) journal_file_offline_close(three);
 
-        assert_se(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE) >= 0);
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
 
-        assert_se(sd_journal_add_match(j, "MAGIC=quux", SIZE_MAX) >= 0);
+        ASSERT_OK(sd_journal_add_match(j, "MAGIC=quux", SIZE_MAX));
         SD_JOURNAL_FOREACH_BACKWARDS(j) {
                 _cleanup_free_ char *c;
 
-                assert_se(sd_journal_get_data(j, "NUMBER", &data, &l) >= 0);
+                ASSERT_OK(sd_journal_get_data(j, "NUMBER", &data, &l));
                 printf("\t%.*s\n", (int) l, (const char*) data);
 
-                assert_se(sd_journal_get_cursor(j, &c) >= 0);
-                assert_se(sd_journal_test_cursor(j, c) > 0);
+                ASSERT_OK(sd_journal_get_cursor(j, &c));
+                ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, c));
         }
 
         SD_JOURNAL_FOREACH(j) {
                 _cleanup_free_ char *c;
 
-                assert_se(sd_journal_get_data(j, "NUMBER", &data, &l) >= 0);
+                ASSERT_OK(sd_journal_get_data(j, "NUMBER", &data, &l));
                 printf("\t%.*s\n", (int) l, (const char*) data);
 
-                assert_se(sd_journal_get_cursor(j, &c) >= 0);
-                assert_se(sd_journal_test_cursor(j, c) > 0);
+                ASSERT_OK(sd_journal_get_cursor(j, &c));
+                ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, c));
         }
 
         sd_journal_flush_matches(j);
@@ -146,9 +145,9 @@ static void run_test(void) {
         verify_contents(j, 1);
 
         printf("NEXT TEST\n");
-        assert_se(sd_journal_add_match(j, "MAGIC=quux", SIZE_MAX) >= 0);
+        ASSERT_OK(sd_journal_add_match(j, "MAGIC=quux", SIZE_MAX));
 
-        assert_se(z = journal_make_match_string(j));
+        ASSERT_NOT_NULL(z = journal_make_match_string(j));
         printf("resulting match expression is: %s\n", z);
         free(z);
 
@@ -156,22 +155,22 @@ static void run_test(void) {
 
         printf("NEXT TEST\n");
         sd_journal_flush_matches(j);
-        assert_se(sd_journal_add_match(j, "MAGIC=waldo", SIZE_MAX) >= 0);
-        assert_se(sd_journal_add_match(j, "NUMBER=10", SIZE_MAX) >= 0);
-        assert_se(sd_journal_add_match(j, "NUMBER=11", SIZE_MAX) >= 0);
-        assert_se(sd_journal_add_match(j, "NUMBER=12", SIZE_MAX) >= 0);
+        ASSERT_OK(sd_journal_add_match(j, "MAGIC=waldo", SIZE_MAX));
+        ASSERT_OK(sd_journal_add_match(j, "NUMBER=10", SIZE_MAX));
+        ASSERT_OK(sd_journal_add_match(j, "NUMBER=11", SIZE_MAX));
+        ASSERT_OK(sd_journal_add_match(j, "NUMBER=12", SIZE_MAX));
 
-        assert_se(z = journal_make_match_string(j));
+        ASSERT_NOT_NULL(z = journal_make_match_string(j));
         printf("resulting match expression is: %s\n", z);
         free(z);
 
         verify_contents(j, 0);
 
-        assert_se(sd_journal_query_unique(j, "NUMBER") >= 0);
+        ASSERT_OK(sd_journal_query_unique(j, "NUMBER"));
         SD_JOURNAL_FOREACH_UNIQUE(j, data, l)
                 printf("%.*s\n", (int) l, (const char*) data);
 
-        assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+        ASSERT_OK(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL));
 }
 
 int main(int argc, char *argv[]) {
@@ -184,16 +183,16 @@ int main(int argc, char *argv[]) {
 
         /* Run this test multiple times with different configurations of features. */
 
-        assert_se(setenv("SYSTEMD_JOURNAL_KEYED_HASH", "0", 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_KEYED_HASH", "0", 1));
         run_test();
 
-        assert_se(setenv("SYSTEMD_JOURNAL_KEYED_HASH", "1", 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_KEYED_HASH", "1", 1));
         run_test();
 
-        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
         run_test();
 
-        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         run_test();
 
         return 0;

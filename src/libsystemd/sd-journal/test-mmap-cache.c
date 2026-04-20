@@ -10,49 +10,41 @@
 
 int main(int argc, char *argv[]) {
         MMapFileDescriptor *fx;
-        int x, y, z, r;
+        int x, y, z;
         char px[] = "/tmp/testmmapXXXXXXX", py[] = "/tmp/testmmapYXXXXXX", pz[] = "/tmp/testmmapZXXXXXX";
         MMapCache *m;
         void *p, *q;
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(m = mmap_cache_new());
+        ASSERT_NOT_NULL(m = mmap_cache_new());
 
-        x = mkostemp_safe(px);
-        assert_se(x >= 0);
+        ASSERT_OK(x = mkostemp_safe(px));
         (void) unlink(px);
 
-        assert_se(mmap_cache_add_fd(m, x, PROT_READ, &fx) > 0);
+        ASSERT_OK_POSITIVE(mmap_cache_add_fd(m, x, PROT_READ, &fx));
 
-        y = mkostemp_safe(py);
-        assert_se(y >= 0);
+        ASSERT_OK(y = mkostemp_safe(py));
         (void) unlink(py);
 
-        z = mkostemp_safe(pz);
-        assert_se(z >= 0);
+        ASSERT_OK(z = mkostemp_safe(pz));
         (void) unlink(pz);
 
-        r = mmap_cache_fd_get(fx, 0, false, 1, 2, NULL, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(mmap_cache_fd_get(fx, 0, false, 1, 2, NULL, &p));
 
-        r = mmap_cache_fd_get(fx, 0, false, 2, 2, NULL, &q);
-        assert_se(r >= 0);
+        ASSERT_OK(mmap_cache_fd_get(fx, 0, false, 2, 2, NULL, &q));
 
-        assert_se((uint8_t*) p + 1 == (uint8_t*) q);
+        ASSERT_PTR_EQ((uint8_t*) p + 1, (uint8_t*) q);
 
-        r = mmap_cache_fd_get(fx, 1, false, 3, 2, NULL, &q);
-        assert_se(r >= 0);
+        ASSERT_OK(mmap_cache_fd_get(fx, 1, false, 3, 2, NULL, &q));
 
-        assert_se((uint8_t*) p + 2 == (uint8_t*) q);
+        ASSERT_PTR_EQ((uint8_t*) p + 2, (uint8_t*) q);
 
-        r = mmap_cache_fd_get(fx, 0, false, 16ULL*1024ULL*1024ULL, 2, NULL, &p);
-        assert_se(r >= 0);
+        ASSERT_OK(mmap_cache_fd_get(fx, 0, false, 16ULL*1024ULL*1024ULL, 2, NULL, &p));
 
-        r = mmap_cache_fd_get(fx, 1, false, 16ULL*1024ULL*1024ULL+1, 2, NULL, &q);
-        assert_se(r >= 0);
+        ASSERT_OK(mmap_cache_fd_get(fx, 1, false, 16ULL*1024ULL*1024ULL+1, 2, NULL, &q));
 
-        assert_se((uint8_t*) p + 1 == (uint8_t*) q);
+        ASSERT_PTR_EQ((uint8_t*) p + 1, (uint8_t*) q);
 
         mmap_cache_fd_free(fx);
         mmap_cache_unref(m);
