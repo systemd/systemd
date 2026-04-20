@@ -12,13 +12,9 @@ executables += [
                         'repart.c',
                         'iso9660.c',
                 ),
-                'link_with' : [
-                        libshared,
-                        libshared_fdisk,
-                ],
                 'dependencies' : [
                         libblkid_cflags,
-                        libfdisk,
+                        libfdisk_cflags,
                         libmount_cflags,
                         libopenssl,
                         threads,
@@ -31,13 +27,12 @@ executables += [
                 'link_with' : [
                         libc_wrapper_static,
                         libbasic_static,
-                        libshared_fdisk,
                         libshared_static,
                         libsystemd_static,
                 ],
                 'dependencies' : [
                         libblkid_cflags,
-                        libfdisk,
+                        libfdisk_cflags,
                         libmount_cflags,
                         libopenssl,
                         threads,
