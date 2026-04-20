@@ -16,11 +16,11 @@ static void test_journal_file_parse_uid_from_filename_simple(
         log_info("testing %s", path);
 
         r = journal_file_parse_uid_from_filename(path, &uid);
-        assert_se(r == expected_error);
+        ASSERT_EQ(r, expected_error);
         if (r < 0)
-                assert_se(uid == UID_INVALID);
+                ASSERT_EQ(uid, UID_INVALID);
         else
-                assert_se(uid == expected_uid);
+                ASSERT_EQ(uid, expected_uid);
 }
 
 TEST(journal_file_parse_uid_from_filename) {
