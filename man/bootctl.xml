@@ -407,6 +407,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-A</option></term>
+        <term><option>--print-efi-architecture</option></term>
+
+        <listitem><para>Prints the EFI architecture string of the local firmware. This is useful to
+        generically format filenames such as <filename>boot<replaceable>x64</replaceable>.efi</filename> that
+        include the local firmware architecture in the name.</para>
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--variables=yes|no|auto</option></term>
         <listitem><para>Controls whether to touch the firmware's boot loader list stored in EFI variables,
         and other EFI variables. If not specified or set to <option>auto</option>, EFI variables will not
