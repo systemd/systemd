@@ -45,6 +45,7 @@ typedef enum UserDBFlags UserDBFlags;
 typedef enum UserRecordLoadFlags UserRecordLoadFlags;
 typedef enum UserStorage UserStorage;
 
+typedef struct AskPasswordRequest AskPasswordRequest;
 typedef struct Bitmap Bitmap;
 typedef struct BootConfig BootConfig;
 typedef struct BPFProgram BPFProgram;
