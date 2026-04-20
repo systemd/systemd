@@ -2283,7 +2283,6 @@ static int qemu_config_add_qmp_monitor(FILE *config_file, int bridge_fds[2], int
 }
 
 static int resolve_disk_driver(DiskType dt, const char *filename, DriveInfo *info) {
-        const char *driver;
         size_t serial_max;
         int r;
 
@@ -2292,19 +2291,15 @@ static int resolve_disk_driver(DiskType dt, const char *filename, DriveInfo *inf
 
         switch (dt) {
         case DISK_TYPE_VIRTIO_BLK:
-                driver = "virtio-blk-pci";
                 serial_max = DISK_SERIAL_MAX_LEN_VIRTIO_BLK;
                 break;
         case DISK_TYPE_VIRTIO_SCSI:
-                driver = "scsi-hd";
                 serial_max = DISK_SERIAL_MAX_LEN_SCSI;
                 break;
         case DISK_TYPE_NVME:
-                driver = "nvme";
                 serial_max = DISK_SERIAL_MAX_LEN_NVME;
                 break;
         case DISK_TYPE_VIRTIO_SCSI_CDROM:
-                driver = "scsi-cd";
                 serial_max = DISK_SERIAL_MAX_LEN_SCSI;
                 info->flags |= QMP_DRIVE_READ_ONLY;
                 break;
@@ -2312,7 +2307,7 @@ static int resolve_disk_driver(DiskType dt, const char *filename, DriveInfo *inf
                 assert_not_reached();
         }
 
-        info->disk_driver = strdup(driver);
+        info->disk_driver = strdup(ASSERT_PTR(disk_type_to_qemu_device_driver(dt)));
         if (!info->disk_driver)
                 return log_oom();
 
