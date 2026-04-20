@@ -11,7 +11,7 @@ executables += [
                 'sources' : files('creds.c'),
                 'dependencies' : [
                         libmount_cflags,
-                        libopenssl,
+                        libopenssl_cflags,
                         threads,
                 ],
         },
