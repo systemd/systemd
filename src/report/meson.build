@@ -8,8 +8,6 @@ executables += [
                         'report.c',
                         'report-upload.c',
                 ),
-                'link_with' : [libcurlutil_static, libshared],
-                'dependencies' : [libcurl],
         },
 
         libexec_template + {

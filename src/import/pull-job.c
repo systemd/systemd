@@ -52,7 +52,7 @@ PullJob* pull_job_unref(PullJob *j) {
         pull_job_close_disk_fd(j);
 
         curl_glue_remove_and_free(j->glue, j->curl);
-        curl_slist_free_all(j->request_header);
+        sym_curl_slist_free_all(j->request_header);
 
         j->compress = compressor_free(j->compress);
 
@@ -164,13 +164,13 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
         CURLcode code;
         int r;
 
-        if (curl_easy_getinfo(curl, CURLINFO_PRIVATE, (char **)&j) != CURLE_OK)
+        if (sym_curl_easy_getinfo(curl, CURLINFO_PRIVATE, (char **)&j) != CURLE_OK)
                 return;
 
         if (!j || IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED))
                 return;
 
-        code = curl_easy_getinfo(curl, CURLINFO_SCHEME, &scheme);
+        code = sym_curl_easy_getinfo(curl, CURLINFO_SCHEME, &scheme);
         if (code != CURLE_OK || !scheme) {
                 r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve URL scheme.");
                 goto finish;
@@ -197,16 +197,16 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
         }
 
         if (result != CURLE_OK) {
-                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Transfer failed: %s", curl_easy_strerror(result));
+                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Transfer failed: %s", sym_curl_easy_strerror(result));
                 goto finish;
         }
 
         if (STRCASE_IN_SET(scheme, "HTTP", "HTTPS")) {
                 long status;
 
-                code = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+                code = sym_curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
                 if (code != CURLE_OK) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", curl_easy_strerror(code));
+                        r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code));
                         goto finish;
                 }
 
@@ -236,9 +236,9 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                                         if (r < 0)
                                                 goto finish;
 
-                                        code = curl_easy_getinfo(j->curl, CURLINFO_RESPONSE_CODE, &status);
+                                        code = sym_curl_easy_getinfo(j->curl, CURLINFO_RESPONSE_CODE, &status);
                                         if (code != CURLE_OK) {
-                                                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", curl_easy_strerror(code));
+                                                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code));
                                                 goto finish;
                                         }
 
@@ -589,9 +589,9 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
 
         assert(j->state == PULL_JOB_ANALYZING);
 
-        code = curl_easy_getinfo(j->curl, CURLINFO_RESPONSE_CODE, &status);
+        code = sym_curl_easy_getinfo(j->curl, CURLINFO_RESPONSE_CODE, &status);
         if (code != CURLE_OK) {
-                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", curl_easy_strerror(code));
+                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code));
                 goto fail;
         }
 
@@ -781,7 +781,7 @@ int pull_job_add_request_header(PullJob *j, const char *hdr) {
         if (j->request_header) {
                 struct curl_slist *l;
 
-                l = curl_slist_append(j->request_header, hdr);
+                l = sym_curl_slist_append(j->request_header, hdr);
                 if (!l)
                         return -ENOMEM;
 
@@ -824,29 +824,29 @@ int pull_job_begin(PullJob *j) {
         }
 
         if (j->request_header) {
-                if (curl_easy_setopt(j->curl, CURLOPT_HTTPHEADER, j->request_header) != CURLE_OK)
+                if (sym_curl_easy_setopt(j->curl, CURLOPT_HTTPHEADER, j->request_header) != CURLE_OK)
                         return -EIO;
         }
 
-        if (curl_easy_setopt(j->curl, CURLOPT_WRITEFUNCTION, pull_job_write_callback) != CURLE_OK)
+        if (sym_curl_easy_setopt(j->curl, CURLOPT_WRITEFUNCTION, pull_job_write_callback) != CURLE_OK)
                 return -EIO;
 
-        if (curl_easy_setopt(j->curl, CURLOPT_WRITEDATA, j) != CURLE_OK)
+        if (sym_curl_easy_setopt(j->curl, CURLOPT_WRITEDATA, j) != CURLE_OK)
                 return -EIO;
 
-        if (curl_easy_setopt(j->curl, CURLOPT_HEADERFUNCTION, pull_job_header_callback) != CURLE_OK)
+        if (sym_curl_easy_setopt(j->curl, CURLOPT_HEADERFUNCTION, pull_job_header_callback) != CURLE_OK)
                 return -EIO;
 
-        if (curl_easy_setopt(j->curl, CURLOPT_HEADERDATA, j) != CURLE_OK)
+        if (sym_curl_easy_setopt(j->curl, CURLOPT_HEADERDATA, j) != CURLE_OK)
                 return -EIO;
 
-        if (curl_easy_setopt(j->curl, CURLOPT_XFERINFOFUNCTION, pull_job_progress_callback) != CURLE_OK)
+        if (sym_curl_easy_setopt(j->curl, CURLOPT_XFERINFOFUNCTION, pull_job_progress_callback) != CURLE_OK)
                 return -EIO;
 
-        if (curl_easy_setopt(j->curl, CURLOPT_XFERINFODATA, j) != CURLE_OK)
+        if (sym_curl_easy_setopt(j->curl, CURLOPT_XFERINFODATA, j) != CURLE_OK)
                 return -EIO;
 
-        if (curl_easy_setopt(j->curl, CURLOPT_NOPROGRESS, 0L) != CURLE_OK)
+        if (sym_curl_easy_setopt(j->curl, CURLOPT_NOPROGRESS, 0L) != CURLE_OK)
                 return -EIO;
 
         r = curl_glue_add(j->glue, j->curl);

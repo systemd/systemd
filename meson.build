@@ -1296,6 +1296,7 @@ endforeach
 libcurl = dependency('libcurl',
                      version : '>= 7.32.0',
                      required : get_option('libcurl'))
+libcurl_cflags = libcurl.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBCURL', libcurl.found())
 conf.set10('CURL_NO_OLDIES', conf.get('BUILD_MODE_DEVELOPER') == 1)
 
