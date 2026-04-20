@@ -33,7 +33,7 @@ executables += [
                 ],
                 'dependencies' : [
                         libfdisk,
-                        libopenssl,
+                        libopenssl_cflags,
                         threads,
                 ],
         },

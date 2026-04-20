@@ -10,7 +10,7 @@ executables += [
                         'HAVE_TPM2',
                 ],
                 'dependencies' : [
-                        libopenssl,
+                        libopenssl_cflags,
                 ],
         },
         libexec_template + {

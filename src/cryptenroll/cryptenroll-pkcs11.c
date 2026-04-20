@@ -2,10 +2,10 @@
 
 #include "alloc-util.h"
 #include "cryptenroll-pkcs11.h"
+#include "crypto-util.h"
 #include "cryptsetup-util.h"
 #include "hexdecoct.h"
 #include "json-util.h"
-#include "openssl-util.h"
 #include "pkcs11-util.h"
 
 #if HAVE_P11KIT && HAVE_OPENSSL

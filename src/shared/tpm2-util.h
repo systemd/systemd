@@ -2,8 +2,9 @@
 #pragma once
 
 #include "bitfield.h"
-#include "openssl-util.h"
+#include "iovec-util.h"
 #include "shared-forward.h"
+#include "sha256-fundamental.h"
 
 typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN     = 1 << 0,
