@@ -54,11 +54,11 @@ static int vl_method_get_states(sd_varlink *link, sd_json_variant *parameters, s
 
         return sd_varlink_replybo(
                         link,
-                        SD_JSON_BUILD_PAIR_STRING("AddressState", link_address_state_to_string(m->address_state)),
-                        SD_JSON_BUILD_PAIR_STRING("IPv4AddressState", link_address_state_to_string(m->ipv4_address_state)),
-                        SD_JSON_BUILD_PAIR_STRING("IPv6AddressState", link_address_state_to_string(m->ipv6_address_state)),
+                        JSON_BUILD_PAIR_ENUM("AddressState", link_address_state_to_string(m->address_state)),
+                        JSON_BUILD_PAIR_ENUM("IPv4AddressState", link_address_state_to_string(m->ipv4_address_state)),
+                        JSON_BUILD_PAIR_ENUM("IPv6AddressState", link_address_state_to_string(m->ipv6_address_state)),
                         SD_JSON_BUILD_PAIR_STRING("CarrierState", link_carrier_state_to_string(m->carrier_state)),
-                        SD_JSON_BUILD_PAIR_CONDITION(m->online_state >= 0, "OnlineState", SD_JSON_BUILD_STRING(link_online_state_to_string(m->online_state))),
+                        SD_JSON_BUILD_PAIR_CONDITION(m->online_state >= 0, "OnlineState", JSON_BUILD_STRING_UNDERSCORIFY(link_online_state_to_string(m->online_state))),
                         SD_JSON_BUILD_PAIR_STRING("OperationalState", link_operstate_to_string(m->operational_state)));
 }
 
