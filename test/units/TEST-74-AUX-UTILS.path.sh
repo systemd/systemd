@@ -39,6 +39,7 @@ XDG_DOCUMENTS_DIR="$HOME/top/secret/documents"
 XDG_MUSIC_DIR="/tmp/vaporwave"
 XDG_PICTURES_DIR="$HOME/Pictures"
 XDG_VIDEOS_DIR="$HOME/🤔"
+XDG_PROJECTS_DIR="$HOME/my-projects"
 EOF
 
 systemd-path --help
@@ -66,12 +67,13 @@ assert_eq "$(systemd-path user-pictures)" "/root/Pictures"
 assert_eq "$(systemd-path user-public)" "/root/cat-pictures"
 assert_eq "$(systemd-path user-templates)" "/templates"
 assert_eq "$(systemd-path user-videos)" "/root/🤔"
+assert_eq "$(systemd-path user-projects)" "/root/my-projects"
 
 # Remove the user-dirs.dir file and check the defaults
 rm -fv "$USER_DIRS_CONF"
 [[ ! -e "$USER_DIRS_CONF" ]]
 assert_eq "$(systemd-path user-desktop)" "/root/Desktop"
-for dir in "" documents download music pictures public templates videos; do
+for dir in "" documents download music pictures public templates videos projects; do
     assert_eq "$(systemd-path "user${dir:+-$dir}")" "/root"
 done
 
