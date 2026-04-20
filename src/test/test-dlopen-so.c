@@ -8,6 +8,7 @@
 #include "cryptsetup-util.h"
 #include "curl-util.h"
 #include "elf-util.h"
+#include "fdisk-util.h"
 #include "gcrypt-util.h"
 #include "idn-util.h"
 #include "libarchive-util.h"
@@ -49,6 +50,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_curl, HAVE_LIBCURL);
         ASSERT_DLOPEN(dlopen_dw, HAVE_ELFUTILS);
         ASSERT_DLOPEN(dlopen_elf, HAVE_ELFUTILS);
+        ASSERT_DLOPEN(dlopen_fdisk, HAVE_LIBFDISK);
         ASSERT_DLOPEN(dlopen_gcrypt, HAVE_GCRYPT);
         ASSERT_DLOPEN(dlopen_idn, HAVE_LIBIDN2);
         ASSERT_DLOPEN(dlopen_libacl, HAVE_ACL);
