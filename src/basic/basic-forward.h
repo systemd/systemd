@@ -69,6 +69,15 @@ struct fdisk_context;
 struct fdisk_table;
 struct crypt_device;
 
+typedef struct buf_mem_st BUF_MEM;
+typedef struct evp_pkey_st EVP_PKEY;
+typedef struct evp_md_st EVP_MD;
+typedef struct evp_md_ctx_st EVP_MD_CTX;
+typedef struct ssl_st SSL;
+typedef struct ssl_ctx_st SSL_CTX;
+typedef struct ssl_session_st SSL_SESSION;
+typedef struct x509_st X509;
+
 /* basic/ forward declarations */
 
 typedef void (*hash_func_t)(const void *p, struct siphash *state);
@@ -111,6 +120,7 @@ typedef struct Set Set;
 
 typedef struct dual_timestamp dual_timestamp;
 typedef struct triple_timestamp triple_timestamp;
+typedef struct Compressor Compressor;
 typedef struct ConfFile ConfFile;
 typedef struct LockFile LockFile;
 typedef struct PidRef PidRef;

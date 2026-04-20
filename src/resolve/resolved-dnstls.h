@@ -7,8 +7,6 @@
 #error This source file requires OpenSSL to be available.
 #endif
 
-#include <openssl/ssl.h>
-
 #include "resolved-forward.h"
 
 typedef struct DnsTlsManagerData {
