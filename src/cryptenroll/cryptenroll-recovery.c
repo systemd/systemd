@@ -24,7 +24,7 @@ int enroll_recovery(
         assert_se(cd);
         assert_se(iovec_is_set(volume_key));
 
-        assert_se(node = crypt_get_device_name(cd));
+        assert_se(node = sym_crypt_get_device_name(cd));
 
         r = make_recovery_key(&password);
         if (r < 0)
@@ -34,7 +34,7 @@ int enroll_recovery(
         if (r < 0)
                 return log_error_errno(r, "Failed to set minimal PBKDF: %m");
 
-        keyslot = crypt_keyslot_add_by_volume_key(
+        keyslot = sym_crypt_keyslot_add_by_volume_key(
                         cd,
                         CRYPT_ANY_SLOT,
                         volume_key->iov_base,
@@ -93,7 +93,7 @@ int enroll_recovery(
         return keyslot;
 
 rollback:
-        q = crypt_keyslot_destroy(cd, keyslot);
+        q = sym_crypt_keyslot_destroy(cd, keyslot);
         if (q < 0)
                 log_debug_errno(q, "Unable to remove key slot we just added again, can't rollback, sorry: %m");
 
