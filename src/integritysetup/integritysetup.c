@@ -126,19 +126,19 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         return r;
         }
 
-        r = crypt_init(&cd, device);
+        r = sym_crypt_init(&cd, device);
         if (r < 0)
                 return log_error_errno(r, "Failed to open integrity device %s: %m", device);
 
         cryptsetup_enable_logging(cd);
 
-        status = crypt_status(cd, volume);
+        status = sym_crypt_status(cd, volume);
         if (IN_SET(status, CRYPT_ACTIVE, CRYPT_BUSY)) {
                 log_info("Volume %s already active.", volume);
                 return 0;
         }
 
-        r = crypt_load(cd,
+        r = sym_crypt_load(cd,
                        CRYPT_INTEGRITY,
                        &(struct crypt_params_integrity) {
                                .journal_watermark = arg_percent,
@@ -149,12 +149,12 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 return log_error_errno(r, "Failed to load integrity superblock: %m");
 
         if (!isempty(arg_existing_data_device)) {
-                r = crypt_set_data_device(cd, arg_existing_data_device);
+                r = sym_crypt_set_data_device(cd, arg_existing_data_device);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add separate data device: %m");
         }
 
-        r = crypt_activate_by_volume_key(cd, volume, key_buf, key_buf_size, arg_activate_flags);
+        r = sym_crypt_activate_by_volume_key(cd, volume, key_buf, key_buf_size, arg_activate_flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up integrity device: %m");
 
@@ -172,7 +172,7 @@ static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (!filename_is_valid(volume))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
 
-        r = crypt_init_by_name(&cd, volume);
+        r = sym_crypt_init_by_name(&cd, volume);
         if (r == -ENODEV) {
                 log_info("Volume %s already inactive.", volume);
                 return 0;
@@ -182,7 +182,7 @@ static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
         cryptsetup_enable_logging(cd);
 
-        r = crypt_deactivate(cd, volume);
+        r = sym_crypt_deactivate(cd, volume);
         if (r < 0)
                 return log_error_errno(r, "Failed to deactivate: %m");
 
@@ -190,12 +190,16 @@ static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 }
 
 static int run(int argc, char *argv[]) {
+        int r;
+
         if (argv_looks_like_help(argc, argv))
                 return help();
 
         log_setup();
 
-        cryptsetup_enable_logging(NULL);
+        r = dlopen_cryptsetup(LOG_ERR);
+        if (r < 0)
+                return r;
 
         umask(0022);
 
