@@ -233,14 +233,14 @@ static int resource_load_from_blockdev(Resource *rr) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create fdisk context from '%s': %m", rr->path);
 
-        if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
+        if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
                 return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has no GPT disk label, not suitable.", rr->path);
 
-        r = fdisk_get_partitions(c, &t);
+        r = sym_fdisk_get_partitions(c, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire partition table: %m");
 
-        n_partitions = fdisk_table_get_nents(t);
+        n_partitions = sym_fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++)  {
                 _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
                 _cleanup_(partition_info_destroy) PartitionInfo pinfo = PARTITION_INFO_NULL;

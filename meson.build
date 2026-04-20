@@ -1156,8 +1156,8 @@ libmount_cflags = libmount.partial_dependency(includes: true, compile_args: true
 
 libfdisk = dependency('fdisk',
                       version : '>= 2.32',
-                      disabler : true,
                       required : get_option('fdisk'))
+libfdisk_cflags = libfdisk.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBFDISK', libfdisk.found())
 
 # This prefers pwquality if both are enabled or auto.
