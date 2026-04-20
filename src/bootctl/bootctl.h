@@ -24,6 +24,7 @@ extern bool arg_print_dollar_boot_path;
 extern bool arg_print_loader_path;
 extern bool arg_print_stub_path;
 extern unsigned arg_print_root_device;
+extern bool arg_print_efi_architecture;
 extern int arg_touch_variables;
 extern bool arg_install_random_seed;
 extern PagerFlags arg_pager_flags;
