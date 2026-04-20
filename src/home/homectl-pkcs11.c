@@ -2,12 +2,12 @@
 
 #include "sd-json.h"
 
+#include "crypto-util.h"
 #include "errno-util.h"
 #include "hexdecoct.h"
 #include "homectl-pkcs11.h"
 #include "libcrypt-util.h"
 #include "log.h"
-#include "openssl-util.h"
 #include "pkcs11-util.h"
 #include "string-util.h"
 #include "strv.h"

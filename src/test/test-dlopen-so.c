@@ -5,6 +5,7 @@
 #include "blkid-util.h"
 #include "bpf-dlopen.h"
 #include "compress.h"
+#include "crypto-util.h"
 #include "cryptsetup-util.h"
 #include "curl-util.h"
 #include "elf-util.h"
@@ -28,6 +29,7 @@
 #include "qrcode-util.h"
 #include "seccomp-util.h"
 #include "selinux-util.h"
+#include "ssl-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
 
@@ -68,6 +70,8 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libpam, HAVE_PAM);
         ASSERT_DLOPEN(dlopen_libseccomp, HAVE_SECCOMP);
         ASSERT_DLOPEN(dlopen_libselinux, HAVE_SELINUX);
+        ASSERT_DLOPEN(dlopen_libcrypto, HAVE_OPENSSL);
+        ASSERT_DLOPEN(dlopen_libssl, HAVE_OPENSSL);
         ASSERT_DLOPEN(dlopen_xz, HAVE_XZ);
         ASSERT_DLOPEN(dlopen_lz4, HAVE_LZ4);
         ASSERT_DLOPEN(dlopen_microhttpd, HAVE_MICROHTTPD);
