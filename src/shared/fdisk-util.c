@@ -1,16 +1,156 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "fdisk-util.h"
+
+#if HAVE_LIBFDISK
+
+#include "sd-dlopen.h"
+
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "dissect-image.h"
+#include "dlfcn-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
-#include "fdisk-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "string-util.h"
 
-#if HAVE_LIBFDISK
+static void *fdisk_dl = NULL;
+
+DLSYM_PROTOTYPE(fdisk_add_partition) = NULL;
+DLSYM_PROTOTYPE(fdisk_apply_table) = NULL;
+DLSYM_PROTOTYPE(fdisk_ask_get_type) = NULL;
+DLSYM_PROTOTYPE(fdisk_ask_string_set_result) = NULL;
+DLSYM_PROTOTYPE(fdisk_assign_device) = NULL;
+DLSYM_PROTOTYPE(fdisk_create_disklabel) = NULL;
+DLSYM_PROTOTYPE(fdisk_delete_partition) = NULL;
+DLSYM_PROTOTYPE(fdisk_get_devfd) = NULL;
+DLSYM_PROTOTYPE(fdisk_get_disklabel_id) = NULL;
+DLSYM_PROTOTYPE(fdisk_get_first_lba) = NULL;
+DLSYM_PROTOTYPE(fdisk_get_grain_size) = NULL;
+DLSYM_PROTOTYPE(fdisk_get_last_lba) = NULL;
+DLSYM_PROTOTYPE(fdisk_get_npartitions) = NULL;
+DLSYM_PROTOTYPE(fdisk_get_nsectors) = NULL;
+DLSYM_PROTOTYPE(fdisk_get_partition) = NULL;
+DLSYM_PROTOTYPE(fdisk_get_partitions) = NULL;
+DLSYM_PROTOTYPE(fdisk_get_sector_size) = NULL;
+DLSYM_PROTOTYPE(fdisk_has_label) = NULL;
+DLSYM_PROTOTYPE(fdisk_is_labeltype) = NULL;
+DLSYM_PROTOTYPE(fdisk_new_context) = NULL;
+DLSYM_PROTOTYPE(fdisk_new_partition) = NULL;
+DLSYM_PROTOTYPE(fdisk_new_parttype) = NULL;
+DLSYM_PROTOTYPE(fdisk_partname) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_get_attrs) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_get_end) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_get_name) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_get_partno) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_get_size) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_get_start) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_get_type) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_get_uuid) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_has_end) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_has_partno) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_has_size) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_has_start) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_is_used) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_partno_follow_default) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_set_attrs) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_set_name) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_set_partno) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_set_size) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_set_start) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_set_type) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_set_uuid) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_size_explicit) = NULL;
+DLSYM_PROTOTYPE(fdisk_partition_to_string) = NULL;
+DLSYM_PROTOTYPE(fdisk_parttype_get_string) = NULL;
+DLSYM_PROTOTYPE(fdisk_parttype_set_typestr) = NULL;
+DLSYM_PROTOTYPE(fdisk_ref_partition) = NULL;
+DLSYM_PROTOTYPE(fdisk_save_user_sector_size) = NULL;
+DLSYM_PROTOTYPE(fdisk_set_ask) = NULL;
+DLSYM_PROTOTYPE(fdisk_set_disklabel_id) = NULL;
+DLSYM_PROTOTYPE(fdisk_set_partition) = NULL;
+DLSYM_PROTOTYPE(fdisk_table_get_nents) = NULL;
+DLSYM_PROTOTYPE(fdisk_table_get_partition) = NULL;
+DLSYM_PROTOTYPE(fdisk_unref_context) = NULL;
+DLSYM_PROTOTYPE(fdisk_unref_partition) = NULL;
+DLSYM_PROTOTYPE(fdisk_unref_parttype) = NULL;
+DLSYM_PROTOTYPE(fdisk_unref_table) = NULL;
+DLSYM_PROTOTYPE(fdisk_write_disklabel) = NULL;
+
+int dlopen_fdisk(void) {
+        SD_ELF_NOTE_DLOPEN(
+                        "fdisk",
+                        "Support for reading and writing partition tables",
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libfdisk.so.1");
+
+        return dlopen_many_sym_or_warn(
+                        &fdisk_dl,
+                        "libfdisk.so.1",
+                        LOG_DEBUG,
+                        DLSYM_ARG(fdisk_add_partition),
+                        DLSYM_ARG(fdisk_apply_table),
+                        DLSYM_ARG(fdisk_ask_get_type),
+                        DLSYM_ARG(fdisk_ask_string_set_result),
+                        DLSYM_ARG(fdisk_assign_device),
+                        DLSYM_ARG(fdisk_create_disklabel),
+                        DLSYM_ARG(fdisk_delete_partition),
+                        DLSYM_ARG(fdisk_get_devfd),
+                        DLSYM_ARG(fdisk_get_disklabel_id),
+                        DLSYM_ARG(fdisk_get_first_lba),
+                        DLSYM_ARG(fdisk_get_grain_size),
+                        DLSYM_ARG(fdisk_get_last_lba),
+                        DLSYM_ARG(fdisk_get_npartitions),
+                        DLSYM_ARG(fdisk_get_nsectors),
+                        DLSYM_ARG(fdisk_get_partition),
+                        DLSYM_ARG(fdisk_get_partitions),
+                        DLSYM_ARG(fdisk_get_sector_size),
+                        DLSYM_ARG(fdisk_has_label),
+                        DLSYM_ARG(fdisk_is_labeltype),
+                        DLSYM_ARG(fdisk_new_context),
+                        DLSYM_ARG(fdisk_new_partition),
+                        DLSYM_ARG(fdisk_new_parttype),
+                        DLSYM_ARG(fdisk_partname),
+                        DLSYM_ARG(fdisk_partition_get_attrs),
+                        DLSYM_ARG(fdisk_partition_get_end),
+                        DLSYM_ARG(fdisk_partition_get_name),
+                        DLSYM_ARG(fdisk_partition_get_partno),
+                        DLSYM_ARG(fdisk_partition_get_size),
+                        DLSYM_ARG(fdisk_partition_get_start),
+                        DLSYM_ARG(fdisk_partition_get_type),
+                        DLSYM_ARG(fdisk_partition_get_uuid),
+                        DLSYM_ARG(fdisk_partition_has_end),
+                        DLSYM_ARG(fdisk_partition_has_partno),
+                        DLSYM_ARG(fdisk_partition_has_size),
+                        DLSYM_ARG(fdisk_partition_has_start),
+                        DLSYM_ARG(fdisk_partition_is_used),
+                        DLSYM_ARG(fdisk_partition_partno_follow_default),
+                        DLSYM_ARG(fdisk_partition_set_attrs),
+                        DLSYM_ARG(fdisk_partition_set_name),
+                        DLSYM_ARG(fdisk_partition_set_partno),
+                        DLSYM_ARG(fdisk_partition_set_size),
+                        DLSYM_ARG(fdisk_partition_set_start),
+                        DLSYM_ARG(fdisk_partition_set_type),
+                        DLSYM_ARG(fdisk_partition_set_uuid),
+                        DLSYM_ARG(fdisk_partition_size_explicit),
+                        DLSYM_ARG(fdisk_partition_to_string),
+                        DLSYM_ARG(fdisk_parttype_get_string),
+                        DLSYM_ARG(fdisk_parttype_set_typestr),
+                        DLSYM_ARG(fdisk_ref_partition),
+                        DLSYM_ARG(fdisk_save_user_sector_size),
+                        DLSYM_ARG(fdisk_set_ask),
+                        DLSYM_ARG(fdisk_set_disklabel_id),
+                        DLSYM_ARG(fdisk_set_partition),
+                        DLSYM_ARG(fdisk_table_get_nents),
+                        DLSYM_ARG(fdisk_table_get_partition),
+                        DLSYM_ARG(fdisk_unref_context),
+                        DLSYM_ARG(fdisk_unref_partition),
+                        DLSYM_ARG(fdisk_unref_parttype),
+                        DLSYM_ARG(fdisk_unref_table),
+                        DLSYM_ARG(fdisk_write_disklabel));
+}
 
 int fdisk_new_context_at(
                 int dir_fd,
@@ -34,7 +174,7 @@ int fdisk_new_context_at(
                 dir_fd = fd;
         }
 
-        c = fdisk_new_context();
+        c = sym_fdisk_new_context();
         if (!c)
                 return -ENOMEM;
 
@@ -45,12 +185,12 @@ int fdisk_new_context_at(
         }
 
         if (sector_size != 0) {
-                r = fdisk_save_user_sector_size(c, /* phy= */ 0, sector_size);
+                r = sym_fdisk_save_user_sector_size(c, /* phy= */ 0, sector_size);
                 if (r < 0)
                         return r;
         }
 
-        r = fdisk_assign_device(c, FORMAT_PROC_FD_PATH(dir_fd), read_only);
+        r = sym_fdisk_assign_device(c, FORMAT_PROC_FD_PATH(dir_fd), read_only);
         if (r < 0)
                 return r;
 
@@ -64,7 +204,7 @@ int fdisk_partition_get_uuid_as_id128(struct fdisk_partition *p, sd_id128_t *ret
         assert(p);
         assert(ret);
 
-        ids = fdisk_partition_get_uuid(p);
+        ids = sym_fdisk_partition_get_uuid(p);
         if (!ids)
                 return -ENXIO;
 
@@ -78,11 +218,11 @@ int fdisk_partition_get_type_as_id128(struct fdisk_partition *p, sd_id128_t *ret
         assert(p);
         assert(ret);
 
-        pt = fdisk_partition_get_type(p);
+        pt = sym_fdisk_partition_get_type(p);
         if (!pt)
                 return -ENXIO;
 
-        pts = fdisk_parttype_get_string(pt);
+        pts = sym_fdisk_parttype_get_string(pt);
         if (!pts)
                 return -ENXIO;
 
@@ -99,7 +239,7 @@ int fdisk_partition_get_attrs_as_uint64(struct fdisk_partition *pa, uint64_t *re
 
         /* Retrieve current flags as uint64_t mask */
 
-        a = fdisk_partition_get_attrs(pa);
+        a = sym_fdisk_partition_get_attrs(pa);
         if (!a) {
                 *ret = 0;
                 return 0;
@@ -161,7 +301,7 @@ int fdisk_partition_set_attrs_as_uint64(struct fdisk_partition *pa, uint64_t fla
                         return r;
         }
 
-        return fdisk_partition_set_attrs(pa, strempty(attrs));
+        return sym_fdisk_partition_set_attrs(pa, strempty(attrs));
 }
 
 #endif
