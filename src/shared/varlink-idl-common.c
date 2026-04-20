@@ -54,6 +54,23 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(RTPRIO, ResourceLimit, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(RTTIME, ResourceLimit, SD_VARLINK_NULLABLE));
 
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ExecCommand,
+                SD_VARLINK_FIELD_COMMENT("Path"),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Arguments"),
+                SD_VARLINK_DEFINE_FIELD(arguments, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Ignore failure of the command"),
+                SD_VARLINK_DEFINE_FIELD(ignoreFailure, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Run with full privileges"),
+                SD_VARLINK_DEFINE_FIELD(privileged, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Skip setuid handling"),
+                SD_VARLINK_DEFINE_FIELD(noSetuid, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Skip environment variable expansion"),
+                SD_VARLINK_DEFINE_FIELD(noEnvExpand, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Run via shell"),
+                SD_VARLINK_DEFINE_FIELD(viaShell, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 ExecOutputType,
                 SD_VARLINK_DEFINE_ENUM_VALUE(inherit),
