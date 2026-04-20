@@ -301,6 +301,7 @@ executables += [
                 'sources' : files('test-dlopen-so.c'),
                 'dependencies' : [
                         libblkid_cflags,
+                        libfdisk_cflags,
                         libkmod_cflags,
                         libmount_cflags,
                         libp11kit_cflags,
