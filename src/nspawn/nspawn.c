@@ -5364,7 +5364,7 @@ static int run_container(
                         assert(child_netns_fd < 0);
                         child_netns_fd = receive_one_fd(fd_inner_socket_pair[0], 0);
                         if (child_netns_fd < 0)
-                                return log_error_errno(r, "Failed to receive child network namespace: %m");
+                                return log_error_errno(child_netns_fd, "Failed to receive child network namespace: %m");
                 }
 
                 r = move_network_interfaces(child_netns_fd, arg_network_interfaces);

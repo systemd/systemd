@@ -270,7 +270,7 @@ int nsresource_add_cgroup(sd_varlink *vl, int userns_fd, int cgroup_fd) {
 
         cgroup_fd_idx = sd_varlink_push_dup_fd(vl, cgroup_fd);
         if (cgroup_fd_idx < 0)
-                return log_debug_errno(userns_fd_idx, "Failed to push cgroup fd into varlink connection: %m");
+                return log_debug_errno(cgroup_fd_idx, "Failed to push cgroup fd into varlink connection: %m");
 
         sd_json_variant *reply = NULL;
         r = sd_varlink_callbo(
