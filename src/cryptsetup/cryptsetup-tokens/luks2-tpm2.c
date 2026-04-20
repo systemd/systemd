@@ -110,13 +110,18 @@ int acquire_luks2_key(
                         srk,
                         ret_decrypted_key);
         if (r == -EREMOTE)
-                return log_error_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
+                return log_error_errno(r, "TPM key integrity check failed or NV index unusable. Key enrolled in superblock most likely does not belong to this TPM.");
         if (r == -EILSEQ)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Bad PIN."); /* cryptsetup docs say we should return ENOANO on bad PIN */
         if (r == -ENOLCK)
                 return log_error_errno(r, "TPM is in dictionary attack lock-out mode.");
-        if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
-                return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+        if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r)) {
+                log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                /* Normalize to -EPERM so callers don't confuse it with -ENOANO's "needs PIN" meaning. */
+                return -EPERM;
+        }
+        if (r == -ENXIO)
+                return log_error_errno(r, "No signature for current PCR policy in TPM2 signature JSON, token does not apply to current boot state: %m");
         if (r < 0)
                 return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
