@@ -311,7 +311,7 @@ static int request_parse_accept(
         assert(m);
         assert(connection);
 
-        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Accept");
+        header = sym_MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Accept");
         if (!header)
                 return 0;
 
@@ -459,7 +459,7 @@ static int request_parse_range(
         assert(m);
         assert(connection);
 
-        range = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Range");
+        range = sym_MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Range");
         if (!range)
                 return 0;
 
@@ -566,7 +566,7 @@ static int request_parse_arguments(
         assert(connection);
 
         m->argument_parse_error = 0;
-        MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, request_parse_arguments_iterator, m);
+        sym_MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, request_parse_arguments_iterator, m);
 
         return m->argument_parse_error;
 }
@@ -616,14 +616,14 @@ static int request_handler_entries(
         if (r < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to seek in journal.");
 
-        response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_entries, m, NULL);
+        response = sym_MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_entries, m, NULL);
         if (!response)
                 return respond_oom(connection);
 
-        if (MHD_add_response_header(response, "Content-Type", mime_types[m->mode]) == MHD_NO)
+        if (sym_MHD_add_response_header(response, "Content-Type", mime_types[m->mode]) == MHD_NO)
                 return respond_oom(connection);
 
-        return MHD_queue_response(connection, MHD_HTTP_OK, response);
+        return sym_MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
 static int output_field(FILE *f, OutputMode m, const char *d, size_t l) {
@@ -744,14 +744,14 @@ static int request_handler_fields(
         if (r < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to query unique fields.");
 
-        response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_fields, m, NULL);
+        response = sym_MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_fields, m, NULL);
         if (!response)
                 return respond_oom(connection);
 
-        if (MHD_add_response_header(response, "Content-Type", mime_types[m->mode == OUTPUT_JSON ? OUTPUT_JSON : OUTPUT_SHORT]) == MHD_NO)
+        if (sym_MHD_add_response_header(response, "Content-Type", mime_types[m->mode == OUTPUT_JSON ? OUTPUT_JSON : OUTPUT_SHORT]) == MHD_NO)
                 return respond_oom(connection);
 
-        return MHD_queue_response(connection, MHD_HTTP_OK, response);
+        return sym_MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
 static int request_handler_redirect(
@@ -767,16 +767,16 @@ static int request_handler_redirect(
         if (asprintf(&page, "<html><body>Please continue to the <a href=\"%s\">journal browser</a>.</body></html>", target) < 0)
                 return respond_oom(connection);
 
-        response = MHD_create_response_from_buffer(strlen(page), page, MHD_RESPMEM_MUST_FREE);
+        response = sym_MHD_create_response_from_buffer(strlen(page), page, MHD_RESPMEM_MUST_FREE);
         if (!response)
                 return respond_oom(connection);
         TAKE_PTR(page);
 
-        if (MHD_add_response_header(response, "Content-Type", "text/html") == MHD_NO ||
-            MHD_add_response_header(response, "Location", target) == MHD_NO)
+        if (sym_MHD_add_response_header(response, "Content-Type", "text/html") == MHD_NO ||
+            sym_MHD_add_response_header(response, "Location", target) == MHD_NO)
                 return respond_oom(connection);
 
-        return MHD_queue_response(connection, MHD_HTTP_MOVED_PERMANENTLY, response);
+        return sym_MHD_queue_response(connection, MHD_HTTP_MOVED_PERMANENTLY, response);
 }
 
 static int request_handler_file(
@@ -799,15 +799,15 @@ static int request_handler_file(
         if (fstat(fd, &st) < 0)
                 return mhd_respondf(connection, errno, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to stat file: %m");
 
-        response = MHD_create_response_from_fd_at_offset64(st.st_size, fd, 0);
+        response = sym_MHD_create_response_from_fd_at_offset64(st.st_size, fd, 0);
         if (!response)
                 return respond_oom(connection);
         TAKE_FD(fd);
 
-        if (MHD_add_response_header(response, "Content-Type", mime_type) == MHD_NO)
+        if (sym_MHD_add_response_header(response, "Content-Type", mime_type) == MHD_NO)
                 return respond_oom(connection);
 
-        return MHD_queue_response(connection, MHD_HTTP_OK, response);
+        return sym_MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
 static int get_virtualization(char **v) {
@@ -899,15 +899,15 @@ static int request_handler_machine(
         if (r < 0)
                 return respond_oom(connection);
 
-        response = MHD_create_response_from_buffer(strlen(json), json, MHD_RESPMEM_MUST_FREE);
+        response = sym_MHD_create_response_from_buffer(strlen(json), json, MHD_RESPMEM_MUST_FREE);
         if (!response)
                 return respond_oom(connection);
         TAKE_PTR(json);
 
-        if (MHD_add_response_header(response, "Content-Type", "application/json") == MHD_NO)
+        if (sym_MHD_add_response_header(response, "Content-Type", "application/json") == MHD_NO)
                 return respond_oom(connection);
 
-        return MHD_queue_response(connection, MHD_HTTP_OK, response);
+        return sym_MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
 static int output_boot(FILE *f, LogId boot, int boot_display_index) {
@@ -1026,14 +1026,14 @@ static int request_handler_boots(
         if (r < 0)
                 return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to seek in journal: %m");
 
-        response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_boots, m, NULL);
+        response = sym_MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_boots, m, NULL);
         if (!response)
                 return respond_oom(connection);
 
-        if (MHD_add_response_header(response, "Content-Type", "application/json-seq") == MHD_NO)
+        if (sym_MHD_add_response_header(response, "Content-Type", "application/json-seq") == MHD_NO)
                 return respond_oom(connection);
 
-        return MHD_queue_response(connection, MHD_HTTP_OK, response);
+        return sym_MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
 static mhd_result request_handler(
@@ -1290,6 +1290,10 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
+        r = dlopen_microhttpd(LOG_ERR);
+        if (r < 0)
+                return r;
+
         journal_browse_prepare();
 
         assert_se(sigaction(SIGTERM, &sigterm, NULL) >= 0);
@@ -1323,11 +1327,16 @@ static int run(int argc, char *argv[]) {
                         { MHD_OPTION_HTTPS_MEM_TRUST, 0, arg_trust_pem };
         }
 
-        d = MHD_start_daemon(flags, 19531,
-                             NULL, NULL,
-                             request_handler, NULL,
-                             MHD_OPTION_ARRAY, opts,
-                             MHD_OPTION_END);
+        d = sym_MHD_start_daemon(
+                        flags,
+                        /* port= */ 19531,
+                        /* acp= */ NULL,
+                        /* acp_cls= */ NULL,
+                        request_handler,
+                        /* dh_cls= */ NULL,
+                        MHD_OPTION_ARRAY,
+                        opts,
+                        MHD_OPTION_END);
         if (!d)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to start daemon!");
 

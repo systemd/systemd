@@ -10,6 +10,7 @@
 #include "elf-util.h"
 #include "fdisk-util.h"
 #include "gcrypt-util.h"
+#include "gnutls-util.h"
 #include "idn-util.h"
 #include "libarchive-util.h"
 #include "libaudit-util.h"
@@ -17,6 +18,7 @@
 #include "libfido2-util.h"
 #include "libmount-util.h"
 #include "main-func.h"
+#include "microhttpd-util.h"
 #include "module-util.h"
 #include "pam-util.h"
 #include "password-quality-util-passwdqc.h"
@@ -52,6 +54,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_elf, HAVE_ELFUTILS);
         ASSERT_DLOPEN(dlopen_fdisk, HAVE_LIBFDISK);
         ASSERT_DLOPEN(dlopen_gcrypt, HAVE_GCRYPT);
+        ASSERT_DLOPEN(dlopen_gnutls, HAVE_GNUTLS);
         ASSERT_DLOPEN(dlopen_idn, HAVE_LIBIDN2);
         ASSERT_DLOPEN(dlopen_libacl, HAVE_ACL);
         ASSERT_DLOPEN(dlopen_libapparmor, HAVE_APPARMOR);
@@ -67,6 +70,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libselinux, HAVE_SELINUX);
         ASSERT_DLOPEN(dlopen_xz, HAVE_XZ);
         ASSERT_DLOPEN(dlopen_lz4, HAVE_LZ4);
+        ASSERT_DLOPEN(dlopen_microhttpd, HAVE_MICROHTTPD);
         ASSERT_DLOPEN(dlopen_p11kit, HAVE_P11KIT);
         ASSERT_DLOPEN(dlopen_passwdqc, HAVE_PASSWDQC);
         ASSERT_DLOPEN(dlopen_pcre2, HAVE_PCRE2);
