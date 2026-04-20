@@ -6,12 +6,6 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-#if HAVE_OPENSSL
-#include <openssl/err.h>
-#include <openssl/pem.h>
-#include <openssl/x509.h>
-#endif
-
 #include "sd-device.h"
 #include "sd-id128.h"
 #include "sd-json.h"
@@ -26,6 +20,7 @@
 #include "conf-files.h"
 #include "constants.h"
 #include "copy.h"
+#include "crypto-util.h"
 #include "cryptsetup-util.h"
 #include "device-private.h"
 #include "devnum-util.h"
@@ -57,7 +52,6 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nulstr-util.h"
-#include "openssl-util.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "pcrextend-util.h"
@@ -3087,6 +3081,10 @@ static int validate_signature_userspace(const VeritySettings *verity, const char
         assert(iovec_is_set(&verity->root_hash));
         assert(iovec_is_set(&verity->root_hash_sig));
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         /* Because installing a signature certificate into the kernel chain is so messy, let's optionally do
          * userspace validation. */
 
@@ -3099,7 +3097,7 @@ static int validate_signature_userspace(const VeritySettings *verity, const char
         }
 
         const unsigned char *d = verity->root_hash_sig.iov_base;
-        p7 = d2i_PKCS7(NULL, &d, (long) verity->root_hash_sig.iov_len);
+        p7 = sym_d2i_PKCS7(NULL, &d, (long) verity->root_hash_sig.iov_len);
         if (!p7)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PKCS7 DER signature data.");
 
@@ -3107,11 +3105,11 @@ static int validate_signature_userspace(const VeritySettings *verity, const char
         if (!s)
                 return log_oom_debug();
 
-        bio = BIO_new_mem_buf(s, strlen(s));
+        bio = sym_BIO_new_mem_buf(s, strlen(s));
         if (!bio)
                 return log_oom_debug();
 
-        sk = sk_X509_new_null();
+        sk = sym_sk_X509_new_null();
         if (!sk)
                 return log_oom_debug();
 
@@ -3125,23 +3123,23 @@ static int validate_signature_userspace(const VeritySettings *verity, const char
                         continue;
                 }
 
-                c = PEM_read_X509(f, NULL, NULL, NULL);
+                c = sym_PEM_read_X509(f, NULL, NULL, NULL);
                 if (!c) {
                         log_debug("Failed to load X509 certificate '%s', ignoring.", *i);
                         continue;
                 }
 
-                if (sk_X509_push(sk, c) == 0)
+                if (sym_sk_X509_push(sk, c) == 0)
                         return log_oom_debug();
 
                 TAKE_PTR(c);
         }
 
-        r = PKCS7_verify(p7, sk, NULL, bio, NULL, PKCS7_NOINTERN|PKCS7_NOVERIFY);
+        r = sym_PKCS7_verify(p7, sk, NULL, bio, NULL, PKCS7_NOINTERN|PKCS7_NOVERIFY);
         if (r)
                 log_debug("Userspace PKCS#7 validation succeeded.");
         else
-                log_debug("Userspace PKCS#7 validation failed: %s", ERR_error_string(ERR_get_error(), NULL));
+                log_debug("Userspace PKCS#7 validation failed: %s", sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
         return r;
 #else
