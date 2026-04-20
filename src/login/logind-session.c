@@ -28,6 +28,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "login-util.h"
 #include "logind.h"
 #include "logind-dbus.h"
@@ -35,6 +36,7 @@
 #include "logind-seat-dbus.h"
 #include "logind-session.h"
 #include "logind-session-dbus.h"
+#include "set.h"
 #include "logind-session-device.h"
 #include "logind-user.h"
 #include "logind-user-dbus.h"
@@ -204,6 +206,11 @@ Session* session_free(Session *s) {
         sd_bus_message_unref(s->upgrade_message);
 
         sd_varlink_unref(s->create_link);
+
+        sd_varlink *vl;
+        SET_FOREACH(vl, s->varlink_session_subscriptions)
+                sd_varlink_unref(vl);
+        set_free(s->varlink_session_subscriptions);
 
         free(s->tty);
         free(s->display);
@@ -1548,26 +1555,38 @@ bool session_is_controller(Session *s, const char *sender) {
         return streq_ptr(ASSERT_PTR(s)->controller, sender);
 }
 
+bool session_is_controller_varlink(Session *s, sd_varlink *link) {
+        assert(s);
+        return s->controller_varlink && s->controller_varlink == link;
+}
+
+static bool session_has_controller(Session *s) {
+        return s->controller || s->controller_varlink;
+}
+
 static void session_release_controller(Session *s, bool notify) {
         _unused_ _cleanup_free_ char *name = NULL;
         SessionDevice *sd;
 
         assert(s);
 
-        if (!s->controller)
+        if (!session_has_controller(s))
                 return;
 
         name = s->controller;
 
         /* By resetting the controller before releasing the devices, we won't send notification signals.
          * This avoids sending useless notifications if the controller is released on disconnects. */
-        if (!notify)
+        if (!notify) {
                 s->controller = NULL;
+                s->controller_varlink = sd_varlink_unref(s->controller_varlink);
+        }
 
         while ((sd = hashmap_first(s->devices)))
                 session_device_free(sd);
 
         s->controller = NULL;
+        s->controller_varlink = sd_varlink_unref(s->controller_varlink);
         s->track = sd_bus_track_unref(s->track);
 }
 
@@ -1630,10 +1649,34 @@ int session_set_controller(Session *s, const char *sender, bool force, bool prep
         return 0;
 }
 
+int session_set_controller_varlink(Session *s, sd_varlink *link, bool force, bool prepare) {
+        int r;
+
+        assert(s);
+        assert(link);
+
+        if (session_is_controller_varlink(s, link))
+                return 0;
+        if (session_has_controller(s) && !force)
+                return -EBUSY;
+
+        if (prepare) {
+                r = session_prepare_vt(s);
+                if (r < 0)
+                        return r;
+        }
+
+        session_release_controller(s, true);
+        s->controller_varlink = sd_varlink_ref(link);
+        (void) session_save(s);
+
+        return 0;
+}
+
 void session_drop_controller(Session *s) {
         assert(s);
 
-        if (!s->controller)
+        if (!session_has_controller(s))
                 return;
 
         s->track = sd_bus_track_unref(s->track);
@@ -1678,6 +1721,52 @@ bool session_is_self(const char *name) {
 
 bool session_is_auto(const char *name) {
         return streq_ptr(name, "auto");
+}
+
+int session_build_json(Session *s, sd_json_variant **ret) {
+        assert(s);
+        assert(s->user);
+        assert(ret);
+
+        dual_timestamp idle_ts = DUAL_TIMESTAMP_NULL;
+        bool idle;
+
+        idle = session_get_idle_hint(s, &idle_ts);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("Id", s->id),
+                        SD_JSON_BUILD_PAIR("User",
+                                           SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("UID", s->user->user_record->uid),
+                                                           SD_JSON_BUILD_PAIR_STRING("Name", s->user->user_record->user_name))),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("Timestamp", &s->timestamp),
+                        SD_JSON_BUILD_PAIR_CONDITION(s->vtnr > 0, "VTNr", SD_JSON_BUILD_UNSIGNED(s->vtnr)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Seat", s->seat ? s->seat->id : NULL),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("TTY", s->tty),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Display", s->display),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Remote", s->remote),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteHost", s->remote_host),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteUser", s->remote_user),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Service", s->service),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Desktop", s->desktop),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Scope", s->scope),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("ExtraDeviceAccess", s->extra_device_access),
+                        JSON_BUILD_PAIR_PIDREF_NON_NULL("Leader", &s->leader),
+                        SD_JSON_BUILD_PAIR_CONDITION(audit_session_is_valid(s->audit_id),
+                                                     "Audit", SD_JSON_BUILD_UNSIGNED(s->audit_id)),
+                        SD_JSON_BUILD_PAIR("Type", JSON_BUILD_STRING_UNDERSCORIFY(session_type_to_string(s->type))),
+                        SD_JSON_BUILD_PAIR("Class", JSON_BUILD_STRING_UNDERSCORIFY(session_class_to_string(s->class))),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Active", session_is_active(s)),
+                        SD_JSON_BUILD_PAIR_STRING("State", session_state_to_string(session_get_state(s))),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("IdleHint", idle),
+                        SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&idle_ts),
+                                                     "IdleSinceHint", SD_JSON_BUILD_UNSIGNED(idle_ts.realtime)),
+                        SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&idle_ts),
+                                                     "IdleSinceHintMonotonic", SD_JSON_BUILD_UNSIGNED(idle_ts.monotonic)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanIdle", SESSION_CLASS_CAN_IDLE(s->class)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanLock", SESSION_CLASS_CAN_LOCK(s->class)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("LockedHint", s->locked_hint));
 }
 
 static const char* const session_state_table[_SESSION_STATE_MAX] = {
