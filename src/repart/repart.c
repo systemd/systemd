@@ -793,9 +793,9 @@ static Partition* partition_free(Partition *p) {
         strv_free(p->drop_in_files);
 
         if (p->current_partition)
-                fdisk_unref_partition(p->current_partition);
+                sym_fdisk_unref_partition(p->current_partition);
         if (p->new_partition)
-                fdisk_unref_partition(p->new_partition);
+                sym_fdisk_unref_partition(p->new_partition);
 
         if (p->copy_blocks_path_is_our_file)
                 unlink_and_free(p->copy_blocks_path);
@@ -976,7 +976,7 @@ static Context* context_free(Context *context) {
         context_free_free_areas(context);
 
         if (context->fdisk_context)
-                fdisk_unref_context(context->fdisk_context);
+                sym_fdisk_unref_context(context->fdisk_context);
 
         safe_close(context->backing_fd);
         if (context->node_is_our_file)
@@ -3198,31 +3198,31 @@ static int determine_current_padding(
         assert(p);
         assert(ret);
 
-        if (!fdisk_partition_has_end(p))
+        if (!sym_fdisk_partition_has_end(p))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition has no end.");
 
-        offset = fdisk_partition_get_end(p);
+        offset = sym_fdisk_partition_get_end(p);
         assert(offset < UINT64_MAX);
         offset++; /* The end is one sector before the next partition or padding. */
         assert(offset < UINT64_MAX / secsz);
         offset *= secsz;
 
-        n_partitions = fdisk_table_get_nents(t);
+        n_partitions = sym_fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++) {
                 struct fdisk_partition *q;
                 uint64_t start;
 
-                q = fdisk_table_get_partition(t, i);
+                q = sym_fdisk_table_get_partition(t, i);
                 if (!q)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata.");
 
-                if (fdisk_partition_is_used(q) <= 0)
+                if (sym_fdisk_partition_is_used(q) <= 0)
                         continue;
 
-                if (!fdisk_partition_has_start(q))
+                if (!sym_fdisk_partition_has_start(q))
                         continue;
 
-                start = fdisk_partition_get_start(q);
+                start = sym_fdisk_partition_get_start(q);
                 assert(start < UINT64_MAX / secsz);
                 start *= secsz;
 
@@ -3232,7 +3232,7 @@ static int determine_current_padding(
 
         if (next == UINT64_MAX) {
                 /* No later partition? In that case check the end of the usable area */
-                next = fdisk_get_last_lba(c);
+                next = sym_fdisk_get_last_lba(c);
                 assert(next < UINT64_MAX);
                 next++; /* The last LBA is one sector before the end */
 
@@ -3274,21 +3274,21 @@ static int context_copy_from_one(Context *context, const char *src) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create fdisk context: %m");
 
-        secsz = fdisk_get_sector_size(c);
-        grainsz = fdisk_get_grain_size(c);
+        secsz = sym_fdisk_get_sector_size(c);
+        grainsz = sym_fdisk_get_grain_size(c);
 
         /* Insist on a power of two, and that it's a multiple of 512, i.e. the traditional sector size. */
         if (secsz < 512 || !ISPOWEROF2(secsz))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Sector size %lu is not a power of two larger than 512? Refusing.", secsz);
 
-        if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
+        if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
                 return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Cannot copy from disk %s with no GPT disk label.", src);
 
-        r = fdisk_get_partitions(c, &t);
+        r = sym_fdisk_get_partitions(c, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire partition table: %m");
 
-        n_partitions = fdisk_table_get_nents(t);
+        n_partitions = sym_fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++) {
                 _cleanup_(partition_freep) Partition *np = NULL;
                 _cleanup_free_ char *label_copy = NULL;
@@ -3298,16 +3298,16 @@ static int context_copy_from_one(Context *context, const char *src) {
                 sd_id128_t ptid, id;
                 GptPartitionType type;
 
-                p = fdisk_table_get_partition(t, i);
+                p = sym_fdisk_table_get_partition(t, i);
                 if (!p)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata.");
 
-                if (fdisk_partition_is_used(p) <= 0)
+                if (sym_fdisk_partition_is_used(p) <= 0)
                         continue;
 
-                if (fdisk_partition_has_start(p) <= 0 ||
-                    fdisk_partition_has_size(p) <= 0 ||
-                    fdisk_partition_has_partno(p) <= 0)
+                if (sym_fdisk_partition_has_start(p) <= 0 ||
+                    sym_fdisk_partition_has_size(p) <= 0 ||
+                    sym_fdisk_partition_has_partno(p) <= 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Found a partition without a position, size or number.");
 
                 r = fdisk_partition_get_type_as_id128(p, &ptid);
@@ -3320,18 +3320,18 @@ static int context_copy_from_one(Context *context, const char *src) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to query partition UUID: %m");
 
-                label = fdisk_partition_get_name(p);
+                label = sym_fdisk_partition_get_name(p);
                 if (!isempty(label)) {
                         label_copy = strdup(label);
                         if (!label_copy)
                                 return log_oom();
                 }
 
-                sz = fdisk_partition_get_size(p);
+                sz = sym_fdisk_partition_get_size(p);
                 assert(sz <= UINT64_MAX/secsz);
                 sz *= secsz;
 
-                start = fdisk_partition_get_start(p);
+                start = sym_fdisk_partition_get_start(p);
                 assert(start <= UINT64_MAX/secsz);
                 start *= secsz;
 
@@ -3606,14 +3606,14 @@ static int fdisk_ask_cb(struct fdisk_context *c, struct fdisk_ask *ask, void *da
         _cleanup_free_ char *ids = NULL;
         int r;
 
-        if (fdisk_ask_get_type(ask) != FDISK_ASKTYPE_STRING)
+        if (sym_fdisk_ask_get_type(ask) != FDISK_ASKTYPE_STRING)
                 return -EINVAL;
 
         ids = new(char, SD_ID128_UUID_STRING_MAX);
         if (!ids)
                 return -ENOMEM;
 
-        r = fdisk_ask_string_set_result(ask, sd_id128_to_uuid_string(*(sd_id128_t*) data, ids));
+        r = sym_fdisk_ask_string_set_result(ask, sd_id128_to_uuid_string(*(sd_id128_t*) data, ids));
         if (r < 0)
                 return r;
 
@@ -3624,15 +3624,15 @@ static int fdisk_ask_cb(struct fdisk_context *c, struct fdisk_ask *ask, void *da
 static int fdisk_set_disklabel_id_by_uuid(struct fdisk_context *c, sd_id128_t id) {
         int r;
 
-        r = fdisk_set_ask(c, fdisk_ask_cb, &id);
+        r = sym_fdisk_set_ask(c, fdisk_ask_cb, &id);
         if (r < 0)
                 return r;
 
-        r = fdisk_set_disklabel_id(c);
+        r = sym_fdisk_set_disklabel_id(c);
         if (r < 0)
                 return r;
 
-        return fdisk_set_ask(c, NULL, NULL);
+        return sym_fdisk_set_ask(c, NULL, NULL);
 }
 
 static int derive_uuid(sd_id128_t base, const char *token, sd_id128_t *ret) {
@@ -3693,13 +3693,13 @@ static int context_load_partition_table(Context *context) {
 
         context_notify(context, PROGRESS_LOADING_TABLE, /* object= */ NULL, UINT_MAX);
 
-        c = fdisk_new_context();
+        c = sym_fdisk_new_context();
         if (!c)
                 return log_oom();
 
         if (arg_sector_size > 0) {
                 fs_secsz = arg_sector_size;
-                r = fdisk_save_user_sector_size(c, /* phy= */ 0, arg_sector_size);
+                r = sym_fdisk_save_user_sector_size(c, /* phy= */ 0, arg_sector_size);
         } else {
                 uint32_t ssz;
                 struct stat st;
@@ -3732,14 +3732,14 @@ static int context_load_partition_table(Context *context) {
                         }
                 }
 
-                r = fdisk_save_user_sector_size(c, /* phy= */ 0, ssz);
+                r = sym_fdisk_save_user_sector_size(c, /* phy= */ 0, ssz);
         }
         if (r < 0)
                 return log_error_errno(r, "Failed to set sector size: %m");
 
         /* libfdisk doesn't have an API to operate on arbitrary fds, hence reopen the fd going via the
          * /proc/self/fd/ magic path if we have an existing fd. Open the original file otherwise. */
-        r = fdisk_assign_device(
+        r = sym_fdisk_assign_device(
                         c,
                         context->backing_fd >= 0 ? FORMAT_PROC_FD_PATH(context->backing_fd) : context->node,
                         context->dry_run);
@@ -3758,7 +3758,7 @@ static int context_load_partition_table(Context *context) {
 
                 if (S_ISREG(st.st_mode) && st.st_size == 0) {
                         /* Use the fallback values if we have no better idea */
-                        context->sector_size = fdisk_get_sector_size(c);
+                        context->sector_size = sym_fdisk_get_sector_size(c);
                         context->default_fs_sector_size = fs_secsz;
                         context->grain_size = determine_grain_size(context->sector_size);
                         return /* from_scratch= */ true;
@@ -3771,7 +3771,7 @@ static int context_load_partition_table(Context *context) {
 
         if (context->backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
-                r = context_open_and_lock_backing_fd(FORMAT_PROC_FD_PATH(fdisk_get_devfd(c)),
+                r = context_open_and_lock_backing_fd(FORMAT_PROC_FD_PATH(sym_fdisk_get_devfd(c)),
                                                      context->dry_run ? LOCK_SH : LOCK_EX,
                                                      &context->backing_fd);
                 if (r < 0)
@@ -3783,7 +3783,7 @@ static int context_load_partition_table(Context *context) {
          * it for all our needs. Note that the values we use ourselves always are in bytes though, thus mean
          * the same thing universally. Also note that regardless what kind of sector size is in use we'll
          * place partitions at multiples of 4K. */
-        unsigned long secsz = fdisk_get_sector_size(c);
+        unsigned long secsz = sym_fdisk_get_sector_size(c);
 
         /* Insist on a power of two, and that it's a multiple of 512, i.e. the traditional sector size. */
         if (secsz < 512 || !ISPOWEROF2(secsz))
@@ -3799,14 +3799,14 @@ static int context_load_partition_table(Context *context) {
 
         case EMPTY_REFUSE:
                 /* Refuse empty disks, insist on an existing GPT partition table */
-                if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
+                if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
                         return log_notice_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has no GPT disk label, not repartitioning.", context->node);
 
                 break;
 
         case EMPTY_REQUIRE:
                 /* Require an empty disk, refuse any existing partition table */
-                r = fdisk_has_label(c);
+                r = sym_fdisk_has_label(c);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine whether disk %s has a disk label: %m", context->node);
                 if (r > 0)
@@ -3817,11 +3817,11 @@ static int context_load_partition_table(Context *context) {
 
         case EMPTY_ALLOW:
                 /* Allow both an empty disk and an existing partition table, but only GPT */
-                r = fdisk_has_label(c);
+                r = sym_fdisk_has_label(c);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine whether disk %s has a disk label: %m", context->node);
                 if (r > 0) {
-                        if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
+                        if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
                                 return log_notice_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has non-GPT disk label, not repartitioning.", context->node);
                 } else
                         from_scratch = true;
@@ -3839,7 +3839,7 @@ static int context_load_partition_table(Context *context) {
         }
 
         if (from_scratch) {
-                r = fdisk_create_disklabel(c, "gpt");
+                r = sym_fdisk_create_disklabel(c, "gpt");
                 if (r < 0)
                         return log_error_errno(r, "Failed to create GPT disk label: %m");
 
@@ -3854,7 +3854,7 @@ static int context_load_partition_table(Context *context) {
                 goto add_initial_free_area;
         }
 
-        r = fdisk_get_disklabel_id(c, &disk_uuid_string);
+        r = sym_fdisk_get_disklabel_id(c, &disk_uuid_string);
         if (r < 0)
                 return log_error_errno(r, "Failed to get current GPT disk label UUID: %m");
 
@@ -3864,17 +3864,17 @@ static int context_load_partition_table(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire disk GPT uuid: %m");
 
-                r = fdisk_set_disklabel_id(c);
+                r = sym_fdisk_set_disklabel_id(c);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set GPT disk label: %m");
         } else if (r < 0)
                 return log_error_errno(r, "Failed to parse current GPT disk label UUID: %m");
 
-        r = fdisk_get_partitions(c, &t);
+        r = sym_fdisk_get_partitions(c, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire partition table: %m");
 
-        n_partitions = fdisk_table_get_nents(t);
+        n_partitions = sym_fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++) {
                 _cleanup_free_ char *label_copy = NULL;
                 Partition *last = NULL;
@@ -3885,16 +3885,16 @@ static int context_load_partition_table(Context *context) {
                 sd_id128_t ptid, id;
                 size_t partno;
 
-                p = fdisk_table_get_partition(t, i);
+                p = sym_fdisk_table_get_partition(t, i);
                 if (!p)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata.");
 
-                if (fdisk_partition_is_used(p) <= 0)
+                if (sym_fdisk_partition_is_used(p) <= 0)
                         continue;
 
-                if (fdisk_partition_has_start(p) <= 0 ||
-                    fdisk_partition_has_size(p) <= 0 ||
-                    fdisk_partition_has_partno(p) <= 0)
+                if (sym_fdisk_partition_has_start(p) <= 0 ||
+                    sym_fdisk_partition_has_size(p) <= 0 ||
+                    sym_fdisk_partition_has_partno(p) <= 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Found a partition without a position, size or number.");
 
                 r = fdisk_partition_get_type_as_id128(p, &ptid);
@@ -3905,22 +3905,22 @@ static int context_load_partition_table(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to query partition UUID: %m");
 
-                label = fdisk_partition_get_name(p);
+                label = sym_fdisk_partition_get_name(p);
                 if (!isempty(label)) {
                         label_copy = strdup(label);
                         if (!label_copy)
                                 return log_oom();
                 }
 
-                sz = fdisk_partition_get_size(p);
+                sz = sym_fdisk_partition_get_size(p);
                 assert(sz <= UINT64_MAX/secsz);
                 sz *= secsz;
 
-                start = fdisk_partition_get_start(p);
+                start = sym_fdisk_partition_get_start(p);
                 assert(start <= UINT64_MAX/secsz);
                 start *= secsz;
 
-                partno = fdisk_partition_get_partno(p);
+                partno = sym_fdisk_partition_get_partno(p);
 
                 if (left_boundary == UINT64_MAX || left_boundary > start)
                         left_boundary = start;
@@ -3941,7 +3941,7 @@ static int context_load_partition_table(Context *context) {
                                 pp->current_label = TAKE_PTR(label_copy);
 
                                 pp->current_partition = p;
-                                fdisk_ref_partition(p);
+                                sym_fdisk_ref_partition(p);
 
                                 r = determine_current_padding(c, t, p, secsz, grainsz, &pp->current_padding);
                                 if (r < 0)
@@ -3974,7 +3974,7 @@ static int context_load_partition_table(Context *context) {
                         np->current_label = TAKE_PTR(label_copy);
 
                         np->current_partition = p;
-                        fdisk_ref_partition(p);
+                        sym_fdisk_ref_partition(p);
 
                         r = determine_current_padding(c, t, p, secsz, grainsz, &np->current_padding);
                         if (r < 0)
@@ -3996,15 +3996,15 @@ static int context_load_partition_table(Context *context) {
                         p->supplement_for->suppressing = NULL;
 
 add_initial_free_area:
-        nsectors = fdisk_get_nsectors(c);
+        nsectors = sym_fdisk_get_nsectors(c);
         assert(nsectors <= UINT64_MAX/secsz);
         nsectors *= secsz;
 
-        first_lba = fdisk_get_first_lba(c);
+        first_lba = sym_fdisk_get_first_lba(c);
         assert(first_lba <= UINT64_MAX/secsz);
         first_lba *= secsz;
 
-        last_lba = fdisk_get_last_lba(c);
+        last_lba = sym_fdisk_get_last_lba(c);
         assert(last_lba < UINT64_MAX);
         last_lba++;
         assert(last_lba <= UINT64_MAX/secsz);
@@ -4072,12 +4072,12 @@ static void context_unload_partition_table(Context *context) {
                 p->offset = UINT64_MAX;
 
                 if (p->current_partition) {
-                        fdisk_unref_partition(p->current_partition);
+                        sym_fdisk_unref_partition(p->current_partition);
                         p->current_partition = NULL;
                 }
 
                 if (p->new_partition) {
-                        fdisk_unref_partition(p->new_partition);
+                        sym_fdisk_unref_partition(p->new_partition);
                         p->new_partition = NULL;
                 }
 
@@ -4098,7 +4098,7 @@ static void context_unload_partition_table(Context *context) {
         context->total = UINT64_MAX;
 
         if (context->fdisk_context) {
-                fdisk_unref_context(context->fdisk_context);
+                sym_fdisk_unref_context(context->fdisk_context);
                 context->fdisk_context = NULL;
         }
 
@@ -4235,7 +4235,7 @@ static int context_dump_partitions(Context *context) {
                         activity = "resize";
 
                 label = partition_label(p);
-                partname = p->partno != UINT64_MAX ? fdisk_partname(context->node, p->partno+1) : NULL;
+                partname = p->partno != UINT64_MAX ? sym_fdisk_partname(context->node, p->partno+1) : NULL;
 
                 r = format_size_change(p->current_size, p->new_size, &size_change);
                 if (r < 0)
@@ -4402,7 +4402,7 @@ static int partition_hint(const Partition *p, const char *node, char **ret) {
         }
 
         if (p->partno != UINT64_MAX) {
-                buf = fdisk_partname(node, p->partno+1);
+                buf = sym_fdisk_partname(node, p->partno+1);
                 goto done;
         }
 
@@ -4623,7 +4623,7 @@ static int context_wipe_range(Context *context, uint64_t offset, uint64_t size) 
                 return log_oom();
 
         errno = 0;
-        r = sym_blkid_probe_set_device(probe, fdisk_get_devfd(context->fdisk_context), offset, size);
+        r = sym_blkid_probe_set_device(probe, sym_fdisk_get_devfd(context->fdisk_context), offset, size);
         if (r < 0)
                 return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to allocate device probe for wiping.");
 
@@ -4687,7 +4687,7 @@ static int context_discard_range(
         if (size <= 0)
                 return 0;
 
-        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+        assert_se((fd = sym_fdisk_get_devfd(context->fdisk_context)) >= 0);
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -4784,7 +4784,7 @@ static int context_discard_gap_after(Context *context, Partition *p) {
                  * existing partitions may be before that so ensure the gap
                  * starts at the first actually usable lba
                  */
-                gap = fdisk_get_first_lba(context->fdisk_context) * context->sector_size;
+                gap = sym_fdisk_get_first_lba(context->fdisk_context) * context->sector_size;
 
         LIST_FOREACH(partitions, q, context->partitions) {
                 if (q->dropped)
@@ -4801,7 +4801,7 @@ static int context_discard_gap_after(Context *context, Partition *p) {
         }
 
         if (next == UINT64_MAX) {
-                next = (fdisk_get_last_lba(context->fdisk_context) + 1) * context->sector_size;
+                next = (sym_fdisk_get_last_lba(context->fdisk_context) + 1) * context->sector_size;
                 if (gap > next)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition end beyond disk end.");
         }
@@ -4998,7 +4998,7 @@ static int prepare_temporary_file(Context *context, PartitionTarget *t, uint64_t
                 return log_error_errno(fd, "Failed to create temporary file: %m");
 
         if (context->fdisk_context) {
-                r = read_attr_fd(fdisk_get_devfd(context->fdisk_context), &attrs);
+                r = read_attr_fd(sym_fdisk_get_devfd(context->fdisk_context), &attrs);
                 if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", context->node);
 
@@ -5039,7 +5039,7 @@ static int partition_target_prepare(
         assert(p);
         assert(ret);
 
-        assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+        assert_se((whole_fd = sym_fdisk_get_devfd(context->fdisk_context)) >= 0);
 
         t = new(PartitionTarget, 1);
         if (!t)
@@ -5114,7 +5114,7 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
         assert(p);
         assert(t);
 
-        assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+        assert_se((whole_fd = sym_fdisk_get_devfd(context->fdisk_context)) >= 0);
 
         log_info("Syncing future partition %"PRIu64" contents to disk.", p->partno);
 
@@ -5954,7 +5954,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
         (void) partition_hint(p, context->node, &hint);
 
-        assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+        assert_se((whole_fd = sym_fdisk_get_devfd(context->fdisk_context)) >= 0);
 
         _cleanup_(iovec_done) struct iovec sig_free = {};
         const struct iovec *roothash, *sig;
@@ -7424,7 +7424,7 @@ static int set_gpt_flags(struct fdisk_partition *q, uint64_t flags) {
                         return r;
         }
 
-        return fdisk_partition_set_attrs(q, strempty(a));
+        return sym_fdisk_partition_set_attrs(q, strempty(a));
 }
 
 static uint64_t partition_merge_flags(Partition *p) {
@@ -7497,11 +7497,11 @@ static int context_mangle_partitions(Context *context) {
                                 assert(p->new_size >= p->current_size);
                                 assert(p->new_size % context->sector_size == 0);
 
-                                r = fdisk_partition_size_explicit(p->current_partition, true);
+                                r = sym_fdisk_partition_size_explicit(p->current_partition, true);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to enable explicit sizing: %m");
 
-                                r = fdisk_partition_set_size(p->current_partition, p->new_size / context->sector_size);
+                                r = sym_fdisk_partition_set_size(p->current_partition, p->new_size / context->sector_size);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to grow partition: %m");
 
@@ -7510,7 +7510,7 @@ static int context_mangle_partitions(Context *context) {
                         }
 
                         if (!sd_id128_equal(p->new_uuid, p->current_uuid)) {
-                                r = fdisk_partition_set_uuid(p->current_partition, SD_ID128_TO_UUID_STRING(p->new_uuid));
+                                r = sym_fdisk_partition_set_uuid(p->current_partition, SD_ID128_TO_UUID_STRING(p->new_uuid));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set partition UUID: %m");
 
@@ -7519,7 +7519,7 @@ static int context_mangle_partitions(Context *context) {
                         }
 
                         if (!streq_ptr(p->new_label, p->current_label)) {
-                                r = fdisk_partition_set_name(p->current_partition, strempty(p->new_label));
+                                r = sym_fdisk_partition_set_name(p->current_partition, strempty(p->new_label));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set partition label: %m");
 
@@ -7530,7 +7530,7 @@ static int context_mangle_partitions(Context *context) {
                         if (changed) {
                                 assert(!PARTITION_IS_FOREIGN(p)); /* never touch foreign partitions */
 
-                                r = fdisk_set_partition(context->fdisk_context, p->partno, p->current_partition);
+                                r = sym_fdisk_set_partition(context->fdisk_context, p->partno, p->current_partition);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to update partition: %m");
                         }
@@ -7543,43 +7543,43 @@ static int context_mangle_partitions(Context *context) {
                         assert(p->new_size % context->sector_size == 0);
                         assert(p->new_label);
 
-                        t = fdisk_new_parttype();
+                        t = sym_fdisk_new_parttype();
                         if (!t)
                                 return log_oom();
 
-                        r = fdisk_parttype_set_typestr(t, SD_ID128_TO_UUID_STRING(p->type.uuid));
+                        r = sym_fdisk_parttype_set_typestr(t, SD_ID128_TO_UUID_STRING(p->type.uuid));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to initialize partition type: %m");
 
-                        q = fdisk_new_partition();
+                        q = sym_fdisk_new_partition();
                         if (!q)
                                 return log_oom();
 
-                        r = fdisk_partition_set_type(q, t);
+                        r = sym_fdisk_partition_set_type(q, t);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition type: %m");
 
-                        r = fdisk_partition_size_explicit(q, true);
+                        r = sym_fdisk_partition_size_explicit(q, true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to enable explicit sizing: %m");
 
-                        r = fdisk_partition_set_start(q, p->offset / context->sector_size);
+                        r = sym_fdisk_partition_set_start(q, p->offset / context->sector_size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to position partition: %m");
 
-                        r = fdisk_partition_set_size(q, p->new_size / context->sector_size);
+                        r = sym_fdisk_partition_set_size(q, p->new_size / context->sector_size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to grow partition: %m");
 
-                        r = fdisk_partition_set_partno(q, p->partno);
+                        r = sym_fdisk_partition_set_partno(q, p->partno);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition number: %m");
 
-                        r = fdisk_partition_set_uuid(q, SD_ID128_TO_UUID_STRING(p->new_uuid));
+                        r = sym_fdisk_partition_set_uuid(q, SD_ID128_TO_UUID_STRING(p->new_uuid));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition UUID: %m");
 
-                        r = fdisk_partition_set_name(q, strempty(p->new_label));
+                        r = sym_fdisk_partition_set_name(q, strempty(p->new_label));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition label: %m");
 
@@ -7590,7 +7590,7 @@ static int context_mangle_partitions(Context *context) {
 
                         log_info("Adding new partition %" PRIu64 " to partition table.", p->partno);
 
-                        r = fdisk_add_partition(context->fdisk_context, q, NULL);
+                        r = sym_fdisk_add_partition(context->fdisk_context, q, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add partition: %m");
 
@@ -7735,7 +7735,7 @@ static int context_split(Context *context) {
                         continue;
 
                 if (fd < 0) {
-                        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+                        assert_se((fd = sym_fdisk_get_devfd(context->fdisk_context)) >= 0);
 
                         r = read_attr_fd(fd, &attrs);
                         if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
@@ -8058,7 +8058,7 @@ static int context_verify_eltorito_overlap(Context *context) {
                 return 0;
 
         /* Check how many GPT partition entries can be stored. */
-        size_t nents = fdisk_get_npartitions(context->fdisk_context);
+        size_t nents = sym_fdisk_get_npartitions(context->fdisk_context);
         /* The GPT contains
          *  - 1 unused block (protective MBR)
          *  - GPT header
@@ -8073,7 +8073,7 @@ static int context_verify_eltorito_overlap(Context *context) {
          * there, we should still not overlap with it since a partition could be added later.
          * It is unexpected for tools to change the first lba in the GPT header. So this should be safe.
          */
-        if (fdisk_get_first_lba(context->fdisk_context) * context->sector_size < (ISO9660_START+ISO9660_SIZE)*ISO9660_BLOCK_SIZE)
+        if (sym_fdisk_get_first_lba(context->fdisk_context) * context->sector_size < (ISO9660_START+ISO9660_SIZE)*ISO9660_BLOCK_SIZE)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "El Torito is overlapping with the first partition block.");
 
         return 0;
@@ -8143,7 +8143,7 @@ static int context_write_partition_table(Context *context) {
                 }
         }
 
-        r = fdisk_get_partitions(context->fdisk_context, &original_table);
+        r = sym_fdisk_get_partitions(context->fdisk_context, &original_table);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire partition table: %m");
 
@@ -8169,11 +8169,11 @@ static int context_write_partition_table(Context *context) {
 
         (void) context_notify(context, PROGRESS_WRITING_TABLE, /* object= */ NULL, UINT_MAX);
 
-        r = fdisk_write_disklabel(context->fdisk_context);
+        r = sym_fdisk_write_disklabel(context->fdisk_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write partition table: %m");
 
-        capable = blockdev_partscan_enabled_fd(fdisk_get_devfd(context->fdisk_context));
+        capable = blockdev_partscan_enabled_fd(sym_fdisk_get_devfd(context->fdisk_context));
         if (capable == -ENOTBLK)
                 log_debug("Not telling kernel to reread partition table, since we are not operating on a block device.");
         else if (capable < 0)
@@ -8182,7 +8182,7 @@ static int context_write_partition_table(Context *context) {
                 log_info("Informing kernel about changed partitions...");
                 (void) context_notify(context, PROGRESS_REREADING_TABLE, /* object= */ NULL, UINT_MAX);
 
-                r = reread_partition_table_fd(fdisk_get_devfd(context->fdisk_context), /* flags= */ 0);
+                r = reread_partition_table_fd(sym_fdisk_get_devfd(context->fdisk_context), /* flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to reread partition table: %m");
         } else
@@ -8218,7 +8218,14 @@ static int context_write_eltorito(Context *context) {
 
         log_info("Writing El Torito boot catalog.");
 
-        r = write_eltorito(fdisk_get_devfd(context->fdisk_context), usec, utc, esp_offset / ISO9660_BLOCK_SIZE, arg_eltorito_system, arg_eltorito_volume, arg_eltorito_publisher);
+        r = write_eltorito(
+                        sym_fdisk_get_devfd(context->fdisk_context),
+                        usec,
+                        utc,
+                        esp_offset / ISO9660_BLOCK_SIZE,
+                        arg_eltorito_system,
+                        arg_eltorito_volume,
+                        arg_eltorito_publisher);
         if (r < 0)
                 return log_error_errno(r, "Failed to write El Torito boot catalog: %m");
 
@@ -8279,7 +8286,7 @@ static int context_factory_reset(Context *context) {
 
                 log_info("Removing partition %" PRIu64 " for factory reset.", p->partno);
 
-                r = fdisk_delete_partition(context->fdisk_context, p->partno);
+                r = sym_fdisk_delete_partition(context->fdisk_context, p->partno);
                 if (r < 0)
                         return log_error_errno(r, "Failed to remove partition %" PRIu64 ": %m", p->partno);
 
@@ -8291,7 +8298,7 @@ static int context_factory_reset(Context *context) {
                 return 0;
         }
 
-        r = fdisk_write_disklabel(context->fdisk_context);
+        r = sym_fdisk_write_disklabel(context->fdisk_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write disk label: %m");
 
@@ -10666,7 +10673,7 @@ static int resize_pt(int fd, uint64_t sector_size) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open device '%s': %m", FORMAT_PROC_FD_PATH(fd));
 
-        r = fdisk_has_label(c);
+        r = sym_fdisk_has_label(c);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether disk '%s' has a disk label: %m", FORMAT_PROC_FD_PATH(fd));
         if (r == 0) {
@@ -10674,7 +10681,7 @@ static int resize_pt(int fd, uint64_t sector_size) {
                 return 0;
         }
 
-        r = fdisk_write_disklabel(c);
+        r = sym_fdisk_write_disklabel(c);
         if (r < 0)
                 return log_error_errno(r, "Failed to write resized partition table: %m");
 
@@ -11209,6 +11216,10 @@ static int run(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
+                return r;
+
+        r = dlopen_fdisk();
+        if (r < 0)
                 return r;
 
 #if HAVE_LIBCRYPTSETUP
