@@ -16,6 +16,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fdisk-util.h"
 #include "fileio.h"
 #include "filesystems.h"
 #include "format-util.h"
@@ -2004,6 +2005,10 @@ static int run(int argc, char *argv[]) {
         start = now(CLOCK_MONOTONIC);
 
         log_setup();
+
+        r = dlopen_fdisk();
+        if (r < 0)
+                return r;
 
         cryptsetup_enable_logging(NULL);
 

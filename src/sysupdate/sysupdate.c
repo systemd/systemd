@@ -9,6 +9,7 @@
 #include "conf-files.h"
 #include "constants.h"
 #include "dissect-image.h"
+#include "fdisk-util.h"
 #include "format-table.h"
 #include "glyph-util.h"
 #include "hexdecoct.h"
@@ -2035,6 +2036,10 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_setup();
+
+        r = dlopen_fdisk();
+        if (r < 0)
+                return r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)

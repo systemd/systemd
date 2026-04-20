@@ -78,6 +78,7 @@ shared_sources = files(
         'extension-util.c',
         'factory-reset.c',
         'facts.c',
+        'fdisk-util.c',
         'fdset.c',
         'fido2-util.c',
         'find-esp.c',
@@ -399,6 +400,7 @@ libshared_deps = [threads,
                   libdl,
                   libdw_cflags,
                   libelf_cflags,
+                  libfdisk_cflags,
                   libfido2_cflags,
                   libgcrypt_cflags,
                   libidn2_cflags,
@@ -447,18 +449,6 @@ libshared = shared_library(
                         userspace],
         install : true,
         install_dir : pkglibdir)
-
-shared_fdisk_sources = files('fdisk-util.c')
-
-libshared_fdisk = static_library(
-        'shared-fdisk',
-        shared_fdisk_sources,
-        include_directories : includes,
-        implicit_include_directories : false,
-        dependencies : [libfdisk,
-                        userspace],
-        c_args : ['-fvisibility=default'],
-        build_by_default : false)
 
 # A small shared file that is linked into a few places.
 # It is not part of libshared because this code needs libcurl and
