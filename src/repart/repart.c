@@ -985,9 +985,9 @@ static Context* context_free(Context *context) {
                 free(context->node);
 
 #if HAVE_OPENSSL
-        X509_free(context->certificate);
+        sym_X509_free(context->certificate);
         openssl_ask_password_ui_free(context->ui);
-        EVP_PKEY_free(context->private_key);
+        sym_EVP_PKEY_free(context->private_key);
 #endif
 
         context->link = sd_varlink_unref(context->link);
@@ -5826,7 +5826,7 @@ static int sign_verity_roothash(
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         _cleanup_free_ char *hex = NULL;
         _cleanup_free_ uint8_t *sig = NULL;
-        int sigsz;
+        int sigsz, r;
 
         assert(context);
         assert(context->certificate);
@@ -5835,23 +5835,27 @@ static int sign_verity_roothash(
         assert(iovec_is_set(roothash));
         assert(ret_signature);
 
+        r = dlopen_libcrypto();
+        if (r < 0)
+                return log_error_errno(r, "Failed to load OpenSSL: %m");
+
         hex = hexmem(roothash->iov_base, roothash->iov_len);
         if (!hex)
                 return log_oom();
 
-        rb = BIO_new_mem_buf(hex, -1);
+        rb = sym_BIO_new_mem_buf(hex, -1);
         if (!rb)
                 return log_oom();
 
-        p7 = PKCS7_sign(context->certificate, context->private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
+        p7 = sym_PKCS7_sign(context->certificate, context->private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
         if (!p7)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
+                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
-        sigsz = i2d_PKCS7(p7, &sig);
+        sigsz = sym_i2d_PKCS7(p7, &sig);
         if (sigsz < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
+                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
         *ret_signature = IOVEC_MAKE(TAKE_PTR(sig), sigsz);
 
