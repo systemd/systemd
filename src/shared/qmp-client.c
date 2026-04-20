@@ -52,10 +52,12 @@ struct QmpClient {
         qmp_disconnect_callback_t disconnect_callback;
         void *disconnect_userdata;
 
-        unsigned next_fdset_id;   /* monotonic fdset-id allocator for add-fd */
+        uint64_t next_fdset_id;   /* monotonic fdset-id allocator for add-fd */
 
         QmpClientState state;
         sd_json_variant *current;  /* most recently parsed message, pending dispatch */
+
+        void *userdata;
 };
 
 static void qmp_slot_hash_func(const QmpSlot *p, struct siphash *state) {
@@ -483,6 +485,21 @@ bool qmp_client_is_disconnected(QmpClient *c) {
         return c->state == QMP_CLIENT_DISCONNECTED;
 }
 
+void* qmp_client_set_userdata(QmpClient *c, void *userdata) {
+        void *old;
+
+        assert(c);
+
+        old = c->userdata;
+        c->userdata = userdata;
+        return old;
+}
+
+void* qmp_client_get_userdata(QmpClient *c) {
+        assert(c);
+        return c->userdata;
+}
+
 /* Map our state to the transport phase used for POLLIN / salvage / timeout decisions. */
 static JsonStreamPhase qmp_client_phase(void *userdata) {
         QmpClient *c = ASSERT_PTR(userdata);
@@ -806,7 +823,7 @@ sd_event* qmp_client_get_event(QmpClient *c) {
         return json_stream_get_event(&c->stream);
 }
 
-unsigned qmp_client_next_fdset_id(QmpClient *c) {
+uint64_t qmp_client_next_fdset_id(QmpClient *c) {
         assert(c);
         return c->next_fdset_id++;
 }

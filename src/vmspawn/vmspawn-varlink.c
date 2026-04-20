@@ -1,17 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "log.h"
+#include "machine-util.h"
 #include "path-util.h"
 #include "qmp-client.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "varlink-io.systemd.MachineInstance.h"
 #include "varlink-io.systemd.QemuMachineInstance.h"
 #include "varlink-io.systemd.VirtualMachineInstance.h"
 #include "varlink-util.h"
+#include "vmspawn-qmp.h"
+#include "vmspawn-util.h"
 #include "vmspawn-varlink.h"
 
 DEFINE_PRIVATE_HASH_OPS_FULL(
@@ -51,10 +59,10 @@ static int on_qmp_simple_complete(
 
         assert(client);
 
-        if (error == 0)
-                (void) sd_varlink_reply(link, NULL);
-        else
+        if (error < 0)
                 (void) qmp_error_to_varlink(link, error_desc, error);
+        else
+                (void) sd_varlink_reply(link, NULL);
 
         sd_varlink_unref(link);
         return 0;
@@ -118,18 +126,26 @@ static int on_qmp_describe_complete(
 
         assert(client);
 
-        if (error != 0) {
+        if (error < 0) {
                 (void) qmp_error_to_varlink(link, error_desc, error);
                 return 0;
         }
 
-        sd_json_variant *running = sd_json_variant_by_key(result, "running");
-        sd_json_variant *status = sd_json_variant_by_key(result, "status");
+        sd_json_variant *running_v = sd_json_variant_by_key(result, "running");
+        sd_json_variant *status_v = sd_json_variant_by_key(result, "status");
+
+        bool running = false;
+        if (running_v)
+                running = sd_json_variant_boolean(running_v);
+
+        const char *status = "unknown";
+        if (status_v && sd_json_variant_is_string(status_v))
+                status = sd_json_variant_string(status_v);
 
         (void) sd_varlink_replybo(
                         link,
-                        SD_JSON_BUILD_PAIR_BOOLEAN("running", running ? sd_json_variant_boolean(running) : false),
-                        SD_JSON_BUILD_PAIR_STRING("status", status && sd_json_variant_is_string(status) ? sd_json_variant_string(status) : "unknown"));
+                        SD_JSON_BUILD_PAIR_BOOLEAN("running", running),
+                        SD_JSON_BUILD_PAIR_STRING("status", status));
 
         return 0;
 }
@@ -153,6 +169,10 @@ static int vl_method_subscribe_events(sd_varlink *link, sd_json_variant *paramet
         }, &filter);
         if (r != 0)
                 return r;
+
+        /* Treat [] identically to null: deliver all events. */
+        if (strv_isempty(filter))
+                filter = strv_free(filter);
 
         sd_varlink_ref(link);
 
@@ -258,31 +278,21 @@ static int dispatch_pending_job(VmspawnQmpBridge *bridge, sd_json_variant *data)
         return 1;
 }
 
-static int on_qmp_event(
-                QmpClient *client,
-                const char *event,
-                sd_json_variant *data,
-                void *userdata) {
-
-        VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
+static int notify_event_subscribers(VmspawnVarlinkContext *ctx, const char *event_name, sd_json_variant *data) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *notification = NULL;
         sd_varlink *link;
         char **filter;
         int r;
 
-        assert(client);
-        assert(event);
-
-        /* Dispatch job status changes to pending continuations (e.g. blockdev-create) */
-        if (streq(event, "JOB_STATUS_CHANGE"))
-                return dispatch_pending_job(ctx->bridge, data);
+        assert(ctx);
+        assert(event_name);
 
         if (hashmap_isempty(ctx->subscribed))
                 return 0;
 
         r = sd_json_buildo(
                         &notification,
-                        SD_JSON_BUILD_PAIR_STRING("event", event),
+                        SD_JSON_BUILD_PAIR_STRING("event", event_name),
                         SD_JSON_BUILD_PAIR_CONDITION(!!data, "data", SD_JSON_BUILD_VARIANT(data)));
         if (r < 0) {
                 log_warning_errno(r, "Failed to build event notification, ignoring: %m");
@@ -290,7 +300,7 @@ static int on_qmp_event(
         }
 
         HASHMAP_FOREACH_KEY(filter, link, ctx->subscribed) {
-                if (filter && !strv_contains(filter, event))
+                if (filter && !strv_contains(filter, event_name))
                         continue;
 
                 r = sd_varlink_notify(link, notification);
@@ -299,6 +309,51 @@ static int on_qmp_event(
         }
 
         return 0;
+}
+
+static int dispatch_device_deleted(VmspawnVarlinkContext *ctx, const char *drive_id) {
+        assert(ctx);
+        assert(drive_id);
+
+        (void) vmspawn_qmp_bridge_release_pcie_port_by_id(ctx->bridge, drive_id);
+
+        vmspawn_qmp_block_device_teardown(ctx->bridge->qmp, drive_id,
+                                          BLOCK_DEVICE_ADD_STAGE_BLOCKDEV_ADD);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *event_data = NULL;
+        (void) sd_json_buildo(&event_data, SD_JSON_BUILD_PAIR_STRING("id", drive_id));
+        (void) notify_event_subscribers(ctx, "BlockDeviceRemoved", event_data);
+
+        log_info("Block device '%s' removed", drive_id);
+        return 0;
+}
+
+static int on_qmp_event(
+                QmpClient *client,
+                const char *event,
+                sd_json_variant *data,
+                void *userdata) {
+
+        VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
+
+        assert(client);
+        assert(event);
+
+        /* Dispatch job status changes to pending continuations (e.g. blockdev-create) */
+        if (streq(event, "JOB_STATUS_CHANGE"))
+                return dispatch_pending_job(ctx->bridge, data);
+
+        /* Only our own hotplug ids route to the block-device handler; other frontends fall through. */
+        if (streq(event, "DEVICE_DELETED") && data) {
+                const char *id = sd_json_variant_string(sd_json_variant_by_key(data, "device"));
+                if (id) {
+                        const char *drive_id = startswith(id, QMP_BLOCK_QDEV_PREFIX);
+                        if (drive_id)
+                                return dispatch_device_deleted(ctx, drive_id);
+                }
+        }
+
+        return notify_event_subscribers(ctx, event, data);
 }
 
 /* Free all subscriber entries — varlink_subscriber_hash_ops handles
@@ -317,6 +372,238 @@ static void on_qmp_disconnect(QmpClient *client, void *userdata) {
 
         /* Propagate connection loss by closing all subscriber connections */
         drain_event_subscribers(&ctx->subscribed);
+}
+
+/* 28-char limit: QEMU's 31-byte BDS node-name limit minus the "bd-" prefix. */
+static bool block_device_id_valid(const char *id) {
+        if (isempty(id))
+                return false;
+        if (strlen(id) > 28)
+                return false;
+        for (const char *p = id; *p; p++)
+                if (!ascii_isalpha(*p) && !ascii_isdigit(*p) && *p != '_' && *p != '-')
+                        return false;
+        return true;
+}
+
+static int vl_method_add_block_device(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
+        VmspawnQmpBridge *bridge = ASSERT_PTR(ctx->bridge);
+        struct {
+                unsigned file_descriptor;
+                const char *format;
+                const char *driver;
+                int read_only;
+                int discard;
+                const char *serial;
+                const char *id;
+        } p = {
+                .read_only = -1,
+                .discard = -1,
+        };
+        int r;
+
+        r = sd_varlink_dispatch(link, parameters, (const sd_json_dispatch_field[]) {
+                { "fileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,     offsetof(typeof(p), file_descriptor), SD_JSON_MANDATORY },
+                { "format",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(typeof(p), format),          SD_JSON_MANDATORY },
+                { "driver",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(typeof(p), driver),          SD_JSON_MANDATORY },
+                { "readOnly",       SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(typeof(p), read_only),       0                 },
+                { "discard",        SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(typeof(p), discard),         0                 },
+                { "serial",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(typeof(p), serial),          0                 },
+                { "id",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(typeof(p), id),              0                 },
+                {},
+        }, &p);
+        if (r != 0)
+                return r;
+
+        if (!STR_IN_SET(p.format, "raw", "qcow2"))
+                return sd_varlink_error_invalid_parameter_name(link, "format");
+
+        DiskType dt = disk_type_from_block_driver(p.driver);
+        if (dt < 0)
+                return sd_varlink_error_invalid_parameter_name(link, "driver");
+
+        const char *disk_driver = ASSERT_PTR(disk_type_to_qemu_device_driver(dt));
+        bool is_scsi = IN_SET(dt, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM);
+
+        if (p.id && !block_device_id_valid(p.id))
+                return sd_varlink_error(link, "io.systemd.VirtualMachineInstance.InvalidBlockDeviceId", NULL);
+
+        _cleanup_close_ int image_fd = sd_varlink_peek_dup_fd(link, p.file_descriptor);
+        if (image_fd == -ENXIO)
+                return sd_varlink_error_invalid_parameter_name(link, "fileDescriptor");
+        if (image_fd < 0)
+                return log_debug_errno(image_fd, "Failed to peek fd %u: %m", p.file_descriptor);
+
+        struct stat st;
+        if (fstat(image_fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat image fd: %m");
+
+        r = stat_verify_regular_or_block(&st);
+        if (r < 0)
+                return sd_varlink_error_invalid_parameter_name(link, "fileDescriptor");
+
+        _cleanup_(drive_info_unrefp) DriveInfo *drive = drive_info_new();
+        if (!drive)
+                return log_oom();
+
+        drive->link = sd_varlink_ref(link);
+
+        if (p.id) {
+                drive->id = strdup(p.id);
+                if (!drive->id)
+                        return log_oom();
+        } else {
+                if (asprintf(&drive->id, "bd%" PRIu64, bridge->next_id) < 0)
+                        return log_oom();
+                bridge->next_id++;
+        }
+
+        drive->format = strdup(p.format);
+        drive->disk_driver = strdup(disk_driver);
+        if (!drive->format || !drive->disk_driver)
+                return log_oom();
+
+        /* NVMe requires a serial; default to the varlink id if caller didn't set one. */
+        const char *serial_src = p.serial;
+        if (!serial_src && streq(disk_driver, "nvme"))
+                serial_src = drive->id;
+        if (serial_src) {
+                drive->serial = strdup(serial_src);
+                if (!drive->serial)
+                        return log_oom();
+        }
+
+        /* SCSI disks attach to the virtio-scsi-pci controller's bus, not a PCIe
+         * root port. The controller itself may consume a port if we have to
+         * create it on-demand — handled inside vmspawn_qmp_add_block_device. */
+        if (ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS && !is_scsi) {
+                r = vmspawn_qmp_bridge_allocate_pcie_port(bridge, drive->id,
+                                                          &drive->pcie_port, &drive->pcie_port_idx);
+                if (r == -EBUSY)
+                        return sd_varlink_error(link, "io.systemd.VirtualMachineInstance.BlockBackendBusy", NULL);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (S_ISBLK(st.st_mode))
+                drive->flags |= QMP_DRIVE_BLOCK_DEVICE;
+        if (p.discard > 0)
+                drive->flags |= QMP_DRIVE_DISCARD;
+
+        /* QEMU's fdset match is strict on O_ACCMODE: the pushed fd's access
+         * mode has to match the blockdev's read-only flag. Derive the flag
+         * from the fd; if the caller also set readOnly=true but pushed an
+         * O_RDWR fd, that's inconsistent — reject it. */
+        int fd_flags = fcntl(image_fd, F_GETFL);
+        if (fd_flags < 0)
+                return log_error_errno(errno, "Failed to read fd flags: %m");
+        if ((fd_flags & O_ACCMODE) == O_RDONLY)
+                drive->flags |= QMP_DRIVE_READ_ONLY;
+        else if (p.read_only > 0)
+                return sd_varlink_error_invalid_parameter_name(link, "readOnly");
+
+        drive->fd = TAKE_FD(image_fd);
+
+        return vmspawn_qmp_add_block_device(bridge, TAKE_PTR(drive));
+}
+
+static int vl_method_remove_block_device(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
+        VmspawnQmpBridge *bridge = ASSERT_PTR(ctx->bridge);
+        const char *id = NULL;
+        int r;
+
+        r = sd_varlink_dispatch(link, parameters, (const sd_json_dispatch_field[]) {
+                { "id", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_MANDATORY },
+                {},
+        }, &id);
+        if (r != 0)
+                return r;
+
+        if (!block_device_id_valid(id))
+                return sd_varlink_error(link, "io.systemd.VirtualMachineInstance.InvalidBlockDeviceId", NULL);
+
+        return vmspawn_qmp_remove_block_device(bridge, link, id);
+}
+
+/* Filter by inserted.node-name (the blockdev-add name, e.g. "bd-bd0") — the
+ * top-level "device" field is the legacy -drive name (empty for us), and
+ * "qdev" for virtio-blk-pci is the nested virtio-backend QOM path. */
+static void notify_block_device_entry(sd_varlink *link, sd_json_variant *entry) {
+        assert(link);
+        assert(entry);
+
+        sd_json_variant *inserted = sd_json_variant_by_key(entry, "inserted");
+        if (!inserted)
+                return;
+
+        const char *node_name = sd_json_variant_string(sd_json_variant_by_key(inserted, "node-name"));
+        if (!node_name || !startswith(node_name, QMP_BLOCK_QDEV_PREFIX))
+                return;
+
+        const char *varlink_id = node_name + strlen(QMP_BLOCK_QDEV_PREFIX);
+
+        const char *drv = sd_json_variant_string(sd_json_variant_by_key(inserted, "drv"));
+        const char *format = NULL;
+        if (streq_ptr(drv, "raw"))
+                format = "raw";
+        else if (streq_ptr(drv, "qcow2"))
+                format = "qcow2";
+
+        bool ro = false;
+        sd_json_variant *ro_v = sd_json_variant_by_key(inserted, "ro");
+        if (ro_v)
+                ro = sd_json_variant_boolean(ro_v);
+
+        (void) sd_varlink_notifybo(
+                        link,
+                        SD_JSON_BUILD_PAIR_STRING("id", varlink_id),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!format, "format", SD_JSON_BUILD_STRING(format)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("readOnly", ro));
+}
+
+static int on_list_block_devices_reply(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = ASSERT_PTR(userdata);
+
+        assert(client);
+
+        if (error < 0) {
+                if (ERRNO_IS_DISCONNECT(error))
+                        return sd_varlink_error(link, "io.systemd.MachineInstance.NotConnected", NULL);
+                if (error_desc)
+                        log_warning("query-block failed: %s", error_desc);
+                return sd_varlink_error_errno(link, error);
+        }
+
+        sd_json_variant *entry;
+        JSON_VARIANT_ARRAY_FOREACH(entry, result)
+                notify_block_device_entry(link, entry);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_list_block_devices(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        sd_varlink_ref(link);
+        r = qmp_client_invoke(ctx->bridge->qmp, "query-block", QMP_CLIENT_ARGS(NULL),
+                              on_list_block_devices_reply, link);
+        if (r < 0) {
+                sd_varlink_unref(link);
+                return r;
+        }
+        return 0;
 }
 
 int vmspawn_varlink_setup(
@@ -342,7 +629,7 @@ int vmspawn_varlink_setup(
 
         /* Create varlink server for VM control */
         r = varlink_server_new(&ctx->varlink_server,
-                               SD_VARLINK_SERVER_INHERIT_USERDATA,
+                               SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT,
                                ctx);
         if (r < 0)
                 return log_error_errno(r, "Failed to create varlink server: %m");
@@ -357,14 +644,17 @@ int vmspawn_varlink_setup(
 
         r = sd_varlink_server_bind_method_many(
                         ctx->varlink_server,
-                        "io.systemd.MachineInstance.Terminate",         vl_method_terminate,
-                        "io.systemd.MachineInstance.PowerOff",          vl_method_power_off,
-                        "io.systemd.MachineInstance.Pause",             vl_method_pause,
-                        "io.systemd.MachineInstance.Resume",            vl_method_resume,
-                        "io.systemd.MachineInstance.Reboot",            vl_method_reboot,
-                        "io.systemd.MachineInstance.Describe",          vl_method_describe,
-                        "io.systemd.MachineInstance.SubscribeEvents",   vl_method_subscribe_events,
-                        "io.systemd.QemuMachineInstance.AcquireQMP",    vl_method_acquire_qmp);
+                        "io.systemd.MachineInstance.Terminate",                   vl_method_terminate,
+                        "io.systemd.MachineInstance.PowerOff",                    vl_method_power_off,
+                        "io.systemd.MachineInstance.Pause",                       vl_method_pause,
+                        "io.systemd.MachineInstance.Resume",                      vl_method_resume,
+                        "io.systemd.MachineInstance.Reboot",                      vl_method_reboot,
+                        "io.systemd.MachineInstance.Describe",                    vl_method_describe,
+                        "io.systemd.MachineInstance.SubscribeEvents",             vl_method_subscribe_events,
+                        "io.systemd.VirtualMachineInstance.AddBlockDevice",       vl_method_add_block_device,
+                        "io.systemd.VirtualMachineInstance.RemoveBlockDevice",    vl_method_remove_block_device,
+                        "io.systemd.VirtualMachineInstance.ListBlockDevices",     vl_method_list_block_devices,
+                        "io.systemd.QemuMachineInstance.AcquireQMP",              vl_method_acquire_qmp);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind varlink methods: %m");
 
@@ -387,6 +677,7 @@ int vmspawn_varlink_setup(
         ctx->bridge = bridge;
         qmp_client_bind_event(ctx->bridge->qmp, on_qmp_event, ctx);
         qmp_client_bind_disconnect(ctx->bridge->qmp, on_qmp_disconnect, ctx);
+        qmp_client_set_userdata(ctx->bridge->qmp, ctx->bridge);
 
         log_debug("Varlink control server listening on %s", listen_address);
 
