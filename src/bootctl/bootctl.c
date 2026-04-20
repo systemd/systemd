@@ -15,6 +15,7 @@
 #include "bootctl-status.h"
 #include "bootctl-uki.h"
 #include "bootctl-unlink.h"
+#include "bootctl-util.h"
 #include "build.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
@@ -52,6 +53,7 @@ bool arg_print_esp_path = false;
 bool arg_print_dollar_boot_path = false;
 bool arg_print_loader_path = false;
 bool arg_print_stub_path = false;
+bool arg_print_efi_architecture = false;
 unsigned arg_print_root_device = 0;
 int arg_touch_variables = -1;
 bool arg_install_random_seed = true;
@@ -450,6 +452,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_print_root_device++;
                         break;
 
+                OPTION('A', "print-efi-architecture", NULL,
+                       "Print the local EFI architecture string"):
+                        arg_print_efi_architecture = true;
+                        break;
+
                 OPTION_GROUP("Options"):
                         break;
 
@@ -639,9 +646,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         char **args = option_parser_get_args(&state);
 
-        if (!!arg_print_esp_path + !!arg_print_dollar_boot_path + (arg_print_root_device > 0) + arg_print_loader_path + arg_print_stub_path > 1)
+        if (!!arg_print_esp_path + !!arg_print_dollar_boot_path + (arg_print_root_device > 0) + arg_print_loader_path + arg_print_stub_path + arg_print_efi_architecture > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--print-esp-path/-p, --print-boot-path/-x, --print-root-device=/-R, --print-loader-path, --print-stub-path cannot be combined.");
+                                                       "--print-esp-path/-p, --print-boot-path/-x, --print-root-device=/-R, --print-loader-path, --print-stub-path, --print-efi-architecture cannot be combined.");
 
         if ((arg_root || arg_image) && args[0] && !STR_IN_SET(args[0], "status", "list",
                         "install", "update", "remove", "is-installed", "random-seed", "unlink", "cleanup"))
@@ -760,6 +767,11 @@ static int run(int argc, char *argv[]) {
 
         if (arg_print_loader_path || arg_print_stub_path)
                 return print_loader_or_stub_path();
+
+        if (arg_print_efi_architecture) {
+                printf("%s\n", get_efi_arch());
+                return 0;
+        }
 
         /* Open up and mount the image */
         if (arg_image) {
