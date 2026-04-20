@@ -151,12 +151,15 @@ typedef struct Session {
         sd_bus_message *create_message;   /* The D-Bus message used to create the session, which we haven't responded to yet */
         sd_bus_message *upgrade_message;  /* The D-Bus message used to upgrade the session class user-incomplete → user, which we haven't responded to yet */
 
-        sd_varlink *create_link; /* The Varlink connection used to create session, which we haven't responded to yet */
+        sd_varlink *create_link;  /* The Varlink connection used to create session, which we haven't responded to yet */
+        sd_varlink *upgrade_link; /* The Varlink connection used to upgrade session class, which we haven't responded to yet */
 
         /* Set up when a client requested to release the session via the bus */
         sd_event_source *timer_event_source;
 
         char *controller;
+        sd_varlink *controller_varlink;
+        Set *varlink_session_subscriptions;
         Hashmap *devices;
         sd_bus_track *track;
 
@@ -210,7 +213,9 @@ DECLARE_STRING_TABLE_LOOKUP(tty_validity, TTYValidity);
 void session_leave_vt(Session *s);
 
 bool session_is_controller(Session *s, const char *sender);
+bool session_is_controller_varlink(Session *s, sd_varlink *link);
 int session_set_controller(Session *s, const char *sender, bool force, bool prepare);
+int session_set_controller_varlink(Session *s, sd_varlink *link, bool force, bool prepare);
 void session_drop_controller(Session *s);
 
 bool session_job_pending(Session *s);
@@ -219,3 +224,5 @@ int session_send_create_reply(Session *s, const sd_bus_error *error);
 
 bool session_is_self(const char *name);
 bool session_is_auto(const char *name);
+
+int session_build_json(Session *s, sd_json_variant **ret);
