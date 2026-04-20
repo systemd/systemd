@@ -5,12 +5,12 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "build.h"
+#include "crypto-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "openssl-util.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "string-util.h"
@@ -264,6 +264,10 @@ static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *us
                                 return r;
                 }
 
+                r = dlopen_libcrypto();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load OpenSSL: %m");
+
                 r = openssl_load_x509_certificate(
                                 arg_certificate_source_type,
                                 arg_certificate_source,
@@ -272,7 +276,7 @@ static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *us
                 if (r < 0)
                         return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
 
-                public_key = X509_get_pubkey(certificate);
+                public_key = sym_X509_get_pubkey(certificate);
                 if (!public_key)
                         return log_error_errno(
                                         SYNTHETIC_ERRNO(EIO),
@@ -312,7 +316,7 @@ static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *us
         } else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "One of --certificate=, or --private-key= must be specified");
 
-        if (PEM_write_PUBKEY(stdout, public_key) == 0)
+        if (sym_PEM_write_PUBKEY(stdout, public_key) == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write public key to stdout");
 
         return 0;
@@ -339,7 +343,7 @@ static int verb_extract_certificate(int argc, char *argv[], uintptr_t _data, voi
         if (r < 0)
                 return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
 
-        if (PEM_write_X509(stdout, certificate) == 0)
+        if (sym_PEM_write_X509(stdout, certificate) == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write certificate to stdout.");
 
         return 0;
@@ -396,18 +400,18 @@ static int verb_pkcs7(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (content_len == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Content file %s is empty", arg_content);
 
-                if (!PKCS7_content_new(pkcs7, NID_pkcs7_data))
+                if (!sym_PKCS7_content_new(pkcs7, NID_pkcs7_data))
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Error creating new PKCS7 content field");
 
-                ASN1_STRING_set0(pkcs7->d.sign->contents->d.data, TAKE_PTR(content), content_len);
+                sym_ASN1_STRING_set0(pkcs7->d.sign->contents->d.data, TAKE_PTR(content), content_len);
         } else
-                if (PKCS7_set_detached(pkcs7, true) == 0)
+                if (sym_PKCS7_set_detached(pkcs7, true) == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Failed to set PKCS#7 detached attribute: %s",
-                                               ERR_error_string(ERR_get_error(), NULL));
+                                               sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
         /* Add PKCS1 signature to PKCS7_SIGNER_INFO */
-        ASN1_STRING_set0(signer_info->enc_digest, TAKE_PTR(pkcs1), pkcs1_len);
+        sym_ASN1_STRING_set0(signer_info->enc_digest, TAKE_PTR(pkcs1), pkcs1_len);
 
         _cleanup_fclose_ FILE *output = NULL;
         _cleanup_(unlink_and_freep) char *tmp = NULL;
@@ -415,9 +419,9 @@ static int verb_pkcs7(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary file: %m");
 
-        if (!i2d_PKCS7_fp(output, pkcs7))
+        if (!sym_i2d_PKCS7_fp(output, pkcs7))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write PKCS#7 file: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
+                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
         r = flink_tmpfile(output, tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
         if (r < 0)

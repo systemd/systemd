@@ -3,9 +3,8 @@
 
 #include <curl/curl.h>
 #include <sys/stat.h>
+#include <sys/uio.h>
 
-#include "compress.h"
-#include "openssl-util.h"
 #include "shared-forward.h"
 
 typedef struct CurlGlue CurlGlue;
