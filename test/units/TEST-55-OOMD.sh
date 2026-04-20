@@ -353,6 +353,127 @@ EOF
     systemctl reset-failed
 }
 
+testcase_oom_rulesets() {
+    # Create a ruleset that triggers on any memory pressure with no delay
+    mkdir -p /run/systemd/oomd/rules.d/
+    cat >/run/systemd/oomd/rules.d/testrule.oomrule <<'EOF'
+[Rule]
+MemoryPressureAbove=0%
+Action=kill-all
+LastingSec=0
+EOF
+
+    systemctl reload systemd-oomd.service
+
+    # Run a transient service with OOMRules=testrule that generates memory pressure
+    (! systemd-run --wait --unit=TEST-55-OOMD-testrules \
+        -p MemoryHigh=3M \
+        -p OOMRules=testrule \
+        stress-ng --timeout 3m --vm 10 --vm-bytes 50M --vm-keep)
+
+    # Verify in the journal that the rule triggered
+    journalctl --sync
+    journalctl -u systemd-oomd.service --since "-2min" | grep "Rule 'testrule' conditions met" >/dev/null
+
+    # clean up
+    rm -f /run/systemd/oomd/rules.d/testrule.oomrule
+    systemctl reload systemd-oomd.service
+}
+
+testcase_oom_rulesets_invalid_name() {
+    # Invalid rule names must be rejected at property-set time (filename_is_valid check).
+    # "foo/bar" contains a slash and "." and ".." are disallowed by filename_is_valid.
+    set +e
+    err=$(systemd-run --wait --unit=TEST-55-OOMD-badname1 -p 'OOMRules=foo/bar' true 2>&1)
+    rc=$?
+    set -e
+    [[ $rc -ne 0 ]]
+    echo "$err" | grep "Invalid rule name" >/dev/null
+
+    set +e
+    err=$(systemd-run --wait --unit=TEST-55-OOMD-badname2 -p 'OOMRules=.' true 2>&1)
+    rc=$?
+    set -e
+    [[ $rc -ne 0 ]]
+    echo "$err" | grep "Invalid rule name" >/dev/null
+}
+
+testcase_oom_rulesets_missing_warning() {
+    # A unit that references a ruleset which does not exist must produce a
+    # warn_missing_rulesets warning in oomd's journal (once, at subscription time).
+    mkdir -p /run/systemd/oomd/rules.d/
+    rm -f /run/systemd/oomd/rules.d/absentrule.oomrule
+    systemctl reload systemd-oomd.service
+
+    # Start a long-lived transient unit that references a ruleset that doesn't exist.
+    systemd-run --unit=TEST-55-OOMD-missing --remain-after-exit \
+        -p OOMRules=absentrule \
+        sleep infinity
+
+    # Give oomd a moment to receive the subscription, then verify the warning fires once.
+    timeout 30 bash -c '
+        until journalctl --sync && journalctl -u systemd-oomd.service --since "-1min" 2>/dev/null | grep "references undefined ruleset .absentrule." >/dev/null; do
+            sleep 1
+        done
+    '
+
+    # And when we now add the ruleset and reload, oomd must pick it up without
+    # the unit needing to restart. Verify by checking for the debug-log line that
+    # reports the ruleset was registered.
+    cat >/run/systemd/oomd/rules.d/absentrule.oomrule <<'EOF'
+[Rule]
+SwapUsageMax=99%
+Action=kill-all
+LastingSec=0
+EOF
+    systemctl reload systemd-oomd.service
+
+    journalctl --sync
+    journalctl -u systemd-oomd.service --since "-1min" | grep "Registered ruleset: absentrule" >/dev/null
+
+    # cleanup
+    systemctl stop TEST-55-OOMD-missing.service
+    rm -f /run/systemd/oomd/rules.d/absentrule.oomrule
+    systemctl reload systemd-oomd.service
+}
+
+testcase_oom_rulesets_lasting_sec() {
+    # A rule with LastingSec > 0 must NOT trigger during the waiting period.
+    mkdir -p /run/systemd/oomd/rules.d/
+    cat >/run/systemd/oomd/rules.d/slowrule.oomrule <<'EOF'
+[Rule]
+MemoryPressureAbove=0%
+Action=kill-all
+LastingSec=1h
+EOF
+
+    systemctl reload systemd-oomd.service
+
+    # Start the unit without --wait so we can check mid-run state. The
+    # stress-ng timeout bounds the test if anything goes wrong.
+    systemd-run --unit=TEST-55-OOMD-slowrule \
+        -p MemoryHigh=3M \
+        -p OOMRules=slowrule \
+        stress-ng --timeout 15s --vm 10 --vm-bytes 50M --vm-keep
+
+    # Wait long enough for oomd's 1s rule-check loop to evaluate the condition
+    # many times. With LastingSec=1h, the kill must not fire.
+    sleep 6
+
+    # Unit must still be active — if it was killed, LastingSec was not respected.
+    systemctl is-active TEST-55-OOMD-slowrule.service >/dev/null
+
+    # Verify oomd saw the condition and started a waiting timer.
+    journalctl --sync
+    journalctl -u systemd-oomd.service --since "-1min" | grep "Rule 'slowrule' conditions met" | grep "waiting for" >/dev/null
+
+    systemctl stop TEST-55-OOMD-slowrule.service 2>/dev/null || true
+
+    # cleanup
+    rm -f /run/systemd/oomd/rules.d/slowrule.oomrule
+    systemctl reload systemd-oomd.service
+}
+
 testcase_prekill_hook() {
     cat >/run/systemd/oomd.conf.d/99-oomd-prekill-test.conf <<'EOF'
 [OOM]
