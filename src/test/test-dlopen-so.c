@@ -9,6 +9,7 @@
 #include "curl-util.h"
 #include "elf-util.h"
 #include "gcrypt-util.h"
+#include "gnutls-util.h"
 #include "idn-util.h"
 #include "libarchive-util.h"
 #include "libaudit-util.h"
@@ -16,6 +17,7 @@
 #include "libfido2-util.h"
 #include "libmount-util.h"
 #include "main-func.h"
+#include "microhttpd-util.h"
 #include "module-util.h"
 #include "pam-util.h"
 #include "password-quality-util-passwdqc.h"
@@ -50,6 +52,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_dw, HAVE_ELFUTILS);
         ASSERT_DLOPEN(dlopen_elf, HAVE_ELFUTILS);
         ASSERT_DLOPEN(dlopen_gcrypt, HAVE_GCRYPT);
+        ASSERT_DLOPEN(dlopen_gnutls, HAVE_GNUTLS);
         ASSERT_DLOPEN(dlopen_idn, HAVE_LIBIDN2);
         ASSERT_DLOPEN(dlopen_libacl, HAVE_ACL);
         ASSERT_DLOPEN(dlopen_libapparmor, HAVE_APPARMOR);
@@ -60,6 +63,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libfido2, HAVE_LIBFIDO2);
         ASSERT_DLOPEN(dlopen_libkmod, HAVE_KMOD);
         ASSERT_DLOPEN(dlopen_libmount, HAVE_LIBMOUNT);
+        ASSERT_DLOPEN(dlopen_microhttpd, HAVE_MICROHTTPD);
         ASSERT_DLOPEN(dlopen_libpam, HAVE_PAM);
         ASSERT_DLOPEN(dlopen_libseccomp, HAVE_SECCOMP);
         ASSERT_DLOPEN(dlopen_libselinux, HAVE_SELINUX);
