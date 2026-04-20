@@ -61,6 +61,7 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_USER_PUBLIC]                                 = "user-public",
         [SD_PATH_USER_TEMPLATES]                              = "user-templates",
         [SD_PATH_USER_DESKTOP]                                = "user-desktop",
+        [SD_PATH_USER_PROJECTS]                               = "user-projects",
 
         [SD_PATH_SEARCH_BINARIES]                             = "search-binaries",
         [SD_PATH_SEARCH_BINARIES_DEFAULT]                     = "search-binaries-default",
