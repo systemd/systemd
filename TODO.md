@@ -2750,7 +2750,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - Varlinkification of the following command line tools, to open them up to
   other programs via IPC:
-  - coredumpcl
+  - coredumpctl
   - systemd-bless-boot
   - systemd-measure
   - systemd-cryptenroll (to allow UIs to enroll FIDO2 keys and such)
