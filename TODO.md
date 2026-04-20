@@ -182,6 +182,15 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   use as additional search condition. Use case: images that combined a sysext
   partition with a portable service partition in one.
 
+- **systemd-sysinstall:**
+  - make systemd-sysinstall itself a varlink service
+  - read installation definition from json file
+  - polkit support in sysinstall
+  - sysinstall: permit driving installer via credentials
+
+- repart: add MatchLabel= which matches against partition label, so that we
+  truly can install different images in parallel
+
 - add "systemctl wait" or so, which does what "systemd-run --wait" does, but
   for all units. It should be both a way to pin units into memory as well as a
   wait to retrieve their exit data.
@@ -1195,14 +1204,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   over to do all cgroupfs access only via that structure's fd.
 
 - introduce a new group to own TPM devices
-
-- introduce a small "systemd-installer" tool or so, that glues
-  systemd-repart-as-installer and bootctl-install into one. Would just
-  interactively ask user for target disk (with completion and so on), and then do
-  two varlink calls to the the two tools with the right parameters. To support
-  "offline" operation, optionally invoke the two tools directly as child
-  processes with varlink communication over socketpair(). This all should be
-  useful as blueprint for graphical installers which should do the same.
 
 - introduce an option (or replacement) for "systemctl show" that outputs all
   properties as JSON, similar to busctl's new JSON output. In contrast to that
@@ -2487,10 +2488,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
     that we can sanely copy ESP contents, /usr/ images, and then set up btrfs
     raid for the root fs to extend/mirror the existing install. This would be
     very similar to the concept of live-install-through-btrfs-migration.
-  - add --installer or so, that will interactively ask for a
-    target disk, maybe ask for confirmation, and install something on disk. Then,
-    hook that into installer.target or so, so that it can be used to
-    install/replicate installs
   - should probably enable btrfs' "temp_fsid" feature for all file
     systems it creates, as we have no interest in RAID for repart, and it should
     make sure that we can mount them trivially everywhere.
