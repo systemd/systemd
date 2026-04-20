@@ -366,8 +366,10 @@ testcase_00_secureboot() {
     cmp /sys/firmware/efi/efivars/SetupMode-8be4df61-93ca-11d2-aa0d-00e098032b8c <(printf '\6\0\0\0\0')
     bootctl status | grep "Secure Boot: enabled" >/dev/null
 
+    bootctl status
+
     # Ensure the addon is fully loaded and parsed
-    bootctl status | grep "global-addon: loader/addons/test.addon.efi" >/dev/null
+    bootctl status | grep "extra: /boot//loader/addons/test.addon.efi" >/dev/null
     bootctl status | grep "cmdline" | grep addonfoobar >/dev/null
     grep -q addonfoobar /proc/cmdline
 }
@@ -388,6 +390,291 @@ testcase_install_varlink() {
     (! bootctl is-installed )
     SYSTEMD_LOG_TARGET=console varlinkctl call "$(type -p bootctl)" io.systemd.BootControl.Install "{\"operation\":\"new\",\"touchVariables\":false}"
     bootctl is-installed
+}
+
+cleanup_link() {
+    if [[ -n "${LINK_WORKDIR:-}" ]]; then
+        rm -rf "$LINK_WORKDIR"
+        unset LINK_WORKDIR
+    fi
+    restore_esp
+}
+
+testcase_bootctl_link() {
+    if ! command -v ukify >/dev/null; then
+        echo "ukify not found, skipping."
+        return 0
+    fi
+
+    # Locate the systemd-stub to embed into the generated UKI
+    local stub=""
+    local s
+    for s in /usr/lib/systemd/boot/efi/linux*.efi.stub; do
+        if [[ -f "$s" ]]; then
+            stub="$s"
+            break
+        fi
+    done
+    if [[ -z "$stub" ]]; then
+        echo "systemd-stub not found, skipping."
+        return 0
+    fi
+
+    backup_esp
+    LINK_WORKDIR="$(mktemp --directory /tmp/test-bootctl-link.XXXXXXXXXX)"
+    trap cleanup_link RETURN ERR
+
+    # Ensure loader/entries directory is present
+    bootctl install --make-entry-directory=yes
+
+    local ESP
+    ESP="$(bootctl --print-esp-path)"
+
+    # Build a minimal UKI via ukify. The .linux content does not need to be a
+    # real kernel — bootctl link only requires a valid PE with .osrel (and the
+    # systemd-stub SBAT marker that pe_is_uki() checks for).
+    cat >"$LINK_WORKDIR/os-release" <<'EOF'
+ID=testos
+NAME="Test OS"
+PRETTY_NAME="Test OS"
+EOF
+    echo "fake-kernel"      >"$LINK_WORKDIR/vmlinuz"
+    echo "fake-initrd"      >"$LINK_WORKDIR/initrd"
+    echo "fake-sysext-data" >"$LINK_WORKDIR/hello.sysext.raw"
+    echo "fake-confext-data">"$LINK_WORKDIR/hello.confext.raw"
+    echo "fake-credential"  >"$LINK_WORKDIR/hello.cred"
+
+    ukify build \
+        --stub "$stub" \
+        --linux "$LINK_WORKDIR/vmlinuz" \
+        --initrd "$LINK_WORKDIR/initrd" \
+        --os-release "@$LINK_WORKDIR/os-release" \
+        --uname "1.2.3-testkernel" \
+        --cmdline "quiet" \
+        --output "$LINK_WORKDIR/testuki.efi"
+
+    # Pin an explicit entry token so the resulting filenames are deterministic
+    local TOKEN="systemdtest"
+    local BOOTCTL=(bootctl "--entry-token=literal:$TOKEN")
+
+    # --- Test 1: basic link/unlink ---
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi"
+
+    # Exactly one entry file should exist, named "${TOKEN}-commit_1.conf"
+    local ENTRY="$ESP/loader/entries/${TOKEN}-commit_1.conf"
+    test -f "$ENTRY"
+    test -f "$ESP/$TOKEN/testuki.efi"
+
+    # Verify the entry file contents
+    grep "^title "                        "$ENTRY" >/dev/null
+    grep "^uki /${TOKEN}/testuki.efi\$"   "$ENTRY" >/dev/null
+    grep "^version 1\$"                   "$ENTRY" >/dev/null
+
+    # Make sure bootctl list sees it
+    bootctl list --json=short | grep -F "${TOKEN}-commit_1.conf" >/dev/null
+
+    # Remove it again using the ID (entry IDs include the .conf suffix)
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_1.conf"
+    test ! -e "$ENTRY"
+    test ! -e "$ESP/$TOKEN/testuki.efi"
+
+    # --- Test 2: link with --entry-title/--entry-version/--entry-commit/--tries-left ---
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" \
+        --entry-title="My Funky Entry" \
+        --entry-version="9.8.7" \
+        --entry-commit=42 \
+        --tries-left=3
+
+    ENTRY="$ESP/loader/entries/${TOKEN}-commit_42.9.8.7+3.conf"
+    test -f "$ENTRY"
+    test -f "$ESP/$TOKEN/testuki.efi"
+
+    grep "^title My Funky Entry\$"       "$ENTRY" >/dev/null
+    grep "^version 42.9.8.7\$"           "$ENTRY" >/dev/null
+    grep "^uki /${TOKEN}/testuki.efi\$"  "$ENTRY" >/dev/null
+
+    # Unlink using the ID (the tries counter "+3" is stripped from the canonical ID)
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_42.9.8.7.conf"
+    test ! -e "$ENTRY"
+    test ! -e "$ESP/$TOKEN/testuki.efi"
+
+    # --- Test 3: link with extras (-X and --extra=) ---
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" \
+        --entry-commit=50 \
+        -X "$LINK_WORKDIR/hello.sysext.raw" \
+        --extra="$LINK_WORKDIR/hello.confext.raw" \
+        -X "$LINK_WORKDIR/hello.cred"
+
+    ENTRY="$ESP/loader/entries/${TOKEN}-commit_50.conf"
+    test -f "$ENTRY"
+    test -f "$ESP/$TOKEN/testuki.efi"
+    test -f "$ESP/$TOKEN/hello.sysext.raw"
+    test -f "$ESP/$TOKEN/hello.confext.raw"
+    test -f "$ESP/$TOKEN/hello.cred"
+
+    grep "^extra /${TOKEN}/hello.sysext.raw\$"  "$ENTRY" >/dev/null
+    grep "^extra /${TOKEN}/hello.confext.raw\$" "$ENTRY" >/dev/null
+    grep "^extra /${TOKEN}/hello.cred\$"        "$ENTRY" >/dev/null
+
+    # Unlink must also clean up the extra resources
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_50.conf"
+    test ! -e "$ENTRY"
+    test ! -e "$ESP/$TOKEN/testuki.efi"
+    test ! -e "$ESP/$TOKEN/hello.sysext.raw"
+    test ! -e "$ESP/$TOKEN/hello.confext.raw"
+    test ! -e "$ESP/$TOKEN/hello.cred"
+
+    # --- Test 4: --oldest drops the lowest commit first ---
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=10
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=20
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=30
+
+    test -f "$ESP/loader/entries/${TOKEN}-commit_10.conf"
+    test -f "$ESP/loader/entries/${TOKEN}-commit_20.conf"
+    test -f "$ESP/loader/entries/${TOKEN}-commit_30.conf"
+    test -f "$ESP/$TOKEN/testuki.efi"
+
+    "${BOOTCTL[@]}" unlink --oldest=yes
+    test ! -e "$ESP/loader/entries/${TOKEN}-commit_10.conf"
+    test -f  "$ESP/loader/entries/${TOKEN}-commit_20.conf"
+    test -f  "$ESP/loader/entries/${TOKEN}-commit_30.conf"
+    test -f "$ESP/$TOKEN/testuki.efi"
+
+    "${BOOTCTL[@]}" unlink --oldest=yes
+    test ! -e "$ESP/loader/entries/${TOKEN}-commit_20.conf"
+    test -f  "$ESP/loader/entries/${TOKEN}-commit_30.conf"
+    test -f "$ESP/$TOKEN/testuki.efi"
+
+    # --- Test 5: --dry-run leaves everything in place ---
+    "${BOOTCTL[@]}" --dry-run unlink "${TOKEN}-commit_30.conf"
+    test -f "$ESP/loader/entries/${TOKEN}-commit_30.conf"
+    test -f "$ESP/$TOKEN/testuki.efi"
+
+    # Actually remove it now
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_30.conf"
+    test ! -e "$ESP/loader/entries/${TOKEN}-commit_30.conf"
+    test ! -e "$ESP/$TOKEN/testuki.efi"
+
+    # --- Test 6: invalid combinations are rejected ---
+    # Neither an ID nor --oldest
+    (! "${BOOTCTL[@]}" unlink)
+    # Both an ID and --oldest
+    (! "${BOOTCTL[@]}" unlink --oldest=yes "${TOKEN}-commit_1.conf")
+
+    # --- Test 7: refusing to link when --keep-free cannot be satisfied ---
+    (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=99 --keep-free=1T)
+    test ! -e "$ESP/loader/entries/${TOKEN}-commit_99.conf"
+
+    # --- Test 8: refusing to re-link the same commit number ---
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=77
+    (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=77)
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_77.conf"
+
+    # --- Test 9: passing a non-UKI is rejected ---
+    (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/vmlinuz")
+
+    # === Varlink coverage ===
+    #
+    # Exercise io.systemd.BootControl.Link/Unlink by forking bootctl as a
+    # varlink server via 'varlinkctl call <binary>'. Note the Varlink schema
+    # has no way to supply a literal entry token (unlike --entry-token= on
+    # the command line), so the token is chosen by bootctl from
+    # machine-id/os-release — we recover it from the returned id.
+    local BOOTCTL_BIN vreply vid vtoken
+    BOOTCTL_BIN="$(type -p bootctl)"
+
+    # --- Test 10: Link + Unlink via varlink ---
+    vreply="$(varlinkctl call --json=short \
+                  --push-fd="$LINK_WORKDIR/testuki.efi" \
+                  "$BOOTCTL_BIN" io.systemd.BootControl.Link \
+                  '{"kernelFilename":"vluki.efi","kernelFileDescriptor":0}')"
+    vid="$(echo "$vreply" | jq -r '.ids[0]')"
+    test -n "$vid"
+    test "$vid" != "null"
+    vtoken="${vid%%-commit_*}"
+    test -n "$vtoken"
+
+    test -f "$ESP/loader/entries/$vid"
+    test -f "$ESP/$vtoken/vluki.efi"
+    grep "^uki /$vtoken/vluki.efi\$" "$ESP/loader/entries/$vid" >/dev/null
+
+    varlinkctl call --quiet "$BOOTCTL_BIN" io.systemd.BootControl.Unlink \
+                    "{\"id\":\"$vid\"}"
+    test ! -e "$ESP/loader/entries/$vid"
+    test ! -e "$ESP/$vtoken/vluki.efi"
+
+    # --- Test 11: Link with entryTitle/entryVersion/entryCommit/triesLeft + extraFiles via varlink ---
+    vreply="$(varlinkctl call --json=short \
+                  --push-fd="$LINK_WORKDIR/testuki.efi" \
+                  --push-fd="$LINK_WORKDIR/hello.sysext.raw" \
+                  --push-fd="$LINK_WORKDIR/hello.cred" \
+                  "$BOOTCTL_BIN" io.systemd.BootControl.Link \
+                  '{"kernelFilename":"vluki2.efi","kernelFileDescriptor":0,"entryTitle":"Varlink Title","entryVersion":"2.3.4","entryCommit":111,"triesLeft":2,"extraFiles":[{"filename":"hello.sysext.raw","fileDescriptor":1},{"filename":"hello.cred","fileDescriptor":2}]}')"
+    vid="$(echo "$vreply" | jq -r '.ids[0]')"
+    # The returned id has the tries counter ("+2") stripped
+    assert_eq "$vid" "$vtoken-commit_111.2.3.4.conf"
+    # The on-disk entry filename includes the tries counter
+    local VENTRY="$ESP/loader/entries/$vtoken-commit_111.2.3.4+2.conf"
+    test -f "$VENTRY"
+    test -f "$ESP/$vtoken/vluki2.efi"
+    test -f "$ESP/$vtoken/hello.sysext.raw"
+    test -f "$ESP/$vtoken/hello.cred"
+
+    grep "^title Varlink Title\$"             "$VENTRY" >/dev/null
+    grep "^version 111.2.3.4\$"               "$VENTRY" >/dev/null
+    grep "^extra /$vtoken/hello.sysext.raw\$" "$VENTRY" >/dev/null
+    grep "^extra /$vtoken/hello.cred\$"       "$VENTRY" >/dev/null
+
+    varlinkctl call --quiet "$BOOTCTL_BIN" io.systemd.BootControl.Unlink \
+                    "{\"id\":\"$vid\"}"
+    test ! -e "$VENTRY"
+    test ! -e "$ESP/$vtoken/vluki2.efi"
+    test ! -e "$ESP/$vtoken/hello.sysext.raw"
+    test ! -e "$ESP/$vtoken/hello.cred"
+
+    # --- Test 12: Unlink oldest via varlink ---
+    local c
+    for c in 210 220 230; do
+        varlinkctl call --quiet \
+                       --push-fd="$LINK_WORKDIR/testuki.efi" \
+                       "$BOOTCTL_BIN" io.systemd.BootControl.Link \
+                       "{\"kernelFilename\":\"vluki3.efi\",\"kernelFileDescriptor\":0,\"entryCommit\":$c}"
+    done
+    test -f "$ESP/loader/entries/$vtoken-commit_210.conf"
+    test -f "$ESP/loader/entries/$vtoken-commit_220.conf"
+    test -f "$ESP/loader/entries/$vtoken-commit_230.conf"
+
+    varlinkctl call --quiet "$BOOTCTL_BIN" io.systemd.BootControl.Unlink \
+                    '{"oldest":true}'
+    test ! -e "$ESP/loader/entries/$vtoken-commit_210.conf"
+    test -f  "$ESP/loader/entries/$vtoken-commit_220.conf"
+    test -f  "$ESP/loader/entries/$vtoken-commit_230.conf"
+
+    # Clean up remaining entries
+    varlinkctl call --quiet "$BOOTCTL_BIN" io.systemd.BootControl.Unlink \
+                    "{\"id\":\"$vtoken-commit_220.conf\"}"
+    varlinkctl call --quiet "$BOOTCTL_BIN" io.systemd.BootControl.Unlink \
+                    "{\"id\":\"$vtoken-commit_230.conf\"}"
+    test ! -e "$ESP/loader/entries/$vtoken-commit_220.conf"
+    test ! -e "$ESP/loader/entries/$vtoken-commit_230.conf"
+    test ! -e "$ESP/$vtoken/vluki3.efi"
+
+    # --- Test 13: Link with a non-UKI via varlink returns InvalidKernelImage ---
+    varlinkctl call --quiet \
+                   --push-fd="$LINK_WORKDIR/vmlinuz" \
+                   --graceful=io.systemd.BootControl.InvalidKernelImage \
+                   "$BOOTCTL_BIN" io.systemd.BootControl.Link \
+                   '{"kernelFilename":"notauki.efi","kernelFileDescriptor":0}'
+
+    # --- Test 14: Unlink with invalid argument combinations is rejected ---
+    # Both id and oldest=true
+    (! varlinkctl call "$BOOTCTL_BIN" io.systemd.BootControl.Unlink \
+                 '{"id":"foo.conf","oldest":true}')
+    # Neither id nor oldest
+    (! varlinkctl call "$BOOTCTL_BIN" io.systemd.BootControl.Unlink '{}')
+    # Invalid id characters (e.g. a glob)
+    (! varlinkctl call "$BOOTCTL_BIN" io.systemd.BootControl.Unlink \
+                 '{"id":"foo*.conf"}')
 }
 
 run_testcases
