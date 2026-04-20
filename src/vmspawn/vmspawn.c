@@ -759,39 +759,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("extra-drive", "[FORMAT:][DISKTYPE:]PATH", "Adds an additional disk to the VM"): {
                         ImageFormat format = IMAGE_FORMAT_RAW;
                         DiskType extra_disk_type = _DISK_TYPE_INVALID;
-                        const char *dp = arg;
-
-                        /* Parse optional colon-separated prefixes. The format and disk type
-                         * value sets don't overlap, so they can appear in any order. */
-                        for (;;) {
-                                const char *colon = strchr(dp, ':');
-                                if (!colon)
-                                        break;
-
-                                _cleanup_free_ char *prefix = strndup(dp, colon - dp);
-                                if (!prefix)
-                                        return log_oom();
-
-                                ImageFormat f = image_format_from_string(prefix);
-                                if (f >= 0) {
-                                        format = f;
-                                        dp = colon + 1;
-                                        continue;
-                                }
-
-                                DiskType dt = disk_type_from_string(prefix);
-                                if (dt >= 0) {
-                                        extra_disk_type = dt;
-                                        dp = colon + 1;
-                                        continue;
-                                }
-
-                                /* Not a recognized prefix, treat the rest as the path */
-                                break;
-                        }
-
                         _cleanup_free_ char *drive_path = NULL;
-                        r = parse_path_argument(dp, /* suppress_root= */ false, &drive_path);
+
+                        r = parse_disk_spec(arg, &format, &extra_disk_type, &drive_path);
                         if (r < 0)
                                 return r;
 
