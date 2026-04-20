@@ -2,16 +2,73 @@
 
 #include <stdio.h>
 
-#if HAVE_GNUTLS
-#include <gnutls/gnutls.h>
-#include <gnutls/x509.h>
-#endif
+#include "sd-dlopen.h"
 
 #include "alloc-util.h"
+#include "gnutls-util.h"
 #include "log.h"
 #include "microhttpd-util.h"
 #include "string-util.h"
 #include "strv.h"
+
+#if HAVE_MICROHTTPD
+static void *microhttpd_dl = NULL;
+
+DLSYM_PROTOTYPE(MHD_add_response_header) = NULL;
+DLSYM_PROTOTYPE(MHD_create_response_from_buffer) = NULL;
+DLSYM_PROTOTYPE(MHD_create_response_from_callback) = NULL;
+#if MHD_VERSION < 0x00094203
+DLSYM_PROTOTYPE(MHD_create_response_from_fd_at_offset) = NULL;
+#else
+DLSYM_PROTOTYPE(MHD_create_response_from_fd_at_offset64) = NULL;
+#endif
+DLSYM_PROTOTYPE(MHD_destroy_response) = NULL;
+DLSYM_PROTOTYPE(MHD_get_connection_info) = NULL;
+DLSYM_PROTOTYPE(MHD_get_connection_values) = NULL;
+DLSYM_PROTOTYPE(MHD_get_daemon_info) = NULL;
+DLSYM_PROTOTYPE(MHD_get_timeout) = NULL;
+DLSYM_PROTOTYPE(MHD_lookup_connection_value) = NULL;
+DLSYM_PROTOTYPE(MHD_queue_response) = NULL;
+DLSYM_PROTOTYPE(MHD_run) = NULL;
+DLSYM_PROTOTYPE(MHD_start_daemon) = NULL;
+DLSYM_PROTOTYPE(MHD_stop_daemon) = NULL;
+#endif
+
+int dlopen_microhttpd(int log_level) {
+#if HAVE_MICROHTTPD
+        SD_ELF_NOTE_DLOPEN(
+                        "microhttpd",
+                        "Support for embedded HTTP server via libmicrohttpd",
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libmicrohttpd.so.12");
+
+        return dlopen_many_sym_or_warn(
+                        &microhttpd_dl,
+                        "libmicrohttpd.so.12",
+                        log_level,
+                        DLSYM_ARG(MHD_add_response_header),
+                        DLSYM_ARG(MHD_create_response_from_buffer),
+                        DLSYM_ARG(MHD_create_response_from_callback),
+#if MHD_VERSION < 0x00094203
+                        DLSYM_ARG(MHD_create_response_from_fd_at_offset),
+#else
+                        DLSYM_ARG(MHD_create_response_from_fd_at_offset64),
+#endif
+                        DLSYM_ARG(MHD_destroy_response),
+                        DLSYM_ARG(MHD_get_connection_info),
+                        DLSYM_ARG(MHD_get_connection_values),
+                        DLSYM_ARG(MHD_get_daemon_info),
+                        DLSYM_ARG(MHD_get_timeout),
+                        DLSYM_ARG(MHD_lookup_connection_value),
+                        DLSYM_ARG(MHD_queue_response),
+                        DLSYM_ARG(MHD_run),
+                        DLSYM_ARG(MHD_start_daemon),
+                        DLSYM_ARG(MHD_stop_daemon));
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libmicrohttpd support is not compiled in.");
+#endif
+}
 
 #if HAVE_MICROHTTPD
 
@@ -36,18 +93,18 @@ int mhd_respond_internal(
         assert(connection);
 
         _cleanup_(MHD_destroy_responsep) struct MHD_Response *response
-                = MHD_create_response_from_buffer(size, (char*) buffer, mode);
+                = sym_MHD_create_response_from_buffer(size, (char*) buffer, mode);
         if (!response)
                 return MHD_NO;
 
         log_debug("Queueing response %u: %s", code, buffer);
         if (encoding)
-                if (MHD_add_response_header(response, "Accept-Encoding", encoding) == MHD_NO)
+                if (sym_MHD_add_response_header(response, "Accept-Encoding", encoding) == MHD_NO)
                         return MHD_NO;
 
-        if (MHD_add_response_header(response, "Content-Type", "text/plain") == MHD_NO)
+        if (sym_MHD_add_response_header(response, "Content-Type", "text/plain") == MHD_NO)
                 return MHD_NO;
-        return MHD_queue_response(connection, code, response);
+        return sym_MHD_queue_response(connection, code, response);
 }
 
 int mhd_respond_oom(struct MHD_Connection *connection) {
@@ -116,7 +173,7 @@ static void log_reset_gnutls_level(void) {
         for (i = ELEMENTSOF(gnutls_log_map) - 1; i >= 0; i--)
                 if (gnutls_log_map[i].enabled) {
                         log_debug("Setting gnutls log level to %d", i);
-                        gnutls_global_set_log_level(i);
+                        sym_gnutls_global_set_log_level(i);
                         break;
                 }
 }
@@ -140,7 +197,16 @@ static int log_enable_gnutls_category(const char *cat) {
 int setup_gnutls_logger(char **categories) {
         int r;
 
-        gnutls_global_set_log_function(log_func_gnutls);
+        r = dlopen_gnutls(LOG_DEBUG);
+        if (r < 0) {
+                if (categories)
+                        log_notice("Ignoring specified gnutls logging categories -- gnutls not available.");
+                else
+                        log_debug("GnuTLS not available, skipping logger setup.");
+                return 0;
+        }
+
+        sym_gnutls_global_set_log_function(log_func_gnutls);
 
         if (categories)
                 STRV_FOREACH(cat, categories) {
@@ -160,17 +226,19 @@ static int verify_cert_authorized(gnutls_session_t session) {
         gnutls_datum_t out;
         int r;
 
-        r = gnutls_certificate_verify_peers2(session, &status);
+        r = sym_gnutls_certificate_verify_peers2(session, &status);
         if (r < 0)
                 return log_error_errno(r, "gnutls_certificate_verify_peers2 failed: %m");
 
-        type = gnutls_certificate_type_get(session);
-        r = gnutls_certificate_verification_status_print(status, type, &out, 0);
+        type = sym_gnutls_certificate_type_get(session);
+        r = sym_gnutls_certificate_verification_status_print(status, type, &out, 0);
         if (r < 0)
                 return log_error_errno(r, "gnutls_certificate_verification_status_print failed: %m");
 
         log_debug("Certificate status: %s", out.data);
-        gnutls_free(out.data);
+        /* gnutls_free is declared as a function pointer variable (not a function), so sym_gnutls_free
+         * ends up as a pointer-to-function-pointer and must be explicitly dereferenced to be called. */
+        (*sym_gnutls_free)(out.data);
 
         return status == 0 ? 0 : -EPERM;
 }
@@ -184,12 +252,12 @@ static int get_client_cert(gnutls_session_t session, gnutls_x509_crt_t *client_c
         assert(session);
         assert(client_cert);
 
-        pcert = gnutls_certificate_get_peers(session, &listsize);
+        pcert = sym_gnutls_certificate_get_peers(session, &listsize);
         if (!pcert || !listsize)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Failed to retrieve certificate chain");
 
-        r = gnutls_x509_crt_init(&cert);
+        r = sym_gnutls_x509_crt_init(&cert);
         if (r < 0) {
                 log_error("Failed to initialize client certificate");
                 return r;
@@ -197,10 +265,10 @@ static int get_client_cert(gnutls_session_t session, gnutls_x509_crt_t *client_c
 
         /* Note that by passing values between 0 and listsize here, you
            can get access to the CA's certs */
-        r = gnutls_x509_crt_import(cert, &pcert[0], GNUTLS_X509_FMT_DER);
+        r = sym_gnutls_x509_crt_import(cert, &pcert[0], GNUTLS_X509_FMT_DER);
         if (r < 0) {
                 log_error("Failed to import client certificate");
-                gnutls_x509_crt_deinit(cert);
+                sym_gnutls_x509_crt_deinit(cert);
                 return r;
         }
 
@@ -215,7 +283,7 @@ static int get_auth_dn(gnutls_x509_crt_t client_cert, char **buf) {
         assert(buf);
         assert(*buf == NULL);
 
-        r = gnutls_x509_crt_get_dn(client_cert, NULL, &len);
+        r = sym_gnutls_x509_crt_get_dn(client_cert, NULL, &len);
         if (r != GNUTLS_E_SHORT_MEMORY_BUFFER) {
                 log_error("gnutls_x509_crt_get_dn failed");
                 return r;
@@ -225,14 +293,15 @@ static int get_auth_dn(gnutls_x509_crt_t client_cert, char **buf) {
         if (!*buf)
                 return log_oom();
 
-        gnutls_x509_crt_get_dn(client_cert, *buf, &len);
+        sym_gnutls_x509_crt_get_dn(client_cert, *buf, &len);
         return 0;
 }
 
 static void gnutls_x509_crt_deinitp(gnutls_x509_crt_t *p) {
         assert(p);
 
-        gnutls_x509_crt_deinit(*p);
+        if (*p)
+                sym_gnutls_x509_crt_deinit(*p);
 }
 
 int check_permissions(struct MHD_Connection *connection, int *code, char **hostname) {
@@ -247,8 +316,12 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
 
         *code = 0;
 
-        ci = MHD_get_connection_info(connection,
-                                     MHD_CONNECTION_INFO_GNUTLS_SESSION);
+        r = dlopen_gnutls(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        ci = sym_MHD_get_connection_info(connection,
+                                         MHD_CONNECTION_INFO_GNUTLS_SESSION);
         if (!ci) {
                 log_error("MHD_get_connection_info failed: session is unencrypted");
                 *code = mhd_respond(connection, MHD_HTTP_FORBIDDEN,
