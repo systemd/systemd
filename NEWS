@@ -63,6 +63,23 @@ CHANGES WITH 261 in spe:
           require direct IMDS access. The new meson option "-Dimds-network="
           can be used to change the default mode to "locked" at build-time.
 
+        * systemd-imdsd now supports round-robin load balancing across multiple
+          IMDS-capable network interfaces via the new --multi-interface= option
+          and the SYSTEMD_IMDS_MULTI_INTERFACE= environment variable. When set to
+          "yes", all reachable interfaces are used in a round-robin fashion.
+          Alternatively, an explicit comma-separated list of interface names may
+          be given to restrict which interfaces participate. Interfaces that fail
+          three or more consecutive times are evicted from the pool and
+          re-probed automatically when new address events appear. Note: this
+          feature should only be used when all participating ENIs belong to the
+          same cloud account; cross-account ENIs may return inconsistent metadata.
+
+        * systemd-imds gained a new --interface=/-I option that allows
+          directing a single IMDS query to a specific network interface,
+          bypassing the automatic interface selection performed by
+          systemd-imdsd. This is primarily useful for debugging and for
+          explicitly targeting a specific interface on multi-homed instances.
+
         Changes in systemd-sysext/systemd-confext:
 
         * New initrd services systemd-sysext-sysroot.service and
