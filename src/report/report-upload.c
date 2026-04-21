@@ -85,7 +85,7 @@ int upload_collected(Context *context) {
         _cleanup_free_ char *json = NULL;
         int r;
 
-        r = dlopen_curl();
+        r = dlopen_curl(LOG_DEBUG);
         if (r < 0)
                 return r;
 

@@ -27,8 +27,6 @@ extern DLSYM_PROTOTYPE(pam_strerror);
 extern DLSYM_PROTOTYPE(pam_syslog);
 extern DLSYM_PROTOTYPE(pam_vsyslog);
 
-int dlopen_libpam(void);
-
 void pam_log_setup(void);
 
 int errno_to_pam_error(int error) _const_;
@@ -92,10 +90,6 @@ int pam_get_data_many_internal(pam_handle_t *pamh, ...) _sentinel_;
 
 int pam_prompt_graceful(pam_handle_t *pamh, int style, char **ret_response, const char *fmt, ...) _printf_(4,5);
 
-#else
-
-static inline int dlopen_libpam(void) {
-        return -EOPNOTSUPP;
-}
-
 #endif
+
+int dlopen_libpam(int log_level);

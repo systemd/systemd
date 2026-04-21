@@ -68,7 +68,7 @@ int userns_restrict_install(
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-lsm not supported, can't lock down user namespace.");
 
-        r = dlopen_bpf();
+        r = dlopen_bpf(LOG_DEBUG);
         if (r < 0)
                 return r;
 

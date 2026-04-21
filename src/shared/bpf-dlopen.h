@@ -51,7 +51,4 @@ int bpf_get_error_translated(const void *ptr);
 
 #endif
 
-int dlopen_bpf_full(int log_level);
-static inline int dlopen_bpf(void) {
-        return dlopen_bpf_full(LOG_DEBUG);
-}
+int dlopen_bpf(int log_level);

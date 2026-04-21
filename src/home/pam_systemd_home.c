@@ -789,7 +789,7 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
         bool debug = false;
         int r;
 
-        r = dlopen_libpam();
+        r = dlopen_libpam(LOG_DEBUG);
         if (r < 0)
                 return PAM_SERVICE_ERR;
 
@@ -854,7 +854,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         bool debug = false;
         int r;
 
-        r = dlopen_libpam();
+        r = dlopen_libpam(LOG_DEBUG);
         if (r < 0)
                 return PAM_SERVICE_ERR;
 
@@ -972,7 +972,7 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         usec_t t;
         int r;
 
-        r = dlopen_libpam();
+        r = dlopen_libpam(LOG_DEBUG);
         if (r < 0)
                 return PAM_SERVICE_ERR;
 
@@ -1091,7 +1091,7 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
         bool debug = false;
         int r;
 
-        r = dlopen_libpam();
+        r = dlopen_libpam(LOG_DEBUG);
         if (r < 0)
                 return PAM_SERVICE_ERR;
 

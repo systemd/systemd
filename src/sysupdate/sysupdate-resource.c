@@ -229,7 +229,7 @@ static int resource_load_from_blockdev(Resource *rr) {
 
         assert(rr);
 
-        r = dlopen_fdisk();
+        r = dlopen_fdisk(LOG_DEBUG);
         if (r < 0)
                 return r;
 

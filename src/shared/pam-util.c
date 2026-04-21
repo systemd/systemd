@@ -1,5 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "log.h"
+#include "pam-util.h"
+
+#if HAVE_PAM
+
 #include <security/pam_ext.h>
 #include <syslog.h>
 
@@ -11,8 +16,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "log.h"
-#include "pam-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -34,34 +37,6 @@ DLSYM_PROTOTYPE(pam_start) = NULL;
 DLSYM_PROTOTYPE(pam_strerror) = NULL;
 DLSYM_PROTOTYPE(pam_syslog) = NULL;
 DLSYM_PROTOTYPE(pam_vsyslog) = NULL;
-
-int dlopen_libpam(void) {
-        SD_ELF_NOTE_DLOPEN(
-                        "pam",
-                        "Support for LinuxPAM",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libpam.so.0");
-
-        return dlopen_many_sym_or_warn(
-                        &libpam_dl,
-                        "libpam.so.0",
-                        LOG_DEBUG,
-                        DLSYM_ARG(pam_acct_mgmt),
-                        DLSYM_ARG(pam_close_session),
-                        DLSYM_ARG(pam_end),
-                        DLSYM_ARG(pam_get_data),
-                        DLSYM_ARG(pam_get_item),
-                        DLSYM_ARG(pam_getenvlist),
-                        DLSYM_ARG(pam_open_session),
-                        DLSYM_ARG(pam_putenv),
-                        DLSYM_ARG(pam_set_data),
-                        DLSYM_ARG(pam_set_item),
-                        DLSYM_ARG(pam_setcred),
-                        DLSYM_ARG(pam_start),
-                        DLSYM_ARG(pam_strerror),
-                        DLSYM_ARG(pam_syslog),
-                        DLSYM_ARG(pam_vsyslog));
-}
 
 void pam_log_setup(void) {
         /* Make sure we don't leak the syslog fd we open by opening/closing the fd each time. */
@@ -384,4 +359,39 @@ int pam_prompt_graceful(pam_handle_t *pamh, int style, char **ret_response, cons
                 *ret_response = TAKE_PTR(rr);
 
         return PAM_SUCCESS;
+}
+
+#endif
+
+int dlopen_libpam(int log_level) {
+#if HAVE_PAM
+        SD_ELF_NOTE_DLOPEN(
+                        "pam",
+                        "Support for LinuxPAM",
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        "libpam.so.0");
+
+        return dlopen_many_sym_or_warn(
+                        &libpam_dl,
+                        "libpam.so.0",
+                        log_level,
+                        DLSYM_ARG(pam_acct_mgmt),
+                        DLSYM_ARG(pam_close_session),
+                        DLSYM_ARG(pam_end),
+                        DLSYM_ARG(pam_get_data),
+                        DLSYM_ARG(pam_get_item),
+                        DLSYM_ARG(pam_getenvlist),
+                        DLSYM_ARG(pam_open_session),
+                        DLSYM_ARG(pam_putenv),
+                        DLSYM_ARG(pam_set_data),
+                        DLSYM_ARG(pam_set_item),
+                        DLSYM_ARG(pam_setcred),
+                        DLSYM_ARG(pam_start),
+                        DLSYM_ARG(pam_strerror),
+                        DLSYM_ARG(pam_syslog),
+                        DLSYM_ARG(pam_vsyslog));
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libpam support is not compiled in.");
+#endif
 }
