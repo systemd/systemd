@@ -52,3 +52,4 @@ typedef struct Unit Unit;
 typedef struct UnitRef UnitRef;
 
 struct restrict_fs_bpf;
+struct notify_ratelimit_bpf;
