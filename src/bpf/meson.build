@@ -343,6 +343,7 @@ bpf_programs = [
 ]
 
 bpf_programs_by_name = {}
+bpf_sources = []
 
 foreach program : bpf_programs
         if conf.get(program['condition']) != 1
@@ -350,6 +351,7 @@ foreach program : bpf_programs
         endif
 
         source = program['source'][0]
+        # Strip .bpf.c extension
         name = fs.stem(fs.stem(source))
 
         bpf_o_unstripped = custom_target(
@@ -376,10 +378,14 @@ foreach program : bpf_programs
 
         bpf_programs_by_name += { name : [skel_h, skel_wrapper_h] }
         generated_sources += skel_h
+        bpf_sources += source
+endforeach
 
+if bpf_sources.length() > 0
         meson.add_postconf_script(
                 python,
                 files('merge-bpf-compdb.py'),
-                source.full_path(),
+                bpf_sources,
+                '--',
                 bpf_o_unstripped_cmd)
-endforeach
+endif
