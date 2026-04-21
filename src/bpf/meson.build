@@ -382,4 +382,10 @@ foreach program : bpf_programs
 
         bpf_programs_by_name += { name : skel_h }
         generated_sources += skel_h
+
+        meson.add_postconf_script(
+                python,
+                files('merge-bpf-compdb.py'),
+                source.full_path(),
+                bpf_o_unstripped_cmd)
 endforeach
