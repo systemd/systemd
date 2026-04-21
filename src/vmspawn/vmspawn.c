@@ -2349,7 +2349,7 @@ static int prepare_primary_drive(const char *runtime_dir, DriveInfos *drives) {
         if (r < 0)
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", arg_image);
 
-        _cleanup_(drive_info_freep) DriveInfo *d = drive_info_new();
+        _cleanup_(drive_info_unrefp) DriveInfo *d = drive_info_new();
         if (!d)
                 return log_oom();
 
@@ -2419,7 +2419,7 @@ static int prepare_extra_drives(DriveInfos *drives) {
 
                 DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
 
-                _cleanup_(drive_info_freep) DriveInfo *d = drive_info_new();
+                _cleanup_(drive_info_unrefp) DriveInfo *d = drive_info_new();
                 if (!d)
                         return log_oom();
 
