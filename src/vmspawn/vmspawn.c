@@ -2440,19 +2440,15 @@ static int assign_pcie_ports(MachineConfig *c) {
 
         size_t port = 0;
 
-        /* Drives: non-SCSI drives get individual ports, SCSI controller gets one port */
-        bool need_scsi = false;
+        /* Non-SCSI drives get individual ports. SCSI controllers (if any) allocate
+         * from the hotplug-spares pool on demand at device-add time. */
         FOREACH_ARRAY(d, drives->drives, drives->n_drives) {
-                if (STR_IN_SET((*d)->disk_driver, "scsi-hd", "scsi-cd")) {
-                        need_scsi = true;
+                DriveInfo *drive = *d;
+                if (STR_IN_SET(drive->disk_driver, "scsi-hd", "scsi-cd"))
                         continue;
-                }
-                if (asprintf(&(*d)->pcie_port, "vmspawn-pcieport-%zu", port++) < 0)
+                if (asprintf(&drive->pcie_port, "vmspawn-pcieport-%zu", port++) < 0)
                         return log_oom();
         }
-        if (need_scsi)
-                if (asprintf(&drives->scsi_pcie_port, "vmspawn-pcieport-%zu", port++) < 0)
-                        return log_oom();
 
         if (network->type)
                 if (asprintf(&network->pcie_port, "vmspawn-pcieport-%zu", port++) < 0)
