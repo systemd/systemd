@@ -40,8 +40,11 @@ _bootctl() {
                       --dry-run'
         [ARG]='--esp-path --boot-path --root --image --image-policy --install-source
                --variables --random-seed --make-entry-directory --entry-token --json
-               --efi-boot-option-description --secure-boot-auto-enroll --private-key
-               --private-key-source --certificate --certificate-source'
+               --efi-boot-option-description --efi-boot-option-description-with-device
+               --secure-boot-auto-enroll --private-key
+               --private-key-source --certificate --certificate-source
+               --oldest --keep-free --entry-title --entry-version --entry-commit
+               -X --extra --tries-left'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
@@ -60,14 +63,14 @@ _bootctl() {
             --entry-token)
                 comps="machine-id os-id os-image-id auto literal:"
                 ;;
-            --image|--root)
+            --image|--root|-X|--extra)
                 compopt -o nospace
                 comps=$( compgen -A file -- "$cur" )
                 ;;
             --install-source)
                 comps="image host auto"
                 ;;
-            --random-seed|--variables|--secure-boot-auto-enroll)
+            --random-seed|--variables|--secure-boot-auto-enroll|--oldest|--efi-boot-option-description-with-device)
                 comps="yes no"
                 ;;
             --json)
@@ -85,9 +88,9 @@ _bootctl() {
 
     local -A VERBS=(
         [STANDALONE]='help status install update remove is-installed random-seed list set-timeout set-timeout-oneshot cleanup'
-        [BOOTENTRY]='set-default set-oneshot set-sysfail unlink'
+        [BOOTENTRY]='set-default set-oneshot set-sysfail set-preferred unlink'
         [BOOLEAN]='reboot-to-firmware'
-        [FILE]='kernel-identify kernel-inspect'
+        [FILE]='kernel-identify kernel-inspect link'
     )
 
     for ((i=0; i < COMP_CWORD; i++)); do

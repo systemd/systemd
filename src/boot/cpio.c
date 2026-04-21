@@ -52,12 +52,11 @@ static char *pad4(char *p, const char *start) {
         return p;
 }
 
-static EFI_STATUS pack_cpio_one(
+EFI_STATUS pack_cpio_one(
                 const char16_t *fname,
                 const void *contents,
                 size_t contents_size,
-                const char *target_dir_prefix,
-                uint32_t access_mode,
+                const CpioTarget *target,
                 uint32_t *inode_counter,
                 void **cpio_buffer,
                 size_t *cpio_buffer_size) {
@@ -67,7 +66,7 @@ static EFI_STATUS pack_cpio_one(
 
         assert(fname);
         assert(contents || contents_size == 0);
-        assert(target_dir_prefix);
+        assert(target);
         assert(inode_counter);
         assert(cpio_buffer);
         assert(cpio_buffer_size);
@@ -84,7 +83,7 @@ static EFI_STATUS pack_cpio_one(
 
         l = 6 + 13*8 + 1 + 1; /* Fixed CPIO header size, slash separator, and NUL byte after the file name */
 
-        target_dir_prefix_size = strlen8(target_dir_prefix);
+        target_dir_prefix_size = strlen8(target->directory);
         if (l > SIZE_MAX - target_dir_prefix_size)
                 return EFI_OUT_OF_RESOURCES;
         l += target_dir_prefix_size;
@@ -121,11 +120,11 @@ static EFI_STATUS pack_cpio_one(
 
         a = mempcpy(a, "070701", 6); /* magic ID */
 
-        a = write_cpio_word(a, (*inode_counter)++);                         /* inode */
-        a = write_cpio_word(a, access_mode | 0100000 /* = S_IFREG */);      /* mode */
-        a = write_cpio_word(a, 0);                                          /* uid */
-        a = write_cpio_word(a, 0);                                          /* gid */
-        a = write_cpio_word(a, 1);                                          /* nlink */
+        a = write_cpio_word(a, (*inode_counter)++);                            /* inode */
+        a = write_cpio_word(a, target->access_mode | 0100000 /* = S_IFREG */); /* mode */
+        a = write_cpio_word(a, 0);                                             /* uid */
+        a = write_cpio_word(a, 0);                                             /* gid */
+        a = write_cpio_word(a, 1);                                             /* nlink */
 
         /* Note: we don't make any attempt to propagate the mtime here, for two reasons: it's a mess given
          * that FAT usually is assumed to operate with timezoned timestamps, while UNIX does not. More
@@ -141,7 +140,7 @@ static EFI_STATUS pack_cpio_one(
         a = write_cpio_word(a, target_dir_prefix_size + fname_size + 2);    /* fname size */
         a = write_cpio_word(a, 0);                                          /* "crc" */
 
-        a = mempcpy(a, target_dir_prefix, target_dir_prefix_size);
+        a = mempcpy(a, target->directory, target_dir_prefix_size);
         *(a++) = '/';
         a = mangle_filename(a, fname);
 
@@ -225,16 +224,15 @@ static EFI_STATUS pack_cpio_dir(
         return EFI_SUCCESS;
 }
 
-static EFI_STATUS pack_cpio_prefix(
-                const char *path,
-                uint32_t dir_mode,
+EFI_STATUS pack_cpio_prefix(
+                const CpioTarget *target,
                 uint32_t *inode_counter,
                 void **cpio_buffer,
                 size_t *cpio_buffer_size) {
 
         EFI_STATUS err;
 
-        assert(path);
+        assert(target);
         assert(inode_counter);
         assert(cpio_buffer);
         assert(cpio_buffer_size);
@@ -243,7 +241,7 @@ static EFI_STATUS pack_cpio_prefix(
          * (similar to mkdir -p behaviour) all leading paths are created with 0555 access mode, only the
          * final dir is created with the specified directory access mode. */
 
-        for (const char *p = path;;) {
+        for (const char *p = target->directory;;) {
                 const char *e;
 
                 e = strchr8(p, '/');
@@ -253,7 +251,7 @@ static EFI_STATUS pack_cpio_prefix(
                 if (e > p) {
                         _cleanup_free_ char *t = NULL;
 
-                        t = xstrndup8(path, e - path);
+                        t = xstrndup8(target->directory, e - target->directory);
                         if (!t)
                                 return EFI_OUT_OF_RESOURCES;
 
@@ -265,10 +263,10 @@ static EFI_STATUS pack_cpio_prefix(
                 p = e + 1;
         }
 
-        return pack_cpio_dir(path, dir_mode, inode_counter, cpio_buffer, cpio_buffer_size);
+        return pack_cpio_dir(target->directory, target->dir_mode, inode_counter, cpio_buffer, cpio_buffer_size);
 }
 
-static EFI_STATUS pack_cpio_trailer(
+EFI_STATUS pack_cpio_trailer(
                 void **cpio_buffer,
                 size_t *cpio_buffer_size) {
 
@@ -307,9 +305,7 @@ EFI_STATUS pack_cpio(
                 const char16_t *dropin_dir,
                 const char16_t *match_suffix,
                 const char16_t *exclude_suffix,
-                const char *target_dir_prefix,
-                uint32_t dir_mode,
-                uint32_t access_mode,
+                const CpioTarget *target,
                 uint32_t tpm_pcr,
                 const char16_t *tpm_description,
                 struct iovec *ret_buffer,
@@ -325,7 +321,7 @@ EFI_STATUS pack_cpio(
         EFI_STATUS err;
 
         assert(loaded_image);
-        assert(target_dir_prefix);
+        assert(target);
         assert(ret_buffer);
 
         if (!loaded_image->DeviceHandle)
@@ -400,7 +396,7 @@ EFI_STATUS pack_cpio(
 
         /* Generate the leading directory inodes right before adding the first files, to the
          * archive. Otherwise the cpio archive cannot be unpacked, since the leading dirs won't exist. */
-        err = pack_cpio_prefix(target_dir_prefix, dir_mode, &inode, &buffer, &buffer_size);
+        err = pack_cpio_prefix(target, &inode, &buffer, &buffer_size);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Failed to pack cpio prefix: %m");
 
@@ -417,8 +413,7 @@ EFI_STATUS pack_cpio(
                 err = pack_cpio_one(
                                 items[i],
                                 content, contentsize,
-                                target_dir_prefix,
-                                access_mode,
+                                target,
                                 &inode,
                                 &buffer, &buffer_size);
                 if (err != EFI_SUCCESS)
@@ -453,10 +448,8 @@ nothing:
 EFI_STATUS pack_cpio_literal(
                 const void *data,
                 size_t data_size,
-                const char *target_dir_prefix,
+                const CpioTarget *target,
                 const char16_t *target_filename,
-                uint32_t dir_mode,
-                uint32_t access_mode,
                 uint32_t tpm_pcr,
                 const char16_t *tpm_description,
                 struct iovec *ret_buffer,
@@ -468,22 +461,21 @@ EFI_STATUS pack_cpio_literal(
         EFI_STATUS err;
 
         assert(data || data_size == 0);
-        assert(target_dir_prefix);
+        assert(target);
         assert(target_filename);
         assert(ret_buffer);
 
         /* Generate the leading directory inodes right before adding the first files, to the
          * archive. Otherwise the cpio archive cannot be unpacked, since the leading dirs won't exist. */
 
-        err = pack_cpio_prefix(target_dir_prefix, dir_mode, &inode, &buffer, &buffer_size);
+        err = pack_cpio_prefix(target, &inode, &buffer, &buffer_size);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Failed to pack cpio prefix: %m");
 
         err = pack_cpio_one(
                         target_filename,
                         data, data_size,
-                        target_dir_prefix,
-                        access_mode,
+                        target,
                         &inode,
                         &buffer, &buffer_size);
         if (err != EFI_SUCCESS)
@@ -505,3 +497,55 @@ EFI_STATUS pack_cpio_literal(
         *ret_buffer = IOVEC_MAKE(TAKE_PTR(buffer), buffer_size);
         return EFI_SUCCESS;
 }
+
+/* The following are canonical definitions of the various cpio target directories we place resources in. We
+ * define them here in a single canonical list of targets because we need to reuse them at various places
+ * (well, some of them at least), and we don't want the access modes to deviate slightly on each use. */
+
+const CpioTarget cpio_target_credentials = {
+        .directory = ".extra/credentials",
+        .dir_mode = 0500,
+        .access_mode = 0400,
+};
+
+const CpioTarget cpio_target_global_credentials = {
+        .directory = ".extra/global_credentials",
+        .dir_mode = 0500,
+        .access_mode = 0400,
+};
+
+const CpioTarget cpio_target_sysext = {
+        .directory = ".extra/sysext",
+        .dir_mode = 0555,
+        .access_mode = 0444,
+};
+
+const CpioTarget cpio_target_global_sysext = {
+        .directory = ".extra/global_sysext",
+        .dir_mode = 0555,
+        .access_mode = 0444,
+};
+
+const CpioTarget cpio_target_confext = {
+        .directory = ".extra/confext",
+        .dir_mode = 0555,
+        .access_mode = 0444,
+};
+
+const CpioTarget cpio_target_global_confext = {
+        .directory = ".extra/global_confext",
+        .dir_mode = 0555,
+        .access_mode = 0444,
+};
+
+const CpioTarget cpio_target_meta = {
+        .directory = ".extra",
+        .dir_mode = 0555,
+        .access_mode = 0444,
+};
+
+const CpioTarget cpio_target_meta_secret = {
+        .directory = ".extra",
+        .dir_mode = 0555,
+        .access_mode = 0400,
+};

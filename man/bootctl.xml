@@ -102,13 +102,49 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>unlink</option> <replaceable>ID</replaceable></term>
+        <term><option>unlink</option> <optional><replaceable>ID</replaceable></optional></term>
 
-        <listitem><para>Removes a boot loader entry including the files it refers to. Takes a single boot
-        loader entry ID string or a glob pattern as argument. Referenced files such as kernel or initrd are
-        only removed if no other entry refers to them.</para>
+        <listitem><para>Removes a boot loader entry including the files it refers to. Takes an optional boot
+        loader entry ID string or a glob pattern as argument. Referenced files such as the kernel, initrds,
+        system extensions (sysexts), configuration extensions (confexts) or credential files are only removed
+        if no other entry refers to them.</para>
+
+        <para>If no <replaceable>ID</replaceable> argument is specified, the <option>--oldest</option> option
+        must be specified, in which case the boot loader entry with the lowest version is removed (for
+        robustness reasons the currently booted menu entry is never removed, nor is the last existing boot
+        loader entry).</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>link</option> <replaceable>KERNEL</replaceable></term>
+
+        <listitem><para>Creates a Type #1 boot loader entry for the specified kernel image. Takes the path to
+        a Unified Kernel Image (UKI) as argument. The UKI is copied into the ESP (or XBOOTLDR partition if
+        present) below the configured entry token directory, and one or more <ulink
+        url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
+        Specification</ulink> Type #1 entries are generated referring to it (one per UKI profile, if multiple
+        profiles are embedded).</para>
+
+        <para>The title, version, commit number and initial try counter of the generated entries
+        may be overridden with <option>--entry-title=</option>, <option>--entry-version=</option>,
+        <option>--entry-commit=</option> and <option>--tries-left=</option>. Additional sidecar resources
+        (system extension images, configuration extension images, credential files) to pass to the UKI at
+        boot may be specified with <option>--extra=</option>.</para>
+
+        <para>If the ESP/XBOOTLDR do not have enough free space for the new boot loader entry and its
+        referenced resources the oldest existing boot loader entry matching the selected entry token is
+        removed (along with any resources referenced by it that are no longer referenced by any other
+        entry). This step is repeated until the new boot loader entry fits. For robustness reasons the
+        currently booted boot loader entry is never removed, nor is the last existing boot loader
+        entry.</para>
+
+        <para>By default, the operation refuses to proceed if the resulting ESP/XBOOTLDR free space would
+        drop below a safety threshold after automatic removal of older entries completes; use
+        <option>--keep-free=</option> to adjust.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -558,6 +594,88 @@
         without actually deleting them.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--oldest</option></term>
+
+        <listitem><para>When used with <command>unlink</command>, selects the oldest installed boot loader
+        entry matching the boot entry token for removal (rather than passing an explicit entry ID). This is
+        useful for pruning older installed boot loader entries. Note that the currently booted entry is never
+        removed, nor is the last remaining one.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--keep-free=<replaceable>BYTES</replaceable></option></term>
+
+        <listitem><para>When used with <command>link</command>, controls the minimum amount of free space
+        (in bytes) that must remain on the target partition (ESP or XBOOTLDR) after the new entry has been
+        materialized. The operation fails if installing the entry would drop the free space below this
+        threshold. Accepts the usual size suffixes (K, M, G, …). If empty, the built-in default is
+        restored. If set to zero no minimum amount of free space is kept.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--entry-title=<replaceable>TITLE</replaceable></option></term>
+
+        <listitem><para>When used with <command>link</command>, specifies the title of the generated boot
+        loader entry (the <literal>title</literal> field of the Type #1 entry). If not specified, a title is
+        derived from the UKI's embedded metadata.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--entry-version=<replaceable>VERSION</replaceable></option></term>
+
+        <listitem><para>When used with <command>link</command>, specifies the version string of the
+        generated boot loader entry (the <literal>version</literal> field of the Type #1 entry). If not
+        specified, the version is derived from the UKI's embedded metadata. Used by the boot loader to sort
+        and select entries.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--entry-commit=<replaceable>NR</replaceable></option></term>
+
+        <listitem><para>When used with <command>link</command>, specifies the commit number for the generated
+        boot loader entry.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--extra=<replaceable>PATH</replaceable></option></term>
+        <term><option>-X <replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>When used with <command>link</command>, registers an additional sidecar resource
+        file that shall be passed to the UKI at boot. This may be a system extension image
+        (<filename>*.sysext.raw</filename>), configuration extension image
+        (<filename>*.confext.raw</filename>), or credential file
+        (<filename>*.cred</filename>). The file is copied into the ESP/XBOOTLDR alongside the UKI and the
+        boot loader will load and pass it to the kernel via initrd. This option may be used multiple times
+        to register more than one extra resource. If passed an empty argument, all previously specified
+        extras are cleared.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tries-left=<replaceable>NR</replaceable></option></term>
+
+        <listitem><para>When used with <command>link</command>, initializes the boot counting
+        <literal>tries-left</literal> counter for the generated entry. If set, the resulting boot entry file
+        is named according to the boot counting scheme described in the <ulink
+        url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot Assessment</ulink> documentation,
+        so that the boot loader decreases the counter on each attempted boot and eventually marks the entry
+        as bad. If not specified, boot counting is not enabled for the generated entry.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 
       <varlistentry>
