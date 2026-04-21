@@ -103,9 +103,7 @@ void machine_config_done(MachineConfig *c) {
         vsock_info_done(&c->vsock);
 }
 
-/* Generic async QMP setup-completion callback. The userdata argument carries the
- * command name (as a string literal) for logging. On failure, request a clean
- * event loop exit so vmspawn shuts down instead of running a VM with missing devices. */
+/* Generic completion callback; userdata is a string literal label. Exits the event loop on boot-time failures. */
 static int on_qmp_complete(
                 QmpClient *client,
                 sd_json_variant *result,
@@ -113,12 +111,17 @@ static int on_qmp_complete(
                 int error,
                 void *userdata) {
 
-        const char *label = ASSERT_PTR(userdata);
-
         assert(client);
+
+        VmspawnQmpBridge *bridge = ASSERT_PTR(qmp_client_get_userdata(client));
+        const char *label = ASSERT_PTR(userdata);
 
         if (error < 0) {
                 log_error_errno(error, "%s failed: %s", label, strna(error_desc));
+
+                if (bridge->setup_done)
+                        return 0;
+
                 return sd_event_exit(qmp_client_get_event(client), error);
         }
 
