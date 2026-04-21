@@ -4,6 +4,7 @@
 
 #include "constants.h"
 #include "errno-util.h"
+#include "job.h"
 #include "json-util.h"
 #include "manager.h"
 #include "metrics.h"
@@ -356,6 +357,15 @@ static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata
 
         if (link == m->managed_oom_varlink)
                 m->managed_oom_varlink = sd_varlink_unref(link);
+
+        /* Drop any job varlink references for the disconnecting client.
+         * A varlink link can stream at most one job, so stop after the first match. */
+        Job *j;
+        HASHMAP_FOREACH(j, m->jobs)
+                if (j->varlink == link) {
+                        j->varlink = sd_varlink_unref(j->varlink);
+                        break;
+                }
 }
 
 int manager_setup_varlink_server(Manager *m) {
@@ -398,6 +408,7 @@ int manager_setup_varlink_server(Manager *m) {
                         "io.systemd.Manager.SoftReboot", vl_method_soft_reboot,
                         "io.systemd.Unit.List", vl_method_list_units,
                         "io.systemd.Unit.SetProperties", vl_method_set_unit_properties,
+                        "io.systemd.Unit.StartTransient", vl_method_start_transient_unit,
                         "io.systemd.service.Ping", varlink_method_ping,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
@@ -419,11 +430,11 @@ int manager_setup_varlink_server(Manager *m) {
                                 "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", vl_method_subscribe_managed_oom_cgroups);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to register varlink methods: %m");
-
-                r = sd_varlink_server_bind_disconnect(s, vl_disconnect);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to register varlink disconnect handler: %m");
         }
+
+        r = sd_varlink_server_bind_disconnect(s, vl_disconnect);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to register varlink disconnect handler: %m");
 
         r = sd_varlink_server_attach_event(s, m->event, EVENT_PRIORITY_IPC);
         if (r < 0)
