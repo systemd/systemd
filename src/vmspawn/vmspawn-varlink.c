@@ -162,6 +162,10 @@ static int vl_method_subscribe_events(sd_varlink *link, sd_json_variant *paramet
         if (r != 0)
                 return r;
 
+        /* Treat [] identically to null: deliver all events. */
+        if (strv_isempty(filter))
+                filter = strv_free(filter);
+
         sd_varlink_ref(link);
 
         r = hashmap_ensure_put(&ctx->subscribed, &varlink_subscriber_hash_ops, link, filter);
