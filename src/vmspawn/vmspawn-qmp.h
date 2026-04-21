@@ -28,7 +28,8 @@ typedef enum VmspawnQmpFeatureFlags {
 
 typedef struct VmspawnQmpBridge {
         QmpClient *qmp;
-        Hashmap *pending_jobs;  /* job_id (string, owned) -> PendingJob* */
+        Hashmap *pending_jobs;        /* blockdev-create continuations */
+        uint64_t next_block_counter;  /* monotonic counter feeding internal QMP names (vmspawn-<N>-*) */
         VmspawnQmpFeatureFlags features;
         bool setup_done;
 } VmspawnQmpBridge;
@@ -76,7 +77,8 @@ typedef struct DriveInfo {
         char *format;              /* "raw" or "qcow2" */
         char *disk_driver;         /* "virtio-blk-pci", "scsi-hd", "scsi-cd", "nvme" */
         char *serial;
-        char *node_name;
+        char *qmp_node_name;       /* "vmspawn-<N>-storage" */
+        char *qmp_device_id;       /* "vmspawn-<N>-disk" */
         char *pcie_port;           /* pcie-root-port id for device_add bus (NULL on non-PCIe) */
         int fd;                    /* pre-opened image fd (-EBADF if unused) */
         int overlay_fd;            /* pre-opened anonymous overlay fd for ephemeral (-EBADF if unused) */
