@@ -2473,11 +2473,12 @@ static int assign_pcie_ports(MachineConfig *c) {
         /* Drives: non-SCSI drives get individual ports, SCSI controller gets one port */
         bool need_scsi = false;
         FOREACH_ARRAY(d, drives->drives, drives->n_drives) {
-                if (STR_IN_SET((*d)->disk_driver, "scsi-hd", "scsi-cd")) {
+                DriveInfo *drive = *d;
+                if (STR_IN_SET(drive->disk_driver, "scsi-hd", "scsi-cd")) {
                         need_scsi = true;
                         continue;
                 }
-                if (asprintf(&(*d)->pcie_port, "vmspawn-pcieport-%zu", port++) < 0)
+                if (asprintf(&drive->pcie_port, "vmspawn-pcieport-%zu", port++) < 0)
                         return log_oom();
         }
         if (need_scsi)
