@@ -29,8 +29,6 @@ extern DLSYM_PROTOTYPE(curl_multi_socket_action);
 extern DLSYM_PROTOTYPE(curl_slist_append);
 extern DLSYM_PROTOTYPE(curl_slist_free_all);
 
-int dlopen_curl(void);
-
 #define easy_setopt(curl, log_level, opt, value) ({                         \
         CURLcode code = sym_curl_easy_setopt(ASSERT_PTR(curl), opt, value); \
         if (code)                                                           \
@@ -71,10 +69,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(CURL*, sym_curl_easy_cleanup, curl_easy_
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(CURLM*, sym_curl_multi_cleanup, curl_multi_cleanupp, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct curl_slist*, sym_curl_slist_free_all, curl_slist_free_allp, NULL);
 
-#else
-
-static inline int dlopen_curl(void) {
-        return -EOPNOTSUPP;
-}
-
 #endif
+
+int dlopen_curl(int log_level);

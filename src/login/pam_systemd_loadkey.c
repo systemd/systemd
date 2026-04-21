@@ -19,7 +19,7 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
 
         assert(pamh);
 
-        r = dlopen_libpam();
+        r = dlopen_libpam(LOG_DEBUG);
         if (r < 0)
                 return PAM_SERVICE_ERR;
 

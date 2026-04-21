@@ -146,7 +146,7 @@ static int probe_file_system_by_fd(
         assert(ret_fstype);
         assert(ret_uuid);
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -529,7 +529,7 @@ static int acquire_open_luks_device(
         assert(setup);
         assert(!setup->crypt_device);
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -684,7 +684,7 @@ static int luks_validate(
         assert(ret_size);
         assert(sector_size > 0);
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1289,7 +1289,7 @@ int home_setup_luks(
         assert(setup);
         assert(user_record_storage(h) == USER_LUKS);
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1590,7 +1590,7 @@ int home_activate_luks(
         assert(setup);
         assert(ret_home);
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -2207,11 +2207,11 @@ int home_create_luks(
         assert(setup->image_fd < 0);
         assert(ret_home);
 
-        r = dlopen_fdisk();
+        r = dlopen_fdisk(LOG_DEBUG);
         if (r < 0)
                 return r;
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -3246,11 +3246,11 @@ int home_resize_luks(
         assert(user_record_storage(h) == USER_LUKS);
         assert(setup);
 
-        r = dlopen_fdisk();
+        r = dlopen_fdisk(LOG_DEBUG);
         if (r < 0)
                 return r;
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -3708,7 +3708,7 @@ int home_passwd_luks(
         assert(user_record_storage(h) == USER_LUKS);
         assert(setup);
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 

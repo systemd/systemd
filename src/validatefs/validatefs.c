@@ -291,9 +291,9 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
         assert(d);
         assert(f);
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "Cannot validate GPT constraints, refusing.");
+                return r;
 
         _cleanup_close_ int block_fd = sd_device_open(d, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
         if (block_fd < 0)

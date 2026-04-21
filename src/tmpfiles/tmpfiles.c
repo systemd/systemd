@@ -1247,7 +1247,7 @@ static int parse_acl_cond_exec(
         assert(cond_exec);
         assert(ret);
 
-        r = dlopen_libacl();
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1366,7 +1366,7 @@ static int path_set_acl(
 
         assert(c);
 
-        r = dlopen_libacl();
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
