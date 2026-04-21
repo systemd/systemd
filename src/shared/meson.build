@@ -3,6 +3,7 @@
 shared_sources = files(
         'acl-util.c',
         'acpi-fpdt.c',
+        'apparmor-util.c',
         'ask-password-agent.c',
         'ask-password-api.c',
         'async.c',
@@ -95,6 +96,7 @@ shared_sources = files(
         'hostname-setup.c',
         'hwdb-util.c',
         'id128-print.c',
+        'idn-util.c',
         'ima-util.c',
         'image-policy.c',
         'import-util.c',
@@ -117,6 +119,7 @@ shared_sources = files(
         'libaudit-util.c',
         'libcrypt-util.c',
         'libfido2-util.c',
+        'libmount-util.c',
         'local-addresses.c',
         'locale-setup.c',
         'log-assert-critical.c',
@@ -151,6 +154,7 @@ shared_sources = files(
         'osc-context.c',
         'output-mode.c',
         'pager.c',
+        'pam-util.c',
         'parse-argument.c',
         'parse-helpers.c',
         'password-quality-util-passwdqc.c',
@@ -282,22 +286,6 @@ endif
 
 if conf.get('HAVE_LIBBPF') == 1
         shared_sources += files('bpf-link.c')
-endif
-
-if conf.get('HAVE_PAM') == 1
-        shared_sources += files('pam-util.c')
-endif
-
-if conf.get('HAVE_LIBMOUNT') == 1
-        shared_sources += files('libmount-util.c')
-endif
-
-if conf.get('HAVE_LIBIDN2') == 1
-        shared_sources += files('idn-util.c')
-endif
-
-if conf.get('HAVE_APPARMOR') == 1
-        shared_sources += files('apparmor-util.c')
 endif
 
 generate_ip_protocol_list = files('generate-ip-protocol-list.sh')

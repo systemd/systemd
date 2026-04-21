@@ -5,6 +5,7 @@
 #include "sd-dlopen.h"
 
 #include "libarchive-util.h"
+#include "log.h"                        /* IWYU pragma: keep */
 #include "user-util.h"                  /* IWYU pragma: keep */
 
 #if HAVE_LIBARCHIVE
@@ -79,8 +80,10 @@ DLSYM_PROTOTYPE(archive_write_open_FILE) = NULL;
 DLSYM_PROTOTYPE(archive_write_open_fd) = NULL;
 DLSYM_PROTOTYPE(archive_write_set_format_filter_by_ext) = NULL;
 DLSYM_PROTOTYPE(archive_write_set_format_pax) = NULL;
+#endif
 
-int dlopen_libarchive(void) {
+int dlopen_libarchive(int log_level) {
+#if HAVE_LIBARCHIVE
         SD_ELF_NOTE_DLOPEN(
                         "archive",
                         "Support for decompressing archive files",
@@ -90,7 +93,7 @@ int dlopen_libarchive(void) {
         return dlopen_many_sym_or_warn(
                         &libarchive_dl,
                         "libarchive.so.13",
-                        LOG_DEBUG,
+                        log_level,
                         DLSYM_ARG(archive_entry_acl_add_entry),
                         DLSYM_ARG(archive_entry_acl_next),
                         DLSYM_ARG(archive_entry_acl_reset),
@@ -152,8 +155,13 @@ int dlopen_libarchive(void) {
                         DLSYM_ARG(archive_write_open_fd),
                         DLSYM_ARG(archive_write_set_format_filter_by_ext),
                         DLSYM_ARG(archive_write_set_format_pax));
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libarchive support is not compiled in.");
+#endif
 }
 
+#if HAVE_LIBARCHIVE
 /* libarchive uses its own file type macros. They happen to be defined the same way as the Linux ones, and
  * we'd like to rely on it. Let's verify this first though. */
 assert_cc(S_IFDIR == AE_IFDIR);

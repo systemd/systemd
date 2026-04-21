@@ -32,7 +32,7 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
         assert(tree_fd >= 0);
         assert(ret_pid);
 
-        r = dlopen_libarchive();
+        r = dlopen_libarchive(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -99,7 +99,7 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
         assert(tree_fd >= 0);
         assert(ret_pid);
 
-        r = dlopen_libarchive();
+        r = dlopen_libarchive(LOG_DEBUG);
         if (r < 0)
                 return r;
 

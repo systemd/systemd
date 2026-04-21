@@ -106,7 +106,7 @@ int pkcs11_crypt_device_callback(
 
 #endif
 
-int dlopen_p11kit(void);
+int dlopen_p11kit(int log_level);
 
 typedef struct {
         const char *friendly_name;

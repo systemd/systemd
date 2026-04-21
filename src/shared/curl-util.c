@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "curl-util.h"
+#include "log.h"
 
 #if HAVE_LIBCURL
 
@@ -11,7 +12,6 @@
 #include "dlfcn-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
-#include "log.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -39,39 +39,6 @@ DLSYM_PROTOTYPE(curl_multi_setopt) = NULL;
 DLSYM_PROTOTYPE(curl_multi_socket_action) = NULL;
 DLSYM_PROTOTYPE(curl_slist_append) = NULL;
 DLSYM_PROTOTYPE(curl_slist_free_all) = NULL;
-
-int dlopen_curl(void) {
-        SD_ELF_NOTE_DLOPEN(
-                        "curl",
-                        "Support for downloading and uploading files over HTTP",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libcurl.so.4");
-
-        return dlopen_many_sym_or_warn(
-                        &curl_dl,
-                        "libcurl.so.4",
-                        LOG_DEBUG,
-                        DLSYM_ARG(curl_easy_cleanup),
-                        DLSYM_ARG(curl_easy_getinfo),
-                        DLSYM_ARG(curl_easy_init),
-                        DLSYM_ARG(curl_easy_perform),
-                        DLSYM_ARG(curl_easy_setopt),
-                        DLSYM_ARG(curl_easy_strerror),
-#if LIBCURL_VERSION_NUM >= 0x075300
-                        DLSYM_ARG(curl_easy_header),
-#endif
-                        DLSYM_ARG(curl_getdate),
-                        DLSYM_ARG(curl_multi_add_handle),
-                        DLSYM_ARG(curl_multi_assign),
-                        DLSYM_ARG(curl_multi_cleanup),
-                        DLSYM_ARG(curl_multi_info_read),
-                        DLSYM_ARG(curl_multi_init),
-                        DLSYM_ARG(curl_multi_remove_handle),
-                        DLSYM_ARG(curl_multi_setopt),
-                        DLSYM_ARG(curl_multi_socket_action),
-                        DLSYM_ARG(curl_slist_append),
-                        DLSYM_ARG(curl_slist_free_all));
-}
 
 static void curl_glue_check_finished(CurlGlue *g) {
         int r;
@@ -271,7 +238,7 @@ int curl_glue_new(CurlGlue **glue, sd_event *event) {
 
         assert(glue);
 
-        r = dlopen_curl();
+        r = dlopen_curl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -327,7 +294,7 @@ int curl_glue_make(CURL **ret, const char *url, void *userdata) {
         assert(ret);
         assert(url);
 
-        r = dlopen_curl();
+        r = dlopen_curl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -496,3 +463,41 @@ int curl_append_to_header(struct curl_slist **list, char **headers) {
 }
 
 #endif
+
+int dlopen_curl(int log_level) {
+#if HAVE_LIBCURL
+        SD_ELF_NOTE_DLOPEN(
+                        "curl",
+                        "Support for downloading and uploading files over HTTP",
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libcurl.so.4");
+
+        return dlopen_many_sym_or_warn(
+                        &curl_dl,
+                        "libcurl.so.4",
+                        log_level,
+                        DLSYM_ARG(curl_easy_cleanup),
+                        DLSYM_ARG(curl_easy_getinfo),
+                        DLSYM_ARG(curl_easy_init),
+                        DLSYM_ARG(curl_easy_perform),
+                        DLSYM_ARG(curl_easy_setopt),
+                        DLSYM_ARG(curl_easy_strerror),
+#if LIBCURL_VERSION_NUM >= 0x075300
+                        DLSYM_ARG(curl_easy_header),
+#endif
+                        DLSYM_ARG(curl_getdate),
+                        DLSYM_ARG(curl_multi_add_handle),
+                        DLSYM_ARG(curl_multi_assign),
+                        DLSYM_ARG(curl_multi_cleanup),
+                        DLSYM_ARG(curl_multi_info_read),
+                        DLSYM_ARG(curl_multi_init),
+                        DLSYM_ARG(curl_multi_remove_handle),
+                        DLSYM_ARG(curl_multi_setopt),
+                        DLSYM_ARG(curl_multi_socket_action),
+                        DLSYM_ARG(curl_slist_append),
+                        DLSYM_ARG(curl_slist_free_all));
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libcurl support is not compiled in.");
+#endif
+}

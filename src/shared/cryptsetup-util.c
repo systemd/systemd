@@ -98,7 +98,7 @@ void cryptsetup_enable_logging(struct crypt_device *cd) {
          * endless loop, but isn't because we break it via the check for 'cryptsetup_dl' early in
          * dlopen_cryptsetup(). */
 
-        if (dlopen_cryptsetup() < 0)
+        if (dlopen_cryptsetup(LOG_DEBUG) < 0)
                 return; /* If this fails, let's gracefully ignore the issue, this is just debug logging after
                          * all, and if this failed we already generated a debug log message that should help
                          * to track things down. */
@@ -124,7 +124,7 @@ int cryptsetup_set_minimal_pbkdf(struct crypt_device *cd) {
 
         /* Sets a minimal PKBDF in case we already have a high entropy key. */
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -155,7 +155,7 @@ int cryptsetup_get_token_as_json(
          * -EMEDIUMTYPE → "verify_type" specified and doesn't match token's type
          */
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -188,7 +188,7 @@ int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v) {
         _cleanup_free_ char *text = NULL;
         int r;
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -268,7 +268,7 @@ int cryptsetup_get_volume_key_id(
 }
 #endif
 
-int dlopen_cryptsetup(void) {
+int dlopen_cryptsetup(int log_level) {
 #if HAVE_LIBCRYPTSETUP
         int r;
 
@@ -284,7 +284,7 @@ int dlopen_cryptsetup(void) {
                         "libcryptsetup.so.12");
 
         r = dlopen_many_sym_or_warn(
-                        &cryptsetup_dl, "libcryptsetup.so.12", LOG_DEBUG,
+                        &cryptsetup_dl, "libcryptsetup.so.12", log_level,
                         DLSYM_ARG(crypt_activate_by_passphrase),
                         DLSYM_ARG(crypt_activate_by_signed_key),
                         DLSYM_ARG(crypt_activate_by_volume_key),
@@ -355,7 +355,8 @@ int dlopen_cryptsetup(void) {
 
         return 1;
 #else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "cryptsetup support is not compiled in.");
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libcryptsetup support is not compiled in.");
 #endif
 }
 
