@@ -266,31 +266,21 @@ static int dispatch_pending_job(VmspawnQmpBridge *bridge, sd_json_variant *data)
         return 1;
 }
 
-static int on_qmp_event(
-                QmpClient *client,
-                const char *event,
-                sd_json_variant *data,
-                void *userdata) {
-
-        VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
+static int notify_event_subscribers(VmspawnVarlinkContext *ctx, const char *event_name, sd_json_variant *data) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *notification = NULL;
         sd_varlink *link;
         char **filter;
         int r;
 
-        assert(client);
-        assert(event);
-
-        /* Dispatch job status changes to pending continuations (e.g. blockdev-create) */
-        if (streq(event, "JOB_STATUS_CHANGE"))
-                return dispatch_pending_job(ctx->bridge, data);
+        assert(ctx);
+        assert(event_name);
 
         if (hashmap_isempty(ctx->subscribed))
                 return 0;
 
         r = sd_json_buildo(
                         &notification,
-                        SD_JSON_BUILD_PAIR_STRING("event", event),
+                        SD_JSON_BUILD_PAIR_STRING("event", event_name),
                         SD_JSON_BUILD_PAIR_CONDITION(!!data, "data", SD_JSON_BUILD_VARIANT(data)));
         if (r < 0) {
                 log_warning_errno(r, "Failed to build event notification, ignoring: %m");
@@ -298,7 +288,7 @@ static int on_qmp_event(
         }
 
         HASHMAP_FOREACH_KEY(filter, link, ctx->subscribed) {
-                if (filter && !strv_contains(filter, event))
+                if (filter && !strv_contains(filter, event_name))
                         continue;
 
                 r = sd_varlink_notify(link, notification);
@@ -307,6 +297,24 @@ static int on_qmp_event(
         }
 
         return 0;
+}
+
+static int on_qmp_event(
+                QmpClient *client,
+                const char *event,
+                sd_json_variant *data,
+                void *userdata) {
+
+        VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
+
+        assert(client);
+        assert(event);
+
+        /* Dispatch job status changes to pending continuations (e.g. blockdev-create) */
+        if (streq(event, "JOB_STATUS_CHANGE"))
+                return dispatch_pending_job(ctx->bridge, data);
+
+        return notify_event_subscribers(ctx, event, data);
 }
 
 /* Free all subscriber entries — varlink_subscriber_hash_ops handles
