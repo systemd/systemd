@@ -123,13 +123,18 @@ static int on_qmp_describe_complete(
                 return 0;
         }
 
-        sd_json_variant *running = sd_json_variant_by_key(result, "running");
-        sd_json_variant *status = sd_json_variant_by_key(result, "status");
+        sd_json_variant *running_v = sd_json_variant_by_key(result, "running");
+        sd_json_variant *status_v = sd_json_variant_by_key(result, "status");
+
+        bool running = running_v ? sd_json_variant_boolean(running_v) : false;
+
+        const char *status = status_v && sd_json_variant_is_string(status_v) ?
+                sd_json_variant_string(status_v) : "unknown";
 
         (void) sd_varlink_replybo(
                         link,
-                        SD_JSON_BUILD_PAIR_BOOLEAN("running", running ? sd_json_variant_boolean(running) : false),
-                        SD_JSON_BUILD_PAIR_STRING("status", status && sd_json_variant_is_string(status) ? sd_json_variant_string(status) : "unknown"));
+                        SD_JSON_BUILD_PAIR_BOOLEAN("running", running),
+                        SD_JSON_BUILD_PAIR_STRING("status", status));
 
         return 0;
 }
