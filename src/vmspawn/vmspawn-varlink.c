@@ -51,10 +51,10 @@ static int on_qmp_simple_complete(
 
         assert(client);
 
-        if (error == 0)
-                (void) sd_varlink_reply(link, NULL);
-        else
+        if (error < 0)
                 (void) qmp_error_to_varlink(link, error_desc, error);
+        else
+                (void) sd_varlink_reply(link, NULL);
 
         sd_varlink_unref(link);
         return 0;
@@ -118,7 +118,7 @@ static int on_qmp_describe_complete(
 
         assert(client);
 
-        if (error != 0) {
+        if (error < 0) {
                 (void) qmp_error_to_varlink(link, error_desc, error);
                 return 0;
         }
