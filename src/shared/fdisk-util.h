@@ -70,8 +70,6 @@ extern DLSYM_PROTOTYPE(fdisk_unref_parttype);
 extern DLSYM_PROTOTYPE(fdisk_unref_table);
 extern DLSYM_PROTOTYPE(fdisk_write_disklabel);
 
-int dlopen_fdisk(void);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct fdisk_context*, sym_fdisk_unref_context, fdisk_unref_contextp, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct fdisk_partition*, sym_fdisk_unref_partition, fdisk_unref_partitionp, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct fdisk_parttype*, sym_fdisk_unref_parttype, fdisk_unref_parttypep, NULL);
@@ -85,10 +83,6 @@ int fdisk_partition_get_type_as_id128(struct fdisk_partition *p, sd_id128_t *ret
 int fdisk_partition_get_attrs_as_uint64(struct fdisk_partition *pa, uint64_t *ret);
 int fdisk_partition_set_attrs_as_uint64(struct fdisk_partition *pa, uint64_t flags);
 
-#else
-
-static inline int dlopen_fdisk(void) {
-        return -EOPNOTSUPP;
-}
-
 #endif
+
+int dlopen_fdisk(int log_level);

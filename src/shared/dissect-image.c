@@ -239,7 +239,7 @@ int probe_filesystem_full(
         assert(fd >= 0 || path);
         assert(ret_fstype);
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1076,7 +1076,7 @@ static int dissect_image(
                 }
         }
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -2945,7 +2945,7 @@ static int decrypt_partition(
         if (!FLAGS_SET(policy_flags, PARTITION_POLICY_ENCRYPTED))
                 return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL), "Attempted to unlock partition via LUKS, but it's prohibited.");
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -3313,7 +3313,7 @@ static int verity_partition(
                 return 0;
         }
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -4176,7 +4176,7 @@ int dissected_image_acquire_metadata(
 
         assert(m);
 
-        r = dlopen_libmount();
+        r = dlopen_libmount(LOG_DEBUG);
         if (r < 0)
                 return r;
 

@@ -284,7 +284,7 @@ Compression compression_detect_from_magic(const uint8_t data[static COMPRESSION_
         return _COMPRESSION_INVALID;
 }
 
-int dlopen_xz(void) {
+int dlopen_xz(int log_level) {
 #if HAVE_XZ
         SD_ELF_NOTE_DLOPEN(
                         "lzma",
@@ -294,7 +294,7 @@ int dlopen_xz(void) {
 
         return dlopen_many_sym_or_warn(
                         &lzma_dl,
-                        "liblzma.so.5", LOG_DEBUG,
+                        "liblzma.so.5", log_level,
                         DLSYM_ARG(lzma_code),
                         DLSYM_ARG(lzma_easy_encoder),
                         DLSYM_ARG(lzma_end),
@@ -302,11 +302,12 @@ int dlopen_xz(void) {
                         DLSYM_ARG(lzma_lzma_preset),
                         DLSYM_ARG(lzma_stream_decoder));
 #else
-        return -EOPNOTSUPP;
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "lzma support is not compiled in.");
 #endif
 }
 
-int dlopen_lz4(void) {
+int dlopen_lz4(int log_level) {
 #if HAVE_LZ4
         SD_ELF_NOTE_DLOPEN(
                         "lz4",
@@ -316,7 +317,7 @@ int dlopen_lz4(void) {
 
         return dlopen_many_sym_or_warn(
                         &lz4_dl,
-                        "liblz4.so.1", LOG_DEBUG,
+                        "liblz4.so.1", log_level,
                         DLSYM_ARG(LZ4F_compressBegin),
                         DLSYM_ARG(LZ4F_compressBound),
                         DLSYM_ARG(LZ4F_compressEnd),
@@ -333,11 +334,12 @@ int dlopen_lz4(void) {
                         DLSYM_ARG(LZ4_decompress_safe_partial),
                         DLSYM_ARG(LZ4_versionNumber));
 #else
-        return -EOPNOTSUPP;
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "lz4 support is not compiled in.");
 #endif
 }
 
-int dlopen_zstd(void) {
+int dlopen_zstd(int log_level) {
 #if HAVE_ZSTD
         SD_ELF_NOTE_DLOPEN(
                         "zstd",
@@ -347,7 +349,7 @@ int dlopen_zstd(void) {
 
         return dlopen_many_sym_or_warn(
                         &zstd_dl,
-                        "libzstd.so.1", LOG_DEBUG,
+                        "libzstd.so.1", log_level,
                         DLSYM_ARG(ZSTD_getErrorCode),
                         DLSYM_ARG(ZSTD_compress),
                         DLSYM_ARG(ZSTD_getFrameContentSize),
@@ -365,11 +367,12 @@ int dlopen_zstd(void) {
                         DLSYM_ARG(ZSTD_createDCtx),
                         DLSYM_ARG(ZSTD_createCCtx));
 #else
-        return -EOPNOTSUPP;
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "zstd support is not compiled in.");
 #endif
 }
 
-int dlopen_zlib(void) {
+int dlopen_zlib(int log_level) {
 #if HAVE_ZLIB
         SD_ELF_NOTE_DLOPEN(
                         "zlib",
@@ -379,7 +382,7 @@ int dlopen_zlib(void) {
 
         return dlopen_many_sym_or_warn(
                         &zlib_dl,
-                        "libz.so.1", LOG_DEBUG,
+                        "libz.so.1", log_level,
                         DLSYM_ARG(deflateInit2_),
                         DLSYM_ARG(deflate),
                         DLSYM_ARG(deflateEnd),
@@ -387,11 +390,12 @@ int dlopen_zlib(void) {
                         DLSYM_ARG(inflate),
                         DLSYM_ARG(inflateEnd));
 #else
-        return -EOPNOTSUPP;
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "zlib support is not compiled in.");
 #endif
 }
 
-int dlopen_bzip2(void) {
+int dlopen_bzip2(int log_level) {
 #if HAVE_BZIP2
         SD_ELF_NOTE_DLOPEN(
                         "bzip2",
@@ -401,7 +405,7 @@ int dlopen_bzip2(void) {
 
         return dlopen_many_sym_or_warn(
                         &bzip2_dl,
-                        "libbz2.so.1", LOG_DEBUG,
+                        "libbz2.so.1", log_level,
                         DLSYM_ARG(BZ2_bzCompressInit),
                         DLSYM_ARG(BZ2_bzCompress),
                         DLSYM_ARG(BZ2_bzCompressEnd),
@@ -409,7 +413,8 @@ int dlopen_bzip2(void) {
                         DLSYM_ARG(BZ2_bzDecompress),
                         DLSYM_ARG(BZ2_bzDecompressEnd));
 #else
-        return -EOPNOTSUPP;
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "bzip2 support is not compiled in.");
 #endif
 }
 
@@ -440,7 +445,7 @@ static int compress_blob_xz(
         size_t out_pos = 0;
         int r;
 
-        r = dlopen_xz();
+        r = dlopen_xz(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -485,7 +490,7 @@ static int compress_blob_lz4(
 #if HAVE_LZ4
         int r;
 
-        r = dlopen_lz4();
+        r = dlopen_lz4(LOG_DEBUG);
         if (r < 0)
                 return r;
         /* Returns < 0 if we couldn't compress the data or the
@@ -533,7 +538,7 @@ static int compress_blob_zstd(
         size_t k;
         int r;
 
-        r = dlopen_zstd();
+        r = dlopen_zstd(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -560,7 +565,7 @@ static int compress_blob_gzip(const void *src, uint64_t src_size,
 #if HAVE_ZLIB
         int r;
 
-        r = dlopen_zlib();
+        r = dlopen_zlib(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -609,7 +614,7 @@ static int compress_blob_bzip2(
 #if HAVE_BZIP2
         int r;
 
-        r = dlopen_bzip2();
+        r = dlopen_bzip2(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -677,7 +682,7 @@ static int decompress_blob_xz(
 #if HAVE_XZ
         int r;
 
-        r = dlopen_xz();
+        r = dlopen_xz(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -744,7 +749,7 @@ static int decompress_blob_lz4(
         char* out;
         int r, size; /* LZ4 uses int for size */
 
-        r = dlopen_lz4();
+        r = dlopen_lz4(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -790,7 +795,7 @@ static int decompress_blob_zstd(
         uint64_t size;
         int r;
 
-        r = dlopen_zstd();
+        r = dlopen_zstd(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -847,7 +852,7 @@ static int decompress_blob_gzip(
 #if HAVE_ZLIB
         int r;
 
-        r = dlopen_zlib();
+        r = dlopen_zlib(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -914,7 +919,7 @@ static int decompress_blob_bzip2(
 #if HAVE_BZIP2
         int r;
 
-        r = dlopen_bzip2();
+        r = dlopen_bzip2(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1010,7 +1015,7 @@ int decompress_zlib_raw(
 #if HAVE_ZLIB
         int r;
 
-        r = dlopen_zlib();
+        r = dlopen_zlib(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1061,7 +1066,7 @@ static int decompress_startswith_xz(
 #if HAVE_XZ
         int r;
 
-        r = dlopen_xz();
+        r = dlopen_xz(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1128,7 +1133,7 @@ static int decompress_startswith_lz4(
         size_t allocated;
         int r;
 
-        r = dlopen_lz4();
+        r = dlopen_lz4(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1200,7 +1205,7 @@ static int decompress_startswith_zstd(
 #if HAVE_ZSTD
         int r;
 
-        r = dlopen_zstd();
+        r = dlopen_zstd(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1257,7 +1262,7 @@ static int decompress_startswith_gzip(
 #if HAVE_ZLIB
         int r;
 
-        r = dlopen_zlib();
+        r = dlopen_zlib(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1324,7 +1329,7 @@ static int decompress_startswith_bzip2(
 #if HAVE_BZIP2
         int r;
 
-        r = dlopen_bzip2();
+        r = dlopen_bzip2(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1561,7 +1566,7 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_XZ
         case COMPRESSION_XZ:
-                r = dlopen_xz();
+                r = dlopen_xz(LOG_DEBUG);
                 if (r < 0)
                         return r;
 
@@ -1572,7 +1577,7 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_LZ4
         case COMPRESSION_LZ4: {
-                r = dlopen_lz4();
+                r = dlopen_lz4(LOG_DEBUG);
                 if (r < 0)
                         return r;
 
@@ -1586,7 +1591,7 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_ZSTD
         case COMPRESSION_ZSTD:
-                r = dlopen_zstd();
+                r = dlopen_zstd(LOG_DEBUG);
                 if (r < 0)
                         return r;
 
@@ -1598,7 +1603,7 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_ZLIB
         case COMPRESSION_GZIP:
-                r = dlopen_zlib();
+                r = dlopen_zlib(LOG_DEBUG);
                 if (r < 0)
                         return r;
 
@@ -1610,7 +1615,7 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_BZIP2
         case COMPRESSION_BZIP2:
-                r = dlopen_bzip2();
+                r = dlopen_bzip2(LOG_DEBUG);
                 if (r < 0)
                         return r;
 
@@ -1791,7 +1796,7 @@ int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
 
 #if HAVE_XZ
         case COMPRESSION_XZ: {
-                r = dlopen_xz();
+                r = dlopen_xz(LOG_DEBUG);
                 if (r < 0)
                         return r;
 
@@ -1805,7 +1810,7 @@ int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
 
 #if HAVE_LZ4
         case COMPRESSION_LZ4: {
-                r = dlopen_lz4();
+                r = dlopen_lz4(LOG_DEBUG);
                 if (r < 0)
                         return r;
 
@@ -1819,7 +1824,7 @@ int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
 
 #if HAVE_ZSTD
         case COMPRESSION_ZSTD: {
-                r = dlopen_zstd();
+                r = dlopen_zstd(LOG_DEBUG);
                 if (r < 0)
                         return r;
 
@@ -1833,7 +1838,7 @@ int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
 
 #if HAVE_ZLIB
         case COMPRESSION_GZIP: {
-                r = dlopen_zlib();
+                r = dlopen_zlib(LOG_DEBUG);
                 if (r < 0)
                         return r;
 
@@ -1847,7 +1852,7 @@ int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
 
 #if HAVE_BZIP2
         case COMPRESSION_BZIP2: {
-                r = dlopen_bzip2();
+                r = dlopen_bzip2(LOG_DEBUG);
                 if (r < 0)
                         return r;
 
@@ -2092,7 +2097,7 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_XZ
         case COMPRESSION_XZ: {
-                r = dlopen_xz();
+                r = dlopen_xz(LOG_DEBUG);
                 if (r < 0)
                         return r;
 
@@ -2107,7 +2112,7 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_LZ4
         case COMPRESSION_LZ4: {
-                r = dlopen_lz4();
+                r = dlopen_lz4(LOG_DEBUG);
                 if (r < 0)
                         return r;
 
@@ -2133,7 +2138,7 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_ZSTD
         case COMPRESSION_ZSTD:
-                r = dlopen_zstd();
+                r = dlopen_zstd(LOG_DEBUG);
                 if (r < 0)
                         return r;
 
@@ -2156,7 +2161,7 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_ZLIB
         case COMPRESSION_GZIP:
-                r = dlopen_zlib();
+                r = dlopen_zlib(LOG_DEBUG);
                 if (r < 0)
                         return r;
 
@@ -2176,7 +2181,7 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_BZIP2
         case COMPRESSION_BZIP2:
-                r = dlopen_bzip2();
+                r = dlopen_bzip2(LOG_DEBUG);
                 if (r < 0)
                         return r;
 

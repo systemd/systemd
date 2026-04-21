@@ -5,6 +5,8 @@
 #include <sys/stat.h>
 #include <syslog.h>
 
+#include "log.h"
+
 #if HAVE_SELINUX
 #include <malloc.h>
 #include <string.h>
@@ -20,7 +22,6 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "label.h"
-#include "log.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -90,8 +91,10 @@ DLSYM_PROTOTYPE(setfilecon_raw) = NULL;
 DLSYM_PROTOTYPE(setfscreatecon_raw) = NULL;
 DLSYM_PROTOTYPE(setsockcreatecon_raw) = NULL;
 DLSYM_PROTOTYPE(string_to_security_class) = NULL;
+#endif
 
-int dlopen_libselinux(void) {
+int dlopen_libselinux(int log_level) {
+#if HAVE_SELINUX
         SD_ELF_NOTE_DLOPEN(
                         "selinux",
                         "Support for SELinux",
@@ -101,7 +104,7 @@ int dlopen_libselinux(void) {
         return dlopen_many_sym_or_warn(
                         &libselinux_dl,
                         "libselinux.so.1",
-                        LOG_DEBUG,
+                        log_level,
                         DLSYM_ARG(avc_open),
                         DLSYM_ARG(context_free),
                         DLSYM_ARG(context_new),
@@ -136,13 +139,16 @@ int dlopen_libselinux(void) {
                         DLSYM_ARG(setfscreatecon_raw),
                         DLSYM_ARG(setsockcreatecon_raw),
                         DLSYM_ARG(string_to_security_class));
-}
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libselinux support is not compiled in.");
 #endif
+}
 
 bool mac_selinux_use(void) {
 #if HAVE_SELINUX
         if (_unlikely_(cached_use < 0)) {
-                if (dlopen_libselinux() < 0)
+                if (dlopen_libselinux(LOG_DEBUG) < 0)
                         return (cached_use = false);
 
                 cached_use = sym_is_selinux_enabled() > 0;
@@ -162,7 +168,7 @@ bool mac_selinux_enforcing(void) {
         /* If the SELinux status page has been successfully opened, retrieve the enforcing
          * status over it to avoid system calls in security_getenforce(). */
 
-        if (dlopen_libselinux() < 0)
+        if (dlopen_libselinux(LOG_DEBUG) < 0)
                 return false;
 
         if (have_status_page)
@@ -188,7 +194,7 @@ static int open_label_db(void) {
         struct mallinfo2 before_mallinfo = {};
         int r;
 
-        r = dlopen_libselinux();
+        r = dlopen_libselinux(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -302,7 +308,7 @@ void mac_selinux_maybe_reload(void) {
         if (!initialized)
                 return;
 
-        if (dlopen_libselinux() < 0)
+        if (dlopen_libselinux(LOG_DEBUG) < 0)
                 return;
 
         /* Do not use selinux_status_updated(3), cause since libselinux 3.2 selinux_check_access(3),
@@ -352,7 +358,7 @@ static int selinux_log_glue(int type, const char *fmt, ...) {
 void mac_selinux_disable_logging(void) {
 #if HAVE_SELINUX
         /* Turn off all of SELinux' own logging, we want to do that ourselves */
-        if (dlopen_libselinux() < 0)
+        if (dlopen_libselinux(LOG_DEBUG) < 0)
                 return;
 
         sym_selinux_set_callback(SELINUX_CB_LOG, (const union selinux_callback) { .func_log = selinux_log_glue });

@@ -32,9 +32,9 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
         uint64_t size;
         int r;
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "Cannot resize LUKS device: %m");
+                return r;
 
         main_devfd = r = device_open_from_devnum(S_IFBLK, main_devno, O_RDONLY|O_CLOEXEC, &main_devpath);
         if (r < 0)

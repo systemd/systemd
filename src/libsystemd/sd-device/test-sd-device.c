@@ -898,7 +898,7 @@ static int intro(void) {
         if (path_is_mount_point("/sys") <= 0)
                 return log_tests_skipped("/sys/ is not mounted");
 
-        r = dlopen_libmount();
+        r = dlopen_libmount(LOG_DEBUG);
         if (r < 0)
                 return log_tests_skipped("libmount not available.");
 
