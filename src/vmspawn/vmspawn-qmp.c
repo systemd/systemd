@@ -125,7 +125,7 @@ static int qmp_fdset_add(QmpClient *qmp, int fd_consume, char **ret_path) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
         _cleanup_close_ int fd = fd_consume;
         _cleanup_free_ char *path = NULL;
-        unsigned id;
+        uint64_t id;
         int r;
 
         assert(qmp);
@@ -138,7 +138,7 @@ static int qmp_fdset_add(QmpClient *qmp, int fd_consume, char **ret_path) {
         if (r < 0)
                 return r;
 
-        if (asprintf(&path, "/dev/fdset/%u", id) < 0)
+        if (asprintf(&path, "/dev/fdset/%" PRIu64, id) < 0)
                 return -ENOMEM;
 
         r = qmp_client_invoke(qmp, "add-fd", QMP_CLIENT_ARGS_FD(args, TAKE_FD(fd)),
