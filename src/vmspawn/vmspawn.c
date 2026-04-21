@@ -2353,8 +2353,7 @@ static int prepare_primary_drive(const char *runtime_dir, DriveInfos *drives) {
 
         d->path = strdup(arg_image);
         d->format = strdup(ASSERT_PTR(image_format_to_string(arg_image_format)));
-        d->node_name = strdup("vmspawn");
-        if (!d->path || !d->format || !d->node_name)
+        if (!d->path || !d->format)
                 return log_oom();
         d->fd = TAKE_FD(image_fd);
         if (S_ISBLK(st.st_mode))
@@ -2390,7 +2389,6 @@ static int prepare_extra_drives(DriveInfos *drives) {
 
         assert(drives);
 
-        size_t extra_idx = 0;
         FOREACH_ARRAY(drive, arg_extra_drives.drives, arg_extra_drives.n_drives) {
                 _cleanup_free_ char *drive_fn = NULL;
                 r = path_extract_filename(drive->path, &drive_fn);
@@ -2430,9 +2428,6 @@ static int prepare_extra_drives(DriveInfos *drives) {
                 if (S_ISBLK(drive_st.st_mode))
                         d->flags |= QMP_DRIVE_BLOCK_DEVICE;
                 d->flags |= QMP_DRIVE_NO_FLUSH;
-
-                if (asprintf(&d->node_name, "vmspawn_extra_%zu", extra_idx++) < 0)
-                        return log_oom();
 
                 drives->drives[drives->n_drives++] = TAKE_PTR(d);
         }
