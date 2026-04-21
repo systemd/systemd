@@ -104,9 +104,6 @@
 #define DISK_SERIAL_MAX_LEN_NVME        20
 #define DISK_SERIAL_MAX_LEN_VIRTIO_BLK  20
 
-/* Spare pcie-root-ports reserved for future runtime hotplug beyond the pre-wired devices. */
-#define VMSPAWN_PCIE_HOTPLUG_SPARES 10u
-
 /* An enum controlling how auxiliary state for the VM are maintained, i.e. the TPM state and the EFI variable
  * NVRAM. */
 typedef enum StateMode {

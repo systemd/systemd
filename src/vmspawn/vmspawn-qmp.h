@@ -5,6 +5,8 @@
 
 #include "shared-forward.h"
 
+#define VMSPAWN_PCIE_HOTPLUG_SPARES 10
+
 /* Pending job continuation — called when a QMP background job reaches "concluded" state.
  * Used by blockdev-create to chain remaining drive setup after the job completes. */
 typedef int (*pending_job_callback_t)(QmpClient *qmp, void *userdata);
