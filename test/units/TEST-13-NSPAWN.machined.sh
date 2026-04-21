@@ -44,21 +44,27 @@ set -x
 
 PID=0
 
-trap 'touch /terminate; kill 0' RTMIN+3
-trap 'touch /poweroff' RTMIN+4
-trap 'touch /reboot' INT
-trap 'touch /trap' TRAP
+# Use only builtins in trap handlers to avoid forking. External commands
+# (like touch) cause bash to enter wait_for() for the child, and a nested
+# signal arriving during that wait triggers a bash bug where
+# run_interrupt_trap() clears catch_flag while other traps are still
+# pending, creating an orphaned pending_traps[] entry that makes 'wait'
+# busy-loop indefinitely.
+trap ': >/terminate; kill 0' RTMIN+3
+trap ': >/poweroff' RTMIN+4
+trap ': >/reboot' INT
+trap ': >/trap' TRAP
 trap 'exit 0' TERM
 trap 'kill $PID' EXIT
 
 # We need to wait for the sleep process asynchronously in order to allow
 # bash to process signals
 sleep infinity &
+PID=$!
 
 # notify that the process is ready
-touch /ready
+: >/ready
 
-PID=$!
 while :; do
     wait || :
 done
@@ -332,11 +338,11 @@ trap 'kill $PID' EXIT
 # We need to wait for the sleep process asynchronously in order to allow
 # bash to process signals
 sleep infinity &
+PID=$!
 
 # notify that the process is ready
-touch /ready
+: >/ready
 
-PID=$!
 while :; do
     wait || :
 done
