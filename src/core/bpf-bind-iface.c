@@ -14,7 +14,7 @@
 /* libbpf, clang, llvm and bpftool compile time dependencies are satisfied */
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
-#include "bpf/bind-iface/bind-iface-skel.h"
+#include "bind-iface-skel.h"
 
 static struct bind_iface_bpf *bind_iface_bpf_free(struct bind_iface_bpf *obj) {
         bind_iface_bpf__destroy(obj);
