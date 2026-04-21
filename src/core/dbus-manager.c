@@ -1830,7 +1830,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
         }
 
         /* Safety check */
-        if (!in_initrd())
+        if (!sd_bus_message_is_method_call(message, NULL, "ForceSwitchRoot") && !in_initrd())
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                         "Not in initrd, refusing switch-root operation.");
 
@@ -3305,6 +3305,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                       method_kexec,
                       SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
         SD_BUS_METHOD_WITH_ARGS("SwitchRoot",
+                                SD_BUS_ARGS("s", new_root, "s", init),
+                                SD_BUS_NO_RESULT,
+                                method_switch_root,
+                                SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
+        SD_BUS_METHOD_WITH_ARGS("ForceSwitchRoot",
                                 SD_BUS_ARGS("s", new_root, "s", init),
                                 SD_BUS_NO_RESULT,
                                 method_switch_root,

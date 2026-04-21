@@ -44,6 +44,7 @@ int verb_switch_root(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char *root, *init;
         sd_bus *bus;
         int r;
+        bool force_switch_root = arg_force > 0;
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot switch root remotely.");
@@ -68,7 +69,7 @@ int verb_switch_root(int argc, char *argv[], uintptr_t _data, void *userdata) {
         } else
                 root = "/sysroot";
 
-        if (!in_initrd())
+        if (!force_switch_root && !in_initrd())
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not in initrd, refusing switch-root operation.");
 
         if (argc >= 3)
@@ -111,7 +112,11 @@ int verb_switch_root(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         log_debug("Switching root - root: %s; init: %s", root, strna(init));
 
-        r = bus_call_method(bus, bus_systemd_mgr, "SwitchRoot", &error, NULL, "ss", root, init);
+        if (force_switch_root)
+                r = bus_call_method(bus, bus_systemd_mgr, "ForceSwitchRoot", &error, NULL, "ss", root, init);
+        else
+                r = bus_call_method(bus, bus_systemd_mgr, "SwitchRoot", &error, NULL, "ss", root, init);
+
         if (r < 0) {
                 (void) default_signals(SIGTERM);
 
