@@ -295,8 +295,8 @@ static int add_veritysetup(
 
         return 0;
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "Partition is Verity protected, but systemd-gpt-auto-generator was compiled without libcryptsetup support.");
+        log_warning("Compiled without libcryptsetup support, skipping verity setup for '%s'.", id);
+        return 0;
 #endif
 }
 #endif
