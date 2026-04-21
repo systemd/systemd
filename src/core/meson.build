@@ -76,17 +76,10 @@ libcore_sources = files(
         'varlink-unit.c',
 )
 
-subdir('bpf/socket-bind')
-subdir('bpf/restrict-fs')
-subdir('bpf/restrict-ifaces')
-subdir('bpf/bind-iface')
-
 if conf.get('BPF_FRAMEWORK') == 1
-        libcore_sources += [
-                socket_bind_skel_h,
-                restrict_fs_skel_h,
-                restrict_ifaces_skel_h,
-                bind_network_interface_skel_h]
+        foreach name : ['socket-bind', 'restrict-fs', 'restrict-ifaces', 'bind-iface']
+                libcore_sources += bpf_programs_by_name[name]
+        endforeach
 endif
 
 sources += libcore_sources
