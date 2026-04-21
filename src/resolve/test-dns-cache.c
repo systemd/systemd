@@ -37,6 +37,7 @@ typedef struct PutArgs {
         int owner_family;
         const union in_addr_union owner_address;
         usec_t stale_retention_usec;
+        unsigned cache_size;
 } PutArgs;
 
 static PutArgs mk_put_args(void) {
@@ -52,7 +53,8 @@ static PutArgs mk_put_args(void) {
                 .nsec_ttl = 3600,
                 .owner_family = AF_INET,
                 .owner_address = { .in.s_addr = htobe32(0x01020304) },
-                .stale_retention_usec = 0
+                .stale_retention_usec = 0,
+                .cache_size = 4096
         };
 
         ASSERT_NOT_NULL(put_args.answer);
@@ -75,7 +77,8 @@ static int cache_put(DnsCache *cache, PutArgs *args) {
                 args->nsec_ttl,
                 args->owner_family,
                 &args->owner_address,
-                args->stale_retention_usec);
+                args->stale_retention_usec,
+                args->cache_size);
 }
 
 static void dns_cache_unrefp(DnsCache *cache) {
@@ -508,6 +511,56 @@ TEST(dns_a_to_cname_success_escaped_name_returns_error) {
         answer_add_cname(&put_args, key, "example.com", 3600, DNS_ANSWER_CACHEABLE);
 
         ASSERT_ERROR(cache_put(&cache, &put_args), EINVAL);
+        ASSERT_TRUE(dns_cache_is_empty(&cache));
+}
+
+TEST(dns_cache_size_honored) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+
+        put_args.cache_size = 2;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "one.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_SUCCESS;
+        answer_add_a(&put_args, put_args.key, 0xc0a80101, 3600, DNS_ANSWER_CACHEABLE);
+        ASSERT_OK(cache_put(&cache, &put_args));
+
+        dns_resource_key_unref(put_args.key);
+        dns_answer_unref(put_args.answer);
+        put_args.answer = dns_answer_new(1);
+        ASSERT_NOT_NULL(put_args.answer);
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "two.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        answer_add_a(&put_args, put_args.key, 0xc0a80102, 3600, DNS_ANSWER_CACHEABLE);
+        ASSERT_OK(cache_put(&cache, &put_args));
+
+        dns_resource_key_unref(put_args.key);
+        dns_answer_unref(put_args.answer);
+        put_args.answer = dns_answer_new(1);
+        ASSERT_NOT_NULL(put_args.answer);
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "three.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        answer_add_a(&put_args, put_args.key, 0xc0a80103, 3600, DNS_ANSWER_CACHEABLE);
+        ASSERT_OK(cache_put(&cache, &put_args));
+
+        ASSERT_TRUE(dns_cache_size(&cache) <= 2);
+}
+
+TEST(dns_cache_size_zero_evicts_all) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+
+        put_args.cache_size = 0;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_SUCCESS;
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+        ASSERT_OK(cache_put(&cache, &put_args));
+
         ASSERT_TRUE(dns_cache_is_empty(&cache));
 }
 

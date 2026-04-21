@@ -853,7 +853,8 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                       t->answer_nsec_ttl,
                       t->received->family,
                       &t->received->sender,
-                      t->scope->manager->stale_retention_usec);
+                      t->scope->manager->stale_retention_usec,
+                      t->scope->manager->cache_size);
 }
 
 static bool dns_transaction_dnssec_is_live(DnsTransaction *t) {

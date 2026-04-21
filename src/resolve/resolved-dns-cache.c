@@ -18,10 +18,6 @@
 #include "string-util.h"
 #include "time-util.h"
 
-/* Never cache more than 4K entries. RFC 1536, Section 5 suggests to
- * leave DNS caches unbounded, but that's crazy. */
-#define CACHE_MAX 4096
-
 /* We never keep any item longer than 2h in our cache unless StaleRetentionSec is greater than zero. */
 #define CACHE_TTL_MAX_USEC (2 * USEC_PER_HOUR)
 
@@ -178,15 +174,15 @@ void dns_cache_flush(DnsCache *c) {
         c->by_expiry = prioq_free(c->by_expiry);
 }
 
-static void dns_cache_make_space(DnsCache *c, unsigned add) {
+static void dns_cache_make_space(DnsCache *c, unsigned add, unsigned cache_max) {
         assert(c);
 
         if (add <= 0)
                 return;
 
         /* Makes space for n new entries. Note that we actually allow
-         * the cache to grow beyond CACHE_MAX, but only when we shall
-         * add more RRs to the cache than CACHE_MAX at once. In that
+         * the cache to grow beyond cache_max, but only when we shall
+         * add more RRs to the cache than cache_max at once. In that
          * case the cache will be emptied completely otherwise. */
 
         for (;;) {
@@ -196,7 +192,7 @@ static void dns_cache_make_space(DnsCache *c, unsigned add) {
                 if (prioq_isempty(c->by_expiry))
                         break;
 
-                if (prioq_size(c->by_expiry) + add < CACHE_MAX)
+                if (prioq_size(c->by_expiry) + add < cache_max)
                         break;
 
                 i = prioq_peek(c->by_expiry);
@@ -448,7 +444,8 @@ static int dns_cache_put_positive(
                 int ifindex,
                 int owner_family,
                 const union in_addr_union *owner_address,
-                usec_t stale_retention_usec) {
+                usec_t stale_retention_usec,
+                unsigned cache_size) {
 
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         DnsCacheItem *existing;
@@ -509,7 +506,7 @@ static int dns_cache_put_positive(
         if (r < 0)
                 return r;
 
-        dns_cache_make_space(c, 1);
+        dns_cache_make_space(c, 1, cache_size);
 
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = new(DnsCacheItem, 1);
         if (!i)
@@ -581,7 +578,8 @@ static int dns_cache_put_negative(
                 usec_t timestamp,
                 DnsResourceRecord *soa,
                 int owner_family,
-                const union in_addr_union *owner_address) {
+                const union in_addr_union *owner_address,
+                unsigned cache_size) {
 
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
@@ -618,7 +616,7 @@ static int dns_cache_put_negative(
         if (r < 0)
                 return r;
 
-        dns_cache_make_space(c, 1);
+        dns_cache_make_space(c, 1, cache_size);
 
         i = new(DnsCacheItem, 1);
         if (!i)
@@ -740,7 +738,8 @@ int dns_cache_put(
                 uint32_t nsec_ttl,
                 int owner_family,
                 const union in_addr_union *owner_address,
-                usec_t stale_retention_usec) {
+                usec_t stale_retention_usec,
+                unsigned cache_size) {
 
         DnsResourceRecord *soa = NULL;
         bool weird_rcode = false;
@@ -752,6 +751,12 @@ int dns_cache_put(
 
         assert(c);
         assert(owner_address);
+
+        /* If caching is disabled via Cache=no, or cache size is 0, flush and return */
+        if (cache_mode == DNS_CACHE_MODE_NO || cache_size == 0) {
+                dns_cache_flush(c);
+                return 0;
+        }
 
         dns_cache_remove_previous(c, key, answer);
 
@@ -786,7 +791,7 @@ int dns_cache_put(
                 cache_keys++;
 
         /* Make some space for our new entries */
-        dns_cache_make_space(c, cache_keys);
+        dns_cache_make_space(c, cache_keys, cache_size);
 
         timestamp = now(CLOCK_BOOTTIME);
 
@@ -837,7 +842,8 @@ int dns_cache_put(
                                 item->ifindex,
                                 owner_family,
                                 owner_address,
-                                stale_retention_usec);
+                                stale_retention_usec,
+                                cache_size);
                 if (r < 0)
                         goto fail;
         }
@@ -894,7 +900,8 @@ int dns_cache_put(
                         timestamp,
                         soa,
                         owner_family,
-                        owner_address);
+                        owner_address,
+                        cache_size);
         if (r < 0)
                 goto fail;
 
