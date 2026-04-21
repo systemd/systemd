@@ -631,8 +631,13 @@ static int event_run(Event *event) {
                 return 0;
         }
 
+        /* No idle worker could accept the event. If we already reached the worker limit, e.g. because
+         * we just killed the only idle worker above, leave the event queued and wait for SIGCHLD of an
+         * exiting worker to free up a slot. on_post() will retry processing the queue. */
+        if (hashmap_size(manager->workers) >= manager->config.children_max)
+                return 0;
+
         /* start new worker and pass initial device */
-        assert(hashmap_size(manager->workers) < manager->config.children_max);
         r = worker_spawn(manager, event);
         if (r < 0)
                 return r;
