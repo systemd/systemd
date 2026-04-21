@@ -19,10 +19,15 @@ systemd_journald_extract_sources = files(
         'journald-syslog.c',
         'journald-varlink.c',
         'journald-wall.c',
-        # Build fuzz-journald.c as part of systemd-journald so we only compile it once instead of once per
-        # fuzz test.
-        'fuzz-journald-util.c',
 )
+
+if want_fuzz_tests
+        # Build fuzz-journald-util.c as part of systemd-journald so we only
+        # compile it once instead of once per fuzz test.
+        systemd_journald_extract_sources += files(
+                'fuzz-journald-util.c',
+        )
+endif
 
 journald_gperf_c = custom_target(
         input : 'journald-gperf.gperf',
