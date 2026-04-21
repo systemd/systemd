@@ -71,6 +71,7 @@ typedef enum QmpDriveFlags {
  * Each DriveInfo is individually heap-allocated so it can be handed off
  * to the block device registry via TAKE_PTR. */
 typedef struct DriveInfo {
+        unsigned n_ref;
         char *path;                /* original path (for logging; not passed to QEMU) */
         char *format;              /* "raw" or "qcow2" */
         char *disk_driver;         /* "virtio-blk-pci", "scsi-hd", "scsi-cd", "nvme" */
@@ -83,8 +84,9 @@ typedef struct DriveInfo {
 } DriveInfo;
 
 DriveInfo* drive_info_new(void);
-DriveInfo* drive_info_free(DriveInfo *d);
-DEFINE_TRIVIAL_CLEANUP_FUNC(DriveInfo *, drive_info_free);
+DriveInfo* drive_info_ref(DriveInfo *p);
+DriveInfo* drive_info_unref(DriveInfo *p);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DriveInfo *, drive_info_unref);
 
 typedef struct DriveInfos {
         DriveInfo **drives;     /* array of individually heap-allocated entries */
