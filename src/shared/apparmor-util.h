@@ -19,14 +19,11 @@ extern DLSYM_PROTOTYPE(aa_policy_cache_unref);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(aa_features*, sym_aa_features_unref, aa_features_unrefp, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(aa_policy_cache*, sym_aa_policy_cache_unref, aa_policy_cache_unrefp, NULL);
-
-int dlopen_libapparmor(void);
 bool mac_apparmor_use(void);
 #else
-static inline int dlopen_libapparmor(void) {
-        return -EOPNOTSUPP;
-}
 static inline bool mac_apparmor_use(void) {
         return false;
 }
 #endif
+
+int dlopen_libapparmor(int log_level);

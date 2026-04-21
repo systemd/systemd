@@ -3070,7 +3070,7 @@ static int run(int argc, char* argv[]) {
         if (r <= 0)
                 return r;
 
-        r = dlopen_curl();
+        r = dlopen_curl(LOG_DEBUG);
         if (r < 0)
                 return r;
 

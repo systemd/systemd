@@ -5,6 +5,7 @@
 #include "sd-dlopen.h"
 
 #include "gcrypt-util.h"
+#include "log.h"                /* IWYU pragma: keep */
 
 #if HAVE_GCRYPT
 
@@ -44,7 +45,7 @@ DLSYM_PROTOTYPE(gcry_randomize) = NULL;
 DLSYM_PROTOTYPE(gcry_strerror) = NULL;
 #endif
 
-int dlopen_gcrypt(void) {
+int dlopen_gcrypt(int log_level) {
 #if HAVE_GCRYPT
         SD_ELF_NOTE_DLOPEN(
                         "gcrypt",
@@ -54,7 +55,7 @@ int dlopen_gcrypt(void) {
 
         return dlopen_many_sym_or_warn(
                         &gcrypt_dl,
-                        "libgcrypt.so.20", LOG_DEBUG,
+                        "libgcrypt.so.20", log_level,
                         DLSYM_ARG(gcry_control),
                         DLSYM_ARG(gcry_check_version),
                         DLSYM_ARG(gcry_md_close),
@@ -88,7 +89,8 @@ int dlopen_gcrypt(void) {
                         DLSYM_ARG(gcry_randomize),
                         DLSYM_ARG(gcry_strerror));
 #else
-        return -EOPNOTSUPP;
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "gcrypt support is not compiled in.");
 #endif
 }
 
@@ -96,7 +98,7 @@ int initialize_libgcrypt(bool secmem) {
 #if HAVE_GCRYPT
         int r;
 
-        r = dlopen_gcrypt();
+        r = dlopen_gcrypt(LOG_DEBUG);
         if (r < 0)
                 return r;
 

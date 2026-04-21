@@ -605,7 +605,7 @@ static int assess_system_call_filter(
         uint64_t b;
         int r;
 
-        r = dlopen_libseccomp();
+        r = dlopen_libseccomp(LOG_DEBUG);
         if (r < 0) {
                 *ret_badness = UINT64_MAX;
                 *ret_description = NULL;
@@ -2578,7 +2578,7 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
                 info->_umask = c->umask;
 
 #if HAVE_SECCOMP
-                if (dlopen_libseccomp() >= 0) {
+                if (dlopen_libseccomp(LOG_DEBUG) >= 0) {
                         SET_FOREACH(key, c->syscall_archs) {
                                 const char *name;
 
