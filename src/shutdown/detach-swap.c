@@ -36,9 +36,9 @@ int swap_list_get(const char *swaps, SwapDevice **head) {
 
         assert(head);
 
-        r = dlopen_libmount();
+        r = dlopen_libmount(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "Cannot enumerate swap partitions, no libmount support.");
+                return r;
 
         t = sym_mnt_new_table();
         i = sym_mnt_new_iter(MNT_ITER_FORWARD);

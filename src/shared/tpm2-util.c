@@ -128,7 +128,7 @@ static DLSYM_PROTOTYPE(Tss2_MU_UINT32_Marshal) = NULL;
 
 static DLSYM_PROTOTYPE(Tss2_RC_Decode) = NULL;
 
-static int dlopen_tpm2_esys(void) {
+static int dlopen_tpm2_esys(int log_level) {
         int r;
 
         SD_ELF_NOTE_DLOPEN(
@@ -138,7 +138,7 @@ static int dlopen_tpm2_esys(void) {
                         "libtss2-esys.so.0");
 
         r = dlopen_many_sym_or_warn(
-                        &libtss2_esys_dl, "libtss2-esys.so.0", LOG_DEBUG,
+                        &libtss2_esys_dl, "libtss2-esys.so.0", log_level,
                         DLSYM_ARG(Esys_Create),
                         DLSYM_ARG(Esys_CreateLoaded),
                         DLSYM_ARG(Esys_CreatePrimary),
@@ -194,7 +194,7 @@ static int dlopen_tpm2_esys(void) {
         return 0;
 }
 
-static int dlopen_tpm2_rc(void) {
+static int dlopen_tpm2_rc(int log_level) {
         SD_ELF_NOTE_DLOPEN(
                         "tpm",
                         "Support for TPM",
@@ -202,11 +202,11 @@ static int dlopen_tpm2_rc(void) {
                         "libtss2-rc.so.0");
 
         return dlopen_many_sym_or_warn(
-                        &libtss2_rc_dl, "libtss2-rc.so.0", LOG_DEBUG,
+                        &libtss2_rc_dl, "libtss2-rc.so.0", log_level,
                         DLSYM_ARG(Tss2_RC_Decode));
 }
 
-static int dlopen_tpm2_mu(void) {
+static int dlopen_tpm2_mu(int log_level) {
         SD_ELF_NOTE_DLOPEN(
                         "tpm",
                         "Support for TPM",
@@ -214,7 +214,7 @@ static int dlopen_tpm2_mu(void) {
                         "libtss2-mu.so.0");
 
         return dlopen_many_sym_or_warn(
-                        &libtss2_mu_dl, "libtss2-mu.so.0", LOG_DEBUG,
+                        &libtss2_mu_dl, "libtss2-mu.so.0", log_level,
                         DLSYM_ARG(Tss2_MU_TPM2_CC_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2_HANDLE_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_DIGEST_Marshal),
@@ -236,7 +236,7 @@ static int dlopen_tpm2_mu(void) {
                         DLSYM_ARG(Tss2_MU_UINT32_Marshal));
 }
 
-static int dlopen_tpm2_tcti_device(void) {
+static int dlopen_tpm2_tcti_device(int log_level) {
         /* The "device" TCTI is the most relevant one, let's also load it explicitly on dlopen_tpm2(), even
          * if we don't resolve any symbols here. */
 
@@ -248,34 +248,36 @@ static int dlopen_tpm2_tcti_device(void) {
 
         return dlopen_verbose(
                         &libtss2_tcti_device_dl,
-                        "libtss2-tcti-device.so.0");
+                        "libtss2-tcti-device.so.0",
+                        log_level);
 }
 
 #endif
 
-int dlopen_tpm2(void) {
+int dlopen_tpm2(int log_level) {
 #if HAVE_TPM2
         int r;
 
-        r = dlopen_tpm2_esys();
+        r = dlopen_tpm2_esys(log_level);
         if (r < 0)
                 return r;
 
-        r = dlopen_tpm2_rc();
+        r = dlopen_tpm2_rc(log_level);
         if (r < 0)
                 return r;
 
-        r = dlopen_tpm2_mu();
+        r = dlopen_tpm2_mu(log_level);
         if (r < 0)
                 return r;
 
-        r = dlopen_tpm2_tcti_device();
+        r = dlopen_tpm2_tcti_device(log_level);
         if (r < 0)
                 return r;
 
         return 0;
 #else
-        return -EOPNOTSUPP;
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "TPM2 support is not compiled in.");
 #endif
 }
 
@@ -874,9 +876,9 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
                 .n_ref = 1,
         };
 
-        r = dlopen_tpm2();
+        r = dlopen_tpm2(LOG_DEBUG);
         if (r < 0)
-                return log_debug_errno(r, "TPM2 support not installed: %m");
+                return r;
 
         if (!device) {
                 device = secure_getenv("SYSTEMD_TPM2_DEVICE");
@@ -3524,9 +3526,9 @@ int tpm2_calculate_pubkey_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name) 
         assert(public);
         assert(ret_name);
 
-        r = dlopen_tpm2();
+        r = dlopen_tpm2(LOG_DEBUG);
         if (r < 0)
-                return log_debug_errno(r, "TPM2 support not installed: %m");
+                return r;
 
         if (public->nameAlg != TPM2_ALG_SHA256)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -3608,9 +3610,9 @@ int tpm2_calculate_nv_index_name(const TPMS_NV_PUBLIC *nvpublic, TPM2B_NAME *ret
         assert(nvpublic);
         assert(ret_name);
 
-        r = dlopen_tpm2();
+        r = dlopen_tpm2(LOG_DEBUG);
         if (r < 0)
-                return log_debug_errno(r, "TPM2 support not installed: %m");
+                return r;
 
         if (nvpublic->nameAlg != TPM2_ALG_SHA256)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -3664,9 +3666,9 @@ int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest) {
         assert(digest);
         assert(digest->size == SHA256_DIGEST_SIZE);
 
-        r = dlopen_tpm2();
+        r = dlopen_tpm2(LOG_DEBUG);
         if (r < 0)
-                return log_debug_errno(r, "TPM2 support not installed: %m");
+                return r;
 
         uint8_t buf[sizeof(command)];
         size_t offset = 0;
@@ -3725,9 +3727,9 @@ int tpm2_calculate_policy_signed(TPM2B_DIGEST *digest, const TPM2B_NAME *name) {
         assert(digest->size == SHA256_DIGEST_SIZE);
         assert(name);
 
-        r = dlopen_tpm2();
+        r = dlopen_tpm2(LOG_DEBUG);
         if (r < 0)
-                return log_debug_errno(r, "TPM2 support not installed: %m");
+                return r;
 
         uint8_t buf[sizeof(command)];
         size_t offset = 0;
@@ -3870,9 +3872,9 @@ int tpm2_calculate_policy_authorize_nv(
         assert(digest);
         assert(digest->size == SHA256_DIGEST_SIZE);
 
-        r = dlopen_tpm2();
+        r = dlopen_tpm2(LOG_DEBUG);
         if (r < 0)
-                return log_debug_errno(r, "TPM2 support not installed: %m");
+                return r;
 
         uint8_t buf[sizeof(command)];
         size_t offset = 0;
@@ -4005,9 +4007,9 @@ int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TP
         if (n_branches > 8)
                 return -E2BIG;
 
-        r = dlopen_tpm2();
+        r = dlopen_tpm2(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "TPM2 support not installed: %m");
+                return r;
 
         uint8_t buf[sizeof(command)];
         size_t offset = 0;
@@ -4060,9 +4062,9 @@ int tpm2_calculate_policy_pcr(
         assert(digest);
         assert(digest->size == SHA256_DIGEST_SIZE);
 
-        r = dlopen_tpm2();
+        r = dlopen_tpm2(LOG_DEBUG);
         if (r < 0)
-                return log_debug_errno(r, "TPM2 support not installed: %m");
+                return r;
 
         TPML_PCR_SELECTION pcr_selection;
         _cleanup_free_ TPM2B_DIGEST *values = NULL;
@@ -4152,9 +4154,9 @@ int tpm2_calculate_policy_authorize(
         assert(digest);
         assert(digest->size == SHA256_DIGEST_SIZE);
 
-        r = dlopen_tpm2();
+        r = dlopen_tpm2(LOG_DEBUG);
         if (r < 0)
-                return log_debug_errno(r, "TPM2 support not installed: %m");
+                return r;
 
         uint8_t buf[sizeof(command)];
         size_t offset = 0;
@@ -6528,9 +6530,9 @@ int tpm2_list_devices(bool legend, bool quiet) {
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
-        r = dlopen_tpm2();
+        r = dlopen_tpm2(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "TPM2 support is not installed.");
+                return r;
 
         t = table_new("path", "device", "driver");
         if (!t)
@@ -6600,9 +6602,9 @@ int tpm2_find_device_auto(char **ret) {
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
-        r = dlopen_tpm2();
+        r = dlopen_tpm2(LOG_DEBUG);
         if (r < 0)
-                return log_debug_errno(r, "TPM2 support is not installed.");
+                return r;
 
         d = opendir("/sys/class/tpmrm");
         if (!d) {
@@ -8482,9 +8484,9 @@ int tpm2_load_public_key_file(const char *path, TPM2B_PUBLIC *ret) {
         assert(path);
         assert(ret);
 
-        r = dlopen_tpm2();
+        r = dlopen_tpm2(LOG_DEBUG);
         if (r < 0)
-                return log_debug_errno(r, "TPM2 support not installed: %m");
+                return r;
 
         r = read_full_file(path, &device_key_buffer, &device_key_buffer_size);
         if (r < 0)
@@ -9145,15 +9147,15 @@ Tpm2Support tpm2_support_full(Tpm2Support mask) {
         support |= TPM2_SUPPORT_SYSTEM;
 
         if ((mask & (TPM2_SUPPORT_LIBRARIES|TPM2_SUPPORT_LIBTSS2_ALL)) != 0) {
-                r = dlopen_tpm2_esys();
+                r = dlopen_tpm2_esys(LOG_DEBUG);
                 if (r >= 0)
                         support |= TPM2_SUPPORT_LIBTSS2_ESYS;
 
-                r = dlopen_tpm2_rc();
+                r = dlopen_tpm2_rc(LOG_DEBUG);
                 if (r >= 0)
                         support |= TPM2_SUPPORT_LIBTSS2_RC;
 
-                r = dlopen_tpm2_mu();
+                r = dlopen_tpm2_mu(LOG_DEBUG);
                 if (r >= 0)
                         support |= TPM2_SUPPORT_LIBTSS2_MU;
 

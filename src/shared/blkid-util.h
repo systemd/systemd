@@ -46,8 +46,6 @@ extern DLSYM_PROTOTYPE(blkid_probe_set_sectorsize);
 extern DLSYM_PROTOTYPE(blkid_probe_set_superblocks_flags);
 extern DLSYM_PROTOTYPE(blkid_safe_string);
 
-int dlopen_libblkid(void);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(blkid_probe, sym_blkid_free_probe, blkid_free_probep, NULL);
 
 int blkid_partition_get_uuid_id128(blkid_partition p, sd_id128_t *ret);
@@ -65,8 +63,6 @@ enum {
 
 int blkid_probe_lookup_value_id128(blkid_probe b, const char *field, sd_id128_t *ret);
 int blkid_probe_lookup_value_u64(blkid_probe b, const char *field, uint64_t *ret);
-#else
-static inline int dlopen_libblkid(void) {
-        return -EOPNOTSUPP;
-}
 #endif
+
+int dlopen_libblkid(int log_level);

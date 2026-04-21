@@ -91,7 +91,7 @@ static DLSYM_PROTOTYPE(gelf_getnote) = NULL;
 
 #endif
 
-int dlopen_dw(void) {
+int dlopen_dw(int log_level) {
 #if HAVE_ELFUTILS
         int r;
 
@@ -102,7 +102,7 @@ int dlopen_dw(void) {
                         "libdw.so.1");
 
         r = dlopen_many_sym_or_warn(
-                        &dw_dl, "libdw.so.1", LOG_DEBUG,
+                        &dw_dl, "libdw.so.1", log_level,
                         DLSYM_ARG(dwarf_getscopes),
                         DLSYM_ARG(dwarf_getscopes_die),
                         DLSYM_ARG(dwarf_tag),
@@ -141,11 +141,12 @@ int dlopen_dw(void) {
 
         return 1;
 #else
-        return -EOPNOTSUPP;
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libdw support is not compiled in.");
 #endif
 }
 
-int dlopen_elf(void) {
+int dlopen_elf(int log_level) {
 #if HAVE_ELFUTILS
         int r;
 
@@ -156,7 +157,7 @@ int dlopen_elf(void) {
                         "libelf.so.1");
 
         r = dlopen_many_sym_or_warn(
-                        &elf_dl, "libelf.so.1", LOG_DEBUG,
+                        &elf_dl, "libelf.so.1", log_level,
                         DLSYM_ARG(elf_begin),
                         DLSYM_ARG(elf_end),
                         DLSYM_ARG(elf_getphdrnum),
@@ -173,7 +174,8 @@ int dlopen_elf(void) {
 
         return 1;
 #else
-        return -EOPNOTSUPP;
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libelf support is not compiled in.");
 #endif
 }
 
@@ -824,11 +826,11 @@ int parse_elf_object(
 
         assert(fd >= 0);
 
-        r = dlopen_dw();
+        r = dlopen_dw(LOG_DEBUG);
         if (r < 0)
                 return r;
 
-        r = dlopen_elf();
+        r = dlopen_elf(LOG_DEBUG);
         if (r < 0)
                 return r;
 

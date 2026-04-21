@@ -86,7 +86,7 @@ int bpf_restrict_ifaces_supported(void) {
         if (supported >= 0)
                 return supported;
 
-        if (dlopen_bpf_full(LOG_WARNING) < 0)
+        if (dlopen_bpf(LOG_WARNING) < 0)
                 return (supported = false);
 
         r = prepare_restrict_ifaces_bpf(NULL, true, NULL, &obj);

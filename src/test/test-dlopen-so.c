@@ -29,12 +29,12 @@
 #include "tests.h"
 #include "tpm2-util.h"
 
-#define ASSERT_DLOPEN(func, cond)                               \
-        do {                                                    \
-                if (cond)                                       \
-                        ASSERT_OK(func());                      \
-                else                                            \
-                        ASSERT_ERROR(func(), EOPNOTSUPP);       \
+#define ASSERT_DLOPEN(func, cond)                                       \
+        do {                                                            \
+                if (cond)                                               \
+                        ASSERT_OK(func(LOG_DEBUG));                     \
+                else                                                    \
+                        ASSERT_ERROR(func(LOG_DEBUG), EOPNOTSUPP);      \
         } while (false)
 
 static int run(int argc, char **argv) {

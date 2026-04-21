@@ -37,7 +37,7 @@ static int device_get_file_system_word(
         assert(ret);
 
 #if HAVE_BLKID
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_DEBUG);
         if (r < 0)
                 return r;
 

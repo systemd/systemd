@@ -3022,7 +3022,7 @@ static int partition_read_definition(
                                   "Cannot format %s filesystem without source files, refusing.", p->format);
 
         if (p->verity != VERITY_OFF || p->encrypt != ENCRYPT_OFF) {
-                r = dlopen_cryptsetup();
+                r = dlopen_cryptsetup(LOG_DEBUG);
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, path, 1, r,
                                           "libcryptsetup not found, Verity=/Encrypt= are not supported: %m");
@@ -4614,9 +4614,9 @@ static int context_wipe_range(Context *context, uint64_t offset, uint64_t size) 
         assert(offset != UINT64_MAX);
         assert(size != UINT64_MAX);
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "Failed to load libblkid: %m");
+                return r;
 
         probe = sym_blkid_new_probe();
         if (!probe)
@@ -5200,9 +5200,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         assert(p);
         assert(p->encrypt != ENCRYPT_OFF);
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "libcryptsetup not found, cannot encrypt: %m");
+                return r;
 
         log_info("Encrypting future partition %" PRIu64 "...", p->partno);
 
@@ -5733,9 +5733,9 @@ static int partition_format_verity_hash(
 
         (void) partition_hint(p, node, &hint);
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "libcryptsetup not found, cannot setup verity: %m");
+                return r;
 
         if (!node) {
                 r = partition_target_prepare(context, p, p->new_size, /* need_path= */ true, &t);
@@ -6918,7 +6918,7 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
          * appear in the host namespace. Hence we fork a child that has its own file system namespace and
          * detached mount propagation. */
 
-        (void) dlopen_libmount();
+        (void) dlopen_libmount(LOG_DEBUG);
 
         r = pidref_safe_fork(
                         "(sd-copy)",
@@ -8358,9 +8358,9 @@ static int resolve_copy_blocks_auto_candidate(
                 return log_error_errno(r, "Failed to open block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(whole_devno));
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "Failed to find libblkid: %m");
+                return r;
 
         b = sym_blkid_new_probe();
         if (!b)
@@ -11218,7 +11218,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = dlopen_fdisk();
+        r = dlopen_fdisk(LOG_DEBUG);
         if (r < 0)
                 return r;
 

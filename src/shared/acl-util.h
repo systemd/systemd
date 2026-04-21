@@ -36,8 +36,6 @@ extern DLSYM_PROTOTYPE(acl_set_qualifier);
 extern DLSYM_PROTOTYPE(acl_set_tag_type);
 extern DLSYM_PROTOTYPE(acl_to_any_text);
 
-int dlopen_libacl(void);
-
 int devnode_acl(int fd, const Set *uids);
 
 int calc_acl_mask_if_needed(acl_t *acl_p);
@@ -85,10 +83,6 @@ typedef unsigned acl_type_t;
 #define ACL_TYPE_ACCESS         (0x8000)
 #define ACL_TYPE_DEFAULT        (0x4000)
 
-static inline int dlopen_libacl(void) {
-        return -EOPNOTSUPP;
-}
-
 static inline int devnode_acl(int fd, const Set *uids) {
         return -EOPNOTSUPP;
 }
@@ -97,6 +91,8 @@ static inline int fd_add_uid_acl_permission(int fd, uid_t uid, unsigned mask) {
         return -EOPNOTSUPP;
 }
 #endif
+
+int dlopen_libacl(int log_level);
 
 int fd_acl_make_read_only(int fd);
 int fd_acl_make_writable(int fd);
