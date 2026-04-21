@@ -26,16 +26,33 @@ DEFINE_PRIVATE_HASH_OPS_FULL(
                 PendingJob, pending_job_free);
 
 DriveInfo* drive_info_new(void) {
-        DriveInfo *d = new0(DriveInfo, 1);
-        if (d) {
-                d->fd = -EBADF;
-                d->overlay_fd = -EBADF;
-        }
+        DriveInfo *d = new(DriveInfo, 1);
+        if (!d)
+                return NULL;
+
+        *d = (DriveInfo) {
+                .n_ref = 1,
+                .fd = -EBADF,
+                .overlay_fd = -EBADF,
+        };
         return d;
 }
 
-DriveInfo* drive_info_free(DriveInfo *d) {
+DriveInfo* drive_info_ref(DriveInfo *d) {
         if (!d)
+                return NULL;
+
+        assert(d->n_ref > 0);
+        d->n_ref++;
+        return d;
+}
+
+DriveInfo* drive_info_unref(DriveInfo *d) {
+        if (!d)
+                return NULL;
+
+        assert(d->n_ref > 0);
+        if (--d->n_ref > 0)
                 return NULL;
 
         free(d->path);
@@ -52,7 +69,7 @@ DriveInfo* drive_info_free(DriveInfo *d) {
 void drive_infos_done(DriveInfos *infos) {
         assert(infos);
         FOREACH_ARRAY(d, infos->drives, infos->n_drives)
-                drive_info_free(*d);
+                drive_info_unref(*d);
         infos->drives = mfree(infos->drives);
         infos->n_drives = 0;
         infos->scsi_pcie_port = mfree(infos->scsi_pcie_port);
