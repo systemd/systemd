@@ -137,9 +137,15 @@ static int on_qmp_complete(
         return 0;
 }
 
-/* Send add-fd via SCM_RIGHTS; return /dev/fdset/N. Allocations run before invoke so a late
- * OOM cannot orphan an fdset on QEMU's side; *ret_path is only written on full success. */
-static int qmp_fdset_add(QmpClient *qmp, int fd_consume, char **ret_path) {
+/* Send add-fd via SCM_RIGHTS; return /dev/fdset/N and the numeric fdset id. */
+static int qmp_fdset_add(
+                QmpClient *qmp,
+                int fd_consume,
+                qmp_command_callback_t callback,
+                void *userdata,
+                char **ret_path,
+                uint64_t *ret_fdset_id) {
+
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
         _cleanup_close_ int fd = fd_consume;
         _cleanup_free_ char *path = NULL;
@@ -148,6 +154,7 @@ static int qmp_fdset_add(QmpClient *qmp, int fd_consume, char **ret_path) {
 
         assert(qmp);
         assert(fd_consume >= 0);
+        assert(callback);
         assert(ret_path);
 
         id = qmp_client_next_fdset_id(qmp);
@@ -160,12 +167,37 @@ static int qmp_fdset_add(QmpClient *qmp, int fd_consume, char **ret_path) {
                 return -ENOMEM;
 
         r = qmp_client_invoke(qmp, "add-fd", QMP_CLIENT_ARGS_FD(args, TAKE_FD(fd)),
-                              on_qmp_complete, (void*) "add-fd");
+                              callback, userdata);
         if (r < 0)
                 return r;
 
         *ret_path = TAKE_PTR(path);
+        if (ret_fdset_id)
+                *ret_fdset_id = id;
         return 0;
+}
+
+/* Issue remove-fd for an fdset whose dup is now held by a blockdev. The fdset
+ * persists until the dup is closed (in raw_close at blockdev-del time) — see
+ * QEMU's monitor/fds.c:177-181 on the fds/dup_fds split. */
+static int qmp_fdset_remove(
+                QmpClient *qmp,
+                uint64_t fdset_id,
+                qmp_command_callback_t callback,
+                void *userdata) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
+        int r;
+
+        assert(qmp);
+        assert(callback);
+
+        r = sd_json_buildo(&args, SD_JSON_BUILD_PAIR_UNSIGNED("fdset-id", fdset_id));
+        if (r < 0)
+                return r;
+
+        return qmp_client_invoke(qmp, "remove-fd", QMP_CLIENT_ARGS(args),
+                                 callback, userdata);
 }
 
 typedef struct QmpFileNodeParams {
@@ -412,12 +444,16 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
 
         /* Step 1-2: Pass both fds to QEMU */
         _cleanup_free_ char *base_path = NULL;
-        r = qmp_fdset_add(qmp, TAKE_FD(drive->fd), &base_path);
+        uint64_t base_fdset_id;
+        r = qmp_fdset_add(qmp, TAKE_FD(drive->fd),
+                          on_qmp_complete, (void*) "add-fd", &base_path, &base_fdset_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to send add-fd for base image '%s': %m", drive->path);
 
         _cleanup_free_ char *overlay_path = NULL;
-        r = qmp_fdset_add(qmp, TAKE_FD(drive->overlay_fd), &overlay_path);
+        uint64_t overlay_fdset_id;
+        r = qmp_fdset_add(qmp, TAKE_FD(drive->overlay_fd),
+                          on_qmp_complete, (void*) "add-fd", &overlay_path, &overlay_fdset_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to send add-fd for overlay of '%s': %m", drive->path);
 
@@ -433,6 +469,12 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
         r = qmp_add_file_node(qmp, &base_file_params);
         if (r < 0)
                 return log_error_errno(r, "Failed to send blockdev-add for base file '%s': %m", drive->path);
+
+        /* The base file node now holds a dup of the fd; release the monitor's
+         * original so the fdset auto-frees when raw_close runs at teardown. */
+        r = qmp_fdset_remove(qmp, base_fdset_id, on_qmp_complete, (void*) "remove-fd");
+        if (r < 0)
+                return log_error_errno(r, "Failed to send remove-fd for base image '%s': %m", drive->path);
 
         /* Step 4: Base image format node (read-only) */
         QmpFormatNodeParams base_fmt_params = {
@@ -465,6 +507,11 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
         r = qmp_client_invoke(qmp, "blockdev-add", QMP_CLIENT_ARGS(overlay_file_args), on_qmp_complete, (void*) "blockdev-add");
         if (r < 0)
                 return log_error_errno(r, "Failed to send blockdev-add for overlay file '%s': %m", drive->path);
+
+        /* Same as for base: the overlay file node has the dup. */
+        r = qmp_fdset_remove(qmp, overlay_fdset_id, on_qmp_complete, (void*) "remove-fd");
+        if (r < 0)
+                return log_error_errno(r, "Failed to send remove-fd for overlay of '%s': %m", drive->path);
 
         /* Step 6: Fire blockdev-create to format the overlay */
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *create_options = NULL;
@@ -546,7 +593,9 @@ static int qmp_setup_regular_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, Dri
                 return log_oom();
 
         _cleanup_free_ char *fdset_path = NULL;
-        r = qmp_fdset_add(qmp, TAKE_FD(drive->fd), &fdset_path);
+        uint64_t fdset_id;
+        r = qmp_fdset_add(qmp, TAKE_FD(drive->fd),
+                          on_qmp_complete, (void*) "add-fd", &fdset_path, &fdset_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to send add-fd for '%s': %m", drive->path);
 
@@ -561,6 +610,12 @@ static int qmp_setup_regular_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, Dri
         r = qmp_add_file_node(qmp, &file_params);
         if (r < 0)
                 return log_error_errno(r, "Failed to send blockdev-add for '%s': %m", drive->path);
+
+        /* The file node now holds a dup of the fd; release the monitor's
+         * original so the fdset auto-frees when raw_close runs at teardown. */
+        r = qmp_fdset_remove(qmp, fdset_id, on_qmp_complete, (void*) "remove-fd");
+        if (r < 0)
+                return log_error_errno(r, "Failed to send remove-fd for '%s': %m", drive->path);
 
         QmpFormatNodeParams fmt_params = {
                 .node_name      = drive->qmp_node_name,
