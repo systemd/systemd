@@ -213,7 +213,7 @@ TEST(protect_kernel_logs) {
                 return;
         }
 
-        r = dlopen_libmount();
+        r = dlopen_libmount(LOG_DEBUG);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
                 (void) log_tests_skipped("libmount support not compiled in");
                 return;

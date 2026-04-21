@@ -80,11 +80,11 @@ int compress_stream(Compression type, int fdf, int fdt, uint64_t max_bytes, uint
 int decompress_stream(Compression type, int fdf, int fdt, uint64_t max_bytes);
 int decompress_stream_by_filename(const char *filename, int fdf, int fdt, uint64_t max_bytes);
 
-int dlopen_xz(void);
-int dlopen_lz4(void);
-int dlopen_zstd(void);
-int dlopen_zlib(void);
-int dlopen_bzip2(void);
+int dlopen_xz(int log_level);
+int dlopen_lz4(int log_level);
+int dlopen_zstd(int log_level);
+int dlopen_zlib(int log_level);
+int dlopen_bzip2(int log_level);
 
 static inline const char* default_compression_extension(void) {
         return compression_extension_to_string(DEFAULT_COMPRESSION) ?: "";

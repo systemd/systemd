@@ -104,7 +104,7 @@ TEST(gzip_round_trip) {
                 gz_path[] = "/tmp/test-kexec-gz.XXXXXX";
         int r;
 
-        r = dlopen_zlib();
+        r = dlopen_zlib(LOG_DEBUG);
         if (r < 0) {
                 log_tests_skipped("zlib not available");
                 return;
@@ -144,7 +144,7 @@ TEST(zboot_synthetic) {
                 zboot_path[] = "/tmp/test-kexec-zboot.XXXXXX";
         int r;
 
-        r = dlopen_zlib();
+        r = dlopen_zlib(LOG_DEBUG);
         if (r < 0) {
                 log_tests_skipped("zlib not available");
                 return;

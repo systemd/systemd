@@ -565,7 +565,7 @@ static int unmerge(
         bool need_to_reload;
         int r;
 
-        (void) dlopen_libmount();
+        (void) dlopen_libmount(LOG_DEBUG);
 
         r = need_reload(image_class, hierarchies, no_reload);
         if (r < 0)
@@ -2373,9 +2373,9 @@ static int merge(ImageClass image_class,
 
         int r;
 
-        (void) dlopen_cryptsetup();
-        (void) dlopen_libblkid();
-        (void) dlopen_libmount();
+        (void) dlopen_cryptsetup(LOG_DEBUG);
+        (void) dlopen_libblkid(LOG_DEBUG);
+        (void) dlopen_libmount(LOG_DEBUG);
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(sd-merge)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, &pidref);
