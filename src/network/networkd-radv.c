@@ -696,6 +696,12 @@ int radv_start(Link *link) {
         if (in6_addr_is_null(&link->ipv6ll_address))
                 return 0;
 
+        /* Update the source IPv6LL before the running check so replacement IPv6LL handover can
+         * rebind RADV without requiring stop/start. */
+        r = sd_radv_set_link_local_address(link->radv, &link->ipv6ll_address);
+        if (r < 0)
+                return r;
+
         if (sd_radv_is_running(link->radv))
                 return 0;
 
@@ -704,10 +710,6 @@ int radv_start(Link *link) {
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Failed to request DHCP delegated subnet prefix: %m");
         }
-
-        r = sd_radv_set_link_local_address(link->radv, &link->ipv6ll_address);
-        if (r < 0)
-                return r;
 
         log_link_debug(link, "Starting IPv6 Router Advertisements");
         return sd_radv_start(link->radv);
