@@ -69,7 +69,7 @@ void qmp_client_bind_event(QmpClient *c, qmp_event_callback_t callback, void *us
 void qmp_client_bind_disconnect(QmpClient *c, qmp_disconnect_callback_t callback, void *userdata);
 int qmp_client_set_description(QmpClient *c, const char *description);
 sd_event* qmp_client_get_event(QmpClient *c);
-unsigned qmp_client_next_fdset_id(QmpClient *client);
+uint64_t qmp_client_next_fdset_id(QmpClient *client);
 
 QmpClient* qmp_client_unref(QmpClient *p);
 
