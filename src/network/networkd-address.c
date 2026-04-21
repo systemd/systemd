@@ -886,10 +886,42 @@ static int address_drop(Address *in, bool removed_by_us) {
 
         address_del_netlabel(address);
 
-        /* FIXME: if the IPv6LL address is dropped, stop DHCPv6, NDISC, RADV. */
         if (address->family == AF_INET6 &&
-            in6_addr_equal(&address->in_addr.in6, &link->ipv6ll_address))
+            in6_addr_equal(&address->in_addr.in6, &link->ipv6ll_address)) {
                 link->ipv6ll_address = (const struct in6_addr) {};
+
+                Address *a;
+                bool has_replacement;
+
+                /* If another ready IPv6LL address exists on this link, use it instead. */
+                SET_FOREACH(a, link->addresses) {
+                        if (a == address)
+                                continue;
+                        if (a->family != AF_INET6)
+                                continue;
+                        if (!in6_addr_is_link_local(&a->in_addr.in6))
+                                continue;
+                        if (!address_is_ready(a))
+                                continue;
+                        link->ipv6ll_address = a->in_addr.in6;
+                        break;
+                }
+
+                has_replacement = in6_addr_is_set(&link->ipv6ll_address);
+
+                /* Stop engines bound to the dropped IPv6LL source address. Do not return early on error.
+                 * address_detach() and link_update_operstate() must run to keep link state consistent. */
+                r = link_ipv6ll_lost(link, has_replacement);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to stop IPv6 services after IPv6LL loss, ignoring: %m");
+
+                /* If another IPv6LL address is available, restart engines with it. */
+                if (has_replacement) {
+                        r = link_ipv6ll_gained(link);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to restart IPv6 services with alternate IPv6LL address, ignoring: %m");
+                }
+        }
 
         ipv4acd_detach(link, address);
 
