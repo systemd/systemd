@@ -3,9 +3,6 @@
 systemd_journal_gatewayd_sources = files(
         'journal-gatewayd.c',
 )
-systemd_journal_gatewayd_extract_sources = files(
-        'microhttpd-util.c',
-)
 
 systemd_journal_remote_sources = files('journal-remote-main.c')
 systemd_journal_remote_extract_sources = files(
@@ -24,7 +21,7 @@ systemd_journal_upload_extract_sources = files(
 )
 
 common_deps = [
-        libgnutls,
+        libgnutls_cflags,
         liblz4_cflags,
         libxz_cflags,
         libzstd_cflags,
@@ -40,8 +37,7 @@ executables += [
                         'HAVE_MICROHTTPD',
                 ],
                 'sources' : systemd_journal_gatewayd_sources,
-                'extract' : systemd_journal_gatewayd_extract_sources,
-                'dependencies' : common_deps + [libmicrohttpd],
+                'dependencies' : common_deps + [libmicrohttpd_cflags],
         },
         libexec_template + {
                 'name' : 'systemd-journal-remote',
@@ -52,8 +48,7 @@ executables += [
                 'install' : conf.get('ENABLE_REMOTE') == 1,
                 'sources' : systemd_journal_remote_sources,
                 'extract' : systemd_journal_remote_extract_sources,
-                'objects' : conf.get('HAVE_MICROHTTPD') == 1 ? ['systemd-journal-gatewayd'] : [],
-                'dependencies' : common_deps + [libmicrohttpd],
+                'dependencies' : common_deps + [libmicrohttpd_cflags],
         },
         libexec_template + {
                 'name' : 'systemd-journal-upload',
@@ -75,7 +70,7 @@ executables += [
         fuzz_template + {
                 'sources' : files('fuzz-journal-remote.c'),
                 'objects' : ['systemd-journal-remote'],
-                'dependencies' : common_deps + [libmicrohttpd],
+                'dependencies' : common_deps + [libmicrohttpd_cflags],
         },
 ]
 
