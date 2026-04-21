@@ -52,7 +52,7 @@ struct QmpClient {
         qmp_disconnect_callback_t disconnect_callback;
         void *disconnect_userdata;
 
-        unsigned next_fdset_id;   /* monotonic fdset-id allocator for add-fd */
+        uint64_t next_fdset_id;   /* monotonic fdset-id allocator for add-fd */
 
         QmpClientState state;
         sd_json_variant *current;  /* most recently parsed message, pending dispatch */
@@ -790,7 +790,7 @@ sd_event* qmp_client_get_event(QmpClient *c) {
         return json_stream_get_event(&c->stream);
 }
 
-unsigned qmp_client_next_fdset_id(QmpClient *c) {
+uint64_t qmp_client_next_fdset_id(QmpClient *c) {
         assert(c);
         return c->next_fdset_id++;
 }
