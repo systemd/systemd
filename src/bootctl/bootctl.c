@@ -39,7 +39,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "utf8.h"
 #include "varlink-io.systemd.BootControl.h"
 #include "varlink-util.h"
 #include "verbs.h"
@@ -573,7 +572,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("efi-boot-option-description", "DESCRIPTION",
                             "Description of the entry in the boot option list"):
-                        if (isempty(arg) || !(string_is_safe(arg) && utf8_is_valid(arg))) {
+                        if (!string_is_safe(arg, STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS)) {
                                 _cleanup_free_ char *escaped = cescape(arg);
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Invalid --efi-boot-option-description=: %s", strna(escaped));

@@ -221,9 +221,6 @@ static int parse_options(const char *options) {
                         arg_hash_offset = off;
                 } else if ((val = startswith(word, "salt="))) {
 
-                        if (!string_is_safe(val))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "salt= is not valid.");
-
                         if (isempty(val)) {
                                 arg_salt = mfree(arg_salt);
                                 arg_salt_size = 32;

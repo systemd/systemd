@@ -217,8 +217,8 @@ static int parse_line(
                 if (!n)
                         return log_oom();
 
-                if (!string_is_safe(n))
-                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EBADMSG), "Bad characters in section header '%s'", l);
+                if (!string_is_safe(n, /* flags= */ 0))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EBADMSG), "Section header invalid '%s'", l);
 
                 if (sections && !nulstr_contains(sections, n)) {
                         bool ignore;
@@ -1244,7 +1244,7 @@ int config_parse_string(
                 return 1;
         }
 
-        if (FLAGS_SET(ltype, CONFIG_PARSE_STRING_SAFE) && !string_is_safe(rvalue)) {
+        if (FLAGS_SET(ltype, CONFIG_PARSE_STRING_SAFE) && !string_is_safe(rvalue, STRING_ALLOW_GLOBS)) {
                 _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(rvalue);
