@@ -945,6 +945,90 @@ static int qmp_setup_regular_drive(VmspawnQmpBridge *bridge, DriveInfo *drive) {
         return vmspawn_qmp_add_block_device(bridge, drive);
 }
 
+/* device_del completion is just QEMU acking the request; teardown happens
+ * in vmspawn_qmp_dispatch_device_deleted() once the guest acks the eject. */
+static int on_remove_device_del_complete(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        _cleanup_(drive_info_unrefp) DriveInfo *drive = ASSERT_PTR(userdata);
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = TAKE_PTR(drive->link);
+
+        assert(client);
+        assert(link);
+
+        if (error < 0) {
+                /* device_del rejected: clear the pending bit so the caller can retry. */
+                drive->rollback_mask &= ~BLOCK_DEVICE_STATE_REMOVE_PENDING;
+
+                return reply_qmp_error(link, error_desc, error);
+        }
+
+        return sd_varlink_reply(link, NULL);
+}
+
+int vmspawn_qmp_remove_block_device(VmspawnQmpBridge *bridge, sd_varlink *link, const char *id) {
+        int r;
+
+        assert(bridge);
+        assert(link);
+        assert(id);
+
+        DriveInfo *drive = hashmap_get(bridge->block_devices, id);
+        if (!drive)
+                return reply_qmp_error(link, "Unknown block device id", -ENOENT);
+        if (FLAGS_SET(drive->rollback_mask, BLOCK_DEVICE_STATE_REMOVE_PENDING))
+                return reply_qmp_error(link, "Block device removal pending", -EBUSY);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
+        r = sd_json_buildo(&args, SD_JSON_BUILD_PAIR_STRING("id", drive->qmp_device_id));
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
+
+        drive->link = sd_varlink_ref(link);
+        drive->rollback_mask |= BLOCK_DEVICE_STATE_REMOVE_PENDING;
+
+        r = qmp_client_invoke(bridge->qmp, "device_del", QMP_CLIENT_ARGS(args),
+                              on_remove_device_del_complete, drive_info_ref(drive));
+        if (r < 0) {
+                drive->link = sd_varlink_unref(drive->link);
+                drive->rollback_mask &= ~BLOCK_DEVICE_STATE_REMOVE_PENDING;
+                drive_info_unref(drive);
+                return sd_varlink_error_errno(link, r);
+        }
+        return 0;
+}
+
+/* DEVICE_DELETED arrives once the guest has acked the eject; only then is it
+ * safe to drop the blockdev node and release the registry slot (and PCIe port). */
+int vmspawn_qmp_dispatch_device_deleted(VmspawnQmpBridge *bridge, sd_json_variant *data) {
+        assert(bridge);
+
+        if (!data)
+                return 0;
+
+        const char *qmp_device_id = sd_json_variant_string(sd_json_variant_by_key(data, "device"));
+        if (!qmp_device_id)
+                return 0;
+
+        DriveInfo *drive;
+        HASHMAP_FOREACH(drive, bridge->block_devices)
+                if (streq_ptr(drive->qmp_device_id, qmp_device_id))
+                        break;
+        if (!drive)
+                return 0;
+
+        vmspawn_qmp_block_device_teardown(bridge->qmp, drive->qmp_node_name,
+                                          BLOCK_DEVICE_STATE_BLOCKDEV_ADDED);
+
+        assert_se(hashmap_remove(bridge->block_devices, drive->id) == drive);
+        drive_info_unref(drive);
+        return 0;
+}
+
 int vmspawn_qmp_setup_network(VmspawnQmpBridge *bridge, NetworkInfo *network) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *netdev_args = NULL, *device_args = NULL;
         bool tap_by_fd;
