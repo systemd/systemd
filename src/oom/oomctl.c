@@ -89,6 +89,7 @@ static int verb_dump_state(int argc, char *argv[], uintptr_t _data, void *userda
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
         OptionParser state = { argc, argv };
         const char *arg;
