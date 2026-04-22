@@ -505,8 +505,9 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
             c->candidate && strverscmp_improved(c->newest_installed->version, c->candidate->version) >= 0)
                 c->candidate = NULL;
 
-        /* Newest installed is still pending and no candidate is set? Then it becomes the candidate. */
-        if (c->newest_installed && FLAGS_SET(c->newest_installed->flags, UPDATE_PENDING) &&
+        /* Newest installed is still pending or partial and no candidate is set? Then it becomes the candidate. */
+        if (c->newest_installed &&
+            c->newest_installed->flags & (UPDATE_PENDING|UPDATE_PARTIAL) &&
             !c->candidate)
                 c->candidate = c->newest_installed;
 
