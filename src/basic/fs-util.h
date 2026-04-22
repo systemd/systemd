@@ -115,6 +115,7 @@ typedef enum XOpenFlags {
         XO_REGULAR           = 1 << 3, /* Fail if the inode is not a regular file */
         XO_SOCKET            = 1 << 4, /* Fail if the inode is not a socket */
         XO_TRIGGER_AUTOMOUNT = 1 << 5, /* Trigger automounts via open_tree(). Requires O_PATH. */
+        XO_AUTO_RW_RO        = 1 << 6, /* Open in O_RDWR mode if possible, O_RDONLY if not */
 } XOpenFlags;
 
 int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode);
