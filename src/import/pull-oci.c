@@ -31,6 +31,7 @@
 #include "pull-oci.h"
 #include "rm-rf.h"
 #include "set.h"
+#include "sha256-fundamental.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-util.h"
