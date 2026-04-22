@@ -106,7 +106,7 @@ static MHDDaemonWrapper* MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
         d->timer_event = sd_event_source_unref(d->timer_event);
 
         if (d->daemon)
-                MHD_stop_daemon(d->daemon);
+                sym_MHD_stop_daemon(d->daemon);
 
         return mfree(d);
 }
@@ -359,7 +359,7 @@ static mhd_result request_handler(
 
         if (*connection_cls) {
                 RemoteSource *source = *connection_cls;
-                header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Encoding");
+                header = sym_MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Encoding");
                 if (header) {
                         Compression c = compression_from_string_harder(header);
                         if (c <= 0 || !compression_supported(c))
@@ -380,12 +380,12 @@ static mhd_result request_handler(
         if (!streq(url, "/upload"))
                 return mhd_respond(connection, MHD_HTTP_NOT_FOUND, "Not found.");
 
-        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Type");
+        header = sym_MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Type");
         if (!header || !streq(header, "application/vnd.fdo.journal"))
                 return mhd_respond(connection, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
                                    "Content-Type: application/vnd.fdo.journal is required.");
 
-        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Transfer-Encoding");
+        header = sym_MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Transfer-Encoding");
         if (header) {
                 if (!strcaseeq(header, "chunked"))
                         return mhd_respondf(connection, 0, MHD_HTTP_BAD_REQUEST,
@@ -394,7 +394,7 @@ static mhd_result request_handler(
                 chunked = true;
         }
 
-        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Length");
+        header = sym_MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Length");
         if (header) {
                 size_t len;
 
@@ -418,8 +418,8 @@ static mhd_result request_handler(
         {
                 const union MHD_ConnectionInfo *ci;
 
-                ci = MHD_get_connection_info(connection,
-                                             MHD_CONNECTION_INFO_CONNECTION_FD);
+                ci = sym_MHD_get_connection_info(connection,
+                                                 MHD_CONNECTION_INFO_CONNECTION_FD);
                 if (!ci) {
                         log_error("MHD_get_connection_info failed: cannot get remote fd");
                         return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR,
@@ -462,6 +462,12 @@ static int setup_microhttpd_server(RemoteServer *s,
                                    const char *trust) {
 
 #if HAVE_MICROHTTPD
+        int r;
+
+        r = dlopen_microhttpd();
+        if (r < 0)
+                return r;
+
         struct MHD_OptionItem opts[] = {
                 { MHD_OPTION_EXTERNAL_LOGGER, (intptr_t) microhttpd_logger},
                 { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free},
@@ -481,7 +487,7 @@ static int setup_microhttpd_server(RemoteServer *s,
 
         _cleanup_(MHDDaemonWrapper_freep) MHDDaemonWrapper *d = NULL;
         const union MHD_DaemonInfo *info;
-        int r, epoll_fd;
+        int epoll_fd;
 
         assert(fd >= 0);
 
@@ -524,18 +530,23 @@ static int setup_microhttpd_server(RemoteServer *s,
 
         d->fd = (uint64_t) fd;
 
-        d->daemon = MHD_start_daemon(flags, 0,
-                                     NULL, NULL,
-                                     request_handler, NULL,
-                                     MHD_OPTION_ARRAY, opts,
-                                     MHD_OPTION_END);
+        d->daemon = sym_MHD_start_daemon(
+                        flags,
+                        /* port= */ 0,
+                        /* acp= */ NULL,
+                        /* acp_cls= */ NULL,
+                        request_handler,
+                        /* dh_cls= */ NULL,
+                        MHD_OPTION_ARRAY,
+                        opts,
+                        MHD_OPTION_END);
         if (!d->daemon)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to start μhttp daemon");
 
         log_debug("Started MHD %s daemon on fd:%d (wrapper @ %p)",
                   key ? "HTTPS" : "HTTP", fd, d);
 
-        info = MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_EPOLL_FD_LINUX_ONLY);
+        info = sym_MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_EPOLL_FD_LINUX_ONLY);
         if (!info)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "μhttp returned NULL daemon info");
 
@@ -607,12 +618,12 @@ static int dispatch_http_event(sd_event_source *event,
         int r;
         MHD_UNSIGNED_LONG_LONG timeout = ULLONG_MAX;
 
-        r = MHD_run(d->daemon);
+        r = sym_MHD_run(d->daemon);
         if (r == MHD_NO)
                 // FIXME: unregister daemon
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "MHD_run failed!");
-        if (MHD_get_timeout(d->daemon, &timeout) == MHD_NO)
+        if (sym_MHD_get_timeout(d->daemon, &timeout) == MHD_NO)
                 timeout = ULLONG_MAX;
 
         r = sd_event_source_set_time(d->timer_event, timeout);
