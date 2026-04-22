@@ -972,6 +972,7 @@ manpages = [
  ['sd_watchdog_enabled', '3', [], ''],
  ['shutdown', '8', [], ''],
  ['smbios-type-11', '7', [], ''],
+ ['storagectl', '1', ['mount.storage'], ''],
  ['sysctl.d', '5', [], ''],
  ['sysext.conf',
   '5',
