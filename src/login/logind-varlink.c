@@ -549,6 +549,99 @@ static int vl_method_list_users(sd_varlink *link, sd_json_variant *parameters, s
         return 0;
 }
 
+static int manager_varlink_get_seat_by_name(
+                Manager *m,
+                sd_varlink *link,
+                const char *name,
+                Seat **ret) {
+
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(ret);
+
+        /* Resolves a seat name to a seat object. Supports the special names "self" and "auto" (and NULL,
+         * which is treated as "self") — these resolve to the seat of the caller's session. Returns -ESRCH
+         * on "not found". Caller is expected to turn that into a varlink error. */
+
+        if (!name || seat_is_self(name) || seat_is_auto(name)) {
+                Session *session;
+                r = manager_varlink_get_session_by_peer(m, link, /* consult_display= */ !name || seat_is_auto(name), &session);
+                if (r < 0)
+                        return r;
+                if (!session || !session->seat)
+                        return -ESRCH;
+
+                *ret = session->seat;
+                return 0;
+        }
+
+        Seat *seat = hashmap_get(m->seats, name);
+        if (!seat)
+                return -ESRCH;
+
+        *ret = seat;
+        return 0;
+}
+
+static int emit_seat_reply(sd_varlink *link, Seat *seat) {
+        assert(link);
+        assert(seat);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r = seat_build_json(seat, &v);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("Seat", v));
+}
+
+static int vl_method_list_seats(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Id", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id), 0 },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        r = sd_varlink_set_sentinel(link, "io.systemd.Login.NoSuchSeat");
+        if (r < 0)
+                return r;
+
+        /* Single-reply path: explicit Id, or no filter + no 'more' flag (caller-seat fallback preserves
+         * the DescribeSeat ergonomic). */
+        if (p.id || !FLAGS_SET(flags, SD_VARLINK_METHOD_MORE)) {
+                Seat *seat;
+                r = manager_varlink_get_seat_by_name(m, link, p.id, &seat);
+                if (r == -ESRCH)
+                        return 0; /* triggers NoSuchSeat sentinel */
+                if (r != 0)
+                        return r;
+
+                return emit_seat_reply(link, seat);
+        }
+
+        /* Streaming path: no filter, 'more' flag set. Full list. */
+        Seat *seat;
+        HASHMAP_FOREACH(seat, m->seats) {
+                r = emit_seat_reply(link, seat);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int vl_method_release_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -723,6 +816,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Shutdown.SoftReboot",    vl_method_soft_reboot,
                         "io.systemd.Login.ListSessions",     vl_method_list_sessions,
                         "io.systemd.Login.ListUsers",        vl_method_list_users,
+                        "io.systemd.Login.ListSeats",        vl_method_list_seats,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
