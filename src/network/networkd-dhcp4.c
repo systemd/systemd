@@ -13,7 +13,6 @@
 #include "conf-parser.h"
 #include "device-private.h"
 #include "dhcp-client-internal.h"
-#include "dhcp-lease-internal.h"
 #include "errno-util.h"
 #include "hostname-setup.h"
 #include "mkdir.h"
