@@ -963,6 +963,53 @@ static int qmp_setup_regular_drive(VmspawnQmpBridge *bridge, DriveInfo *drive) {
         return vmspawn_qmp_add_block_device(bridge, drive);
 }
 
+static int on_remove_device_del_complete(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = ASSERT_PTR(userdata);
+
+        assert(client);
+
+        if (error < 0) {
+                /* Matches qdev-monitor.c find_device_state(): "Device '%s' not found". */
+                if (error_desc && startswith(error_desc, "Device '"))
+                        return sd_varlink_error(link, "io.systemd.VirtualMachineInstance.NoSuchBlockDevice", NULL);
+                return reply_qmp_error(link, error_desc, error);
+        }
+
+        return sd_varlink_reply(link, NULL);
+}
+
+int vmspawn_qmp_remove_block_device(VmspawnQmpBridge *bridge, sd_varlink *link, const char *id) {
+        int r;
+
+        assert(bridge);
+        assert(link);
+        assert(id);
+
+        DriveInfo *drive = hashmap_get(bridge->block_devices, id);
+        if (!drive)
+                return sd_varlink_error(link, "io.systemd.VirtualMachineInstance.NoSuchBlockDevice", NULL);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
+        r = sd_json_buildo(&args, SD_JSON_BUILD_PAIR_STRING("id", drive->qmp_device_id));
+        if (r < 0)
+                return r;
+
+        sd_varlink_ref(link);
+        r = qmp_client_invoke(bridge->qmp, "device_del", QMP_CLIENT_ARGS(args),
+                              on_remove_device_del_complete, link);
+        if (r < 0) {
+                sd_varlink_unref(link);
+                return r;
+        }
+        return 0;
+}
+
 int vmspawn_qmp_setup_network(VmspawnQmpBridge *bridge, NetworkInfo *network) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *netdev_args = NULL, *device_args = NULL;
         bool tap_by_fd;
