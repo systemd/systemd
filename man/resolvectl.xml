@@ -438,6 +438,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--hooks=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>.
+        If true (the default), lookups are sent to local services that implement
+        <filename>io.systemd.Resolve.Hook</filename> before querying the network.
+        If false, hooks are bypassed for this request.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--search=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Takes a boolean parameter. If true (the default), any specified single-label
