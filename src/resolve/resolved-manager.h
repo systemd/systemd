@@ -168,6 +168,7 @@ typedef struct Manager {
 
         Hashmap *hooks;
         struct stat hook_stat;
+        bool do_query_hooks;
 } Manager;
 
 /* Manager */
