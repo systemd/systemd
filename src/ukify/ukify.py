@@ -1401,7 +1401,7 @@ def make_uki(opts: UkifyConfig) -> None:
         if opts.hwids is not None:
             hwids = parse_hwid_dir(Path(opts.hwids))
         else:
-            hwids_dir = Path(f'/tmp/s/usr/lib/systemd/boot/hwids/{opts.efi_arch}')
+            hwids_dir = Path(f'/usr/lib/systemd/boot/hwids/{opts.efi_arch}')
             if hwids_dir.is_dir():
                 print(f'Automatically building .hwids section from {hwids_dir}', file=sys.stderr)
                 hwids = parse_hwid_dir(hwids_dir)
