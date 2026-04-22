@@ -11,7 +11,17 @@ executables += [
                 'sources' : files('volume-fs.c'),
                 'objects' : ['systemd-volume-block'],
         },
+        executable_template + {
+                'name' : 'volumectl',
+                'public' : true,
+                'sources' : files('volumectl.c'),
+                'objects' : ['systemd-volume-block'],
+        },
 ]
+
+install_symlink('mount.volume',
+                pointing_to : sbin_to_bin + 'volumectl',
+                install_dir : sbindir)
 
 install_data('io.systemd.volumes.policy',
              install_dir : polkitpolicydir)
