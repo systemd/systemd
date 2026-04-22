@@ -1087,6 +1087,19 @@ DuplicateAddressDetection=none</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPv4SrcValidMark=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When enabled, the packet's firewall mark (fwmark) is included in the
+          reverse path filter route lookup for source address validation on this interface. This is
+          particularly useful for policy routing setups where packets may arrive with source addresses
+          that are only valid in routing tables selected by their fwmark. When unset, the kernel's
+          default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv4ProxyARP=</varname></term>
         <listitem>
           <para>Takes a boolean. Configures proxy ARP for IPv4. Proxy ARP is the technique in which one

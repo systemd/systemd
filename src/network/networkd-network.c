@@ -479,6 +479,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ip_forwarding = { -1, -1, },
                 .ipv4_accept_local = -1,
                 .ipv4_route_localnet = -1,
+                .ipv4_src_valid_mark = -1,
                 .ipv6_privacy_extensions = _IPV6_PRIVACY_EXTENSIONS_INVALID,
                 .ipv6_dad_transmits = -1,
                 .ipv6_proxy_ndp = -1,

@@ -168,6 +168,7 @@ Network.IPv6ProxyNDP,                            config_parse_tristate,         
 Network.IPv6MTUBytes,                            config_parse_mtu,                               AF_INET6,                               offsetof(Network, ipv6_mtu)
 Network.IPv4AcceptLocal,                         config_parse_tristate,                          0,                                      offsetof(Network, ipv4_accept_local)
 Network.IPv4RouteLocalnet,                       config_parse_tristate,                          0,                                      offsetof(Network, ipv4_route_localnet)
+Network.IPv4SrcValidMark,                        config_parse_tristate,                          0,                                      offsetof(Network, ipv4_src_valid_mark)
 Network.ActiveSlave,                             config_parse_bool,                              0,                                      offsetof(Network, active_slave)
 Network.PrimarySlave,                            config_parse_bool,                              0,                                      offsetof(Network, primary_slave)
 Network.IPv4ProxyARP,                            config_parse_tristate,                          0,                                      offsetof(Network, proxy_arp)
