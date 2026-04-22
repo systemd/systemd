@@ -1140,6 +1140,9 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
         /* An inode cannot be both a directory and a regular file at the same time. */
         assert(!(FLAGS_SET(open_flags, O_DIRECTORY) && FLAGS_SET(xopen_flags, XO_REGULAR)));
 
+        /* Don't specify O_RDONLY/O_RDWR if you want auto mode. */
+        assert(!FLAGS_SET(xopen_flags, XO_AUTO_RW_RO) || (open_flags & O_ACCMODE_STRICT) == 0);
+
         /* This is like openat(), but has a few tricks up its sleeves, extending behaviour:
          *
          *   • O_DIRECTORY|O_CREAT is supported, which causes a directory to be created, and immediately
@@ -1156,10 +1159,22 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
          *   • If mode is specified as MODE_INVALID, we'll use 0755 for dirs, and 0644 for regular files.
          *
          *   • The dir fd can be passed as XAT_FDROOT, in which case any relative paths will be taken relative to the root fs.
+         *
+         *   • If XO_AUTO_RW_RO is specified and the file cannot be opened in O_RDWR mode due to EACCESS/EROFS or similar, retry in O_RDONLY mode.
          */
 
         if (mode == MODE_INVALID)
                 mode = (open_flags & O_DIRECTORY) ? 0755 : 0644;
+
+        if (FLAGS_SET(xopen_flags, XO_AUTO_RW_RO)) {
+                if (open_flags & O_DIRECTORY) {
+                        /* Directories can only be opened in read-only mode */
+                        xopen_flags &= ~XO_AUTO_RW_RO;
+                        open_flags |= O_RDONLY;
+                } else if (open_flags & O_PATH)
+                        /* O_PATH is orthogonal to O_RDONLY/O_RDWR, disable the logic hence */
+                        xopen_flags &= ~XO_AUTO_RW_RO;
+        }
 
         if (isempty(path)) {
                 assert(!FLAGS_SET(open_flags, O_CREAT|O_EXCL));
@@ -1168,6 +1183,15 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                         r = fd_verify_regular(dir_fd);
                         if (r < 0)
                                 return r;
+                }
+
+                if (FLAGS_SET(xopen_flags, XO_AUTO_RW_RO)) {
+                        /* First try: in r/w mode */
+                        fd = fd_reopen(dir_fd, (open_flags & ~O_NOFOLLOW) | O_RDWR);
+                        if (!ERRNO_IS_NEG_FS_WRITE_REFUSED(fd) && fd != -EISDIR)
+                                return TAKE_FD(fd);
+
+                        open_flags |= O_RDONLY;
                 }
 
                 return fd_reopen(dir_fd, open_flags & ~O_NOFOLLOW);
@@ -1229,10 +1253,23 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
 
                 } else if (FLAGS_SET(open_flags, O_CREAT|O_EXCL)) {
                         /* In O_EXCL mode we can just create the thing, everything is dealt with for us */
-                        fd = openat(dir_fd, path, open_flags, mode);
+
+                        if (xopen_flags & XO_AUTO_RW_RO) {
+                                fd = openat(dir_fd, path, open_flags|O_RDWR, mode);
+                                if (ERRNO_IS_NEG_FS_WRITE_REFUSED(fd))
+                                        open_flags |= O_RDONLY;
+                                else if (fd < 0) {
+                                        r = -errno;
+                                        goto error;
+                                }
+                        }
+
                         if (fd < 0) {
-                                r = -errno;
-                                goto error;
+                                fd = openat(dir_fd, path, open_flags, mode);
+                                if (fd < 0) {
+                                        r = -errno;
+                                        goto error;
+                                }
                         }
 
                         made_file = true;
@@ -1246,10 +1283,23 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                                 }
 
                                 /* Doesn't exist yet, then try to create it */
-                                fd = openat(dir_fd, path, open_flags|O_CREAT|O_EXCL, mode);
+
+                                if (xopen_flags & XO_AUTO_RW_RO) {
+                                        fd = openat(dir_fd, path, open_flags|O_RDWR|O_CREAT|O_EXCL, mode);
+                                        if (ERRNO_IS_NEG_FS_WRITE_REFUSED(fd))
+                                                open_flags |= O_RDONLY;
+                                        else if (fd < 0) {
+                                                r = -errno;
+                                                goto error;
+                                        }
+                                }
+
                                 if (fd < 0) {
-                                        r = -errno;
-                                        goto error;
+                                        fd = openat(dir_fd, path, open_flags|O_CREAT|O_EXCL, mode);
+                                        if (fd < 0) {
+                                                r = -errno;
+                                                goto error;
+                                        }
                                 }
 
                                 made_file = true;
@@ -1259,18 +1309,42 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                                 if (r < 0)
                                         goto error;
 
-                                fd = fd_reopen(inode_fd, open_flags & ~(O_NOFOLLOW|O_CREAT));
+                                if (xopen_flags & XO_AUTO_RW_RO) {
+                                        fd = fd_reopen(inode_fd, (O_RDWR|open_flags) & ~(O_NOFOLLOW|O_CREAT));
+                                        if (ERRNO_IS_NEG_FS_WRITE_REFUSED(fd))
+                                                open_flags |= O_RDONLY;
+                                        else if (fd < 0) {
+                                                r = fd;
+                                                goto error;
+                                        }
+                                }
+
                                 if (fd < 0) {
-                                        r = fd;
-                                        goto error;
+                                        fd = fd_reopen(inode_fd, open_flags & ~(O_NOFOLLOW|O_CREAT));
+                                        if (fd < 0) {
+                                                r = fd;
+                                                goto error;
+                                        }
                                 }
                         }
                 }
         } else {
-                fd = openat_report_new(dir_fd, path, open_flags, mode, &made_file);
+                if (xopen_flags & XO_AUTO_RW_RO) {
+                        fd = openat_report_new(dir_fd, path, O_RDWR|open_flags, mode, &made_file);
+                        if (ERRNO_IS_NEG_FS_WRITE_REFUSED(fd) || r == -EISDIR)
+                                open_flags |= O_RDONLY;
+                        else if (fd < 0) {
+                                r = fd;
+                                goto error;
+                        }
+                }
+
                 if (fd < 0) {
-                        r = fd;
-                        goto error;
+                        fd = openat_report_new(dir_fd, path, open_flags, mode, &made_file);
+                        if (fd < 0) {
+                                r = fd;
+                                goto error;
+                        }
                 }
         }
 
