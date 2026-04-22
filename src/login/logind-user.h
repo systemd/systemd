@@ -83,6 +83,8 @@ int user_check_linger_file(const User *u);
 void user_elect_display(User *u);
 void user_update_last_session_timer(User *u);
 
+int user_build_json(User *u, sd_json_variant **ret);
+
 DECLARE_STRING_TABLE_LOOKUP(user_state, UserState);
 
 DECLARE_STRING_TABLE_LOOKUP(user_gc_mode, UserGCMode);
