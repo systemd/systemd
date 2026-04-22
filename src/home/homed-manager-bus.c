@@ -12,6 +12,7 @@
 #include "bus-message-util.h"
 #include "bus-object.h"
 #include "bus-polkit.h"
+#include "crypto-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "home-util.h"
@@ -22,7 +23,6 @@
 #include "homed-manager-bus.h"
 #include "homed-operation.h"
 #include "log.h"
-#include "openssl-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "string-util.h"
@@ -936,14 +936,14 @@ static bool manager_has_public_key(Manager *m, EVP_PKEY *needle) {
 
         EVP_PKEY *pkey;
         HASHMAP_FOREACH(pkey, m->public_keys) {
-                r = EVP_PKEY_eq(pkey, needle);
+                r = sym_EVP_PKEY_eq(pkey, needle);
                 if (r > 0)
                         return true;
 
                 /* EVP_PKEY_eq() returns -1 and -2 too under some conditions, which we'll all treat as "not the same" */
         }
 
-        r = EVP_PKEY_eq(m->private_key, needle);
+        r = sym_EVP_PKEY_eq(m->private_key, needle);
         if (r > 0)
                 return true;
 

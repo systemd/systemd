@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "bitmap.h"
+#include "crypto-util.h"
 #include "dns-answer.h"
 #include "dns-domain.h"
 #include "dns-rr.h"
@@ -10,19 +11,12 @@
 #include "log.h"
 #include "memory-util.h"
 #include "memstream-util.h"
-#include "openssl-util.h"
 #include "resolved-dns-dnssec.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
 
-#if HAVE_OPENSSL
-DISABLE_WARNING_DEPRECATED_DECLARATIONS;
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(RSA*, RSA_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_KEY*, EC_KEY_free, NULL);
-REENABLE_WARNING;
-#endif
 
 #define VERIFY_RRS_MAX 256
 #define MAX_KEY_SIZE (32*1024)
@@ -84,49 +78,49 @@ static int dnssec_rsa_verify_raw(
 
         assert(hash_algorithm);
 
-        e = BN_bin2bn(exponent, exponent_size, NULL);
+        e = sym_BN_bin2bn(exponent, exponent_size, NULL);
         if (!e)
                 return -EIO;
 
-        m = BN_bin2bn(modulus, modulus_size, NULL);
+        m = sym_BN_bin2bn(modulus, modulus_size, NULL);
         if (!m)
                 return -EIO;
 
-        rpubkey = RSA_new();
+        rpubkey = sym_RSA_new();
         if (!rpubkey)
                 return -ENOMEM;
 
-        if (RSA_set0_key(rpubkey, m, e, NULL) <= 0)
+        if (sym_RSA_set0_key(rpubkey, m, e, NULL) <= 0)
                 return -EIO;
         e = m = NULL;
 
-        if ((size_t) RSA_size(rpubkey) != signature_size)
+        if ((size_t) sym_RSA_size(rpubkey) != signature_size)
                 return -EINVAL;
 
-        epubkey = EVP_PKEY_new();
+        epubkey = sym_EVP_PKEY_new();
         if (!epubkey)
                 return -ENOMEM;
 
-        if (EVP_PKEY_assign_RSA(epubkey, RSAPublicKey_dup(rpubkey)) <= 0)
+        if (sym_EVP_PKEY_assign_RSA(epubkey, sym_RSAPublicKey_dup(rpubkey)) <= 0)
                 return -EIO;
 
-        ctx = EVP_PKEY_CTX_new(epubkey, NULL);
+        ctx = sym_EVP_PKEY_CTX_new(epubkey, NULL);
         if (!ctx)
                 return -ENOMEM;
 
-        if (EVP_PKEY_verify_init(ctx) <= 0)
+        if (sym_EVP_PKEY_verify_init(ctx) <= 0)
                 return -EIO;
 
-        if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0)
+        if (sym_EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0)
                 return -EIO;
 
-        if (EVP_PKEY_CTX_set_signature_md(ctx, hash_algorithm) <= 0)
+        if (sym_EVP_PKEY_CTX_set_signature_md(ctx, hash_algorithm) <= 0)
                 return -EIO;
 
-        r = EVP_PKEY_verify(ctx, signature, signature_size, data, data_size);
+        r = sym_EVP_PKEY_verify(ctx, signature, signature_size, data, data_size);
         if (r < 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Signature verification failed: 0x%lx", ERR_get_error());
+                                       "Signature verification failed: 0x%lx", sym_ERR_get_error());
 
         REENABLE_WARNING;
         return r;
@@ -207,58 +201,58 @@ static int dnssec_ecdsa_verify_raw(
 
         assert(hash_algorithm);
 
-        ec_group = EC_GROUP_new_by_curve_name(curve);
+        ec_group = sym_EC_GROUP_new_by_curve_name(curve);
         if (!ec_group)
                 return -ENOMEM;
 
-        p = EC_POINT_new(ec_group);
+        p = sym_EC_POINT_new(ec_group);
         if (!p)
                 return -ENOMEM;
 
-        bctx = BN_CTX_new();
+        bctx = sym_BN_CTX_new();
         if (!bctx)
                 return -ENOMEM;
 
-        if (EC_POINT_oct2point(ec_group, p, key, key_size, bctx) <= 0)
+        if (sym_EC_POINT_oct2point(ec_group, p, key, key_size, bctx) <= 0)
                 return -EIO;
 
-        eckey = EC_KEY_new();
+        eckey = sym_EC_KEY_new();
         if (!eckey)
                 return -ENOMEM;
 
-        if (EC_KEY_set_group(eckey, ec_group) <= 0)
+        if (sym_EC_KEY_set_group(eckey, ec_group) <= 0)
                 return -EIO;
 
-        if (EC_KEY_set_public_key(eckey, p) <= 0)
+        if (sym_EC_KEY_set_public_key(eckey, p) <= 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "EC_KEY_set_public_key failed: 0x%lx", ERR_get_error());
+                                       "EC_KEY_set_public_key failed: 0x%lx", sym_ERR_get_error());
 
-        if (EC_KEY_check_key(eckey) != 1)
+        if (sym_EC_KEY_check_key(eckey) != 1)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "EC_KEY_check_key failed: 0x%lx", ERR_get_error());
+                                       "EC_KEY_check_key failed: 0x%lx", sym_ERR_get_error());
 
-        r = BN_bin2bn(signature_r, signature_r_size, NULL);
+        r = sym_BN_bin2bn(signature_r, signature_r_size, NULL);
         if (!r)
                 return -EIO;
 
-        s = BN_bin2bn(signature_s, signature_s_size, NULL);
+        s = sym_BN_bin2bn(signature_s, signature_s_size, NULL);
         if (!s)
                 return -EIO;
 
         /* TODO: We should eventually use the EVP API once it supports ECDSA signature verification */
 
-        sig = ECDSA_SIG_new();
+        sig = sym_ECDSA_SIG_new();
         if (!sig)
                 return -ENOMEM;
 
-        if (ECDSA_SIG_set0(sig, r, s) <= 0)
+        if (sym_ECDSA_SIG_set0(sig, r, s) <= 0)
                 return -EIO;
         r = s = NULL;
 
-        k = ECDSA_do_verify(data, data_size, sig, eckey);
+        k = sym_ECDSA_do_verify(data, data_size, sig, eckey);
         if (k < 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Signature verification failed: 0x%lx", ERR_get_error());
+                                       "Signature verification failed: 0x%lx", sym_ERR_get_error());
 
         REENABLE_WARNING;
         return k;
@@ -326,30 +320,30 @@ static int dnssec_eddsa_verify_raw(
         q[0] = 0x04; /* Prepend 0x04 to indicate an uncompressed key */
         memcpy(q+1, signature, signature_size);
 
-        evkey = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, key, key_size);
+        evkey = sym_EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, key, key_size);
         if (!evkey)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "EVP_PKEY_new_raw_public_key failed: 0x%lx", ERR_get_error());
+                                       "EVP_PKEY_new_raw_public_key failed: 0x%lx", sym_ERR_get_error());
 
-        pctx = EVP_PKEY_CTX_new(evkey, NULL);
+        pctx = sym_EVP_PKEY_CTX_new(evkey, NULL);
         if (!pctx)
                 return -ENOMEM;
 
-        ctx = EVP_MD_CTX_new();
+        ctx = sym_EVP_MD_CTX_new();
         if (!ctx)
                 return -ENOMEM;
 
         /* This prevents EVP_DigestVerifyInit from managing pctx and complicating our free logic. */
-        EVP_MD_CTX_set_pkey_ctx(ctx, pctx);
+        sym_EVP_MD_CTX_set_pkey_ctx(ctx, pctx);
 
         /* One might be tempted to use EVP_PKEY_verify_init, but see Ed25519(7ssl). */
-        if (EVP_DigestVerifyInit(ctx, &pctx, NULL, NULL, evkey) <= 0)
+        if (sym_EVP_DigestVerifyInit(ctx, &pctx, NULL, NULL, evkey) <= 0)
                 return -EIO;
 
-        r = EVP_DigestVerify(ctx, signature, signature_size, data, data_size);
+        r = sym_EVP_DigestVerify(ctx, signature, signature_size, data, data_size);
         if (r < 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Signature verification failed: 0x%lx", ERR_get_error());
+                                       "Signature verification failed: 0x%lx", sym_ERR_get_error());
 
         return r;
 }
@@ -382,12 +376,12 @@ static int dnssec_eddsa_verify(
 }
 
 static int md_add_uint8(EVP_MD_CTX *ctx, uint8_t v) {
-        return EVP_DigestUpdate(ctx, &v, sizeof(v));
+        return sym_EVP_DigestUpdate(ctx, &v, sizeof(v));
 }
 
 static int md_add_uint16(EVP_MD_CTX *ctx, uint16_t v) {
         v = htobe16(v);
-        return EVP_DigestUpdate(ctx, &v, sizeof(v));
+        return sym_EVP_DigestUpdate(ctx, &v, sizeof(v));
 }
 
 static void fwrite_uint8(FILE *fp, uint8_t v) {
@@ -504,17 +498,17 @@ static const EVP_MD* algorithm_to_implementation_id(uint8_t algorithm) {
 
         case DNSSEC_ALGORITHM_RSASHA1:
         case DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1:
-                return EVP_sha1();
+                return sym_EVP_sha1();
 
         case DNSSEC_ALGORITHM_RSASHA256:
         case DNSSEC_ALGORITHM_ECDSAP256SHA256:
-                return EVP_sha256();
+                return sym_EVP_sha256();
 
         case DNSSEC_ALGORITHM_ECDSAP384SHA384:
-                return EVP_sha384();
+                return sym_EVP_sha384();
 
         case DNSSEC_ALGORITHM_RSASHA512:
-                return EVP_sha512();
+                return sym_EVP_sha512();
 
         default:
                 return NULL;
@@ -645,19 +639,19 @@ static int dnssec_rrset_verify_sig(
                 if (!md_algorithm)
                         return -EOPNOTSUPP;
 
-                _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+                _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = sym_EVP_MD_CTX_new();
                 if (!ctx)
                         return -ENOMEM;
 
                 /* If the signature algorithm is supported by systemd-resolved but disabled by host policy,
                  * also return -EOPNOTSUPP. */
-                if (EVP_DigestInit_ex(ctx, md_algorithm, NULL) <= 0)
+                if (sym_EVP_DigestInit_ex(ctx, md_algorithm, NULL) <= 0)
                         return -EOPNOTSUPP;
 
-                if (EVP_DigestUpdate(ctx, sig_data, sig_size) <= 0)
+                if (sym_EVP_DigestUpdate(ctx, sig_data, sig_size) <= 0)
                         return -EIO;
 
-                if (EVP_DigestFinal_ex(ctx, hash, &hash_size) <= 0)
+                if (sym_EVP_DigestFinal_ex(ctx, hash, &hash_size) <= 0)
                         return -EIO;
 
                 assert(hash_size > 0);
@@ -709,6 +703,11 @@ int dnssec_verify_rrset(
         assert(rrsig);
         assert(dnskey);
         assert(result);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         assert(rrsig->key->type == DNS_TYPE_RRSIG);
         assert(dnskey->key->type == DNS_TYPE_DNSKEY);
 
@@ -1041,13 +1040,13 @@ static const EVP_MD* digest_to_hash_md(uint8_t algorithm) {
         switch (algorithm) {
 
         case DNSSEC_DIGEST_SHA1:
-                return EVP_sha1();
+                return sym_EVP_sha1();
 
         case DNSSEC_DIGEST_SHA256:
-                return EVP_sha256();
+                return sym_EVP_sha256();
 
         case DNSSEC_DIGEST_SHA384:
-                return EVP_sha384();
+                return sym_EVP_sha384();
 
         default:
                 return NULL;
@@ -1061,6 +1060,10 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
 
         assert(dnskey);
         assert(ds);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         /* Implements DNSKEY verification by a DS, according to RFC 4035, section 5.2 */
 
@@ -1092,22 +1095,22 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = NULL;
         uint8_t result[EVP_MAX_MD_SIZE];
 
-        unsigned hash_size = EVP_MD_size(md_algorithm);
+        unsigned hash_size = sym_EVP_MD_get_size(md_algorithm);
         assert(hash_size > 0);
 
         if (ds->ds.digest_size != hash_size)
                 return 0;
 
-        ctx = EVP_MD_CTX_new();
+        ctx = sym_EVP_MD_CTX_new();
         if (!ctx)
                 return -ENOMEM;
 
         /* If the digest is supported by systemd-resolved but disabled by host policy, also return -EOPNOTSUPP
          */
-        if (EVP_DigestInit_ex(ctx, md_algorithm, NULL) <= 0)
+        if (sym_EVP_DigestInit_ex(ctx, md_algorithm, NULL) <= 0)
                 return -EOPNOTSUPP;
 
-        if (EVP_DigestUpdate(ctx, wire_format, encoded_length) <= 0)
+        if (sym_EVP_DigestUpdate(ctx, wire_format, encoded_length) <= 0)
                 return -EIO;
 
         if (mask_revoke)
@@ -1121,10 +1124,10 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         r = md_add_uint8(ctx, dnskey->dnskey.algorithm);
         if (r <= 0)
                 return r;
-        if (EVP_DigestUpdate(ctx, dnskey->dnskey.key, dnskey->dnskey.key_size) <= 0)
+        if (sym_EVP_DigestUpdate(ctx, dnskey->dnskey.key, dnskey->dnskey.key_size) <= 0)
                 return -EIO;
 
-        if (EVP_DigestFinal_ex(ctx, result, NULL) <= 0)
+        if (sym_EVP_DigestFinal_ex(ctx, result, NULL) <= 0)
                 return -EIO;
 
         return memcmp(result, ds->ds.digest, ds->ds.digest_size) == 0;
@@ -1183,7 +1186,7 @@ static const EVP_MD* nsec3_hash_to_hash_md(uint8_t algorithm) {
         switch (algorithm) {
 
         case NSEC3_ALGORITHM_SHA1:
-                return EVP_sha1();
+                return sym_EVP_sha1();
 
         default:
                 return NULL;
@@ -1198,6 +1201,10 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         assert(name);
         assert(ret);
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         if (nsec3->key->type != DNS_TYPE_NSEC3)
                 return -EINVAL;
 
@@ -1210,41 +1217,41 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (!algorithm)
                 return -EOPNOTSUPP;
 
-        size_t hash_size = EVP_MD_size(algorithm);
+        size_t hash_size = sym_EVP_MD_get_size(algorithm);
         assert(hash_size > 0);
 
         if (nsec3->nsec3.next_hashed_name_size != hash_size)
                 return -EINVAL;
 
-        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = sym_EVP_MD_CTX_new();
         if (!ctx)
                 return -ENOMEM;
 
-        if (EVP_DigestInit_ex(ctx, algorithm, NULL) <= 0)
+        if (sym_EVP_DigestInit_ex(ctx, algorithm, NULL) <= 0)
                 return -EOPNOTSUPP;
 
         r = dns_name_to_wire_format(name, wire_format, sizeof(wire_format), true);
         if (r < 0)
                 return r;
 
-        if (EVP_DigestUpdate(ctx, wire_format, r) <= 0)
+        if (sym_EVP_DigestUpdate(ctx, wire_format, r) <= 0)
                 return -EIO;
-        if (EVP_DigestUpdate(ctx, nsec3->nsec3.salt, nsec3->nsec3.salt_size) <= 0)
+        if (sym_EVP_DigestUpdate(ctx, nsec3->nsec3.salt, nsec3->nsec3.salt_size) <= 0)
                 return -EIO;
 
         uint8_t result[EVP_MAX_MD_SIZE];
-        if (EVP_DigestFinal_ex(ctx, result, NULL) <= 0)
+        if (sym_EVP_DigestFinal_ex(ctx, result, NULL) <= 0)
                 return -EIO;
 
         for (unsigned k = 0; k < nsec3->nsec3.iterations; k++) {
-                if (EVP_DigestInit_ex(ctx, algorithm, NULL) <= 0)
+                if (sym_EVP_DigestInit_ex(ctx, algorithm, NULL) <= 0)
                         return -EOPNOTSUPP;
-                if (EVP_DigestUpdate(ctx, result, hash_size) <= 0)
+                if (sym_EVP_DigestUpdate(ctx, result, hash_size) <= 0)
                         return -EIO;
-                if (EVP_DigestUpdate(ctx, nsec3->nsec3.salt, nsec3->nsec3.salt_size) <= 0)
+                if (sym_EVP_DigestUpdate(ctx, nsec3->nsec3.salt, nsec3->nsec3.salt_size) <= 0)
                         return -EIO;
 
-                if (EVP_DigestFinal_ex(ctx, result, NULL) <= 0)
+                if (sym_EVP_DigestFinal_ex(ctx, result, NULL) <= 0)
                         return -EIO;
         }
 
