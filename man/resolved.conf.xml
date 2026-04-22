@@ -429,6 +429,16 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>QueryHooks=</varname></term>
+        <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default),
+        <command>systemd-resolved</command> will query hooks, i.e. local services that implement
+        <filename>io.systemd.Resolve.Hook</filename>, when handling local name resolultion requests.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
