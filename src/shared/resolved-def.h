@@ -83,6 +83,9 @@
 /* Output: Result was answered by hook */
 #define SD_RESOLVED_FROM_HOOK       (UINT64_C(1) << 27)
 
+/* Input: Don't query hooks for this request */
+#define SD_RESOLVED_NO_HOOKS        (UINT64_C(1) << 28)
+
 #define SD_RESOLVED_LLMNR           (SD_RESOLVED_LLMNR_IPV4|SD_RESOLVED_LLMNR_IPV6)
 #define SD_RESOLVED_MDNS            (SD_RESOLVED_MDNS_IPV4|SD_RESOLVED_MDNS_IPV6)
 #define SD_RESOLVED_PROTOCOLS_ALL   (SD_RESOLVED_MDNS|SD_RESOLVED_LLMNR|SD_RESOLVED_DNS)

@@ -188,7 +188,8 @@ static uint64_t query_flags(void) {
                 query_flag("SYSTEMD_NSS_RESOLVE_CACHE", 0, SD_RESOLVED_NO_CACHE) |
                 query_flag("SYSTEMD_NSS_RESOLVE_ZONE", 0, SD_RESOLVED_NO_ZONE) |
                 query_flag("SYSTEMD_NSS_RESOLVE_TRUST_ANCHOR", 0, SD_RESOLVED_NO_TRUST_ANCHOR) |
-                query_flag("SYSTEMD_NSS_RESOLVE_NETWORK", 0, SD_RESOLVED_NO_NETWORK);
+                query_flag("SYSTEMD_NSS_RESOLVE_NETWORK", 0, SD_RESOLVED_NO_NETWORK) |
+                query_flag("SYSTEMD_NSS_RESOLVE_HOOKS", 0, SD_RESOLVED_NO_HOOKS);
 }
 
 static int query_ifindex(void) {

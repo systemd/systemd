@@ -152,6 +152,19 @@
         <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
     </variablelist>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_RESOLVE_HOOKS</varname></term>
+
+        <listitem><para>Takes a boolean argument. When false, answers will be returned without querying
+        systemd-resolved hooks.
+        <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
