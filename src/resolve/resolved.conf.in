@@ -43,3 +43,4 @@
 #ResolveUnicastSingleLabel=no
 #StaleRetentionSec=0
 #RefuseRecordTypes=
+#QueryHooks=yes

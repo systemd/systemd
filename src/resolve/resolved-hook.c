@@ -815,7 +815,7 @@ int manager_hook_query(
         assert(m);
         assert(ret);
 
-        if (!use_hooks()) {
+        if (!m->do_query_hooks || !use_hooks()) {
                 *ret = NULL;
                 return 0; /* no relevant hooks, continue immediately */
         }
