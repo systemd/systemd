@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-set -e
+set -ex
 set -o nounset
 
 find "$BUILDDIR" \( -name "*.rpm" -o -name "*.deb" -o -name "*.pkg.tar" -o -name systemd.raw \) -exec cp -t "$OUTPUTDIR" {} \;

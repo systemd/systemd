@@ -4,8 +4,6 @@
 #include <stddef.h>
 
 #if SD_BOOT
-#  include "efi-string.h"
-#else
 #  include <string.h>
 #endif
 
