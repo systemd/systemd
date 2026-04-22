@@ -3642,6 +3642,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_STALE_DATA,
                 ARG_RELAX_SINGLE_LABEL,
+                ARG_HOOKS,
         };
 
         static const struct option options[] = {
@@ -3668,6 +3669,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 { "json",                  required_argument, NULL, ARG_JSON                  },
                 { "stale-data",            required_argument, NULL, ARG_STALE_DATA            },
                 { "relax-single-label",    required_argument, NULL, ARG_RELAX_SINGLE_LABEL    },
+                { "hooks",                 required_argument, NULL, ARG_HOOKS                 },
                 {}
         };
 
@@ -3878,6 +3880,13 @@ static int native_parse_argv(int argc, char *argv[]) {
 
                 case 'j':
                         arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+                        break;
+
+                case ARG_HOOKS:
+                        r = parse_boolean_argument("--hooks=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_HOOKS, r == 0);
                         break;
 
                 case '?':
