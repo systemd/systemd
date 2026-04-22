@@ -99,6 +99,7 @@ typedef enum EndpointSource {
 } EndpointSource;
 
 static char *arg_ifname = NULL;
+static char **arg_multi_interface = NULL;
 static usec_t arg_refresh_usec = REFRESH_USEC_DEFAULT;
 static uint32_t arg_fwmark = FWMARK_DEFAULT;
 static bool arg_fwmark_set = true;
@@ -129,6 +130,7 @@ static void imds_well_known_key_free(typeof(arg_well_known_key) *array) {
 }
 
 STATIC_DESTRUCTOR_REGISTER(arg_ifname, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_multi_interface, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_vendor, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_token_url, freep);
@@ -193,6 +195,11 @@ struct Context {
          * because we have multiple network interfaces to deal with. */
         Hashmap *child_data;
         sd_netlink_slot *address_change_slot;
+
+        /* Multi-interface round-robin pool (only used when arg_multi_interface is set) */
+        int *multi_iface_ifindexes;   /* Array of healthy interface indexes */
+        size_t multi_iface_n;         /* Number of entries in pool */
+        size_t multi_iface_next;      /* Round-robin counter */
 };
 
 #define CONTEXT_NULL                                    \
@@ -323,7 +330,66 @@ static void context_done(Context *c) {
         c->event = sd_event_unref(c->event);
         c->polkit_registry = hashmap_free(c->polkit_registry);
         c->system_bus = sd_bus_flush_close_unref(c->system_bus);
+
+        /* Free multi-interface pool */
+        c->multi_iface_ifindexes = mfree(c->multi_iface_ifindexes);
+        c->multi_iface_n = 0;
+        c->multi_iface_next = 0;
 }
+
+/* ---- Multi-interface pool helpers ---- */
+
+/* Returns true if multi-interface mode is active */
+static bool multi_iface_enabled(void) {
+        return !strv_isempty(arg_multi_interface);
+}
+
+/* Returns true if ifname is in the allowlist (or allowlist is "*" = auto) */
+static bool multi_iface_ifname_allowed(const char *ifname) {
+        assert(ifname);
+
+        if (!multi_iface_enabled())
+                return false;
+
+        /* Single "*" entry means auto-discover all */
+        if (strv_equal(arg_multi_interface, STRV_MAKE("*")))
+                return true;
+
+        return strv_contains(arg_multi_interface, ifname);
+}
+
+/* Add interface to the round-robin pool if not already present */
+static int multi_iface_pool_add(Context *c, int ifindex) {
+        assert(c);
+        assert(ifindex > 0);
+
+        /* Check if already in pool */
+        for (size_t i = 0; i < c->multi_iface_n; i++)
+                if (c->multi_iface_ifindexes[i] == ifindex)
+                        return 0; /* already present */
+
+        /* Grow arrays */
+        if (!GREEDY_REALLOC(c->multi_iface_ifindexes, c->multi_iface_n + 1))
+                return -ENOMEM;
+        c->multi_iface_ifindexes[c->multi_iface_n] = ifindex;
+        c->multi_iface_n++;
+
+        log_debug("Multi-interface: added interface ifindex=%i to pool (pool size=%zu).", ifindex, c->multi_iface_n);
+        return 1; /* newly added */
+}
+
+/* Select next interface from pool using round-robin, returns 0 if pool empty */
+static int multi_iface_pool_select(Context *c) {
+        assert(c);
+
+        if (c->multi_iface_n == 0)
+                return 0;
+
+        int ifindex = c->multi_iface_ifindexes[c->multi_iface_next % c->multi_iface_n];
+        c->multi_iface_next++;
+        return ifindex;
+}
+
 
 static void context_fail_full(Context *c, int r, const char *varlink_error) {
         assert(c);
@@ -1333,6 +1399,21 @@ static int vl_on_reply(sd_varlink *link, sd_json_variant *m, const char *error_i
                 }
         }
 
+        if (multi_iface_enabled() && c->ifindex > 0) {
+                r = multi_iface_pool_add(c, c->ifindex);
+                if (r < 0)
+                        context_log_errno(c, LOG_WARNING, r, "Failed to add interface %i to multi-interface pool, ignoring: %m", c->ifindex);
+                /* In multi-interface mode we don't stop other children — let them all complete
+                 * so we can build a full pool. Only succeed (respond) on the first reply. */
+                if (c->current_link && hashmap_size(c->child_data) > 0) {
+                        context_log(c, LOG_DEBUG, "Multi-interface: first reply received from ifindex=%i, waiting for remaining %u children to build pool.",
+                                    c->ifindex, hashmap_size(c->child_data));
+                        /* Return success to caller right now, but keep remaining children alive for pool building */
+                        context_success(c);
+                        return 0;
+                }
+        }
+
         context_success(c);
         return 0;
 }
@@ -1523,6 +1604,25 @@ static int on_address_change(sd_netlink *rtnl, sd_netlink_message *m, void *user
 
         if (!c->key && c->well_known < 0)
                 return 0;
+
+        /* Multi-interface allowlist check: if multi-interface mode is enabled with an explicit allowlist,
+         * only spawn children for listed interfaces. Also re-probe evicted interfaces. */
+        if (multi_iface_enabled()) {
+                _cleanup_free_ char *ifname = NULL;
+                if (!c->rtnl) {
+                        r = sd_netlink_open(&c->rtnl);
+                        if (r < 0) {
+                                context_log_errno(c, LOG_WARNING, r, "Failed to open netlink for ifname lookup, ignoring: %m");
+                        }
+                }
+                if (c->rtnl)
+                        (void) rtnl_get_ifname_full(&c->rtnl, ifindex, &ifname, NULL);
+
+                if (ifname && !multi_iface_ifname_allowed(ifname)) {
+                        context_log(c, LOG_DEBUG, "Multi-interface: skipping interface '%s' (ifindex=%i), not in allowlist.", ifname, ifindex);
+                        return 0;
+                }
+        }
 
         ChildData *existing = hashmap_get(c->child_data, INT_TO_PTR(ifindex));
         if (existing) {
@@ -2063,10 +2163,17 @@ static int vl_method_get(sd_varlink *link, sd_json_variant *parameters, sd_varli
         _cleanup_free_ char *k = NULL; /* initialize here, to avoid that this remains uninitialized due to the gotos below */
 
         if (c->ifindex <= 0) {
-                /* Try to load the previously used network interface */
-                r = context_load_ifname(c);
-                if (r < 0)
-                        goto fail;
+                /* Multi-interface mode: select next interface from pool using round-robin */
+                if (multi_iface_enabled() && c->multi_iface_n > 0) {
+                        c->ifindex = multi_iface_pool_select(c);
+                        context_log(c, LOG_DEBUG, "Multi-interface: round-robin selected ifindex=%i (pool size=%zu).",
+                                    c->ifindex, c->multi_iface_n);
+                } else {
+                        /* Try to load the previously used network interface */
+                        r = context_load_ifname(c);
+                        if (r < 0)
+                                goto fail;
+                }
         }
 
         r = context_combine_key(c, &k);
@@ -2340,6 +2447,40 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(wk, "Failed to parse --well-known= parameter: %m");
 
                         arg_well_known = wk;
+                        break;
+                }
+
+                OPTION_LONG("multi-interface",
+                            "yes|no|IFNAME[,IFNAME...]",
+                            "Enable round-robin load balancing across multiple ENIs.\n"
+                            "                            'yes' = auto-discover all interfaces (WARNING: do not use if any\n"
+                            "                            interface belongs to a different IMDS endpoint or tenant).\n"
+                            "                            'no' = disabled (default).\n"
+                            "                            'IFNAME,...' = restrict to listed interfaces only."): {
+                        if (isempty(arg) || streq(arg, "no")) {
+                                arg_multi_interface = strv_free(arg_multi_interface);
+                                break;
+                        }
+
+                        if (streq(arg, "yes")) {
+                                arg_multi_interface = strv_free(arg_multi_interface);
+                                if (strv_extend(&arg_multi_interface, "*") < 0)
+                                        return log_oom();
+                                log_warning("Multi-interface auto-discovery enabled. WARNING: do NOT use this if any network "
+                                            "interface may contact a different IMDS endpoint or tenant, as requests may return "
+                                            "inconsistent data. Use --multi-interface=eth0,eth1 to restrict to specific "
+                                            "interfaces instead.");
+                        } else {
+                                /* Comma-separated list of interface names */
+                                arg_multi_interface = strv_free(arg_multi_interface);
+                                arg_multi_interface = strv_split(arg, ",");
+                                if (!arg_multi_interface)
+                                        return log_oom();
+                                STRV_FOREACH(n, arg_multi_interface)
+                                        if (!ifname_valid_full(*n, IFNAME_VALID_ALTERNATIVE|IFNAME_VALID_NUMERIC))
+                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                                       "Invalid interface name in --multi-interface=: %s", *n);
+                        }
                         break;
                 }
 
@@ -2795,6 +2936,24 @@ static int environment_server_info(void) {
                         return r;
 
                 arg_endpoint_source = ENDPOINT_ENVIRONMENT;
+        }
+
+        /* Read SYSTEMD_IMDS_MULTI_INTERFACE env var if --multi-interface was not already set on CLI */
+        if (!arg_multi_interface) {
+                const char *e = secure_getenv("SYSTEMD_IMDS_MULTI_INTERFACE");
+                if (e && !streq(e, "no") && !isempty(e)) {
+                        if (streq(e, "yes")) {
+                                if (strv_extend(&arg_multi_interface, "*") < 0)
+                                        return log_oom();
+                                log_warning("Multi-interface auto-discovery enabled via SYSTEMD_IMDS_MULTI_INTERFACE=yes. "
+                                            "WARNING: do NOT use this if any network interface belongs to a different "
+                                            "IMDS endpoint or tenant.");
+                        } else {
+                                arg_multi_interface = strv_split(e, ",");
+                                if (!arg_multi_interface)
+                                        return log_oom();
+                        }
+                }
         }
 
         if (arg_endpoint_source >= 0)

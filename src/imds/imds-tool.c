@@ -4,11 +4,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-netlink.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "build.h"
 #include "build-path.h"
+#include "netlink-util.h"
 #include "creds-util.h"
 #include "dns-rr.h"
 #include "errno-util.h"
@@ -42,12 +44,14 @@ static enum {
         _ACTION_INVALID = -EINVAL,
 } arg_action = _ACTION_INVALID;
 static char *arg_key = NULL;
+static char *arg_ifname = NULL;
 static ImdsWellKnown arg_well_known = _IMDS_WELL_KNOWN_INVALID;
 static int arg_cache = -1;
 static usec_t arg_refresh_usec = 0;
 static bool arg_refresh_usec_set = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_ifname, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -93,6 +97,19 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION('I', "interface", "NAME",
+                       "Direct request to a specific network interface"): {
+                        if (isempty(arg)) {
+                                arg_ifname = mfree(arg_ifname);
+                                break;
+                        }
+
+                        r = free_and_strdup_warn(&arg_ifname, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
 
                 OPTION('K', "well-known", "KEY",
                        "Select well-known key/base, one of:"
@@ -200,6 +217,14 @@ static int acquire_imds_key(
 
         const char *error_id = NULL;
         sd_json_variant *reply = NULL;
+        int ifindex = 0;
+        if (arg_ifname) {
+                _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+                ifindex = rtnl_resolve_interface(&rtnl, arg_ifname);
+                if (ifindex < 0)
+                        return log_error_errno(ifindex, "Failed to resolve interface '%s': %m", arg_ifname);
+        }
+
         r = sd_varlink_callbo(
                         link,
                         "io.systemd.InstanceMetadata.Get",
@@ -208,7 +233,8 @@ static int acquire_imds_key(
                         SD_JSON_BUILD_PAIR_CONDITION(wk != IMDS_BASE, "wellKnown", JSON_BUILD_STRING_UNDERSCORIFY(imds_well_known_to_string(wk))),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("key", key),
                         SD_JSON_BUILD_PAIR_CONDITION(arg_refresh_usec_set, "refreshUSec", SD_JSON_BUILD_UNSIGNED(arg_refresh_usec)),
-                        SD_JSON_BUILD_PAIR_CONDITION(arg_cache >= 0, "cache", SD_JSON_BUILD_BOOLEAN(arg_cache)));
+                        SD_JSON_BUILD_PAIR_CONDITION(arg_cache >= 0, "cache", SD_JSON_BUILD_BOOLEAN(arg_cache)),
+                        SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "interface", SD_JSON_BUILD_INTEGER(ifindex)));
         if (r < 0)
                 return log_error_errno(r, "Failed to issue io.systemd.InstanceMetadata.Get(): %m");
         if (error_id) {

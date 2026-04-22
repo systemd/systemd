@@ -257,6 +257,60 @@
   </refsect1>
 
   <refsect1>
+    <title>Multi-Interface Load Balancing</title>
+
+    <para>On instances with multiple network interfaces, <command>systemd-imdsd</command> normally
+    discovers which interface can reach the IMDS endpoint and pins to it for the lifetime of the
+    instance.</para>
+
+    <para>For instances where the same IMDS endpoint is reachable over multiple redundant network
+    interfaces (as supported by various cloud providers), round-robin load balancing across them may be
+    enabled via the <varname>SYSTEMD_IMDS_MULTI_INTERFACE</varname> environment variable or the
+    <option>--multi-interface=</option> command-line switch.</para>
+
+    <warning><para>Do <emphasis>not</emphasis> enable multi-interface mode if the instance has network
+    interfaces that are logically separated and may return different metadata depending on which
+    interface is used to contact the IMDS endpoint. This can happen when interfaces belong to different
+    virtual networks, accounts, or tenants in the cloud environment, and would result in silently
+    incorrect metadata being returned. Use an explicit comma-separated interface list
+    (e.g. <literal>eth0,eth1</literal>) to restrict load balancing to known-safe
+    interfaces.</para></warning>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>SYSTEMD_IMDS_MULTI_INTERFACE</varname></term>
+
+        <listitem><para>Controls multi-interface IMDS load balancing. Takes one of:</para>
+        <itemizedlist>
+          <listitem><para><literal>no</literal> (default) — disabled; existing single-interface
+          pinning behaviour is preserved.</para></listitem>
+
+          <listitem><para><literal>yes</literal> — auto-discover all IMDS-reachable interfaces and
+          round-robin across them. A warning is logged at startup. See the caution above before using
+          this mode.</para></listitem>
+
+          <listitem><para><replaceable>IFNAME</replaceable>[,<replaceable>IFNAME</replaceable>…] — only use
+          the explicitly listed interface names, round-robining across them. Interfaces not in the list are
+          never used, regardless of IMDS reachability.</para></listitem>
+        </itemizedlist>
+
+        <para>This variable can be set in a drop-in for
+        <filename>systemd-imdsd@.service</filename>:</para>
+        <programlisting>[Service]
+Environment=SYSTEMD_IMDS_MULTI_INTERFACE=eth0,eth1</programlisting>
+
+        <para>Alternatively pass <option>--multi-interface=</option> on the command line when invoking
+        <command>systemd-imdsd</command> directly (for debugging).</para>
+
+        <para>An interface is evicted from the pool after three consecutive failures and re-added
+        automatically when new address events are received on it via rtnetlink.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
