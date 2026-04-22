@@ -36,6 +36,7 @@ foreach item : [
         ['portablectl',         'ENABLE_PORTABLED'],
         ['resolvectl',          'ENABLE_RESOLVE'],
         ['run0',                ''],
+        ['storagectl',          ''],
         ['systemd-analyze',     ''],
         ['systemd-cat',         ''],
         ['systemd-cgls',        ''],
