@@ -37,6 +37,25 @@ varlinkctl list-methods /run/systemd/report/io.systemd.CGroup
 varlinkctl --more call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.Describe {}
 
+# test io.systemd.PID1 Metrics
+systemctl start systemd-report-pid1.socket
+varlinkctl info /run/systemd/report/io.systemd.PID1
+varlinkctl list-methods /run/systemd/report/io.systemd.PID1
+varlinkctl --more call /run/systemd/report/io.systemd.PID1 io.systemd.Metrics.List {}
+varlinkctl --more call /run/systemd/report/io.systemd.PID1 io.systemd.Metrics.Describe {}
+
+# Confirm all four metric families are advertised by Describe and that
+# every one produces a value via List. CpuTime is additionally split by
+# mode (user, kernel) via the "fields" sub-object of each List reply.
+PID1_DESCRIBE=$(varlinkctl --more call /run/systemd/report/io.systemd.PID1 io.systemd.Metrics.Describe {})
+PID1_LIST=$(varlinkctl --more call /run/systemd/report/io.systemd.PID1 io.systemd.Metrics.List {})
+for m in CpuTime FDCount MemoryUsage Tasks; do
+    echo "$PID1_DESCRIBE" | grep >/dev/null "\"io.systemd.PID1.$m\""
+    echo "$PID1_LIST"     | grep >/dev/null "\"io.systemd.PID1.$m\""
+done
+echo "$PID1_LIST" | grep >/dev/null '"mode"[[:space:]]*:[[:space:]]*"user"'
+echo "$PID1_LIST" | grep >/dev/null '"mode"[[:space:]]*:[[:space:]]*"kernel"'
+
 # test io.systemd.Network Metrics
 varlinkctl info /run/systemd/report/io.systemd.Network
 varlinkctl list-methods /run/systemd/report/io.systemd.Network

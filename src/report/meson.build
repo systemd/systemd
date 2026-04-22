@@ -25,4 +25,11 @@ executables += [
                         'report-cgroup-server.c',
                 ),
         },
+        libexec_template + {
+                'name' : 'systemd-report-pid1',
+                'sources' : files(
+                        'report-pid1.c',
+                        'report-pid1-server.c',
+                ),
+        },
 ]
