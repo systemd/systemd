@@ -11,6 +11,7 @@ typedef enum BlockDevListFlags {
         BLOCKDEV_LIST_IGNORE_ROOT                = 1 << 4, /* Ignore the block device we are currently booted from */
         BLOCKDEV_LIST_IGNORE_EMPTY               = 1 << 5, /* Ignore disks of zero size (usually drives without a medium) */
         BLOCKDEV_LIST_METADATA                   = 1 << 6, /* Fill in model, vendor, subsystem */
+        BLOCKDEV_LIST_READ_ONLY                  = 1 << 7, /* Determine if block device is read-only */
 } BlockDevListFlags;
 
 typedef struct BlockDevice {
@@ -21,6 +22,7 @@ typedef struct BlockDevice {
         char *subsystem;
         uint64_t diskseq;
         uint64_t size;     /* in bytes */
+        int read_only;
 } BlockDevice;
 
 #define BLOCK_DEVICE_NULL (BlockDevice) { \

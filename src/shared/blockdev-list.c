@@ -179,6 +179,15 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                         }
                 }
 
+                int ro = -1;
+                if (FLAGS_SET(flags, BLOCKDEV_LIST_READ_ONLY)) {
+                        r = device_get_sysattr_bool(dev, "ro");
+                        if (r < 0)
+                                log_device_debug_errno(dev, r, "Failed to acquire read-only flag of device '%s', ignoring: %m", node);
+                        else
+                                ro = r;
+                }
+
                 _cleanup_strv_free_ char **list = NULL;
                 if (FLAGS_SET(flags, BLOCKDEV_LIST_SHOW_SYMLINKS)) {
                         FOREACH_DEVICE_DEVLINK(dev, sl)
@@ -216,6 +225,7 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                                 .model = TAKE_PTR(model),
                                 .vendor = TAKE_PTR(vendor),
                                 .subsystem = TAKE_PTR(subsystem),
+                                .read_only = ro,
                         };
 
                 } else {
