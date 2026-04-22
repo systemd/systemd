@@ -12,6 +12,7 @@
 #include "varlink-io.systemd.QemuMachineInstance.h"
 #include "varlink-io.systemd.VirtualMachineInstance.h"
 #include "varlink-util.h"
+#include "vmspawn-qmp.h"
 #include "vmspawn-varlink.h"
 
 DEFINE_PRIVATE_HASH_OPS_FULL(
@@ -317,6 +318,10 @@ static int on_qmp_event(
         /* Dispatch job status changes to pending continuations (e.g. blockdev-create) */
         if (streq(event, "JOB_STATUS_CHANGE"))
                 return dispatch_pending_job(ctx->bridge, data);
+
+        /* Notification still fans out below. */
+        if (streq(event, "DEVICE_DELETED"))
+                (void) vmspawn_qmp_dispatch_device_deleted(ctx->bridge, data);
 
         return notify_event_subscribers(ctx, event, data);
 }

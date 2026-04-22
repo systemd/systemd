@@ -76,6 +76,7 @@ typedef enum QmpDriveFlags {
 typedef enum BlockDeviceAddStage {
         BLOCK_DEVICE_ADD_STAGE_BLOCKDEV_ADD = 1u << 0,
         BLOCK_DEVICE_ADD_STAGE_FAILED       = 1u << 1,  /* first error fired; suppress cascades */
+        BLOCK_DEVICE_REMOVE_PENDING         = 1u << 2,  /* device_del in flight; reject concurrent removes */
 } BlockDeviceAddStage;
 
 /* Ref-counted; each of the four add-stage QMP slots holds one ref.
@@ -177,3 +178,5 @@ int vmspawn_qmp_setup_drives(VmspawnQmpBridge *bridge, DriveInfos *drives);
 int vmspawn_qmp_setup_network(VmspawnQmpBridge *bridge, NetworkInfo *network);
 int vmspawn_qmp_setup_virtiofs(VmspawnQmpBridge *bridge, const VirtiofsInfos *virtiofs);
 int vmspawn_qmp_setup_vsock(VmspawnQmpBridge *bridge, VsockInfo *vsock);
+int vmspawn_qmp_remove_block_device(VmspawnQmpBridge *bridge, sd_varlink *link, const char *id);
+int vmspawn_qmp_dispatch_device_deleted(VmspawnQmpBridge *bridge, sd_json_variant *data);
