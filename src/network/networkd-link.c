@@ -814,6 +814,46 @@ int link_ipv6ll_gained(Link *link) {
         return 0;
 }
 
+int link_ipv6ll_lost(Link *link, bool has_replacement) {
+        int ret = 0, r;
+
+        assert(link);
+
+        log_link_info(link, "Lost IPv6LL address%s.",
+                      has_replacement ? ", switching to alternate IPv6LL source" : "");
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        r = sd_dhcp6_client_stop(link->dhcp6_client);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m"));
+        link->dhcp6_configured = false;
+
+        if (has_replacement)
+                return ret;
+
+        r = dhcp_pd_remove(link, /* only_marked= */ false);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not remove DHCPv6 PD addresses and routes: %m"));
+
+        r = ndisc_stop(link);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m"));
+        link->ndisc_configured = false;
+        ndisc_flush(link);
+
+        r = sd_radv_stop(link->radv);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Advertisement: %m"));
+
+        r = link_request_stacked_netdevs(link, NETDEV_LOCAL_ADDRESS_IPV6LL);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not reconfigure stacked netdevs after IPv6LL loss: %m"));
+
+        return ret;
+}
+
 int link_handle_bound_to_list(Link *link) {
         bool required_up = false;
         Link *l;
