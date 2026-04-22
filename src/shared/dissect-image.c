@@ -2925,7 +2925,7 @@ static int decrypt_partition(
                 DecryptedImage *d) {
 
         _cleanup_free_ char *node = NULL, *name = NULL;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -2995,7 +2995,7 @@ static int verity_can_reuse(
                 struct crypt_device **ret_cd) {
 
         /* If the same volume was already open, check that the root hashes match, and reuse it if they do */
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         struct crypt_params_verity crypt_params = {};
         int r;
 
@@ -3283,7 +3283,7 @@ static int verity_partition(
                 PartitionPolicyFlags policy_flags,
                 DecryptedImage *d) {
 
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ char *node = NULL, *name = NULL;
         _cleanup_close_ int mount_node_fd = -EBADF;
         int r;
@@ -3353,7 +3353,7 @@ static int verity_partition(
          * retry a few times before giving up. */
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
                 _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
-                _cleanup_(sym_crypt_freep) struct crypt_device *existing_cd = NULL;
+                _cleanup_(crypt_freep) struct crypt_device *existing_cd = NULL;
                 _cleanup_close_ int fd = -EBADF;
 
                 /* First, check if the device already exists. */
