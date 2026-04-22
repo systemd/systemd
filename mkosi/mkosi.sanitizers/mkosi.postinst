@@ -81,6 +81,7 @@ wrap=(
     mdadm
     mkfs.btrfs
     mksquashfs
+    mount
     multipath
     multipathd
     nvme
@@ -96,6 +97,7 @@ wrap=(
     su
     tar
     tgtd
+    umount
     unix_chkpwd
     useradd
     userdel
