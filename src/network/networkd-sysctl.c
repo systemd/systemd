@@ -30,8 +30,8 @@
 #if ENABLE_SYSCTL_BPF
 
 #include "bpf-link.h"
-#include "bpf/sysctl-monitor/sysctl-monitor-skel.h"
-#include "bpf/sysctl-monitor/sysctl-write-event.h"
+#include "sysctl-monitor-skel.h"
+#include "sysctl-write-event.h"
 
 static struct sysctl_monitor_bpf* sysctl_monitor_bpf_free(struct sysctl_monitor_bpf *obj) {
         sysctl_monitor_bpf__destroy(obj);
