@@ -1,16 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
-
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "build.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "openssl-util.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "string-util.h"
@@ -25,7 +25,7 @@ static char *arg_certificate_source = NULL;
 static CertificateSourceType arg_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
 static char *arg_signature = NULL;
 static char *arg_content = NULL;
-static char *arg_hash_algorithm = NULL;
+static const char *arg_hash_algorithm = NULL;
 static char *arg_output = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
@@ -38,164 +38,137 @@ STATIC_DESTRUCTOR_REGISTER(arg_output, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-keyutil", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s  [OPTIONS...] COMMAND ...\n"
-               "\n%5$sPerform various operations on private keys and certificates.%6$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "  validate               Load and validate the given certificate and private key\n"
-               "  extract-public         Extract a public key\n"
-               "  extract-certificate    Extract a certificate\n"
-               "  pkcs7                  Generate a PKCS#7 signature\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help              Show this help\n"
-               "     --version           Print version\n"
-               "     --private-key=KEY   Private key in PEM format\n"
-               "     --private-key-source=file|provider:PROVIDER|engine:ENGINE\n"
-               "                         Specify how to use KEY for --private-key=. Allows\n"
-               "                         an OpenSSL engine/provider to be used for signing\n"
-               "     --certificate=PATH|URI\n"
-               "                         PEM certificate to use for signing, or a provider\n"
-               "                         specific designation if --certificate-source= is used\n"
-               "     --certificate-source=file|provider:PROVIDER\n"
-               "                         Specify how to interpret the certificate from\n"
-               "                         --certificate=. Allows the certificate to be loaded\n"
-               "                         from an OpenSSL provider\n"
-               "     --content=PATH      Raw data content to embed in PKCS#7 signature\n"
-               "     --signature=PATH    PKCS#1 signature to embed in PKCS#7 signature\n"
-               "     --hash-algorithm=ALGORITHM\n"
-               "                         Hash algorithm used to create the PKCS#1 signature\n"
-               "     --output=PATH       Where to write the PKCS#7 signature\n"
-               "\nSee the %2$s for details.\n",
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, options);
+
+        printf("%s  [OPTIONS...] COMMAND ...\n\n"
+               "%sPerform various operations on private keys and certificates.%s\n"
+               "\n%sCommands:%s\n",
                program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
                ansi_normal());
 
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n",
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP_HIDDEN(help);
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_PRIVATE_KEY,
-                ARG_PRIVATE_KEY_SOURCE,
-                ARG_CERTIFICATE,
-                ARG_CERTIFICATE_SOURCE,
-                ARG_SIGNATURE,
-                ARG_CONTENT,
-                ARG_HASH_ALGORITHM,
-                ARG_OUTPUT,
-        };
-
-        static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'                    },
-                { "version",            no_argument,       NULL, ARG_VERSION            },
-                { "private-key",        required_argument, NULL, ARG_PRIVATE_KEY        },
-                { "private-key-source", required_argument, NULL, ARG_PRIVATE_KEY_SOURCE },
-                { "certificate",        required_argument, NULL, ARG_CERTIFICATE        },
-                { "certificate-source", required_argument, NULL, ARG_CERTIFICATE_SOURCE },
-                { "signature",          required_argument, NULL, ARG_SIGNATURE          },
-                { "content",            required_argument, NULL, ARG_CONTENT            },
-                { "hash-algorithm",     required_argument, NULL, ARG_HASH_ALGORITHM     },
-                { "output",             required_argument, NULL, ARG_OUTPUT             },
-                {}
-        };
-
-        int c, r;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+        int r;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_PRIVATE_KEY:
-                        r = free_and_strdup_warn(&arg_private_key, optarg);
+                OPTION_LONG("private-key", "KEY", "Private key in PEM format"):
+                        r = free_and_strdup_warn(&arg_private_key, arg);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_PRIVATE_KEY_SOURCE:
+                OPTION_LONG("private-key-source", "SOURCE",
+                            "Specify how to use KEY for --private-key= "
+                            "(file, provider:PROVIDER, engine:ENGINE)"):
                         r = parse_openssl_key_source_argument(
-                                        optarg,
+                                        arg,
                                         &arg_private_key_source,
                                         &arg_private_key_source_type);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_CERTIFICATE:
-                        r = free_and_strdup_warn(&arg_certificate, optarg);
+                OPTION_LONG("certificate", "PATH|URI",
+                            "PEM certificate to use for signing, "
+                            "or a provider-specific designation if --certificate-source= is used"):
+                        r = free_and_strdup_warn(&arg_certificate, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CERTIFICATE_SOURCE:
+                OPTION_LONG("certificate-source", "SOURCE",
+                            "Specify how to interpret the certificate from --certificate= "
+                            "(file, provider:PROVIDER)"):
                         r = parse_openssl_certificate_source_argument(
-                                        optarg,
+                                        arg,
                                         &arg_certificate_source,
                                         &arg_certificate_source_type);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SIGNATURE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_signature);
+                OPTION_LONG("signature", "PATH", "PKCS#1 signature to embed in PKCS#7 signature"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_signature);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_CONTENT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_content);
+                OPTION_LONG("content", "PATH", "Raw data content to embed in PKCS#7 signature"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_content);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_HASH_ALGORITHM:
-                        arg_hash_algorithm = optarg;
+                OPTION_LONG("hash-algorithm", "ALGORITHM",
+                            "Hash algorithm used to create the PKCS#1 signature"):
+                        arg_hash_algorithm = arg;
                         break;
 
-                case ARG_OUTPUT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_output);
+                OPTION_LONG("output", "PATH", "Where to write the PKCS#7 signature"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_output);
                         if (r < 0)
                                 return r;
-
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (arg_private_key_source && !arg_certificate)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "When using --private-key-source=, --certificate= must be specified.");
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
+VERB_NOARG(verb_validate, "validate",
+           "Load and validate the given certificate and private key");
 static int verb_validate(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(X509_freep) X509 *certificate = NULL;
         _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
@@ -251,6 +224,9 @@ static int verb_validate(int argc, char *argv[], uintptr_t _data, void *userdata
         return 0;
 }
 
+VERB_NOARG(verb_extract_public, "extract-public",
+           "Extract a public key");
+VERB(verb_extract_public, "public", NULL, VERB_ANY, 1, 0, NULL); /* Deprecated alias */
 static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *public_key = NULL;
         int r;
@@ -318,6 +294,8 @@ static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *us
         return 0;
 }
 
+VERB_NOARG(verb_extract_certificate, "extract-certificate",
+           "Extract a certificate");
 static int verb_extract_certificate(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(X509_freep) X509 *certificate = NULL;
         int r;
@@ -345,6 +323,8 @@ static int verb_extract_certificate(int argc, char *argv[], uintptr_t _data, voi
         return 0;
 }
 
+VERB(verb_pkcs7, "pkcs7", NULL, VERB_ANY, VERB_ANY, 0,
+     "Generate a PKCS#7 signature");
 static int verb_pkcs7(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(X509_freep) X509 *certificate = NULL;
         _cleanup_free_ char *pkcs1 = NULL;
@@ -429,24 +409,16 @@ static int verb_pkcs7(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int run(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "help",                VERB_ANY, VERB_ANY, 0, verb_help                },
-                { "validate",            VERB_ANY, 1,        0, verb_validate            },
-                { "extract-public",      VERB_ANY, 1,        0, verb_extract_public      },
-                { "public",              VERB_ANY, 1,        0, verb_extract_public      }, /* Deprecated but kept for backwards compat. */
-                { "extract-certificate", VERB_ANY, 1,        0, verb_extract_certificate },
-                { "pkcs7",               VERB_ANY, VERB_ANY, 0, verb_pkcs7               },
-                {}
-        };
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        return dispatch_verb(argc, argv, verbs, NULL);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);
