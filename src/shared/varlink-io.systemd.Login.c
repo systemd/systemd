@@ -206,6 +206,33 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("The user information"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(User, UserInfo, 0));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                SeatInfo,
+                SD_VARLINK_FIELD_COMMENT("The seat identifier"),
+                SD_VARLINK_DEFINE_FIELD(Id, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The currently active session on this seat, if any"),
+                SD_VARLINK_DEFINE_FIELD(ActiveSession, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("List of session references assigned to this seat"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Sessions, SessionRef, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Whether this seat supports text terminal sessions"),
+                SD_VARLINK_DEFINE_FIELD(CanTTY, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether this seat supports graphical sessions"),
+                SD_VARLINK_DEFINE_FIELD(CanGraphical, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether the seat is idle"),
+                SD_VARLINK_DEFINE_FIELD(IdleHint, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Realtime timestamp when the seat went idle"),
+                SD_VARLINK_DEFINE_FIELD(IdleSinceHint, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Monotonic timestamp when the seat went idle"),
+                SD_VARLINK_DEFINE_FIELD(IdleSinceHintMonotonic, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                ListSeats,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("If non-null, the identifier string of a seat to look up. Supports the special names 'self' and 'auto' which resolve to the caller's seat."),
+                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The seat information"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Seat, SeatInfo, 0));
+
 static SD_VARLINK_DEFINE_ERROR(NoSuchSession);
 static SD_VARLINK_DEFINE_ERROR(NoSuchUser);
 static SD_VARLINK_DEFINE_ERROR(NoSuchSeat);
@@ -235,6 +262,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_SessionRef,
                 SD_VARLINK_SYMBOL_COMMENT("Information about a user"),
                 &vl_type_UserInfo,
+                SD_VARLINK_SYMBOL_COMMENT("Information about a seat"),
+                &vl_type_SeatInfo,
                 SD_VARLINK_SYMBOL_COMMENT("Allocates a new session."),
                 &vl_method_CreateSession,
                 SD_VARLINK_SYMBOL_COMMENT("Releases an existing session. Currently, will be refused unless originating from the session to release itself."),
@@ -243,6 +272,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_ListSessions,
                 SD_VARLINK_SYMBOL_COMMENT("Lists current users. If a UID or PID filter is provided, returns the single matching user; otherwise streams all current users (requires the 'more' flag). If called with no parameters and no 'more' flag, resolves to the caller's user."),
                 &vl_method_ListUsers,
+                SD_VARLINK_SYMBOL_COMMENT("Lists current seats. If an Id filter is provided (or the caller has a session), returns the single matching seat; otherwise streams all current seats (requires the 'more' flag). If called with no parameters and no 'more' flag, resolves to the caller's seat."),
+                &vl_method_ListSeats,
                 SD_VARLINK_SYMBOL_COMMENT("No session by this name found"),
                 &vl_error_NoSuchSession,
                 SD_VARLINK_SYMBOL_COMMENT("No seat by this name found"),
