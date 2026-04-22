@@ -12,6 +12,7 @@
 #include "varlink-io.systemd.QemuMachineInstance.h"
 #include "varlink-io.systemd.VirtualMachineInstance.h"
 #include "varlink-util.h"
+#include "vmspawn-qmp.h"
 #include "vmspawn-varlink.h"
 
 DEFINE_PRIVATE_HASH_OPS_FULL(
@@ -51,10 +52,10 @@ static int on_qmp_simple_complete(
 
         assert(client);
 
-        if (error == 0)
-                (void) sd_varlink_reply(link, NULL);
-        else
+        if (error < 0)
                 (void) qmp_error_to_varlink(link, error_desc, error);
+        else
+                (void) sd_varlink_reply(link, NULL);
 
         sd_varlink_unref(link);
         return 0;
@@ -118,18 +119,26 @@ static int on_qmp_describe_complete(
 
         assert(client);
 
-        if (error != 0) {
+        if (error < 0) {
                 (void) qmp_error_to_varlink(link, error_desc, error);
                 return 0;
         }
 
-        sd_json_variant *running = sd_json_variant_by_key(result, "running");
-        sd_json_variant *status = sd_json_variant_by_key(result, "status");
+        sd_json_variant *running_v = sd_json_variant_by_key(result, "running");
+        sd_json_variant *status_v = sd_json_variant_by_key(result, "status");
+
+        bool running = false;
+        if (running_v)
+                running = sd_json_variant_boolean(running_v);
+
+        const char *status = "unknown";
+        if (status_v && sd_json_variant_is_string(status_v))
+                status = sd_json_variant_string(status_v);
 
         (void) sd_varlink_replybo(
                         link,
-                        SD_JSON_BUILD_PAIR_BOOLEAN("running", running ? sd_json_variant_boolean(running) : false),
-                        SD_JSON_BUILD_PAIR_STRING("status", status && sd_json_variant_is_string(status) ? sd_json_variant_string(status) : "unknown"));
+                        SD_JSON_BUILD_PAIR_BOOLEAN("running", running),
+                        SD_JSON_BUILD_PAIR_STRING("status", status));
 
         return 0;
 }
@@ -153,6 +162,10 @@ static int vl_method_subscribe_events(sd_varlink *link, sd_json_variant *paramet
         }, &filter);
         if (r != 0)
                 return r;
+
+        /* Treat [] identically to null: deliver all events. */
+        if (strv_isempty(filter))
+                filter = strv_free(filter);
 
         sd_varlink_ref(link);
 
@@ -258,31 +271,21 @@ static int dispatch_pending_job(VmspawnQmpBridge *bridge, sd_json_variant *data)
         return 1;
 }
 
-static int on_qmp_event(
-                QmpClient *client,
-                const char *event,
-                sd_json_variant *data,
-                void *userdata) {
-
-        VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
+static int notify_event_subscribers(VmspawnVarlinkContext *ctx, const char *event_name, sd_json_variant *data) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *notification = NULL;
         sd_varlink *link;
         char **filter;
         int r;
 
-        assert(client);
-        assert(event);
-
-        /* Dispatch job status changes to pending continuations (e.g. blockdev-create) */
-        if (streq(event, "JOB_STATUS_CHANGE"))
-                return dispatch_pending_job(ctx->bridge, data);
+        assert(ctx);
+        assert(event_name);
 
         if (hashmap_isempty(ctx->subscribed))
                 return 0;
 
         r = sd_json_buildo(
                         &notification,
-                        SD_JSON_BUILD_PAIR_STRING("event", event),
+                        SD_JSON_BUILD_PAIR_STRING("event", event_name),
                         SD_JSON_BUILD_PAIR_CONDITION(!!data, "data", SD_JSON_BUILD_VARIANT(data)));
         if (r < 0) {
                 log_warning_errno(r, "Failed to build event notification, ignoring: %m");
@@ -290,7 +293,7 @@ static int on_qmp_event(
         }
 
         HASHMAP_FOREACH_KEY(filter, link, ctx->subscribed) {
-                if (filter && !strv_contains(filter, event))
+                if (filter && !strv_contains(filter, event_name))
                         continue;
 
                 r = sd_varlink_notify(link, notification);
@@ -299,6 +302,28 @@ static int on_qmp_event(
         }
 
         return 0;
+}
+
+static int on_qmp_event(
+                QmpClient *client,
+                const char *event,
+                sd_json_variant *data,
+                void *userdata) {
+
+        VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
+
+        assert(client);
+        assert(event);
+
+        /* Dispatch job status changes to pending continuations (e.g. blockdev-create) */
+        if (streq(event, "JOB_STATUS_CHANGE"))
+                return dispatch_pending_job(ctx->bridge, data);
+
+        /* Notification still fans out below. */
+        if (streq(event, "DEVICE_DELETED"))
+                (void) vmspawn_qmp_dispatch_device_deleted(ctx->bridge, data);
+
+        return notify_event_subscribers(ctx, event, data);
 }
 
 /* Free all subscriber entries — varlink_subscriber_hash_ops handles
@@ -387,6 +412,7 @@ int vmspawn_varlink_setup(
         ctx->bridge = bridge;
         qmp_client_bind_event(ctx->bridge->qmp, on_qmp_event, ctx);
         qmp_client_bind_disconnect(ctx->bridge->qmp, on_qmp_disconnect, ctx);
+        qmp_client_set_userdata(ctx->bridge->qmp, ctx->bridge);
 
         log_debug("Varlink control server listening on %s", listen_address);
 
