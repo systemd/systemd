@@ -3,7 +3,7 @@
 # Brazilian Portuguese translation for systemd.
 # Enrico Nicoletto <liverig@gmail.com>, 2014.
 # Filipe Brandenburger <filbranden@gmail.com>, 2018.
-# Rafael Fontenelle <rafaelff@gnome.org>, 2015-2020, 2025.
+# Rafael Fontenelle <rafaelff@gnome.org>, 2015-2020, 2025, 2026.
 # Gustavo Costa <xfgusta@gmail.com>, 2021.
 # Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024.
 # Gabriel Elyas <gabrielelyas@protonmail.com>, 2024.
@@ -15,8 +15,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-03-06 03:46+0900\n"
 "PO-Revision-Date: 2026-04-22 10:58+0000\n"
-"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
-"memory@weblate.org>\n"
+"Last-Translator: Rafael Fontenelle <rafaelff@gnome.org>\n"
 "Language-Team: Portuguese (Brazil) <https://translate.fedoraproject.org/"
 "projects/systemd/main/pt_BR/>\n"
 "Language: pt_BR\n"
@@ -1053,12 +1052,12 @@ msgid "DHCP server sends force renew message"
 msgstr "Servidor DHCP envia mensagem de renovação forçada"
 
 #: src/network/org.freedesktop.network1.policy:144
-#, fuzzy
-#| msgid "Authentication is required to send force renew message."
 msgid ""
 "Authentication is required to send a force renew message from the DHCP "
 "server."
-msgstr "É necessária autenticação para enviar mensagem de renovação forçada."
+msgstr ""
+"É necessária autenticação para enviar uma mensagem de renovação forçada a "
+"partir do servidor DHCP."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
@@ -1100,11 +1099,11 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:198
 msgid "Manage network links"
-msgstr ""
+msgstr "Gerenciar conexões de rede"
 
 #: src/network/org.freedesktop.network1.policy:199
 msgid "Authentication is required to manage network links."
-msgstr "A autenticação é necessária para recarregar as configurações de rede."
+msgstr "A autenticação é necessária para gerenciar conexões de rede."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
