@@ -1029,9 +1029,7 @@ static int context_acquire(
         if (FLAGS_SET(us->flags, UPDATE_INCOMPLETE))
                 log_info("Selected update '%s' is already installed, but incomplete. Repairing.", us->version);
         else if (FLAGS_SET(us->flags, UPDATE_PARTIAL)) {
-                log_info("Selected update '%s' is already acquired and partially installed. Vacuum it to try installing again.", us->version);
-
-                return 0;
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Selected update '%s' is already acquired and partially installed. Vacuum it to try installing again.", us->version);
         } else if (FLAGS_SET(us->flags, UPDATE_PENDING)) {
                 log_info("Selected update '%s' is already acquired and pending installation.", us->version);
 

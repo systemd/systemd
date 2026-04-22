@@ -66,6 +66,7 @@ update_checksums_with_best_before() {
 new_version() {
     local sector_size="${1:?}"
     local version="${2:?}"
+    local corrupt="${3:-}"
 
     # Create a pair of random partition payloads, and compress one.
     # To make not the initial bytes of part1-xxx.raw accidentally match one of the compression header,
@@ -90,11 +91,26 @@ new_version() {
     echo $RANDOM >"$WORKDIR/source/dir-$version/bar.txt"
     tar --numeric-owner -C "$WORKDIR/source/dir-$version/" -czf "$WORKDIR/source/dir-$version.tar.gz" .
 
-    update_checksums
+    if [[ "$corrupt" == "corrupt-checksum" ]]; then
+        # As requested, add a deliberately corrupt checksum for this file. This
+        # will get overwritten next time update_checksums() is called, but the
+        # integration test will probably have moved on to other things by then.
+        {
+            echo "abad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1dea  part1-$version.raw"
+            echo "abad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1dea  part2-$version.raw"
+            echo "abad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1dea  part2-$version.raw.gz"
+            echo "abad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1dea  uki-$version.efi"
+            echo "abad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1dea  uki-extra-$version.efi"
+            echo "abad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1dea  dir-$version.tar.gz"
+        } >> "$WORKDIR/source/SHA256SUMS"
+    else
+        update_checksums
+    fi
 }
 
 update_now() {
     local update_type="${1:?}"
+    local checks="${2:-}"
 
     # Update to newest version. First there should be an update ready, then we
     # do the update, and then there should not be any ready anymore
@@ -105,7 +121,10 @@ update_now() {
     # modes. Some updates in the test suite need to be monolithic (e.g. when
     # repairing an installation), so that can be overridden via the local.
 
-    "$SYSUPDATE" --verify=no check-new
+    if [[ "$checks" != "no-checks" ]]; then
+        "$SYSUPDATE" --verify=no check-new
+    fi
+
     if [[ "$update_type" == "monolithic" ]]; then
         "$SYSUPDATE" --verify=no update
     elif [[ "$update_type" == "split-offline" ]]; then
@@ -125,7 +144,10 @@ update_now() {
     else
         exit 1
     fi
-    (! "$SYSUPDATE" --verify=no check-new)
+
+    if [[ "$checks" != "no-checks" ]]; then
+        (! "$SYSUPDATE" --verify=no check-new)
+    fi
 }
 
 verify_version() {
@@ -461,6 +483,28 @@ EOF
     update_now "$update_type"
     verify_version_current "$blockdev" "$sector_size" v8 1
     verify_version "$blockdev" "$sector_size" v7 2
+
+    # Create a 9th version but corrupt the checksum in SHA256SUMS so pulling it
+    # fails when verifying the checksum, in order to create a current+partial
+    # state. Try to update again and verify that this results in an error.
+    # Vacuum the partial version, regenerate it on the server, try updating
+    # again and it should succeed.
+    new_version "$sector_size" v9 "corrupt-checksum"
+    (! update_now "$update_type")
+    "$SYSUPDATE" --offline list v9 | grep "partial" >/dev/null
+    verify_version_current "$blockdev" "$sector_size" v8 1
+    # don’t verify the other part of the block device as it’s in an indeterminate state
+    (! update_now "$update_type" "no-checks") |& tee "$WORKDIR"/update_now-9
+    cat "$WORKDIR"/update_now-9
+    grep "is already acquired and partially installed. Vacuum it to try installing again." "$WORKDIR"/update_now-9
+    "$SYSUPDATE" --offline vacuum |& grep "Removing old partial" >/dev/null
+    verify_version_current "$blockdev" "$sector_size" v8 1
+    # don’t verify the other part of the block device as it’s in an indeterminate state
+    "$SYSUPDATE" --verify=no list v9 | grep "candidate" >/dev/null
+    new_version "$sector_size" v9
+    update_now "$update_type"
+    verify_version "$blockdev" "$sector_size" v8 1
+    verify_version_current "$blockdev" "$sector_size" v9 2
 
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
