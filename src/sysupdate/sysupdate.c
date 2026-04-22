@@ -669,7 +669,7 @@ static int context_show_version(Context *c, const char *version) {
                 Instance *i = *inst;
 
                 if (!i) {
-                        assert(FLAGS_SET(us->flags, UPDATE_INCOMPLETE));
+                        assert(us->flags & (UPDATE_INCOMPLETE|UPDATE_PARTIAL|UPDATE_PENDING));
                         continue;
                 }
 
