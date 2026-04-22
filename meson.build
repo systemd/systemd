@@ -2541,7 +2541,7 @@ foreach dict : executables
 
         foreach val : dict.get('objects', [])
                 obj = objects_by_name[val]
-                kwargs += { 'objects' : obj['objects'] }
+                kwargs += { 'objects' : kwargs.get('objects', []) + obj['objects'] }
                 include_directories += obj['include_directories']
         endforeach
 
