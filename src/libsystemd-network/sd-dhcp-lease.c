@@ -3,7 +3,6 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <arpa/inet.h>
 #include <sys/stat.h>
 
 #include "sd-dhcp-lease.h"
@@ -14,20 +13,15 @@
 #include "dns-def.h"
 #include "dns-domain.h"
 #include "dns-resolver-internal.h"
-#include "env-file.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
-#include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "network-common.h"
 #include "network-internal.h"
-#include "parse-util.h"
 #include "sort-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -1313,7 +1307,7 @@ static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
         if (r >= 0) {
                 r = sd_json_variant_merge_objectbo(&v, JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING_NON_NULL("Address", &address));
                 if (r < 0)
-                        log_debug("Failed to add address field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add address field to Json lease: %m");
         }
         r = sd_dhcp_lease_get_netmask(lease, &address);
         if (r >= 0)
@@ -1326,62 +1320,62 @@ static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
                 FOREACH_ARRAY(addr, addresses, count) {
                         r = sd_json_variant_append_arrayb(&array, JSON_BUILD_IN4_ADDR(addr));
                         if (r < 0) {
-                                log_debug("Failed to add a router address to lease: %s", strerror(-r));
+                                log_debug_errno(r, "Failed to add a router address to lease: %m");
                                 break;
                         }
                 }
                 r = sd_json_variant_set_field(&v, "Router", array);
                 if (r < 0)
-                        log_debug("Failed to add router field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add router field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_server_identifier(lease, &address);
         if (r >= 0) {
                 r = sd_json_variant_merge_objectbo(&v, JSON_BUILD_PAIR_IN4_ADDR("Server_Address", &address));
                 if (r < 0)
-                        log_debug("Failed to add server_address field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add server_address field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_next_server(lease, &address);
         if (r >= 0) {
                 r = sd_json_variant_merge_objectbo(&v, JSON_BUILD_PAIR_IN4_ADDR("Next_Server", &address));
                 if (r < 0)
-                        log_debug("Failed to add field next_server to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add field next_server to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_broadcast(lease, &address);
         if (r >= 0) {
                 r = sd_json_variant_merge_objectbo(&v, JSON_BUILD_PAIR_IN4_ADDR("Broadcast", &address));
                 if (r < 0)
-                        log_debug("Failed to add broadcast field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add broadcast field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_mtu(lease, &mtu);
         if (r >= 0) {
                 r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_UNSIGNED("MTU", mtu));
                 if (r < 0)
-                        log_debug("Failed to add mtu field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add mtu field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_t1(lease, &t);
         if (r >= 0) {
                 r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("T1", FORMAT_TIMESPAN(t, USEC_PER_SEC)));
                 if (r < 0)
-                        log_debug("Failed to add t1 field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add t1 field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_t2(lease, &t);
         if (r >= 0) {
                 r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("T2", FORMAT_TIMESPAN(t, USEC_PER_SEC)));
                 if (r < 0)
-                        log_debug("Failed to add t2 field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add t2 field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_lifetime(lease, &t);
         if (r >= 0) {
                 r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("Lifetime", FORMAT_TIMESPAN(t, USEC_PER_SEC)));
                 if (r < 0)
-                        log_debug("Failed to add lifetime field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add lifetime field to Json lease: %m");
        }
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *servers = NULL;
@@ -1393,7 +1387,7 @@ static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
                       sd_json_variant_append_arrayb(&array, JSON_BUILD_IN4_ADDR(addr));
                 r = sd_json_variant_merge_objectbo(&servers, SD_JSON_BUILD_PAIR_VARIANT("DNS", array));
                 if (r < 0)
-                        log_debug("Failed to add DNS servers field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add DNS servers field to Json lease: %m");
 
         }
 
@@ -1405,7 +1399,7 @@ static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
                         sd_json_variant_append_arrayb(&array, JSON_BUILD_IN4_ADDR(addr));
                 r = sd_json_variant_merge_objectbo(&servers, SD_JSON_BUILD_PAIR_VARIANT("NTP", array));
                 if (r < 0)
-                        log_debug("Failed to add NTP servers field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add NTP servers field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_sip(lease, &addresses);
@@ -1416,7 +1410,7 @@ static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
                         sd_json_variant_append_arrayb(&array, JSON_BUILD_IN4_ADDR(addr));
                 r = sd_json_variant_merge_objectbo(&servers, SD_JSON_BUILD_PAIR_VARIANT("SIP", array));
                 if (r < 0)
-                        log_debug("Failed to add SIP servers field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add SIP servers field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_pop3(lease, &addresses);
@@ -1427,7 +1421,7 @@ static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
                          sd_json_variant_append_arrayb(&array, JSON_BUILD_IN4_ADDR(addr));
                 r = sd_json_variant_merge_objectbo(&servers, SD_JSON_BUILD_PAIR_VARIANT("POP3", array));
                 if (r < 0)
-                        log_debug("Failed to add POP3 servers field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add POP3 servers field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_smtp(lease, &addresses);
@@ -1438,7 +1432,7 @@ static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
                         sd_json_variant_append_arrayb(&array, JSON_BUILD_IN4_ADDR(addr));
                 r = sd_json_variant_merge_objectbo(&servers, SD_JSON_BUILD_PAIR_VARIANT("SMTP", array));
                 if (r < 0)
-                        log_debug("Failed to add SMTP servers field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add SMTP servers field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_lpr(lease, &addresses);
@@ -1449,13 +1443,13 @@ static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
                         sd_json_variant_append_arrayb(&array, JSON_BUILD_IN4_ADDR(addr));
                 r = sd_json_variant_merge_objectbo(&servers, SD_JSON_BUILD_PAIR_VARIANT("LPR", array));
                 if (r < 0)
-                        log_debug("Failed to add LPR servers field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add LPR servers field to Json lease: %m");
         }
 
         if(servers) {
                 r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_VARIANT("Servers", servers));
                 if (r < 0)
-                        log_debug("Failed to add servers array to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add servers array to Json lease: %m");
        }
 
         sd_dns_resolver *resolvers;
@@ -1473,14 +1467,14 @@ static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
                                                 &addrs_array,
                                                 JSON_BUILD_IN_ADDR(res->family, addr));
                                 if (r < 0) {
-                                        log_debug("Failed to add a resolver address: %s", strerror(-r));
+                                        log_debug_errno(r, "Failed to add a resolver address: %m");
                                         break;
                                 }
                         }
 
                         r = dns_resolver_transports_to_strv(res->transports, &transports);
                         if (r < 0) {
-                                log_debug("Failed to add a resolver transport type to Json lease: %s", strerror(-r));
+                                log_debug_errno(r, "Failed to add a resolver transport type to Json lease: %m");
                                 continue;
                         }
 
@@ -1494,14 +1488,14 @@ static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
                                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("DoHPath", res->dohpath),
                                                         JSON_BUILD_PAIR_STRV_NON_EMPTY("Transports", transports)));
                         if (r < 0) {
-                                log_debug("Failed to add resolver to Json Lease: %s", strerror(-r));
+                                log_debug_errno(r, "Failed to add resolver to Json Lease: %m");
                                 continue;
                         }
                 }
 
                 r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_VARIANT("DNR", array));
                 if (r < 0) {
-                         log_debug("Failed to add DNR field to Json lease: %s", strerror(-r));
+                         log_debug_errno(r, "Failed to add DNR field to Json lease: %m");
                 }
         }
 
@@ -1509,35 +1503,35 @@ static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
         if (r >= 0) {
                 r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("Domain_Name", string));
                 if (r < 0)
-                        log_debug("Failed to add Domain_name field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add Domain_name field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_search_domains(lease, &search_domains);
         if (r > 0) {
                 r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRV("Domain_Search_List", search_domains));
                 if (r < 0)
-                        log_debug("Failed to add domain_search_list field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add domain_search_list field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_hostname(lease, &string);
         if (r >= 0) {
                 r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("Hostname", string));
                 if (r < 0)
-                        log_debug("Failed to add hostname field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add hostname field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_root_path(lease, &string);
         if (r >= 0) {
                 r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("Root_Path", string));
                 if (r < 0)
-                        log_debug("Failed to add root_path field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add root_path field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_static_routes(lease, &routes);
         if (r > 0) {
                 r = lease_routes_append_json(routes, "Static_Routes", r, &v);
                 if (r < 0)
-                        log_debug("Failed to add static_routes field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add static_routes field to Json lease: %m");
         }
         routes = mfree(routes);
 
@@ -1545,35 +1539,35 @@ static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
         if (r > 0) {
                 r = lease_routes_append_json(routes, "Classless_Routes", r, &v);
                 if (r < 0)
-                        log_debug("Failed to add classless_routes field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add classless_routes field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_timezone(lease, &string);
         if (r >= 0) {
                 r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("Timezone", string));
                 if (r < 0)
-                        log_debug("Failed to add timezone field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add timezone field to Json lease: %m");
         }
 
         if (sd_dhcp_client_id_is_set(&lease->client_id)) {
                 r = sd_json_variant_merge_objectbo(&v,
                                                    SD_JSON_BUILD_PAIR_BYTE_ARRAY("Client_Id", lease->client_id.raw, lease->client_id.size));
                 if (r < 0)
-                        log_debug("Failed to add client_id field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add client_id field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_timestamp(lease, CLOCK_REALTIME, &t);
         if (r >= 0) {
                 r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("Timestamp_realtime", FORMAT_TIMESTAMP_STYLE(t, TIMESTAMP_US)));
                 if (r < 0)
-                        log_debug("Failed to add timestamp_realtime field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add timestamp_realtime field to Json lease: %m");
         }
 
         r = sd_dhcp_lease_get_vendor_specific(lease, &data, &data_len);
         if (r >= 0) {
                 r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_HEX("Vendor_Specific", data, data_len));
                 if (r < 0)
-                        log_debug("Failed to add vendor_specific field to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add vendor_specific field to Json lease: %m");
         }
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *private_options_array = NULL;
@@ -1584,13 +1578,13 @@ static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
                                 SD_JSON_BUILD_PAIR_UNSIGNED("Option", option->tag),
                                 SD_JSON_BUILD_PAIR_HEX("Data", option->data, option->length));
                 if (r < 0) {
-                        log_debug("Failed to add a private option to Json lease: %s", strerror(-r));
+                        log_debug_errno(r, "Failed to add a private option to Json lease: %m");
                         continue;
                 }
         }
         r = json_variant_set_field_non_null(&v, "Private_Options", private_options_array);
         if (r < 0)
-                log_debug("Failed to add Private_Options field to Json lease: %s", strerror(-r));
+                log_debug_errno(r, "Failed to add Private_Options field to Json lease: %m");
 
         if (!v)
                 return -ENODATA;
@@ -1633,17 +1627,6 @@ int dhcp_lease_save(sd_dhcp_lease *lease, int dir_fd, const char *lease_file) {
 
         return 0;
 }
-
-static char **private_options_free(char **options) {
-        if (!options)
-                return NULL;
-
-        free_many_charp(options, SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1);
-
-        return mfree(options);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(char**, private_options_free);
 
 /* Dispatcher for an array of objects, pass in single element dispatcher */
 static int json_dispatch_array_generic(const char *name,
@@ -1912,8 +1895,8 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         lease_file,
                         /* flags= */ SD_JSON_PARSE_MUST_BE_OBJECT,
                         &v,
-                        /* reterr_line= */ &line,
-                        /* ret_column= */ &column);
+                        &line,
+                        &column);
         if (r < 0)
                 return r;
 
