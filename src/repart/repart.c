@@ -7754,9 +7754,27 @@ static int context_split(Context *context) {
                 if (lseek(fd, p->offset, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
-                r = copy_bytes(fd, fdt, p->new_size, COPY_REFLINK|COPY_HOLES|COPY_TRUNCATE);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to copy to split partition %s: %m", p->split_path);
+                /* Verity signature partitions contain a JSON object NUL-padded out to the partition
+                 * size. The on-disk partition must keep the padding, but the split-out file is a
+                 * standalone artifact, so trim the trailing NUL bytes there to avoid tripping jq. */
+                if (partition_designator_is_verity_sig(p->type.designator)) {
+                        _cleanup_free_ char *buf = malloc(p->new_size);
+                        if (!buf)
+                                return log_oom();
+
+                        r = loop_read_exact(fd, buf, p->new_size, /* do_poll= */ false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read verity signature partition: %m");
+
+                        size_t len = strnlen(buf, p->new_size);
+                        r = loop_write(fdt, buf, len);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write to split partition %s: %m", p->split_path);
+                } else {
+                        r = copy_bytes(fd, fdt, p->new_size, COPY_REFLINK|COPY_HOLES|COPY_TRUNCATE);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to copy to split partition %s: %m", p->split_path);
+                }
         }
 
         return 0;
