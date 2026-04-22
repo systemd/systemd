@@ -843,7 +843,7 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
                 if (k < 0) {
                         if (k != -ENODEV)
                                 /* this is necessarily racy, so ignore missing devices */
-                                r = k;
+                                log_warning_errno(k, "failed to load device from device-id '%s': %m", de->d_name);
 
                         continue;
                 }
