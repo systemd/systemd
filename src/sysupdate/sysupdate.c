@@ -410,7 +410,10 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                                 extra_flags |= UPDATE_PROTECTED;
 
                         /* Partial or pending updates by definition are not incomplete, they’re
-                         * partial/pending instead */
+                         * partial/pending instead. While an individual Instance cannot be both partial and
+                         * pending, an UpdateSet as a whole can contain both partial and pending instances. */
+                        assert(!match || !(match->is_partial && match->is_pending));
+
                         if (match && match->is_partial)
                                 extra_flags = (extra_flags | UPDATE_PARTIAL) & ~UPDATE_INCOMPLETE;
 

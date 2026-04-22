@@ -139,9 +139,11 @@ static int resource_load_from_directory_recursive(
                 if ((stripped = startswith(de->d_name, ".sysupdate.partial."))) {
                         de_d_name_stripped = stripped;
                         is_partial = true;
+                        is_pending = false;
                 } else if ((stripped = startswith(de->d_name, ".sysupdate.pending."))) {
                         de_d_name_stripped = stripped;
                         is_pending = true;
+                        is_partial = false;
                 } else
                         de_d_name_stripped = de->d_name;
 
@@ -191,6 +193,9 @@ static int resource_load_from_directory_recursive(
 
                 if (instance->metadata.mode == MODE_INVALID)
                         instance->metadata.mode = st.st_mode & 0775; /* mask out world-writability and suid and stuff, for safety */
+
+                /* Can’t be both partial and pending. */
+                assert(!(is_partial && is_pending));
 
                 instance->is_partial = is_partial;
                 instance->is_pending = is_pending;
@@ -312,6 +317,9 @@ static int resource_load_from_blockdev(Resource *rr) {
 
                 if (instance->metadata.read_only < 0)
                         instance->metadata.read_only = instance->partition_info.read_only;
+
+                /* Can’t be both partial and pending. */
+                assert(!(is_partial && is_pending));
 
                 instance->is_partial = is_partial;
                 instance->is_pending = is_pending;
