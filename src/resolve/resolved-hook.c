@@ -12,6 +12,7 @@
 #include "iovec-util.h"
 #include "json-util.h"
 #include "ratelimit.h"
+#include "resolved-dns-query.h"
 #include "resolved-hook.h"
 #include "resolved-manager.h"
 #include "set.h"
@@ -807,15 +808,16 @@ int manager_hook_query(
                 DnsQuestion *question_idna,
                 DnsQuestion *question_utf8,
                 HookCompleteCallback complete_cb,
-                void *userdata,
+                DnsQuery *q,
                 HookQuery **ret) {
 
         int r;
 
         assert(m);
+        assert(q);
         assert(ret);
 
-        if (!m->do_query_hooks || !use_hooks()) {
+        if (FLAGS_SET(q->flags, SD_RESOLVED_NO_HOOKS) || !m->do_query_hooks || !use_hooks()) {
                 *ret = NULL;
                 return 0; /* no relevant hooks, continue immediately */
         }
@@ -858,7 +860,7 @@ int manager_hook_query(
                                 .question_utf8 = dns_question_ref(question_utf8),
                                 .answer_rcode = -1,
                                 .complete = complete_cb,
-                                .userdata = userdata,
+                                .userdata = q,
                         };
                 }
 
