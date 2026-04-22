@@ -26,6 +26,12 @@ struct sd_dhcp_raw_option {
         void *data;
 };
 
+struct sd_dhcp_requested_option {
+        LIST_FIELDS(struct sd_dhcp_requested_option, options);
+        uint8_t tag;
+        char *data;
+};
+
 struct sd_dhcp_lease {
         unsigned n_ref;
 
@@ -85,6 +91,10 @@ struct sd_dhcp_lease {
         size_t sixrd_n_br_addresses;
 
         LIST_HEAD(struct sd_dhcp_raw_option, private_options);
+
+        /* options requested by client but not needed for configuration */
+        Set *requested_options;
+        LIST_HEAD(struct sd_dhcp_requested_option, requested_options_data);
 };
 
 int dhcp_lease_new(sd_dhcp_lease **ret);

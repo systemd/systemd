@@ -1694,6 +1694,10 @@ static int client_parse_message(
                         return r;
         }
 
+        lease->requested_options = set_copy(client->req_opts);
+        if(lease->requested_options)
+                log_dhcp_client(client, "HAD REQUESTED SOME OPTIONS, SAVING FOR LATER");
+
         if (client->bootp)
                 r = bootp_option_parse_and_verify(client, message, len, lease);
         else
