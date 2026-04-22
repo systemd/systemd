@@ -814,6 +814,37 @@ int link_ipv6ll_gained(Link *link) {
         return 0;
 }
 
+int link_ipv6ll_lost(Link *link) {
+        int ret = 0, r;
+
+        assert(link);
+
+        log_link_info(link, "Lost IPv6LL");
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        r = sd_dhcp6_client_stop(link->dhcp6_client);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m"));
+
+        r = dhcp_pd_remove(link, /* only_marked= */ false);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not remove DHCPv6 PD addresses and routes: %m"));
+
+        r = ndisc_stop(link);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m"));
+
+        ndisc_flush(link);
+
+        r = sd_radv_stop(link->radv);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Advertisement: %m"));
+
+        return ret;
+}
+
 int link_handle_bound_to_list(Link *link) {
         bool required_up = false;
         Link *l;
