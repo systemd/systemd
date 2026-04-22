@@ -1634,17 +1634,6 @@ int dhcp_lease_save(sd_dhcp_lease *lease, int dir_fd, const char *lease_file) {
         return 0;
 }
 
-static char **private_options_free(char **options) {
-        if (!options)
-                return NULL;
-
-        free_many_charp(options, SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1);
-
-        return mfree(options);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(char**, private_options_free);
-
 /* Dispatcher for an array of objects, pass in single element dispatcher */
 static int json_dispatch_array_generic(const char *name,
                                        sd_json_variant *variant,
