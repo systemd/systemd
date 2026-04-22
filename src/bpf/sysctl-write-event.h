@@ -2,6 +2,13 @@
 
 #pragma once
 
+#ifdef __bpf__
+#include "vmlinux.h"
+#else
+#include <stdint.h>
+#include <sys/types.h>
+#endif
+
 #ifndef TASK_COMM_LEN
 #define TASK_COMM_LEN 16
 #endif
