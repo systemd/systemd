@@ -6,6 +6,7 @@
 
 #include "edid-fundamental.h"
 #include "efivars-fundamental.h"
+#include "util.h"
 
 #define EDID_FIXED_HEADER_PATTERN "\x00\xFF\xFF\xFF\xFF\xFF\xFF"
 assert_cc(sizeof_field(EdidHeader, pattern) == sizeof(EDID_FIXED_HEADER_PATTERN));
