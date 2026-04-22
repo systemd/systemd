@@ -2,6 +2,8 @@
 
 #if !SD_BOOT
 #include <endian.h>
+#else
+#include "util.h"
 #endif
 
 #include "edid-fundamental.h"
