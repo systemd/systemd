@@ -18,6 +18,7 @@
 #include "cgroup-util.h"
 #include "chase.h"
 #include "creds-util.h"
+#include "crypto-util.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "env-util.h"
@@ -39,7 +40,6 @@
 #include "libfido2-util.h"
 #include "locale-util.h"
 #include "main-func.h"
-#include "openssl-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -5316,13 +5316,17 @@ static int verb_list_signing_keys(int argc, char *argv[], uintptr_t _data, void 
                         /* Let's decode the PEM key to DER (so that we lose prefix/suffix), then truncate it
                          * for display reasons. */
 
+                        r = dlopen_libcrypto();
+                        if (r < 0)
+                                return r;
+
                         _cleanup_(EVP_PKEY_freep) EVP_PKEY *key = NULL;
                         r = openssl_pubkey_from_pem(pem, SIZE_MAX, &key);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse PEM: %m");
 
                         _cleanup_free_ void *der = NULL;
-                        int n = i2d_PUBKEY(key, (unsigned char**) &der);
+                        int n = sym_i2d_PUBKEY(key, (unsigned char**) &der);
                         if (n < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to encode key as DER.");
 

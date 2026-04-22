@@ -23,6 +23,6 @@ executables += [
                 ],
                 'sources' : bootctl_sources,
                 'link_with' : boot_link_with,
-                'dependencies' : [libopenssl],
+                'dependencies' : [libopenssl_cflags],
         },
 ]
