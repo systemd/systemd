@@ -9,12 +9,14 @@
 # Gabriel Elyas <gabrielelyas@protonmail.com>, 2024.
 # Fábio Rodrigues Ribeiro <farribeiro@gmail.com>, 2024.
 # "Geraldo S. Simião Kutz" <geraldo.simiao.kutz@gmail.com>, 2024.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-03-06 03:46+0900\n"
-"PO-Revision-Date: 2025-10-29 18:54+0000\n"
-"Last-Translator: Rafael Fontenelle <rafaelff@gnome.org>\n"
+"PO-Revision-Date: 2026-04-22 10:58+0000\n"
+"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
+"memory@weblate.org>\n"
 "Language-Team: Portuguese (Brazil) <https://translate.fedoraproject.org/"
 "projects/systemd/main/pt_BR/>\n"
 "Language: pt_BR\n"
@@ -22,7 +24,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.13.3\n"
+"X-Generator: Weblate 5.17\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1102,7 +1104,7 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:199
 msgid "Authentication is required to manage network links."
-msgstr ""
+msgstr "A autenticação é necessária para recarregar as configurações de rede."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
