@@ -12,6 +12,7 @@
 #include "iovec-util.h"
 #include "json-util.h"
 #include "ratelimit.h"
+#include "resolved-dns-query.h"
 #include "resolved-hook.h"
 #include "resolved-manager.h"
 #include "set.h"
@@ -815,7 +816,8 @@ int manager_hook_query(
         assert(m);
         assert(ret);
 
-        if (!use_hooks()) {
+        DnsQuery *q = ASSERT_PTR(userdata);
+        if (FLAGS_SET(q->flags, SD_RESOLVED_NO_HOOKS) || !m->do_query_hooks || !use_hooks()) {
                 *ret = NULL;
                 return 0; /* no relevant hooks, continue immediately */
         }
