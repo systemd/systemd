@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "fs-util.h"
 #include "log.h"
+#include "mkdir.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -99,6 +100,44 @@ int runtime_directory(RuntimeScope scope, const char *fallback_suffix, char **re
                 return r;
 
         return 1;
+}
+
+int runtime_directory_make(RuntimeScope scope, const char *subdir, char **ret_dir, char **ret_dir_destroy) {
+        _cleanup_free_ char *dir = NULL, *destroy = NULL;
+        int r;
+
+        assert(subdir);
+        assert(ret_dir);
+        assert(ret_dir_destroy);
+
+        /* Use runtime_directory() (not _generic()) so that when we run in a systemd service
+         * with RuntimeDirectory= set, we pick up $RUNTIME_DIRECTORY and place our stuff into the
+         * directory the service manager prepared for us. When the env var is unset, we fall back
+         * to the provided subdirectory under /run (or the $XDG_RUNTIME_DIR equivalent in user scope)
+         * and take care of creation and destruction ourselves. */
+        r = runtime_directory(scope, subdir, &dir);
+        if (r < 0)
+                return r;
+
+        if (r > 0) {
+                /* $RUNTIME_DIRECTORY was not set, so we got the fallback path and need to create and
+                 * clean up the directory ourselves. */
+                destroy = strdup(dir);
+                if (!destroy)
+                        return -ENOMEM;
+
+                r = mkdir_p(dir, 0755);
+                if (r < 0)
+                        return r;
+        }
+
+        /* When $RUNTIME_DIRECTORY is set the service manager created the directory for us and
+         * will destroy it (or preserve it, per RuntimeDirectoryPreserve=) when the service stops. */
+
+        *ret_dir = TAKE_PTR(dir);
+        *ret_dir_destroy = TAKE_PTR(destroy);
+
+        return 0;
 }
 
 static const char* const user_data_unit_paths[] = {
