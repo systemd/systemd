@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdlib.h>
 #include <sys/file.h>
 #include <unistd.h>
@@ -17,12 +16,14 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
 #include "local-addresses.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
+#include "options.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "plymouth-util.h"
@@ -47,99 +48,86 @@ STATIC_DESTRUCTOR_REGISTER(arg_nqn, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-storagetm", "8", &link);
         if (r < 0)
                 return log_oom();
 
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
         printf("%s [OPTIONS...] [DEVICE...]\n"
-               "\n%sExpose a block device or regular file as NVMe-TCP volume.%s\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "     --nqn=STRING      Select NQN (NVMe Qualified Name)\n"
-               "  -a --all             Expose all devices\n"
-               "     --list-devices    List candidate block devices to operate on\n"
-               "\nSee the %s for details.\n",
+               "\n%sExpose a block device or regular file as NVMe-TCP volume.%s\n\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_normal(),
-               link);
+               ansi_normal());
 
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_NQN = 0x100,
-                ARG_VERSION,
-                ARG_LIST_DEVICES,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "nqn",          required_argument, NULL, ARG_NQN          },
-                { "all",          no_argument,       NULL, 'a'              },
-                { "list-devices", no_argument,       NULL, ARG_LIST_DEVICES },
-                {}
-        };
-
-        int r, c;
-
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ha", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+        int r;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_NQN:
-                        if (!filename_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NQN invalid: %s", optarg);
+                OPTION_LONG("nqn", "STRING",
+                            "Select NQN (NVMe Qualified Name)"):
+                        if (!filename_is_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NQN invalid: %s", arg);
 
-                        if (free_and_strdup(&arg_nqn, optarg) < 0)
+                        if (free_and_strdup(&arg_nqn, arg) < 0)
                                 return log_oom();
 
                         break;
 
-                case 'a':
+                OPTION('a', "all", NULL, "Expose all devices"):
                         arg_all++;
                         break;
 
-                case ARG_LIST_DEVICES:
+                OPTION_LONG("list-devices", NULL,
+                            "List candidate block devices to operate on"):
                         r = blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_ZRAM, /* ret_devices= */ NULL, /* ret_n_devices= */ NULL);
                         if (r < 0)
                                 return r;
 
                         return 0;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
+        char **args = option_parser_get_args(&state);
         if (arg_all > 0) {
-                if (argc > optind)
+                if (!strv_isempty(args))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expects no further arguments if --all/-a is specified.");
         } else {
-                if (optind >= argc)
+                if (strv_isempty(args))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expecting device name or --all/-a.");
 
-                for (int i = optind; i < argc; i++)
-                        if (!path_is_valid(argv[i]))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid path: %s", argv[i]);
+                STRV_FOREACH(a, args)
+                        if (!path_is_valid(*a))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid path: %s", *a);
 
-                arg_devices = strv_copy(argv + optind);
+                arg_devices = strv_copy(args);
+                if (!arg_devices)
+                        return log_oom();
         }
 
         if (!arg_nqn) {
