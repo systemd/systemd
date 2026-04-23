@@ -87,6 +87,7 @@ static bool arg_recursive_unset = false;
 static PidsCount arg_count = COUNT_PIDS;
 static Order arg_order = ORDER_CPU;
 static CPUType arg_cpu_type = CPU_PERCENTAGE;
+static bool arg_root_strict = true;
 
 static const char *order_table[_ORDER_MAX] = {
         [ORDER_PATH]   = "path",
@@ -163,6 +164,21 @@ static bool is_root_cgroup(const char *path) {
                 return false;
 
         return empty_or_root(path);
+}
+
+static uint64_t sum_root_children_memory(Hashmap *a) {
+        Group *g;
+        uint64_t sum = 0;
+
+        HASHMAP_FOREACH(g, a) {
+                if (is_root_cgroup(g->path))
+                        continue;
+                if (strchr(g->path, '/')) /* depth > 1: already rolled up */
+                        continue;
+                if (g->memory_valid)
+                        sum += g->memory;
+        }
+        return sum;
 }
 
 static int process_memory(Group *g) {
@@ -661,8 +677,20 @@ static void display(Hashmap *a) {
 
                 g = array[j];
 
-                path = empty_to_root(g->path);
-                ellipsized = ellipsize(path, path_columns, 33);
+                bool is_root = is_root_cgroup(g->path);
+
+                if (is_root) {
+                        if (arg_root_strict) {
+                                g->memory = sum_root_children_memory(a);
+                                g->memory_valid = true;
+                        }
+                        path = arg_root_strict
+                                ? "/ *CGROUP USAGE, press / to show WHOLE SYSTEM USAGE*"
+                                : "/ *WHOLE SYSTEM USAGE, press / to show CGROUP USAGE*";
+                } else
+                        path = empty_to_root(g->path);
+
+                ellipsized = ellipsize(path, path_columns, is_root ? 100 : 33);
                 printf("%-*s", path_columns, ellipsized ?: path);
 
                 if (g->n_tasks_valid)
@@ -939,6 +967,11 @@ static int loop(const char *root) {
                         arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENTAGE : CPU_TIME;
                         break;
 
+                case '/':
+                        arg_root_strict = !arg_root_strict;
+                        immediate_refresh = true;
+                        break;
+
                 case 'k':
                         arg_count = arg_count != COUNT_ALL_PROCESSES ? COUNT_ALL_PROCESSES : COUNT_PIDS;
                         fprintf(stdout, "\nCounting: %s.", counting_what());
@@ -990,7 +1023,7 @@ static int loop(const char *root) {
                                 "\t<%1$sp%2$s> By path; <%1$st%2$s> By tasks/procs; <%1$sc%2$s> By CPU; <%1$sm%2$s> By memory; <%1$si%2$s> By I/O\n"
                                 "\t<%1$s+%2$s> Inc. delay; <%1$s-%2$s> Dec. delay; <%1$s%%%2$s> Toggle time; <%1$sSPACE%2$s> Refresh\n"
                                 "\t<%1$sP%2$s> Toggle count userspace processes; <%1$sk%2$s> Toggle count all processes\n"
-                                "\t<%1$sr%2$s> Count processes recursively; <%1$sq%2$s> Quit",
+                                "\t<%1$sr%2$s> Count processes recursively; <%1$s/%2$s> Toggle root row (meminfo/cgroup sum); <%1$sq%2$s> Quit",
                                 ansi_highlight(), ansi_normal());
                         fflush(stdout);
                         sleep(3);
