@@ -668,7 +668,7 @@ static bool needs_cleanup(
         return true;
 }
 
-/* Declare prototype so that item_cleanup() can recurse into it */
+/* Declare prototype so that item_cleanup() can call dir_cleanup() (mutual recursion) */
 static int dir_cleanup(
                 Context *c,
                 Item *i,
@@ -688,7 +688,7 @@ static bool item_cleanup(
                 Item *i,
                 const char *pathname, /* joined path (path/name) of directory|file to be cleaned up */
                 const char *name, /* basename of directory|file to be cleaned up */
-                DIR *d, /* directory that contains name -- used for unlinkat(d) */
+                int dir_fd, /* dirfd of directory that contains name -- used for unlinkat(dirfd) */
                 nsec_t cutoff_nsec,
                 bool mountpoint, /* whether d is a mountpoint */
                 int maxdepth, /* max directory recursion depth */
@@ -696,8 +696,8 @@ static bool item_cleanup(
                 AgeBy age_by_file, /* age criteria ([a|m|c|b]_time) to examine against file age */
                 AgeBy age_by_dir) { /* same age criteria for directory */
         /* Clean up a file or directory, recursively, according to the cutoff_nsec age constraint.
-                Errors are ignored, consistent with historical behaviour for tmpfiles cleanup.
-                Return true if a file is deleted.
+         * Errors are ignored, consistent with historical behaviour for tmpfiles cleanup.
+         * Return true if a file is deleted.
         */
         int r = 0;
 
@@ -710,7 +710,7 @@ static bool item_cleanup(
                 return false;
 
         struct statx sx;
-        r = xstatx_full(dirfd(d), name,
+        r = xstatx_full(dir_fd, name,
                         AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
                         /* xstatx_flags= */ 0,
                         STATX_TYPE|STATX_MODE|STATX_UID,
@@ -731,10 +731,10 @@ static bool item_cleanup(
                 return false;
         }
 
-        atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : 0;
-        mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : 0;
-        ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? statx_timestamp_load_nsec(&sx.stx_ctime) : 0;
-        btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? statx_timestamp_load_nsec(&sx.stx_btime) : 0;
+        atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : NSEC_INFINITY;
+        mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : NSEC_INFINITY;
+        ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? statx_timestamp_load_nsec(&sx.stx_ctime) : NSEC_INFINITY;
+        btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? statx_timestamp_load_nsec(&sx.stx_btime) : NSEC_INFINITY;
 
         /* Is there an item configured for this path? */
         if (ordered_hashmap_get(c->items, pathname)) {
@@ -760,13 +760,10 @@ static bool item_cleanup(
                 if (maxdepth <= 0)
                         log_warning("Reached max depth on \"%s\".", pathname);
                 else {
-                        int q;
-
-                        sub_dir = xopendirat_nomod(dirfd(d), name);
+                        sub_dir = xopendirat_nomod(dir_fd, name);
                         if (!sub_dir) {
                                 if (errno != ENOENT)
-                                        r = log_warning_errno(errno, "Opening directory \"%s\" failed, ignoring: %m", pathname);
-
+                                        log_warning_errno(errno, "Opening directory \"%s\" failed, ignoring: %m", pathname);
                                 return false;
                         }
 
@@ -776,13 +773,11 @@ static bool item_cleanup(
                                 return false;
                         }
 
-                        q = dir_cleanup(c, i,
+                        dir_cleanup(c, i,
                                         pathname, sub_dir,
                                         atime_nsec, mtime_nsec, cutoff_nsec,
                                         false, maxdepth-1, false,
                                         age_by_file, age_by_dir);
-                        if (q < 0)
-                                r = q;
                 }
 
                 /* Note: if you are wondering why we don't support the sticky bit for excluding
@@ -805,9 +800,9 @@ static bool item_cleanup(
 
                 log_action("Would remove", "Removing", "%s directory \"%s\"", pathname);
                 if (!arg_dry_run &&
-                    unlinkat(dirfd(d), name, AT_REMOVEDIR) < 0 &&
+                    unlinkat(dir_fd, name, AT_REMOVEDIR) < 0 &&
                     !IN_SET(errno, ENOENT, ENOTEMPTY))
-                        r = log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", pathname);
+                        log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", pathname);
 
         } else {
                 _cleanup_close_ int fd = -EBADF; /* This file descriptor is defined here so that the
@@ -855,7 +850,7 @@ static bool item_cleanup(
                         return false;
 
                 if (!arg_dry_run) {
-                        fd = xopenat(dirfd(d), name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
+                        fd = xopenat(dir_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
                         if (fd < 0 && !IN_SET(fd, -ENOENT, -ELOOP))
                                 log_warning_errno(fd, "Opening file \"%s\" failed, proceeding without lock: %m", pathname);
                         if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
@@ -866,9 +861,9 @@ static bool item_cleanup(
 
                 log_action("Would remove", "Removing", "%s \"%s\"", pathname);
                 if (!arg_dry_run &&
-                    unlinkat(dirfd(d), name, 0) < 0 &&
+                    unlinkat(dir_fd, name, 0) < 0 &&
                     errno != ENOENT)
-                        r = log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", pathname);
+                        log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", pathname);
 
                 return true; /* flag that a file was deleted */
         }
@@ -905,7 +900,7 @@ static int dir_cleanup(
                 }
 
                 deleted |= item_cleanup(c, i,
-                                sub_path, de->d_name, d,
+                                sub_path, de->d_name, dirfd(d),
                                 cutoff_nsec,
                                 mountpoint, maxdepth, keep_this_level,
                                 age_by_file, age_by_dir);
@@ -3235,55 +3230,31 @@ static int clean_including_item(
 
         usec_t cutoff = n - i->age;
 
-        _cleanup_free_ char *parent_path = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_close_ int dir_fd = -EBADF;
         struct statx sx;
         bool mountpoint;
         int r;
-        _cleanup_close_ int fd = -EBADF;
 
-        /* Find parent path so we can get stats on the directory that holds instance file|dir */
-        fd = path_open_safe(instance); /* provides file opened with O_PATH which is needed for statx */
-        if (fd == -ENOENT)
-                return 0; /* ignore files that have disappeared since being sent to us */
-        if (fd < 0)
-                return fd;
-        /* Check whether item is a directory or file and determine parent path accordingly.
-         * We must determine the parent directory to open globbed filenames at that directory. */
-        r = xstatx_full(fd,
+        /* Find parent path so we can get stats on the directory that holds instance (file or dir) */
+        dir_fd = chase_and_open_parent_at(AT_FDCWD, instance, i->allow_failure ? CHASE_SAFE : CHASE_SAFE|CHASE_WARN, NULL);
+        if (dir_fd < 0)
+                return log_full_errno(i->allow_failure ? LOG_INFO : LOG_ERR,
+                                      dir_fd,
+                                      "Failed to open path '%s'%s: %m",
+                                      instance,
+                                      i->allow_failure ? ", ignoring" : "");
+        r = xstatx_full(dir_fd,
                         /* path= */ NULL,
                         /* statx_flags= */ AT_EMPTY_PATH|AT_NO_AUTOMOUNT,
                         /* xstatx_flags= */ 0,
-                        /* mandatory_mask= */ STATX_TYPE,
+                        /* mandatory_mask= */ 0,
                         /* optional_mask= */ 0,
-                        /* mandatory_attributes= */ 0,
+                        /* mandatory_attributes= */ STATX_ATTR_MOUNT_ROOT,
                         &sx);
-        if (r == -ENOENT)
-                return false;
         if (r < 0)
-                /* FUSE, NFS mounts, SELinux might return EACCES */
-                return log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_ERR, r, "statx(%s) for %s failed: %m", instance, i->path);
+                return log_error_errno(r, "statx(%s) failed: %m", instance);
 
-        struct stat st;
-        if (stat(instance, &st) < 0)
-                return log_error_errno(errno, "Failed to stat(%s) for %s: %m", instance, i->path);
-        if (S_ISDIR(st.st_mode)) {
-                /* Append /.. to get the actual parent of the dir, not a (possible) symlink's parent,
-                 * so that item_cleanup() (below) can restore dir timestamps to the correct parent */
-                parent_path = path_join(instance, "..");
-                if (!parent_path) {
-                        return log_oom();
-                }
-        } else {
-                r = path_extract_directory(instance, &parent_path);
-                if (r < 0)
-                        return log_error_errno(r, "Unable to determine parent directory of '%s' for %s: %m", instance, i->path);
-        }
-
-        r = opendir_and_stat(parent_path, &d, &sx, &mountpoint);
-        if (r <= 0)
-                return r;
-
+        mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *ab_f = NULL, *ab_d = NULL;
 
@@ -3303,11 +3274,12 @@ static int clean_including_item(
         }
 
         const char *name = last_path_component(instance);
-        return item_cleanup(c, i, instance, name, d,
+        item_cleanup(c, i, instance, name, dir_fd,
                            cutoff * NSEC_PER_USEC,
                            mountpoint,
                            MAX_DEPTH, i->keep_first_level,
                            i->age_by_file, i->age_by_dir);
+        return 0;
 }
 
 static int clean_item(Context *c, Item *i) {
