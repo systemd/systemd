@@ -3072,7 +3072,7 @@ static int validate_signature_userspace(const VeritySettings *verity, const char
                 return 0;
         }
         if (!b) {
-                log_debug("Userspace dm-verity signature authentication disabled via systemd.allow_userspace_verity= kernel command line variable.");
+                log_debug("Userspace dm-verity signature authentication disabled via systemd.allow_userspace_verity= kernel command line option.");
                 return 0;
         }
 
