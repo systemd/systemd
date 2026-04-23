@@ -10,6 +10,7 @@
 
 #include "nts.h"
 #include "timesyncd-forward.h"
+#include "unaligned.h"
 #include "utf8.h"
 
 /* should we emit the NTS record that forces chrony to be 'compliant'?
@@ -49,15 +50,12 @@ static size_t capacity(const slice *p) {
 
 /* does not check bounds */
 static void push_u16(uint8_t **data, uint16_t value) {
-        value = htobe16(value);
-        memcpy(*data, &value, 2);
+        unaligned_write_be16(*data, value);
         *data += 2;
 }
 
-static uint16_t u16_from_bytes(uint8_t bytes[2]) {
-        uint16_t value;
-        memcpy(&value, bytes, 2);
-        return be16toh(value);
+static uint16_t u16_from_bytes(uint8_t bytes[static 2]) {
+        return unaligned_read_be16(bytes);
 }
 
 typedef struct NTS_Record {
