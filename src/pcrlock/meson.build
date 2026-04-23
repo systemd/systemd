@@ -16,6 +16,7 @@ executables += [
                         libopenssl,
                         tpm2,
                 ],
+                'public' : true,
         },
 ]
 
