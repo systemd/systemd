@@ -23,6 +23,7 @@ DLSYM_PROTOTYPE(fdisk_apply_table) = NULL;
 DLSYM_PROTOTYPE(fdisk_ask_get_type) = NULL;
 DLSYM_PROTOTYPE(fdisk_ask_string_set_result) = NULL;
 DLSYM_PROTOTYPE(fdisk_assign_device) = NULL;
+DLSYM_PROTOTYPE(fdisk_assign_device_by_fd) = NULL;
 DLSYM_PROTOTYPE(fdisk_create_disklabel) = NULL;
 DLSYM_PROTOTYPE(fdisk_delete_partition) = NULL;
 DLSYM_PROTOTYPE(fdisk_get_devfd) = NULL;
@@ -97,6 +98,7 @@ int dlopen_fdisk(int log_level) {
                         DLSYM_ARG(fdisk_ask_get_type),
                         DLSYM_ARG(fdisk_ask_string_set_result),
                         DLSYM_ARG(fdisk_assign_device),
+                        DLSYM_ARG(fdisk_assign_device_by_fd),
                         DLSYM_ARG(fdisk_create_disklabel),
                         DLSYM_ARG(fdisk_delete_partition),
                         DLSYM_ARG(fdisk_get_devfd),
