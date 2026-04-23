@@ -26,7 +26,7 @@ static int run(int argc, char **argv) {
         else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown operation '%s'.", argv[1]);
 
-        r = dlopen_libarchive();
+        r = dlopen_libarchive(LOG_DEBUG);
         if (r < 0)
                 return r;
 

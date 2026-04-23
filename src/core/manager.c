@@ -3576,12 +3576,14 @@ int manager_set_watchdog_pretimeout_governor(Manager *m, const char *governor) {
         if (MANAGER_IS_USER(m))
                 return 0;
 
+        governor = empty_to_null(governor);
+
         if (streq_ptr(m->watchdog_pretimeout_governor, governor))
                 return 0;
 
-        p = strdup(governor);
-        if (!p)
-                return -ENOMEM;
+        r = strdup_to(&p, governor);
+        if (r < 0)
+                return r;
 
         r = watchdog_setup_pretimeout_governor(governor);
         if (r < 0)
@@ -3599,12 +3601,14 @@ int manager_override_watchdog_pretimeout_governor(Manager *m, const char *govern
         if (MANAGER_IS_USER(m))
                 return 0;
 
+        governor = empty_to_null(governor);
+
         if (streq_ptr(m->watchdog_pretimeout_governor_overridden, governor))
                 return 0;
 
-        p = strdup(governor);
-        if (!p)
-                return -ENOMEM;
+        r = strdup_to(&p, governor);
+        if (r < 0)
+                return r;
 
         r = watchdog_setup_pretimeout_governor(governor);
         if (r < 0)

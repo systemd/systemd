@@ -5652,7 +5652,7 @@ _public_ int sd_json_dispatch_const_string(const char *name, sd_json_variant *va
         if (!sd_json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        if ((flags & SD_JSON_STRICT) && !string_is_safe(sd_json_variant_string(variant)))
+        if ((flags & SD_JSON_STRICT) && !string_is_safe(sd_json_variant_string(variant), STRING_ALLOW_EMPTY|STRING_ALLOW_GLOBS))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains unsafe characters, refusing.", strna(name));
 
         *s = sd_json_variant_string(variant);
@@ -5675,7 +5675,7 @@ _public_ int sd_json_dispatch_strv(const char *name, sd_json_variant *variant, s
 
         /* Let's be flexible here: accept a single string in place of a single-item array */
         if (sd_json_variant_is_string(variant)) {
-                if ((flags & SD_JSON_STRICT) && !string_is_safe(sd_json_variant_string(variant)))
+                if ((flags & SD_JSON_STRICT) && !string_is_safe(sd_json_variant_string(variant), STRING_ALLOW_EMPTY|STRING_ALLOW_GLOBS))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains unsafe characters, refusing.", strna(name));
 
                 l = strv_new(sd_json_variant_string(variant));
@@ -5693,7 +5693,7 @@ _public_ int sd_json_dispatch_strv(const char *name, sd_json_variant *variant, s
                 if (!sd_json_variant_is_string(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a string.");
 
-                if ((flags & SD_JSON_STRICT) && !string_is_safe(sd_json_variant_string(e)))
+                if ((flags & SD_JSON_STRICT) && !string_is_safe(sd_json_variant_string(e), STRING_ALLOW_EMPTY|STRING_ALLOW_GLOBS))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains unsafe characters, refusing.", strna(name));
 
                 r = strv_extend(&l, sd_json_variant_string(e));

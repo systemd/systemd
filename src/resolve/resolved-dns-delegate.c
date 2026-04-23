@@ -172,8 +172,8 @@ static int dns_delegate_load(Manager *m, const char *path) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "DNS delegate file name does not end in .dns-delegate, refusing: %s", fn);
 
         _cleanup_free_ char *id = strndup(fn, e - fn);
-        if (!string_is_safe(id))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "DNS delegate file name contains weird characters, refusing: %s", fn);
+        if (!string_is_safe(id, /* flags= */ 0))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "DNS delegate file name is invalid, refusing: %s", fn);
 
         _cleanup_free_ char *dropin_dirname = strjoin(id, ".dns-delegate.d");
         if (!dropin_dirname)

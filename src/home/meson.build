@@ -73,13 +73,9 @@ executables += [
                 'name' : 'systemd-homework',
                 'sources' : systemd_homework_sources,
                 'objects' : ['systemd-homed'],
-                'link_with' : [
-                        libshared,
-                        libshared_fdisk
-                ],
                 'dependencies' : [
                         libblkid_cflags,
-                        libfdisk,
+                        libfdisk_cflags,
                         libopenssl,
                         libp11kit_cflags,
                         threads,

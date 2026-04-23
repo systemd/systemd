@@ -35,6 +35,7 @@ _bootctl() {
         [STANDALONE]='-h --help --version
                       -p --print-esp-path -x --print-boot-path --print-loader-path
                       --print-stub-path -R --print-root-device -RR
+                      --print-efi-architecture
                       --no-pager --graceful -q --quiet --all-architectures
                       --dry-run'
         [ARG]='--esp-path --boot-path --root --image --image-policy --install-source

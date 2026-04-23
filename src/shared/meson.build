@@ -3,6 +3,7 @@
 shared_sources = files(
         'acl-util.c',
         'acpi-fpdt.c',
+        'apparmor-util.c',
         'ask-password-agent.c',
         'ask-password-api.c',
         'async.c',
@@ -79,6 +80,7 @@ shared_sources = files(
         'extension-util.c',
         'factory-reset.c',
         'facts.c',
+        'fdisk-util.c',
         'fdset.c',
         'fido2-util.c',
         'find-esp.c',
@@ -88,12 +90,14 @@ shared_sources = files(
         'fstab-util.c',
         'generator.c',
         'geneve-util.c',
+        'gnutls-util.c',
         'gpt.c',
         'group-record.c',
         'hibernate-util.c',
         'hostname-setup.c',
         'hwdb-util.c',
         'id128-print.c',
+        'idn-util.c',
         'ima-util.c',
         'image-policy.c',
         'import-util.c',
@@ -116,6 +120,7 @@ shared_sources = files(
         'libaudit-util.c',
         'libcrypt-util.c',
         'libfido2-util.c',
+        'libmount-util.c',
         'local-addresses.c',
         'locale-setup.c',
         'log-assert-critical.c',
@@ -130,6 +135,7 @@ shared_sources = files(
         'macvlan-util.c',
         'main-func.c',
         'metrics.c',
+        'microhttpd-util.c',
         'mkdir-label.c',
         'mkfs-util.c',
         'module-util.c',
@@ -150,6 +156,7 @@ shared_sources = files(
         'osc-context.c',
         'output-mode.c',
         'pager.c',
+        'pam-util.c',
         'parse-argument.c',
         'parse-helpers.c',
         'password-quality-util-passwdqc.c',
@@ -283,22 +290,6 @@ if conf.get('HAVE_LIBBPF') == 1
         shared_sources += files('bpf-link.c')
 endif
 
-if conf.get('HAVE_PAM') == 1
-        shared_sources += files('pam-util.c')
-endif
-
-if conf.get('HAVE_LIBMOUNT') == 1
-        shared_sources += files('libmount-util.c')
-endif
-
-if conf.get('HAVE_LIBIDN2') == 1
-        shared_sources += files('idn-util.c')
-endif
-
-if conf.get('HAVE_APPARMOR') == 1
-        shared_sources += files('apparmor-util.c')
-endif
-
 generate_ip_protocol_list = files('generate-ip-protocol-list.sh')
 ip_protocol_list_txt = custom_target(
         input : [generate_ip_protocol_list, ipproto_sources],
@@ -401,10 +392,13 @@ libshared_deps = [threads,
                   libdl,
                   libdw_cflags,
                   libelf_cflags,
+                  libfdisk_cflags,
                   libfido2_cflags,
                   libgcrypt_cflags,
+                  libgnutls_cflags,
                   libidn2_cflags,
                   libkmod_cflags,
+                  libmicrohttpd_cflags,
                   libmount_cflags,
                   libopenssl,
                   libp11kit_cflags,
@@ -449,15 +443,3 @@ libshared = shared_library(
                         userspace],
         install : true,
         install_dir : pkglibdir)
-
-shared_fdisk_sources = files('fdisk-util.c')
-
-libshared_fdisk = static_library(
-        'shared-fdisk',
-        shared_fdisk_sources,
-        include_directories : includes,
-        implicit_include_directories : false,
-        dependencies : [libfdisk,
-                        userspace],
-        c_args : ['-fvisibility=default'],
-        build_by_default : false)

@@ -39,7 +39,7 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 
 #define TPM2_N_HASH_ALGORITHMS 4U
 
-int dlopen_tpm2(void);
+int dlopen_tpm2(int log_level);
 
 #if HAVE_TPM2
 

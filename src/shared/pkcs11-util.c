@@ -65,7 +65,7 @@ int uri_from_string(const char *p, P11KitUri **ret) {
         assert(p);
         assert(ret);
 
-        r = dlopen_p11kit();
+        r = dlopen_p11kit(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -85,7 +85,7 @@ P11KitUri *uri_from_module_info(const CK_INFO *info) {
 
         assert(info);
 
-        if (dlopen_p11kit() < 0)
+        if (dlopen_p11kit(LOG_DEBUG) < 0)
                 return NULL;
 
         uri = sym_p11_kit_uri_new();
@@ -101,7 +101,7 @@ P11KitUri *uri_from_slot_info(const CK_SLOT_INFO *slot_info) {
 
         assert(slot_info);
 
-        if (dlopen_p11kit() < 0)
+        if (dlopen_p11kit(LOG_DEBUG) < 0)
                 return NULL;
 
         uri = sym_p11_kit_uri_new();
@@ -117,7 +117,7 @@ P11KitUri *uri_from_token_info(const CK_TOKEN_INFO *token_info) {
 
         assert(token_info);
 
-        if (dlopen_p11kit() < 0)
+        if (dlopen_p11kit(LOG_DEBUG) < 0)
                 return NULL;
 
         uri = sym_p11_kit_uri_new();
@@ -221,7 +221,7 @@ int pkcs11_token_login_by_pin(
         assert(m);
         assert(token_info);
 
-        r = dlopen_p11kit();
+        r = dlopen_p11kit(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -283,7 +283,7 @@ int pkcs11_token_login(
         assert(m);
         assert(token_info);
 
-        r = dlopen_p11kit();
+        r = dlopen_p11kit(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -675,7 +675,7 @@ int pkcs11_token_read_x509_certificate(
 
         assert(ret_cert);
 
-        r = dlopen_p11kit();
+        r = dlopen_p11kit(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1248,7 +1248,7 @@ int pkcs11_token_acquire_rng(
 
         assert(m);
 
-        r = dlopen_p11kit();
+        r = dlopen_p11kit(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1334,7 +1334,7 @@ static int slot_process(
 
         assert(m);
 
-        r = dlopen_p11kit();
+        r = dlopen_p11kit(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1417,7 +1417,7 @@ static int module_process(
 
         assert(m);
 
-        r = dlopen_p11kit();
+        r = dlopen_p11kit(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1481,7 +1481,7 @@ int pkcs11_find_token(
         _cleanup_(p11_kit_uri_freep) P11KitUri *search_uri = NULL;
         int r;
 
-        r = dlopen_p11kit();
+        r = dlopen_p11kit(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1740,7 +1740,7 @@ static int list_callback(
         assert(slot_info);
         assert(token_info);
 
-        r = dlopen_p11kit();
+        r = dlopen_p11kit(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1784,7 +1784,7 @@ static int list_callback(
 }
 #endif
 
-int dlopen_p11kit(void) {
+int dlopen_p11kit(int log_level) {
 #if HAVE_P11KIT
         SD_ELF_NOTE_DLOPEN(
                         "p11-kit",
@@ -1794,7 +1794,7 @@ int dlopen_p11kit(void) {
 
         return dlopen_many_sym_or_warn(
                         &p11kit_dl,
-                        "libp11-kit.so.0", LOG_DEBUG,
+                        "libp11-kit.so.0", log_level,
                         DLSYM_ARG(p11_kit_module_get_name),
                         DLSYM_ARG(p11_kit_modules_finalize_and_release),
                         DLSYM_ARG(p11_kit_modules_load_and_initialize),
@@ -1812,7 +1812,8 @@ int dlopen_p11kit(void) {
                         DLSYM_ARG(p11_kit_uri_new),
                         DLSYM_ARG(p11_kit_uri_parse));
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "p11kit support is not compiled in.");
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libp11-kit support is not compiled in.");
 #endif
 }
 
@@ -1858,7 +1859,7 @@ static int auto_callback(
         assert(slot_info);
         assert(token_info);
 
-        r = dlopen_p11kit();
+        r = dlopen_p11kit(LOG_DEBUG);
         if (r < 0)
                 return r;
 

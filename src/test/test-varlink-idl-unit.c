@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "automount.h"
 #include "cgroup.h"
 #include "ioprio-util.h"
+#include "kill.h"
+#include "mount.h"
 #include "numa-util.h"
 #include "process-util.h"
 #include "tests.h"
@@ -40,12 +43,21 @@ TEST(unit_enums_idl) {
         test_enum_to_string_name("slave", &vl_type_MountPropagationFlag);
         test_enum_to_string_name("private", &vl_type_MountPropagationFlag);
 
+        /* KillContext enums */
+        TEST_IDL_ENUM(KillMode, kill_mode, vl_type_KillMode);
+
         /* CGroupContext enums */
         TEST_IDL_ENUM(CGroupDevicePolicy, cgroup_device_policy, vl_type_CGroupDevicePolicy);
         TEST_IDL_ENUM(ManagedOOMMode, managed_oom_mode, vl_type_ManagedOOMMode);
         TEST_IDL_ENUM(ManagedOOMPreference, managed_oom_preference, vl_type_ManagedOOMPreference);
         TEST_IDL_ENUM(CGroupPressureWatch, cgroup_pressure_watch, vl_type_CGroupPressureWatch);
         TEST_IDL_ENUM(CGroupController, cgroup_controller, vl_type_CGroupController);
+
+        /* AutomountRuntime enums */
+        TEST_IDL_ENUM(AutomountResult, automount_result, vl_type_AutomountResult);
+
+        /* MountRuntime enums */
+        TEST_IDL_ENUM(MountResult, mount_result, vl_type_MountResult);
 
         /* UnitContext enums */
         TEST_IDL_ENUM(CollectMode, collect_mode, vl_type_CollectMode);

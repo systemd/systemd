@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -12,6 +11,7 @@
 #include "daemon-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -21,9 +21,11 @@
 #include "logs-show.h"
 #include "main-func.h"
 #include "microhttpd-util.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "socket-netlink.h"
@@ -106,7 +108,7 @@ static MHDDaemonWrapper* MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
         d->timer_event = sd_event_source_unref(d->timer_event);
 
         if (d->daemon)
-                MHD_stop_daemon(d->daemon);
+                sym_MHD_stop_daemon(d->daemon);
 
         return mfree(d);
 }
@@ -359,7 +361,7 @@ static mhd_result request_handler(
 
         if (*connection_cls) {
                 RemoteSource *source = *connection_cls;
-                header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Encoding");
+                header = sym_MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Encoding");
                 if (header) {
                         Compression c = compression_from_string_harder(header);
                         if (c <= 0 || !compression_supported(c))
@@ -380,12 +382,12 @@ static mhd_result request_handler(
         if (!streq(url, "/upload"))
                 return mhd_respond(connection, MHD_HTTP_NOT_FOUND, "Not found.");
 
-        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Type");
+        header = sym_MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Type");
         if (!header || !streq(header, "application/vnd.fdo.journal"))
                 return mhd_respond(connection, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
                                    "Content-Type: application/vnd.fdo.journal is required.");
 
-        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Transfer-Encoding");
+        header = sym_MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Transfer-Encoding");
         if (header) {
                 if (!strcaseeq(header, "chunked"))
                         return mhd_respondf(connection, 0, MHD_HTTP_BAD_REQUEST,
@@ -394,7 +396,7 @@ static mhd_result request_handler(
                 chunked = true;
         }
 
-        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Length");
+        header = sym_MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Length");
         if (header) {
                 size_t len;
 
@@ -418,8 +420,8 @@ static mhd_result request_handler(
         {
                 const union MHD_ConnectionInfo *ci;
 
-                ci = MHD_get_connection_info(connection,
-                                             MHD_CONNECTION_INFO_CONNECTION_FD);
+                ci = sym_MHD_get_connection_info(connection,
+                                                 MHD_CONNECTION_INFO_CONNECTION_FD);
                 if (!ci) {
                         log_error("MHD_get_connection_info failed: cannot get remote fd");
                         return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR,
@@ -462,6 +464,12 @@ static int setup_microhttpd_server(RemoteServer *s,
                                    const char *trust) {
 
 #if HAVE_MICROHTTPD
+        int r;
+
+        r = dlopen_microhttpd(LOG_ERR);
+        if (r < 0)
+                return r;
+
         struct MHD_OptionItem opts[] = {
                 { MHD_OPTION_EXTERNAL_LOGGER, (intptr_t) microhttpd_logger},
                 { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free},
@@ -481,7 +489,7 @@ static int setup_microhttpd_server(RemoteServer *s,
 
         _cleanup_(MHDDaemonWrapper_freep) MHDDaemonWrapper *d = NULL;
         const union MHD_DaemonInfo *info;
-        int r, epoll_fd;
+        int epoll_fd;
 
         assert(fd >= 0);
 
@@ -524,18 +532,23 @@ static int setup_microhttpd_server(RemoteServer *s,
 
         d->fd = (uint64_t) fd;
 
-        d->daemon = MHD_start_daemon(flags, 0,
-                                     NULL, NULL,
-                                     request_handler, NULL,
-                                     MHD_OPTION_ARRAY, opts,
-                                     MHD_OPTION_END);
+        d->daemon = sym_MHD_start_daemon(
+                        flags,
+                        /* port= */ 0,
+                        /* acp= */ NULL,
+                        /* acp_cls= */ NULL,
+                        request_handler,
+                        /* dh_cls= */ NULL,
+                        MHD_OPTION_ARRAY,
+                        opts,
+                        MHD_OPTION_END);
         if (!d->daemon)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to start μhttp daemon");
 
         log_debug("Started MHD %s daemon on fd:%d (wrapper @ %p)",
                   key ? "HTTPS" : "HTTP", fd, d);
 
-        info = MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_EPOLL_FD_LINUX_ONLY);
+        info = sym_MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_EPOLL_FD_LINUX_ONLY);
         if (!info)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "μhttp returned NULL daemon info");
 
@@ -607,12 +620,12 @@ static int dispatch_http_event(sd_event_source *event,
         int r;
         MHD_UNSIGNED_LONG_LONG timeout = ULLONG_MAX;
 
-        r = MHD_run(d->daemon);
+        r = sym_MHD_run(d->daemon);
         if (r == MHD_NO)
                 // FIXME: unregister daemon
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "MHD_run failed!");
-        if (MHD_get_timeout(d->daemon, &timeout) == MHD_NO)
+        if (sym_MHD_get_timeout(d->daemon, &timeout) == MHD_NO)
                 timeout = ULLONG_MAX;
 
         r = sd_event_source_set_time(d->timer_event, timeout);
@@ -828,6 +841,22 @@ static int parse_config(void) {
                 {}
         };
 
+        const char *config_file = secure_getenv("SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE");
+        if (config_file) {
+                if (isempty(config_file) || path_equal(config_file, "/dev/null"))
+                        return 0;
+
+                return config_parse(
+                                /* unit= */ NULL,
+                                config_file,
+                                /* f= */ NULL,
+                                "Remote\0",
+                                config_item_table_lookup, items,
+                                CONFIG_PARSE_WARN,
+                                /* userdata= */ NULL,
+                                /* ret_stat= */ NULL);
+        }
+
         return config_parse_standard_file_with_dropins(
                         "systemd/journal-remote.conf",
                         "Remote\0",
@@ -838,155 +867,120 @@ static int parse_config(void) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-journal-remote.service", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {FILE|-}...\n\n"
-               "Write external journal events to journal file(s).\n\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "     --url=URL              Read events from systemd-journal-gatewayd at URL\n"
-               "     --getter=COMMAND       Read events from the output of COMMAND\n"
-               "     --listen-raw=ADDR      Listen for connections at ADDR\n"
-               "     --listen-http=ADDR     Listen for HTTP connections at ADDR\n"
-               "     --listen-https=ADDR    Listen for HTTPS connections at ADDR\n"
-               "  -o --output=FILE|DIR      Write output to FILE or DIR/external-*.journal\n"
-               "     --compress[=BOOL]      Use compression in the output journal (default: yes)\n"
-               "     --seal[=BOOL]          Use event sealing (default: no)\n"
-               "     --key=FILENAME         SSL key in PEM format (default:\n"
-               "                            \"" PRIV_KEY_FILE "\")\n"
-               "     --cert=FILENAME        SSL certificate in PEM format (default:\n"
-               "                            \"" CERT_FILE "\")\n"
-               "     --trust=FILENAME|all   SSL CA certificate or disable checking (default:\n"
-               "                            \"" TRUST_FILE "\")\n"
-               "     --gnutls-log=CATEGORY...\n"
-               "                            Specify a list of gnutls logging categories\n"
-               "     --split-mode=none|host How many output files to create\n"
-               "\nNote: file descriptors from sd_listen_fds() will be consumed, too.\n"
-               "\nSee the %s for details.\n",
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...] {FILE|-}...\n"
+               "\n%sWrite external journal events to journal file(s).%s\n"
+               "\n%sOptions:%s\n",
                program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nNote: file descriptors from sd_listen_fds() will be consumed, too.\n"
+               "\nSee the %s for details.\n",
                link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_URL,
-                ARG_LISTEN_RAW,
-                ARG_LISTEN_HTTP,
-                ARG_LISTEN_HTTPS,
-                ARG_GETTER,
-                ARG_SPLIT_MODE,
-                ARG_COMPRESS,
-                ARG_SEAL,
-                ARG_KEY,
-                ARG_CERT,
-                ARG_TRUST,
-                ARG_GNUTLS_LOG,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "url",          required_argument, NULL, ARG_URL          },
-                { "getter",       required_argument, NULL, ARG_GETTER       },
-                { "listen-raw",   required_argument, NULL, ARG_LISTEN_RAW   },
-                { "listen-http",  required_argument, NULL, ARG_LISTEN_HTTP  },
-                { "listen-https", required_argument, NULL, ARG_LISTEN_HTTPS },
-                { "output",       required_argument, NULL, 'o'              },
-                { "split-mode",   required_argument, NULL, ARG_SPLIT_MODE   },
-                { "compress",     optional_argument, NULL, ARG_COMPRESS     },
-                { "seal",         optional_argument, NULL, ARG_SEAL         },
-                { "key",          required_argument, NULL, ARG_KEY          },
-                { "cert",         required_argument, NULL, ARG_CERT         },
-                { "trust",        required_argument, NULL, ARG_TRUST        },
-                { "gnutls-log",   required_argument, NULL, ARG_GNUTLS_LOG   },
-                {}
-        };
-
-        int c, r;
+        int r;
         bool type_a, type_b;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ho:", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_URL:
-                        r = free_and_strdup_warn(&arg_url, optarg);
+                OPTION_LONG("url", "URL", "Read events from systemd-journal-gatewayd at URL"):
+                        r = free_and_strdup_warn(&arg_url, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_GETTER:
-                        r = free_and_strdup_warn(&arg_getter, optarg);
+                OPTION_LONG("getter", "COMMAND", "Read events from the output of COMMAND"):
+                        r = free_and_strdup_warn(&arg_getter, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_LISTEN_RAW:
-                        r = free_and_strdup_warn(&arg_listen_raw, optarg);
+                OPTION_LONG("listen-raw", "ADDR", "Listen for connections at ADDR"):
+                        r = free_and_strdup_warn(&arg_listen_raw, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_LISTEN_HTTP:
+                OPTION_LONG("listen-http", "ADDR", "Listen for HTTP connections at ADDR"):
                         if (arg_listen_http || http_socket >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Cannot currently use --listen-http= more than once");
 
-                        r = negative_fd(optarg);
+                        r = negative_fd(arg);
                         if (r >= 0)
                                 http_socket = r;
                         else {
-                                r = free_and_strdup_warn(&arg_listen_http, optarg);
+                                r = free_and_strdup_warn(&arg_listen_http, arg);
                                 if (r < 0)
                                         return r;
                         }
                         break;
 
-                case ARG_LISTEN_HTTPS:
+                OPTION_LONG("listen-https", "ADDR", "Listen for HTTPS connections at ADDR"):
                         if (arg_listen_https || https_socket >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Cannot currently use --listen-https= more than once");
 
-                        r = negative_fd(optarg);
+                        r = negative_fd(arg);
                         if (r >= 0)
                                 https_socket = r;
                         else {
-                                r = free_and_strdup_warn(&arg_listen_https, optarg);
+                                r = free_and_strdup_warn(&arg_listen_https, arg);
                                 if (r < 0)
                                         return r;
                         }
                         break;
 
-                case ARG_KEY:
-                        r = free_and_strdup_warn(&arg_key, optarg);
+                OPTION_LONG("key", "FILENAME", "SSL key in PEM format (default: \"" PRIV_KEY_FILE "\")"):
+                        r = free_and_strdup_warn(&arg_key, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CERT:
-                        r = free_and_strdup_warn(&arg_cert, optarg);
+                OPTION_LONG("cert", "FILENAME", "SSL certificate in PEM format (default: \"" CERT_FILE "\")"):
+                        r = free_and_strdup_warn(&arg_cert, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_TRUST:
+                OPTION_LONG("trust", "FILENAME|all",
+                            "SSL CA certificate or disable checking (default: \"" TRUST_FILE "\")"):
 #if HAVE_GNUTLS
-                        r = free_and_strdup_warn(&arg_trust, optarg);
+                        r = free_and_strdup_warn(&arg_trust, arg);
                         if (r < 0)
                                 return r;
 #else
@@ -994,33 +988,35 @@ static int parse_argv(int argc, char *argv[]) {
 #endif
                         break;
 
-                case 'o':
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_output);
+                OPTION('o', "output", "FILE|DIR", "Write output to FILE or DIR/external-*.journal"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_output);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SPLIT_MODE:
-                        arg_split_mode = journal_write_split_mode_from_string(optarg);
+                OPTION_LONG("split-mode", "none|host", "How many output files to create"):
+                        arg_split_mode = journal_write_split_mode_from_string(arg);
                         if (arg_split_mode == _JOURNAL_WRITE_SPLIT_INVALID)
-                                return log_error_errno(arg_split_mode, "Invalid split mode: %s", optarg);
+                                return log_error_errno(arg_split_mode, "Invalid split mode: %s", arg);
                         break;
 
-                case ARG_COMPRESS:
-                        r = parse_boolean_argument("--compress", optarg, &arg_compress);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "compress", "BOOL",
+                                  "Use compression in the output journal (default: yes)"):
+                        r = parse_boolean_argument("--compress", arg, &arg_compress);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SEAL:
-                        r = parse_boolean_argument("--seal", optarg, &arg_seal);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "seal", "BOOL",
+                                  "Use event sealing (default: no)"):
+                        r = parse_boolean_argument("--seal", arg, &arg_seal);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_GNUTLS_LOG:
+                OPTION_LONG("gnutls-log", "CATEGORY,...", "Specify a list of gnutls logging categories"):
 #if HAVE_GNUTLS
-                        for (const char *p = optarg;;) {
+                        for (const char *p = arg;;) {
                                 _cleanup_free_ char *word = NULL;
 
                                 r = extract_first_word(&p, &word, ",", 0);
@@ -1037,14 +1033,32 @@ static int parse_argv(int argc, char *argv[]) {
 #endif
                         break;
 
-                case '?':
-                        return -EINVAL;
+                OPTION_LONG("max-use", "BYTES", "Maximum disk space to use"):
+                        r = parse_size(arg, 1024, &arg_max_use);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --max-use= value: %s", arg);
+                        break;
 
-                default:
-                        assert_not_reached();
+                OPTION_LONG("keep-free", "BYTES", "Minimum disk space to keep free"):
+                        r = parse_size(arg, 1024, &arg_keep_free);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --keep-free= value: %s", arg);
+                        break;
+
+                OPTION_LONG("max-file-size", "BYTES", "Maximum size of individual journal files"):
+                        r = parse_size(arg, 1024, &arg_max_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --max-file-size= value: %s", arg);
+                        break;
+
+                OPTION_LONG("max-files", "N", "Maximum number of journal files to keep"):
+                        r = safe_atou64(arg, &arg_n_max_files);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --max-files= value: %s", arg);
+                        break;
                 }
 
-        arg_files = strv_copy(strv_skip(argv, optind));
+        arg_files = strv_copy(option_parser_get_args(&state));
         if (!arg_files)
                 return log_oom();
 

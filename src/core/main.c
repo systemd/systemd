@@ -502,7 +502,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
                 }
 
-                if (!string_is_safe(value)) {
+                if (!string_is_safe(value, /* flags= */ 0)) {
                         log_warning("Watchdog pretimeout governor '%s' is not valid, ignoring.", value);
                         return 0;
                 }
@@ -3378,7 +3378,7 @@ int main(int argc, char *argv[]) {
         }
 
         /* Building without libmount is allowed, but if it is compiled in, then we must be able to load it */
-        r = dlopen_libmount();
+        r = dlopen_libmount(LOG_DEBUG);
         if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
                 error_message = "Failed to load libmount.so";
                 goto finish;

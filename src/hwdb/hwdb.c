@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
-
 #include "alloc-util.h"
 #include "build.h"
+#include "format-table.h"
 #include "hwdb-util.h"
 #include "label-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "pretty-print.h"
 #include "verbs.h"
 
@@ -15,10 +15,14 @@ static const char *arg_hwdb_bin_dir = NULL;
 static const char *arg_root = NULL;
 static bool arg_strict = false;
 
+VERB(verb_query, "query", "MODALIAS", 2, 2, 0,
+     "Query database and print result");
 static int verb_query(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return hwdb_query(argv[1], arg_root);
 }
 
+VERB_NOARG(verb_update, "update",
+           "Update the hwdb database");
 static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (hwdb_bypass())
                 return 0;
@@ -28,91 +32,84 @@ static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-hwdb", "8", &link);
         if (r < 0)
                 return log_oom();
 
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, options);
+
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "%sUpdate or query the hardware database.%s\n"
-               "\nCommands:\n"
-               "  update          Update the hwdb database\n"
-               "  query MODALIAS  Query database and print result\n"
-               "\nOptions:\n"
-               "  -h --help       Show this help\n"
-               "     --version    Show package version\n"
-               "  -s --strict     When updating, return non-zero exit value on any parsing error\n"
-               "     --usr        Generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
-               "  -r --root=PATH  Alternative root path in the filesystem\n"
-               "\nSee the %s for details.\n",
+               "\n%sCommands:%s\n",
                program_invocation_short_name,
                ansi_highlight(),
                ansi_normal(),
-               link);
+               ansi_underline(),
+               ansi_normal());
 
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n",
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_USR,
-        };
+VERB_COMMON_HELP_HIDDEN(help);
 
-        static const struct option options[] = {
-                { "help",     no_argument,       NULL, 'h'         },
-                { "version",  no_argument,       NULL, ARG_VERSION },
-                { "usr",      no_argument,       NULL, ARG_USR     },
-                { "strict",   no_argument,       NULL, 's'         },
-                { "root",     required_argument, NULL, 'r'         },
-                {}
-        };
-
-        int c;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
-        while ((c = getopt_long(argc, argv, "sr:h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_USR:
-                        arg_hwdb_bin_dir = UDEVLIBEXECDIR;
-                        break;
-
-                case 's':
+                OPTION('s', "strict", NULL,
+                       "When updating, return non-zero exit value on any parsing error"):
                         arg_strict = true;
                         break;
 
-                case 'r':
-                        arg_root = optarg;
+                OPTION('r', "root", "PATH", "Alternative root path in the filesystem"):
+                        arg_root = arg;
                         break;
 
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
+                OPTION_LONG("usr", NULL,
+                            "Generate in " UDEVLIBEXECDIR " instead of /etc/udev"):
+                        arg_hwdb_bin_dir = UDEVLIBEXECDIR;
+                        break;
                 }
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
-}
-
-static int hwdb_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "update", 1, 1, 0, verb_update },
-                { "query",  2, 2, 0, verb_query  },
-                {},
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 static int run(int argc, char *argv[]) {
@@ -120,7 +117,8 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -128,7 +126,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        return hwdb_main(argc, argv);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

@@ -610,8 +610,8 @@ static int portable_extract_by_path(
                  * there, and extract the metadata we need. The metadata is sent from the child back to us. */
 
                 /* Load some libraries before we fork workers off that want to use them */
-                (void) dlopen_cryptsetup();
-                (void) dlopen_libmount();
+                (void) dlopen_cryptsetup(LOG_DEBUG);
+                (void) dlopen_libmount(LOG_DEBUG);
 
                 r = mkdtemp_malloc("/tmp/inspect-XXXXXX", &tmpdir);
                 if (r < 0)

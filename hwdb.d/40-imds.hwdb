@@ -103,3 +103,29 @@ dmi:*:svnScaleway:*
  IMDS_ADDRESS_IPV4=169.254.42.42
  IMDS_ADDRESS_IPV6=fd00:42::42
  IMDS_KEY_USERDATA=/user_data
+
+# https://www.tencentcloud.com/document/product/213/4934?lang=en
+dmi:*:svnTencentCloud:*
+ IMDS_VENDOR=tencent-cloud
+ IMDS_DATA_URL=http://metadata.tencentyun.com
+ IMDS_KEY_HOSTNAME=/meta-data/hostname
+ IMDS_KEY_REGION=/meta-data/placement/region
+ IMDS_KEY_ZONE=/meta-data/placement/zone
+ IMDS_KEY_IPV4_PUBLIC=/meta-data/public-ipv4
+ IMDS_KEY_SSH_KEY=/meta-data/public-keys/0/openssh-key
+ IMDS_KEY_USERDATA=/user-data
+
+# https://help.aliyun.com/zh/ecs/user-guide/view-instance-metadata
+dmi:*:svnAlibabaCloud:*
+ IMDS_VENDOR=alibaba-ecs
+ IMDS_TOKEN_URL=http://100.100.100.200/latest/api/token
+ IMDS_REFRESH_HEADER_NAME=X-aliyun-ecs-metadata-token-ttl-seconds
+ IMDS_DATA_URL=http://100.100.100.200/latest
+ IMDS_TOKEN_HEADER_NAME=X-aliyun-ecs-metadata-token
+ IMDS_ADDRESS_IPV4=100.100.100.200
+ IMDS_KEY_HOSTNAME=/meta-data/hostname
+ IMDS_KEY_REGION=/meta-data/region-id
+ IMDS_KEY_ZONE=/meta-data/zone-id
+ IMDS_KEY_IPV4_PUBLIC=/meta-data/eipv4
+ IMDS_KEY_SSH_KEY=/meta-data/public-keys/0/openssh-key
+ IMDS_KEY_USERDATA=/user-data

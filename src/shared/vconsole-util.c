@@ -87,10 +87,10 @@ bool x11_context_is_safe(const X11Context *xc) {
         assert(xc);
 
         return
-                (!xc->layout  || string_is_safe(xc->layout))  &&
-                (!xc->model   || string_is_safe(xc->model))   &&
-                (!xc->variant || string_is_safe(xc->variant)) &&
-                (!xc->options || string_is_safe(xc->options));
+                (!xc->layout  || string_is_safe(xc->layout, /* flags= */ 0))  &&
+                (!xc->model   || string_is_safe(xc->model, /* flags= */ 0))   &&
+                (!xc->variant || string_is_safe(xc->variant, /* flags= */ 0)) &&
+                (!xc->options || string_is_safe(xc->options, /* flags= */ 0));
 }
 
 bool x11_context_equal(const X11Context *a, const X11Context *b) {

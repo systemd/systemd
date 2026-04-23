@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/syslog.h>
-
 #include "sd-dlopen.h"
 #include "sd-id128.h"
 
 #include "blkid-util.h"
+#include "log.h"                /* IWYU pragma: keep */
 #include "parse-util.h"
 #include "string-util.h"
 
@@ -48,55 +47,6 @@ DLSYM_PROTOTYPE(blkid_probe_set_partitions_flags) = NULL;
 DLSYM_PROTOTYPE(blkid_probe_set_sectorsize) = NULL;
 DLSYM_PROTOTYPE(blkid_probe_set_superblocks_flags) = NULL;
 DLSYM_PROTOTYPE(blkid_safe_string) = NULL;
-
-int dlopen_libblkid(void) {
-        SD_ELF_NOTE_DLOPEN(
-                        "blkid",
-                        "Support for block device identification",
-                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libblkid.so.1");
-
-        return dlopen_many_sym_or_warn(
-                        &libblkid_dl,
-                        "libblkid.so.1",
-                        LOG_DEBUG,
-                        DLSYM_ARG(blkid_do_fullprobe),
-                        DLSYM_ARG(blkid_do_probe),
-                        DLSYM_ARG(blkid_do_safeprobe),
-                        DLSYM_ARG(blkid_do_wipe),
-                        DLSYM_ARG(blkid_encode_string),
-                        DLSYM_ARG(blkid_free_probe),
-                        DLSYM_ARG(blkid_new_probe),
-                        DLSYM_ARG(blkid_new_probe_from_filename),
-                        DLSYM_ARG(blkid_partition_get_flags),
-                        DLSYM_ARG(blkid_partition_get_name),
-                        DLSYM_ARG(blkid_partition_get_partno),
-                        DLSYM_ARG(blkid_partition_get_size),
-                        DLSYM_ARG(blkid_partition_get_start),
-                        DLSYM_ARG(blkid_partition_get_type),
-                        DLSYM_ARG(blkid_partition_get_type_string),
-                        DLSYM_ARG(blkid_partition_get_uuid),
-                        DLSYM_ARG(blkid_partlist_devno_to_partition),
-                        DLSYM_ARG(blkid_partlist_get_partition),
-                        DLSYM_ARG(blkid_partlist_numof_partitions),
-                        DLSYM_ARG(blkid_probe_enable_partitions),
-                        DLSYM_ARG(blkid_probe_enable_superblocks),
-                        DLSYM_ARG(blkid_probe_filter_superblocks_type),
-                        DLSYM_ARG(blkid_probe_filter_superblocks_usage),
-                        DLSYM_ARG(blkid_probe_get_fd),
-                        DLSYM_ARG(blkid_probe_get_partitions),
-                        DLSYM_ARG(blkid_probe_get_size),
-                        DLSYM_ARG(blkid_probe_get_value),
-                        DLSYM_ARG(blkid_probe_is_wholedisk),
-                        DLSYM_ARG(blkid_probe_lookup_value),
-                        DLSYM_ARG(blkid_probe_numof_values),
-                        DLSYM_ARG(blkid_probe_set_device),
-                        DLSYM_ARG(blkid_probe_set_hint),
-                        DLSYM_ARG(blkid_probe_set_partitions_flags),
-                        DLSYM_ARG(blkid_probe_set_sectorsize),
-                        DLSYM_ARG(blkid_probe_set_superblocks_flags),
-                        DLSYM_ARG(blkid_safe_string));
-}
 
 int blkid_partition_get_uuid_id128(blkid_partition p, sd_id128_t *ret) {
         const char *s;
@@ -146,3 +96,57 @@ int blkid_probe_lookup_value_u64(blkid_probe b, const char *field, uint64_t *ret
         return safe_atou64(u, ret);
 }
 #endif
+
+int dlopen_libblkid(int log_level) {
+#if HAVE_BLKID
+        SD_ELF_NOTE_DLOPEN(
+                        "blkid",
+                        "Support for block device identification",
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        "libblkid.so.1");
+
+        return dlopen_many_sym_or_warn(
+                        &libblkid_dl,
+                        "libblkid.so.1",
+                        log_level,
+                        DLSYM_ARG(blkid_do_fullprobe),
+                        DLSYM_ARG(blkid_do_probe),
+                        DLSYM_ARG(blkid_do_safeprobe),
+                        DLSYM_ARG(blkid_do_wipe),
+                        DLSYM_ARG(blkid_encode_string),
+                        DLSYM_ARG(blkid_free_probe),
+                        DLSYM_ARG(blkid_new_probe),
+                        DLSYM_ARG(blkid_new_probe_from_filename),
+                        DLSYM_ARG(blkid_partition_get_flags),
+                        DLSYM_ARG(blkid_partition_get_name),
+                        DLSYM_ARG(blkid_partition_get_partno),
+                        DLSYM_ARG(blkid_partition_get_size),
+                        DLSYM_ARG(blkid_partition_get_start),
+                        DLSYM_ARG(blkid_partition_get_type),
+                        DLSYM_ARG(blkid_partition_get_type_string),
+                        DLSYM_ARG(blkid_partition_get_uuid),
+                        DLSYM_ARG(blkid_partlist_devno_to_partition),
+                        DLSYM_ARG(blkid_partlist_get_partition),
+                        DLSYM_ARG(blkid_partlist_numof_partitions),
+                        DLSYM_ARG(blkid_probe_enable_partitions),
+                        DLSYM_ARG(blkid_probe_enable_superblocks),
+                        DLSYM_ARG(blkid_probe_filter_superblocks_type),
+                        DLSYM_ARG(blkid_probe_filter_superblocks_usage),
+                        DLSYM_ARG(blkid_probe_get_fd),
+                        DLSYM_ARG(blkid_probe_get_partitions),
+                        DLSYM_ARG(blkid_probe_get_size),
+                        DLSYM_ARG(blkid_probe_get_value),
+                        DLSYM_ARG(blkid_probe_is_wholedisk),
+                        DLSYM_ARG(blkid_probe_lookup_value),
+                        DLSYM_ARG(blkid_probe_numof_values),
+                        DLSYM_ARG(blkid_probe_set_device),
+                        DLSYM_ARG(blkid_probe_set_hint),
+                        DLSYM_ARG(blkid_probe_set_partitions_flags),
+                        DLSYM_ARG(blkid_probe_set_sectorsize),
+                        DLSYM_ARG(blkid_probe_set_superblocks_flags),
+                        DLSYM_ARG(blkid_safe_string));
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libblkid support is not compiled in.");
+#endif
+}

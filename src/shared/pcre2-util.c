@@ -28,7 +28,7 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
 const struct hash_ops pcre2_code_hash_ops_free = {};
 #endif
 
-int dlopen_pcre2(void) {
+int dlopen_pcre2(int log_level) {
 #if HAVE_PCRE2
         SD_ELF_NOTE_DLOPEN(
                         "pcre2",
@@ -45,7 +45,7 @@ int dlopen_pcre2(void) {
          * manually anymore. C is weird. 🤯 */
 
         return dlopen_many_sym_or_warn(
-                        &pcre2_dl, "libpcre2-8.so.0", LOG_ERR,
+                        &pcre2_dl, "libpcre2-8.so.0", log_level,
                         DLSYM_ARG(pcre2_match_data_create),
                         DLSYM_ARG(pcre2_match_data_free),
                         DLSYM_ARG(pcre2_code_free),
@@ -54,7 +54,8 @@ int dlopen_pcre2(void) {
                         DLSYM_ARG(pcre2_match),
                         DLSYM_ARG(pcre2_get_ovector_pointer));
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "PCRE2 support is not compiled in.");
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "PCRE2 support is not compiled in.");
 #endif
 }
 
@@ -67,7 +68,7 @@ int pattern_compile_and_log(const char *pattern, PatternCompileCase case_, pcre2
 
         assert(pattern);
 
-        r = dlopen_pcre2();
+        r = dlopen_pcre2(LOG_ERR);
         if (r < 0)
                 return r;
 

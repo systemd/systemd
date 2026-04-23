@@ -11,8 +11,8 @@
 /* libbpf, clang, llvm and bpftool compile time dependencies are satisfied */
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
-#include "bpf/socket-bind/socket-bind-api.bpf.h"
-#include "bpf/socket-bind/socket-bind-skel.h"
+#include "socket-bind-api.bpf.h"
+#include "socket-bind-skel.h"
 
 static struct socket_bind_bpf *socket_bind_bpf_free(struct socket_bind_bpf *obj) {
         /* socket_bind_bpf__destroy handles object == NULL case */
@@ -125,7 +125,7 @@ int bpf_socket_bind_supported(void) {
         _cleanup_(socket_bind_bpf_freep) struct socket_bind_bpf *obj = NULL;
         int r;
 
-        if (dlopen_bpf_full(LOG_WARNING) < 0)
+        if (dlopen_bpf(LOG_WARNING) < 0)
                 return false;
 
         r = prepare_socket_bind_bpf(/* unit= */ NULL, /* allow_rules= */ NULL, /* deny_rules= */ NULL, &obj);

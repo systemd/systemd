@@ -285,6 +285,10 @@ jobs:
           - Instructions to return ONLY a raw JSON array of findings. No markdown,
             no explanation, no code fences — just the JSON array. If there are no
             findings, return `[]`.
+          - Instructions that `severity` is a separate structured field — do NOT
+            repeat it inside `body` (no "must-fix:", "**suggestion**:", etc.
+            prefix). The posting step adds the severity label itself, so
+            including it in `body` produces duplicates.
 
           ## Phase 2: Collect, deduplicate, and summarize
 
@@ -488,7 +492,7 @@ jobs:
                   ...(c.side != null && { side: c.side }),
                   ...(c.start_line != null && { start_line: c.start_line }),
                   ...(c.start_side != null && { start_side: c.start_side }),
-                  body: c.body,
+                  body: `Claude: **${c.severity}**: ${c.body}`,
                 });
                 posted++;
               } catch (e) {

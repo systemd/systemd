@@ -11,7 +11,7 @@ static inline void dlclosep(void **dlp) {
         safe_dlclose(*dlp);
 }
 
-int dlopen_verbose(void **dlp, const char *filename);
+int dlopen_verbose(void **dlp, const char *filename, int log_level);
 int dlsym_many_or_warn_sentinel(void *dl, int log_level, ...) _sentinel_;
 int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_level, ...) _sentinel_;
 

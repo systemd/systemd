@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdbool.h>
 
 #include "sd-bus.h"
@@ -15,8 +14,10 @@
 #include "bus-util.h"
 #include "daemon-util.h"
 #include "errno-util.h"
+#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "printk-util.h"
@@ -30,79 +31,60 @@ static bool arg_varlink = false;
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-mute-console", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n"
-               "\n%sMute status output to the console.%s\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "     --kernel=BOOL     Mute kernel log output\n"
-               "     --pid1=BOOL       Mute PID 1 status output\n"
-               "\nSee the %s for details.\n",
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...]\n\n"
+               "%sMute status output to the console.%s\n\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_normal(),
-               link);
+               ansi_normal());
 
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_KERNEL,
-                ARG_PID1,
-        };
-
-        static const struct option options[] = {
-                { "help",    no_argument,       NULL, 'h'           },
-                { "version", no_argument,       NULL, ARG_VERSION   },
-                { "kernel",  required_argument, NULL, ARG_KERNEL    },
-                { "pid1",    required_argument, NULL, ARG_PID1      },
-                {}
-        };
-
-        int c, r;
-
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        OptionParser state = { argc, argv };
+        const char *arg;
+        int r;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_PID1:
-                        r = parse_boolean_argument("--pid1=", optarg, &arg_mute_pid1);
+                OPTION_LONG("kernel", "BOOL", "Mute kernel log output"):
+                        r = parse_boolean_argument("--kernel=", arg, &arg_mute_kernel);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_KERNEL:
-                        r = parse_boolean_argument("--kernel=", optarg, &arg_mute_kernel);
+                OPTION_LONG("pid1", "BOOL", "Mute PID 1 status output"):
+                        r = parse_boolean_argument("--pid1=", arg, &arg_mute_pid1);
                         if (r < 0)
                                 return r;
-
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
-        }
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)

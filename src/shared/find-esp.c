@@ -75,9 +75,9 @@ static int verify_esp_blkid(
         const char *v;
         int r;
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_DEBUG);
         if (r < 0)
-                return log_debug_errno(r, "No libblkid support: %m");
+                return r;
 
         r = devname_from_devnum(S_IFBLK, devid, &node);
         if (r < 0)
@@ -572,9 +572,9 @@ static int verify_xbootldr_blkid(
         const char *type, *v;
         int r;
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_DEBUG);
         if (r < 0)
-                return log_debug_errno(r, "No libblkid support: %m");
+                return r;
 
         r = devname_from_devnum(S_IFBLK, devid, &node);
         if (r < 0)

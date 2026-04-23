@@ -332,6 +332,7 @@ typedef struct Network {
         int ip_forwarding[2];
         int ipv4_accept_local;
         int ipv4_route_localnet;
+        int ipv4_src_valid_mark;
         int ipv6_dad_transmits;
         uint8_t ipv6_hop_limit;
         usec_t ipv6_retransmission_time;

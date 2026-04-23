@@ -427,7 +427,7 @@ int dhcp_option_parse_string(const uint8_t *option, size_t len, char **ret) {
         if (r < 0)
                 return r;
 
-        if (!string_is_safe(string) || !utf8_is_valid(string))
+        if (!string_is_safe(string, STRING_ALLOW_EMPTY|STRING_ALLOW_GLOBS))
                 return -EINVAL;
 
         *ret = TAKE_PTR(string);

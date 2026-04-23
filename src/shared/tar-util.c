@@ -511,11 +511,9 @@ static int archive_entry_read_acl(
         assert(c > 0);
 
 #if HAVE_ACL
-        r = dlopen_libacl();
-        if (r < 0) {
-                log_debug_errno(r, "Not restoring ACL data on inode as libacl is not available: %m");
+        r = dlopen_libacl(LOG_DEBUG);
+        if (r < 0)
                 return 0;
-        }
 
         _cleanup_(acl_freep) acl_t a = NULL;
         a = sym_acl_init(c);
@@ -1480,10 +1478,8 @@ static int archive_item(
 #if HAVE_ACL
         if (inode_type_can_acl(sx->stx_mode)) {
 
-                r = dlopen_libacl();
-                if (r < 0)
-                        log_debug_errno(r, "No trying to read ACL off inode, as libacl support is not available: %m");
-                else {
+                r = dlopen_libacl(LOG_DEBUG);
+                if (r >= 0) {
                         r = sym_acl_extended_file(FORMAT_PROC_FD_PATH(inode_fd));
                         if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(errno))
                                 return log_error_errno(errno, "Failed check if '%s' has ACLs: %m", path);

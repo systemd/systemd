@@ -23,8 +23,6 @@ extern DLSYM_PROTOTYPE(seccomp_rule_add_exact);
 extern DLSYM_PROTOTYPE(seccomp_syscall_resolve_name);
 extern DLSYM_PROTOTYPE(seccomp_syscall_resolve_num_arch);
 
-int dlopen_libseccomp(void);
-
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(seccomp_arch, uint32_t);
 int seccomp_arch_from_string(const char *n, uint32_t *ret);
 
@@ -163,11 +161,10 @@ static inline bool is_seccomp_available(void) {
         return false;
 }
 
-static inline int dlopen_libseccomp(void) {
-        return -EOPNOTSUPP;
-}
 
 #endif
+
+int dlopen_libseccomp(int log_level);
 
 /* This is a special value to be used where syscall filters otherwise expect errno numbers, will be
    replaced with real seccomp action. */

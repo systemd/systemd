@@ -11,10 +11,9 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "utf8.h"
 
 bool boot_entry_token_valid(const char *p) {
-        return utf8_is_valid(p) && string_is_safe(p) && filename_is_valid(p);
+        return string_is_safe(p, STRING_FILENAME);
 }
 
 static int entry_token_load_one(int rfd, const char *dir, BootEntryTokenType *type, char **token) {

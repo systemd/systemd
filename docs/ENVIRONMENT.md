@@ -679,6 +679,11 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   string format. Overrides the default maximum allowed size for a file-descriptor
   based input record to be stored in the journal.
 
+* `$SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE` – path to a configuration file for
+  `systemd-journal-remote`. When set, the specified file is used instead of the
+  default configuration file and drop-in directories. If set to the empty string
+  or `/dev/null`, configuration file parsing is skipped entirely.
+
 * `$SYSTEMD_CATALOG` – path to the compiled catalog database file to use for
   `journalctl -x`, `journalctl --update-catalog`, `journalctl --list-catalog`
   and related calls.
