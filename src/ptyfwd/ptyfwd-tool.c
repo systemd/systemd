@@ -1,14 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "build.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "pidref.h"
 #include "pretty-print.h"
@@ -28,95 +29,77 @@ STATIC_DESTRUCTOR_REGISTER(arg_title, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-pty-forward", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s  [OPTIONS...] COMMAND ...\n"
-               "\n%5$sRun command with a custom terminal background color or title.%6$s\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help              Show this help\n"
-               "     --version           Print version\n"
-               "  -q --quiet             Suppress information messages during runtime\n"
-               "     --read-only         Do not accept any user input on stdin\n"
-               "     --background=COLOR  Set ANSI color for background\n"
-               "     --title=TITLE       Set terminal title\n"
-               "\nSee the %2$s for details.\n",
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...] COMMAND ...\n"
+               "\n%sRun command with a custom terminal background color or title.%s\n"
+               "\n%sOptions:%s\n",
                program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
                ansi_normal());
 
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_READ_ONLY,
-                ARG_BACKGROUND,
-                ARG_TITLE,
-        };
-
-        static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'                    },
-                { "version",            no_argument,       NULL, ARG_VERSION            },
-                { "quiet",              no_argument,       NULL, 'q'                    },
-                { "read-only",          no_argument,       NULL, ARG_READ_ONLY          },
-                { "background",         required_argument, NULL, ARG_BACKGROUND         },
-                { "title",              required_argument, NULL, ARG_TITLE              },
-                {}
-        };
-
-        int c, r;
-
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(remaining_args);
 
-        optind = 0;
-        while ((c = getopt_long(argc, argv, "+hq", options, NULL)) >= 0)
+        OptionParser state = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
+        const char *arg;
+        int r;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case 'q':
+                OPTION('q', "quiet", NULL, "Suppress information messages during runtime"):
                         arg_quiet = true;
                         break;
 
-                case ARG_READ_ONLY:
+                OPTION_LONG("read-only", NULL, "Do not accept any user input on stdin"):
                         arg_read_only = true;
                         break;
 
-                case ARG_BACKGROUND:
-                        r = parse_background_argument(optarg, &arg_background);
+                OPTION_LONG("background", "COLOR", "Set ANSI color for background"):
+                        r = parse_background_argument(arg, &arg_background);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_TITLE:
-                        r = free_and_strdup_warn(&arg_title, optarg);
+                OPTION_LONG("title", "TITLE", "Set terminal title"):
+                        r = free_and_strdup_warn(&arg_title, arg);
                         if (r < 0)
                                 return r;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        if (optind >= argc)
+        if (option_parser_get_n_args(&state) == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected command line, refusing.");
 
+        *remaining_args = option_parser_get_args(&state);
         return 1;
 }
 
@@ -155,11 +138,12 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        _cleanup_strv_free_ char **l = strv_copy(argv + optind);
+        _cleanup_strv_free_ char **l = strv_copy(args);
         if (!l)
                 return log_oom();
 
