@@ -811,8 +811,7 @@ static void test_macros_parse_one(
                         break;
 
                 /* OPTION_GROUP: group marker (never returned by parser) */
-                OPTION_GROUP("Advanced"):
-                        break;
+                OPTION_GROUP("Advanced"): {}
 
                 /* OPTION_LONG: long only, in the "Advanced" group */
                 OPTION_LONG("debug", NULL, "Enable debug mode"):
