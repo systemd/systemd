@@ -56,7 +56,7 @@ static int parse_argv(int argc, char *argv[]) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -93,6 +93,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("list-cvm", NULL, "List all known and detectable types of confidential virtualization"):
                         return DUMP_STRING_TABLE(confidential_virtualization, ConfidentialVirtualization, _CONFIDENTIAL_VIRTUALIZATION_MAX);
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         if (option_parser_get_n_args(&state) > 0)

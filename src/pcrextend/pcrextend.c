@@ -84,7 +84,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -179,6 +179,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (arg_event_type < 0)
                                 return log_error_errno(arg_event_type, "Failed to parse --event-type= argument: %s", arg);
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         if (!!arg_file_system + arg_machine_id + arg_product_id > 1)

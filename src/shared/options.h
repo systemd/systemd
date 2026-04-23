@@ -90,6 +90,9 @@ typedef struct Option {
         OPTION_SHORT('j', NULL, \
                      "Equivalent to --json=pretty (on TTY) or --json=short (otherwise)")
 
+#define OPTION_ERROR \
+        case INT_MIN ... -1
+
 /* This is magically mapped to the beginning and end of the section */
 extern const Option __start_SYSTEMD_OPTIONS[];
 extern const Option __stop_SYSTEMD_OPTIONS[];
@@ -115,7 +118,8 @@ typedef struct OptionParser {
         char **argv;                  /* The argv array, possibly reordered. */
         OptionParserMode mode;
 
-        bool parsing_stopped;         /* We processed "--" or an option that terminates option parsing. */
+        bool parsing_stopped;         /* We processed "--" or an option that terminates option parsing. This
+                                       * is also set if we have seen an error in the previous iteration. */
         int optind;                   /* Position of the parameter being handled.
                                        * 0 → option parsing hasn't been started yet. */
         int short_option_offset;      /* Set when we're parsing an argument with one or more short options.
@@ -132,15 +136,11 @@ int option_parse(
                 const char **ret_arg);
 
 /* Iterate over options. */
-#define FOREACH_OPTION_FULL(parser, opt, ret_o, ret_a, on_error) \
+#define FOREACH_OPTION_FULL(parser, opt, ret_o, ret_a)                  \
         for (int opt; (opt = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, parser, ret_o, ret_a)) != 0; ) \
-                if (opt < 0) {                                                  \
-                        on_error;                                               \
-                        break;                                                  \
-                } else
 
-#define FOREACH_OPTION(parser, opt, ret_a, on_error) \
-        FOREACH_OPTION_FULL(parser, opt, /* ret_o= */ NULL, ret_a, on_error)
+#define FOREACH_OPTION(parser, opt, ret_a) \
+        FOREACH_OPTION_FULL(parser, opt, /* ret_o= */ NULL, ret_a)
 
 char* option_parser_next_arg(const OptionParser *state);
 char* option_parser_consume_next_arg(OptionParser *state);

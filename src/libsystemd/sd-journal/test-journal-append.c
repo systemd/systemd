@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP: {
@@ -221,6 +221,9 @@ int main(int argc, char *argv[]) {
 
                         run_one = true;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         if (run_one)

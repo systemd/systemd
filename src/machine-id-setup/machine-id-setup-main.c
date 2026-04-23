@@ -79,7 +79,7 @@ static int parse_argv(int argc, char *argv[]) {
         const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -115,6 +115,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("print", NULL, "Print used machine ID"):
                         arg_print = true;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         if (option_parser_get_n_args(&state) > 0)

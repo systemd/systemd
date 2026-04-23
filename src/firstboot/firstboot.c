@@ -1273,7 +1273,7 @@ static int parse_argv(int argc, char *argv[]) {
         const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -1486,6 +1486,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("reset", NULL, "Remove existing files"):
                         arg_reset = true;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         if (arg_delete_root_password && (arg_copy_root_password || arg_root_password || arg_prompt_root_password))

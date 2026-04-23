@@ -240,7 +240,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -289,6 +289,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('u', "uuid", NULL, "Output in UUID format"):
                         arg_mode = ID128_PRINT_UUID;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         *ret_args = option_parser_get_args(&state);

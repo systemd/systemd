@@ -827,7 +827,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -1024,6 +1024,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('q', "quiet", NULL, "Suppress informational messages"):
                         arg_quiet = true;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         SET_FLAG(arg_credential_flags, CREDENTIAL_IPC_ALLOW_INTERACTIVE, arg_ask_password);

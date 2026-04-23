@@ -1116,7 +1116,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -1237,6 +1237,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_import_flags &= ~IMPORT_PULL_KEEP_DOWNLOAD;
                         arg_import_flags_mask |= IMPORT_PULL_KEEP_DOWNLOAD;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         *ret_args = option_parser_get_args(&state);
