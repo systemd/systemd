@@ -27,6 +27,8 @@ typedef struct NTS_AEADParam {
         const char *cipher_name;
 } NTS_AEADParam;
 
+typedef uint8_t NTS_Identifier[32];
+
 typedef enum NTS_ErrorType {
         NTS_SERVER_UNKNOWN_CRIT_RECORD = 0,
         NTS_SERVER_BAD_REQUEST = 1,
