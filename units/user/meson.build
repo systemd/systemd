@@ -61,6 +61,13 @@ units = [
           'file' : 'systemd-journalctl.socket',
           'symlinks' : ['sockets.target.wants/'],
         },
+        {
+          'file' : 'systemd-storage-fs.socket',
+          'symlinks' : ['sockets.target.wants/']
+        },
+        {
+          'file' : 'systemd-storage-fs@.service.in',
+        },
         { 'file' : 'systemd-tmpfiles-clean.service' },
         { 'file' : 'systemd-tmpfiles-clean.timer' },
         { 'file' : 'systemd-tmpfiles-setup.service' },
