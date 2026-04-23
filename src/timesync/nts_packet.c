@@ -18,27 +18,6 @@
  */
 #define CHRONY_WORKAROUND
 
-typedef enum NTS_RecordType {
-        /* critical */
-        NTS_EndOfMessage = 0,
-        NTS_NextProto = 1,
-        NTS_Error = 2,
-        NTS_Warning = 3,
-        /* may be critical */
-        NTS_AEADAlgorithm = 4,
-        /* never critical */
-        NTS_NTPv4Cookie = 5,
-        /* never critical by clients, may be critical by servers */
-        NTS_NTPv4Server = 6,
-        NTS_NTPv4Port = 7,
-        /* https://chrony-project.org/doc/spec/nts-compliant-128gcm.html */
-        NTS_Chrony_BugWorkaround = 1024,
-} NTS_RecordType;
-
-typedef enum NTS_ProtocolType {
-        NTS_PROTO_NTPv4 = 0,
-} NTS_ProtocolType;
-
 typedef struct {
         uint8_t *data;
         uint8_t *data_end;
@@ -95,18 +74,18 @@ static int NTS_decode_record(slice *message, NTS_Record *record) {
         record->body.data_end = message->data += body_size;
 
         switch (record->type) {
-        case NTS_Error:
-        case NTS_Warning:
-        case NTS_NTPv4Port:
+        case NTS_REC_Error:
+        case NTS_REC_Warning:
+        case NTS_REC_NTPv4Port:
                 if (body_size != 2)
                         goto error;
                 break;
-        case NTS_EndOfMessage:
+        case NTS_REC_EndOfMessage:
                 if (body_size != 0)
                         goto error;
                 break;
-        case NTS_AEADAlgorithm:
-        case NTS_NextProto:
+        case NTS_REC_AEADAlgorithm:
+        case NTS_REC_NextProto:
                 if (body_size % 2 != 0)
                         goto error;
                 break;
@@ -114,8 +93,8 @@ static int NTS_decode_record(slice *message, NTS_Record *record) {
                 if (is_critical)
                         return -NTS_UNKNOWN_CRIT_RECORD;
                 break;
-        case NTS_NTPv4Server:
-        case NTS_NTPv4Cookie:
+        case NTS_REC_NTPv4Server:
+        case NTS_REC_NTPv4Cookie:
                 break;
         }
 
@@ -175,19 +154,19 @@ int NTS_encode_request(
         }
 
         int result;
-        result = NTS_encode_record_u16(&request, true, NTS_NextProto, proto, ELEMENTSOF(proto));
+        result = NTS_encode_record_u16(&request, true, NTS_REC_NextProto, proto, ELEMENTSOF(proto));
         if (result < 0)
                 return result;
 
-        result = NTS_encode_record_u16(&request, true, NTS_AEADAlgorithm, aead, aead_len);
+        result = NTS_encode_record_u16(&request, true, NTS_REC_AEADAlgorithm, aead, aead_len);
         if (result < 0)
                 return result;
 #ifdef CHRONY_WORKAROUND
-        result = NTS_encode_record_u16(&request, false, NTS_Chrony_BugWorkaround, NULL, 0);
+        result = NTS_encode_record_u16(&request, false, NTS_REC_Chrony_BugWorkaround, NULL, 0);
         if (result < 0)
                 return result;
 #endif
-        result = NTS_encode_record_u16(&request, true, NTS_EndOfMessage, NULL, 0);
+        result = NTS_encode_record_u16(&request, true, NTS_REC_EndOfMessage, NULL, 0);
         if (result < 0)
                 return result;
 
@@ -220,7 +199,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                 }
 
                 switch (rec.type) {
-                case NTS_Error:
+                case NTS_REC_Error:
                         val = NTS_decode_u16(&rec);
                         if (val < 0)
                                 goto unexpected_end;
@@ -228,7 +207,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                         response->error = val;
                         return -EBADMSG;
 
-                case NTS_Warning:
+                case NTS_REC_Warning:
                         val = NTS_decode_u16(&rec);
                         if (val < 0)
                                 goto unexpected_end;
@@ -236,7 +215,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                         response->error = NTS_UNEXPECTED_WARNING;
                         return -EBADMSG;
 
-                case NTS_EndOfMessage:
+                case NTS_REC_EndOfMessage:
                         if (ntp_server_terminator)
                                 /* this hack saves having to allocate a string that we are going to keep in-memory */
                                 *ntp_server_terminator = '\0';
@@ -249,7 +228,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                                 return -EBADMSG;
                         }
 
-                case NTS_NextProto:
+                case NTS_REC_NextProto:
                         /* confirm that NTPv4 is on offer */
                         do {
                                 val = NTS_decode_u16(&rec);
@@ -261,7 +240,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                         is_ntp4 = true;
                         break;
 
-                case NTS_AEADAlgorithm:
+                case NTS_REC_AEADAlgorithm:
                         /* confirm that one of the supported AEAD algo's is offered */
                         val = NTS_decode_u16(&rec);
                         if (val < 0 || !NTS_get_param(val)) {
@@ -271,7 +250,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                         response->aead_id = val;
                         break;
 
-                case NTS_NTPv4Cookie:
+                case NTS_REC_NTPv4Cookie:
                         /* ignore any cookies in excess of eight */
                         if (cookie_nr < ELEMENTSOF(response->cookie)) {
                                 NTS_Cookie *cookie = &response->cookie[cookie_nr++];
@@ -280,7 +259,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                         }
                         break;
 
-                case NTS_NTPv4Server:
+                case NTS_REC_NTPv4Server:
                         /* do limited sanity check */
                         if (capacity(&rec.body) > 255) {
                                 response->error = NTS_BAD_RESPONSE;
@@ -296,7 +275,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                         ntp_server_terminator = (char *)rec.body.data_end;
                         break;
 
-                case NTS_NTPv4Port:
+                case NTS_REC_NTPv4Port:
                         val = NTS_decode_u16(&rec);
                         if (val < 0)
                                 goto unexpected_end;
