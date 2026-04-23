@@ -45,7 +45,7 @@
       <filename>/usr/lib/</filename> it is assumed to be trusted.</para></listitem>
 
       <listitem><para>If the disk image contains a Verity enabled disk image, along with a signature
-      partition with a key in the kernel keyring or in <filename>/etc/verity.d/</filename> (and related
+      partition with a key in the kernel keyring or in <filename>/etc/verity.d/*.crt</filename> (and related
       directories) the disk image is considered trusted.</para></listitem>
     </orderedlist>
 
