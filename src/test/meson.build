@@ -132,6 +132,7 @@ simple_tests += files(
         'test-iovec-util.c',
         'test-iovec-wrapper.c',
         'test-ip-protocol-list.c',
+        'test-iref.c',
         'test-journal-importer.c',
         'test-kbd-util.c',
         'test-label.c',

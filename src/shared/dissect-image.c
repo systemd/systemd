@@ -42,6 +42,7 @@
 #include "hostname-setup.h"
 #include "image-policy.h"
 #include "import-util.h"
+#include "iref.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
@@ -4678,7 +4679,7 @@ int mount_image_privately_interactively(
                 const ImagePolicy *image_policy,
                 DissectImageFlags flags,
                 char **ret_directory,
-                int *ret_dir_fd,
+                InodeRef **ret_iref,
                 LoopDevice **ret_loop_device) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
@@ -4767,14 +4768,14 @@ int mount_image_privately_interactively(
                         return log_oom();
         }
 
-        if (ret_dir_fd) {
+        if (ret_iref) {
                 _cleanup_close_ int dir_fd = -EBADF;
 
-                dir_fd = open("/run/systemd/mount-rootfs", O_CLOEXEC|O_DIRECTORY);
-                if (dir_fd < 0)
-                        return log_error_errno(errno, "Failed to open mount point directory: %m");
+                r = iref_open(/* i= */ NULL, "/run/systemd/mount-rootfs", O_CLOEXEC|O_DIRECTORY, MODE_INVALID, ret_iref);
+                if (r < 0)
+                        return r;
 
-                *ret_dir_fd = TAKE_FD(dir_fd);
+                iref_make_root(*ret_iref);
         }
 
         if (ret_directory)

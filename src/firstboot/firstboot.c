@@ -30,6 +30,7 @@
 #include "help-util.h"
 #include "hostname-util.h"
 #include "image-policy.h"
+#include "iref.h"
 #include "kbd-util.h"
 #include "label-util.h"
 #include "libcrypt-util.h"
@@ -107,12 +108,12 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static bool welcome_done = false;
 
-static void print_welcome(int rfd, sd_varlink **mute_console_link) {
+static void print_welcome(InodeRef *root, sd_varlink **mute_console_link) {
         _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL, *fancy_name = NULL;
         const char *pn, *ac;
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
         assert(mute_console_link);
 
         /* Needs to be called before mute_console or it will garble the screen */
@@ -135,7 +136,7 @@ static void print_welcome(int rfd, sd_varlink **mute_console_link) {
         if (arg_chrome)
                 chrome_show("Initial Setup", /* bottom= */ NULL);
 
-        r = parse_os_release_at(rfd,
+        r = parse_os_release_at(iref_fd(root),
                                 "PRETTY_NAME", &pretty_name,
                                 "FANCY_NAME", &fancy_name,
                                 "NAME", &os_name,
@@ -164,23 +165,23 @@ static void print_welcome(int rfd, sd_varlink **mute_console_link) {
         welcome_done = true;
 }
 
-static int should_configure(int dir_fd, const char *filename) {
+static int should_configure(InodeRef *i, const char *filename) {
         _cleanup_fclose_ FILE *passwd = NULL, *shadow = NULL;
         int r;
 
-        assert(dir_fd >= 0);
+        assert(i);
         assert(filename);
 
         if (streq(filename, "passwd") && !arg_force)
                 /* We may need to do additional checks, so open the file. */
-                r = xfopenat(dir_fd, filename, "re", O_NOFOLLOW, &passwd);
+                r = iref_fopen(i, filename, "re", &passwd);
         else
-                r = RET_NERRNO(faccessat(dir_fd, filename, F_OK, AT_SYMLINK_NOFOLLOW));
+                r = iref_access(i, filename, F_OK);
 
         if (r == -ENOENT)
                 return true; /* missing */
         if (r < 0)
-                return log_error_errno(r, "Failed to access %s: %m", filename);
+                return log_error_errno(r, "Failed to access %s/%s: %m", iref_path(i), filename);
         if (arg_force)
                 return true; /* exists, but if --force was given we should still configure the file. */
 
@@ -190,24 +191,24 @@ static int should_configure(int dir_fd, const char *filename) {
         /* In case of /etc/passwd, do an additional check for the root password field.
          * We first check that passwd redirects to shadow, and then we check shadow.
          */
-        struct passwd *i;
-        while ((r = fgetpwent_sane(passwd, &i)) > 0) {
-                if (!streq(i->pw_name, "root"))
+        struct passwd *p;
+        while ((r = fgetpwent_sane(passwd, &p)) > 0) {
+                if (!streq(p->pw_name, "root"))
                         continue;
 
-                if (streq_ptr(i->pw_passwd, PASSWORD_SEE_SHADOW))
+                if (streq_ptr(p->pw_passwd, PASSWORD_SEE_SHADOW))
                         break;
                 log_debug("passwd: root account with non-shadow password found, treating root as configured");
                 return false;
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to read %s: %m", filename);
+                return log_error_errno(r, "Failed to read %s/%s: %m", iref_path(i), filename);
         if (r == 0) {
-                log_debug("No root account found in %s, assuming root is not configured.", filename);
+                log_debug("No root account found in %s/%s, assuming root is not configured.", iref_path(i), filename);
                 return true;
         }
 
-        r = xfopenat(dir_fd, "shadow", "re", O_NOFOLLOW, &shadow);
+        r = iref_fopen(i, "shadow", "re", &shadow);
         if (r == -ENOENT) {
                 log_debug("No shadow file found, assuming root is not configured.");
                 return true; /* missing */
@@ -215,40 +216,41 @@ static int should_configure(int dir_fd, const char *filename) {
         if (r < 0)
                 return log_error_errno(r, "Failed to access shadow: %m");
 
-        struct spwd *j;
-        while ((r = fgetspent_sane(shadow, &j)) > 0) {
-                if (!streq(j->sp_namp, "root"))
+        struct spwd *s;
+        while ((r = fgetspent_sane(shadow, &s)) > 0) {
+                if (!streq(s->sp_namp, "root"))
                         continue;
 
-                bool unprovisioned = streq_ptr(j->sp_pwdp, PASSWORD_UNPROVISIONED);
+                bool unprovisioned = streq_ptr(s->sp_pwdp, PASSWORD_UNPROVISIONED);
                 log_debug("Root account found, %s.",
                           unprovisioned ? "with unprovisioned password, treating root as not configured" :
                                           "treating root as configured");
                 return unprovisioned;
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to read shadow: %m");
+                return log_error_errno(r, "Failed to read %s/shadow: %m", iref_path(i));
         assert(r == 0);
-        log_debug("No root account found in shadow, assuming root is not configured.");
+        log_debug("No root account found in %s/shadow, assuming root is not configured.", iref_path(i));
         return true;
 }
 
 static int locale_is_ok(const char *name, void *userdata) {
-        int rfd = ASSERT_FD(PTR_TO_FD(userdata)), r;
+        InodeRef *root = ASSERT_PTR(userdata);
+        int r;
 
-        r = dir_fd_is_root(rfd);
+        r = iref_is_root(root);
         if (r < 0)
                 log_debug_errno(r, "Unable to determine if operating on host root directory, assuming we are: %m");
 
         return r != 0 ? locale_is_installed(name) > 0 : locale_is_valid(name);
 }
 
-static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
+static int prompt_locale(InodeRef *root, sd_varlink **mute_console_link) {
         _cleanup_strv_free_ char **locales = NULL;
         bool acquired_from_creds = false;
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
 
         if (arg_locale || arg_locale_messages)
                 return 0;
@@ -295,7 +297,7 @@ static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
                         /* Not setting arg_locale_message here, since it defaults to LANG anyway */
                 }
         } else {
-                print_welcome(rfd, mute_console_link);
+                print_welcome(root, mute_console_link);
 
                 _cleanup_free_ char *prefill = NULL;
                 (void) locale_lang_from_efi(&prefill, LOCALE_REQUIRE_INSTALLED|LOCALE_SUPPRESS_EN_US);
@@ -310,7 +312,7 @@ static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
                                 /* column_width= */ 20,
                                 locale_is_ok,
                                 /* refresh= */ NULL,
-                                FD_TO_PTR(rfd),
+                                root,
                                 PROMPT_MAY_SKIP|PROMPT_SHOW_MENU,
                                 &arg_locale);
                 if (r < 0)
@@ -328,7 +330,7 @@ static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
                                 /* column_width= */ 20,
                                 locale_is_ok,
                                 /* refresh= */ NULL,
-                                FD_TO_PTR(rfd),
+                                root,
                                 PROMPT_MAY_SKIP|PROMPT_SHOW_MENU,
                                 &arg_locale_messages);
                 if (r < 0)
@@ -342,43 +344,41 @@ static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
         return 0;
 }
 
-static int process_locale(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_close_ int pfd = -EBADF;
+static int process_locale(InodeRef *root, sd_varlink **mute_console_link) {
         _cleanup_free_ char *f = NULL;
         char* locales[3];
         unsigned i = 0;
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
 
-        pfd = chase_and_open_parent_at(rfd, rfd, etc_locale_conf(),
-                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
-                                       &f);
-        if (pfd < 0)
-                return log_error_errno(pfd, "Failed to chase /etc/locale.conf: %m");
+        _cleanup_(iref_unrefp) InodeRef *parent = NULL;
+        r = iref_open_parent(root, etc_locale_conf(), CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW, &parent, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chase %s%s: %m", iref_path(root), etc_locale_conf());
 
-        r = should_configure(pfd, f);
+        r = should_configure(parent, f);
         if (r == 0)
-                log_debug("Found /etc/locale.conf, assuming locale information has been configured.");
+                log_debug("Found %s/%s, assuming locale information has been configured.", iref_path(parent), f);
         if (r <= 0)
                 return r;
 
-        r = dir_fd_is_root(rfd);
+        r = iref_is_root(root);
         if (r < 0)
-                return log_error_errno(r, "Failed to check if directory file descriptor is root: %m");
+                return log_error_errno(r, "Failed to check if inode ref is root: %m");
 
         if (arg_copy_locale && r == 0) {
-                r = copy_file_atomic_at(AT_FDCWD, etc_locale_conf(), pfd, f, 0644, COPY_REFLINK);
+                r = copy_file_atomic_at(AT_FDCWD, etc_locale_conf(), iref_fd(parent), f, 0644, COPY_REFLINK);
                 if (r != -ENOENT) {
                         if (r < 0)
-                                return log_error_errno(r, "Failed to copy host's /etc/locale.conf: %m");
+                                return log_error_errno(r, "Failed to copy host's /etc/locale.conf to %s/%s: %m", iref_path(parent), f);
 
-                        log_info("Copied host's /etc/locale.conf.");
+                        log_info("Copied host's /etc/locale.conf to %s/%s.", iref_path(parent), f);
                         return 0;
                 }
         }
 
-        r = prompt_locale(rfd, mute_console_link);
+        r = prompt_locale(root, mute_console_link);
         if (r < 0)
                 return r;
 
@@ -393,33 +393,34 @@ static int process_locale(int rfd, sd_varlink **mute_console_link) {
         locales[i] = NULL;
 
         r = write_env_file(
-                        pfd,
+                        iref_fd(parent),
                         f,
                         /* headers= */ NULL,
                         locales,
                         WRITE_ENV_FILE_LABEL);
         if (r < 0)
-                return log_error_errno(r, "Failed to write /etc/locale.conf: %m");
+                return log_error_errno(r, "Failed to write %s/%s: %m", iref_path(parent), f);
 
-        log_info("/etc/locale.conf written.");
+        log_info("%s/%s written.", iref_path(parent), f);
         return 1;
 }
 
 static int keymap_is_ok(const char* name, void *userdata) {
-        int rfd = ASSERT_FD(PTR_TO_FD(userdata)), r;
+        InodeRef *root = ASSERT_PTR(userdata);
+        int r;
 
-        r = dir_fd_is_root(rfd);
+        r = iref_is_root(root);
         if (r < 0)
                 log_debug_errno(r, "Unable to determine if operating on host root directory, assuming we are: %m");
 
         return r != 0 ? keymap_exists(name) > 0 : keymap_is_valid(name);
 }
 
-static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
+static int prompt_keymap(InodeRef *root, sd_varlink **mute_console_link) {
         _cleanup_strv_free_ char **kmaps = NULL;
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
 
         if (arg_keymap)
                 return 0;
@@ -461,7 +462,7 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read keymaps: %m");
 
-        print_welcome(rfd, mute_console_link);
+        print_welcome(root, mute_console_link);
 
         _cleanup_free_ char *prefill = NULL;
         (void) vconsole_keymap_from_efi(&prefill);
@@ -477,37 +478,35 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
                         /* column_width= */ 20,
                         keymap_is_ok,
                         /* refresh= */ NULL,
-                        FD_TO_PTR(rfd),
+                        root,
                         PROMPT_MAY_SKIP|PROMPT_SHOW_MENU,
                         &arg_keymap);
 }
 
-static int process_keymap(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_close_ int pfd = -EBADF;
+static int process_keymap(InodeRef *root, sd_varlink **mute_console_link) {
         _cleanup_free_ char *f = NULL;
         _cleanup_strv_free_ char **keymap = NULL;
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
 
-        pfd = chase_and_open_parent_at(rfd, rfd, etc_vconsole_conf(),
-                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
-                                       &f);
-        if (pfd < 0)
-                return log_error_errno(pfd, "Failed to chase /etc/vconsole.conf: %m");
+        _cleanup_(iref_unrefp) InodeRef *parent = NULL;
+        r = iref_open_parent(root, etc_vconsole_conf(), CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW, &parent, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chase %s%s: %m", iref_path(root), etc_vconsole_conf());
 
-        r = should_configure(pfd, f);
+        r = should_configure(parent, f);
         if (r == 0)
-                log_debug("Found /etc/vconsole.conf, assuming console has been configured.");
+                log_debug("Found %s/%s, assuming console has been configured.", iref_path(parent), f);
         if (r <= 0)
                 return r;
 
-        r = dir_fd_is_root(rfd);
+        r = iref_is_root(root);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if directory file descriptor is root: %m");
 
         if (arg_copy_keymap && r == 0) {
-                r = copy_file_atomic_at(AT_FDCWD, etc_vconsole_conf(), pfd, f, 0644, COPY_REFLINK);
+                r = copy_file_atomic_at(AT_FDCWD, etc_vconsole_conf(), iref_fd(parent), f, 0644, COPY_REFLINK);
                 if (r != -ENOENT) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy host's /etc/vconsole.conf: %m");
@@ -517,7 +516,7 @@ static int process_keymap(int rfd, sd_varlink **mute_console_link) {
                 }
         }
 
-        r = prompt_keymap(rfd, mute_console_link);
+        r = prompt_keymap(root, mute_console_link);
         if (r == -ENOENT)
                 return 0; /* don't fail if no keymaps are installed */
         if (r < 0)
@@ -539,7 +538,7 @@ static int process_keymap(int rfd, sd_varlink **mute_console_link) {
         if (r < 0)
                 return log_error_errno(r, "Failed to serialize keymap data: %m");
 
-        r = write_vconsole_conf(pfd, f, keymap);
+        r = write_vconsole_conf(iref_fd(parent), f, keymap);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/vconsole.conf: %m");
 
@@ -551,11 +550,11 @@ static int timezone_is_ok(const char *name, void *userdata) {
         return timezone_is_valid(name, LOG_DEBUG);
 }
 
-static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
+static int prompt_timezone(InodeRef *root, sd_varlink **mute_console_link) {
         _cleanup_strv_free_ char **zones = NULL;
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
 
         if (arg_timezone)
                 return 0;
@@ -581,7 +580,7 @@ static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
         if (r < 0)
                 return log_error_errno(r, "Cannot query timezone list: %m");
 
-        print_welcome(rfd, mute_console_link);
+        print_welcome(root, mute_console_link);
 
         return prompt_loop(
                         "Please enter the new timezone name or number",
@@ -594,34 +593,32 @@ static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
                         /* column_width= */ 20,
                         timezone_is_ok,
                         /* refresh= */ NULL,
-                        FD_TO_PTR(rfd),
+                        root,
                         PROMPT_MAY_SKIP|PROMPT_SHOW_MENU,
                         &arg_timezone);
 }
 
-static int process_timezone(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_close_ int pfd = -EBADF;
+static int process_timezone(InodeRef *root, sd_varlink **mute_console_link) {
         _cleanup_free_ char *f = NULL, *relpath = NULL;
         const char *e;
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
 
-        pfd = chase_and_open_parent_at(rfd, rfd, etc_localtime(),
-                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
-                                       &f);
-        if (pfd < 0)
-                return log_error_errno(pfd, "Failed to chase /etc/localtime: %m");
+        _cleanup_(iref_unrefp) InodeRef *parent = NULL;
+        r = iref_open_parent(root, etc_localtime(), CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW, &parent, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chase %s%s: %m", iref_path(root), etc_localtime());
 
-        r = should_configure(pfd, f);
+        r = should_configure(parent, f);
         if (r == 0)
-                log_debug("Found /etc/localtime, assuming timezone has been configured.");
+                log_debug("Found %s/%s, assuming timezone has been configured.", iref_path(parent), f);
         if (r <= 0)
                 return r;
 
-        r = dir_fd_is_root(rfd);
+        r = iref_is_root(root);
         if (r < 0)
-                return log_error_errno(r, "Failed to check if directory file descriptor is root: %m");
+                return log_error_errno(r, "Failed to check if inode ref is root: %m");
 
         if (arg_copy_timezone && r == 0) {
                 _cleanup_free_ char *s = NULL;
@@ -631,16 +628,16 @@ static int process_timezone(int rfd, sd_varlink **mute_console_link) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read host's /etc/localtime: %m");
 
-                        r = symlinkat_atomic_full(s, pfd, f, SYMLINK_LABEL);
+                        r = symlinkat_atomic_full(s, iref_fd(parent), f, SYMLINK_LABEL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to create /etc/localtime symlink: %m");
+                                return log_error_errno(r, "Failed to create %s/%s symlink: %m", iref_path(parent), f);
 
                         log_info("Copied host's /etc/localtime.");
                         return 0;
                 }
         }
 
-        r = prompt_timezone(rfd, mute_console_link);
+        r = prompt_timezone(root, mute_console_link);
         if (r < 0)
                 return r;
 
@@ -652,11 +649,11 @@ static int process_timezone(int rfd, sd_varlink **mute_console_link) {
         if (r < 0)
                 return r;
 
-        r = symlinkat_atomic_full(relpath, pfd, f, SYMLINK_LABEL);
+        r = symlinkat_atomic_full(relpath, iref_fd(parent), f, SYMLINK_LABEL);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /etc/localtime symlink: %m");
+                return log_error_errno(r, "Failed to create %s/%s symlink: %m", iref_path(parent), f);
 
-        log_info("/etc/localtime written");
+        log_info("%s/%s written", iref_path(parent), f);
         return 0;
 }
 
@@ -664,10 +661,10 @@ static int hostname_is_ok(const char *name, void *userdata) {
         return hostname_is_valid(name, VALID_HOSTNAME_TRAILING_DOT);
 }
 
-static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
+static int prompt_hostname(InodeRef *root, sd_varlink **mute_console_link) {
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
 
         if (arg_hostname)
                 return 0;
@@ -690,7 +687,7 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
                 return 0;
         }
 
-        print_welcome(rfd, mute_console_link);
+        print_welcome(root, mute_console_link);
 
         r = prompt_loop("Please enter the new hostname",
                         GLYPH_LABEL,
@@ -702,7 +699,7 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
                         /* column_width= */ 20,
                         hostname_is_ok,
                         /* refresh= */ NULL,
-                        FD_TO_PTR(rfd),
+                        root,
                         PROMPT_MAY_SKIP,
                         &arg_hostname);
         if (r < 0)
@@ -714,55 +711,53 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
         return 0;
 }
 
-static int process_hostname(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_close_ int pfd = -EBADF;
+static int process_hostname(InodeRef *root, sd_varlink **mute_console_link) {
         _cleanup_free_ char *f = NULL;
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
 
-        pfd = chase_and_open_parent_at(rfd, rfd, etc_hostname(), CHASE_MKDIR_0755|CHASE_WARN, &f);
-        if (pfd < 0)
-                return log_error_errno(pfd, "Failed to chase /etc/hostname: %m");
+        _cleanup_(iref_unrefp) InodeRef *parent = NULL;
+        r = iref_open_parent(root, etc_hostname(), CHASE_MKDIR_0755|CHASE_WARN, &parent, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chase %s%s: %m", iref_path(root), etc_hostname());
 
-        r = should_configure(pfd, f);
+        r = should_configure(parent, f);
         if (r == 0)
-                log_debug("Found /etc/hostname, assuming hostname has been configured.");
+                log_debug("Found %s/%s, assuming hostname has been configured.", iref_path(parent), f);
         if (r <= 0)
                 return r;
 
-        r = prompt_hostname(rfd, mute_console_link);
+        r = prompt_hostname(root, mute_console_link);
         if (r < 0)
                 return r;
 
         if (isempty(arg_hostname))
                 return 0;
 
-        r = write_string_file_at(pfd, f, arg_hostname,
+        r = write_string_file_at(iref_fd(parent), f, arg_hostname,
                                  WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
-                return log_error_errno(r, "Failed to write /etc/hostname: %m");
+                return log_error_errno(r, "Failed to write %s/%s: %m", iref_path(parent), f);
 
-        log_info("/etc/hostname written.");
+        log_info("%s/%s written.", iref_path(parent), f);
         return 0;
 }
 
-static int process_machine_id(int rfd) {
-        _cleanup_close_ int pfd = -EBADF;
+static int process_machine_id(InodeRef *root) {
         _cleanup_free_ char *f = NULL;
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
 
-        pfd = chase_and_open_parent_at(rfd, rfd, "/etc/machine-id",
-                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
-                                       &f);
-        if (pfd < 0)
-                return log_error_errno(pfd, "Failed to chase /etc/machine-id: %m");
+        _cleanup_(iref_unrefp) InodeRef *parent = NULL;
+        r = iref_open_parent(root, "/etc/machine-id", CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW, &parent, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chase %s/etc/machine-id: %m", iref_path(root));
 
-        r = should_configure(pfd, f);
+        r = should_configure(parent, f);
         if (r == 0)
-                log_debug("Found /etc/machine-id, assuming machine-id has been configured.");
+                log_debug("Found %s/%s, assuming machine-id has been configured.", iref_path(parent), f);
         if (r <= 0)
                 return r;
 
@@ -771,33 +766,29 @@ static int process_machine_id(int rfd) {
                 return 0;
         }
 
-        r = write_string_file_at(pfd, "machine-id", SD_ID128_TO_STRING(arg_machine_id),
+        r = write_string_file_at(iref_fd(parent), f, SD_ID128_TO_STRING(arg_machine_id),
                                  WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
-                return log_error_errno(r, "Failed to write /etc/machine-id: %m");
+                return log_error_errno(r, "Failed to write %s/%s: %m", iref_path(parent), f);
 
         log_info("/etc/machine-id written.");
         return 0;
 }
 
-static int process_machine_tags(int rfd) {
+static int process_machine_tags(InodeRef *root) {
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
 
+        _cleanup_(iref_unrefp) InodeRef *parent = NULL;
         _cleanup_free_ char *f = NULL;
-        _cleanup_close_ int pfd = chase_and_open_parent_at(
-                        /* root_fd= */ rfd,
-                        /* dir_fd= */ rfd,
-                        "/etc/machine-info",
-                        CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
-                        &f);
-        if (pfd < 0)
-                return log_error_errno(pfd, "Failed to chase /etc/machine-info parent: %m");
+        r = iref_open_parent(root, "/etc/machine-info", CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW, &parent, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chase %s/etc/kernel/cmdline: %m", iref_path(root));
 
-        r = should_configure(pfd, f);
+        r = should_configure(parent, f);
         if (r == 0)
-                log_debug("Found /etc/machine-info, assuming machine tags have been configured.");
+                log_debug("Found %s/%s, assuming kernel command line has been configured.", iref_path(parent), f);
         if (r <= 0)
                 return r;
 
@@ -834,22 +825,22 @@ static int process_machine_tags(int rfd) {
                 return log_oom();
 
         r = write_string_file_at(
-                        pfd,
+                        iref_fd(parent),
                         "machine-info",
                         c,
                         WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/machine-info: %m");
 
-        log_info("/etc/machine-info written.");
+        log_info("%s/%s written.", iref_path(parent), f);
         return 0;
 }
 
-static int prompt_root_password(int rfd, sd_varlink **mute_console_link) {
+static int prompt_root_password(InodeRef *root, sd_varlink **mute_console_link) {
         const char *msg1, *msg2;
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
 
         if (arg_root_password)
                 return 0;
@@ -862,7 +853,7 @@ static int prompt_root_password(int rfd, sd_varlink **mute_console_link) {
                 return 0;
         }
 
-        print_welcome(rfd, mute_console_link);
+        print_welcome(root, mute_console_link);
 
         msg1 = "Please enter the new root password (empty to skip):";
         msg2 = "Please enter the new root password again:";
@@ -921,31 +912,33 @@ static int prompt_root_password(int rfd, sd_varlink **mute_console_link) {
         return 0;
 }
 
-static int find_shell(int rfd, const char *path) {
+static int find_shell(InodeRef *root, const char *path) {
         int r;
 
+        assert(root);
         assert(path);
 
         if (!valid_shell(path))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid shell", path);
 
-        r = chaseat(rfd, rfd, path, /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL);
+        _cleanup_(iref_unrefp) InodeRef *i = NULL;
+        r = iref_open(root, path, O_PATH|O_CLOEXEC, MODE_INVALID, &i);
         if (r < 0)
-                return log_error_errno(r, "Failed to resolve shell %s: %m", path);
+                return log_error_errno(r, "Failed to resolve shell %s%s: %m", iref_path(root), path);
 
         return 0;
 }
 
 static int shell_is_ok(const char *path, void *userdata) {
-        int rfd = ASSERT_FD(PTR_TO_FD(userdata));
+        InodeRef *root = ASSERT_PTR(userdata);
 
-        return find_shell(rfd, path) >= 0;
+        return find_shell(root, path) >= 0;
 }
 
-static int prompt_root_shell(int rfd, sd_varlink **mute_console_link) {
+static int prompt_root_shell(InodeRef *root, sd_varlink **mute_console_link) {
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
 
         if (arg_root_shell)
                 return 0;
@@ -963,7 +956,7 @@ static int prompt_root_shell(int rfd, sd_varlink **mute_console_link) {
                 return 0;
         }
 
-        print_welcome(rfd, mute_console_link);
+        print_welcome(root, mute_console_link);
 
         return prompt_loop(
                         "Please enter the new root shell",
@@ -976,22 +969,24 @@ static int prompt_root_shell(int rfd, sd_varlink **mute_console_link) {
                         /* column_width= */ 20,
                         shell_is_ok,
                         /* refresh= */ NULL,
-                        FD_TO_PTR(rfd),
+                        root,
                         PROMPT_MAY_SKIP,
                         &arg_root_shell);
 }
 
-static int write_root_passwd(int rfd, int etc_fd, const char *password, const char *shell) {
+static int write_root_passwd(InodeRef *parent, const char *password, const char *shell, const char *default_shell) {
         _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         int r;
         bool found = false;
 
-        r = fopen_temporary_at_label(etc_fd, "passwd", "passwd", &passwd, &passwd_tmp);
+        assert(parent);
+
+        r = fopen_temporary_at_label(iref_fd(parent), "passwd", "passwd", &passwd, &passwd_tmp);
         if (r < 0)
                 return r;
 
-        r = xfopenat(etc_fd, "passwd", "re", O_NOFOLLOW, &original);
+        r = iref_fopen(parent, "passwd", "re", &original);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -1026,17 +1021,17 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
         }
 
         if (!found) {
-                struct passwd root = {
+                struct passwd root_entry = {
                         .pw_name = (char *) "root",
                         .pw_passwd = (char *) (password ?: PASSWORD_SEE_SHADOW),
                         .pw_uid = 0,
                         .pw_gid = 0,
                         .pw_gecos = (char *) "Super User",
                         .pw_dir = (char *) "/root",
-                        .pw_shell = (char *) (shell ?: default_root_shell_at(rfd)),
+                        .pw_shell = (char *) (shell ?: default_shell),
                 };
 
-                r = putpwent_sane(&root, passwd);
+                r = putpwent_sane(&root_entry, passwd);
                 if (r < 0)
                         return r;
         }
@@ -1045,24 +1040,28 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
         if (r < 0)
                 return r;
 
-        r = renameat_and_apply_smack_floor_label(etc_fd, passwd_tmp, etc_fd, "passwd");
+        r = renameat_and_apply_smack_floor_label(iref_fd(parent), passwd_tmp, iref_fd(parent), "passwd");
         if (r < 0)
                 return r;
 
         return 0;
 }
 
-static int write_root_shadow(int etc_fd, const char *hashed_password) {
+static int write_root_shadow(InodeRef *parent, const char *hashed_password) {
         _cleanup_fclose_ FILE *original = NULL, *shadow = NULL;
         _cleanup_(unlink_and_freep) char *shadow_tmp = NULL;
         int r;
         bool found = false;
 
+        assert(parent);
+
+        int etc_fd = iref_fd(parent);
+
         r = fopen_temporary_at_label(etc_fd, "shadow", "shadow", &shadow, &shadow_tmp);
         if (r < 0)
                 return r;
 
-        r = xfopenat(etc_fd, "shadow", "re", O_NOFOLLOW, &original);
+        r = iref_fopen(parent, "shadow", "re", &original);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -1097,7 +1096,7 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
         }
 
         if (!found) {
-                struct spwd root = {
+                struct spwd root_entry = {
                         .sp_namp = (char*) "root",
                         .sp_pwdp = (char *) (hashed_password ?: PASSWORD_LOCKED_AND_INVALID),
                         .sp_lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY),
@@ -1109,7 +1108,7 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
                         .sp_flag = ULONG_MAX, /* this appears to be what everybody does ... */
                 };
 
-                r = putspent_sane(&root, shadow);
+                r = putspent_sane(&root_entry, shadow);
                 if (r < 0)
                         return r;
         }
@@ -1125,29 +1124,27 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
         return 0;
 }
 
-static int process_root_account(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_close_ int pfd = -EBADF;
+static int process_root_account(InodeRef *root, sd_varlink **mute_console_link) {
         _cleanup_(release_lock_file) LockFile lock = LOCK_FILE_INIT;
         _cleanup_(erase_and_freep) char *_hashed_password = NULL;
         const char *password, *hashed_password;
         int k = 0, r;
 
-        assert(rfd >= 0);
+        assert(root);
 
-        pfd = chase_and_open_parent_at(rfd, rfd, "/etc/passwd",
-                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
-                                       NULL);
-        if (pfd < 0)
-                return log_error_errno(pfd, "Failed to chase /etc/passwd: %m");
+        _cleanup_(iref_unrefp) InodeRef *parent = NULL;
+        r = iref_open_parent(root, "/etc/passwd", CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW, &parent, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chase %s/etc/passwd: %m", iref_path(root));
 
         /* Ensure that passwd and shadow are in the same directory and are not symlinks. */
 
         FOREACH_STRING(s, "passwd", "shadow") {
-                r = verify_regular_at(pfd, s, /* follow= */ false);
+                r = verify_regular_at(iref_fd(parent), s, /* follow= */ false);
                 if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Verification of /etc/%s being regular file failed: %m", s);
+                        return log_error_errno(r, "Verification of %s/%s being regular file failed: %m", iref_path(parent), s);
 
-                r = should_configure(pfd, s);
+                r = should_configure(parent, s);
                 if (r < 0)
                         return r;
 
@@ -1155,17 +1152,18 @@ static int process_root_account(int rfd, sd_varlink **mute_console_link) {
         }
 
         if (k == 0) {
-                log_debug("Found /etc/passwd and /etc/shadow, assuming root account has been initialized.");
+                log_debug("Found %s/passwd and %s/shadow, assuming root account has been initialized.",
+                          iref_path(parent), iref_path(parent));
                 return 0;
         }
 
-        r = make_lock_file_at(pfd, ETC_PASSWD_LOCK_FILENAME, LOCK_EX, &lock);
+        r = make_lock_file_at(iref_fd(parent), ETC_PASSWD_LOCK_FILENAME, LOCK_EX, &lock);
         if (r < 0)
-                return log_error_errno(r, "Failed to take a lock on /etc/passwd: %m");
+                return log_error_errno(r, "Failed to take a lock on %s/passwd: %m", iref_path(parent));
 
-        k = dir_fd_is_root(rfd);
+        k = iref_is_root(root);
         if (k < 0)
-                return log_error_errno(k, "Failed to check if directory file descriptor is root: %m");
+                return log_error_errno(k, "Failed to check if inode ref is root: %m");
 
         if (arg_copy_root_shell && k == 0) {
                 _cleanup_free_ struct passwd *p = NULL;
@@ -1179,7 +1177,7 @@ static int process_root_account(int rfd, sd_varlink **mute_console_link) {
                         return log_oom();
         }
 
-        r = prompt_root_shell(rfd, mute_console_link);
+        r = prompt_root_shell(root, mute_console_link);
         if (r < 0)
                 return r;
 
@@ -1198,7 +1196,7 @@ static int process_root_account(int rfd, sd_varlink **mute_console_link) {
                 arg_root_password_is_hashed = true;
         }
 
-        r = prompt_root_password(rfd, mute_console_link);
+        r = prompt_root_password(root, mute_console_link);
         if (r < 0)
                 return r;
 
@@ -1230,77 +1228,77 @@ static int process_root_account(int rfd, sd_varlink **mute_console_link) {
                 return 0;
         }
 
-        r = write_root_passwd(rfd, pfd, password, arg_root_shell);
+        r = write_root_passwd(parent, password, arg_root_shell, default_root_shell_at(iref_fd(root)));
         if (r < 0)
-                return log_error_errno(r, "Failed to write /etc/passwd: %m");
+                return log_error_errno(r, "Failed to write %s/passwd: %m", iref_path(parent));
 
-        log_info("/etc/passwd written.");
+        log_info("%s/passwd written.", iref_path(parent));
 
-        r = write_root_shadow(pfd, hashed_password);
+        r = write_root_shadow(parent, hashed_password);
         if (r < 0)
-                return log_error_errno(r, "Failed to write /etc/shadow: %m");
+                return log_error_errno(r, "Failed to write %s/shadow: %m", iref_path(parent));
 
-        log_info("/etc/shadow written.");
+        log_info("%s/shadow written.", iref_path(parent));
         return 0;
 }
 
-static int process_kernel_cmdline(int rfd) {
-        _cleanup_close_ int pfd = -EBADF;
-        _cleanup_free_ char *f = NULL;
+static int process_kernel_cmdline(InodeRef *root) {
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
 
-        pfd = chase_and_open_parent_at(rfd, rfd, "/etc/kernel/cmdline",
-                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
-                                       &f);
-        if (pfd < 0)
-                return log_error_errno(pfd, "Failed to chase /etc/kernel/cmdline: %m");
+        _cleanup_(iref_unrefp) InodeRef *parent = NULL;
+        _cleanup_free_ char *f = NULL;
+        r = iref_open_parent(root, "/etc/kernel/cmdline", CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW, &parent, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chase %s/etc/kernel/cmdline: %m", iref_path(root));
 
-        r = should_configure(pfd, f);
+        r = should_configure(parent, f);
         if (r == 0)
-                log_debug("Found /etc/kernel/cmdline, assuming kernel command line has been configured.");
+                log_debug("Found %s/%s, assuming kernel command line has been configured.", iref_path(parent), f);
         if (r <= 0)
                 return r;
 
         if (!arg_kernel_cmdline) {
-                log_debug("Creation of /etc/kernel/cmdline was not requested, skipping.");
+                log_debug("Creation of %s/%s was not requested, skipping.", iref_path(parent), f);
                 return 0;
         }
 
-        r = write_string_file_at(pfd, "cmdline", arg_kernel_cmdline,
+        r = write_string_file_at(iref_fd(parent), f, arg_kernel_cmdline,
                                  WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
-                return log_error_errno(r, "Failed to write /etc/kernel/cmdline: %m");
+                return log_error_errno(r, "Failed to write %s/%s: %m", iref_path(parent), f);
 
-        log_info("/etc/kernel/cmdline written.");
+        log_info("%s/%s written.", iref_path(parent), f);
         return 0;
 }
 
-static int reset_one(int rfd, const char *path) {
-        _cleanup_close_ int pfd = -EBADF;
+static int reset_one(InodeRef *root, const char *path) {
+        _cleanup_(iref_unrefp) InodeRef *parent = NULL;
         _cleanup_free_ char *f = NULL;
-
-        assert(rfd >= 0);
-        assert(path);
-
-        pfd = chase_and_open_parent_at(rfd, rfd, path, CHASE_WARN|CHASE_NOFOLLOW, &f);
-        if (pfd == -ENOENT)
-                return 0;
-        if (pfd < 0)
-                return log_error_errno(pfd, "Failed to resolve %s: %m", path);
-
-        if (unlinkat(pfd, f, 0) < 0)
-                return errno == ENOENT ? 0 : log_error_errno(errno, "Failed to remove %s: %m", path);
-
-        log_info("Removed %s", path);
-        return 0;
-}
-
-static int process_reset(int rfd) {
         int r;
 
-        assert(rfd >= 0);
+        assert(root);
+        assert(path);
+
+        r = iref_open_parent(root, path, CHASE_WARN|CHASE_NOFOLLOW, &parent, &f);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve %s%s: %m", iref_path(root), path);
+
+        r = iref_unlink(parent, f, 0);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Failed to remove %s/%s: %m", iref_path(parent), f);
+
+        log_info("Removed %s/%s", iref_path(parent), f);
+        return 0;
+}
+
+static int process_reset(InodeRef *root) {
+        int r;
+
+        assert(root);
 
         if (!arg_reset)
                 return 0;
@@ -1312,7 +1310,7 @@ static int process_reset(int rfd) {
                        "/etc/machine-id",
                        "/etc/kernel/cmdline",
                        etc_localtime()) {
-                r = reset_one(rfd, p);
+                r = reset_one(root, p);
                 if (r < 0)
                         return r;
         }
@@ -1653,7 +1651,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-        _cleanup_close_ int rfd = -EBADF;
+        _cleanup_(iref_unrefp) InodeRef *root = NULL;
         int r;
 
         r = parse_argv(argc, argv);
@@ -1699,7 +1697,7 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_GROWFS |
                                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
                                 &mounted_dir,
-                                &rfd,
+                                &root,
                                 &loop_device);
                 if (r < 0)
                         return r;
@@ -1708,9 +1706,11 @@ static int run(int argc, char *argv[]) {
                 if (!arg_root)
                         return log_oom();
         } else {
-                rfd = open(empty_to_root(arg_root), O_DIRECTORY|O_CLOEXEC);
-                if (rfd < 0)
+                r = iref_open(/* i= */ NULL, empty_to_root(arg_root), O_DIRECTORY|O_CLOEXEC, MODE_INVALID, &root);
+                if (r < 0)
                         return log_error_errno(errno, "Failed to open %s: %m", empty_to_root(arg_root));
+
+                iref_make_root(root);
         }
 
         LOG_SET_PREFIX(arg_image ?: arg_root);
@@ -1720,57 +1720,57 @@ static int run(int argc, char *argv[]) {
         /* We check these conditions here instead of in parse_argv() so that we can take the root directory
          * into account. */
 
-        if (arg_keymap && !keymap_is_ok(arg_keymap, FD_TO_PTR(rfd)))
+        if (arg_keymap && !keymap_is_ok(arg_keymap, root))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Keymap %s is not installed.", arg_keymap);
-        if (arg_locale && !locale_is_ok(arg_locale, FD_TO_PTR(rfd)))
+        if (arg_locale && !locale_is_ok(arg_locale, root))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale);
-        if (arg_locale_messages && !locale_is_ok(arg_locale_messages, FD_TO_PTR(rfd)))
+        if (arg_locale_messages && !locale_is_ok(arg_locale_messages, root))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale_messages);
 
         if (arg_root_shell) {
-                r = find_shell(rfd, arg_root_shell);
+                r = find_shell(root, arg_root_shell);
                 if (r < 0)
                         return r;
         }
 
-        r = process_reset(rfd);
+        r = process_reset(root);
         if (r < 0)
                 return r;
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *mute_console_link = NULL;
-        r = process_locale(rfd, &mute_console_link);
+        r = process_locale(root, &mute_console_link);
         if (r < 0)
                 return r;
         if (r > 0 && !offline)
                 (void) reload_system_manager(&bus);
 
-        r = process_keymap(rfd, &mute_console_link);
+        r = process_keymap(root, &mute_console_link);
         if (r < 0)
                 return r;
         if (r > 0 && !offline)
                 (void) reload_vconsole(&bus);
 
-        r = process_timezone(rfd, &mute_console_link);
+        r = process_timezone(root, &mute_console_link);
         if (r < 0)
                 return r;
 
-        r = process_hostname(rfd, &mute_console_link);
+        r = process_hostname(root, &mute_console_link);
         if (r < 0)
                 return r;
 
-        r = process_root_account(rfd, &mute_console_link);
+        r = process_root_account(root, &mute_console_link);
         if (r < 0)
                 return r;
 
-        r = process_kernel_cmdline(rfd);
+        r = process_kernel_cmdline(root);
         if (r < 0)
                 return r;
 
-        r = process_machine_id(rfd);
+        r = process_machine_id(root);
         if (r < 0)
                 return r;
 
-        r = process_machine_tags(rfd);
+        r = process_machine_tags(root);
         if (r < 0)
                 return r;
 
