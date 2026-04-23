@@ -29,13 +29,13 @@ static PagerFlags arg_pager_flags = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_prefixes, strv_freep);
 
-typedef struct Option {
+typedef struct SysctlOption {
         char *key;
         char *value;
         bool ignore_failure;
-} Option;
+} SysctlOption;
 
-static Option* option_free(Option *o) {
+static SysctlOption* sysctl_option_free(SysctlOption *o) {
         if (!o)
                 return NULL;
 
@@ -45,11 +45,11 @@ static Option* option_free(Option *o) {
         return mfree(o);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Option*, option_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(SysctlOption*, sysctl_option_free);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
-                option_hash_ops,
+                sysctl_option_hash_ops,
                 char, string_hash_func, string_compare_func,
-                Option, option_free);
+                SysctlOption, sysctl_option_free);
 
 static bool test_prefix(const char *p) {
         if (strv_isempty(arg_prefixes))
@@ -58,20 +58,20 @@ static bool test_prefix(const char *p) {
         return path_startswith_strv(p, arg_prefixes);
 }
 
-static Option* option_new(
+static SysctlOption* sysctl_option_new(
                 const char *key,
                 const char *value,
                 bool ignore_failure) {
 
-        _cleanup_(option_freep) Option *o = NULL;
+        _cleanup_(sysctl_option_freep) SysctlOption *o = NULL;
 
         assert(key);
 
-        o = new(Option, 1);
+        o = new(SysctlOption, 1);
         if (!o)
                 return NULL;
 
-        *o = (Option) {
+        *o = (SysctlOption) {
                 .key = strdup(key),
                 .value = value ? strdup(value) : NULL,
                 .ignore_failure = ignore_failure,
@@ -108,7 +108,7 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
         return 0;
 }
 
-static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, Option *option, const char *prefix) {
+static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, SysctlOption *option, const char *prefix) {
         _cleanup_strv_free_ char **paths = NULL;
         _cleanup_free_ char *pattern = NULL;
         int r;
@@ -179,7 +179,7 @@ static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, Option 
         return r;
 }
 
-static int apply_glob_option(OrderedHashmap *sysctl_options, Option *option) {
+static int apply_glob_option(OrderedHashmap *sysctl_options, SysctlOption *option) {
         int r = 0;
 
         if (strv_isempty(arg_prefixes))
@@ -191,7 +191,7 @@ static int apply_glob_option(OrderedHashmap *sysctl_options, Option *option) {
 }
 
 static int apply_all(OrderedHashmap *sysctl_options) {
-        Option *option;
+        SysctlOption *option;
         int r = 0;
 
         ORDERED_HASHMAP_FOREACH(option, sysctl_options) {
@@ -253,7 +253,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         if (!string_is_glob(key) && !test_prefix(key))
                 return 0;
 
-        Option *existing = ordered_hashmap_get(*sysctl_options, key);
+        SysctlOption *existing = ordered_hashmap_get(*sysctl_options, key);
         if (existing) {
                 if (streq_ptr(value, existing->value)) {
                         existing->ignore_failure = existing->ignore_failure || ignore_failure;
@@ -262,14 +262,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
 
                 log_syntax(NULL, LOG_DEBUG, fname, line, 0,
                            "Overwriting earlier assignment of '%s'.", key);
-                option_free(ordered_hashmap_remove(*sysctl_options, key));
+                sysctl_option_free(ordered_hashmap_remove(*sysctl_options, key));
         }
 
-        _cleanup_(option_freep) Option *option = option_new(key, value, ignore_failure);
+        _cleanup_(sysctl_option_freep) SysctlOption *option = sysctl_option_new(key, value, ignore_failure);
         if (!option)
                 return log_oom();
 
-        r = ordered_hashmap_ensure_put(sysctl_options, &option_hash_ops, option->key, option);
+        r = ordered_hashmap_ensure_put(sysctl_options, &sysctl_option_hash_ops, option->key, option);
         if (r < 0)
                 return log_error_errno(r, "Failed to add sysctl variable '%s' to hashmap: %m", key);
 
