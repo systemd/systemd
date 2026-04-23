@@ -26,7 +26,7 @@ int NTS_TLS_extract_keys(
         uint8_t *keys[] = { c2s, s2c };
         const char label[] = "EXPORTER-network-time-security";
 
-        const struct NTS_AEADParam *info = NTS_get_param(aead);
+        const NTS_AEADParam *info = NTS_get_param(aead);
         if (!info)
                 return -EINVAL;
         else if (info->key_size > key_capacity)

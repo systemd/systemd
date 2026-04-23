@@ -62,7 +62,7 @@ enum extfields {
 
 int NTS_add_extension_fields(
                 uint8_t dest[static 1280],
-                const struct NTS_Query *nts,
+                const NTS_Query *nts,
                 uint8_t (*identifier)[32]) {
 
         int r;
@@ -180,8 +180,8 @@ static void decode_hdr(uint16_t *restrict a, uint16_t *restrict b, uint8_t *byte
 int NTS_parse_extension_fields(
                 uint8_t src[static 1280],
                 size_t src_len,
-                const struct NTS_Query *nts,
-                struct NTS_Receipt *fields) {
+                const NTS_Query *nts,
+                NTS_Receipt *fields) {
 
         assert(src);
         assert(src_len >= 48 && src_len <= 1280);

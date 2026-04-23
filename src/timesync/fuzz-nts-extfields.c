@@ -26,14 +26,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (len < 48)
                 return 0;
 
-        struct NTS_Query nts = {
+        NTS_Query nts = {
                 .cipher = *NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256),
                 .c2s_key = (void*)"01234567890abcdef",
                 .s2c_key = (void*)"01234567890abcdef",
         };
 
         /* fuzz the NTS extension field parser */
-        struct NTS_Receipt rcpt = {};
+        NTS_Receipt rcpt = {};
         if (NTS_parse_extension_fields(buffer, len, &nts, &rcpt)) {
                 FOREACH_ELEMENT(cookie, rcpt.new_cookie)
                         eat(cookie->data, cookie->length);
