@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
 #include <sys/stat.h>
 
@@ -10,10 +9,12 @@
 #include "constants.h"
 #include "creds-util.h"
 #include "errno-util.h"
+#include "format-table.h"
 #include "glob-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "pager.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -314,122 +315,110 @@ static int cat_config(char **files) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *commands = NULL, *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-sysctl.service", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] [CONFIGURATION FILE...]\n"
-               "\n%2$sApplies kernel sysctl settings.%4$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "     --cat-config       Show configuration files\n"
-               "     --tldr             Show non-comment parts of configuration\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "\n%3$sOptions:%4$s\n"
-               "     --prefix=PATH      Only apply rules with the specified prefix\n"
-               "     --no-pager         Do not pipe output into a pager\n"
-               "     --strict           Fail on any kind of failures\n"
-               "     --inline           Treat arguments as configuration lines\n"
-               "\nSee the %5$s for details.\n",
+        r = option_parser_get_help_table(&commands);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table_group("Options", &options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, commands, options);
+
+        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n"
+               "\n%sApplies kernel sysctl settings.%s\n"
+               "\n%sCommands:%s\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_underline(),
                ansi_normal(),
-               link);
+               ansi_underline(),
+               ansi_normal());
 
+        r = table_print_or_warn(commands);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n", ansi_underline(), ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_CAT_CONFIG,
-                ARG_TLDR,
-                ARG_PREFIX,
-                ARG_NO_PAGER,
-                ARG_STRICT,
-                ARG_INLINE,
-        };
-
-        static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'            },
-                { "version",    no_argument,       NULL, ARG_VERSION    },
-                { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
-                { "tldr",       no_argument,       NULL, ARG_TLDR       },
-                { "prefix",     required_argument, NULL, ARG_PREFIX     },
-                { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
-                { "strict",     no_argument,       NULL, ARG_STRICT     },
-                { "inline",     no_argument,       NULL, ARG_INLINE     },
-                {}
-        };
-
-        int c;
-
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(remaining_args);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_CAT_CONFIG:
+                OPTION_COMMON_CAT_CONFIG:
                         arg_cat_flags = CAT_CONFIG_ON;
                         break;
 
-                case ARG_TLDR:
+                OPTION_COMMON_TLDR:
                         arg_cat_flags = CAT_TLDR;
                         break;
 
-                case ARG_PREFIX: {
-                        const char *s;
-                        char *p;
+                OPTION_GROUP("Options"): {}
+
+                OPTION_LONG("prefix", "PATH",
+                            "Only apply rules with the specified prefix"): {
+                        _cleanup_free_ char *normalized = strdup(arg);
+                        if (!normalized)
+                                return log_oom();
+                        sysctl_normalize(normalized);
 
                         /* We used to require people to specify absolute paths
                          * in /proc/sys in the past. This is kinda useless, but
                          * we need to keep compatibility. We now support any
                          * sysctl name available. */
-                        sysctl_normalize(optarg);
+                        const char *s = path_startswith(normalized, "/proc/sys");
 
-                        s = path_startswith(optarg, "/proc/sys");
-                        p = strdup(s ?: optarg);
-                        if (!p)
-                                return log_oom();
-
-                        if (strv_consume(&arg_prefixes, p) < 0)
+                        if (strv_extend(&arg_prefixes, s ?: normalized) < 0)
                                 return log_oom();
 
                         break;
                 }
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_STRICT:
+                OPTION_LONG("strict", NULL,
+                            "Fail on any kind of failures"):
                         arg_strict = true;
                         break;
 
-                case ARG_INLINE:
+                OPTION_LONG("inline", NULL,
+                            "Treat arguments as configuration lines"):
                         arg_inline = true;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        if (arg_cat_flags != CAT_CONFIG_OFF && argc > optind)
+        *remaining_args = option_parser_get_args(&state);
+
+        if (arg_cat_flags != CAT_CONFIG_OFF && !strv_isempty(*remaining_args))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Positional arguments are not allowed with --cat-config/--tldr.");
 
@@ -440,7 +429,8 @@ static int run(int argc, char *argv[]) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *sysctl_options = NULL;
         int r;
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -448,10 +438,10 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (argc > optind) {
+        if (!strv_isempty(args)) {
                 unsigned pos = 0;
 
-                STRV_FOREACH(arg, strv_skip(argv, optind)) {
+                STRV_FOREACH(arg, args) {
                         if (arg_inline)
                                 /* Use (argument):n, where n==1 for the first positional arg */
                                 RET_GATHER(r, parse_line("(argument)", ++pos, *arg, /* invalid_config= */ NULL, &sysctl_options));
