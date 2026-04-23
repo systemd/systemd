@@ -35,15 +35,31 @@ const NTS_AEADParam* NTS_get_param(NTS_AEADAlgorithmType id) {
         return NULL;
 }
 
-typedef int init_f(EVP_CIPHER_CTX*, const EVP_CIPHER*, ENGINE*, const uint8_t*, const uint8_t*);
-typedef int upd_f(EVP_CIPHER_CTX*, uint8_t*, int*, const uint8_t*, int);
+/* two function types to aid readability down below and avoid code duplication
+ * NOTE: these two signatures are straight from the OpenSSL docs since they are intended
+ * to match the EVP_En/DecryptInit_ex and EVP_En/DecryptUpdate functions.
+ */
+
+typedef int EVP_CryptInit_func(
+                EVP_CIPHER_CTX *ctx,
+                const EVP_CIPHER *type,
+                ENGINE *impl,
+                const uint8_t *key,
+                const uint8_t *iv);
+
+typedef int EVP_CryptUpdate_func(
+                EVP_CIPHER_CTX* ctx,
+                uint8_t *out,
+                int *outl,
+                const uint8_t *in,
+                int inl);
 
 static bool process_assoc_data(
                 EVP_CIPHER_CTX *state,
                 const AssociatedData *info,
                 const NTS_AEADParam *aead,
-                init_f EVP_CryptInit_ex,
-                upd_f EVP_CryptUpdate) {
+                EVP_CryptInit_func EVP_CryptInit_ex,
+                EVP_CryptUpdate_func EVP_CryptUpdate) {
 
         int r;
 
