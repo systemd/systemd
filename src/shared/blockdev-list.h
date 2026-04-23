@@ -21,6 +21,7 @@ typedef struct BlockDevice {
         char *subsystem;
         uint64_t diskseq;
         uint64_t size;     /* in bytes */
+        int read_only;
 } BlockDevice;
 
 #define BLOCK_DEVICE_NULL (BlockDevice) { \
