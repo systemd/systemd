@@ -67,7 +67,7 @@ static int partial_match_error(
                                program_invocation_short_name, optname, strnull(p));
 }
 
-int option_parse(
+static int option_parse_internal(
                 const Option options[],
                 const Option options_end[],
                 OptionParser *state,
@@ -265,6 +265,24 @@ int option_parse(
                 assert(!optval);
 
         return option->id;
+}
+
+int option_parse(
+                const Option options[],
+                const Option options_end[],
+                OptionParser *state,
+                const Option **ret_option,
+                const char **ret_arg) {
+
+        int r;
+
+        assert(state);
+
+        r = option_parse_internal(options, options_end, state, ret_option, ret_arg);
+        if (r < 0)
+                state->parsing_stopped = true; /* Make sure that once the parser failed, we never restart it */
+
+        return r;
 }
 
 char* option_parser_next_arg(const OptionParser *state) {

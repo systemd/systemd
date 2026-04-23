@@ -127,7 +127,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -245,7 +245,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_push_fds.fds[arg_push_fds.n_fds++] = TAKE_FD(add_fd);
                         break;
                 }
-                }
+                OPTION_ERROR:
+                        return c;
+        }
 
         /* If more than one reply is expected, imply JSON-SEQ output, and set SD_JSON_FORMAT_FLUSH */
         if (FLAGS_SET(arg_method_flags, SD_VARLINK_METHOD_MORE))

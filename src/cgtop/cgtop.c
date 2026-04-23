@@ -723,7 +723,7 @@ static int parse_argv(int argc, char *argv[]) {
         const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -827,6 +827,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_COMMON_MACHINE:
                         arg_machine = arg;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         size_t n_args = option_parser_get_n_args(&state);

@@ -76,7 +76,7 @@ static int parse_argv(int argc, char *argv[]) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -160,6 +160,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_SHORT('n', NULL, "Do not suffix password written to standard output with newline"):
                         arg_newline = false;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         if (isempty(emoji) || streq(emoji, "auto"))

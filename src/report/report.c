@@ -988,7 +988,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -1069,6 +1069,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (strv_extend(&arg_extra_headers, arg) < 0)
                                 return log_oom();
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         if ((arg_url || arg_key || arg_cert || arg_trust || arg_extra_headers) && !HAVE_LIBCURL)

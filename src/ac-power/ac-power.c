@@ -53,7 +53,7 @@ static int parse_argv(int argc, char *argv[]) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -68,6 +68,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("low", NULL, "Check if battery is discharging and low"):
                         arg_action = ACTION_LOW;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         if (option_parser_get_n_args(&state) > 0)

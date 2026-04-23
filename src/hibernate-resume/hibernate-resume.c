@@ -58,7 +58,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -71,6 +71,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Clear hibernation storage information from EFI and exit"):
                         arg_clear = true;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         if (option_parser_get_n_args(&state) > 0 && arg_clear)

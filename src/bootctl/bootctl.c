@@ -419,7 +419,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
 
                 OPTION_GROUP("Block Device Discovery Commands"):
@@ -640,6 +640,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         char **args = option_parser_get_args(&state);

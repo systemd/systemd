@@ -768,7 +768,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -812,6 +812,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_LOWERCASE_J:
                         arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         *ret_args = option_parser_get_args(&state);

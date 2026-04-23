@@ -73,7 +73,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -88,6 +88,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('q', "quiet", NULL, "Suppress output"):
                         arg_quiet = true;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);

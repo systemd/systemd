@@ -2252,7 +2252,7 @@ static int parse_argv(int argc, char *argv[]) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -2501,6 +2501,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
                 }
+                OPTION_ERROR:
+                        return c;
                 }
 
         if (arg_vendor || arg_token_url || arg_refresh_header_name || arg_data_url || arg_data_url_suffix || arg_token_header_name || arg_extra_header)

@@ -760,7 +760,7 @@ static void test_macros_parse_one(
         const Option *opt;
         const char *arg;
 
-        FOREACH_OPTION_FULL(&state, c, &opt, &arg, ASSERT_TRUE(false)) {
+        FOREACH_OPTION_FULL(&state, c, &opt, &arg) {
                 log_debug("%c %s: %s=%s",
                           opt->short_code != 0 ? opt->short_code : ' ',
                           opt->long_code ?: "",
@@ -811,9 +811,13 @@ static void test_macros_parse_one(
                 OPTION_POSITIONAL:
                         break;
 
+                OPTION_ERROR:
+                        log_error_errno(c, "Unexpected error: %m");
+                        assert_not_reached();
+
                 default:
                         log_error("Unexpected option id: %d", c);
-                        ASSERT_TRUE(false);
+                        assert_not_reached();
                 }
         }
 

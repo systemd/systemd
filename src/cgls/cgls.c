@@ -73,7 +73,7 @@ static int parse_argv(int argc, char *argv[]) {
         const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -154,6 +154,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (strv_extend(&arg_names, arg) < 0) /* push arg */
                                 return log_oom();
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         if (arg_machine && arg_show_unit != SHOW_UNIT_NONE)

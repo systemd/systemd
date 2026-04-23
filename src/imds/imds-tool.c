@@ -85,7 +85,7 @@ static int parse_argv(int argc, char *argv[]) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -145,6 +145,9 @@ static int parse_argv(int argc, char *argv[]) {
                             " and place them in /run/credstore/"):
                         arg_action = ACTION_IMPORT;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         char **args = option_parser_get_args(&state);
