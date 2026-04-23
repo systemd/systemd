@@ -61,7 +61,7 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
 
         soft_assert(len >= 48);
 
-        const struct NTS_AEADParam *cipher = NTS_get_param(algo);
+        const NTS_AEADParam *cipher = NTS_get_param(algo);
         soft_assert(cipher);
 
         memcpy(&packet, buf, sizeof(packet));
@@ -71,13 +71,13 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
                 /* We only parse the extension fields to check the authenticity tag; parse_extension_fields
                  * is meant for use in clients, not servers so it'll ignore Cookie Placeholders.
                  * Also note that the order of the s2c and c2s keys has to be reversed. */
-                struct NTS_Query const query = {
+                NTS_Query const query = {
                         { (void*)"42", 2 },
                         s2c, c2s,
                         *cipher,
                         0,
                 };
-                struct NTS_Receipt rcpt;
+                NTS_Receipt rcpt;
                 soft_assert(NTS_parse_extension_fields(buf, len, &query, &rcpt) > 0);
                 /* getting "new cookies" from a client is an error */
                 soft_assert(rcpt.new_cookie->data == NULL);
@@ -202,7 +202,7 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
         soft_assert(SSL_accept(tls) > 0);
 
         /* read the NTS packet */
-        struct NTS_Agreement NTS;
+        NTS_Agreement NTS;
         int readbytes;
         uint8_t buf[1280];
         readbytes = SSL_read(tls, buf, sizeof(buf));

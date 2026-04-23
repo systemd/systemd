@@ -59,12 +59,12 @@ typedef struct Manager {
 
 #if ENABLE_TIMESYNC_NTS
         /* nts ke */
-        struct NTS_Cookie nts_cookies[8];
+        NTS_Cookie nts_cookies[8];
         struct {
                 uint8_t s2c[MAX_NTS_AEAD_KEY_LEN];
                 uint8_t c2s[MAX_NTS_AEAD_KEY_LEN];
         } nts_keys;
-        struct NTS_AEADParam nts_aead;
+        NTS_AEADParam nts_aead;
         unsigned nts_missing_cookies;
         sd_event_source *nts_timeout;
 
