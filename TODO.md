@@ -128,6 +128,16 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- volumes interface + volumectl
+  - hook-up in systemd-nspawn
+  - hook-up in systemd-vmspawn
+  - hook-up in service manager (BindVolume=)
+  - man pages
+  - integration test
+  - unit files
+  - return read-only, newly created mount via new mount API
+  - make sure runs in user context
+
 - a small tool that can do basic btrfs raid policy mgmt. i.e. gets started as
   part of the initial transaction for some btrfs raid fs, waits for some time,
   then puts message on screen (plymouth, console) that some devices apparently
