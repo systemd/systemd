@@ -86,9 +86,9 @@ exit:
 }
 
 int NTS_encrypt(uint8_t *ctxt,
-                int ctxt_len,
+                size_t ctxt_len,
                 const uint8_t *ptxt,
-                int ptxt_len,
+                size_t ptxt_len,
                 const AssociatedData *info,
                 const NTS_AEADParam *aead,
                 const uint8_t *key) {
@@ -98,9 +98,9 @@ int NTS_encrypt(uint8_t *ctxt,
         int len;
 
         assert(ctxt);
-        assert(ctxt_len >= 0); /* see below */
+        assert(ctxt_len <= (size_t)INT_MAX); /* OpenSSL expects an int */
         assert(ptxt);
-        assert(ptxt_len >= 0); /* passed as an int since OpenSSL expects an int */
+        assert(ptxt_len <= (size_t)INT_MAX); /* same */
         assert(info);
         assert(aead);
         assert(key);
@@ -115,6 +115,7 @@ int NTS_encrypt(uint8_t *ctxt,
                 goto exit;
 
         /* check that the ciphertext length is large enough */
+        assert(ptxt_len <= SIZE_MAX - aead->block_size);
         if (ctxt_len < ptxt_len + aead->block_size)
                 goto exit;
 
@@ -139,7 +140,7 @@ int NTS_encrypt(uint8_t *ctxt,
         if (r == 0)
                 goto exit;
 
-        assert(len <= ptxt_len);
+        assert(len <= (int) ptxt_len);
         ctxt += len;
 
         r = EVP_EncryptFinal_ex(state, ctxt, &len);
@@ -148,7 +149,7 @@ int NTS_encrypt(uint8_t *ctxt,
 
         assert(len <= aead->block_size);
         ctxt += len;
-        assert(ctxt - ctxt_start == ptxt_len + aead->tag_first * aead->block_size);
+        assert(ctxt - ctxt_start == (ptrdiff_t) ptxt_len + aead->tag_first * aead->block_size);
 
         /* append/prepend the AEAD tag */
         r = EVP_CIPHER_CTX_ctrl(state, EVP_CTRL_AEAD_GET_TAG, aead->block_size, tag);
@@ -161,9 +162,9 @@ exit:
 }
 
 int NTS_decrypt(uint8_t *ptxt,
-                int ptxt_len,
+                size_t ptxt_len,
                 const uint8_t *ctxt,
-                int ctxt_len,
+                size_t ctxt_len,
                 const AssociatedData *info,
                 const NTS_AEADParam *aead,
                 const uint8_t *key) {
@@ -173,9 +174,9 @@ int NTS_decrypt(uint8_t *ptxt,
         int len;
 
         assert(ptxt);
-        assert(ptxt_len >= 0); /* see below */
+        assert(ptxt_len <= (size_t)INT_MAX); /* OpenSSL expects an int */
         assert(ctxt);
-        assert(ctxt_len >= 0); /* passed as an int since OpenSSL expects an int */
+        assert(ctxt_len <= (size_t)INT_MAX); /* same */
         assert(info);
         assert(aead);
         assert(key);
@@ -222,7 +223,7 @@ int NTS_decrypt(uint8_t *ptxt,
         if (r == 0)
                 goto exit;
 
-        assert(len <= ctxt_len);
+        assert(len <= (int) ctxt_len);
         ptxt += len;
 
         r = EVP_DecryptFinal_ex(state, ptxt, &len);
@@ -232,7 +233,7 @@ int NTS_decrypt(uint8_t *ptxt,
         assert(len <= aead->block_size);
         ptxt += len;
 
-        assert(ptxt - ptxt_start == ctxt_len);
+        assert(ptxt - ptxt_start == (ptrdiff_t) ctxt_len);
 
         bytes_decrypted = ctxt_len;
 exit:
