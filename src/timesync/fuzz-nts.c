@@ -26,7 +26,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 return 0;
 
         /* fuzz the nts ke routines */
-        struct NTS_Agreement rec;
+        NTS_Agreement rec;
         if (NTS_decode_response(buffer, len, &rec) == 0) {
                 FOREACH_ELEMENT(cookie, rec.cookie)
                         eat(cookie->data, cookie->length);
