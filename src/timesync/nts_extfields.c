@@ -77,23 +77,23 @@ int NTS_add_extension_fields(
 
         /* generate unique identifier */
         if (crypto_random_bytes(*identifier, sizeof(*identifier)) != 0)
-                goto exit;
+                return -EINVAL;
 
         r = write_ntp_ext_field(&buf, UniqueIdentifier, *identifier, sizeof(*identifier), 16);
         if (r == 0)
-                goto exit;
+                return -ENOMEM;
 
         /* write cookie field */
         r = write_ntp_ext_field(&buf, Cookie, nts->cookie.data, nts->cookie.length, 16);
         if (r == 0)
-                goto exit;
+                return -ENOMEM;
 
         /* write unencrypted extra cookiefields */
         int placeholders = nts->extra_cookies;
         for ( ; placeholders > ENCRYPTED_PLACEHOLDERS; placeholders--) {
                 r = write_ntp_ext_field(&buf, CookiePlaceholder, NULL, nts->cookie.length, 16);
                 if (r == 0)
-                        goto exit;
+                        return -ENOMEM;
         }
 
         /* --- cobble together the extension fields extension field --- */
@@ -125,18 +125,18 @@ int NTS_add_extension_fields(
         if (placeholders == 0) {
                 r = write_ntp_ext_field(&ptxt, NoOpField, NULL, 0, 0);
                 if (r == 0)
-                        goto exit;
+                        return -ENOMEM;
         }
 #endif
         while (placeholders-- > 0) {
                 r = write_ntp_ext_field(&ptxt, CookiePlaceholder, NULL, nts->cookie.length, 0);
                 if (r == 0)
-                        goto exit;
+                        return -ENOMEM;
         }
 
         /* generate the nonce */
         if (crypto_random_bytes(EF_nonce, nonce_len) != 0)
-                goto exit;
+                return -EINVAL;
 
         AssociatedData info[] = {
                 { dest, buf.data - dest },  /* aad */
@@ -152,7 +152,7 @@ int NTS_add_extension_fields(
 
         assert(ctxt_len <= EF_capacity); /* failing this would be a serious error, try to run to the exit */
         if (ctxt_len < 0)
-                goto exit;
+                return -EINVAL;
 
         /* add padding if we used a too-short nonce */
         int ef_len = 4 + ctxt_len + nonce_len + (nonce_len < req_nonce_len)*(req_nonce_len - nonce_len);
@@ -162,11 +162,9 @@ int NTS_add_extension_fields(
 
         r = write_ntp_ext_field(&buf, AuthEncExtFields, EF, ef_len, 28);
         if (r == 0)
-                goto exit;
+                return -ENOMEM;
 
         return buf.data - dest;
-exit:
-        return 0;
 }
 
 /* caller checks memory bounds */
@@ -193,14 +191,14 @@ int NTS_parse_extension_fields(
                 uint16_t type, len;
                 decode_hdr(&type, &len, buf.data);
                 if (len < 4 || capacity(&buf) < len)
-                        goto exit;
+                        return -ENOMEM;
 
                 switch (type) {
                 case UniqueIdentifier:
                         /* the length indicator contains the size of the header (4 bytes); the identifier
                          * itself is expected to be 32 bytes */
                         if (len - 4 != 32)
-                                goto exit;
+                                return -EINVAL;
 
                         fields->identifier = (uint8_t (*)[32])(buf.data + 4);
                         processed = true;
@@ -212,7 +210,7 @@ int NTS_parse_extension_fields(
                          * which would be a malicious packet; the sizes don't need to match exactly since there may
                          * also be padding here */
                         if (nonce_len + ciph_len + 8 > len)
-                                goto exit;
+                                return -EINVAL;
 
                         uint8_t *nonce = buf.data + 8;
                         uint8_t *content = nonce + nonce_len;
@@ -228,7 +226,7 @@ int NTS_parse_extension_fields(
 
                         assert(plain_len < ciph_len); /* failing this would be a serious error, try to run to the exit */
                         if (plain_len < 0)
-                                goto exit;
+                                return -EINVAL;
 
                         slice plain = { plaintext, plaintext + plain_len };
                         unsigned cookies = 0;
@@ -239,7 +237,7 @@ int NTS_parse_extension_fields(
                                 decode_hdr(&inner_type, &inner_len, plain.data);
                                 /* check that our buffer has enough room and the advertised length is valid */
                                 if (capacity(&plain) < inner_len || inner_len < 4)
-                                        goto exit;
+                                        return -ENOMEM;
 
                                 /* only care about cookies */
                                 switch (inner_type) {
@@ -260,7 +258,7 @@ int NTS_parse_extension_fields(
 
                         /* ignore any further fields after this,
                          * since they are not authenticated */
-                        return processed ? plain.data - src : 0;
+                        return processed ? plain.data - src : -EINVAL;
                 }
 
                 default:
@@ -271,6 +269,5 @@ int NTS_parse_extension_fields(
                 buf.data += len;
         }
 
-exit:
-        return 0;
+        return -EINVAL;
 }
