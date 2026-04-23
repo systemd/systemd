@@ -1518,29 +1518,6 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
         return EXIT_SUCCESS;
 }
 
-static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(context_freep) Context* context = NULL;
-        int r;
-
-        assert(argc <= 1);
-
-        if (arg_instances_max < 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                      "The --instances-max argument must be >= 1 while vacuuming");
-
-        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
-        if (r < 0)
-                return r;
-
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, /* requires_enabled_transfers= */ false);
-        if (r < 0)
-                return r;
-
-        return context_vacuum(context, 0, NULL);
-}
-
 typedef enum {
         UPDATE_ACTION_ACQUIRE = 1 << 0,
         UPDATE_ACTION_INSTALL = 1 << 1,
@@ -1624,6 +1601,29 @@ static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
 static int verb_acquire(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return verb_update_impl(argc, argv, UPDATE_ACTION_ACQUIRE);
+}
+
+static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
+        _cleanup_(context_freep) Context* context = NULL;
+        int r;
+
+        assert(argc <= 1);
+
+        if (arg_instances_max < 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                      "The --instances-max argument must be >= 1 while vacuuming");
+
+        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
+        if (r < 0)
+                return r;
+
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, /* requires_enabled_transfers= */ false);
+        if (r < 0)
+                return r;
+
+        return context_vacuum(context, 0, NULL);
 }
 
 static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -1820,6 +1820,8 @@ static int help(void) {
                "     --image=PATH         Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY\n"
                "                          Specify disk image dissection policy\n"
+               "     --transfer-source=PATH\n"
+               "                          Specify the directory to transfer sources from\n"
                "  -m --instances-max=INT  How many instances to maintain\n"
                "     --sync=BOOL          Controls whether to sync data to disk\n"
                "     --verify=BOOL        Force signature verification on or off\n"
@@ -1829,8 +1831,6 @@ static int help(void) {
                "     --no-legend          Do not show the headers and footers\n"
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
-               "     --transfer-source=PATH\n"
-               "                          Specify the directory to transfer sources from\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -1866,20 +1866,20 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",              no_argument,       NULL, 'h'                   },
                 { "version",           no_argument,       NULL, ARG_VERSION           },
-                { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
-                { "no-legend",         no_argument,       NULL, ARG_NO_LEGEND         },
+                { "component",         required_argument, NULL, 'C'                   },
                 { "definitions",       required_argument, NULL, ARG_DEFINITIONS       },
-                { "instances-max",     required_argument, NULL, 'm'                   },
-                { "sync",              required_argument, NULL, ARG_SYNC              },
-                { "json",              required_argument, NULL, ARG_JSON              },
                 { "root",              required_argument, NULL, ARG_ROOT              },
                 { "image",             required_argument, NULL, ARG_IMAGE             },
                 { "image-policy",      required_argument, NULL, ARG_IMAGE_POLICY      },
-                { "reboot",            no_argument,       NULL, ARG_REBOOT            },
-                { "component",         required_argument, NULL, 'C'                   },
-                { "verify",            required_argument, NULL, ARG_VERIFY            },
-                { "offline",           no_argument,       NULL, ARG_OFFLINE           },
                 { "transfer-source",   required_argument, NULL, ARG_TRANSFER_SOURCE   },
+                { "instances-max",     required_argument, NULL, 'm'                   },
+                { "sync",              required_argument, NULL, ARG_SYNC              },
+                { "verify",            required_argument, NULL, ARG_VERIFY            },
+                { "reboot",            no_argument,       NULL, ARG_REBOOT            },
+                { "offline",           no_argument,       NULL, ARG_OFFLINE           },
+                { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
+                { "no-legend",         no_argument,       NULL, ARG_NO_LEGEND         },
+                { "json",              required_argument, NULL, ARG_JSON              },
                 {}
         };
 
@@ -1898,38 +1898,28 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         return version();
 
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
+                case 'C':
+                        if (isempty(optarg)) {
+                                arg_component = mfree(arg_component);
+                                break;
+                        }
 
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case 'm':
-                        r = safe_atou64(optarg, &arg_instances_max);
+                        r = component_name_valid(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --instances-max= parameter: %s", optarg);
+                                return log_error_errno(r, "Failed to determine if component name is valid: %m");
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", optarg);
 
-                        break;
-
-                case ARG_SYNC:
-                        r = parse_boolean_argument("--sync=", optarg, &arg_sync);
+                        r = free_and_strdup_warn(&arg_component, optarg);
                         if (r < 0)
                                 return r;
+
                         break;
 
                 case ARG_DEFINITIONS:
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_definitions);
                         if (r < 0)
                                 return r;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
                         break;
 
                 case ARG_ROOT:
@@ -1950,26 +1940,24 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_REBOOT:
-                        arg_reboot = true;
-                        break;
-
-                case 'C':
-                        if (isempty(optarg)) {
-                                arg_component = mfree(arg_component);
-                                break;
-                        }
-
-                        r = component_name_valid(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to determine if component name is valid: %m");
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", optarg);
-
-                        r = free_and_strdup_warn(&arg_component, optarg);
+                case ARG_TRANSFER_SOURCE:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_transfer_source);
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case 'm':
+                        r = safe_atou64(optarg, &arg_instances_max);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --instances-max= parameter: %s", optarg);
+
+                        break;
+
+                case ARG_SYNC:
+                        r = parse_boolean_argument("--sync=", optarg, &arg_sync);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_VERIFY: {
@@ -1983,13 +1971,25 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_REBOOT:
+                        arg_reboot = true;
+                        break;
+
                 case ARG_OFFLINE:
                         arg_offline = true;
                         break;
 
-                case ARG_TRANSFER_SOURCE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_transfer_source);
-                        if (r < 0)
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
                                 return r;
 
                         break;
