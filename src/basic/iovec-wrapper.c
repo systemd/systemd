@@ -6,6 +6,7 @@
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "string-util.h"
+#include "unaligned.h"
 
 void iovw_done(struct iovec_wrapper *iovw) {
         assert(iovw);
@@ -301,4 +302,122 @@ char* iovw_to_cstring(const struct iovec_wrapper *iovw) {
 
         assert(!memchr(iov.iov_base, 0, iov.iov_len));
         return TAKE_PTR(iov.iov_base);
+}
+
+int iovec_split(const struct iovec *iov, size_t length_size, struct iovec_wrapper *ret) {
+        int r;
+
+        assert(IN_SET(length_size, 1, 2, 4));
+        assert(ret);
+
+        /* This parses the input iovec as length-prefixed data, and stores the result as iovec_wrapper.
+         * Note, zero-length entries are silently dropped. */
+
+        if (!iovec_is_set(iov)) {
+                *ret = (struct iovec_wrapper) {};
+                return 0;
+        }
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+        for (struct iovec i = *iov; iovec_is_set(&i); ) {
+                if (i.iov_len < length_size)
+                        return -EBADMSG;
+
+                size_t len;
+                switch (length_size) {
+                case 1:
+                        len = *(uint8_t*) i.iov_base;
+                        break;
+                case 2:
+                        len = unaligned_read_be16(i.iov_base);
+                        break;
+                case 4:
+                        len = unaligned_read_be32(i.iov_base);
+                        break;
+                default:
+                        assert_not_reached();
+                }
+
+                iovec_inc(&i, length_size);
+
+                if (len == 0)
+                        continue;
+
+                if (i.iov_len < len)
+                        return -EBADMSG;
+
+                r = iovw_extend(&iovw, i.iov_base, len);
+                if (r < 0)
+                        return r;
+
+                iovec_inc(&i, len);
+        }
+
+        *ret = TAKE_STRUCT(iovw);
+        return 0;
+}
+
+int iovw_merge(const struct iovec_wrapper *iovw, size_t length_size, struct iovec *ret) {
+        assert(IN_SET(length_size, 1, 2, 4));
+        assert(ret);
+
+        /* This is the inverse of iovec_split(), and builds a length-prefixed data from iovec_wrapper.
+         * Note, zero-length entries are silently dropped. */
+
+        size_t sz = iovw_size(iovw);
+        if (sz == 0) {
+                *ret = (struct iovec) {};
+                return 0;
+        }
+        if (sz == SIZE_MAX)
+                return -E2BIG;
+
+        if (size_multiply_overflow(length_size, iovw->count))
+                return -E2BIG;
+
+        sz = size_add(sz, iovw->count * length_size);
+        if (sz == SIZE_MAX)
+                return -E2BIG;
+
+        _cleanup_free_ uint8_t *buf = new(uint8_t, sz);
+        if (!buf)
+                return -ENOMEM;
+
+        uint8_t *p = buf;
+        FOREACH_ARRAY(iov, iovw->iovec, iovw->count) {
+                if (iov->iov_len == 0)
+                        continue;
+
+                switch (length_size) {
+                case 1:
+                        if (iov->iov_len > UINT8_MAX)
+                                return -ERANGE;
+
+                        *p = iov->iov_len;
+                        break;
+                case 2:
+                        if (iov->iov_len > UINT16_MAX)
+                                return -ERANGE;
+
+                        unaligned_write_be16(p, iov->iov_len);
+                        break;
+                case 4:
+                        if (iov->iov_len > UINT32_MAX)
+                                return -ERANGE;
+
+                        unaligned_write_be32(p, iov->iov_len);
+                        break;
+                default:
+                        assert_not_reached();
+                }
+                p += length_size;
+
+                p = mempcpy(p, iov->iov_base, iov->iov_len);
+        }
+
+        assert(sz >= (size_t) (p - buf));
+        sz = p - buf;
+
+        *ret = IOVEC_MAKE(TAKE_PTR(buf), sz);
+        return 0;
 }
