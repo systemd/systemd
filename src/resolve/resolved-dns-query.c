@@ -1630,6 +1630,7 @@ int validate_and_mangle_query_flags(
                        SD_RESOLVED_NO_NETWORK|
                        SD_RESOLVED_NO_STALE|
                        SD_RESOLVED_RELAX_SINGLE_LABEL|
+                       SD_RESOLVED_NO_HOOKS|
                        ok))
                 return -EINVAL;
 
