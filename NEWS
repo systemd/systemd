@@ -63,6 +63,12 @@ CHANGES WITH 261 in spe:
           require direct IMDS access. The new meson option "-Dimds-network="
           can be used to change the default mode to "locked" at build-time.
 
+        * The manager exposes a new ReloadCount property on its D-Bus and
+          Varlink interfaces (org.freedesktop.systemd1.Manager and
+          io.systemd.Manager respectively). The counter increments after
+          each successfully completed daemon-reload. It is not preserved
+          across daemon-reexec.
+
         Changes in systemd-sysext/systemd-confext:
 
         * New initrd services systemd-sysext-sysroot.service and
