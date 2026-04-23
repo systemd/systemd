@@ -38,7 +38,7 @@ const NTS_AEADParam* NTS_get_param(NTS_AEADAlgorithmType id) {
 typedef int init_f(EVP_CIPHER_CTX*, const EVP_CIPHER*, ENGINE*, const uint8_t*, const uint8_t*);
 typedef int upd_f(EVP_CIPHER_CTX*, uint8_t*, int*, const uint8_t*, int);
 
-static int process_assoc_data(
+static bool process_assoc_data(
                 EVP_CIPHER_CTX *state,
                 const AssociatedData *info,
                 const NTS_AEADParam *aead,
@@ -79,9 +79,9 @@ static int process_assoc_data(
                 assert((size_t)len == info->length);
         }
 
-        return 1;
+        return true;
 exit:
-        return 0;
+        return false;
 }
 
 int NTS_encrypt(uint8_t *ctxt,
@@ -93,7 +93,6 @@ int NTS_encrypt(uint8_t *ctxt,
                 const uint8_t *key) {
 
         int r;
-        int bytes_encrypted = -1;
         int len;
 
         assert(ctxt);
@@ -107,16 +106,16 @@ int NTS_encrypt(uint8_t *ctxt,
         _cleanup_(EVP_CIPHER_freep) EVP_CIPHER *cipher = NULL;
         _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *state = EVP_CIPHER_CTX_new();
         if (!state)
-                goto exit;
+                return -ENOMEM;
 
         cipher = EVP_CIPHER_fetch(NULL, aead->cipher_name, NULL);
         if (!cipher)
-                goto exit;
+                return -EINVAL;
 
         /* check that the ciphertext length is large enough */
         assert(ptxt_len <= SIZE_MAX - aead->block_size);
         if (ctxt_len < ptxt_len + aead->block_size)
-                goto exit;
+                return -ENOMEM;
 
         uint8_t *ctxt_start = ctxt;
         uint8_t *tag;
@@ -128,23 +127,23 @@ int NTS_encrypt(uint8_t *ctxt,
 
         r = EVP_EncryptInit_ex(state, cipher, NULL, key, NULL);
         if (r == 0)
-                goto exit;
+                return -EINVAL;
 
         r = process_assoc_data(state, info, aead, EVP_EncryptInit_ex, EVP_EncryptUpdate);
         if (r == 0)
-                goto exit;
+                return -EINVAL;
 
         /* encrypt data */
         r = EVP_EncryptUpdate(state, ctxt, &len, ptxt, ptxt_len);
         if (r == 0)
-                goto exit;
+                return -EINVAL;
 
         assert(len <= (int) ptxt_len);
         ctxt += len;
 
         r = EVP_EncryptFinal_ex(state, ctxt, &len);
         if (r == 0)
-                goto exit;
+                return -EINVAL;
 
         assert(len <= aead->block_size);
         ctxt += len;
@@ -153,11 +152,9 @@ int NTS_encrypt(uint8_t *ctxt,
         /* append/prepend the AEAD tag */
         r = EVP_CIPHER_CTX_ctrl(state, EVP_CTRL_AEAD_GET_TAG, aead->block_size, tag);
         if (r == 0)
-                goto exit;
+                return -EINVAL;
 
-        bytes_encrypted = ptxt_len + aead->block_size;
-exit:
-        return bytes_encrypted;
+        return ptxt_len + aead->block_size;
 }
 
 int NTS_decrypt(uint8_t *ptxt,
@@ -169,7 +166,6 @@ int NTS_decrypt(uint8_t *ptxt,
                 const uint8_t *key) {
 
         int r;
-        int bytes_decrypted = -1;
         int len;
 
         assert(ptxt);
@@ -183,15 +179,15 @@ int NTS_decrypt(uint8_t *ptxt,
         _cleanup_(EVP_CIPHER_freep) EVP_CIPHER *cipher = NULL;
         _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *state = EVP_CIPHER_CTX_new();
         if (!state)
-                goto exit;
+                return -ENOMEM;
 
         /* check that the ciphertext size is valid */
         if (ctxt_len < aead->block_size || ptxt_len < ctxt_len - aead->block_size)
-                goto exit;
+                return -ENOMEM;
 
         cipher = EVP_CIPHER_fetch(NULL, aead->cipher_name, NULL);
         if (!cipher)
-                goto exit;
+                return -EINVAL;
 
         /* set the AEAD tag */
         const uint8_t *tag;
@@ -205,36 +201,34 @@ int NTS_decrypt(uint8_t *ptxt,
 
         r = EVP_DecryptInit_ex(state, cipher, NULL, key, NULL);
         if (r == 0)
-                goto exit;
+                return -EINVAL;
 
         r = EVP_CIPHER_CTX_ctrl(state, EVP_CTRL_AEAD_SET_TAG, aead->block_size, (uint8_t*)tag);
         if (r == 0)
-                goto exit;
+                return -EINVAL;
 
         r = process_assoc_data(state, info, aead, EVP_DecryptInit_ex, EVP_DecryptUpdate);
         if (r == 0)
-                goto exit;
+                return -EINVAL;
 
         uint8_t *ptxt_start = ptxt;
 
         /* decrypt data */
         r = EVP_DecryptUpdate(state, ptxt, &len, ctxt, ctxt_len);
         if (r == 0)
-                goto exit;
+                return -EINVAL;
 
         assert(len <= (int) ctxt_len);
         ptxt += len;
 
         r = EVP_DecryptFinal_ex(state, ptxt, &len);
         if (r == 0)
-                goto exit;
+                return -EINVAL;
 
         assert(len <= aead->block_size);
         ptxt += len;
 
         assert(ptxt - ptxt_start == (ptrdiff_t) ctxt_len);
 
-        bytes_decrypted = ctxt_len;
-exit:
-        return bytes_decrypted;
+        return ctxt_len;
 }

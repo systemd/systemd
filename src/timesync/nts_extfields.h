@@ -20,8 +20,8 @@ typedef struct NTS_Receipt {
  * The identifier must point to a buffer that will hold a generated unique identifier upon success.
  *
  * RETURNS
- *      The amount of data encoded in bytes (including NTP packet size). Zero bytes encoded indicates an error (in which case the
- *      contents of uniq_ident are unspecified)
+ *      The amount of data encoded in bytes (including NTP packet size).
+ *      A negative result indicates an error (in which case the contents of uniq_ident are unspecified)
  */
 int NTS_add_extension_fields(
                 uint8_t dest[static 1280],
@@ -32,7 +32,8 @@ int NTS_add_extension_fields(
  * and make this information available in the NTS_Receipt struct.
  *
  * RETURNS
- *      The amount of data processed in bytes (including the NTP packet size). Zero bytes encoded indicates an error.
+ *      The amount of data processed in bytes (including the NTP packet size).
+ *      A negative result indicates an error.
  */
 int NTS_parse_extension_fields(
                 uint8_t src[static 1280],
