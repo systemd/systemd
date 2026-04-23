@@ -76,6 +76,12 @@ int NTS_encode_request(uint8_t *buffer, size_t buf_size, const NTS_AEADAlgorithm
  * struct. This function does not allocate data: pointers in the struct for a potential negotiated server
  * name and NTS cookies point into buffer, and must be copied if buffer is deallocated or overwritten.
  *
+ * Upon success, the input buffer may have been modified by the decoding process, so any writes to it
+ * after that can cause undefined behaviour.
+ *
+ * If this function returns failure, the input buffer is NOT modified (and so can be extended when more
+ * input has been received, and then NTS_decode_response can be retried)
+ *
  * RETURNS
  *      0 upon success
  *      negative upon failure (writes the error code to NTS_Agreement->error)
@@ -106,14 +112,14 @@ typedef struct NTS_TLS NTS_TLS;
  *              -ENOBUFS not enough space in buffer
  *              -EINVAL  unkown AEAD
  */
-int NTS_TLS_extract_keys(NTS_TLS *session, NTS_AEADAlgorithmType aead, uint8_t *c2s, uint8_t *s2c, int key_capacity);
+int NTS_TLS_extract_keys(NTS_TLS *session, NTS_AEADAlgorithmType aead, uint8_t *ret_c2s, uint8_t *ret_s2c, size_t key_capacity);
 
 /* Setup a ready-to-use TLS session for hostname, on the connected socket, ready to begin a TLS handshake.
  *
  * RETURNS
  *      A pointer to a ready-to-use TLS session, NULL upon failure (and then the error is stored in NTS_TLS_error)
  */
-NTS_TLS* NTS_TLS_setup(const char *hostname, int socket);
+NTS_TLS* NTS_TLS_setup(const char *hostname, int socket_fd);
 
 /* Perform a TLS handshake
  *
