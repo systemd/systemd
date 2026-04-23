@@ -27,4 +27,14 @@
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
         </action>
+
+        <action id="io.systemd.volumes.fs.acquire">
+                <description gettext-domain="systemd">Allow access to file system volumes</description>
+                <message gettext-domain="systemd">Authentication is required for an application to gain access to file system volume '$(name)'.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
 </policyconfig>
