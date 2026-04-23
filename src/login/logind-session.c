@@ -830,16 +830,15 @@ finish:
 
 static int session_dispatch_stop_on_idle(sd_event_source *source, uint64_t t, void *userdata) {
         Session *s = userdata;
-        dual_timestamp ts;
-        int r, idle;
+        dual_timestamp ts = DUAL_TIMESTAMP_NULL;
+        int r;
 
         assert(s);
 
         if (s->stopping)
                 return 0;
 
-        idle = session_get_idle_hint(s, &ts);
-        if (idle) {
+        if (session_get_idle_hint(s, &ts)) {
                 log_info("Session \"%s\" of user \"%s\" is idle, stopping.", s->id, s->user->user_record->user_name);
 
                 return session_stop(s, /* force= */ true);
@@ -1153,7 +1152,7 @@ static int get_process_ctty_atime(pid_t pid, usec_t *atime) {
         return get_tty_atime(p, atime);
 }
 
-int session_get_idle_hint(Session *s, dual_timestamp *t) {
+bool session_get_idle_hint(Session *s, dual_timestamp *t) {
         usec_t atime = 0, dtime = 0;
         int r;
 
@@ -1164,10 +1163,11 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
 
         /* Graphical sessions have an explicit idle hint */
         if (SESSION_TYPE_IS_GRAPHICAL(s->type)) {
+                if (!s->idle_hint)
+                        return false;
                 if (t)
                         *t = s->idle_hint_timestamp;
-
-                return s->idle_hint;
+                return true;
         }
 
         if (s->type == SESSION_TTY) {
@@ -1187,15 +1187,9 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
                 }
         }
 
-        if (t)
-                *t = DUAL_TIMESTAMP_NULL;
-
         return false;
 
 found_atime:
-        if (t)
-                dual_timestamp_from_realtime(t, atime);
-
         if (s->manager->idle_action_usec > 0 && s->manager->stop_idle_session_usec != USEC_INFINITY)
                 dtime = MIN(s->manager->idle_action_usec, s->manager->stop_idle_session_usec);
         else if (s->manager->idle_action_usec > 0)
@@ -1205,7 +1199,12 @@ found_atime:
         else
                 return false;
 
-        return usec_add(atime, dtime) <= now(CLOCK_REALTIME);
+        if (usec_add(atime, dtime) > now(CLOCK_REALTIME))
+                return false;
+
+        if (t)
+                dual_timestamp_from_realtime(t, atime);
+        return true;
 }
 
 int session_set_idle_hint(Session *s, bool b) {

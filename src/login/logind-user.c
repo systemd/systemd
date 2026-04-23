@@ -621,42 +621,32 @@ int user_finalize(User *u) {
         return r;
 }
 
-int user_get_idle_hint(User *u, dual_timestamp *t) {
+bool user_get_idle_hint(User *u, dual_timestamp *t) {
         bool idle_hint = true;
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
 
         assert(u);
 
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
-                dual_timestamp k;
-                int ih;
+                dual_timestamp k = DUAL_TIMESTAMP_NULL;
 
                 if (!SESSION_CLASS_CAN_IDLE(s->class))
                         continue;
 
-                ih = session_get_idle_hint(s, &k);
-                if (ih < 0)
-                        return ih;
-
-                if (!ih) {
-                        if (!idle_hint) {
-                                if (k.monotonic < ts.monotonic)
-                                        ts = k;
-                        } else {
-                                idle_hint = false;
+                if (session_get_idle_hint(s, &k)) {
+                        if (idle_hint && k.monotonic > ts.monotonic)
                                 ts = k;
-                        }
-                } else if (idle_hint) {
-
-                        if (k.monotonic > ts.monotonic)
-                                ts = k;
-                }
+                } else
+                        idle_hint = false;
         }
+
+        if (!idle_hint)
+                return false;
 
         if (t)
                 *t = ts;
 
-        return idle_hint;
+        return true;
 }
 
 int user_check_linger_file(const User *u) {
