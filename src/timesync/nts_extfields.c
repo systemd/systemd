@@ -9,6 +9,7 @@
 
 #include "memory-util.h"
 #include "nts_crypto.h"
+#include "nts_definitions.h"
 #include "nts_extfields.h"
 #include "random-util.h"
 #include "unaligned.h"
@@ -51,14 +52,6 @@ static int write_ntp_ext_field(slice *buf, uint16_t type, void *contents, uint16
         return padded_len;
 }
 
-enum extfields {
-        UniqueIdentifier  = 0x0104,
-        Cookie            = 0x0204,
-        CookiePlaceholder = 0x0304,
-        AuthEncExtFields  = 0x0404,
-        NoOpField         = 0x0200,
-};
-
 int NTS_add_extension_fields(
                 uint8_t dest[static 1280],
                 const NTS_Query *nts,
@@ -79,19 +72,19 @@ int NTS_add_extension_fields(
         if (crypto_random_bytes(*identifier, sizeof(NTS_Identifier)) != 0)
                 return -EINVAL;
 
-        r = write_ntp_ext_field(&buf, UniqueIdentifier, *identifier, sizeof(NTS_Identifier), 16);
+        r = write_ntp_ext_field(&buf, NTS_EF_UniqueIdentifier, *identifier, sizeof(NTS_Identifier), 16);
         if (r == 0)
                 return -ENOMEM;
 
         /* write cookie field */
-        r = write_ntp_ext_field(&buf, Cookie, nts->cookie.data, nts->cookie.length, 16);
+        r = write_ntp_ext_field(&buf, NTS_EF_Cookie, nts->cookie.data, nts->cookie.length, 16);
         if (r == 0)
                 return -ENOMEM;
 
         /* write unencrypted extra cookiefields */
         int placeholders = nts->extra_cookies;
         for ( ; placeholders > ENCRYPTED_PLACEHOLDERS; placeholders--) {
-                r = write_ntp_ext_field(&buf, CookiePlaceholder, NULL, nts->cookie.length, 16);
+                r = write_ntp_ext_field(&buf, NTS_EF_CookiePlaceholder, NULL, nts->cookie.length, 16);
                 if (r == 0)
                         return -ENOMEM;
         }
@@ -123,13 +116,13 @@ int NTS_add_extension_fields(
         /* bug in OpenSSL: https://github.com/openssl/openssl/issues/26580,
            which means that a ciphertext HAS TO BE PRESENT */
         if (placeholders == 0) {
-                r = write_ntp_ext_field(&ptxt, NoOpField, NULL, 0, 0);
+                r = write_ntp_ext_field(&ptxt, NTS_EF_NoOpField, NULL, 0, 0);
                 if (r == 0)
                         return -ENOMEM;
         }
 #endif
         while (placeholders-- > 0) {
-                r = write_ntp_ext_field(&ptxt, CookiePlaceholder, NULL, nts->cookie.length, 0);
+                r = write_ntp_ext_field(&ptxt, NTS_EF_CookiePlaceholder, NULL, nts->cookie.length, 0);
                 if (r == 0)
                         return -ENOMEM;
         }
@@ -160,7 +153,7 @@ int NTS_add_extension_fields(
         /* set the ciphertext length */
         unaligned_write_be16(EF_ciphertext_len, ctxt_len);
 
-        r = write_ntp_ext_field(&buf, AuthEncExtFields, EF, ef_len, 28);
+        r = write_ntp_ext_field(&buf, NTS_EF_AuthEncExtFields, EF, ef_len, 28);
         if (r == 0)
                 return -ENOMEM;
 
@@ -194,7 +187,7 @@ int NTS_parse_extension_fields(
                         return -ENOMEM;
 
                 switch (type) {
-                case UniqueIdentifier:
+                case NTS_EF_UniqueIdentifier:
                         /* the length indicator contains the size of the header (4 bytes); the identifier
                          * itself is expected to be 32 bytes */
                         if (len - 4 != 32)
@@ -203,7 +196,7 @@ int NTS_parse_extension_fields(
                         fields->identifier = (NTS_Identifier*)(buf.data + 4);
                         processed = true;
                         break;
-                case AuthEncExtFields: {
+                case NTS_EF_AuthEncExtFields: {
                         uint16_t nonce_len, ciph_len;
                         decode_hdr(&nonce_len, &ciph_len, buf.data + 4);
                         /* check that the advertised nonce / cipher lengths + header don't exceed the outer length,
@@ -241,7 +234,7 @@ int NTS_parse_extension_fields(
 
                                 /* only care about cookies */
                                 switch (inner_type) {
-                                case Cookie:
+                                case NTS_EF_Cookie:
                                         if (cookies < ELEMENTSOF(fields->new_cookie)) {
                                                 fields->new_cookie[cookies].data = plain.data + 4;
                                                 fields->new_cookie[cookies].length = inner_len - 4;
