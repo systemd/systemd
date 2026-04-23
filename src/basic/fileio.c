@@ -895,23 +895,11 @@ int script_get_shebang_interpreter(const char *path, char **ret) {
         return 0;
 }
 
-int get_proc_field(const char *path, const char *key, char **ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+static int get_proc_field_from_stream(FILE *f, const char *key, char **ret) {
         int r;
 
-        /* Retrieve one field from a file like /proc/self/status. "key" matches the beginning of the line
-         * and should not include whitespace or the delimiter (':').
-         * Whitespaces after the ':' will be skipped. Only the first element is returned
-         * (i.e. for /proc/meminfo line "MemTotal: 1024 kB" -> return "1024"). */
-
-        assert(path);
+        assert(f);
         assert(key);
-
-        r = fopen_unlocked(path, "re", &f);
-        if (r == -ENOENT && proc_mounted() == 0)
-                return -ENOSYS;
-        if (r < 0)
-                return r;
 
         for (;;) {
                  _cleanup_free_ char *line = NULL;
@@ -935,6 +923,84 @@ int get_proc_field(const char *path, const char *key, char **ret) {
                          return 0;
                  }
         }
+}
+
+int get_proc_field(const char *path, const char *key, char **ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        /* Retrieve one field from a file like /proc/self/status. "key" matches the beginning of the line
+         * and should not include whitespace or the delimiter (':').
+         * Whitespaces after the ':' will be skipped. Only the first element is returned
+         * (i.e. for /proc/meminfo line "MemTotal: 1024 kB" -> return "1024"). */
+
+        assert(path);
+        assert(key);
+
+        r = fopen_unlocked(path, "re", &f);
+        if (r == -ENOENT && proc_mounted() == 0)
+                return -ENOSYS;
+        if (r < 0)
+                return r;
+
+        return get_proc_field_from_stream(f, key, ret);
+}
+
+int get_proc_field_from_fd(int fd, const char *key, char **ret) {
+        _cleanup_close_ int dup_fd = -EBADF;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        /* Like get_proc_field(), but reads from an already-open fd instead of opening a path. The caller
+         * retains ownership of fd; the helper dup()s it internally so the fd's read position is not
+         * disturbed and the helper can be called repeatedly with different keys. The dup'd fd is rewound to
+         * offset 0 before reading, which for /proc seq_files regenerates the snapshot.
+         *
+         * The intended use is to open a /proc file while privileged and then read fields from it after a
+         * subsequent drop_privileges(): the kernel's lookup-time access check has already been passed, and
+         * reads from the original file description survive the privilege change. */
+
+        assert(fd >= 0);
+        assert(key);
+
+        dup_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (dup_fd < 0)
+                return -errno;
+
+        if (lseek(dup_fd, 0, SEEK_SET) < 0)
+                return -errno;
+
+        r = take_fdopen_unlocked(&dup_fd, "r", &f);
+        if (r < 0)
+                return r;
+
+        return get_proc_field_from_stream(f, key, ret);
+}
+
+int read_one_line_from_fd(int fd, char **ret) {
+        _cleanup_close_ int dup_fd = -EBADF;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        /* Like read_one_line_file(), but reads from an already-open fd. Caller retains ownership of fd;
+         * the helper dup()s internally and rewinds the dup to offset 0. See get_proc_field_from_fd() for
+         * the rationale. */
+
+        assert(fd >= 0);
+        assert(ret);
+
+        dup_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (dup_fd < 0)
+                return -errno;
+
+        if (lseek(dup_fd, 0, SEEK_SET) < 0)
+                return -errno;
+
+        r = take_fdopen_unlocked(&dup_fd, "r", &f);
+        if (r < 0)
+                return r;
+
+        return read_line(f, LONG_LINE_MAX, ret);
 }
 
 DIR* xopendirat(int dir_fd, const char *path, int flags) {
