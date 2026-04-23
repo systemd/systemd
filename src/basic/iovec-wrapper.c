@@ -24,6 +24,22 @@ void iovw_done_free(struct iovec_wrapper *iovw) {
         iovw_done(iovw);
 }
 
+struct iovec_wrapper* iovw_free(struct iovec_wrapper *iovw) {
+        if (!iovw)
+                return NULL;
+
+        iovw_done(iovw);
+        return mfree(iovw);
+}
+
+struct iovec_wrapper* iovw_free_free(struct iovec_wrapper *iovw) {
+        if (!iovw)
+                return NULL;
+
+        iovw_done_free(iovw);
+        return mfree(iovw);
+}
+
 int iovw_compare(const struct iovec_wrapper *a, const struct iovec_wrapper *b) {
         int r;
 
