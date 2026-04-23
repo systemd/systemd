@@ -179,13 +179,13 @@ TEST(ntp_field_encoding) {
                 zero(rcpt);
                 len = NTS_add_extension_fields(buffer, &nts, &identifier);
                 buffer[i] ^= 0x20;
-                assert_se(!NTS_parse_extension_fields(buffer, len, &nts, &rcpt));
+                assert_se(NTS_parse_extension_fields(buffer, len, &nts, &rcpt) < 0);
         }
 
         zero(rcpt);
         len = NTS_add_extension_fields(buffer, &nts, &identifier);
         nts.s2c_key = (uint8_t[32]){ 1, };
-        assert_se(!NTS_parse_extension_fields(buffer, len, &nts, &rcpt));
+        assert_se(NTS_parse_extension_fields(buffer, len, &nts, &rcpt) < 0);
 }
 
 #if HAVE_OPENSSL
@@ -273,13 +273,13 @@ TEST(ntp_field_decoding) {
         encode_record_raw_ext(&p, 0x0104, ident, 32);
 
         zero(rcpt);
-        assert_se(!NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
+        assert_se(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt) < 0);
 
         /* no authentication at all */
         p = buffer + 48;
         encode_record_raw(&p, 0x0104, ident, 32);
         zero(rcpt);
-        assert_se(!NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
+        assert_se(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt) < 0);
 
         /* malicious unencrypted field */
         p = buffer + 48;
@@ -287,7 +287,7 @@ TEST(ntp_field_decoding) {
         add_encrypted_server_hdr(buffer, &p, nts, (const char*[]){cookie, NULL}, NULL);
         buffer[48+2] = 0xee;
         zero(rcpt);
-        assert_se(!NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
+        assert_se(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt) < 0);
 
         /* malicious encrypted field */
         p = buffer + 48;
@@ -297,7 +297,7 @@ TEST(ntp_field_decoding) {
         add_encrypted_server_hdr(buffer, &p, nts, (const char*[]){cookie, NULL}, p+34);
 
         zero(rcpt);
-        assert_se(!NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
+        assert_se(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt) < 0);
 }
 #endif
 
