@@ -697,7 +697,7 @@ static bool item_cleanup(
                 AgeBy age_by_dir) { /* same age criteria for directory */
         /* Clean up a file or directory, recursively, according to the cutoff_nsec age constraint.
          * Errors are ignored, consistent with historical behaviour for tmpfiles cleanup.
-         * Return true if a file is deleted.
+         * Return true if a file or directory is deleted.
         */
         int r = 0;
 
@@ -803,6 +803,8 @@ static bool item_cleanup(
                     unlinkat(dir_fd, name, AT_REMOVEDIR) < 0 &&
                     !IN_SET(errno, ENOENT, ENOTEMPTY))
                         log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", pathname);
+
+                return true; /* flag that a directory entry was deleted */
 
         } else {
                 _cleanup_close_ int fd = -EBADF; /* This file descriptor is defined here so that the
