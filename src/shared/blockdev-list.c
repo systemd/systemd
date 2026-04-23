@@ -99,10 +99,10 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
         size_t n = 0;
         CLEANUP_ARRAY(l, n, block_device_array_free);
 
-        dev_t root_devno = 0;
+        dev_t root_devno = 0, whole_root_devno = 0;
         if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_ROOT))
                 if (blockdev_get_root(LOG_DEBUG, &root_devno) > 0) {
-                        r = block_get_whole_disk(root_devno, &root_devno);
+                        r = block_get_whole_disk(root_devno, &whole_root_devno);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to get whole block device of root device: %m");
                 }
@@ -138,7 +138,7 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                                 continue;
                         }
 
-                        if (devno == root_devno)
+                        if (devno == root_devno || devno == whole_root_devno)
                                 continue;
                 }
 
