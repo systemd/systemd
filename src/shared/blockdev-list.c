@@ -189,10 +189,17 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                 }
 
                 _cleanup_free_ char *model = NULL, *vendor = NULL, *subsystem = NULL;
+                int ro = -1;
                 if (FLAGS_SET(flags, BLOCKDEV_LIST_METADATA)) {
                         (void) blockdev_get_prop(dev, "ID_MODEL_FROM_DATABASE", "ID_MODEL", &model);
                         (void) blockdev_get_prop(dev, "ID_VENDOR_FROM_DATABASE", "ID_VENDOR", &vendor);
                         (void) blockdev_get_subsystem(dev, &subsystem);
+
+                        r = device_get_sysattr_bool(dev, "ro");
+                        if (r < 0)
+                                log_device_debug_errno(dev, r, "Failed to acquire read-only flag of device '%s', ignoring: %m", node);
+                        else
+                                ro = r;
                 }
 
                 if (ret_devices) {
@@ -216,6 +223,7 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                                 .model = TAKE_PTR(model),
                                 .vendor = TAKE_PTR(vendor),
                                 .subsystem = TAKE_PTR(subsystem),
+                                .read_only = ro,
                         };
 
                 } else {
