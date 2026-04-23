@@ -1476,7 +1476,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
 }
 
 static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_dhcp_client *client = userdata;
+        sd_dhcp_client *client = ASSERT_PTR(userdata);
         DHCP_CLIENT_DONT_DESTROY(client);
         int r;
 
