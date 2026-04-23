@@ -237,7 +237,8 @@ void iovw_rebase(struct iovec_wrapper *iovw, void *old, void *new) {
 }
 
 size_t iovw_size(const struct iovec_wrapper *iovw) {
-        assert(iovw);
+        if (iovw_isempty(iovw))
+                return 0;
 
         return iovec_total_size(iovw->iovec, iovw->count);
 }
