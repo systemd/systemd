@@ -1688,15 +1688,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - maybe introduce a new per-unit drop-in directory .confext.d/ that may contain
   symlinks to confext images to enable for the unit.
 
-- Maybe introduce an InodeRef structure inspired by PidRef, which references a
-  specific inode, and combines: a path, an O_PATH fd, and possibly a FID into
-  one. Why? We often pass around path and fd separately in chaseat() and similar
-  calls. Because passing around both separately is cumbersome we sometimes pass
-  only one, sometimes the other, and sometimes both. It would make the code a
-  lot simpler if we could pass both around at the same time in a simple way, via
-  an InodeRef which *both* pins the inode via an fd, *and* gives us a friendly
-  name for it.
-
 - maybe introduce an OSC sequence that signals when we ask for a password, so
   that terminal emulators can maybe connect a password manager or so, and
   highlight things specially.
