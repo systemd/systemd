@@ -56,6 +56,7 @@
 #include "libaudit-util.h"
 #include "locale-setup.h"
 #include "log.h"
+#include "luo.h"
 #include "manager-dump.h"
 #include "manager-serialize.h"
 #include "manager.h"
@@ -1787,6 +1788,8 @@ Manager* manager_free(Manager *m) {
         safe_close(m->executor_fd);
         free(m->executor_path);
 
+        hashmap_free(m->luo_held_fds);
+
         return mfree(m);
 }
 
@@ -2093,6 +2096,14 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                  * that they can reliably read it. We get the previous objective from serialized state. */
                 if (m->previous_objective == MANAGER_SOFT_REBOOT)
                         m->soft_reboots_count++;
+
+                /* If a LUO (Live Update Orchestrator) session from a previous kexec is available, restore
+                 * preserved file descriptors into the appropriate service fd stores now, before coldplug. */
+                (void) manager_luo_restore_fd_stores(m);
+
+                /* If we have LUO held fds from a previous boot phase (e.g. initrd), try to
+                 * match them now that more units are loaded. */
+                (void) manager_luo_process_held_fds(m);
 
                 /* Any fds left? Find some unit which wants them. This is useful to allow container managers to pass
                  * some file descriptors to us pre-initialized. This enables socket-based activation of entire
