@@ -8,17 +8,13 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-/* algorithm type is not made into a full enum since it eases ptr-conversions */
 typedef uint16_t NTS_AEADAlgorithmType;
-enum {
-        NTS_AEAD_AES_SIV_CMAC_256 = 15,
-        NTS_AEAD_AES_SIV_CMAC_384 = 16,
-        NTS_AEAD_AES_SIV_CMAC_512 = 17,
-        NTS_AEAD_AES_128_GCM_SIV  = 30,
-        NTS_AEAD_AES_256_GCM_SIV  = 31,
-        _NTS_AEAD_MAX,
-        _NTS_AEAD_INVALID = -EINVAL,
-};
+
+#define NTS_AEAD_AES_SIV_CMAC_256 15
+#define NTS_AEAD_AES_SIV_CMAC_384 16
+#define NTS_AEAD_AES_SIV_CMAC_512 17
+#define NTS_AEAD_AES_128_GCM_SIV  30
+#define NTS_AEAD_AES_256_GCM_SIV  31
 
 typedef struct NTS_AEADParam {
         NTS_AEADAlgorithmType aead_id;
