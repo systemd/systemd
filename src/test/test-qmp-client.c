@@ -473,6 +473,148 @@ TEST(qmp_client_invoke_failure_closes_fds) {
         ASSERT_EQ(errno, EBADF);
 }
 
+/* Reads one command, asserts its execute name, and replies with a QMP error object carrying
+ * the given description. Mirrors mock_qmp_expect_and_reply() but on the error branch. */
+static void mock_qmp_expect_and_reply_error(int fd, const char *expected_command, const char *error_desc) {
+        _cleanup_free_ char *buf = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL, *error_obj = NULL, *response = NULL;
+
+        buf = ASSERT_NOT_NULL(new(char, 4096));
+
+        ssize_t n = read(fd, buf, 4095);
+        assert_se(n > 0);
+        buf[n] = '\0';
+
+        ASSERT_OK(sd_json_parse(buf, 0, &cmd, NULL, NULL));
+
+        sd_json_variant *execute = ASSERT_NOT_NULL(sd_json_variant_by_key(cmd, "execute"));
+        ASSERT_STREQ(sd_json_variant_string(execute), expected_command);
+
+        sd_json_variant *id = ASSERT_NOT_NULL(sd_json_variant_by_key(cmd, "id"));
+
+        ASSERT_OK(sd_json_buildo(
+                        &error_obj,
+                        SD_JSON_BUILD_PAIR_STRING("class", "GenericError"),
+                        SD_JSON_BUILD_PAIR_STRING("desc", error_desc)));
+
+        ASSERT_OK(sd_json_buildo(
+                        &response,
+                        SD_JSON_BUILD_PAIR("error", SD_JSON_BUILD_VARIANT(error_obj)),
+                        SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_VARIANT(id))));
+
+        mock_qmp_write_json(fd, response);
+}
+
+/* Drives a small wire dance for the sync call test: greeting, capabilities, one successful
+ * command reply, and two error replies (one for the ret_error_desc path, one for the -EIO
+ * path). */
+static _noreturn_ void mock_qmp_server_call(int fd) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *status_return = NULL;
+
+        mock_qmp_write_literal(fd,
+                "{\"QMP\": {\"version\": {\"qemu\": {\"micro\": 0, \"minor\": 0, \"major\": 9}}, \"capabilities\": []}}");
+
+        mock_qmp_expect_and_reply(fd, "qmp_capabilities", NULL);
+
+        ASSERT_OK(sd_json_buildo(
+                        &status_return,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("running", true),
+                        SD_JSON_BUILD_PAIR_STRING("status", "running")));
+        mock_qmp_expect_and_reply(fd, "query-status", status_return);
+
+        mock_qmp_expect_and_reply_error(fd, "stop", "not running");
+        mock_qmp_expect_and_reply_error(fd, "stop", "still not running");
+
+        safe_close(fd);
+        _exit(EXIT_SUCCESS);
+}
+
+TEST(qmp_client_call) {
+        _cleanup_(qmp_client_unrefp) QmpClient *client = NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
+        int qmp_fds[2];
+        int r;
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, qmp_fds));
+
+        r = ASSERT_OK(pidref_safe_fork("(mock-qmp-call)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid));
+        if (r == 0) {
+                safe_close(qmp_fds[0]);
+                mock_qmp_server_call(qmp_fds[1]);
+        }
+        safe_close(qmp_fds[1]);
+
+        /* qmp_client_call() drives its own process()+wait() pump, so no event loop needed. */
+        ASSERT_OK(qmp_client_connect_fd(&client, qmp_fds[0]));
+
+        /* Successful call: borrowed result pointer is valid until the next call. */
+        sd_json_variant *result = NULL;
+        const char *error_desc = NULL;
+        ASSERT_EQ(qmp_client_call(client, "query-status", NULL, &result, &error_desc), 1);
+        ASSERT_NULL(error_desc);
+        ASSERT_NOT_NULL(result);
+
+        sd_json_variant *running = ASSERT_NOT_NULL(sd_json_variant_by_key(result, "running"));
+        ASSERT_TRUE(sd_json_variant_boolean(running));
+        sd_json_variant *status = ASSERT_NOT_NULL(sd_json_variant_by_key(result, "status"));
+        ASSERT_STREQ(sd_json_variant_string(status), "running");
+
+        /* QMP error with ret_error_desc provided: returns 1, result NULL, desc set. */
+        result = (sd_json_variant*) 0x1;  /* poison to catch lack-of-write */
+        error_desc = NULL;
+        ASSERT_EQ(qmp_client_call(client, "stop", NULL, &result, &error_desc), 1);
+        ASSERT_NULL(result);
+        ASSERT_STREQ(error_desc, "not running");
+
+        /* QMP error without ret_error_desc: surfaces as -EIO. */
+        ASSERT_EQ(qmp_client_call(client, "stop", NULL, NULL, NULL), -EIO);
+}
+
+/* Server variant for the sync-call disconnect test: greets, accepts capabilities, reads one
+ * command without replying, then closes the socket so the client sees EOF mid-wait. */
+static _noreturn_ void mock_qmp_server_call_disconnect(int fd) {
+        _cleanup_free_ char *buf = NULL;
+
+        mock_qmp_write_literal(fd,
+                "{\"QMP\": {\"version\": {\"qemu\": {\"micro\": 0, \"minor\": 0, \"major\": 9}}, \"capabilities\": []}}");
+
+        mock_qmp_expect_and_reply(fd, "qmp_capabilities", NULL);
+
+        /* Consume the stop command but don't reply — just close to trigger EOF while the
+         * client is blocked in qmp_client_call()'s process+wait pump. */
+        buf = ASSERT_NOT_NULL(new(char, 4096));
+        ssize_t n = read(fd, buf, 4095);
+        assert_se(n > 0);
+
+        safe_close(fd);
+        _exit(EXIT_SUCCESS);
+}
+
+TEST(qmp_client_call_disconnect) {
+        _cleanup_(qmp_client_unrefp) QmpClient *client = NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
+        int qmp_fds[2];
+        int r;
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, qmp_fds));
+
+        r = ASSERT_OK(pidref_safe_fork("(mock-qmp-call-disc)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid));
+        if (r == 0) {
+                safe_close(qmp_fds[0]);
+                mock_qmp_server_call_disconnect(qmp_fds[1]);
+        }
+        safe_close(qmp_fds[1]);
+
+        ASSERT_OK(qmp_client_connect_fd(&client, qmp_fds[0]));
+
+        /* The server reads our stop command and closes without replying. qmp_client_call()
+         * is driving its own pump, so it must notice the EOF, transition to DISCONNECTED,
+         * and return a disconnect error rather than hanging. */
+        r = qmp_client_call(client, "stop", NULL, NULL, NULL);
+        ASSERT_TRUE(r < 0);
+        ASSERT_TRUE(ERRNO_IS_NEG_DISCONNECT(r));
+}
+
 TEST(qmp_schema_has_member) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *schema = NULL;
 

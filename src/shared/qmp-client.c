@@ -232,6 +232,11 @@ static int qmp_client_dispatch_reply(QmpClient *c) {
                 return 1;
         }
 
+        /* Synchronous slot (no callback): leave c->current pinned so qmp_client_call() can
+         * pick up the reply and hand out borrowed pointers into it. */
+        if (!pending->callback)
+                return 1;
+
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = TAKE_PTR(c->current);
         error = qmp_parse_response(v, &result, &desc);
 
@@ -250,9 +255,11 @@ static void qmp_client_fail_pending(QmpClient *c, int error) {
         assert(c);
 
         while ((p = set_steal_first(c->slots))) {
-                r = p->callback(c, /* result= */ NULL, /* error_desc= */ NULL, error, p->userdata);
-                if (r < 0)
-                        json_stream_log_errno(&c->stream, r, "Command callback returned error, ignoring: %m");
+                if (p->callback) {
+                        r = p->callback(c, /* result= */ NULL, /* error_desc= */ NULL, error, p->userdata);
+                        if (r < 0)
+                                json_stream_log_errno(&c->stream, r, "Command callback returned error, ignoring: %m");
+                }
                 free(p);
         }
 }
@@ -692,12 +699,16 @@ static QmpClientArgs* qmp_client_args_close_fds(QmpClientArgs *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(QmpClientArgs*, qmp_client_args_close_fds);
 
-int qmp_client_invoke(
+/* Shared send path for qmp_client_invoke() and qmp_client_call(). A NULL callback registers
+ * a "synchronous" slot: dispatch_reply leaves c->current pinned on match instead of invoking
+ * a callback, so qmp_client_call() can hand out borrowed pointers into the reply. */
+static int qmp_client_send(
                 QmpClient *c,
                 const char *command,
                 QmpClientArgs *args,
                 qmp_command_callback_t callback,
-                void *userdata) {
+                void *userdata,
+                uint64_t *ret_id) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL;
         _cleanup_free_ QmpSlot *pending = NULL;
@@ -709,7 +720,6 @@ int qmp_client_invoke(
 
         assert(c);
         assert(command);
-        assert(callback);
 
         r = qmp_client_ensure_running(c);
         if (r < 0)
@@ -748,7 +758,81 @@ int qmp_client_invoke(
 
         TAKE_PTR(pending);
         TAKE_PTR(fds_owner);
+
+        if (ret_id)
+                *ret_id = id;
         return 0;
+}
+
+int qmp_client_invoke(
+                QmpClient *c,
+                const char *command,
+                QmpClientArgs *args,
+                qmp_command_callback_t callback,
+                void *userdata) {
+
+        assert(callback);
+        return qmp_client_send(c, command, args, callback, userdata, /* ret_id= */ NULL);
+}
+
+int qmp_client_call(
+                QmpClient *c,
+                const char *command,
+                QmpClientArgs *args,
+                sd_json_variant **ret_result,
+                const char **ret_error_desc) {
+
+        uint64_t id;
+        int r;
+
+        assert_return(c, -EINVAL);
+        assert_return(command, -EINVAL);
+
+        /* Drop any reply pinned by a previous qmp_client_call() before we pin a new one. */
+        qmp_client_clear_current(c);
+
+        /* NULL callback marks this as a synchronous slot: dispatch_reply matches on id like
+         * any other slot (so stray unknown-id replies still get logged and dropped), but
+         * pins c->current for us instead of invoking a callback. */
+        r = qmp_client_send(c, command, args, /* callback= */ NULL, /* userdata= */ NULL, &id);
+        if (r < 0)
+                return r;
+
+        /* Pump the loop until our sync slot fires (removed from c->slots, c->current pinned). */
+        for (;;) {
+                if (c->state == QMP_CLIENT_DISCONNECTED)
+                        return -ECONNRESET;
+
+                if (!set_contains(c->slots, &(QmpSlot) { .id = id })) {
+                        assert(c->current);
+                        break;
+                }
+
+                r = qmp_client_process(c);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        continue;
+
+                r = qmp_client_wait(c, USEC_INFINITY);
+                if (r < 0)
+                        return r;
+        }
+
+        sd_json_variant *result = NULL;
+        const char *desc = NULL;
+        int error = qmp_parse_response(c->current, &result, &desc);
+
+        /* If caller doesn't ask for the error string, surface the error as the return code. */
+        if (!ret_error_desc && error < 0)
+                return error;
+
+        if (ret_result)
+                *ret_result = result;
+        if (ret_error_desc)
+                *ret_error_desc = desc;
+
+        return 1;
 }
 
 void qmp_client_bind_event(QmpClient *c, qmp_event_callback_t callback, void *userdata) {
