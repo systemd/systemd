@@ -133,10 +133,6 @@ int cryptsetup_set_minimal_pbkdf(struct crypt_device *cd) {
 
         /* Sets a minimal PKBDF in case we already have a high entropy key. */
 
-        r = dlopen_cryptsetup(LOG_DEBUG);
-        if (r < 0)
-                return r;
-
         r = sym_crypt_set_pbkdf_type(cd, &minimal_pbkdf);
         if (r < 0)
                 return r;
@@ -163,10 +159,6 @@ int cryptsetup_get_token_as_json(
          *      -ENOENT → token doesn't exist
          * -EMEDIUMTYPE → "verify_type" specified and doesn't match token's type
          */
-
-        r = dlopen_cryptsetup(LOG_DEBUG);
-        if (r < 0)
-                return r;
 
         r = sym_crypt_token_json_get(cd, idx, &text);
         if (r < 0)
@@ -196,10 +188,6 @@ int cryptsetup_get_token_as_json(
 int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v) {
         _cleanup_free_ char *text = NULL;
         int r;
-
-        r = dlopen_cryptsetup(LOG_DEBUG);
-        if (r < 0)
-                return r;
 
         r = sd_json_variant_format(v, 0, &text);
         if (r < 0)
