@@ -80,7 +80,7 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
                 NTS_Receipt rcpt;
                 soft_assert(NTS_parse_extension_fields(buf, len, &query, &rcpt) > 0);
                 /* getting "new cookies" from a client is an error */
-                soft_assert(rcpt.new_cookie->data == NULL);
+                soft_assert(rcpt.new_cookie->iov_base == NULL);
 
                 memcpy(unique_id, rcpt.identifier, 32);
         }
