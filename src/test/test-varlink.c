@@ -4,6 +4,7 @@
 #include <poll.h>
 #include <pthread.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-event.h"
@@ -934,6 +935,99 @@ TEST(upgrade_pipelining) {
         ASSERT_OK(sd_event_loop(e));
 
         ASSERT_OK(-pthread_join(t, NULL));
+}
+
+typedef struct ExecDirServer {
+        sd_varlink_server *server;
+        sd_event *event;
+        const char *name;
+} ExecDirServer;
+
+static int method_execute_dir_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        ExecDirServer *srv = ASSERT_PTR(userdata);
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("name", srv->name));
+}
+
+static void on_execute_dir_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
+        ExecDirServer *srv = ASSERT_PTR(userdata);
+
+        /* Only one client (from varlink_execute_directory()) connects per server — once it's gone, we're done. */
+        ASSERT_OK(sd_event_exit(srv->event, 0));
+}
+
+static void *execute_dir_server_thread(void *arg) {
+        ExecDirServer *srv = arg;
+
+        ASSERT_OK(sd_event_loop(srv->event));
+        return NULL;
+}
+
+static int execute_dir_reply(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        unsigned *count = ASSERT_PTR(userdata);
+
+        ASSERT_NULL(error_id);
+        ASSERT_NOT_NULL(sd_json_variant_by_key(parameters, "name"));
+
+        (*count)++;
+        return 0;
+}
+
+TEST(execute_directory) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        static const char * const names[] = { "alpha", "beta", "gamma" };
+        ExecDirServer servers[ELEMENTSOF(names)] = {};
+        pthread_t threads[ELEMENTSOF(names)] = {};
+        _cleanup_free_ char *socket_paths[ELEMENTSOF(names)] = {};
+        unsigned reply_count = 0;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/varlink-execdir-XXXXXX", &tmpdir));
+
+        for (size_t i = 0; i < ELEMENTSOF(names); i++) {
+                servers[i].name = names[i];
+
+                ASSERT_OK(asprintf(&socket_paths[i], "%s/%s", tmpdir, names[i]));
+
+                ASSERT_OK(sd_event_new(&servers[i].event));
+                ASSERT_OK(varlink_server_new(&servers[i].server,
+                                             SD_VARLINK_SERVER_INHERIT_USERDATA,
+                                             &servers[i]));
+                ASSERT_OK(sd_varlink_server_bind_method(servers[i].server, "io.test.ExecDirPing", method_execute_dir_ping));
+                ASSERT_OK(sd_varlink_server_bind_disconnect(servers[i].server, on_execute_dir_disconnect));
+                ASSERT_OK(sd_varlink_server_listen_address(servers[i].server, socket_paths[i], 0600));
+                ASSERT_OK(sd_varlink_server_attach_event(servers[i].server, servers[i].event, 0));
+
+                ASSERT_OK(-pthread_create(&threads[i], NULL, execute_dir_server_thread, &servers[i]));
+        }
+
+        ASSERT_OK_EQ(varlink_execute_directory(tmpdir,
+                                               "io.test.ExecDirPing",
+                                               /* parameters= */ NULL,
+                                               /* more= */ false,
+                                               execute_dir_reply,
+                                               &reply_count),
+                     (int) ELEMENTSOF(names));
+        ASSERT_EQ(reply_count, (unsigned) ELEMENTSOF(names));
+
+        for (size_t i = 0; i < ELEMENTSOF(names); i++) {
+                ASSERT_OK(-pthread_join(threads[i], NULL));
+                servers[i].server = sd_varlink_server_unref(servers[i].server);
+                servers[i].event = sd_event_unref(servers[i].event);
+        }
+
+        /* Calling the helper against a non-existent directory must fail. */
+        _cleanup_free_ char *nope = NULL;
+        ASSERT_OK(asprintf(&nope, "%s/does-not-exist", tmpdir));
+        ASSERT_FAIL(varlink_execute_directory(nope, "io.test.ExecDirPing", /* parameters= */ NULL, /* more= */ false, execute_dir_reply, &reply_count));
+
+        /* An empty directory must simply return 0 and not invoke the reply callback. */
+        _cleanup_free_ char *empty = NULL;
+        ASSERT_OK(asprintf(&empty, "%s/empty", tmpdir));
+        ASSERT_OK_ERRNO(mkdir(empty, 0755));
+
+        unsigned count_before = reply_count;
+        ASSERT_OK_ZERO(varlink_execute_directory(empty, "io.test.ExecDirPing", /* parameters= */ NULL, /* more= */ false, execute_dir_reply, &reply_count));
+        ASSERT_EQ(reply_count, count_before);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
