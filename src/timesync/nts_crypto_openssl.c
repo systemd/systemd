@@ -74,25 +74,25 @@ static bool process_assoc_data(
                  * contradiction to the documentation;
                  * our interface *does* interpret the last AAD item as the siv/nonce
                  */
-                assert(info->data);
-                for (last = info; (last+1)->data != NULL; )
+                assert(info->iov_base);
+                for (last = info; (last+1)->iov_base != NULL; )
                         last++;
 
-                if (last->length != aead->nonce_size)
+                if (last->iov_len != aead->nonce_size)
                         goto exit;
 
-                r = EVP_CryptInit_ex(state, NULL, NULL, NULL, last->data);
+                r = EVP_CryptInit_ex(state, NULL, NULL, NULL, last->iov_base);
                 if (r == 0)
                         goto exit;
         }
 
-        for ( ; info->data && info != last; info++) {
+        for ( ; info->iov_base && info != last; info++) {
                 int len = 0;
-                r = EVP_CryptUpdate(state, NULL, &len, info->data, info->length);
+                r = EVP_CryptUpdate(state, NULL, &len, info->iov_base, info->iov_len);
                 if (r == 0)
                         goto exit;
 
-                assert((size_t)len == info->length);
+                assert((size_t)len == info->iov_len);
         }
 
         return true;
