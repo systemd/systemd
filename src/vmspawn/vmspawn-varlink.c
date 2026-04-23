@@ -9,7 +9,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "varlink-io.systemd.MachineInstance.h"
-#include "varlink-io.systemd.QemuMachineInstance.h"
 #include "varlink-io.systemd.VirtualMachineInstance.h"
 #include "varlink-util.h"
 #include "vmspawn-qmp.h"
@@ -185,10 +184,6 @@ static int vl_method_subscribe_events(sd_varlink *link, sd_json_variant *paramet
         }
 
         return 0;
-}
-
-static int vl_method_acquire_qmp(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return sd_varlink_error_errno(link, -EOPNOTSUPP);
 }
 
 static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
@@ -375,8 +370,7 @@ int vmspawn_varlink_setup(
         r = sd_varlink_server_add_interface_many(
                         ctx->varlink_server,
                         &vl_interface_io_systemd_MachineInstance,
-                        &vl_interface_io_systemd_VirtualMachineInstance,
-                        &vl_interface_io_systemd_QemuMachineInstance);
+                        &vl_interface_io_systemd_VirtualMachineInstance);
         if (r < 0)
                 return log_error_errno(r, "Failed to add varlink interfaces: %m");
 
@@ -388,8 +382,7 @@ int vmspawn_varlink_setup(
                         "io.systemd.MachineInstance.Resume",            vl_method_resume,
                         "io.systemd.MachineInstance.Reboot",            vl_method_reboot,
                         "io.systemd.MachineInstance.Describe",          vl_method_describe,
-                        "io.systemd.MachineInstance.SubscribeEvents",   vl_method_subscribe_events,
-                        "io.systemd.QemuMachineInstance.AcquireQMP",    vl_method_acquire_qmp);
+                        "io.systemd.MachineInstance.SubscribeEvents",   vl_method_subscribe_events);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind varlink methods: %m");
 
