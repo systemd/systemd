@@ -21,10 +21,10 @@ static void eat(const uint8_t *buf, size_t size) {
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         uint8_t buffer[1280];
         int len = MIN(size, sizeof(buffer));
-
-        memcpy(buffer, data, len);
         if (len < 48)
                 return 0;
+
+        memcpy(buffer, data, len);
 
         NTS_Query nts = {
                 .cipher = *NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256),

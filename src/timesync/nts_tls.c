@@ -13,17 +13,17 @@
 int NTS_TLS_extract_keys(
                 NTS_TLS *session,
                 NTS_AEADAlgorithmType aead,
-                uint8_t *c2s,
-                uint8_t *s2c,
-                int key_capacity) {
+                uint8_t *ret_c2s,
+                uint8_t *ret_s2c,
+                size_t key_capacity) {
 
         assert(session);
-        assert(c2s);
-        assert(s2c);
+        assert(ret_c2s);
+        assert(ret_s2c);
 
         SSL *tls = (void *)session;
 
-        uint8_t *keys[] = { c2s, s2c };
+        uint8_t *keys[] = { ret_c2s, ret_s2c };
         const char label[] = "EXPORTER-network-time-security";
 
         const NTS_AEADParam *info = NTS_get_param(aead);
