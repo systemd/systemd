@@ -1,23 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "machine-util.h"
 #include "shared-forward.h"
-
-typedef enum ImageFormat {
-        IMAGE_FORMAT_RAW,
-        IMAGE_FORMAT_QCOW2,
-        _IMAGE_FORMAT_MAX,
-        _IMAGE_FORMAT_INVALID = -EINVAL,
-} ImageFormat;
-
-typedef enum DiskType {
-        DISK_TYPE_VIRTIO_BLK,
-        DISK_TYPE_VIRTIO_SCSI,
-        DISK_TYPE_NVME,
-        DISK_TYPE_VIRTIO_SCSI_CDROM,
-        _DISK_TYPE_MAX,
-        _DISK_TYPE_INVALID = -EINVAL,
-} DiskType;
 
 typedef struct ExtraDrive {
         char *path;
@@ -69,6 +54,4 @@ typedef enum SettingsMask {
 
 DECLARE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode);
 DECLARE_STRING_TABLE_LOOKUP(console_transport, ConsoleTransport);
-DECLARE_STRING_TABLE_LOOKUP(disk_type, DiskType);
 DECLARE_STRING_TABLE_LOOKUP(firmware, Firmware);
-DECLARE_STRING_TABLE_LOOKUP(image_format, ImageFormat);
