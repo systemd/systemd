@@ -17,7 +17,7 @@
 #    warning The OpenSSL workaround is not necessary.
 #endif
 
-static const struct NTS_AEADParam supported_algos[] = {
+static const NTS_AEADParam supported_algos[] = {
         { NTS_AEAD_AES_SIV_CMAC_256, 256/8, 16, 16, true, false, "AES-128-SIV" },
         { NTS_AEAD_AES_SIV_CMAC_512, 512/8, 16, 16, true, false, "AES-256-SIV" },
         { NTS_AEAD_AES_SIV_CMAC_384, 384/8, 16, 16, true, false, "AES-192-SIV" },
@@ -27,7 +27,7 @@ static const struct NTS_AEADParam supported_algos[] = {
 #endif
 };
 
-const struct NTS_AEADParam* NTS_get_param(NTS_AEADAlgorithmType id) {
+const NTS_AEADParam* NTS_get_param(NTS_AEADAlgorithmType id) {
         FOREACH_ELEMENT(algo, supported_algos)
                 if (algo->aead_id == id)
                         return algo;
@@ -41,7 +41,7 @@ typedef int upd_f(EVP_CIPHER_CTX*, uint8_t*, int*, const uint8_t*, int);
 static int process_assoc_data(
                 EVP_CIPHER_CTX *state,
                 const AssociatedData *info,
-                const struct NTS_AEADParam *aead,
+                const NTS_AEADParam *aead,
                 init_f EVP_CryptInit_ex,
                 upd_f EVP_CryptUpdate) {
 
@@ -89,7 +89,7 @@ int NTS_encrypt(uint8_t *ctxt,
                 const uint8_t *ptxt,
                 int ptxt_len,
                 const AssociatedData *info,
-                const struct NTS_AEADParam *aead,
+                const NTS_AEADParam *aead,
                 const uint8_t *key) {
 
         int r;
@@ -164,7 +164,7 @@ int NTS_decrypt(uint8_t *ptxt,
                 const uint8_t *ctxt,
                 int ctxt_len,
                 const AssociatedData *info,
-                const struct NTS_AEADParam *aead,
+                const NTS_AEADParam *aead,
                 const uint8_t *key) {
 
         int r;

@@ -6,7 +6,7 @@
 
 #define ERROR(kind) case kind: return &#kind[4]
 
-const char *NTS_error_string(enum NTS_ErrorType error) {
+const char *NTS_error_string(NTS_ErrorType error) {
         switch (error) {
                 ERROR(NTS_SERVER_UNKNOWN_CRIT_RECORD);
                 ERROR(NTS_SERVER_BAD_REQUEST);

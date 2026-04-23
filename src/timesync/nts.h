@@ -52,14 +52,14 @@ typedef struct NTS_Cookie {
 } NTS_Cookie;
 
 typedef struct NTS_Agreement {
-        enum NTS_ErrorType error;
+        NTS_ErrorType error;
 
         NTS_AEADAlgorithmType aead_id;
 
         const char *ntp_server;
         uint16_t ntp_port;
 
-        struct NTS_Cookie cookie[8];
+        NTS_Cookie cookie[8];
 } NTS_Agreement;
 
 /* Encode a NTS KE request in the buffer of the provided size. If the third argument is not NULL,
@@ -80,10 +80,10 @@ int NTS_encode_request(uint8_t *buffer, size_t buf_size, const NTS_AEADAlgorithm
  *      0 upon success
  *      negative upon failure (writes the error code to NTS_Agreement->error)
  */
-int NTS_decode_response(uint8_t *buffer, size_t buf_size, struct NTS_Agreement *response);
+int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *response);
 
 /* Convert a NTS_ErrorType to a string */
-const char *NTS_error_string(enum NTS_ErrorType error);
+const char *NTS_error_string(NTS_ErrorType error);
 
 /* The following three functions provide runtime information about the chosen AEAD algorithm:
  * - key size requirement in bytes
@@ -91,7 +91,7 @@ const char *NTS_error_string(enum NTS_ErrorType error);
  * - Fetched EVP_CIPHER for the AEAD algorithm (when SIV is provided by OpenSSL only)
  */
 
-const struct NTS_AEADParam* NTS_get_param(NTS_AEADAlgorithmType id);
+const NTS_AEADParam* NTS_get_param(NTS_AEADAlgorithmType id);
 
 /* An opaque type that represents the underlying TLS session */
 typedef struct NTS_TLS NTS_TLS;
