@@ -144,7 +144,7 @@ static int property_get_idle_hint(
         assert(bus);
         assert(reply);
 
-        return sd_bus_message_append(reply, "b", user_get_idle_hint(u, NULL) > 0);
+        return sd_bus_message_append(reply, "b", user_get_idle_hint(u, NULL));
 }
 
 static int property_get_idle_since_hint(
