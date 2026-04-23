@@ -10,6 +10,7 @@
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "initrd-util.h"
+#include "luo.h"
 #include "manager.h"
 #include "manager-serialize.h"
 #include "parse-util.h"
@@ -177,6 +178,10 @@ int manager_serialize(
                 return r;
 
         r = varlink_server_serialize(m->metrics_varlink_server, "metrics", f, fds);
+        if (r < 0)
+                return r;
+
+        r = manager_luo_serialize_held_fds(m, f, fds);
         if (r < 0)
                 return r;
 
@@ -636,7 +641,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         else
                                 m->previous_objective = objective;
 
-                } else {
+                } else if ((val = startswith(l, "luo-held-fd=")))
+                        (void) manager_luo_deserialize_held_fd(m, val, fds);
+                else {
                         ManagerTimestamp q;
 
                         for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
