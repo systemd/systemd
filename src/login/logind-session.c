@@ -831,15 +831,14 @@ finish:
 static int session_dispatch_stop_on_idle(sd_event_source *source, uint64_t t, void *userdata) {
         Session *s = userdata;
         dual_timestamp ts;
-        int r, idle;
+        int r;
 
         assert(s);
 
         if (s->stopping)
                 return 0;
 
-        idle = session_get_idle_hint(s, &ts);
-        if (idle) {
+        if (session_get_idle_hint(s, &ts)) {
                 log_info("Session \"%s\" of user \"%s\" is idle, stopping.", s->id, s->user->user_record->user_name);
 
                 return session_stop(s, /* force= */ true);
@@ -1153,11 +1152,14 @@ static int get_process_ctty_atime(pid_t pid, usec_t *atime) {
         return get_tty_atime(p, atime);
 }
 
-int session_get_idle_hint(Session *s, dual_timestamp *t) {
+bool session_get_idle_hint(Session *s, dual_timestamp *t) {
         usec_t atime = 0, dtime = 0;
         int r;
 
         assert(s);
+
+        if (t)
+                *t = DUAL_TIMESTAMP_NULL;
 
         if (!SESSION_CLASS_CAN_IDLE(s->class))
                 return false;
@@ -1186,9 +1188,6 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
                                 goto found_atime;
                 }
         }
-
-        if (t)
-                *t = DUAL_TIMESTAMP_NULL;
 
         return false;
 
