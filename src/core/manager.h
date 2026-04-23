@@ -492,6 +492,9 @@ typedef struct Manager {
 
         unsigned soft_reboots_count;
 
+        /* The number of successfully completed configuration reloads. */
+        uint64_t reload_count;
+
         /* Original ambient capabilities when we were initialized */
         uint64_t saved_ambient_set;
 } Manager;
