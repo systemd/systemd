@@ -393,6 +393,8 @@ TEST(iovw_size) {
         ASSERT_OK(iovw_put(&iovw, (char*) "efghij", 6));
         ASSERT_OK(iovw_put(&iovw, (char*) "kl", 2));
         ASSERT_EQ(iovw_size(&iovw), 12U);
+
+        ASSERT_EQ(iovw_size(NULL), 0U);
 }
 
 TEST(iovw_concat) {
