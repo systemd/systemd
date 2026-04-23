@@ -55,7 +55,7 @@ bool seat_can_tty(Seat *s);
 bool seat_has_master_device(Seat *s);
 bool seat_can_graphical(Seat *s);
 
-int seat_get_idle_hint(Seat *s, dual_timestamp *t);
+bool seat_get_idle_hint(Seat *s, dual_timestamp *t);
 
 int seat_start(Seat *s);
 int seat_stop(Seat *s, bool force);
