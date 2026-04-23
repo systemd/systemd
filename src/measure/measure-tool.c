@@ -393,6 +393,155 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int compare_reported_pcr_nr(uint32_t pcr, const char *varname, const char *description) {
+        _cleanup_free_ char *s = NULL;
+        uint32_t v;
+        int r;
+
+        r = efi_get_variable_string(varname, &s);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to read EFI variable '%s': %m", varname);
+
+        r = safe_atou32(s, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse EFI variable '%s': %s", varname, s);
+
+        if (pcr != v)
+                log_warning("PCR number reported by stub for %s (%" PRIu32 ") different from our expectation (%" PRIu32 ").\n"
+                            "The measurements are likely inconsistent.", description, v, pcr);
+
+        return 0;
+}
+
+static int validate_stub(void) {
+        uint64_t features;
+        bool found = false;
+        int r;
+
+        if (!tpm2_is_fully_supported())
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Sorry, system lacks full TPM2 support.");
+
+        r = efi_stub_get_features(&features);
+        if (r < 0)
+                return log_error_errno(r, "Unable to get stub features: %m");
+
+        if (!FLAGS_SET(features, EFI_STUB_FEATURE_THREE_PCRS))
+                log_warning("Warning: current kernel image does not support measuring itself, the command line or initrd system extension images.\n"
+                            "The PCR measurements seen are unlikely to be valid.");
+
+        r = compare_reported_pcr_nr(TPM2_PCR_KERNEL_BOOT, EFI_LOADER_VARIABLE_STR("StubPcrKernelImage"), "kernel image");
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(bank, arg_banks) {
+                _cleanup_free_ char *b = NULL, *p = NULL;
+
+                b = strdup(*bank);
+                if (!b)
+                        return log_oom();
+
+                if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/", ascii_strlower(b)) < 0)
+                        return log_oom();
+
+                if (access(p, F_OK) < 0) {
+                        if (errno != ENOENT)
+                                return log_error_errno(errno, "Failed to detect if '%s' exists: %m", b);
+                } else
+                        found = true;
+        }
+
+        if (!found)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "None of the select PCR banks appear to exist.");
+
+        return 0;
+}
+
+static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        r = validate_stub();
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(bank, arg_banks) {
+                _cleanup_free_ char *b = NULL, *p = NULL, *s = NULL;
+                _cleanup_free_ void *h = NULL;
+                size_t l;
+
+                b = strdup(*bank);
+                if (!b)
+                        return log_oom();
+
+                if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%" PRIu32, ascii_strlower(b), (uint32_t) TPM2_PCR_KERNEL_BOOT) < 0)
+                        return log_oom();
+
+                r = read_virtual_file(p, 4096, &s, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read '%s': %m", p);
+
+                r = unhexmem(strstrip(s), &h, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
+
+                if (!sd_json_format_enabled(arg_json_format_flags)) {
+                        _cleanup_free_ char *f = NULL;
+
+                        f = hexmem(h, l);
+                        if (!h)
+                                return log_oom();
+
+                        if (bank == arg_banks) {
+                                /* before the first line for each PCR, write a short descriptive text to
+                                 * stderr, and leave the primary content on stdout */
+                                fflush(stdout);
+                                fprintf(stderr, "%s# PCR[%" PRIu32 "] %s%s%s\n",
+                                        ansi_grey(),
+                                        (uint32_t) TPM2_PCR_KERNEL_BOOT,
+                                        tpm2_pcr_index_to_string(TPM2_PCR_KERNEL_BOOT),
+                                        memeqzero(h, l) ? " (NOT SET!)" : "",
+                                        ansi_normal());
+                                fflush(stderr);
+                        }
+
+                        printf("%" PRIu32 ":%s=%s\n", (uint32_t) TPM2_PCR_KERNEL_BOOT, b, f);
+
+                } else {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *bv = NULL, *a = NULL;
+
+                        r = sd_json_buildo(
+                                        &bv,
+                                        SD_JSON_BUILD_PAIR_INTEGER("pcr", TPM2_PCR_KERNEL_BOOT),
+                                        SD_JSON_BUILD_PAIR_HEX("hash", h, l));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build JSON object: %m");
+
+                        a = sd_json_variant_ref(sd_json_variant_by_key(v, b));
+
+                        r = sd_json_variant_append_array(&a, bv);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to append PCR entry to JSON array: %m");
+
+                        r = sd_json_variant_set_field(&v, b, a);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add bank info to object: %m");
+                }
+        }
+
+        if (sd_json_format_enabled(arg_json_format_flags)) {
+                if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
+                        pager_open(arg_pager_flags);
+
+                sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+        }
+
+        return 0;
+}
+
 /* The PCR 11 state for one specific bank */
 typedef struct PcrState {
         char *bank;
@@ -998,155 +1147,6 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
 static int verb_policy_digest(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return build_policy_digest(/* sign= */ false);
-}
-
-static int compare_reported_pcr_nr(uint32_t pcr, const char *varname, const char *description) {
-        _cleanup_free_ char *s = NULL;
-        uint32_t v;
-        int r;
-
-        r = efi_get_variable_string(varname, &s);
-        if (r == -ENOENT)
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to read EFI variable '%s': %m", varname);
-
-        r = safe_atou32(s, &v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse EFI variable '%s': %s", varname, s);
-
-        if (pcr != v)
-                log_warning("PCR number reported by stub for %s (%" PRIu32 ") different from our expectation (%" PRIu32 ").\n"
-                            "The measurements are likely inconsistent.", description, v, pcr);
-
-        return 0;
-}
-
-static int validate_stub(void) {
-        uint64_t features;
-        bool found = false;
-        int r;
-
-        if (!tpm2_is_fully_supported())
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Sorry, system lacks full TPM2 support.");
-
-        r = efi_stub_get_features(&features);
-        if (r < 0)
-                return log_error_errno(r, "Unable to get stub features: %m");
-
-        if (!FLAGS_SET(features, EFI_STUB_FEATURE_THREE_PCRS))
-                log_warning("Warning: current kernel image does not support measuring itself, the command line or initrd system extension images.\n"
-                            "The PCR measurements seen are unlikely to be valid.");
-
-        r = compare_reported_pcr_nr(TPM2_PCR_KERNEL_BOOT, EFI_LOADER_VARIABLE_STR("StubPcrKernelImage"), "kernel image");
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(bank, arg_banks) {
-                _cleanup_free_ char *b = NULL, *p = NULL;
-
-                b = strdup(*bank);
-                if (!b)
-                        return log_oom();
-
-                if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/", ascii_strlower(b)) < 0)
-                        return log_oom();
-
-                if (access(p, F_OK) < 0) {
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to detect if '%s' exists: %m", b);
-                } else
-                        found = true;
-        }
-
-        if (!found)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "None of the select PCR banks appear to exist.");
-
-        return 0;
-}
-
-static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        int r;
-
-        r = validate_stub();
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(bank, arg_banks) {
-                _cleanup_free_ char *b = NULL, *p = NULL, *s = NULL;
-                _cleanup_free_ void *h = NULL;
-                size_t l;
-
-                b = strdup(*bank);
-                if (!b)
-                        return log_oom();
-
-                if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%" PRIu32, ascii_strlower(b), (uint32_t) TPM2_PCR_KERNEL_BOOT) < 0)
-                        return log_oom();
-
-                r = read_virtual_file(p, 4096, &s, NULL);
-                if (r == -ENOENT)
-                        continue;
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read '%s': %m", p);
-
-                r = unhexmem(strstrip(s), &h, &l);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
-
-                if (!sd_json_format_enabled(arg_json_format_flags)) {
-                        _cleanup_free_ char *f = NULL;
-
-                        f = hexmem(h, l);
-                        if (!h)
-                                return log_oom();
-
-                        if (bank == arg_banks) {
-                                /* before the first line for each PCR, write a short descriptive text to
-                                 * stderr, and leave the primary content on stdout */
-                                fflush(stdout);
-                                fprintf(stderr, "%s# PCR[%" PRIu32 "] %s%s%s\n",
-                                        ansi_grey(),
-                                        (uint32_t) TPM2_PCR_KERNEL_BOOT,
-                                        tpm2_pcr_index_to_string(TPM2_PCR_KERNEL_BOOT),
-                                        memeqzero(h, l) ? " (NOT SET!)" : "",
-                                        ansi_normal());
-                                fflush(stderr);
-                        }
-
-                        printf("%" PRIu32 ":%s=%s\n", (uint32_t) TPM2_PCR_KERNEL_BOOT, b, f);
-
-                } else {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *bv = NULL, *a = NULL;
-
-                        r = sd_json_buildo(
-                                        &bv,
-                                        SD_JSON_BUILD_PAIR_INTEGER("pcr", TPM2_PCR_KERNEL_BOOT),
-                                        SD_JSON_BUILD_PAIR_HEX("hash", h, l));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to build JSON object: %m");
-
-                        a = sd_json_variant_ref(sd_json_variant_by_key(v, b));
-
-                        r = sd_json_variant_append_array(&a, bv);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to append PCR entry to JSON array: %m");
-
-                        r = sd_json_variant_set_field(&v, b, a);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add bank info to object: %m");
-                }
-        }
-
-        if (sd_json_format_enabled(arg_json_format_flags)) {
-                if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
-                        pager_open(arg_pager_flags);
-
-                sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
-        }
-
-        return 0;
 }
 
 static int measure_main(int argc, char *argv[]) {
