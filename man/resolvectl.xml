@@ -450,6 +450,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--hooks=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Takes a boolean parameter. If true (the default), lookups are sent to local services
+        that implement <filename>io.systemd.Resolve.Hook</filename> before querying the network.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--raw</option><optional>=payload|packet</optional></term>
 
         <listitem><para>Dump the answer records as binary data. If there is no argument or if the argument is
