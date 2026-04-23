@@ -44,8 +44,8 @@ TEST(nts_encoding) {
         assert_se(rec.error == NTS_SUCCESS);
         assert_se(rec.ntp_server == NULL);
         assert_se(rec.ntp_port == 0);
-        assert_se(rec.cookie[0].data == NULL);
-        assert_se(rec.cookie[0].length == 0);
+        assert_se(rec.cookie[0].iov_base == NULL);
+        assert_se(rec.cookie[0].iov_len == 0);
         assert_se(rec.aead_id == NTS_AEAD_AES_SIV_CMAC_256);
 
         uint16_t proto1[] = { NTS_AEAD_AES_SIV_CMAC_256, NTS_AEAD_AES_SIV_CMAC_512, 0 };
@@ -54,8 +54,8 @@ TEST(nts_encoding) {
         assert_se(rec.error == NTS_SUCCESS);
         assert_se(rec.ntp_server == NULL);
         assert_se(rec.ntp_port == 0);
-        assert_se(rec.cookie[0].data == NULL);
-        assert_se(rec.cookie[0].length == 0);
+        assert_se(rec.cookie[0].iov_base == NULL);
+        assert_se(rec.cookie[0].iov_len == 0);
         assert_se(rec.aead_id == NTS_AEAD_AES_SIV_CMAC_256);
 
         uint16_t proto2[] = { NTS_AEAD_AES_SIV_CMAC_512, NTS_AEAD_AES_SIV_CMAC_256, 0 };
@@ -64,8 +64,8 @@ TEST(nts_encoding) {
         assert_se(rec.error == NTS_SUCCESS);
         assert_se(rec.ntp_server == NULL);
         assert_se(rec.ntp_port == 0);
-        assert_se(rec.cookie[0].data == NULL);
-        assert_se(rec.cookie[0].length == 0);
+        assert_se(rec.cookie[0].iov_base == NULL);
+        assert_se(rec.cookie[0].iov_len == 0);
         assert_se(rec.aead_id == NTS_AEAD_AES_SIV_CMAC_512);
 }
 
@@ -144,12 +144,12 @@ TEST(nts_decoding) {
         assert_se(rec.aead_id == 15);
         assert_se(rec.ntp_port == 42);
         assert_se(strcmp(rec.ntp_server, "localhost") == 0);
-        assert_se(memcmp(rec.cookie[0].data, "COOKIE1", rec.cookie[0].length) == 0);
-        assert_se(memcmp(rec.cookie[1].data, "COOKIE22", rec.cookie[1].length) == 0);
-        assert_se(memcmp(rec.cookie[2].data, "COOKIE333", rec.cookie[2].length) == 0);
-        assert_se(memcmp(rec.cookie[3].data, "COOKIE4444", rec.cookie[3].length) == 0);
-        assert_se(rec.cookie[4].data == NULL);
-        assert_se(rec.cookie[4].length == 0);
+        assert_se(memcmp(rec.cookie[0].iov_base, "COOKIE1", rec.cookie[0].iov_len) == 0);
+        assert_se(memcmp(rec.cookie[1].iov_base, "COOKIE22", rec.cookie[1].iov_len) == 0);
+        assert_se(memcmp(rec.cookie[2].iov_base, "COOKIE333", rec.cookie[2].iov_len) == 0);
+        assert_se(memcmp(rec.cookie[3].iov_base, "COOKIE4444", rec.cookie[3].iov_len) == 0);
+        assert_se(rec.cookie[4].iov_base == NULL);
+        assert_se(rec.cookie[4].iov_len == 0);
 }
 
 TEST(ntp_field_encoding) {
@@ -171,7 +171,7 @@ TEST(ntp_field_encoding) {
         assert_se(len > 48);
         assert_se(NTS_parse_extension_fields(buffer, len, &nts, &rcpt));
 
-        assert_se(rcpt.new_cookie->data == NULL);
+        assert_se(rcpt.new_cookie->iov_base == NULL);
         assert_se(memcmp(buffer + 48 + 36 + 4, cookie, strlen(cookie)) == 0);
         assert_se(strcmp((char*)buffer + 48 + 36 + 4, cookie) == 0);
 
@@ -259,13 +259,13 @@ TEST(ntp_field_decoding) {
         assert_se(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
 
         assert_se(memcmp(rcpt.identifier, ident, 32) == 0);
-        assert_se(rcpt.new_cookie[0].data != NULL);
-        assert_se(rcpt.new_cookie[0].length >= strlen(cookie));
-        assert_se(memcmp(rcpt.new_cookie[0].data, cookie, strlen(cookie)) == 0);
-        assert_se(rcpt.new_cookie[1].data != NULL);
-        assert_se(rcpt.new_cookie[1].length >= strlen(cakey));
-        assert_se(memcmp(rcpt.new_cookie[1].data, cakey, strlen(cakey)) == 0);
-        assert_se(rcpt.new_cookie[2].data == NULL);
+        assert_se(rcpt.new_cookie[0].iov_base != NULL);
+        assert_se(rcpt.new_cookie[0].iov_len >= strlen(cookie));
+        assert_se(memcmp(rcpt.new_cookie[0].iov_base, cookie, strlen(cookie)) == 0);
+        assert_se(rcpt.new_cookie[1].iov_base != NULL);
+        assert_se(rcpt.new_cookie[1].iov_len >= strlen(cakey));
+        assert_se(memcmp(rcpt.new_cookie[1].iov_base, cakey, strlen(cakey)) == 0);
+        assert_se(rcpt.new_cookie[2].iov_base == NULL);
 
         /* same test but no authentication of uniq id */
         p = buffer + 48;
