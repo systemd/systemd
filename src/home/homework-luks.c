@@ -21,6 +21,7 @@
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
+#include "crypto-util.h"
 #include "cryptsetup-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
@@ -48,7 +49,6 @@
 #include "memory-util.h"
 #include "mkdir.h"
 #include "mkfs-util.h"
-#include "openssl-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
@@ -805,6 +805,10 @@ static int crypt_device_to_evp_cipher(struct crypt_device *cd, const EVP_CIPHER 
         assert(cd);
         assert(ret);
 
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
+                return r;
+
         /* Let's find the right OpenSSL EVP_CIPHER object that matches the encryption settings of the LUKS
          * device */
 
@@ -832,12 +836,12 @@ static int crypt_device_to_evp_cipher(struct crypt_device *cd, const EVP_CIPHER 
         if (asprintf(&cipher_name, "%s-%zu-%s", cipher, key_bits, cipher_mode) < 0)
                 return log_oom();
 
-        cc = EVP_get_cipherbyname(cipher_name);
+        cc = sym_EVP_get_cipherbyname(cipher_name);
         if (!cc)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Selected cipher mode '%s' not supported, can't encrypt JSON record.", cipher_name);
 
         /* Verify that our key length calculations match what OpenSSL thinks */
-        r = EVP_CIPHER_key_length(cc);
+        r = sym_EVP_CIPHER_get_key_length(cc);
         if (r < 0 || (uint64_t) r != key_size)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Key size of selected cipher doesn't meet our expectations.");
 
@@ -909,27 +913,27 @@ static int luks_validate_home_record(
                 r = crypt_device_to_evp_cipher(cd, &cc);
                 if (r < 0)
                         return r;
-                if (iv_size > INT_MAX || EVP_CIPHER_iv_length(cc) != (int) iv_size)
+                if (iv_size > INT_MAX || sym_EVP_CIPHER_get_iv_length(cc) != (int) iv_size)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "IV size doesn't match.");
 
-                context = EVP_CIPHER_CTX_new();
+                context = sym_EVP_CIPHER_CTX_new();
                 if (!context)
                         return log_oom();
 
-                if (EVP_DecryptInit_ex(context, cc, NULL, volume_key, iv) != 1)
+                if (sym_EVP_DecryptInit_ex(context, cc, NULL, volume_key, iv) != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize decryption context.");
 
-                decrypted_size = encrypted_size + EVP_CIPHER_key_length(cc) * 2;
+                decrypted_size = encrypted_size + sym_EVP_CIPHER_get_key_length(cc) * 2;
                 decrypted = new(char, decrypted_size);
                 if (!decrypted)
                         return log_oom();
 
-                if (EVP_DecryptUpdate(context, (uint8_t*) decrypted, &decrypted_size_out1, encrypted, encrypted_size) != 1)
+                if (sym_EVP_DecryptUpdate(context, (uint8_t*) decrypted, &decrypted_size_out1, encrypted, encrypted_size) != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to decrypt JSON record.");
 
                 assert((size_t) decrypted_size_out1 <= decrypted_size);
 
-                if (EVP_DecryptFinal_ex(context, (uint8_t*) decrypted + decrypted_size_out1, &decrypted_size_out2) != 1)
+                if (sym_EVP_DecryptFinal_ex(context, (uint8_t*) decrypted + decrypted_size_out1, &decrypted_size_out2) != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finish decryption of JSON record.");
 
                 assert((size_t) decrypted_size_out1 + (size_t) decrypted_size_out2 < decrypted_size);
@@ -990,8 +994,8 @@ static int format_luks_token_text(
         if (r < 0)
                 return r;
 
-        key_size = EVP_CIPHER_key_length(cc);
-        iv_size = EVP_CIPHER_iv_length(cc);
+        key_size = sym_EVP_CIPHER_get_key_length(cc);
+        iv_size = sym_EVP_CIPHER_get_iv_length(cc);
 
         if (iv_size > 0) {
                 iv = malloc(iv_size);
@@ -1003,11 +1007,11 @@ static int format_luks_token_text(
                         return log_error_errno(r, "Failed to generate IV: %m");
         }
 
-        context = EVP_CIPHER_CTX_new();
+        context = sym_EVP_CIPHER_CTX_new();
         if (!context)
                 return log_oom();
 
-        if (EVP_EncryptInit_ex(context, cc, NULL, volume_key, iv) != 1)
+        if (sym_EVP_EncryptInit_ex(context, cc, NULL, volume_key, iv) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize encryption context.");
 
         r = sd_json_variant_format(hr->json, 0, &text);
@@ -1021,12 +1025,12 @@ static int format_luks_token_text(
         if (!encrypted)
                 return log_oom();
 
-        if (EVP_EncryptUpdate(context, encrypted, &encrypted_size_out1, (uint8_t*) text, text_length) != 1)
+        if (sym_EVP_EncryptUpdate(context, encrypted, &encrypted_size_out1, (uint8_t*) text, text_length) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to encrypt JSON record.");
 
         assert((size_t) encrypted_size_out1 <= encrypted_size);
 
-        if (EVP_EncryptFinal_ex(context, (uint8_t*) encrypted + encrypted_size_out1, &encrypted_size_out2) != 1)
+        if (sym_EVP_EncryptFinal_ex(context, (uint8_t*) encrypted + encrypted_size_out1, &encrypted_size_out2) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finish encryption of JSON record.");
 
         assert((size_t) encrypted_size_out1 + (size_t) encrypted_size_out2 <= encrypted_size);

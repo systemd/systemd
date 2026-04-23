@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/fscrypt.h>
-#include <openssl/evp.h>
-#include <openssl/sha.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -10,6 +8,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "crypto-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -25,7 +24,6 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "nulstr-util.h"
-#include "openssl-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -180,8 +178,8 @@ static void calculate_key_descriptor(
 
         /* Derive the key descriptor from the volume key via double SHA512, in order to be compatible with e4crypt */
 
-        assert_se(SHA512(key, key_size, hashed) == hashed);
-        assert_se(SHA512(hashed, sizeof(hashed), hashed2) == hashed2);
+        assert_se(sym_SHA512(key, key_size, hashed) == hashed);
+        assert_se(sym_SHA512(hashed, sizeof(hashed), hashed2) == hashed2);
 
         assert_cc(sizeof(hashed2) >= FS_KEY_DESCRIPTOR_SIZE);
 
@@ -211,6 +209,10 @@ static int fscrypt_slot_try_one(
         assert(encrypted_size > 0);
         assert(match_key_descriptor);
 
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
+                return r;
+
         /* Our construction is like this:
          *
          *   1. In each key slot we store a salt value plus the encrypted volume key
@@ -226,37 +228,37 @@ static int fscrypt_slot_try_one(
 
         CLEANUP_ERASE(derived);
 
-        if (PKCS5_PBKDF2_HMAC(
+        if (sym_PKCS5_PBKDF2_HMAC(
                             password, strlen(password),
                             salt, salt_size,
-                            0xFFFF, EVP_sha512(),
+                            0xFFFF, sym_EVP_sha512(),
                             sizeof(derived), derived) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PBKDF2 failed.");
 
-        context = EVP_CIPHER_CTX_new();
+        context = sym_EVP_CIPHER_CTX_new();
         if (!context)
                 return log_oom();
 
         /* We use AES256 in counter mode */
-        assert_se(cc = EVP_aes_256_ctr());
+        assert_se(cc = sym_EVP_aes_256_ctr());
 
         /* We only use the first half of the derived key */
-        assert(sizeof(derived) >= (size_t) EVP_CIPHER_key_length(cc));
+        assert(sizeof(derived) >= (size_t) sym_EVP_CIPHER_get_key_length(cc));
 
-        if (EVP_DecryptInit_ex(context, cc, NULL, derived, NULL) != 1)
+        if (sym_EVP_DecryptInit_ex(context, cc, NULL, derived, NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize decryption context.");
 
-        decrypted_size = encrypted_size + EVP_CIPHER_key_length(cc) * 2;
+        decrypted_size = encrypted_size + sym_EVP_CIPHER_get_key_length(cc) * 2;
         decrypted = malloc(decrypted_size);
         if (!decrypted)
                 return log_oom();
 
-        if (EVP_DecryptUpdate(context, (uint8_t*) decrypted, &decrypted_size_out1, encrypted, encrypted_size) != 1)
+        if (sym_EVP_DecryptUpdate(context, (uint8_t*) decrypted, &decrypted_size_out1, encrypted, encrypted_size) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to decrypt volume key.");
 
         assert((size_t) decrypted_size_out1 <= decrypted_size);
 
-        if (EVP_DecryptFinal_ex(context, (uint8_t*) decrypted + decrypted_size_out1, &decrypted_size_out2) != 1)
+        if (sym_EVP_DecryptFinal_ex(context, (uint8_t*) decrypted + decrypted_size_out1, &decrypted_size_out2) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finish decryption of volume key.");
 
         assert((size_t) decrypted_size_out1 + (size_t) decrypted_size_out2 < decrypted_size);
@@ -484,43 +486,47 @@ static int fscrypt_slot_set(
         size_t encrypted_size;
         ssize_t ss;
 
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
+                return r;
+
         r = crypto_random_bytes(salt, sizeof(salt));
         if (r < 0)
                 return log_error_errno(r, "Failed to generate salt: %m");
 
         CLEANUP_ERASE(derived);
 
-        if (PKCS5_PBKDF2_HMAC(
+        if (sym_PKCS5_PBKDF2_HMAC(
                             password, strlen(password),
                             salt, sizeof(salt),
-                            0xFFFF, EVP_sha512(),
+                            0xFFFF, sym_EVP_sha512(),
                             sizeof(derived), derived) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PBKDF2 failed");
 
-        context = EVP_CIPHER_CTX_new();
+        context = sym_EVP_CIPHER_CTX_new();
         if (!context)
                 return log_oom();
 
         /* We use AES256 in counter mode */
-        cc = EVP_aes_256_ctr();
+        cc = sym_EVP_aes_256_ctr();
 
         /* We only use the first half of the derived key */
-        assert(sizeof(derived) >= (size_t) EVP_CIPHER_key_length(cc));
+        assert(sizeof(derived) >= (size_t) sym_EVP_CIPHER_get_key_length(cc));
 
-        if (EVP_EncryptInit_ex(context, cc, NULL, derived, NULL) != 1)
+        if (sym_EVP_EncryptInit_ex(context, cc, NULL, derived, NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize encryption context.");
 
-        encrypted_size = volume_key_size + EVP_CIPHER_key_length(cc) * 2;
+        encrypted_size = volume_key_size + sym_EVP_CIPHER_get_key_length(cc) * 2;
         encrypted = malloc(encrypted_size);
         if (!encrypted)
                 return log_oom();
 
-        if (EVP_EncryptUpdate(context, (uint8_t*) encrypted, &encrypted_size_out1, volume_key, volume_key_size) != 1)
+        if (sym_EVP_EncryptUpdate(context, (uint8_t*) encrypted, &encrypted_size_out1, volume_key, volume_key_size) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to encrypt volume key.");
 
         assert((size_t) encrypted_size_out1 <= encrypted_size);
 
-        if (EVP_EncryptFinal_ex(context, (uint8_t*) encrypted + encrypted_size_out1, &encrypted_size_out2) != 1)
+        if (sym_EVP_EncryptFinal_ex(context, (uint8_t*) encrypted + encrypted_size_out1, &encrypted_size_out2) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finish encryption of volume key.");
 
         assert((size_t) encrypted_size_out1 + (size_t) encrypted_size_out2 < encrypted_size);
@@ -568,6 +574,10 @@ int home_create_fscrypt(
         assert(user_record_storage(h) == USER_FSCRYPT);
         assert(setup);
         assert(ret_home);
+
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
+                return r;
 
         assert_se(ip = user_record_image_path(h));
 
