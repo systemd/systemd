@@ -36,7 +36,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         NTS_Receipt rcpt = {};
         if (NTS_parse_extension_fields(buffer, len, &nts, &rcpt)) {
                 FOREACH_ELEMENT(cookie, rcpt.new_cookie)
-                        eat(cookie->data, cookie->length);
+                        eat(cookie->iov_base, cookie->iov_len);
 
                 eat(*rcpt.identifier, 32);
         }
