@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include "iovec-util-fundamental.h"
 #include "nts_definitions.h"
 
 typedef uint16_t NTS_RecordType;
@@ -42,10 +43,7 @@ typedef enum NTS_ErrorType {
         _NTS_ERROR_INVALID = -EINVAL,
 } NTS_ErrorType;
 
-typedef struct NTS_Cookie {
-        uint8_t *data;
-        size_t length;
-} NTS_Cookie;
+typedef struct iovec NTS_Cookie;
 
 typedef struct NTS_Agreement {
         NTS_ErrorType error;

@@ -173,7 +173,7 @@ static int property_get_nts_status(
 #if ENABLE_TIMESYNC_NTS
         NTS_Cookie *cookie = ASSERT_PTR(userdata);
 
-        return sd_bus_message_append(reply, "b", cookie->data != NULL);
+        return sd_bus_message_append(reply, "b", cookie->iov_base != NULL);
 #else
         return sd_bus_message_append(reply, "b", false);
 #endif
