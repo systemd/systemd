@@ -161,7 +161,7 @@ static int manager_send_request(Manager *m) {
         /*
          * Add NTS extension fields if NTS is supported for this NTP time source
          */
-        if (m->nts_cookies->data) {
+        if (m->nts_cookies->iov_base) {
                 /* Select an arbitrary cookie to use, to keep cookies fresh.
                  * This has the added benefit to detect NTS servers that try to sequence cookies.
                  * We re-use a byte from the identifier, since this information does not need to be
@@ -171,7 +171,7 @@ static int manager_send_request(Manager *m) {
                 int randidx = m->nts_identifier[0] % num_cookies;
                 NTS_Cookie *bottom_cookie = &m->nts_cookies[num_cookies-1];
                 swap_cookies(bottom_cookie, &m->nts_cookies[randidx]);
-                assert(bottom_cookie->data);
+                assert(bottom_cookie->iov_base);
 
                 packet_len = NTS_add_extension_fields(
                         packet.raw_data,
@@ -190,7 +190,7 @@ static int manager_send_request(Manager *m) {
                         &m->nts_identifier);
 
                 /* Consume and invalidate the cookie, even in case of an error. */
-                memzero(bottom_cookie->data, bottom_cookie->length);
+                memzero(bottom_cookie->iov_base, bottom_cookie->iov_len);
                 m->nts_missing_cookies++;
 
                 if (packet_len <= (int)sizeof(struct ntp_msg)) {
@@ -548,7 +548,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         const char *security = "insecure";
 #if ENABLE_TIMESYNC_NTS
-        if (m->nts_cookies->data) {
+        if (m->nts_cookies->iov_base) {
                 /* verify the NTS extension fields and unique identifier */
                 NTS_Receipt rcpt = {};
                 r = NTS_parse_extension_fields(packet.raw_data, iov.iov_len,
@@ -574,26 +574,26 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
                 assert(m->nts_missing_cookies <= ELEMENTSOF(m->nts_cookies));
 
-                if (!rcpt.new_cookie->data)
+                if (!rcpt.new_cookie->iov_base)
                         log_warning("Server did not return a new cookie.");
                 else if (m->nts_missing_cookies == 0)
                         log_error("A valid NTS packet was received but we were not missing any cookies. Please report this bug.");
                 else FOREACH_ELEMENT(fresh_cookie, rcpt.new_cookie) {
-                        if (m->nts_missing_cookies == 0 || fresh_cookie->data == NULL)
+                        if (m->nts_missing_cookies == 0 || fresh_cookie->iov_base == NULL)
                                 break;
 
                         NTS_Cookie *cookie = &m->nts_cookies[ELEMENTSOF(m->nts_cookies) - m->nts_missing_cookies];
                         /* re-use the existing storage if possible */
-                        if (fresh_cookie->length > cookie->length) {
+                        if (fresh_cookie->iov_len > cookie->iov_len) {
                                 log_info("Server returned a fresh cookie that was longer than the original one.");
-                                mfree(cookie->data);
-                                cookie->length = 0;
-                                cookie->data = malloc(fresh_cookie->length);
-                                if (cookie->data == NULL)
+                                mfree(cookie->iov_base);
+                                cookie->iov_len = 0;
+                                cookie->iov_base = malloc(fresh_cookie->iov_len);
+                                if (cookie->iov_base == NULL)
                                         return -ENOMEM;
                         }
-                        memcpy(cookie->data, fresh_cookie->data, fresh_cookie->length);
-                        cookie->length = fresh_cookie->length;
+                        memcpy(cookie->iov_base, fresh_cookie->iov_base, fresh_cookie->iov_len);
+                        cookie->iov_len = fresh_cookie->iov_len;
                         m->nts_missing_cookies--;
                 }
 
@@ -1715,14 +1715,14 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
         int num_cookies = 0;
         FOREACH_ELEMENT(cookie, NTS.cookie)
-                if (cookie->data && cookie->length > 0) {
-                        char *copy = malloc(cookie->length);
+                if (cookie->iov_base && cookie->iov_len > 0) {
+                        char *copy = malloc(cookie->iov_len);
                         if (copy == NULL)
                                 return -ENOMEM;
 
-                        mfree(m->nts_cookies[num_cookies].data);
-                        m->nts_cookies[num_cookies].data = memcpy(copy, cookie->data, cookie->length);
-                        m->nts_cookies[num_cookies].length = cookie->length;
+                        mfree(m->nts_cookies[num_cookies].iov_base);
+                        m->nts_cookies[num_cookies].iov_base = memcpy(copy, cookie->iov_base, cookie->iov_len);
+                        m->nts_cookies[num_cookies].iov_len = cookie->iov_len;
                         num_cookies++;
                 }
 
@@ -1754,6 +1754,6 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
 static void manager_flush_cookies(Manager *m) {
         FOREACH_ELEMENT(cookie, m->nts_cookies)
-                cookie->data = mfree(cookie->data);
+                cookie->iov_base = mfree(cookie->iov_base);
 }
 #endif

@@ -5,10 +5,7 @@
 #include "nts.h"
 #include "nts_extfields.h"
 
-typedef struct AssociatedData {
-        const uint8_t *data;
-        const size_t length;
-} AssociatedData;
+typedef struct iovec AssociatedData;
 
 /* encrypt the data in ptxt of ptxt_len bytes, and write it to ctxt, using the selected cryptoscheme and key
  * the associated data should point to an array of NULL-terminated chunks of associated data

@@ -254,8 +254,8 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                         /* ignore any cookies in excess of eight */
                         if (cookie_nr < ELEMENTSOF(response->cookie)) {
                                 NTS_Cookie *cookie = &response->cookie[cookie_nr++];
-                                cookie->data   = rec.body.data;
-                                cookie->length = rec.body.data_end - rec.body.data;
+                                cookie->iov_base = rec.body.data;
+                                cookie->iov_len  = rec.body.data_end - rec.body.data;
                         }
                         break;
 
