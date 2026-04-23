@@ -1131,6 +1131,23 @@ TEST(chaseat_separate_root_and_dir) {
         ASSERT_ERROR(chaseat(root_fd, XAT_FDROOT, "/nonexistent", /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOENT);
 }
 
+TEST(chaseat_symlink_trailing_slash) {
+        /* A symlink target ending in a slash requires a directory. Chase the target's parent while preserving
+         * the slash, then check that splitting the result returns the directory-open requirement. */
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        _cleanup_close_ int root_fd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &tmpdir));
+        _cleanup_close_ int file_fd = ASSERT_OK(xopenat(root_fd, "file", O_CREAT|O_WRONLY));
+        ASSERT_OK_ERRNO(symlinkat("file/", root_fd, "alias"));
+
+        _cleanup_free_ char *path = NULL, *filename = NULL;
+        _cleanup_close_ int parent_fd = -EBADF;
+        ASSERT_OK(chaseat(root_fd, root_fd, "alias", CHASE_PARENT|CHASE_TRAIL_SLASH, &path, &parent_fd));
+        ASSERT_STREQ(path, "file/");
+        ASSERT_OK_POSITIVE(chase_split_prefix_filename(path, /* root= */ NULL, /* ret_dir= */ NULL, &filename));
+        ASSERT_STREQ(filename, "file");
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(root_fd, parent_fd));
+}
+
 TEST(chaseat_make_absolute) {
         /* Absolute results must stay unchanged. Relative results must use an absolute or cwd-relative
          * base while preserving unresolved interior ".." components. */

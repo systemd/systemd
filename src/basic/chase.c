@@ -758,6 +758,11 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                         if (isempty(destination))
                                 return -EINVAL;
 
+                        if (FLAGS_SET(flags, CHASE_TRAIL_SLASH) &&
+                            isempty(todo) &&
+                            ENDSWITH_SET(destination, "/", "/."))
+                                append_trail_slash = true;
+
                         if (path_is_absolute(destination)) {
 
                                 /* An absolute destination. Start the loop from the beginning, but use the
