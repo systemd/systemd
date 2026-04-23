@@ -72,6 +72,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState);
 
 static void varlink_server_test_exit_on_idle(sd_varlink_server *s);
 static int varlink_reply_internal(sd_varlink *v, sd_json_variant *parameters, bool skip_validation);
+static int varlink_reply_terminator(sd_varlink *v);
 
 static void varlink_set_state(sd_varlink *v, VarlinkState state) {
         assert(v);

@@ -75,7 +75,7 @@ void user_add_to_gc_queue(User *u);
 int user_stop(User *u, bool force);
 int user_finalize(User *u);
 UserState user_get_state(User *u);
-int user_get_idle_hint(User *u, dual_timestamp *t);
+bool user_get_idle_hint(User *u, dual_timestamp *t);
 int user_save(User *u);
 int user_load(User *u);
 int user_kill(User *u, int signo);

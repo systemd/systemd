@@ -621,7 +621,7 @@ int user_finalize(User *u) {
         return r;
 }
 
-int user_get_idle_hint(User *u, dual_timestamp *t) {
+bool user_get_idle_hint(User *u, dual_timestamp *t) {
         bool idle_hint = true;
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
 
@@ -629,15 +629,12 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
 
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
                 dual_timestamp k;
-                int ih;
+                bool ih;
 
                 if (!SESSION_CLASS_CAN_IDLE(s->class))
                         continue;
 
                 ih = session_get_idle_hint(s, &k);
-                if (ih < 0)
-                        return ih;
-
                 if (!ih) {
                         if (!idle_hint) {
                                 if (k.monotonic < ts.monotonic)
@@ -647,7 +644,6 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
                                 ts = k;
                         }
                 } else if (idle_hint) {
-
                         if (k.monotonic > ts.monotonic)
                                 ts = k;
                 }
