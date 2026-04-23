@@ -62,7 +62,7 @@ enum extfields {
 int NTS_add_extension_fields(
                 uint8_t dest[static 1280],
                 const NTS_Query *nts,
-                uint8_t (*identifier)[32]) {
+                NTS_Identifier *identifier) {
 
         int r;
 
@@ -76,10 +76,10 @@ int NTS_add_extension_fields(
         buf.data += 48;
 
         /* generate unique identifier */
-        if (crypto_random_bytes(*identifier, sizeof(*identifier)) != 0)
+        if (crypto_random_bytes(*identifier, sizeof(NTS_Identifier)) != 0)
                 return -EINVAL;
 
-        r = write_ntp_ext_field(&buf, UniqueIdentifier, *identifier, sizeof(*identifier), 16);
+        r = write_ntp_ext_field(&buf, UniqueIdentifier, *identifier, sizeof(NTS_Identifier), 16);
         if (r == 0)
                 return -ENOMEM;
 
@@ -200,7 +200,7 @@ int NTS_parse_extension_fields(
                         if (len - 4 != 32)
                                 return -EINVAL;
 
-                        fields->identifier = (uint8_t (*)[32])(buf.data + 4);
+                        fields->identifier = (NTS_Identifier*)(buf.data + 4);
                         processed = true;
                         break;
                 case AuthEncExtFields: {

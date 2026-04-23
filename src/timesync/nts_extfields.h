@@ -12,7 +12,7 @@ typedef struct NTS_Query {
 } NTS_Query;
 
 typedef struct NTS_Receipt {
-        uint8_t (*identifier)[32];
+        NTS_Identifier *identifier;
         NTS_Cookie new_cookie[8];
 } NTS_Receipt;
 
@@ -26,7 +26,7 @@ typedef struct NTS_Receipt {
 int NTS_add_extension_fields(
                 uint8_t dest[static 1280],
                 const NTS_Query *nts,
-                uint8_t (*identifier)[32]);
+                NTS_Identifier *identifier);
 
 /* Processed the NTP extension fields in the provided buffer based on the configuration in the NTS struct,
  * and make this information available in the NTS_Receipt struct.
