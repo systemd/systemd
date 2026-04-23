@@ -95,7 +95,7 @@ typedef struct Manager {
                 /* we use either the transit time (NTP) a unique identifier (NTS)
                  * as a nonce, but not both */
                 struct ntp_ts request_nonce;
-                uint8_t nts_identifier[32];
+                NTS_Identifier nts_identifier;
         };
         usec_t retry_interval;
         usec_t connection_retry_usec;
