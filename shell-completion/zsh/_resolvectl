@@ -91,6 +91,7 @@ _arguments \
     '--zone=[Do not allow response from locally registered mDNS/LLMNR records]:BOOL:(yes no)' \
     '--trust-anchor=[Do not allow response from local trust anchor]:BOOL:(yes no)' \
     '--network=[Do not allow response from network]:BOOL:(yes no)' \
+    '--hooks=[Do not query hooks]:BOOL:(yes no)' \
     '--search=[Do not use search domains]:BOOL:(yes no)' \
     '--raw=[Dump the answer as binary data]:RAW:(payload packet)' \
     '--json=[Output as JSON]:JSON:(pretty short off)' \
