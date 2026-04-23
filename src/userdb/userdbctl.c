@@ -1072,12 +1072,8 @@ static int verb_display_services(int argc, char *argv[], uintptr_t _data, void *
         (void) table_set_sort(t, (size_t) 0);
 
         FOREACH_DIRENT(de, d, return -errno) {
-                _cleanup_free_ char *j = NULL, *no = NULL;
+                _cleanup_free_ char *no = NULL;
                 _cleanup_close_ int fd = -EBADF;
-
-                j = path_join("/run/systemd/userdb/", de->d_name);
-                if (!j)
-                        return log_oom();
 
                 fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (fd < 0)
