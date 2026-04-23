@@ -11,6 +11,7 @@
 #include "nts_crypto.h"
 #include "nts_extfields.h"
 #include "random-util.h"
+#include "unaligned.h"
 
 #ifndef ENCRYPTED_PLACEHOLDERS
 #define ENCRYPTED_PLACEHOLDERS 0
@@ -42,10 +43,8 @@ static int write_ntp_ext_field(slice *buf, uint16_t type, void *contents, uint16
         else
                 memzero(buf->data+4, len);
 
-        type = htobe16(type);
-        memcpy(buf->data, &type, 2);
-        len = htobe16(padded_len);
-        memcpy(buf->data+2, &len, 2);
+        unaligned_write_be16(buf->data, type);
+        unaligned_write_be16(buf->data+2, padded_len);
 
         buf->data += padded_len;
         memzero(buf->data - padding, padding);
@@ -159,8 +158,7 @@ int NTS_add_extension_fields(
         int ef_len = 4 + ctxt_len + nonce_len + (nonce_len < req_nonce_len)*(req_nonce_len - nonce_len);
 
         /* set the ciphertext length */
-        uint16_t encoded_len = htobe16(ctxt_len);
-        memcpy(EF_ciphertext_len, &encoded_len, 2);
+        unaligned_write_be16(EF_ciphertext_len, ctxt_len);
 
         r = write_ntp_ext_field(&buf, AuthEncExtFields, EF, ef_len, 28);
         if (r == 0)
@@ -172,9 +170,9 @@ exit:
 }
 
 /* caller checks memory bounds */
-static void decode_hdr(uint16_t *restrict a, uint16_t *restrict b, uint8_t *bytes) {
-        memcpy(a, bytes, 2), memcpy(b, bytes+2, 2);
-        *a = be16toh(*a), *b = be16toh(*b);
+static void decode_hdr(uint16_t *ret_a, uint16_t *ret_b, const uint8_t bytes[static 4]) {
+        *ret_a = unaligned_read_be16(bytes);
+        *ret_b = unaligned_read_be16(bytes+2);
 }
 
 int NTS_parse_extension_fields(
