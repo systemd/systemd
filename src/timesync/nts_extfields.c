@@ -77,14 +77,14 @@ int NTS_add_extension_fields(
                 return -ENOMEM;
 
         /* write cookie field */
-        r = write_ntp_ext_field(&buf, NTS_EF_Cookie, nts->cookie.data, nts->cookie.length, 16);
+        r = write_ntp_ext_field(&buf, NTS_EF_Cookie, nts->cookie.iov_base, nts->cookie.iov_len, 16);
         if (r == 0)
                 return -ENOMEM;
 
         /* write unencrypted extra cookiefields */
         int placeholders = nts->extra_cookies;
         for ( ; placeholders > ENCRYPTED_PLACEHOLDERS; placeholders--) {
-                r = write_ntp_ext_field(&buf, NTS_EF_CookiePlaceholder, NULL, nts->cookie.length, 16);
+                r = write_ntp_ext_field(&buf, NTS_EF_CookiePlaceholder, NULL, nts->cookie.iov_len, 16);
                 if (r == 0)
                         return -ENOMEM;
         }
@@ -122,7 +122,7 @@ int NTS_add_extension_fields(
         }
 #endif
         while (placeholders-- > 0) {
-                r = write_ntp_ext_field(&ptxt, NTS_EF_CookiePlaceholder, NULL, nts->cookie.length, 0);
+                r = write_ntp_ext_field(&ptxt, NTS_EF_CookiePlaceholder, NULL, nts->cookie.iov_len, 0);
                 if (r == 0)
                         return -ENOMEM;
         }
@@ -236,8 +236,8 @@ int NTS_parse_extension_fields(
                                 switch (inner_type) {
                                 case NTS_EF_Cookie:
                                         if (cookies < ELEMENTSOF(fields->new_cookie)) {
-                                                fields->new_cookie[cookies].data = plain.data + 4;
-                                                fields->new_cookie[cookies].length = inner_len - 4;
+                                                fields->new_cookie[cookies].iov_base = plain.data + 4;
+                                                fields->new_cookie[cookies].iov_len = inner_len - 4;
                                         }
                                         cookies++;
                                         break;
