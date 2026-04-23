@@ -461,16 +461,11 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
 
         HASHMAP_FOREACH(s, m->sessions) {
                 dual_timestamp k;
-                int ih;
 
                 if (!SESSION_CLASS_CAN_IDLE(s->class))
                         continue;
 
-                ih = session_get_idle_hint(s, &k);
-                if (ih < 0)
-                        return ih;
-
-                if (!ih) {
+                if (!session_get_idle_hint(s, &k)) {
                         if (!idle_hint) {
                                 if (k.monotonic < ts.monotonic)
                                         ts = k;

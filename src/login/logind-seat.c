@@ -16,6 +16,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "logind.h"
 #include "logind-device.h"
@@ -773,7 +774,7 @@ bool seat_can_graphical(Seat *s) {
         return seat_has_master_device(s);
 }
 
-int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
+bool seat_get_idle_hint(Seat *s, dual_timestamp *t) {
         bool idle_hint = true;
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
 
@@ -781,13 +782,8 @@ int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
 
         LIST_FOREACH(sessions_by_seat, session, s->sessions) {
                 dual_timestamp k;
-                int ih;
 
-                ih = session_get_idle_hint(session, &k);
-                if (ih < 0)
-                        return ih;
-
-                if (!ih) {
+                if (!session_get_idle_hint(session, &k)) {
                         if (!idle_hint) {
                                 if (k.monotonic > ts.monotonic)
                                         ts = k;
@@ -828,6 +824,37 @@ void seat_add_to_gc_queue(Seat *s) {
 
         LIST_PREPEND(gc_queue, s->manager->seat_gc_queue, s);
         s->in_gc_queue = true;
+}
+
+int seat_build_json(Seat *s, sd_json_variant **ret) {
+        assert(s);
+        assert(ret);
+
+        dual_timestamp idle_ts;
+        bool idle = seat_get_idle_hint(s, &idle_ts);
+        int r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *sessions_array = NULL;
+        LIST_FOREACH(sessions_by_seat, session, s->sessions) {
+                r = sd_json_variant_append_arraybo(
+                                &sessions_array,
+                                SD_JSON_BUILD_PAIR_STRING("Id", session->id));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("Id", s->id),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ActiveSession", s->active ? s->active->id : NULL),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("Sessions", sessions_array),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanTTY", seat_can_tty(s)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanGraphical", seat_can_graphical(s)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("IdleHint", idle),
+                        SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&idle_ts),
+                                                     "IdleSinceHint", SD_JSON_BUILD_UNSIGNED(idle_ts.realtime)),
+                        SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&idle_ts),
+                                                     "IdleSinceHintMonotonic", SD_JSON_BUILD_UNSIGNED(idle_ts.monotonic)));
 }
 
 static bool seat_name_valid_char(char c) {

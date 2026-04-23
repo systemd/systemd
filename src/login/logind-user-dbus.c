@@ -144,7 +144,7 @@ static int property_get_idle_hint(
         assert(bus);
         assert(reply);
 
-        return sd_bus_message_append(reply, "b", user_get_idle_hint(u, NULL) > 0);
+        return sd_bus_message_append(reply, "b", user_get_idle_hint(u, NULL));
 }
 
 static int property_get_idle_since_hint(
@@ -157,7 +157,7 @@ static int property_get_idle_since_hint(
                 sd_bus_error *error) {
 
         User *u = ASSERT_PTR(userdata);
-        dual_timestamp t = DUAL_TIMESTAMP_NULL;
+        dual_timestamp t;
         uint64_t k;
 
         assert(bus);

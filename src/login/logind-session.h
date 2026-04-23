@@ -179,7 +179,7 @@ bool session_may_gc(Session *s, bool drop_not_started);
 void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
 bool session_is_active(Session *s);
-int session_get_idle_hint(Session *s, dual_timestamp *t);
+bool session_get_idle_hint(Session *s, dual_timestamp *t);
 int session_set_idle_hint(Session *s, bool b);
 int session_get_locked_hint(Session *s);
 int session_set_locked_hint(Session *s, bool b);
@@ -219,3 +219,5 @@ int session_send_create_reply(Session *s, const sd_bus_error *error);
 
 bool session_is_self(const char *name);
 bool session_is_auto(const char *name);
+
+int session_build_json(Session *s, sd_json_variant **ret);
