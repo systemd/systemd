@@ -89,6 +89,20 @@ typedef struct Option {
 #define OPTION_COMMON_LOWERCASE_J \
         OPTION_SHORT('j', NULL, \
                      "Equivalent to --json=pretty (on TTY) or --json=short (otherwise)")
+#define OPTION_COMMON_PRIVATE_KEY(purpose) \
+        OPTION_LONG("private-key", "PATH|URI", purpose)
+#define OPTION_COMMON_PRIVATE_KEY_SOURCE \
+        OPTION_LONG("private-key-source", "SOURCE", \
+                    "Specify how to use the private key " \
+                    "(file, provider:PROVIDER, engine:ENGINE)")
+#define OPTION_COMMON_CERTIFICATE(purpose) \
+        OPTION_LONG("certificate", "PATH|URI", purpose \
+                    ", or a provider-specific designation if --certificate-source= is used")
+#define OPTION_COMMON_CERTIFICATE_SOURCE \
+        OPTION_LONG("certificate-source", "SOURCE", \
+                    "Specify how to interpret the certificate from --certificate=. " \
+                    "Allows the certificate to be loaded from an OpenSSL provider " \
+                    "(file, provider:PROVIDER)")
 
 /* This is magically mapped to the beginning and end of the section */
 extern const Option __start_SYSTEMD_OPTIONS[];
