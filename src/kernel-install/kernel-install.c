@@ -1604,13 +1604,13 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_LONG("esp-path", "PATH", "Path to the EFI System Partition (ESP)"):
                         r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_esp_path);
                         if (r < 0)
-                                return log_oom();
+                                return r;
                         break;
 
                 OPTION_LONG("boot-path", "PATH", "Path to the $BOOT partition"):
                         r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_xbootldr_path);
                         if (r < 0)
-                                return log_oom();
+                                return r;
                         break;
 
                 OPTION_COMMON_MAKE_ENTRY_DIRECTORY:
