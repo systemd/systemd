@@ -3,7 +3,13 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-storage-block',
-                'sources' : files('storage-block.c', 'storage-util.c'),
+                'sources' : files('storage-block.c'),
+                'extract' : files('storage-util.c')
+        },
+        executable_template + {
+                'name' : 'systemd-storage-fs',
+                'sources' : files('storage-fs.c'),
+                'objects' : ['systemd-storage-block'],
         },
 ]
 
