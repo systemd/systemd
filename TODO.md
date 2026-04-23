@@ -128,6 +128,12 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- StorageProvider interface + storagectl
+  - hook-up in systemd-nspawn
+  - hook-up in systemd-vmspawn
+  - hook-up in service manager (BindVolume=)
+  - integration test
+
 - a small tool that can do basic btrfs raid policy mgmt. i.e. gets started as
   part of the initial transaction for some btrfs raid fs, waits for some time,
   then puts message on screen (plymouth, console) that some devices apparently
