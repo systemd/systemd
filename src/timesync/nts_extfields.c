@@ -156,7 +156,10 @@ int NTS_add_extension_fields(
 
 /* caller checks memory bounds */
 static void decode_hdr(uint16_t *ret_a, uint16_t *ret_b, const struct iovec data, size_t offset) {
+        assert(ret_a);
+        assert(ret_b);
         assert(data.iov_len >= 4 + offset);
+
         uint8_t *bytes = (uint8_t*) data.iov_base + offset;
         *ret_a = unaligned_read_be16(bytes);
         *ret_b = unaligned_read_be16(bytes+2);
