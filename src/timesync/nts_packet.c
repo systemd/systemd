@@ -17,7 +17,7 @@
  */
 #define CHRONY_WORKAROUND
 
-enum NTS_RecordType {
+typedef enum NTS_RecordType {
         /* critical */
         NTS_EndOfMessage = 0,
         NTS_NextProto = 1,
@@ -32,11 +32,11 @@ enum NTS_RecordType {
         NTS_NTPv4Port = 7,
         /* https://chrony-project.org/doc/spec/nts-compliant-128gcm.html */
         NTS_Chrony_BugWorkaround = 1024,
-};
+} NTS_RecordType;
 
-enum NTS_ProtocolType {
+typedef enum NTS_ProtocolType {
         NTS_PROTO_NTPv4 = 0,
-};
+} NTS_ProtocolType;
 
 typedef struct {
         uint8_t *data;
@@ -60,12 +60,12 @@ static uint16_t u16_from_bytes(uint8_t bytes[2]) {
         return be16toh(value);
 }
 
-struct NTS_Record {
+typedef struct NTS_Record {
         uint16_t type;
         slice body;
-};
+} NTS_Record;
 
-static int32_t NTS_decode_u16(struct NTS_Record *record) {
+static int32_t NTS_decode_u16(NTS_Record *record) {
         assert(record);
 
         if (capacity(&record->body) < 2)
@@ -76,7 +76,7 @@ static int32_t NTS_decode_u16(struct NTS_Record *record) {
         return result;
 }
 
-static int NTS_decode_record(slice *message, struct NTS_Record *record) {
+static int NTS_decode_record(slice *message, NTS_Record *record) {
         assert(message);
         assert(record);
 
@@ -131,7 +131,7 @@ error:
 static int NTS_encode_record_u16(
                 slice *message,
                 bool critical,
-                enum NTS_RecordType type,
+                NTS_RecordType type,
                 const uint16_t *data, size_t num_words) {
 
         assert(message);
@@ -196,12 +196,12 @@ int NTS_encode_request(
         return request.data - buffer;
 }
 
-int NTS_decode_response(uint8_t *buffer, size_t buf_size, struct NTS_Agreement *response) {
+int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *response) {
         assert(buffer);
         assert(response);
 
         slice raw_response = { buffer, buffer+buf_size };
-        struct NTS_Record rec;
+        NTS_Record rec;
 
         /* clear response */
         size_t cookie_nr = 0;
@@ -209,7 +209,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, struct NTS_Agreement *
         char *ntp_server_terminator = NULL;
 
         /* make sure the result is only OK if we really succeed */
-        *response = (struct NTS_Agreement) { .error = NTS_INTERNAL_CLIENT_ERROR };
+        *response = (NTS_Agreement) { .error = NTS_INTERNAL_CLIENT_ERROR };
 
         while (raw_response.data < raw_response.data_end) {
                 int val = NTS_decode_record(&raw_response, &rec);
@@ -276,7 +276,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, struct NTS_Agreement *
                 case NTS_NTPv4Cookie:
                         /* ignore any cookies in excess of eight */
                         if (cookie_nr < ELEMENTSOF(response->cookie)) {
-                                struct NTS_Cookie *cookie = &response->cookie[cookie_nr++];
+                                NTS_Cookie *cookie = &response->cookie[cookie_nr++];
                                 cookie->data   = rec.body.data;
                                 cookie->length = rec.body.data_end - rec.body.data;
                         }

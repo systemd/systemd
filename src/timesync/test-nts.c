@@ -37,7 +37,7 @@ static void encode_ptr_len_data(
 
 TEST(nts_encoding) {
         uint8_t buffer[1000];
-        struct NTS_Agreement rec;
+        NTS_Agreement rec;
 
         NTS_encode_request(buffer, sizeof buffer, NULL);
         assert_se(NTS_decode_response(buffer, 1000, &rec) == 0);
@@ -71,7 +71,7 @@ TEST(nts_encoding) {
 
 TEST(nts_decoding) {
         uint8_t buffer[0x10000], *p;
-        struct NTS_Agreement rec;
+        NTS_Agreement rec;
 
         /* empty */
         uint8_t value[2] = {};
@@ -159,14 +159,14 @@ TEST(ntp_field_encoding) {
         uint8_t identifier[32] = {};
         char cookie[] = "PAD";
 
-        struct NTS_Query nts = {
+        NTS_Query nts = {
                 { (uint8_t*)cookie, strlen(cookie) },
                 key,
                 key,
                 *NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256),
         };
 
-        struct NTS_Receipt rcpt = {};
+        NTS_Receipt rcpt = {};
         int len = NTS_add_extension_fields(buffer, &nts, &identifier);
         assert_se(len > 48);
         assert_se(NTS_parse_extension_fields(buffer, len, &nts, &rcpt));
@@ -192,7 +192,7 @@ TEST(ntp_field_encoding) {
 static void add_encrypted_server_hdr(
                 uint8_t *buffer,
                 uint8_t **p_ptr,
-                struct NTS_Query nts,
+                NTS_Query nts,
                 const char *cookie[],
                 uint8_t *corrupt) {
 
@@ -239,7 +239,7 @@ TEST(ntp_field_decoding) {
         char cookie[] = "COOKIE", cakey[] = "CAKEY";
         uint8_t key[32] = {};
 
-        struct NTS_Query nts = {
+        NTS_Query nts = {
                 { (uint8_t*)cookie, strlen(cookie) },
                 key,
                 key,
@@ -255,7 +255,7 @@ TEST(ntp_field_decoding) {
         encode_record_raw_ext(&p, 0x0104, ident, 32);
         add_encrypted_server_hdr(buffer, &p, nts, (const char*[]){cookie, cakey, NULL}, NULL);
 
-        struct NTS_Receipt rcpt = {};
+        NTS_Receipt rcpt = {};
         assert_se(NTS_parse_extension_fields(buffer, p - buffer, &nts, &rcpt));
 
         assert_se(memcmp(rcpt.identifier, ident, 32) == 0);
