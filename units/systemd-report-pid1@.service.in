@@ -1,0 +1,55 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=PID1 Report Service
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+# Starts as root to read /proc/1/fd/ (mode 0500, owned by root), then calls
+# drop_privileges() to become nobody with zero capabilities before entering
+# the Varlink event loop. CAP_SETUID and CAP_SETGID are needed for the
+# setresuid()/setresgid() transition; CAP_SETPCAP is needed for the
+# subsequent prctl(PR_CAPBSET_DROP) calls that clear the bounding set.
+# All three are dropped along with every other cap in that same
+# drop_privileges() call.
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_SETPCAP
+DeviceAllow=
+IPAddressDeny=any
+KeyringMode=private
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateIPC=yes
+PrivateNetwork=yes
+PrivateTmp=disconnected
+ProcSubset=pid
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProtectSystem=strict
+ReadWritePaths=
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RuntimeMaxSec=1min
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+UMask=0077
+ExecStart={{LIBEXECDIR}}/systemd-report-pid1

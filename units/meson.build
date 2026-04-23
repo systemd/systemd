@@ -726,6 +726,8 @@ units = [
         },
         { 'file' : 'systemd-report-cgroup.socket' },
         { 'file' : 'systemd-report-cgroup@.service.in' },
+        { 'file' : 'systemd-report-pid1.socket' },
+        { 'file' : 'systemd-report-pid1@.service.in' },
         {
           'file' : 'systemd-resolved.service.in',
           'conditions' : ['ENABLE_RESOLVE'],
