@@ -11218,7 +11218,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = dlopen_fdisk(LOG_DEBUG);
+        r = dlopen_fdisk(LOG_ERR);
         if (r < 0)
                 return r;
 
