@@ -1096,10 +1096,8 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
 
                 if (!sd_json_format_enabled(arg_json_format_flags)) {
-                        _cleanup_free_ char *f = NULL;
-
-                        f = hexmem(h, l);
-                        if (!h)
+                        _cleanup_free_ char *f = hexmem(h, l);
+                        if (!f)
                                 return log_oom();
 
                         if (bank == arg_banks) {
