@@ -7,6 +7,7 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "blockdev-util.h"
 #include "boot-entry.h"
 #include "bootctl.h"
@@ -15,6 +16,7 @@
 #include "bootctl-util.h"
 #include "chase.h"
 #include "copy.h"
+#include "crypto-util.h"
 #include "dirent-util.h"
 #include "efi-api.h"
 #include "efi-fundamental.h"
@@ -31,7 +33,6 @@
 #include "json-util.h"
 #include "kernel-config.h"
 #include "log.h"
-#include "openssl-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pe-binary.h"
@@ -117,11 +118,11 @@ static void install_context_done(InstallContext *c) {
         c->xbootldr_fd = safe_close(c->xbootldr_fd);
 #if HAVE_OPENSSL
         if (c->secure_boot_private_key) {
-                EVP_PKEY_free(c->secure_boot_private_key);
+                sym_EVP_PKEY_free(c->secure_boot_private_key);
                 c->secure_boot_private_key = NULL;
         }
         if (c->secure_boot_certificate) {
-                X509_free(c->secure_boot_certificate);
+                sym_X509_free(c->secure_boot_certificate);
                 c->secure_boot_certificate = NULL;
         }
 #endif
@@ -1035,12 +1036,16 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
         if (!c->secure_boot_certificate || !c->secure_boot_private_key)
                 return 0;
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         _cleanup_free_ uint8_t *dercert = NULL;
         int dercertsz;
-        dercertsz = i2d_X509(c->secure_boot_certificate, &dercert);
+        dercertsz = sym_i2d_X509(c->secure_boot_certificate, &dercert);
         if (dercertsz < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert X.509 certificate to DER: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
+                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
         if (c->esp_fd < 0)
                 return c->esp_fd;
@@ -1087,7 +1092,7 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
         FOREACH_STRING(db, "PK", "KEK", "db") {
                 _cleanup_(BIO_freep) BIO *bio = NULL;
 
-                bio = BIO_new(BIO_s_mem());
+                bio = sym_BIO_new(sym_BIO_s_mem());
                 if (!bio)
                         return log_oom();
 
@@ -1096,34 +1101,34 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
                         return log_oom();
 
                 /* Don't count the trailing NUL terminator. */
-                if (BIO_write(bio, db16, char16_strsize(db16) - sizeof(char16_t)) < 0)
+                if (sym_BIO_write(bio, db16, char16_strsize(db16) - sizeof(char16_t)) < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable name to bio");
 
                 EFI_GUID *guid = STR_IN_SET(db, "PK", "KEK") ? &(EFI_GUID) EFI_GLOBAL_VARIABLE : &(EFI_GUID) EFI_IMAGE_SECURITY_DATABASE_GUID;
 
-                if (BIO_write(bio, guid, sizeof(*guid)) < 0)
+                if (sym_BIO_write(bio, guid, sizeof(*guid)) < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable GUID to bio");
 
-                if (BIO_write(bio, &attrs, sizeof(attrs)) < 0)
+                if (sym_BIO_write(bio, &attrs, sizeof(attrs)) < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable attributes to bio");
 
-                if (BIO_write(bio, &timestamp, sizeof(timestamp)) < 0)
+                if (sym_BIO_write(bio, &timestamp, sizeof(timestamp)) < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write timestamp to bio");
 
-                if (BIO_write(bio, siglist, siglistsz) < 0)
+                if (sym_BIO_write(bio, siglist, siglistsz) < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write signature list to bio");
 
                 _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
-                p7 = PKCS7_sign(c->secure_boot_certificate, c->secure_boot_private_key, /* certs= */ NULL, bio, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY|PKCS7_NOSMIMECAP);
+                p7 = sym_PKCS7_sign(c->secure_boot_certificate, c->secure_boot_private_key, /* certs= */ NULL, bio, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY|PKCS7_NOSMIMECAP);
                 if (!p7)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
-                                               ERR_error_string(ERR_get_error(), NULL));
+                                               sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
                 _cleanup_free_ uint8_t *sig = NULL;
-                int sigsz = i2d_PKCS7(p7, &sig);
+                int sigsz = sym_i2d_PKCS7(p7, &sig);
                 if (sigsz < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
-                                               ERR_error_string(ERR_get_error(), NULL));
+                                               sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
                 size_t authsz = offsetof(EFI_VARIABLE_AUTHENTICATION_2, AuthInfo.CertData) + sigsz;
                 _cleanup_free_ EFI_VARIABLE_AUTHENTICATION_2 *auth = malloc(authsz);

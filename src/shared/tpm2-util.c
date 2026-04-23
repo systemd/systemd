@@ -13,6 +13,7 @@
 #include "chase.h"
 #include "constants.h"
 #include "creds-util.h"
+#include "crypto-util.h"
 #include "cryptsetup-util.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -50,10 +51,6 @@
 #include "tpm2-util.h"
 #include "unaligned.h"
 #include "virt.h"
-
-#if HAVE_OPENSSL
-#  include <openssl/hmac.h>
-#endif
 
 #if HAVE_TPM2
 static void *libtss2_esys_dl = NULL;
@@ -3087,10 +3084,14 @@ int tpm2_get_good_pcr_banks_strv(
 #if HAVE_OPENSSL
         _cleanup_free_ TPMI_ALG_HASH *algs = NULL;
         _cleanup_strv_free_ char **l = NULL;
-        int n_algs;
+        int n_algs, r;
 
         assert(c);
         assert(ret);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         n_algs = tpm2_get_good_pcr_banks(c, pcr_mask, &algs);
         if (n_algs < 0)
@@ -3105,11 +3106,11 @@ int tpm2_get_good_pcr_banks_strv(
                 if (!salg)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 operates with unknown PCR algorithm, can't measure.");
 
-                implementation = EVP_get_digestbyname(salg);
+                implementation = sym_EVP_get_digestbyname(salg);
                 if (!implementation)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 operates with unsupported PCR algorithm, can't measure.");
 
-                n = strdup(ASSERT_PTR(EVP_MD_name(implementation)));
+                n = strdup(ASSERT_PTR(sym_EVP_MD_get0_name(implementation)));
                 if (!n)
                         return log_oom_debug();
 
@@ -3783,6 +3784,10 @@ int tpm2_policy_signed_hmac_sha256(
          * specified in the hmac_key parameter. The secret key must be loaded into the TPM already and
          * referenced in hmac_key_handle. */
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         log_debug("Submitting PolicySigned policy for HMAC-SHA256.");
 
         /* Acquire the nonce from the TPM that we shall sign */
@@ -3818,7 +3823,7 @@ int tpm2_policy_signed_hmac_sha256(
         unsigned hmac_signature_size = sizeof(hmac_signature);
 
         /* And sign this with our key */
-        if (!HMAC(EVP_sha256(),
+        if (!sym_HMAC(sym_EVP_sha256(),
                   hmac_key->iov_base,
                   hmac_key->iov_len,
                   digest_to_sign.buffer,
@@ -4555,6 +4560,10 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
         assert(pkey);
         assert(ret);
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         TPMT_PUBLIC public = {
                 .nameAlg = TPM2_ALG_SHA256,
                 .objectAttributes = TPMA_OBJECT_DECRYPT | TPMA_OBJECT_SIGN_ENCRYPT | TPMA_OBJECT_USERWITHAUTH,
@@ -4564,7 +4573,7 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
                 },
         };
 
-        int key_id = EVP_PKEY_get_id(pkey);
+        int key_id = sym_EVP_PKEY_get_id(pkey);
         switch (key_id) {
         case EVP_PKEY_EC: {
                 public.type = TPM2_ALG_ECC;
@@ -4662,8 +4671,12 @@ int tpm2_tpm2b_public_to_fingerprint(
         if (r < 0)
                 return r;
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         /* Hardcode fingerprint to SHA256 */
-        return pubkey_fingerprint(pkey, EVP_sha256(), ret_fingerprint, ret_fingerprint_size);
+        return pubkey_fingerprint(pkey, sym_EVP_sha256(), ret_fingerprint, ret_fingerprint_size);
 #else
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
@@ -6812,17 +6825,21 @@ static int tpm2_userspace_log(
         if (fd < 0) /* Apparently tpm2_local_log_open() failed earlier, let's not complain again */
                 return 0;
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         for (size_t i = 0; i < values->count; i++) {
                 const EVP_MD *implementation;
                 const char *a;
 
                 assert_se(a = tpm2_hash_alg_to_string(values->digests[i].hashAlg));
-                assert_se(implementation = EVP_get_digestbyname(a));
+                assert_se(implementation = sym_EVP_get_digestbyname(a));
 
                 r = sd_json_variant_append_arraybo(
                                 &array,
                                 SD_JSON_BUILD_PAIR_STRING("hashAlg", a),
-                                SD_JSON_BUILD_PAIR_HEX("digest", &values->digests[i].digest, EVP_MD_size(implementation)));
+                                SD_JSON_BUILD_PAIR_HEX("digest", &values->digests[i].digest, sym_EVP_MD_get_size(implementation)));
                 if (r < 0)
                         return log_debug_errno(r, "Failed to append digest object to JSON array: %m");
         }
@@ -6880,6 +6897,7 @@ int tpm2_pcr_extend_bytes(
         _cleanup_close_ int log_fd = -EBADF;
         TPML_DIGEST_VALUES values = {};
         TSS2_RC rc;
+        int r;
 
         assert(c);
         assert(iovec_is_valid(data));
@@ -6894,19 +6912,23 @@ int tpm2_pcr_extend_bytes(
         if (strv_isempty(banks))
                 return 0;
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         STRV_FOREACH(bank, banks) {
                 const EVP_MD *implementation;
                 int id;
 
-                assert_se(implementation = EVP_get_digestbyname(*bank));
+                assert_se(implementation = sym_EVP_get_digestbyname(*bank));
 
                 if (values.count >= ELEMENTSOF(values.digests))
                         return log_debug_errno(SYNTHETIC_ERRNO(E2BIG), "Too many banks selected.");
 
-                if ((size_t) EVP_MD_size(implementation) > sizeof(values.digests[values.count].digest))
+                if ((size_t) sym_EVP_MD_get_size(implementation) > sizeof(values.digests[values.count].digest))
                         return log_debug_errno(SYNTHETIC_ERRNO(E2BIG), "Hash result too large for TPM2.");
 
-                id = tpm2_hash_alg_from_string(EVP_MD_name(implementation));
+                id = tpm2_hash_alg_from_string(sym_EVP_MD_get0_name(implementation));
                 if (id < 0)
                         return log_debug_errno(id, "Can't map hash name to TPM2.");
 
@@ -6919,9 +6941,9 @@ int tpm2_pcr_extend_bytes(
                  * some unrelated purpose, who knows). Hence we instead measure an HMAC signature of a
                  * private non-secret string instead. */
                 if (iovec_is_set(secret) > 0) {
-                        if (!HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, NULL))
+                        if (!sym_HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, NULL))
                                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to calculate HMAC of data to measure.");
-                } else if (EVP_Digest(data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, NULL, implementation, NULL) != 1)
+                } else if (sym_EVP_Digest(data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, NULL, implementation, NULL) != 1)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data to measure.");
 
                 values.count++;
@@ -7054,6 +7076,10 @@ int tpm2_nvpcr_extend_bytes(
         assert(iovec_is_valid(data));
         assert(iovec_is_valid(secret));
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         _cleanup_(nvpcr_data_done) NvPCRData p = {};
         r = nvpcr_data_load(name, &p);
         if (r < 0)
@@ -7077,10 +7103,10 @@ int tpm2_nvpcr_extend_bytes(
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported algorithm for NvPCR, refusing.");
 
         const EVP_MD *implementation;
-        assert_se(implementation = EVP_get_digestbyname(an));
+        assert_se(implementation = sym_EVP_get_digestbyname(an));
 
         _cleanup_(iovec_done) struct iovec digest = {
-                .iov_len = EVP_MD_size(implementation),
+                .iov_len = sym_EVP_MD_get_size(implementation),
         };
 
         digest.iov_base = malloc(digest.iov_len);
@@ -7091,9 +7117,9 @@ int tpm2_nvpcr_extend_bytes(
                 data = &iovec_empty;
 
         if (iovec_is_set(secret)) {
-                if (!HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, digest.iov_base, NULL))
+                if (!sym_HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, digest.iov_base, NULL))
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to calculate HMAC of data to measure.");
-        } else if (EVP_Digest(data->iov_base, data->iov_len, digest.iov_base, NULL, implementation, NULL) != 1)
+        } else if (sym_EVP_Digest(data->iov_base, data->iov_len, digest.iov_base, NULL, implementation, NULL) != 1)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data to measure.");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
@@ -7595,10 +7621,14 @@ int tpm2_nvpcr_initialize(
         if (!an)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported algorithm for NvPCR, refusing.");
 
-        const EVP_MD *implementation;
-        assert_se(implementation = EVP_get_digestbyname(an));
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
 
-        int digest_size = EVP_MD_get_size(implementation);
+        const EVP_MD *implementation;
+        assert_se(implementation = sym_EVP_get_digestbyname(an));
+
+        int digest_size = sym_EVP_MD_get_size(implementation);
         assert_se(digest_size > 0);
 
         if ((size_t) digest_size > sizeof_field(TPM2B_MAX_NV_BUFFER, buffer))
@@ -7619,7 +7649,7 @@ int tpm2_nvpcr_initialize(
         CLEANUP_ERASE(buf);
 
         /* We measure HMAC(anchor_secret, name) into the NvPCR to anchor it on our secret. */
-        if (!HMAC(implementation, anchor_secret->iov_base, anchor_secret->iov_len, hmac_buffer, hmac_buffer_size, buf.buffer, NULL))
+        if (!sym_HMAC(implementation, anchor_secret->iov_base, anchor_secret->iov_len, hmac_buffer, hmac_buffer_size, buf.buffer, NULL))
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to calculate HMAC of data to measure.");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;

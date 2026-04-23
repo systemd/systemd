@@ -9,6 +9,7 @@
 #include "build.h"
 #include "conf-files.h"
 #include "constants.h"
+#include "crypto-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -127,7 +128,7 @@ static void public_key_data_done(struct public_key_data *d) {
         assert(d);
 
         if (d->pkey) {
-                EVP_PKEY_free(d->pkey);
+                sym_EVP_PKEY_free(d->pkey);
                 d->pkey = NULL;
         }
         if (d->public) {
@@ -148,7 +149,7 @@ static int public_key_make_fingerprint(struct public_key_data *d) {
         assert(!d->fingerprint);
         assert(!d->fingerprint_hex);
 
-        r = pubkey_fingerprint(d->pkey, EVP_sha256(), &d->fingerprint, &d->fingerprint_size);
+        r = pubkey_fingerprint(d->pkey, sym_EVP_sha256(), &d->fingerprint, &d->fingerprint_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to calculate fingerprint of public key: %m");
 
@@ -320,7 +321,7 @@ static int setup_srk(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open SRK public key file '%s' for writing: %m", pem_path);
 
-        if (PEM_write_PUBKEY(f, tpm2_key.pkey) <= 0)
+        if (sym_PEM_write_PUBKEY(f, tpm2_key.pkey) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write SRK public key file '%s'.", pem_path);
 
         if (fchmod(fileno(f), 0444) < 0)
@@ -503,6 +504,10 @@ static int run(int argc, char *argv[]) {
                 log_notice("No complete TPM2 support detected, exiting gracefully.");
                 return EXIT_SUCCESS;
         }
+
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
+                return r;
 
         umask(0022);
 
