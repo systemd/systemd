@@ -772,6 +772,12 @@ static void test_macros_parse_one(
                 if (entries[i].short_code != 0)
                         ASSERT_EQ(opt->short_code, entries[i].short_code);
                 ASSERT_TRUE(streq_ptr(arg, entries[i].argument));
+
+                if (streq_ptr(entries[i].long_code, "optional2"))
+                        ASSERT_EQ(opt->data, 666u);
+                else
+                        ASSERT_EQ(opt->data, 0u);
+
                 i++;
 
                 switch (c) {
@@ -796,13 +802,16 @@ static void test_macros_parse_one(
                 OPTION_FULL(OPTION_OPTIONAL_ARG, 'o', "optional", "ARG", "Optional arg option"):
                         break;
 
+                /* OPTION_FULL_DATA: optional arg */
+                OPTION_FULL_DATA(OPTION_OPTIONAL_ARG, 'O', "optional2", "ARG", 666, "Optional arg option"):
+                        break;
+
                 /* OPTION_FULL: stops parsing */
                 OPTION_FULL(OPTION_STOPS_PARSING, 0, "exec", NULL, "Stop parsing after this"):
                         break;
 
                 /* OPTION_GROUP: group marker (never returned by parser) */
-                OPTION_GROUP("Advanced"):
-                        break;
+                OPTION_GROUP("Advanced"): {}
 
                 /* OPTION_LONG: long only, in the "Advanced" group */
                 OPTION_LONG("debug", NULL, "Enable debug mode"):
@@ -1015,6 +1024,7 @@ TEST(option_macros) {
                                         "-v",
                                         "--required=rval",
                                         "--optional=oval",
+                                        "--optional2=oval",
                                         "--debug",
                                         "pos2",
                                         "-o",
@@ -1025,6 +1035,7 @@ TEST(option_macros) {
                                       { .short_code = 'v' },
                                       { "required", "rval" },
                                       { "optional", "oval" },
+                                      { "optional2", "oval" },
                                       { "debug" },
                                       { "optional", NULL },
                                       { "help" },

@@ -422,8 +422,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                OPTION_GROUP("Block Device Discovery Commands"):
-                        break;
+                OPTION_GROUP("Block Device Discovery Commands"): {}
 
                 OPTION('p', "print-esp-path", NULL, "Print path to the EFI System Partition mount point"): {}
                 OPTION_LONG("print-path", NULL, /* help= */ NULL):  /* Compatibility alias */
@@ -455,8 +454,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_print_efi_architecture = true;
                         break;
 
-                OPTION_GROUP("Options"):
-                        break;
+                OPTION_GROUP("Options"): {}
 
                 OPTION_COMMON_HELP:
                         return help();
@@ -605,16 +603,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return r;
                         break;
 
-                OPTION_LONG("private-key", "PATH|URI",
-                            "Private key for Secure Boot auto-enrollment"):
+                OPTION_COMMON_PRIVATE_KEY("Private key for Secure Boot auto-enrollment"):
                         r = free_and_strdup_warn(&arg_private_key, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                OPTION_LONG("private-key-source", "SOURCE",
-                            "Specify how to use the private key "
-                            "(file, provider:PROVIDER, engine:ENGINE)"):
+                OPTION_COMMON_PRIVATE_KEY_SOURCE:
                         r = parse_openssl_key_source_argument(arg,
                                                               &arg_private_key_source,
                                                               &arg_private_key_source_type);
@@ -622,18 +617,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return r;
                         break;
 
-                OPTION_LONG("certificate", "PATH|URI",
-                            "PEM certificate to use when setting up Secure Boot auto-enrollment, "
-                            "or a provider specific designation if --certificate-source= is used"):
+                OPTION_COMMON_CERTIFICATE("PEM certificate to use when setting up Secure Boot auto-enrollment"):
                         r = free_and_strdup_warn(&arg_certificate, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                OPTION_LONG("certificate-source", "SOURCE",
-                            "Specify how to interpret the certificate from --certificate=. "
-                            "Allows the certificate to be loaded from an OpenSSL provider "
-                            "(file, provider:PROVIDER)"):
+                OPTION_COMMON_CERTIFICATE_SOURCE:
                         r = parse_openssl_certificate_source_argument(arg,
                                                                       &arg_certificate_source,
                                                                       &arg_certificate_source_type);
