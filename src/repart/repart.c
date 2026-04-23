@@ -9726,16 +9726,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("offline", "BOOL",
                             "Whether to build the image offline"):
-                        if (streq(arg, "auto"))
-                                arg_offline = -1;
-                        else {
-                                r = parse_boolean_argument("--offline=", arg, NULL);
-                                if (r < 0)
-                                        return r;
-
-                                arg_offline = r;
-                        }
-
+                        r = parse_tristate_argument_with_auto("--offline=", arg, &arg_offline);
+                        if (r < 0)
+                                return r;
                         break;
 
                 OPTION_LONG("discard", "BOOL",
