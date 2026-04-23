@@ -101,17 +101,17 @@ ssize_t NTS_TLS_read(NTS_TLS *session, void *buffer, size_t size) {
         }
 }
 
-void NTS_TLS_close(NTS_TLS **session) {
-        assert(session);
-        if (*session == NULL)
-                return;
+NTS_TLS* NTS_TLS_free(NTS_TLS *session) {
+        if (session == NULL)
+                return NULL;
 
-        SSL *tls = (SSL*) *session;
-        *session = NULL;
+        SSL *tls = (SSL*) session;
 
         /* unidirectional closing is enough */
         (void) SSL_shutdown(tls);
         SSL_free(tls);
+
+        return NULL;
 }
 
 NTS_TLS* NTS_TLS_setup(
