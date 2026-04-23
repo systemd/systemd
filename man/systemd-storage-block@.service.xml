@@ -1,0 +1,97 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-storage-block_.service"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-storage-block@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-storage-block@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-storage-block@.service</refname>
+    <refname>systemd-storage-block.socket</refname>
+    <refname>systemd-storage-block</refname>
+    <refpurpose>Storage provider exposing local block devices as storage volumes</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-storage-block@.service</filename></para>
+    <para><filename>systemd-storage-block.socket</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-storage-block@.service</filename> is a system service that implements the
+    <constant>io.systemd.StorageProvider</constant> <ulink url="https://varlink.org/">Varlink</ulink>
+    interface, exposing the system's block devices (such as disks, partitions, and device-mapper
+    nodes) as storage volumes that may be acquired by other programs as file descriptors.</para>
+
+    <para>The service is socket-activated via <filename>systemd-storage-block.socket</filename>, which
+    listens on the AF_UNIX socket <filename>/run/systemd/io.systemd.StorageProvider/block</filename>. The
+    socket directory <filename>/run/systemd/io.systemd.StorageProvider/</filename> is the well-known location
+    where storage providers register, see
+    <citerefentry><refentrytitle>storagectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for an
+    enumeration tool.</para>
+
+    <para>See also
+    <citerefentry><refentrytitle>systemd-storage-fs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for a complementary implementation that exposes regular files and directories from a backing file
+    system.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Volumes</title>
+
+    <para>The volumes exposed via the provider are identified by an absolute path (which must begin with
+    <filename>/dev/</filename>), i.e. as a kernel block device node such as <filename>/dev/sda</filename> or
+    <filename>/dev/disk/by-id/…</filename>. Volume names that are not normalized or that do not begin with
+    <filename>/dev/</filename> are not accepted.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Files</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><filename>/run/systemd/io.systemd.StorageProvider/block</filename></term>
+
+        <listitem><para>AF_UNIX socket the service listens on. This is the canonical location
+        for the <literal>block</literal> storage provider, and is enumerated by
+        <command>storagectl providers</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>storagectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-storage-fs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
