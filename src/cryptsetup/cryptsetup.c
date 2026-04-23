@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "build.h"
+#include "crypto-util.h"
 #include "cryptsetup-fido2.h"
 #include "cryptsetup-keyfile.h"
 #include "cryptsetup-pkcs11.h"
@@ -537,6 +538,10 @@ static int parse_one_option(const char *option) {
 #if HAVE_OPENSSL
                 _cleanup_strv_free_ char **l = NULL;
 
+                r = dlopen_libcrypto(LOG_ERR);
+                if (r < 0)
+                        return r;
+
                 l = strv_split(val, ":");
                 if (!l)
                         return log_oom();
@@ -544,11 +549,11 @@ static int parse_one_option(const char *option) {
                 STRV_FOREACH(i, l) {
                         const EVP_MD *implementation;
 
-                        implementation = EVP_get_digestbyname(*i);
+                        implementation = sym_EVP_get_digestbyname(*i);
                         if (!implementation)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", val);
 
-                        if (strv_extend(&arg_tpm2_measure_banks, EVP_MD_name(implementation)) < 0)
+                        if (strv_extend(&arg_tpm2_measure_banks, sym_EVP_MD_get0_name(implementation)) < 0)
                                 return log_oom();
                 }
 #else
