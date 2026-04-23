@@ -109,10 +109,11 @@ int posix_fallocate_loop(int fd, uint64_t offset, uint64_t size);
 int parse_cifs_service(const char *s, char **ret_host, char **ret_service, char **ret_path);
 
 typedef enum XOpenFlags {
-        XO_LABEL     = 1 << 0, /* When creating: relabel */
-        XO_SUBVOLUME = 1 << 1, /* When creating as directory: make it a subvolume */
-        XO_NOCOW     = 1 << 2, /* Enable NOCOW mode after opening */
-        XO_REGULAR   = 1 << 3, /* Fail if the inode is not a regular file */
+        XO_LABEL      = 1 << 0, /* When creating: relabel */
+        XO_SUBVOLUME  = 1 << 1, /* When creating as directory: make it a subvolume */
+        XO_NOCOW      = 1 << 2, /* Enable NOCOW mode after opening */
+        XO_REGULAR    = 1 << 3, /* Fail if the inode is not a regular file */
+        XO_AUTO_RW_RO = 1 << 4, /* Open in O_RDWR mode is possible, O_RDONLY if not */
 } XOpenFlags;
 
 int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode);
