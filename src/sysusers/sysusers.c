@@ -2121,8 +2121,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_VERSION:
                         return version();
 
-                OPTION_GROUP("Options"):
-                        break;
+                OPTION_GROUP("Options"): {}
 
                 OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
                         r = parse_path_argument(arg, /* suppress_root= */ false, &arg_root);

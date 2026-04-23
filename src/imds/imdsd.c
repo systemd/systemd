@@ -2348,8 +2348,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 /* The following all configure endpoint information explicitly */
-                OPTION_GROUP("Manual Endpoint Configuration"):
-                        break;
+                OPTION_GROUP("Manual Endpoint Configuration"): {}
 
                 OPTION_LONG("vendor", "VENDOR", "Specify IMDS vendor literally"):
                         if (isempty(arg)) {

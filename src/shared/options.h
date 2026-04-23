@@ -19,10 +19,11 @@ typedef struct Option {
         char short_code;
         const char *long_code;
         const char *metavar;
+        uintptr_t data;
         const char *help;
 } Option;
 
-#define _OPTION(counter, fl, sc, lc, mv, h)                             \
+#define _OPTION(counter, fl, sc, lc, mv, d, h)                          \
         _section_("SYSTEMD_OPTIONS")                                    \
         _alignptr_                                                      \
         _used_                                                          \
@@ -35,6 +36,7 @@ typedef struct Option {
                 .short_code = sc,                                       \
                 .long_code = lc,                                        \
                 .metavar = mv,                                          \
+                .data = d,                                              \
                 .help = h,                                              \
         };                                                              \
         case (0x100 + counter)
@@ -43,14 +45,17 @@ typedef struct Option {
  * The define is structured as 'case' so that it can be followed by ':' and indented appropriately.
  */
 #define OPTION_GROUP(gr)                                                \
-        _OPTION(__COUNTER__, OPTION_GROUP_MARKER, /* sc= */ 0, /* lc= */ gr, /* mv= */ NULL, /* h= */ NULL)
+        _OPTION(__COUNTER__, OPTION_GROUP_MARKER, /* sc= */ 0, /* lc= */ gr, /* mv= */ NULL, /* d= */ 0u, /* h= */ NULL)
 
-#define OPTION_FULL(fl, sc, lc, mv, h) _OPTION(__COUNTER__, fl, sc, lc, mv, h)
+#define OPTION_FULL_DATA(fl, sc, lc, mv, d, h) _OPTION(__COUNTER__, fl, sc, lc, mv, d, h)
+#define OPTION_FULL(fl, sc, lc, mv, h) OPTION_FULL_DATA(fl, sc, lc, mv, /* d= */ 0u, h)
 #define OPTION(sc, lc, mv, h) OPTION_FULL(/* fl= */ 0, sc, lc, mv, h)
 #define OPTION_LONG(lc, mv, h) OPTION(/* sc= */ 0, lc, mv, h)
 #define OPTION_LONG_FLAGS(fl, lc, mv, h) OPTION_FULL(fl, /* sc= */ 0, lc, mv, h)
+#define OPTION_LONG_DATA(lc, mv, d, h) OPTION_FULL_DATA(/* fl= */ 0, /* sc= */ 0, lc, mv, d, h)
 #define OPTION_SHORT(sc, mv, h) OPTION(sc, /* lc= */ NULL, mv, h)
 #define OPTION_SHORT_FLAGS(fl, sc, mv, h) OPTION_FULL(fl, sc, /* lc= */ NULL, mv, h)
+#define OPTION_SHORT_DATA(sc, mv, d, h) OPTION_FULL_DATA(/* fl= */ 0, sc, /* lc= */ NULL, mv, d, h)
 #define OPTION_POSITIONAL OPTION_FULL(OPTION_POSITIONAL_ENTRY, /* sc= */ 0, "(positional)", /* mv= */ NULL, /* h= */ NULL)
 #define OPTION_HELP_VERBATIM(lc, h) OPTION_FULL(OPTION_HELP_ENTRY_VERBATIM, /* sc= */ 0, lc, /* mv= */ NULL, h)
 
@@ -89,6 +94,20 @@ typedef struct Option {
 #define OPTION_COMMON_LOWERCASE_J \
         OPTION_SHORT('j', NULL, \
                      "Equivalent to --json=pretty (on TTY) or --json=short (otherwise)")
+#define OPTION_COMMON_PRIVATE_KEY(purpose) \
+        OPTION_LONG("private-key", "PATH|URI", purpose)
+#define OPTION_COMMON_PRIVATE_KEY_SOURCE \
+        OPTION_LONG("private-key-source", "SOURCE", \
+                    "Specify how to use the private key " \
+                    "(file, provider:PROVIDER, engine:ENGINE)")
+#define OPTION_COMMON_CERTIFICATE(purpose) \
+        OPTION_LONG("certificate", "PATH|URI", purpose \
+                    ", or a provider-specific designation if --certificate-source= is used")
+#define OPTION_COMMON_CERTIFICATE_SOURCE \
+        OPTION_LONG("certificate-source", "SOURCE", \
+                    "Specify how to interpret the certificate from --certificate=. " \
+                    "Allows the certificate to be loaded from an OpenSSL provider " \
+                    "(file, provider:PROVIDER)")
 
 /* This is magically mapped to the beginning and end of the section */
 extern const Option __start_SYSTEMD_OPTIONS[];
