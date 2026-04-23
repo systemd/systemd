@@ -422,8 +422,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                OPTION_GROUP("Block Device Discovery Commands"):
-                        break;
+                OPTION_GROUP("Block Device Discovery Commands"): {}
 
                 OPTION('p', "print-esp-path", NULL, "Print path to the EFI System Partition mount point"): {}
                 OPTION_LONG("print-path", NULL, /* help= */ NULL):  /* Compatibility alias */
@@ -455,8 +454,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_print_efi_architecture = true;
                         break;
 
-                OPTION_GROUP("Options"):
-                        break;
+                OPTION_GROUP("Options"): {}
 
                 OPTION_COMMON_HELP:
                         return help();

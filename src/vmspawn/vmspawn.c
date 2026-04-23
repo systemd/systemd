@@ -359,8 +359,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
-                OPTION_GROUP("Image"):
-                        break;
+                OPTION_GROUP("Image"): {}
 
                 OPTION('D', "directory", "PATH", "Root directory for the VM"):
                         r = parse_path_argument(arg, /* suppress_root= */ false, &arg_directory);
@@ -393,8 +392,7 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "Invalid image disk type: %s", arg);
                         break;
 
-                OPTION_GROUP("Host Configuration"):
-                        break;
+                OPTION_GROUP("Host Configuration"): {}
 
                 OPTION_LONG("cpus", "CPUS", "Configure number of CPUs in guest"): {}
                 OPTION_LONG("qemu-smp", "CPUS", /* help= */ NULL):  /* Compat alias */
@@ -655,8 +653,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse --grow-image= parameter: %s", arg);
                         break;
 
-                OPTION_GROUP("Execution"):
-                        break;
+                OPTION_GROUP("Execution"): {}
 
                 OPTION('s', "smbios11", "STRING", "Pass an arbitrary SMBIOS Type #11 string to the VM"):
                         if (isempty(arg)) {
@@ -677,8 +674,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                OPTION_GROUP("System Identity"):
-                        break;
+                OPTION_GROUP("System Identity"): {}
 
                 OPTION('M', "machine", "NAME", "Set the machine name for the VM"):
                         if (isempty(arg))
@@ -702,8 +698,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Invalid UUID: %s", arg);
                         break;
 
-                OPTION_GROUP("Properties"):
-                        break;
+                OPTION_GROUP("Properties"): {}
 
                 OPTION('S', "slice", "SLICE", "Place the VM in the specified slice"): {
                         _cleanup_free_ char *mangled = NULL;
@@ -732,8 +727,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_keep_unit = true;
                         break;
 
-                OPTION_GROUP("User Namespacing"):
-                        break;
+                OPTION_GROUP("User Namespacing"): {}
 
                 OPTION_LONG("private-users", "UIDBASE[:NUIDS]",
                             "Configure the UID/GID range to map into the virtiofsd namespace"):
@@ -742,8 +736,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                OPTION_GROUP("Mounts"):
-                        break;
+                OPTION_GROUP("Mounts"): {}
 
                 OPTION_LONG("bind", "SOURCE[:TARGET]", "Mount a file or directory from the host into the VM"): {}
                 OPTION_LONG("bind-ro", "SOURCE[:TARGET]", "Mount a file or directory, but read-only"): {
@@ -835,8 +828,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                         break;
 
-                OPTION_GROUP("Integration"):
-                        break;
+                OPTION_GROUP("Integration"): {}
 
                 OPTION_LONG("forward-journal", "FILE|DIR", "Forward the VM's journal to the host"):
                         r = parse_path_argument(arg, /* suppress_root= */ false, &arg_forward_journal);
@@ -864,8 +856,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                OPTION_GROUP("Input/Output"):
-                        break;
+                OPTION_GROUP("Input/Output"): {}
 
                 OPTION_LONG("console", "MODE",
                             "Console mode (interactive, native, gui, read-only or headless)"):
@@ -890,8 +881,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                OPTION_GROUP("Credentials"):
-                        break;
+                OPTION_GROUP("Credentials"): {}
 
                 OPTION_LONG("set-credential", "ID:VALUE", "Pass a credential with literal value to the VM"):
                         r = machine_credential_set(&arg_credentials, arg);

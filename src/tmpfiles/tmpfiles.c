@@ -4225,8 +4225,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_VERSION:
                         return version();
 
-                OPTION_GROUP("Options"):
-                        break;
+                OPTION_GROUP("Options"): {}
 
                 OPTION_LONG("user", NULL, "Execute user configuration"):
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
