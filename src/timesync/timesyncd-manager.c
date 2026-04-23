@@ -1083,7 +1083,7 @@ void manager_disconnect(Manager *m) {
 #if ENABLE_TIMESYNC_NTS
         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
 
-        NTS_TLS_close(&m->nts_handshake);
+        m->nts_handshake = NTS_TLS_free(m->nts_handshake);
 #endif
 
         (void) sd_notify(false, "STATUS=Idle.");
@@ -1490,7 +1490,7 @@ static int manager_nts_handshake_timeout(sd_event_source *source, usec_t usec, v
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
-        NTS_TLS_close(&m->nts_handshake);
+        m->nts_handshake = NTS_TLS_free(m->nts_handshake);
 
         manager_listen_stop(m);
 
@@ -1544,7 +1544,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
         int r;
 
         if (revents & (EPOLLHUP|EPOLLERR)) {
-                NTS_TLS_close(&m->nts_handshake);
+                m->nts_handshake = NTS_TLS_free(m->nts_handshake);
                 m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                 log_warning("Server connection returned error.");
                 return manager_connect(m);
@@ -1589,7 +1589,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
                 if (r < 0) {
                         log_warning("Could not set up TLS session with server");
-                        NTS_TLS_close(&m->nts_handshake);
+                        m->nts_handshake = NTS_TLS_free(m->nts_handshake);
                         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
                 }
@@ -1615,7 +1615,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 r = NTS_encode_request(m->nts_packet_buffer, sizeof(m->nts_packet_buffer), prefs);
                 if (r < 0) {
                         log_error_errno(r, "NTS request encoding failed: %m");
-                        NTS_TLS_close(&m->nts_handshake);
+                        m->nts_handshake = NTS_TLS_free(m->nts_handshake);
                         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
                 }
@@ -1635,7 +1635,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
                 if (r < 0) {
                         log_warning("Error sending NTS key request");
-                        NTS_TLS_close(&m->nts_handshake);
+                        m->nts_handshake = NTS_TLS_free(m->nts_handshake);
                         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
                 } else if (r < size) {
@@ -1656,7 +1656,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
                 if (r < 0) {
                         log_warning("Error receiving NTS key response");
-                        NTS_TLS_close(&m->nts_handshake);
+                        m->nts_handshake = NTS_TLS_free(m->nts_handshake);
                         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
                 }
@@ -1669,7 +1669,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                                 return 1;
 
                         log_warning("NTS Error: %s", NTS_error_string(NTS.error));
-                        NTS_TLS_close(&m->nts_handshake);
+                        m->nts_handshake = NTS_TLS_free(m->nts_handshake);
                         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
                 }
@@ -1692,7 +1692,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                     m->nts_keys.s2c,
                     MAX_NTS_AEAD_KEY_LEN);
 
-        NTS_TLS_close(&m->nts_handshake);
+        m->nts_handshake = NTS_TLS_free(m->nts_handshake);
         manager_listen_stop(m);
 
         if (r != 0) {

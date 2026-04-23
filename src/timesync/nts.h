@@ -131,7 +131,7 @@ int NTS_TLS_handshake(NTS_TLS *session);
  * RETURNS
  *      Nothing
  */
-void NTS_TLS_close(NTS_TLS **session);
+NTS_TLS* NTS_TLS_free(NTS_TLS *session);
 
 /* Reading and writing data
  *
