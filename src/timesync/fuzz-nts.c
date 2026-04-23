@@ -29,7 +29,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         NTS_Agreement rec;
         if (NTS_decode_response(buffer, len, &rec) == 0) {
                 FOREACH_ELEMENT(cookie, rec.cookie)
-                        eat(cookie->data, cookie->length);
+                        eat(cookie->iov_base, cookie->iov_len);
         }
 
         return 0;
