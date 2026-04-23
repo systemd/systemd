@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "iovec-util.h"
 #include "memory-util.h"
 #include "nts_crypto.h"
 #include "nts_definitions.h"
@@ -18,16 +19,7 @@
 #define ENCRYPTED_PLACEHOLDERS 0
 #endif
 
-typedef struct {
-        uint8_t *data;
-        uint8_t *data_end;
-} slice;
-
-static size_t capacity(const slice *p) {
-        return p->data_end - p->data;
-}
-
-static int write_ntp_ext_field(slice *buf, uint16_t type, void *contents, uint16_t len, uint16_t size) {
+static int write_ntp_ext_field(struct iovec *buf, uint16_t type, void *contents, uint16_t len, uint16_t size) {
         assert(buf);
 
         /* enforce minimum size */
@@ -36,24 +28,25 @@ static int write_ntp_ext_field(slice *buf, uint16_t type, void *contents, uint16
         uint16_t padded_len = (size+3) & ~3;
         int padding = padded_len - (len+4);
 
-        if (capacity(buf) < padded_len)
+        if (buf->iov_len < padded_len)
                 return 0;
 
+        uint8_t *data = (uint8_t*) buf->iov_base;
+        iovec_increment(buf, 1, padded_len);
+
+        unaligned_write_be16(data, type);
+        unaligned_write_be16(data+2, padded_len);
         if (contents)
-                memmove(buf->data+4, contents, len);
+                memmove(data+4, contents, len);
         else
-                memzero(buf->data+4, len);
+                memzero(data+4, len);
 
-        unaligned_write_be16(buf->data, type);
-        unaligned_write_be16(buf->data+2, padded_len);
-
-        buf->data += padded_len;
-        memzero(buf->data - padding, padding);
+        memzero(data+4+len, padding);
         return padded_len;
 }
 
 int NTS_add_extension_fields(
-                uint8_t dest[static 1280],
+                uint8_t dest[static NTS_MAX_PACKET_SIZE],
                 const NTS_Query *nts,
                 NTS_Identifier *identifier) {
 
@@ -63,10 +56,10 @@ int NTS_add_extension_fields(
         assert(nts);
         assert(identifier);
 
-        slice buf = { dest, dest + 1280 };
+        struct iovec buf = { dest, NTS_MAX_PACKET_SIZE };
 
         /* skip beyond regular ntp portion */
-        buf.data += 48;
+        iovec_increment(&buf, 1, 48);
 
         /* generate unique identifier */
         if (crypto_random_bytes(*identifier, sizeof(NTS_Identifier)) != 0)
@@ -110,7 +103,7 @@ int NTS_add_extension_fields(
         /* re-use the remaining buffer as a temporary scratch area for plaintext;
            since we are encrypting this and writing it to the buffer, it will be guaranteed
            to be overwritten */
-        slice ptxt = buf;
+        struct iovec ptxt = buf;
 
 #if defined(OPENSSL_WORKAROUND)
         /* bug in OpenSSL: https://github.com/openssl/openssl/issues/26580,
@@ -132,16 +125,17 @@ int NTS_add_extension_fields(
                 return -EINVAL;
 
         AssociatedData info[] = {
-                { dest, buf.data - dest },  /* aad */
-                { EF_nonce,  nonce_len },   /* nonce */
+                { dest,     (uint8_t*)buf.iov_base - dest },  /* aad */
+                { EF_nonce, nonce_len },                      /* nonce */
                 { },
         };
 
-        int ptxt_len = ptxt.data - buf.data;
+        int ptxt_len = (uint8_t*)ptxt.iov_base - (uint8_t*)buf.iov_base;
+
         assert((int)sizeof(EF) - (EF_payload - EF) >= ptxt_len + nts->cipher.block_size);
 
         int EF_capacity = sizeof(EF) - (EF_payload - EF);
-        int ctxt_len = NTS_encrypt(EF_payload, EF_capacity, buf.data, ptxt_len, info, &nts->cipher, nts->c2s_key);
+        int ctxt_len = NTS_encrypt(EF_payload, EF_capacity, buf.iov_base, ptxt_len, info, &nts->cipher, nts->c2s_key);
 
         assert(ctxt_len <= EF_capacity); /* failing this would be a serious error, try to run to the exit */
         if (ctxt_len < 0)
@@ -157,33 +151,35 @@ int NTS_add_extension_fields(
         if (r == 0)
                 return -ENOMEM;
 
-        return buf.data - dest;
+        return (uint8_t*)buf.iov_base - dest;
 }
 
 /* caller checks memory bounds */
-static void decode_hdr(uint16_t *ret_a, uint16_t *ret_b, const uint8_t bytes[static 4]) {
+static void decode_hdr(uint16_t *ret_a, uint16_t *ret_b, const struct iovec data, size_t offset) {
+        assert(data.iov_len >= 4 + offset);
+        uint8_t *bytes = (uint8_t*) data.iov_base + offset;
         *ret_a = unaligned_read_be16(bytes);
         *ret_b = unaligned_read_be16(bytes+2);
 }
 
 int NTS_parse_extension_fields(
-                uint8_t src[static 1280],
+                uint8_t src[static NTS_MAX_PACKET_SIZE],
                 size_t src_len,
                 const NTS_Query *nts,
                 NTS_Receipt *fields) {
 
         assert(src);
-        assert(src_len >= 48 && src_len <= 1280);
+        assert(src_len >= 48 && src_len <= NTS_MAX_PACKET_SIZE);
         assert(nts);
         assert(fields);
 
-        slice buf = { src + 48, src + src_len };
+        struct iovec buf = { src + 48, src_len };
         bool processed = false;
 
-        while (capacity(&buf) >= 4) {
+        while (buf.iov_len >= 4) {
                 uint16_t type, len;
-                decode_hdr(&type, &len, buf.data);
-                if (len < 4 || capacity(&buf) < len)
+                decode_hdr(&type, &len, buf, 0);
+                if (len < 4 || buf.iov_len < len)
                         return -ENOMEM;
 
                 switch (type) {
@@ -193,24 +189,24 @@ int NTS_parse_extension_fields(
                         if (len - 4 != 32)
                                 return -EINVAL;
 
-                        fields->identifier = (NTS_Identifier*)(buf.data + 4);
+                        fields->identifier = (NTS_Identifier*)((uint8_t*)buf.iov_base + 4);
                         processed = true;
                         break;
                 case NTS_EF_AuthEncExtFields: {
                         uint16_t nonce_len, ciph_len;
-                        decode_hdr(&nonce_len, &ciph_len, buf.data + 4);
+                        decode_hdr(&nonce_len, &ciph_len, buf, 4);
                         /* check that the advertised nonce / cipher lengths + header don't exceed the outer length,
                          * which would be a malicious packet; the sizes don't need to match exactly since there may
                          * also be padding here */
                         if (nonce_len + ciph_len + 8 > len)
                                 return -EINVAL;
 
-                        uint8_t *nonce = buf.data + 8;
+                        uint8_t *nonce = (uint8_t*)buf.iov_base + 8;
                         uint8_t *content = nonce + nonce_len;
 
                         AssociatedData info[] = {
-                                { src, buf.data - src }, /* aad */
-                                { nonce, nonce_len },    /* nonce */
+                                { src, (uint8_t*)buf.iov_base - src }, /* aad */
+                                { nonce, nonce_len },                  /* nonce */
                                 { },
                         };
 
@@ -221,22 +217,22 @@ int NTS_parse_extension_fields(
                         if (plain_len < 0)
                                 return -EINVAL;
 
-                        slice plain = { plaintext, plaintext + plain_len };
+                        struct iovec plain = { plaintext, plain_len };
                         unsigned cookies = 0;
                         zero(fields->new_cookie);
 
-                        while (capacity(&plain) >= 4) {
+                        while (plain.iov_len >= 4) {
                                 uint16_t inner_type, inner_len;
-                                decode_hdr(&inner_type, &inner_len, plain.data);
+                                decode_hdr(&inner_type, &inner_len, plain, 0);
                                 /* check that our buffer has enough room and the advertised length is valid */
-                                if (capacity(&plain) < inner_len || inner_len < 4)
+                                if (plain.iov_len < inner_len || inner_len < 4)
                                         return -ENOMEM;
 
                                 /* only care about cookies */
                                 switch (inner_type) {
                                 case NTS_EF_Cookie:
                                         if (cookies < ELEMENTSOF(fields->new_cookie)) {
-                                                fields->new_cookie[cookies].iov_base = plain.data + 4;
+                                                fields->new_cookie[cookies].iov_base = (uint8_t*)plain.iov_base + 4;
                                                 fields->new_cookie[cookies].iov_len = inner_len - 4;
                                         }
                                         cookies++;
@@ -246,12 +242,12 @@ int NTS_parse_extension_fields(
                                         /* ignore any other field */;
                                 }
 
-                                plain.data += inner_len;
+                                iovec_increment(&plain, 1, inner_len);
                         }
 
                         /* ignore any further fields after this,
                          * since they are not authenticated */
-                        return processed ? plain.data - src : -EINVAL;
+                        return processed ? (uint8_t*)plain.iov_base - src : -EINVAL;
                 }
 
                 default:
@@ -259,7 +255,7 @@ int NTS_parse_extension_fields(
                         ;
                 }
 
-                buf.data += len;
+                iovec_increment(&buf, 1, len);
         }
 
         return -EINVAL;
