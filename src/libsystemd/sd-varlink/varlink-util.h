@@ -29,3 +29,5 @@ int varlink_server_new(
 int varlink_check_privileged_peer(sd_varlink *vl);
 
 extern const struct hash_ops varlink_hash_ops;
+
+int varlink_execute_directory(const char *path, const char *method, sd_json_variant *parameters, bool more, sd_varlink_reply_t reply, void *userdata);
