@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "iovec-util.h"
 #include "nts.h"
 #include "timesyncd-forward.h"
 #include "unaligned.h"
@@ -18,60 +19,54 @@
  */
 #define CHRONY_WORKAROUND
 
-typedef struct {
-        uint8_t *data;
-        uint8_t *data_end;
-} slice;
-
-static size_t capacity(const slice *p) {
-        return p->data_end - p->data;
+/* does not check bounds */
+static void push_u16(struct iovec *data, uint16_t value) {
+        unaligned_write_be16(data->iov_base, value);
+        iovec_inc_many(data, 1, 2);
 }
 
 /* does not check bounds */
-static void push_u16(uint8_t **data, uint16_t value) {
-        unaligned_write_be16(*data, value);
-        *data += 2;
-}
-
-static uint16_t u16_from_bytes(uint8_t bytes[static 2]) {
-        return unaligned_read_be16(bytes);
+static uint16_t take_u16(struct iovec *data) {
+        uint16_t result = unaligned_read_be16(data->iov_base);
+        iovec_inc_many(data, 1, 2);
+        return result;
 }
 
 typedef struct NTS_Record {
         uint16_t type;
-        slice body;
+        struct iovec body;
 } NTS_Record;
 
 static int32_t NTS_decode_u16(NTS_Record *record) {
         assert(record);
 
-        if (capacity(&record->body) < 2)
+        if (record->body.iov_len < 2)
                 return -NTS_INSUFFICIENT_DATA;
 
-        uint16_t result = u16_from_bytes(record->body.data);
-        record->body.data += 2;
-        return result;
+        return take_u16(&record->body);
 }
 
-static int NTS_decode_record(slice *message, NTS_Record *record) {
+static int NTS_decode_record(struct iovec *message, NTS_Record *record) {
         assert(message);
         assert(record);
 
-        size_t bytes_remaining = capacity(message);
-        if (bytes_remaining < 4)
+        if (message->iov_len < 4)
                 /* not enough bytes to decode a header */
                 return -NTS_INSUFFICIENT_DATA;
 
-        bool is_critical = message->data[0] >> 7;
+        bool is_critical = ((uint8_t*)message->iov_base)[0] >> 7;
 
-        uint16_t body_size = u16_from_bytes(message->data + 2);
-        if (body_size > bytes_remaining - 4)
+        uint16_t rec_type = take_u16(message);
+        uint16_t body_size = take_u16(message);
+
+        if (body_size > message->iov_len)
                 /* not enough data in the slice to decode this header */
                 return -NTS_INSUFFICIENT_DATA;
 
-        record->type = u16_from_bytes(message->data) & 0x7FFF;
-        record->body.data = message->data += 4;
-        record->body.data_end = message->data += body_size;
+        record->type = rec_type & 0x7FFF;
+        record->body.iov_base = message->iov_base;
+        record->body.iov_len = body_size;
+        iovec_inc_many(message, 1, body_size);
 
         switch (record->type) {
         case NTS_REC_Error:
@@ -106,7 +101,7 @@ error:
 }
 
 static int NTS_encode_record_u16(
-                slice *message,
+                struct iovec *message,
                 bool critical,
                 NTS_RecordType type,
                 const uint16_t *data, size_t num_words) {
@@ -114,19 +109,18 @@ static int NTS_encode_record_u16(
         assert(message);
         assert(num_words == 0 || data);
 
-        size_t bytes_remaining = capacity(message);
-        if (num_words >= 0x8000 || bytes_remaining < 4 + num_words*2)
+        if (num_words >= 0x8000 || message->iov_len < 4 + num_words*2)
                 /* not enough space */
                 return -NTS_INSUFFICIENT_DATA;
 
         if (critical)
                 type |= 0x8000;
 
-        push_u16(&message->data, type);
-        push_u16(&message->data, num_words * 2);
+        push_u16(message, type);
+        push_u16(message, num_words * 2);
 
         for (size_t i = 0; i < num_words; i++)
-                push_u16(&message->data, data[i]);
+                push_u16(message, data[i]);
 
         return 0;
 }
@@ -138,7 +132,7 @@ int NTS_encode_request(
 
         assert(buffer);
 
-        slice request = { buffer, buffer + buf_size };
+        struct iovec request = { buffer, buf_size };
 
         const uint16_t proto[] = { NTS_PROTO_NTPv4 };
         const uint16_t aead_default[] = {
@@ -170,14 +164,14 @@ int NTS_encode_request(
         if (result < 0)
                 return result;
 
-        return request.data - buffer;
+        return (uint8_t*)request.iov_base - buffer;
 }
 
 int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *response) {
         assert(buffer);
         assert(response);
 
-        slice raw_response = { buffer, buffer+buf_size };
+        struct iovec raw_response = { buffer, buf_size };
         NTS_Record rec;
 
         /* clear response */
@@ -188,7 +182,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
         /* make sure the result is only OK if we really succeed */
         *response = (NTS_Agreement) { .error = NTS_INTERNAL_CLIENT_ERROR };
 
-        while (raw_response.data < raw_response.data_end) {
+        while (raw_response.iov_len > 0) {
                 int val = NTS_decode_record(&raw_response, &rec);
                 if (val < 0) {
                         response->error = -val;
@@ -254,25 +248,25 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, NTS_Agreement *respons
                         /* ignore any cookies in excess of eight */
                         if (cookie_nr < ELEMENTSOF(response->cookie)) {
                                 NTS_Cookie *cookie = &response->cookie[cookie_nr++];
-                                cookie->iov_base = rec.body.data;
-                                cookie->iov_len  = rec.body.data_end - rec.body.data;
+                                cookie->iov_base = rec.body.iov_base;
+                                cookie->iov_len  = rec.body.iov_len;
                         }
                         break;
 
                 case NTS_REC_NTPv4Server:
                         /* do limited sanity check */
-                        if (capacity(&rec.body) > 255) {
+                        if (rec.body.iov_len > 255) {
                                 response->error = NTS_BAD_RESPONSE;
                                 return -EBADMSG;
                         }
 
-                        if (!ascii_is_valid_n((char *)rec.body.data, rec.body.data_end - rec.body.data)) {
+                        if (!ascii_is_valid_n((char *)rec.body.iov_base, rec.body.iov_len)) {
                                 response->error = NTS_BAD_RESPONSE;
                                 return -EBADMSG;
                         }
 
-                        response->ntp_server  = (char *)rec.body.data;
-                        ntp_server_terminator = (char *)rec.body.data_end;
+                        response->ntp_server  = (char *)rec.body.iov_base;
+                        ntp_server_terminator = (char *)rec.body.iov_base + rec.body.iov_len;
                         break;
 
                 case NTS_REC_NTPv4Port:
