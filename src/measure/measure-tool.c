@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <unistd.h>
 
 #include "sd-json.h"
@@ -12,10 +11,12 @@
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
 #include "openssl-util.h"
+#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -65,71 +66,55 @@ STATIC_DESTRUCTOR_REGISTER(arg_sections, free_sections);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *verbs = NULL, *options = NULL, *options2 = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-measure", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s  [OPTIONS...] COMMAND ...\n"
-               "\n%5$sPre-calculate and sign PCR hash for a unified kernel image (UKI).%6$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "  status                 Show current PCR values\n"
-               "  calculate              Calculate expected PCR values\n"
-               "  sign                   Calculate and sign expected PCR values\n"
-               "  policy-digest          Calculate expected TPM2 policy digests\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help              Show this help\n"
-               "     --version           Print version\n"
-               "     --no-pager          Do not pipe output into a pager\n"
-               "  -c --current           Use current PCR values\n"
-               "     --phase=PHASE       Specify a boot phase to sign for\n"
-               "     --bank=DIGEST       Select TPM bank (SHA1, SHA256, SHA384, SHA512)\n"
-               "     --tpm2-device=PATH  Use specified TPM2 device\n"
-               "     --private-key=KEY   Private key (PEM) to sign with\n"
-               "     --private-key-source=file|provider:PROVIDER|engine:ENGINE\n"
-               "                         Specify how to use KEY for --private-key=. Allows\n"
-               "                         an OpenSSL engine/provider to be used for signing\n"
-               "     --public-key=KEY    Public key (PEM) to validate against\n"
-               "     --certificate=PATH|URI\n"
-               "                         PEM certificate to use for signing, or a provider\n"
-               "                         specific designation if --certificate-source= is used\n"
-               "     --certificate-source=file|provider:PROVIDER\n"
-               "                         Specify how to interpret the certificate from\n"
-               "                         --certificate=. Allows the certificate to be loaded\n"
-               "                         from an OpenSSL provider\n"
-               "     --json=MODE         Output as JSON\n"
-               "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
-               "     --append=PATH       Load specified JSON signature, and append new signature to it\n"
-               "\n%3$sUKI PE Section Options:%4$s                                         %3$sUKI PE Section%4$s\n"
-               "     --linux=PATH        Path to Linux kernel image file            %7$s .linux\n"
-               "     --osrel=PATH        Path to os-release file                    %7$s .osrel\n"
-               "     --cmdline=PATH      Path to file with kernel command line      %7$s .cmdline\n"
-               "     --initrd=PATH       Path to initrd image file                  %7$s .initrd\n"
-               "     --ucode=PATH        Path to microcode image file               %7$s .ucode\n"
-               "     --splash=PATH       Path to splash bitmap file                 %7$s .splash\n"
-               "     --dtb=PATH          Path to DeviceTree file                    %7$s .dtb\n"
-               "     --dtbauto=PATH      Path to DeviceTree file for auto selection %7$s .dtbauto\n"
-               "     --uname=PATH        Path to 'uname -r' file                    %7$s .uname\n"
-               "     --sbat=PATH         Path to SBAT file                          %7$s .sbat\n"
-               "     --pcrpkey=PATH      Path to public key for PCR signatures      %7$s .pcrpkey\n"
-               "     --profile=PATH      Path to profile file                       %7$s .profile\n"
-               "     --hwids=PATH        Path to HWIDs file                         %7$s .hwids\n"
-               "\nSee the %2$s for details.\n",
-               program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
-               ansi_highlight(),
-               ansi_normal(),
-               glyph(GLYPH_ARROW_RIGHT));
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
 
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table_group("UKI PE Section Options", &options2);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, options, options2);
+
+        printf("%s [OPTIONS...] COMMAND ...\n"
+               "\n%sPre-calculate and sign PCR hash for a unified kernel image (UKI).%s\n"
+               "\n%sCommands:%s\n",
+               program_invocation_short_name,
+               ansi_highlight(), ansi_normal(),
+               ansi_underline(), ansi_normal());
+
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n", ansi_underline(), ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\n%sUKI PE Section Options:%s\n", ansi_underline(), ansi_normal());
+
+        r = table_print_or_warn(options2);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP_HIDDEN(help);
 
 static char *normalize_phase(const char *s) {
         _cleanup_strv_free_ char **l = NULL;
@@ -146,187 +131,39 @@ static char *normalize_phase(const char *s) {
         return strv_join(strv_remove(l, ""), ":");
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                _ARG_SECTION_FIRST,
-                ARG_LINUX = _ARG_SECTION_FIRST,
-                ARG_OSREL,
-                ARG_CMDLINE,
-                ARG_INITRD,
-                ARG_UCODE,
-                ARG_SPLASH,
-                ARG_DTB,
-                ARG_UNAME,
-                ARG_SBAT,
-                _ARG_PCRSIG, /* the .pcrsig section is not input for signing, hence not actually an argument here */
-                ARG_PCRPKEY,
-                ARG_PROFILE,
-                ARG_DTBAUTO,
-                ARG_HWIDS,
-                _ARG_SECTION_LAST,
-                ARG_EFIFW = _ARG_SECTION_LAST,
-                ARG_BANK,
-                ARG_PRIVATE_KEY,
-                ARG_PRIVATE_KEY_SOURCE,
-                ARG_PUBLIC_KEY,
-                ARG_CERTIFICATE,
-                ARG_CERTIFICATE_SOURCE,
-                ARG_TPM2_DEVICE,
-                ARG_JSON,
-                ARG_PHASE,
-                ARG_APPEND,
-        };
-
-        static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'                    },
-                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER           },
-                { "version",            no_argument,       NULL, ARG_VERSION            },
-                { "linux",              required_argument, NULL, ARG_LINUX              },
-                { "osrel",              required_argument, NULL, ARG_OSREL              },
-                { "cmdline",            required_argument, NULL, ARG_CMDLINE            },
-                { "initrd",             required_argument, NULL, ARG_INITRD             },
-                { "ucode",              required_argument, NULL, ARG_UCODE              },
-                { "splash",             required_argument, NULL, ARG_SPLASH             },
-                { "dtb",                required_argument, NULL, ARG_DTB                },
-                { "dtbauto",            required_argument, NULL, ARG_DTBAUTO            },
-                { "uname",              required_argument, NULL, ARG_UNAME              },
-                { "sbat",               required_argument, NULL, ARG_SBAT               },
-                { "pcrpkey",            required_argument, NULL, ARG_PCRPKEY            },
-                { "profile",            required_argument, NULL, ARG_PROFILE            },
-                { "hwids",              required_argument, NULL, ARG_HWIDS              },
-                { "current",            no_argument,       NULL, 'c'                    },
-                { "bank",               required_argument, NULL, ARG_BANK               },
-                { "tpm2-device",        required_argument, NULL, ARG_TPM2_DEVICE        },
-                { "private-key",        required_argument, NULL, ARG_PRIVATE_KEY        },
-                { "private-key-source", required_argument, NULL, ARG_PRIVATE_KEY_SOURCE },
-                { "public-key",         required_argument, NULL, ARG_PUBLIC_KEY         },
-                { "certificate",        required_argument, NULL, ARG_CERTIFICATE        },
-                { "certificate-source", required_argument, NULL, ARG_CERTIFICATE_SOURCE },
-                { "json",               required_argument, NULL, ARG_JSON               },
-                { "phase",              required_argument, NULL, ARG_PHASE              },
-                { "append",             required_argument, NULL, ARG_APPEND             },
-                {}
-        };
-
-        int c, r;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
-        /* Make sure the arguments list and the section list, stays in sync */
-        assert_cc(_ARG_SECTION_FIRST + _UNIFIED_SECTION_MAX == _ARG_SECTION_LAST + 1);
+        OptionParser state = { argc, argv };
+        const Option *opt;
+        const char *arg;
+        int r;
 
-        while ((c = getopt_long(argc, argv, "hjc", options, NULL)) >= 0)
+        FOREACH_OPTION_FULL(&state, c, &opt, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case _ARG_SECTION_FIRST..._ARG_SECTION_LAST: {
-                        UnifiedSection section = c - _ARG_SECTION_FIRST;
-
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, arg_sections + section);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
-                case 'c':
+                OPTION('c', "current", NULL,
+                       "Use current PCR values"):
                         arg_current = true;
                         break;
 
-                case ARG_BANK: {
-                        const EVP_MD *implementation;
-
-                        implementation = EVP_get_digestbyname(optarg);
-                        if (!implementation)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", optarg);
-
-                        if (strv_extend(&arg_banks, EVP_MD_name(implementation)) < 0)
-                                return log_oom();
-
-                        break;
-                }
-
-                case ARG_PRIVATE_KEY:
-                        r = free_and_strdup_warn(&arg_private_key, optarg);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_PRIVATE_KEY_SOURCE:
-                        r = parse_openssl_key_source_argument(
-                                        optarg,
-                                        &arg_private_key_source,
-                                        &arg_private_key_source_type);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_PUBLIC_KEY:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_public_key);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_CERTIFICATE:
-                        r = free_and_strdup_warn(&arg_certificate, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_CERTIFICATE_SOURCE:
-                        r = parse_openssl_certificate_source_argument(
-                                        optarg,
-                                        &arg_certificate_source,
-                                        &arg_certificate_source_type);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_TPM2_DEVICE: {
-                        _cleanup_free_ char *device = NULL;
-
-                        if (streq(optarg, "list"))
-                                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
-
-                        if (!streq(optarg, "auto")) {
-                                device = strdup(optarg);
-                                if (!device)
-                                        return log_oom();
-                        }
-
-                        free_and_replace(arg_tpm2_device, device);
-                        break;
-                }
-
-                case 'j':
-                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case ARG_PHASE: {
+                OPTION_LONG("phase", "PHASE",
+                            "Specify a boot phase to sign for"): {
                         char *n;
 
-                        n = normalize_phase(optarg);
+                        n = normalize_phase(arg);
                         if (!n)
                                 return log_oom();
 
@@ -337,18 +174,135 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_APPEND:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_append);
+                OPTION_LONG("bank", "DIGEST",
+                            "Select TPM bank (SHA1, SHA256, SHA384, SHA512)"): {
+                        const EVP_MD *implementation;
+
+                        implementation = EVP_get_digestbyname(arg);
+                        if (!implementation)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", arg);
+
+                        if (strv_extend(&arg_banks, EVP_MD_name(implementation)) < 0)
+                                return log_oom();
+
+                        break;
+                }
+
+                OPTION_LONG("tpm2-device", "PATH",
+                            "Use specified TPM2 device"): {
+                        _cleanup_free_ char *device = NULL;
+
+                        if (streq(arg, "list"))
+                                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
+
+                        if (!streq(arg, "auto")) {
+                                device = strdup(arg);
+                                if (!device)
+                                        return log_oom();
+                        }
+
+                        free_and_replace(arg_tpm2_device, device);
+                        break;
+                }
+
+                OPTION_COMMON_PRIVATE_KEY("Private key (PEM) to sign with"):
+                        r = free_and_strdup_warn(&arg_private_key, arg);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case '?':
-                        return -EINVAL;
+                OPTION_COMMON_PRIVATE_KEY_SOURCE:
+                        r = parse_openssl_key_source_argument(
+                                        arg,
+                                        &arg_private_key_source,
+                                        &arg_private_key_source_type);
+                        if (r < 0)
+                                return r;
 
-                default:
-                        assert_not_reached();
+                        break;
+
+                OPTION_LONG("public-key", "KEY",
+                            "Public key (PEM) to validate against"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_public_key);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                OPTION_COMMON_CERTIFICATE("PEM certificate to use for signing"):
+                        r = free_and_strdup_warn(&arg_certificate, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_COMMON_CERTIFICATE_SOURCE:
+                        r = parse_openssl_certificate_source_argument(
+                                        arg,
+                                        &arg_certificate_source,
+                                        &arg_certificate_source_type);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        break;
+
+                OPTION_COMMON_LOWERCASE_J:
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+                        break;
+
+                OPTION_LONG("append", "PATH",
+                            "Load specified JSON signature, and append new signature to it"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_append);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                OPTION_GROUP("UKI PE Section Options"): {}
+
+                OPTION_LONG_DATA("linux", "PATH", UNIFIED_SECTION_LINUX,
+                                 "Path to Linux kernel image file (→ .linux)"): {}
+                OPTION_LONG_DATA("osrel", "PATH", UNIFIED_SECTION_OSREL,
+                                 "Path to os-release file (→ .osrel)"): {}
+                OPTION_LONG_DATA("cmdline", "PATH", UNIFIED_SECTION_CMDLINE,
+                                 "Path to file with kernel command line (→ .cmdline)"): {}
+                OPTION_LONG_DATA("initrd", "PATH", UNIFIED_SECTION_INITRD,
+                                 "Path to initrd image file (→ .initrd)"): {}
+                OPTION_LONG_DATA("ucode", "PATH", UNIFIED_SECTION_UCODE,
+                                 "Path to microcode image file (→ .ucode)"): {}
+                OPTION_LONG_DATA("splash", "PATH", UNIFIED_SECTION_SPLASH,
+                                 "Path to splash bitmap file (→ .splash)"): {}
+                OPTION_LONG_DATA("dtb", "PATH", UNIFIED_SECTION_DTB,
+                                 "Path to DeviceTree file (→ .dtb)"): {}
+                OPTION_LONG_DATA("dtbauto", "PATH", UNIFIED_SECTION_DTBAUTO,
+                                 "Path to DeviceTree file for auto selection (→ .dtbauto)"): {}
+                OPTION_LONG_DATA("uname", "PATH", UNIFIED_SECTION_UNAME,
+                                 "Path to 'uname -r' file (→ .uname)"): {}
+                OPTION_LONG_DATA("sbat", "PATH", UNIFIED_SECTION_SBAT,
+                                 "Path to SBAT file (→ .sbat)"): {}
+                /* The .pcrsig section is not input for signing, hence not actually an argument here */
+                OPTION_LONG_DATA("pcrpkey", "PATH", UNIFIED_SECTION_PCRPKEY,
+                                 "Path to public key for PCR signatures (→ .pcrpkey)"): {}
+                OPTION_LONG_DATA("profile", "PATH", UNIFIED_SECTION_PROFILE,
+                                 "Path to profile file (→ .profile)"): {}
+                OPTION_LONG_DATA("hwids", "PATH", UNIFIED_SECTION_HWIDS,
+                                 "Path to HWIDs file (→ .hwids)"): {}
+                OPTION_LONG_DATA("efifw", "PATH", UNIFIED_SECTION_EFIFW,
+                                 "Path to EFI firmware file (→ .efifw)"): {}
+                        /* Make sure that if new sections are added, the list here is updated. */
+                        assert_cc(UNIFIED_SECTION_EFIFW + 1 == _UNIFIED_SECTION_MAX);
+                        assert(opt->data < _UNIFIED_SECTION_MAX);
+
+                        r = parse_path_argument(arg, /* suppress_root= */ false, arg_sections + opt->data);
+                        if (r < 0)
+                                return r;
+                        break;
                 }
 
         if (arg_public_key && arg_certificate)
@@ -390,7 +344,158 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_oom();
 
         log_debug("Measuring boot phases: %s", j);
+
+        *ret_args = option_parser_get_args(&state);
         return 1;
+}
+
+static int compare_reported_pcr_nr(uint32_t pcr, const char *varname, const char *description) {
+        _cleanup_free_ char *s = NULL;
+        uint32_t v;
+        int r;
+
+        r = efi_get_variable_string(varname, &s);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to read EFI variable '%s': %m", varname);
+
+        r = safe_atou32(s, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse EFI variable '%s': %s", varname, s);
+
+        if (pcr != v)
+                log_warning("PCR number reported by stub for %s (%" PRIu32 ") different from our expectation (%" PRIu32 ").\n"
+                            "The measurements are likely inconsistent.", description, v, pcr);
+
+        return 0;
+}
+
+static int validate_stub(void) {
+        uint64_t features;
+        bool found = false;
+        int r;
+
+        if (!tpm2_is_fully_supported())
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Sorry, system lacks full TPM2 support.");
+
+        r = efi_stub_get_features(&features);
+        if (r < 0)
+                return log_error_errno(r, "Unable to get stub features: %m");
+
+        if (!FLAGS_SET(features, EFI_STUB_FEATURE_THREE_PCRS))
+                log_warning("Warning: current kernel image does not support measuring itself, the command line or initrd system extension images.\n"
+                            "The PCR measurements seen are unlikely to be valid.");
+
+        r = compare_reported_pcr_nr(TPM2_PCR_KERNEL_BOOT, EFI_LOADER_VARIABLE_STR("StubPcrKernelImage"), "kernel image");
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(bank, arg_banks) {
+                _cleanup_free_ char *b = NULL, *p = NULL;
+
+                b = strdup(*bank);
+                if (!b)
+                        return log_oom();
+
+                if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/", ascii_strlower(b)) < 0)
+                        return log_oom();
+
+                if (access(p, F_OK) < 0) {
+                        if (errno != ENOENT)
+                                return log_error_errno(errno, "Failed to detect if '%s' exists: %m", b);
+                } else
+                        found = true;
+        }
+
+        if (!found)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "None of the select PCR banks appear to exist.");
+
+        return 0;
+}
+
+VERB(verb_status, "status", NULL, VERB_ANY, 1, VERB_DEFAULT,
+     "Show current PCR values");
+static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        r = validate_stub();
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(bank, arg_banks) {
+                _cleanup_free_ char *b = NULL, *p = NULL, *s = NULL;
+                _cleanup_free_ void *h = NULL;
+                size_t l;
+
+                b = strdup(*bank);
+                if (!b)
+                        return log_oom();
+
+                if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%" PRIu32, ascii_strlower(b), (uint32_t) TPM2_PCR_KERNEL_BOOT) < 0)
+                        return log_oom();
+
+                r = read_virtual_file(p, 4096, &s, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read '%s': %m", p);
+
+                r = unhexmem(strstrip(s), &h, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
+
+                if (!sd_json_format_enabled(arg_json_format_flags)) {
+                        _cleanup_free_ char *f = hexmem(h, l);
+                        if (!f)
+                                return log_oom();
+
+                        if (bank == arg_banks) {
+                                /* before the first line for each PCR, write a short descriptive text to
+                                 * stderr, and leave the primary content on stdout */
+                                fflush(stdout);
+                                fprintf(stderr, "%s# PCR[%" PRIu32 "] %s%s%s\n",
+                                        ansi_grey(),
+                                        (uint32_t) TPM2_PCR_KERNEL_BOOT,
+                                        tpm2_pcr_index_to_string(TPM2_PCR_KERNEL_BOOT),
+                                        memeqzero(h, l) ? " (NOT SET!)" : "",
+                                        ansi_normal());
+                                fflush(stderr);
+                        }
+
+                        printf("%" PRIu32 ":%s=%s\n", (uint32_t) TPM2_PCR_KERNEL_BOOT, b, f);
+
+                } else {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *bv = NULL, *a = NULL;
+
+                        r = sd_json_buildo(
+                                        &bv,
+                                        SD_JSON_BUILD_PAIR_INTEGER("pcr", TPM2_PCR_KERNEL_BOOT),
+                                        SD_JSON_BUILD_PAIR_HEX("hash", h, l));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build JSON object: %m");
+
+                        a = sd_json_variant_ref(sd_json_variant_by_key(v, b));
+
+                        r = sd_json_variant_append_array(&a, bv);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to append PCR entry to JSON array: %m");
+
+                        r = sd_json_variant_set_field(&v, b, a);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add bank info to object: %m");
+                }
+        }
+
+        if (sd_json_format_enabled(arg_json_format_flags)) {
+                if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
+                        pager_open(arg_pager_flags);
+
+                sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+        }
+
+        return 0;
 }
 
 /* The PCR 11 state for one specific bank */
@@ -711,6 +816,8 @@ static void pcr_states_restore(PcrState *pcr_states, size_t n) {
         }
 }
 
+VERB_NOARG(verb_calculate, "calculate",
+           "Calculate expected PCR values");
 static int verb_calculate(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
@@ -992,174 +1099,16 @@ static int build_policy_digest(bool sign) {
         return 0;
 }
 
+VERB_NOARG(verb_sign, "sign",
+           "Calculate and sign expected PCR values");
 static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return build_policy_digest(/* sign= */ true);
 }
 
+VERB_NOARG(verb_policy_digest, "policy-digest",
+           "Calculate expected TPM2 policy digests");
 static int verb_policy_digest(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return build_policy_digest(/* sign= */ false);
-}
-
-static int compare_reported_pcr_nr(uint32_t pcr, const char *varname, const char *description) {
-        _cleanup_free_ char *s = NULL;
-        uint32_t v;
-        int r;
-
-        r = efi_get_variable_string(varname, &s);
-        if (r == -ENOENT)
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to read EFI variable '%s': %m", varname);
-
-        r = safe_atou32(s, &v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse EFI variable '%s': %s", varname, s);
-
-        if (pcr != v)
-                log_warning("PCR number reported by stub for %s (%" PRIu32 ") different from our expectation (%" PRIu32 ").\n"
-                            "The measurements are likely inconsistent.", description, v, pcr);
-
-        return 0;
-}
-
-static int validate_stub(void) {
-        uint64_t features;
-        bool found = false;
-        int r;
-
-        if (!tpm2_is_fully_supported())
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Sorry, system lacks full TPM2 support.");
-
-        r = efi_stub_get_features(&features);
-        if (r < 0)
-                return log_error_errno(r, "Unable to get stub features: %m");
-
-        if (!FLAGS_SET(features, EFI_STUB_FEATURE_THREE_PCRS))
-                log_warning("Warning: current kernel image does not support measuring itself, the command line or initrd system extension images.\n"
-                            "The PCR measurements seen are unlikely to be valid.");
-
-        r = compare_reported_pcr_nr(TPM2_PCR_KERNEL_BOOT, EFI_LOADER_VARIABLE_STR("StubPcrKernelImage"), "kernel image");
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(bank, arg_banks) {
-                _cleanup_free_ char *b = NULL, *p = NULL;
-
-                b = strdup(*bank);
-                if (!b)
-                        return log_oom();
-
-                if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/", ascii_strlower(b)) < 0)
-                        return log_oom();
-
-                if (access(p, F_OK) < 0) {
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to detect if '%s' exists: %m", b);
-                } else
-                        found = true;
-        }
-
-        if (!found)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "None of the select PCR banks appear to exist.");
-
-        return 0;
-}
-
-static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        int r;
-
-        r = validate_stub();
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(bank, arg_banks) {
-                _cleanup_free_ char *b = NULL, *p = NULL, *s = NULL;
-                _cleanup_free_ void *h = NULL;
-                size_t l;
-
-                b = strdup(*bank);
-                if (!b)
-                        return log_oom();
-
-                if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%" PRIu32, ascii_strlower(b), (uint32_t) TPM2_PCR_KERNEL_BOOT) < 0)
-                        return log_oom();
-
-                r = read_virtual_file(p, 4096, &s, NULL);
-                if (r == -ENOENT)
-                        continue;
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read '%s': %m", p);
-
-                r = unhexmem(strstrip(s), &h, &l);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
-
-                if (!sd_json_format_enabled(arg_json_format_flags)) {
-                        _cleanup_free_ char *f = NULL;
-
-                        f = hexmem(h, l);
-                        if (!h)
-                                return log_oom();
-
-                        if (bank == arg_banks) {
-                                /* before the first line for each PCR, write a short descriptive text to
-                                 * stderr, and leave the primary content on stdout */
-                                fflush(stdout);
-                                fprintf(stderr, "%s# PCR[%" PRIu32 "] %s%s%s\n",
-                                        ansi_grey(),
-                                        (uint32_t) TPM2_PCR_KERNEL_BOOT,
-                                        tpm2_pcr_index_to_string(TPM2_PCR_KERNEL_BOOT),
-                                        memeqzero(h, l) ? " (NOT SET!)" : "",
-                                        ansi_normal());
-                                fflush(stderr);
-                        }
-
-                        printf("%" PRIu32 ":%s=%s\n", (uint32_t) TPM2_PCR_KERNEL_BOOT, b, f);
-
-                } else {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *bv = NULL, *a = NULL;
-
-                        r = sd_json_buildo(
-                                        &bv,
-                                        SD_JSON_BUILD_PAIR_INTEGER("pcr", TPM2_PCR_KERNEL_BOOT),
-                                        SD_JSON_BUILD_PAIR_HEX("hash", h, l));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to build JSON object: %m");
-
-                        a = sd_json_variant_ref(sd_json_variant_by_key(v, b));
-
-                        r = sd_json_variant_append_array(&a, bv);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to append PCR entry to JSON array: %m");
-
-                        r = sd_json_variant_set_field(&v, b, a);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add bank info to object: %m");
-                }
-        }
-
-        if (sd_json_format_enabled(arg_json_format_flags)) {
-                if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
-                        pager_open(arg_pager_flags);
-
-                sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
-        }
-
-        return 0;
-}
-
-static int measure_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "help",          VERB_ANY, VERB_ANY, 0,            verb_help          },
-                { "status",        VERB_ANY, 1,        VERB_DEFAULT, verb_status        },
-                { "calculate",     VERB_ANY, 1,        0,            verb_calculate     },
-                { "policy-digest", VERB_ANY, 1,        0,            verb_policy_digest },
-                { "sign",          VERB_ANY, 1,        0,            verb_sign          },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 static int run(int argc, char *argv[]) {
@@ -1167,11 +1116,12 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        return measure_main(argc, argv);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

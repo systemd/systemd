@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <sys/stat.h>
 
 #include "alloc-util.h"
@@ -8,15 +7,18 @@
 #include "creds-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "generator.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "network-generator.h"
+#include "options.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "string-util.h"
+#include "strv.h"
 
 #define NETWORK_UNIT_DIRECTORY "/run/systemd/network/"
 
@@ -148,52 +150,47 @@ static int context_save(Context *context) {
 }
 
 static int help(void) {
-        printf("%s [OPTIONS...] [-- KERNEL_CMDLINE]\n"
-               "  -h --help                       Show this help\n"
-               "     --version                    Show package version\n"
-               "     --root=PATH                  Operate on an alternate filesystem root\n",
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...] [-- KERNEL_CMDLINE]\n\n",
                program_invocation_short_name);
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
 
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_ROOT,
-        };
-        static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'                    },
-                { "version",            no_argument,       NULL, ARG_VERSION            },
-                { "root",               required_argument, NULL, ARG_ROOT               },
-                {},
-        };
-        int c;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_ROOT:
-                        arg_root = optarg;
+                OPTION_LONG("root", "PATH",
+                            "Operate on an alternate filesystem root"):
+                        arg_root = arg;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
@@ -205,20 +202,21 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        if (optind >= argc) {
+        if (strv_isempty(args)) {
                 r = proc_cmdline_parse(parse_cmdline_item, &context, 0);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse kernel command line: %m");
         } else {
-                for (int i = optind; i < argc; i++) {
+                STRV_FOREACH(a, args) {
                         _cleanup_free_ char *word = NULL;
                         char *value;
 
-                        word = strdup(argv[i]);
+                        word = strdup(*a);
                         if (!word)
                                 return log_oom();
 

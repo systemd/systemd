@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -11,12 +10,14 @@
 #include "efi-fundamental.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "install-file.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "openssl-util.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "pe-binary.h"
 #include "pretty-print.h"
@@ -47,119 +48,96 @@ STATIC_DESTRUCTOR_REGISTER(arg_signed_data_signature, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-sbsign", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s  [OPTIONS...] COMMAND ...\n"
-               "\n%5$sSign binaries for EFI Secure Boot%6$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "  sign EXEFILE           Sign the given binary for EFI Secure Boot\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help              Show this help\n"
-               "     --version           Print version\n"
-               "     --output            Where to write the signed PE binary\n"
-               "     --certificate=PATH|URI\n"
-               "                         PEM certificate to use for signing, or a provider\n"
-               "                         specific designation if --certificate-source= is used\n"
-               "     --certificate-source=file|provider:PROVIDER\n"
-               "                         Specify how to interpret the certificate from\n"
-               "                         --certificate=. Allows the certificate to be loaded\n"
-               "                         from an OpenSSL provider\n"
-               "     --private-key=KEY   Private key (PEM) to sign with\n"
-               "     --private-key-source=file|provider:PROVIDER|engine:ENGINE\n"
-               "                         Specify how to use KEY for --private-key=. Allows\n"
-               "                         an OpenSSL engine/provider to be used for signing\n"
-               "\nSee the %2$s for details.\n",
-               program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
-               ansi_highlight(),
-               ansi_normal());
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
 
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, options);
+
+        printf("%s [OPTIONS...] COMMAND ...\n"
+               "\n%sSign binaries for EFI Secure Boot%s\n"
+               "\n%sCommands:%s\n",
+               program_invocation_short_name,
+               ansi_highlight(), ansi_normal(),
+               ansi_underline(), ansi_normal());
+
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n", ansi_underline(), ansi_normal());
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP_HIDDEN(help);
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_OUTPUT,
-                ARG_CERTIFICATE,
-                ARG_CERTIFICATE_SOURCE,
-                ARG_PRIVATE_KEY,
-                ARG_PRIVATE_KEY_SOURCE,
-                ARG_PREPARE_OFFLINE_SIGNING,
-                ARG_SIGNED_DATA,
-                ARG_SIGNED_DATA_SIGNATURE,
-        };
-
-        static const struct option options[] = {
-                { "help",                    no_argument,       NULL, 'h'                         },
-                { "version",                 no_argument,       NULL, ARG_VERSION                 },
-                { "output",                  required_argument, NULL, ARG_OUTPUT                  },
-                { "certificate",             required_argument, NULL, ARG_CERTIFICATE             },
-                { "certificate-source",      required_argument, NULL, ARG_CERTIFICATE_SOURCE      },
-                { "private-key",             required_argument, NULL, ARG_PRIVATE_KEY             },
-                { "private-key-source",      required_argument, NULL, ARG_PRIVATE_KEY_SOURCE      },
-                { "prepare-offline-signing", no_argument,       NULL, ARG_PREPARE_OFFLINE_SIGNING },
-                { "signed-data",             required_argument, NULL, ARG_SIGNED_DATA             },
-                { "signed-data-signature",   required_argument, NULL, ARG_SIGNED_DATA_SIGNATURE   },
-                {}
-        };
-
-        int c, r;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+        int r;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_OUTPUT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_output);
+                OPTION_LONG("output", "PATH",
+                            "Where to write the signed PE binary"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_output);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case ARG_CERTIFICATE:
-                        r = free_and_strdup_warn(&arg_certificate, optarg);
+                OPTION_COMMON_CERTIFICATE("PEM certificate to use for signing"):
+                        r = free_and_strdup_warn(&arg_certificate, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CERTIFICATE_SOURCE:
+                OPTION_COMMON_CERTIFICATE_SOURCE:
                         r = parse_openssl_certificate_source_argument(
-                                        optarg,
+                                        arg,
                                         &arg_certificate_source,
                                         &arg_certificate_source_type);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_PRIVATE_KEY:
-                        r = free_and_strdup_warn(&arg_private_key, optarg);
+                OPTION_COMMON_PRIVATE_KEY("Private key (PEM) to sign with"):
+                        r = free_and_strdup_warn(&arg_private_key, arg);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case ARG_PRIVATE_KEY_SOURCE:
+                OPTION_COMMON_PRIVATE_KEY_SOURCE:
                         r = parse_openssl_key_source_argument(
-                                        optarg,
+                                        arg,
                                         &arg_private_key_source,
                                         &arg_private_key_source_type);
                         if (r < 0)
@@ -167,29 +145,23 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_PREPARE_OFFLINE_SIGNING:
+                OPTION_LONG("prepare-offline-signing", NULL, /* help= */ NULL):
                         arg_prepare_offline_signing = true;
                         break;
 
-                case ARG_SIGNED_DATA:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_signed_data);
+                OPTION_LONG("signed-data", "PATH", /* help= */ NULL):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_signed_data);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case ARG_SIGNED_DATA_SIGNATURE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_signed_data_signature);
+                OPTION_LONG("signed-data-signature", "PATH", /* help= */ NULL):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_signed_data_signature);
                         if (r < 0)
                                 return r;
 
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (arg_private_key_source && !arg_certificate)
@@ -201,6 +173,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_prepare_offline_signing && (arg_private_key || arg_signed_data || arg_signed_data_signature))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--prepare-offline-signing cannot be used with --private-key=, --signed-data= or --signed-data-signature=");
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
@@ -442,6 +415,8 @@ static int pkcs7_add_digest_attribute(PKCS7 *p7, BIO *data, PKCS7_SIGNER_INFO *s
         return 0;
 }
 
+VERB(verb_sign, "sign", "EXEFILE", 2, 2, 0,
+     "Sign the given binary for EFI Secure Boot");
 static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
@@ -742,20 +717,16 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int run(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "help",         VERB_ANY, VERB_ANY, 0,    verb_help },
-                { "sign",         2,        2,        0,    verb_sign },
-                {}
-        };
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        return dispatch_verb(argc, argv, verbs, NULL);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

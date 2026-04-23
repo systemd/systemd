@@ -3,7 +3,6 @@
   Copyright © 2010 ProFUSION embedded systems
 ***/
 
-#include <getopt.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/mount.h>
@@ -29,10 +28,10 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "getopt-defs.h"
 #include "initrd-util.h"
 #include "killall.h"
 #include "log.h"
+#include "options.h"
 #include "parse-util.h"
 #include "pidref.h"
 #include "printk-util.h"
@@ -58,103 +57,88 @@ static uint8_t arg_exit_code = 0;
 static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                COMMON_GETOPT_ARGS,
-                SHUTDOWN_GETOPT_ARGS,
-        };
-
-        static const struct option options[] = {
-                COMMON_GETOPT_OPTIONS,
-                SHUTDOWN_GETOPT_OPTIONS,
-                {}
-        };
-
-        int c, r;
-
         assert(argc >= 1);
         assert(argv);
 
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
-        optind = 0;
+        /* The interface is: the verb must stay in argv[1]. Any extra positional arguments
+         * are warned about and ignored. See 4b5d8d0f22ae61ceb45a25391354ba53b43ee992. */
 
-        /* "-" prevents getopt from permuting argv[] and moving the verb away
-         * from argv[1]. Our interface to initrd promises it'll be there. */
-        while ((c = getopt_long(argc, argv, "-", options, NULL)) >= 0)
+        OptionParser state = { argc, argv, OPTION_PARSER_RETURN_POSITIONAL_ARGS };
+        const char *arg;
+        int r;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case ARG_LOG_LEVEL:
-                        r = log_set_max_level_from_string(optarg);
+                OPTION_COMMON_LOG_LEVEL:
+                        r = log_set_max_level_from_string(arg);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse log level %s, ignoring: %m", optarg);
+                                log_warning_errno(r, "Failed to parse log level %s, ignoring: %m", arg);
 
                         break;
 
-                case ARG_LOG_TARGET:
-                        r = log_set_target_from_string(optarg);
+                OPTION_COMMON_LOG_TARGET:
+                        r = log_set_target_from_string(arg);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse log target %s, ignoring: %m", optarg);
+                                log_warning_errno(r, "Failed to parse log target %s, ignoring: %m", arg);
 
                         break;
 
-                case ARG_LOG_COLOR:
-
-                        if (optarg) {
-                                r = log_show_color_from_string(optarg);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "log-color", "BOOL",
+                                  "Highlight important messages"):
+                        if (arg) {
+                                r = log_show_color_from_string(arg);
                                 if (r < 0)
-                                        log_warning_errno(r, "Failed to parse log color setting %s, ignoring: %m", optarg);
+                                        log_warning_errno(r, "Failed to parse log color setting %s, ignoring: %m", arg);
                         } else
                                 log_show_color(true);
 
                         break;
 
-                case ARG_LOG_LOCATION:
-                        if (optarg) {
-                                r = log_show_location_from_string(optarg);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "log-location", "BOOL",
+                                  "Include code location in messages"):
+                        if (arg) {
+                                r = log_show_location_from_string(arg);
                                 if (r < 0)
-                                        log_warning_errno(r, "Failed to parse log location setting %s, ignoring: %m", optarg);
+                                        log_warning_errno(r, "Failed to parse log location setting %s, ignoring: %m", arg);
                         } else
                                 log_show_location(true);
 
                         break;
 
-                case ARG_LOG_TIME:
-
-                        if (optarg) {
-                                r = log_show_time_from_string(optarg);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "log-time", "BOOL",
+                                  "Prefix messages with current time"):
+                        if (arg) {
+                                r = log_show_time_from_string(arg);
                                 if (r < 0)
-                                        log_warning_errno(r, "Failed to parse log time setting %s, ignoring: %m", optarg);
+                                        log_warning_errno(r, "Failed to parse log time setting %s, ignoring: %m", arg);
                         } else
                                 log_show_time(true);
 
                         break;
 
-                case ARG_EXIT_CODE:
-                        r = safe_atou8(optarg, &arg_exit_code);
+                OPTION_LONG("exit-code", "N",
+                            "Exit code for reboot/kexec"):
+                        r = safe_atou8(arg, &arg_exit_code);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse exit code %s, ignoring: %m", optarg);
+                                log_warning_errno(r, "Failed to parse exit code %s, ignoring: %m", arg);
 
                         break;
 
-                case ARG_TIMEOUT:
-                        r = parse_sec(optarg, &arg_timeout);
+                OPTION_LONG("timeout", "TIME",
+                            "Overall shutdown timeout"):
+                        r = parse_sec(arg, &arg_timeout);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse shutdown timeout %s, ignoring: %m", optarg);
+                                log_warning_errno(r, "Failed to parse shutdown timeout %s, ignoring: %m", arg);
 
                         break;
 
-                case '\001':
+                OPTION_POSITIONAL:
                         if (!arg_verb)
-                                arg_verb = optarg;
+                                arg_verb = arg;
                         else
-                                log_warning("Got extraneous arguments, ignoring.");
+                                log_warning("Got extraneous argument, ignoring.");
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (!arg_verb)
