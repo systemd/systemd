@@ -24,7 +24,7 @@ typedef struct NTS_Receipt {
  *      A negative result indicates an error (in which case the contents of uniq_ident are unspecified)
  */
 int NTS_add_extension_fields(
-                uint8_t dest[static 1280],
+                uint8_t dest[static NTS_MAX_PACKET_SIZE],
                 const NTS_Query *nts,
                 NTS_Identifier *identifier);
 
@@ -36,7 +36,7 @@ int NTS_add_extension_fields(
  *      A negative result indicates an error.
  */
 int NTS_parse_extension_fields(
-                uint8_t src[static 1280],
+                uint8_t src[static NTS_MAX_PACKET_SIZE],
                 size_t src_len,
                 const NTS_Query *nts,
                 NTS_Receipt *fields);

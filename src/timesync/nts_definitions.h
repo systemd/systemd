@@ -3,6 +3,8 @@
 
 #pragma once
 
+#define NTS_MAX_PACKET_SIZE 1280
+
 /* numeric id's for the NTS record type */
 
 #define NTS_REC_EndOfMessage 0  /* critical */
