@@ -772,6 +772,12 @@ static void test_macros_parse_one(
                 if (entries[i].short_code != 0)
                         ASSERT_EQ(opt->short_code, entries[i].short_code);
                 ASSERT_TRUE(streq_ptr(arg, entries[i].argument));
+
+                if (streq_ptr(entries[i].long_code, "optional2"))
+                        ASSERT_EQ(opt->data, 666u);
+                else
+                        ASSERT_EQ(opt->data, 0u);
+
                 i++;
 
                 switch (c) {
@@ -794,6 +800,10 @@ static void test_macros_parse_one(
 
                 /* OPTION_FULL: optional arg */
                 OPTION_FULL(OPTION_OPTIONAL_ARG, 'o', "optional", "ARG", "Optional arg option"):
+                        break;
+
+                /* OPTION_FULL_DATA: optional arg */
+                OPTION_FULL_DATA(OPTION_OPTIONAL_ARG, 'o', "optional2", "ARG", 666, "Optional arg option"):
                         break;
 
                 /* OPTION_FULL: stops parsing */
@@ -1015,6 +1025,7 @@ TEST(option_macros) {
                                         "-v",
                                         "--required=rval",
                                         "--optional=oval",
+                                        "--optional2=oval",
                                         "--debug",
                                         "pos2",
                                         "-o",
@@ -1025,6 +1036,7 @@ TEST(option_macros) {
                                       { .short_code = 'v' },
                                       { "required", "rval" },
                                       { "optional", "oval" },
+                                      { "optional2", "oval" },
                                       { "debug" },
                                       { "optional", NULL },
                                       { "help" },
