@@ -293,9 +293,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG_DATA("profile", "PATH", UNIFIED_SECTION_PROFILE,
                                  "Path to profile file (→ .profile)"): {}
                 OPTION_LONG_DATA("hwids", "PATH", UNIFIED_SECTION_HWIDS,
-                                 "Path to HWIDs file (→ .hwids)"):
+                                 "Path to HWIDs file (→ .hwids)"): {}
+                OPTION_LONG_DATA("efifw", "PATH", UNIFIED_SECTION_EFIFW,
+                                 "Path to EFI firmware file (→ .efifw)"): {}
                         /* Make sure that if new sections are added, the list here is updated. */
-                        assert_cc(UNIFIED_SECTION_HWIDS + 1 + 1 /* FIXME */ == _UNIFIED_SECTION_MAX);
+                        assert_cc(UNIFIED_SECTION_EFIFW + 1 == _UNIFIED_SECTION_MAX);
                         assert(opt->data < _UNIFIED_SECTION_MAX);
 
                         r = parse_path_argument(arg, /* suppress_root= */ false, arg_sections + opt->data);
