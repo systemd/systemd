@@ -61,6 +61,7 @@ int config_directory_generic(RuntimeScope scope, const char *suffix, char **ret)
 int runtime_directory_generic(RuntimeScope scope, const char *suffix, char **ret);
 int runtime_directory(RuntimeScope scope, const char *fallback_suffix, char **ret);
 int runtime_directory_make(RuntimeScope scope, const char *subdir, char **ret_dir, char **ret_dir_destroy);
+int state_directory_generic(RuntimeScope scope, const char *suffix, char **ret);
 
 /* We don't treat /etc/xdg/systemd/ in these functions as the xdg base dir spec suggests because we assume
  * that is a link to /etc/systemd/ anyway. */
@@ -74,6 +75,9 @@ static inline int xdg_user_config_dir(const char *suffix, char **ret) {
 }
 static inline int xdg_user_data_dir(const char *suffix, char **ret) {
         return sd_path_lookup(SD_PATH_USER_SHARED, suffix, ret);
+}
+static inline int xdg_user_state_dir(const char *suffix, char **ret) {
+        return sd_path_lookup(SD_PATH_USER_STATE_PRIVATE, suffix, ret);
 }
 
 bool path_is_user_data_dir(const char *path);
