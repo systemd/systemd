@@ -29,7 +29,7 @@ executables += [
                 'extract' : systemd_sysupdate_extract_sources,
                 'dependencies' : [
                         libfdisk_cflags,
-                        libopenssl,
+                        libopenssl_cflags,
                         threads,
                 ],
         },

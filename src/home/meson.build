@@ -65,7 +65,7 @@ executables += [
                 'extract' : systemd_homed_extract_sources,
                 'dependencies' : [
                         libm,
-                        libopenssl,
+                        libopenssl_cflags,
                         threads,
                 ],
         },
@@ -76,7 +76,7 @@ executables += [
                 'dependencies' : [
                         libblkid_cflags,
                         libfdisk_cflags,
-                        libopenssl,
+                        libopenssl_cflags,
                         libp11kit_cflags,
                         threads,
                 ],
@@ -88,7 +88,7 @@ executables += [
                 'objects' : ['systemd-homed'],
                 'dependencies' : [
                         libdl,
-                        libopenssl,
+                        libopenssl_cflags,
                         libp11kit_cflags,
                         threads,
                 ],

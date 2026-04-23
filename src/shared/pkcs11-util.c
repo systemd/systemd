@@ -1,16 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#if HAVE_OPENSSL
+#  include <openssl/core_names.h>
+#endif
+
 #include "sd-dlopen.h"
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "crypto-util.h"
 #include "dlfcn-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "format-table.h"
 #include "log.h"
 #include "memory-util.h"
-#include "openssl-util.h"
 #include "pkcs11-util.h"
 #include "random-util.h"
 #include "string-util.h"
@@ -429,7 +433,7 @@ static int read_public_key_info(
                         "Failed to read CKA_PUBLIC_KEY_INFO: %s", sym_p11_kit_strerror(rv));
 
         const unsigned char *value = attribute.pValue;
-        pkey = d2i_PUBKEY(NULL, &value, attribute.ulValueLen);
+        pkey = sym_d2i_PUBKEY(NULL, &value, attribute.ulValueLen);
         if (!pkey)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse CKA_PUBLIC_KEY_INFO");
 
@@ -448,6 +452,10 @@ int pkcs11_token_read_public_key(
         int r;
 
         assert(ret_pkey);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         r = read_public_key_info(m, session, object, &pkey);
         if (r >= 0) {
@@ -543,67 +551,67 @@ int pkcs11_token_read_public_key(
                 _cleanup_(ASN1_OCTET_STRING_freep) ASN1_OCTET_STRING *os = NULL;
 
                 const unsigned char *ec_params_value = ec_attributes[0].pValue;
-                group = d2i_ECPKParameters(NULL, &ec_params_value, ec_attributes[0].ulValueLen);
+                group = sym_d2i_ECPKParameters(NULL, &ec_params_value, ec_attributes[0].ulValueLen);
                 if (!group)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode CKA_EC_PARAMS.");
 
                 const unsigned char *ec_point_value = ec_attributes[1].pValue;
-                os = d2i_ASN1_OCTET_STRING(NULL, &ec_point_value, ec_attributes[1].ulValueLen);
+                os = sym_d2i_ASN1_OCTET_STRING(NULL, &ec_point_value, ec_attributes[1].ulValueLen);
                 if (!os)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode CKA_EC_POINT.");
 
-                _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
+                _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = sym_EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
                 if (!ctx)
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to create an EVP_PKEY_CTX for EC.");
 
-                if (EVP_PKEY_fromdata_init(ctx) != 1)
+                if (sym_EVP_PKEY_fromdata_init(ctx) != 1)
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to init an EVP_PKEY_CTX for EC.");
 
                 OSSL_PARAM ec_params[8] = {
                         /* We need to drop the const from the data param, because ec_params is
                          * modified below. But we'll not modify ec_params[0]. */
                         OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_PUB_KEY,
-                                                (unsigned char *) ASN1_STRING_get0_data(os),
-                                                ASN1_STRING_length(os)),
+                                                (unsigned char *) sym_ASN1_STRING_get0_data(os),
+                                                sym_ASN1_STRING_length(os)),
                 };
 
                 _cleanup_free_ void *order = NULL, *p = NULL, *a = NULL, *b = NULL, *generator = NULL;
                 size_t order_size, p_size, a_size, b_size, generator_size;
 
-                int nid = EC_GROUP_get_curve_name(group);
+                int nid = sym_EC_GROUP_get_curve_name(group);
                 if (nid != NID_undef) {
-                        const char* name = OSSL_EC_curve_nid2name(nid);
-                        ec_params[1] = OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, (char*)name, strlen(name));
-                        ec_params[2] = OSSL_PARAM_construct_end();
+                        const char* name = sym_OSSL_EC_curve_nid2name(nid);
+                        ec_params[1] = sym_OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, (char*)name, strlen(name));
+                        ec_params[2] = sym_OSSL_PARAM_construct_end();
                 } else {
-                        const char *field_type = EC_GROUP_get_field_type(group) == NID_X9_62_prime_field ?
+                        const char *field_type = sym_EC_GROUP_get_field_type(group) == NID_X9_62_prime_field ?
                                 "prime-field" : "characteristic-two-field";
 
-                        const BIGNUM *bn_order = EC_GROUP_get0_order(group);
+                        const BIGNUM *bn_order = sym_EC_GROUP_get0_order(group);
 
-                        _cleanup_(BN_CTX_freep) BN_CTX *bnctx = BN_CTX_new();
+                        _cleanup_(BN_CTX_freep) BN_CTX *bnctx = sym_BN_CTX_new();
                         if (!bnctx)
                                 return log_oom_debug();
 
-                        _cleanup_(BN_freep) BIGNUM *bn_p = BN_new();
+                        _cleanup_(BN_freep) BIGNUM *bn_p = sym_BN_new();
                         if (!bn_p)
                                 return log_oom_debug();
 
-                        _cleanup_(BN_freep) BIGNUM *bn_a = BN_new();
+                        _cleanup_(BN_freep) BIGNUM *bn_a = sym_BN_new();
                         if (!bn_a)
                                 return log_oom_debug();
 
-                        _cleanup_(BN_freep) BIGNUM *bn_b = BN_new();
+                        _cleanup_(BN_freep) BIGNUM *bn_b = sym_BN_new();
                         if (!bn_b)
                                 return log_oom_debug();
 
-                        if (EC_GROUP_get_curve(group, bn_p, bn_a, bn_b, bnctx) != 1)
+                        if (sym_EC_GROUP_get_curve(group, bn_p, bn_a, bn_b, bnctx) != 1)
                                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract EC parameters from EC_GROUP.");
 
-                        order_size = BN_num_bytes(bn_order);
-                        p_size = BN_num_bytes(bn_p);
-                        a_size = BN_num_bytes(bn_a);
-                        b_size = BN_num_bytes(bn_b);
+                        order_size = sym_BN_num_bytes(bn_order);
+                        p_size = sym_BN_num_bytes(bn_p);
+                        a_size = sym_BN_num_bytes(bn_a);
+                        b_size = sym_BN_num_bytes(bn_b);
 
                         order = malloc(order_size);
                         if (!order)
@@ -621,14 +629,14 @@ int pkcs11_token_read_public_key(
                         if (!b)
                                 return log_oom_debug();
 
-                        if (BN_bn2nativepad(bn_order, order, order_size) <= 0 ||
-                            BN_bn2nativepad(bn_p, p, p_size) <= 0 ||
-                            BN_bn2nativepad(bn_a, a, a_size) <= 0 ||
-                            BN_bn2nativepad(bn_b, b, b_size) <= 0 )
+                        if (sym_BN_bn2nativepad(bn_order, order, order_size) <= 0 ||
+                            sym_BN_bn2nativepad(bn_p, p, p_size) <= 0 ||
+                            sym_BN_bn2nativepad(bn_a, a, a_size) <= 0 ||
+                            sym_BN_bn2nativepad(bn_b, b, b_size) <= 0 )
                                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to store EC parameters in native byte order.");
 
-                        const EC_POINT *point_gen = EC_GROUP_get0_generator(group);
-                        generator_size = EC_POINT_point2oct(group, point_gen, POINT_CONVERSION_UNCOMPRESSED, NULL, 0, bnctx);
+                        const EC_POINT *point_gen = sym_EC_GROUP_get0_generator(group);
+                        generator_size = sym_EC_POINT_point2oct(group, point_gen, POINT_CONVERSION_UNCOMPRESSED, NULL, 0, bnctx);
                         if (generator_size == 0)
                                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine size of a EC generator.");
 
@@ -636,20 +644,20 @@ int pkcs11_token_read_public_key(
                         if (!generator)
                                 return log_oom_debug();
 
-                        generator_size = EC_POINT_point2oct(group, point_gen, POINT_CONVERSION_UNCOMPRESSED, generator, generator_size, bnctx);
+                        generator_size = sym_EC_POINT_point2oct(group, point_gen, POINT_CONVERSION_UNCOMPRESSED, generator, generator_size, bnctx);
                         if (generator_size == 0)
                                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert a EC generator to octet string.");
 
-                        ec_params[1] = OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_EC_FIELD_TYPE, (char*)field_type, strlen(field_type));
-                        ec_params[2] = OSSL_PARAM_construct_octet_string(OSSL_PKEY_PARAM_EC_GENERATOR, generator, generator_size);
-                        ec_params[3] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_EC_ORDER, order, order_size);
-                        ec_params[4] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_EC_P, p, p_size);
-                        ec_params[5] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_EC_A, a, a_size);
-                        ec_params[6] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_EC_B, b, b_size);
-                        ec_params[7] = OSSL_PARAM_construct_end();
+                        ec_params[1] = sym_OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_EC_FIELD_TYPE, (char*)field_type, strlen(field_type));
+                        ec_params[2] = sym_OSSL_PARAM_construct_octet_string(OSSL_PKEY_PARAM_EC_GENERATOR, generator, generator_size);
+                        ec_params[3] = sym_OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_EC_ORDER, order, order_size);
+                        ec_params[4] = sym_OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_EC_P, p, p_size);
+                        ec_params[5] = sym_OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_EC_A, a, a_size);
+                        ec_params[6] = sym_OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_EC_B, b, b_size);
+                        ec_params[7] = sym_OSSL_PARAM_construct_end();
                 }
 
-                if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, ec_params) != 1)
+                if (sym_EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, ec_params) != 1)
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to create EVP_PKEY from EC parameters.");
                 break;
         }
@@ -695,16 +703,20 @@ int pkcs11_token_read_x509_certificate(
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to read X.509 certificate data off token: %s", sym_p11_kit_strerror(rv));
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         const unsigned char *p = attribute.pValue;
-        _cleanup_(X509_freep) X509 *x509 = d2i_X509(NULL, &p, attribute.ulValueLen);
+        _cleanup_(X509_freep) X509 *x509 = sym_d2i_X509(NULL, &p, attribute.ulValueLen);
         if (!x509)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse X.509 certificate.");
 
-        const X509_NAME *name = X509_get_subject_name(x509);
+        const X509_NAME *name = sym_X509_get_subject_name(x509);
         if (!name)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to acquire X.509 subject name.");
 
-        _cleanup_free_ char *t = X509_NAME_oneline(name, NULL, 0);
+        _cleanup_free_ char *t = sym_X509_NAME_oneline(name, NULL, 0);
         if (!t)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to format X.509 subject name as string.");
 
@@ -1009,23 +1021,27 @@ static int ecc_convert_to_compressed(
         _cleanup_free_ void *compressed_point = NULL;
         size_t compressed_point_size;
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         const unsigned char *ec_params_value = ec_params_attr.pValue;
-        group = d2i_ECPKParameters(NULL, &ec_params_value, ec_params_attr.ulValueLen);
+        group = sym_d2i_ECPKParameters(NULL, &ec_params_value, ec_params_attr.ulValueLen);
         if (!group)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode CKA_EC_PARAMS");
 
-        point = EC_POINT_new(group);
+        point = sym_EC_POINT_new(group);
         if (!point)
                 return log_oom();
 
-        bnctx = BN_CTX_new();
+        bnctx = sym_BN_CTX_new();
         if (!bnctx)
                 return log_oom();
 
-        if (EC_POINT_oct2point(group, point, uncompressed_point, uncompressed_point_size, bnctx) != 1)
+        if (sym_EC_POINT_oct2point(group, point, uncompressed_point, uncompressed_point_size, bnctx) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode an uncompressed EC point");
 
-        compressed_point_size = EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, NULL, 0, bnctx);
+        compressed_point_size = sym_EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, NULL, 0, bnctx);
         if (compressed_point_size == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine size of a compressed EC point");
 
@@ -1033,7 +1049,7 @@ static int ecc_convert_to_compressed(
         if (!compressed_point)
                 return log_oom();
 
-        compressed_point_size = EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, compressed_point, compressed_point_size, bnctx);
+        compressed_point_size = sym_EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, compressed_point, compressed_point_size, bnctx);
         if (compressed_point_size == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert a EC point to compressed format");
 
@@ -1521,7 +1537,8 @@ struct pkcs11_acquire_public_key_callback_data {
 
 static void pkcs11_acquire_public_key_callback_data_release(struct pkcs11_acquire_public_key_callback_data *data) {
         erase_and_free(data->pin_used);
-        EVP_PKEY_free(data->pkey);
+        if (data->pkey)
+                sym_EVP_PKEY_free(data->pkey);
 }
 
 static int pkcs11_acquire_public_key_callback(
@@ -1673,7 +1690,11 @@ static int pkcs11_acquire_public_key_callback(
                 if (r < 0)
                         return log_error_errno(r, "Failed to read a found X.509 certificate.");
 
-                pkey = X509_get_pubkey(cert);
+                r = dlopen_libcrypto(LOG_DEBUG);
+                if (r < 0)
+                        return r;
+
+                pkey = sym_X509_get_pubkey(cert);
                 if (!pkey)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from X.509 certificate.");
         }
