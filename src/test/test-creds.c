@@ -177,7 +177,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                         &decrypted);
         ASSERT_OK(r);
 
-        ASSERT_EQ(iovec_memcmp(&plaintext, &decrypted), 0);
+        ASSERT_TRUE(iovec_equal(&plaintext, &decrypted));
 }
 
 static bool try_tpm2(void) {

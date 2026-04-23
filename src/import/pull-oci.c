@@ -1195,7 +1195,7 @@ static int oci_pull_make_local(OciPull *i) {
                 return r;
 
         if (!iovec_is_set(&i->config) ||
-            iovec_memcmp(&i->config, &IOVEC_MAKE_STRING("{}")) == 0)
+            iovec_equal(&i->config, &IOVEC_MAKE_STRING("{}")))
                 log_info("Image has no configuration, not saving.");
         else {
                 r = oci_pull_save_nspawn_settings(i);
