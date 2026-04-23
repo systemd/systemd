@@ -1,15 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <sys/epoll.h>
 #include <unistd.h>
 
 #include "devnum-util.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "libudev-list-internal.h"
 #include "log.h"
 #include "main-func.h"
 #include "libudev-util.h"
+#include "options.h"
 #include "string-util.h"
 #include "tests.h"
 #include "version.h"
@@ -404,52 +405,57 @@ static void test_list(void) {
         assert_se(!udev_list_entry_get_by_name(e, "ccc"));
 }
 
-static int parse_args(int argc, char *argv[], const char **syspath, const char **subsystem) {
-        static const struct option options[] = {
-                { "syspath",   required_argument, NULL, 'p' },
-                { "subsystem", required_argument, NULL, 's' },
-                { "debug",     no_argument,       NULL, 'd' },
-                { "help",      no_argument,       NULL, 'h' },
-                { "version",   no_argument,       NULL, 'V' },
-                { "monitor",   no_argument,       NULL, 'm' },
-                {}
-        };
-        int c;
+static int help(void) {
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
 
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...]\n\n", program_invocation_short_name);
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int parse_args(int argc, char *argv[], const char **syspath, const char **subsystem) {
+        assert(argc >= 0);
+        assert(argv);
         assert(syspath);
         assert(subsystem);
 
-        while ((c = getopt_long(argc, argv, "p:s:dhVm", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
-                case 'p':
-                        *syspath = optarg;
-                        break;
 
-                case 's':
-                        *subsystem = optarg;
-                        break;
+                OPTION_COMMON_HELP:
+                        return help();
 
-                case 'd':
-                        log_set_max_level(LOG_DEBUG);
-                        break;
-
-                case 'h':
-                        printf("--debug --syspath= --subsystem= --help\n");
-                        return 0;
-
-                case 'V':
+                OPTION('V', "version", NULL, "Show package version"):
                         printf("%s\n", GIT_VERSION);
                         return 0;
 
-                case 'm':
-                        arg_monitor = true;
+                OPTION('p', "syspath", "PATH", "Syspath to test"):
+                        *syspath = arg;
                         break;
 
-                case '?':
-                        return -EINVAL;
+                OPTION('s', "subsystem", "SUBSYSTEM", "Subsystem to enumerate"):
+                        *subsystem = arg;
+                        break;
 
-                default:
-                        assert_not_reached();
+                OPTION('d', "debug", NULL, "Enable debug logging"):
+                        log_set_max_level(LOG_DEBUG);
+                        break;
+
+                OPTION('m', "monitor", NULL, "Run monitor test"):
+                        arg_monitor = true;
+                        break;
                 }
 
         return 1;

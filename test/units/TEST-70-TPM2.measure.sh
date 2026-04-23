@@ -45,6 +45,12 @@ cat >/tmp/result.json <<EOF
 EOF
 "$SD_MEASURE" calculate --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha1 --bank=sha256 --bank=sha384 --bank=sha512 --phase=foo -j | diff -u - /tmp/result.json
 
+cat >/tmp/result <<EOF
+11:sha1=8a625cbc3c497b9a86dcf4f6a32582895ce969bb
+EOF
+"$SD_MEASURE" calculate \
+              --{linux,osrel,cmdline,initrd,ucode,splash,dtb,dtbauto,uname,sbat,pcrpkey,profile,hwids,efifw}=/tmp/tpmdata1 \
+              --bank=sha1 --phase=foo | cmp - /tmp/result
 rm /tmp/result /tmp/result.json
 
 # Generate key pair
