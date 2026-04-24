@@ -73,6 +73,13 @@ typedef enum {
         _CPU_INVALID = -EINVAL,
 } CPUType;
 
+typedef enum RootMemoryMode {
+        ROOT_MEMORY_CGROUP,        /* sum of memory.current over direct children */
+        ROOT_MEMORY_SYSTEM,        /* /proc/meminfo (MemTotal - MemAvailable) */
+        _ROOT_MEMORY_MODE_MAX,
+        _ROOT_MEMORY_MODE_INVALID = -EINVAL,
+} RootMemoryMode;
+
 #define DEFAULT_MAXIMUM_DEPTH 3
 
 static unsigned arg_depth = DEFAULT_MAXIMUM_DEPTH;
@@ -87,6 +94,12 @@ static bool arg_recursive_unset = false;
 static PidsCount arg_count = COUNT_PIDS;
 static Order arg_order = ORDER_CPU;
 static CPUType arg_cpu_type = CPU_PERCENTAGE;
+static RootMemoryMode arg_root_memory_mode = ROOT_MEMORY_CGROUP;
+
+/* Sum of memory.current over depth-1 cgroups, accumulated during refresh()
+ * and consumed by display() for the root row when arg_root_memory_mode ==
+ * ROOT_MEMORY_CGROUP. Reset at the start of each cycle (refresh depth 0). */
+static uint64_t root_children_memory_sum;
 
 static const char *order_table[_ORDER_MAX] = {
         [ORDER_PATH]   = "path",
@@ -104,6 +117,13 @@ static const char *cpu_type_table[_CPU_MAX] = {
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(cpu_type, CPUType);
+
+static const char *root_memory_mode_table[_ROOT_MEMORY_MODE_MAX] = {
+        [ROOT_MEMORY_CGROUP] = "cgroup",
+        [ROOT_MEMORY_SYSTEM] = "system",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(root_memory_mode, RootMemoryMode);
 
 static Group *group_free(Group *g) {
         if (!g)
@@ -417,6 +437,12 @@ static int process(
         if (r < 0)
                 return r;
 
+        /* Accumulate depth-1 cgroup memory into the root sum as we go, so
+         * display() can paint the root row in O(1). See the corresponding
+         * reset at refresh() depth 0. */
+        if (g->memory_valid && !is_root_cgroup(path) && !strchr(path, '/'))
+                root_children_memory_sum += g->memory;
+
         r = process_io(g, iteration);
         if (r < 0)
                 return r;
@@ -451,6 +477,11 @@ static int refresh(
                         *ret = NULL;
                 return 0;
         }
+
+        /* New refresh cycle: zero the root-children memory accumulator.
+         * process() will fill it in while walking the hierarchy. */
+        if (depth == 0)
+                root_children_memory_sum = 0;
 
         r = process(path, a, b, iteration, &ours);
         if (r < 0)
@@ -661,8 +692,20 @@ static void display(Hashmap *a) {
 
                 g = array[j];
 
-                path = empty_to_root(g->path);
-                ellipsized = ellipsize(path, path_columns, 33);
+                bool is_root = is_root_cgroup(g->path);
+
+                if (is_root) {
+                        if (arg_root_memory_mode == ROOT_MEMORY_CGROUP) {
+                                g->memory = root_children_memory_sum;
+                                g->memory_valid = true;
+                        }
+                        path = arg_root_memory_mode == ROOT_MEMORY_CGROUP
+                                ? "/ *CGROUP USAGE, press / to show WHOLE SYSTEM USAGE*"
+                                : "/ *WHOLE SYSTEM USAGE, press / to show CGROUP USAGE*";
+                } else
+                        path = empty_to_root(g->path);
+
+                ellipsized = ellipsize(path, path_columns, is_root ? 100 : 33);
                 printf("%-*s", path_columns, ellipsized ?: path);
 
                 if (g->n_tasks_valid)
@@ -824,6 +867,15 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse depth parameter '%s': %m", arg);
                         break;
 
+                OPTION_LONG("root-memory", "MODE",
+                            "Root row memory source (cgroup|system, default: cgroup)"):
+                        arg_root_memory_mode = root_memory_mode_from_string(arg);
+                        if (arg_root_memory_mode < 0)
+                                return log_error_errno(arg_root_memory_mode,
+                                                       "Invalid argument to --root-memory=: %s",
+                                                       arg);
+                        break;
+
                 OPTION_COMMON_MACHINE:
                         arg_machine = arg;
                         break;
@@ -939,6 +991,12 @@ static int loop(const char *root) {
                         arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENTAGE : CPU_TIME;
                         break;
 
+                case '/':
+                        arg_root_memory_mode = arg_root_memory_mode == ROOT_MEMORY_CGROUP
+                                ? ROOT_MEMORY_SYSTEM : ROOT_MEMORY_CGROUP;
+                        immediate_refresh = true;
+                        break;
+
                 case 'k':
                         arg_count = arg_count != COUNT_ALL_PROCESSES ? COUNT_ALL_PROCESSES : COUNT_PIDS;
                         fprintf(stdout, "\nCounting: %s.", counting_what());
@@ -990,7 +1048,7 @@ static int loop(const char *root) {
                                 "\t<%1$sp%2$s> By path; <%1$st%2$s> By tasks/procs; <%1$sc%2$s> By CPU; <%1$sm%2$s> By memory; <%1$si%2$s> By I/O\n"
                                 "\t<%1$s+%2$s> Inc. delay; <%1$s-%2$s> Dec. delay; <%1$s%%%2$s> Toggle time; <%1$sSPACE%2$s> Refresh\n"
                                 "\t<%1$sP%2$s> Toggle count userspace processes; <%1$sk%2$s> Toggle count all processes\n"
-                                "\t<%1$sr%2$s> Count processes recursively; <%1$sq%2$s> Quit",
+                                "\t<%1$sr%2$s> Count processes recursively; <%1$s/%2$s> Toggle root row (meminfo/cgroup sum); <%1$sq%2$s> Quit",
                                 ansi_highlight(), ansi_normal());
                         fflush(stdout);
                         sleep(3);
