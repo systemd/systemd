@@ -1487,6 +1487,105 @@ EOF
     grep -qF "1.2.3.4" "$RUN_OUT"
 }
 
+# Regression test for CVE/strict-DoT verification: when the global
+# DNSOverTLS= is "no" or "opportunistic" but a specific link is configured
+# with DNSOverTLS=yes (per-link strict mode), resolved must still enable
+# OpenSSL peer certificate verification and host/IP name checking on that
+# link. Previously dnstls_stream_connect_tls() looked at the manager-wide
+# field directly instead of dns_server_get_dns_over_tls_mode(), so a
+# self-signed/untrusted DoT server would be silently accepted on a strict
+# link, allowing trivial MITM.
+testcase_dot_strict_per_link_verify() {
+    if ! command -v openssl >/dev/null; then
+        echo "openssl not found, skipping per-link strict DoT test"
+        return 0
+    fi
+
+    local certdir s_server_pid="" link_addr="10.123.99.1"
+
+    certdir="$(mktemp -d)"
+
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        if [[ -n "$s_server_pid" ]] && kill -0 "$s_server_pid" 2>/dev/null; then
+            kill "$s_server_pid" || :
+            wait "$s_server_pid" 2>/dev/null || :
+        fi
+        rm -f /run/systemd/resolved.conf.d/95-strict-dot-test.conf
+        rm -f /run/systemd/network/10-dns3-strict-dot.netdev
+        rm -f /run/systemd/network/10-dns3-strict-dot.network
+        networkctl reload || :
+        ip link del dns3-sdot 2>/dev/null || :
+        systemctl reload systemd-resolved.service || :
+        rm -rf "$certdir"
+    }
+
+    trap cleanup RETURN ERR
+
+    # Self-signed cert for CN=strict-dot.test, with a SAN matching the link
+    # IP. It is intentionally NOT in the system CA store, so peer
+    # verification (when actually enabled) MUST reject it.
+    openssl req -x509 -newkey rsa:2048 -nodes \
+        -keyout "$certdir/key.pem" -out "$certdir/cert.pem" \
+        -subj "/CN=strict-dot.test" \
+        -addext "subjectAltName=IP:${link_addr},DNS:strict-dot.test" \
+        -days 1
+
+    # Dummy interface that hosts both the fake DoT server and the strict
+    # client-side configuration.
+    {
+        echo "[NetDev]"
+        echo "Name=dns3-sdot"
+        echo "Kind=dummy"
+    } >/run/systemd/network/10-dns3-strict-dot.netdev
+    {
+        echo "[Match]"
+        echo "Name=dns3-sdot"
+        echo ""
+        echo "[Network]"
+        echo "IPv6AcceptRA=no"
+        echo "Address=${link_addr}/24"
+        echo "DNS=${link_addr}"
+        echo "DNSOverTLS=yes"
+        echo "DNSSEC=no"
+    } >/run/systemd/network/10-dns3-strict-dot.network
+
+    # Force the manager-wide DoT mode to "no". Before the fix this would
+    # cause SSL_VERIFY_PEER to NOT be set, even though the link is strict.
+    {
+        echo "[Resolve]"
+        echo "DNSOverTLS=no"
+    } >/run/systemd/resolved.conf.d/95-strict-dot-test.conf
+
+    networkctl reload
+    networkctl reconfigure dns3-sdot
+    /usr/lib/systemd/systemd-networkd-wait-online --timeout=30 --interface=dns3-sdot --dns
+
+    systemctl reload systemd-resolved.service
+
+    assert_eq "$(resolvectl --json=short dnsovertls dns3-sdot | jq -rc '.[0].dnsOverTLS')" 'yes'
+
+    # Start an unauthenticated TLS listener using the self-signed cert.
+    # -naccept lets resolved reconnect a few times during retries.
+    openssl s_server \
+        -accept "${link_addr}:853" \
+        -cert "$certdir/cert.pem" -key "$certdir/key.pem" \
+        -quiet -naccept 8 </dev/null >/dev/null 2>&1 &
+    s_server_pid=$!
+
+    timeout 10s bash -c "until ss -lnt 'sport = :853' | grep -F ${link_addr} >/dev/null; do sleep 0.2; done"
+
+    # The query must fail: a strict-DoT link must refuse an untrusted cert.
+    set +e
+    timeout 15s resolvectl query -i dns3-sdot strict-dot.test
+    local rc=$?
+    set -e
+    if [[ $rc -eq 0 ]]; then
+        echo "resolvectl query against untrusted DoT server on strict link succeeded, should have failed"
+        return 1
+    fi
+}
+
 testcase_static_record() {
     mkdir -p /run/systemd/resolve/static.d/
     cat >/run/systemd/resolve/static.d/statictest.rr <<EOF
