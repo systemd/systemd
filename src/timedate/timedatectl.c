@@ -951,7 +951,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         const Option *current;
         const char *arg;
 
-        FOREACH_OPTION_FULL(&state, c, &current, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_FULL(&state, c, &current, &arg)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -1006,6 +1006,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('a', "all", NULL, "Show all properties, including empty ones"):
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         *ret_args = option_parser_get_args(&state);

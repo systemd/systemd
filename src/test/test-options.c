@@ -760,23 +760,27 @@ static void test_macros_parse_one(
         const Option *opt;
         const char *arg;
 
-        FOREACH_OPTION_FULL(&state, c, &opt, &arg, ASSERT_TRUE(false)) {
-                log_debug("%c %s: %s=%s",
-                          opt->short_code != 0 ? opt->short_code : ' ',
-                          opt->long_code ?: "",
-                          strnull(opt->metavar), strnull(arg));
+        FOREACH_OPTION_FULL(&state, c, &opt, &arg) {
+                if (c < 0)
+                        log_debug_errno(c, "Got failure: %m");
+                else {
+                        log_debug("%c %s: %s=%s",
+                                  opt->short_code != 0 ? opt->short_code : ' ',
+                                  opt->long_code ?: "",
+                                  strnull(opt->metavar), strnull(arg));
 
-                ASSERT_LT(i, n_entries);
-                if (entries[i].long_code)
-                        ASSERT_TRUE(streq_ptr(opt->long_code, entries[i].long_code));
-                if (entries[i].short_code != 0)
-                        ASSERT_EQ(opt->short_code, entries[i].short_code);
-                ASSERT_TRUE(streq_ptr(arg, entries[i].argument));
+                        ASSERT_LT(i, n_entries);
+                        if (entries[i].long_code)
+                                ASSERT_TRUE(streq_ptr(opt->long_code, entries[i].long_code));
+                        if (entries[i].short_code != 0)
+                                ASSERT_EQ(opt->short_code, entries[i].short_code);
+                        ASSERT_TRUE(streq_ptr(arg, entries[i].argument));
 
-                if (streq_ptr(entries[i].long_code, "optional2"))
-                        ASSERT_EQ(opt->data, 666u);
-                else
-                        ASSERT_EQ(opt->data, 0u);
+                        if (streq_ptr(entries[i].long_code, "optional2"))
+                                ASSERT_EQ(opt->data, 666u);
+                        else
+                                ASSERT_EQ(opt->data, 0u);
+                }
 
                 i++;
 
@@ -820,9 +824,13 @@ static void test_macros_parse_one(
                 OPTION_POSITIONAL:
                         break;
 
+                OPTION_ERROR:
+                        log_error_errno(c, "Unexpected error: %m");
+                        assert_not_reached();
+
                 default:
                         log_error("Unexpected option id: %d", c);
-                        ASSERT_TRUE(false);
+                        assert_not_reached();
                 }
         }
 
