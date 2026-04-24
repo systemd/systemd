@@ -164,7 +164,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         const char *arg, *verb = NULL;
         int r;
 
-        FOREACH_OPTION_FULL(&state, c, &opt, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_FULL(&state, c, &opt, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -192,6 +192,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                         arg_issue_stdout = false;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         if (!arg_issue_path && !arg_issue_stdout) {
