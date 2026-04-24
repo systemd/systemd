@@ -32,6 +32,13 @@ __get_machines() {
         sort -u
 }
 
+__get_disks() {
+    local mode=$1 machine=$2
+    local a b
+    machinectl $mode list-disks "$machine" --no-legend --no-pager 2>/dev/null |
+        { while read -r a b; do echo " $a"; done; }
+}
+
 _machinectl() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local i verb comps mode
@@ -40,7 +47,7 @@ _machinectl() {
         [STANDALONE]='--all -a -l --full --help -h --no-ask-password --no-legend --no-pager --version --value
                       --mkdir --read-only --force -q --quiet --system --user --now -V'
         [ARG]='--host -H --kill-whom -M --machine --property -p -P --signal -s --uid -E --setenv -n --lines
-                      -o --output --verify --format --max-addresses --runner'
+                      -o --output --verify --format --max-addresses --runner --disk-id'
     )
 
     local -A VERBS=(
@@ -48,10 +55,12 @@ _machinectl() {
         [MACHINES]='status show start stop login shell enable disable poweroff reboot pause resume terminate kill
                     image-status show-image remove export-tar export-raw'
         [MACHINES_OR_FILES]='edit cat'
-        [MACHINE_ONLY]='clone rename set-limit'
+        [MACHINE_ONLY]='clone rename set-limit list-disks'
         [READONLY]='read-only'
         [FILE]='import-tar import-raw'
         [MACHINES_AND_FILES]='copy-to copy-from bind'
+        [MACHINE_AND_FILE]='attach-disk'
+        [MACHINE_AND_DISK_ID]='detach-disk'
     )
 
     _init_completion || return
@@ -184,6 +193,50 @@ _machinectl() {
         if (( COMP_CWORD == i + 1 )); then # first argument after verb
             comps=$(compgen -f -- "$cur")
             compopt -o filenames
+        else
+            comps=''
+        fi
+
+    elif __contains_word "$verb" ${VERBS[MACHINE_AND_FILE]}; then
+        local k args=0
+        for ((k=i+1; k < COMP_CWORD; k++)); do
+            if __contains_word "${COMP_WORDS[k]}" ${OPTS[ARG]}; then
+                ((k++))
+            elif [[ ${COMP_WORDS[k]} = -* ]]; then
+                continue
+            else
+                ((args++))
+            fi
+        done
+        if (( args == 0 )); then
+            comps=$( __get_machines $mode )
+        elif (( args == 1 )); then
+            comps=$(compgen -f -- "$cur")
+            compopt -o filenames
+        else
+            comps=''
+        fi
+
+    elif __contains_word "$verb" ${VERBS[MACHINE_AND_DISK_ID]}; then
+        local k args=0 machine_name=""
+        for ((k=i+1; k < COMP_CWORD; k++)); do
+            if __contains_word "${COMP_WORDS[k]}" ${OPTS[ARG]}; then
+                ((k++))
+            elif [[ ${COMP_WORDS[k]} = -* ]]; then
+                continue
+            else
+                if (( args == 0 )); then
+                    machine_name=${COMP_WORDS[k]}
+                fi
+                ((args++))
+            fi
+        done
+        if (( args == 0 )); then
+            comps=$( __get_machines $mode )
+        elif (( args == 1 )); then
+            if [[ -n "$machine_name" ]]; then
+                comps=$( __get_disks $mode "$machine_name" )
+            fi
         else
             comps=''
         fi

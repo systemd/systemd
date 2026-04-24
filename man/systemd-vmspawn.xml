@@ -563,6 +563,11 @@
           <option>--image-disk-type=</option> (which itself defaults to <literal>virtio-blk</literal>).
           Note that <literal>qcow2</literal> is only supported for regular files, not block devices.</para>
 
+          <para>Block devices may also be added to and removed from a running VM at runtime via
+          the <command>attach-disk</command>, <command>detach-disk</command> and
+          <command>list-disks</command> verbs of
+          <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
 
