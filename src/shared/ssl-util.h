@@ -42,5 +42,6 @@ extern DLSYM_PROTOTYPE(TLS_client_method);
         sym_SSL_CTX_ctrl((ctx), SSL_CTRL_SET_MIN_PROTO_VERSION, (version), NULL)
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(SSL*, sym_SSL_free, SSL_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(SSL_CTX*, sym_SSL_CTX_free, SSL_CTX_freep, NULL);
 
 #endif
