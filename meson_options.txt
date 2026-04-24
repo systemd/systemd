@@ -209,10 +209,12 @@ option('dbussystemservicedir', type : 'string',
        description : 'D-Bus system service directory')
 option('dbus-interfaces-dir', type : 'string',
        description : 'export D-Bus introspection XML as standalone files')
-option('default-timeout-sec', type : 'integer', value : 90,
+option('default-timeout-sec', type : 'integer', value : 30,
        description : 'default timeout for system unit start/stop')
-option('default-user-timeout-sec', type : 'integer', value : 90,
-       description : 'default timeout for user unit start/stop')
+option('default-user-timeout-multiplier', type : 'integer', value : 2,
+       description : 'user-manager timeout multiplier (× default-timeout-sec)')
+option('default-device-timeout-multiplier', type : 'integer', value : 6,
+       description : 'device-unit timeout multiplier (× default-timeout-sec)')
 option('pkgconfigdatadir', type : 'string', value : '',
        description : 'directory for arch-independent pkg-config files')
 option('pkgconfiglibdir', type : 'string', value : '',

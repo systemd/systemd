@@ -50,7 +50,8 @@
 #DefaultTimeoutStartSec={{DEFAULT_TIMEOUT_SEC}}s
 #DefaultTimeoutStopSec={{DEFAULT_TIMEOUT_SEC}}s
 #DefaultTimeoutAbortSec=
-#DefaultDeviceTimeoutSec={{DEFAULT_TIMEOUT_SEC}}s
+# Generous so device enumeration tolerates virt, slow/old/failing hardware.
+#DefaultDeviceTimeoutSec={{DEFAULT_DEVICE_TIMEOUT_SEC}}s
 #DefaultRestartSec=100ms
 #DefaultStartLimitIntervalSec=10s
 #DefaultStartLimitBurst=5

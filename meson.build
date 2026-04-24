@@ -321,8 +321,10 @@ conf.set10('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_
 conf.set('STATUS_UNIT_FORMAT_DEFAULT',                        'STATUS_UNIT_FORMAT_' + status_unit_format_default.to_upper())
 conf.set_quoted('STATUS_UNIT_FORMAT_DEFAULT_STR',             status_unit_format_default)
 
-conf.set('DEFAULT_TIMEOUT_SEC',                               get_option('default-timeout-sec'))
-conf.set('DEFAULT_USER_TIMEOUT_SEC',                          get_option('default-user-timeout-sec'))
+default_timeout_sec = get_option('default-timeout-sec')
+conf.set('DEFAULT_TIMEOUT_SEC',                               default_timeout_sec)
+conf.set('DEFAULT_USER_TIMEOUT_SEC',                          default_timeout_sec * get_option('default-user-timeout-multiplier'))
+conf.set('DEFAULT_DEVICE_TIMEOUT_SEC',                        default_timeout_sec * get_option('default-device-timeout-multiplier'))
 conf.set('UPDATE_HELPER_USER_TIMEOUT_SEC',                    get_option('update-helper-user-timeout-sec'))
 
 conf.set10('ENABLE_FIRST_BOOT_FULL_PRESET',                   get_option('first-boot-full-preset'))
