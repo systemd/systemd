@@ -2,8 +2,8 @@
  * Copyright © 2026 Trifecta Tech Foundation */
 
 #include <assert.h>
-#include <openssl/ssl.h>
 #include <string.h>
+#include <syslog.h>
 #include <unistd.h>
 
 #include "nts.h"
@@ -125,6 +125,10 @@ NTS_TLS* NTS_TLS_setup(
                 int socket) {
 
         int r;
+
+        r = dlopen_libssl(LOG_ERR);
+        if (r < 0)
+                return NULL;
 
         assert(hostname);
 
