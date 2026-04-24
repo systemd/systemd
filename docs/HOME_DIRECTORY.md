@@ -54,11 +54,14 @@ mechanism, except that the home directory is encrypted using `fscrypt`.
 Key management is implemented via extended attributes on the directory itself:
 for each password an extended attribute `trusted.fscrypt_slot0`, `trusted.fscrypt_slot1`,
 `trusted.fscrypt_slot2`, … is maintained.
-Its value contains a colon-separated pair of Base64 encoded data fields.
-The first field contains a salt value, the second field the encrypted volume key.
-The latter is encrypted using AES256 in counter mode, using a key derived from the password via PBKDF2-HMAC-SHA512,
-together with the salt value.
-The construction is similar to what LUKS does for`dm-crypt` encrypted volumes.
+New slots are written in the `v2` format: a colon-separated string of the form
+`v2:<iterations>:<salt>:<iv>:<ciphertext>:<tag>`, where the data fields are Base64 encoded.
+The volume key is wrapped with AES-256-GCM (authenticated encryption with a random IV)
+under a key derived from the password via PBKDF2-HMAC-SHA512 with the stored iteration count.
+For backward compatibility, legacy slots written by older versions of systemd-homed
+(a colon-separated `<salt>:<ciphertext>` pair encrypted with AES-256-CTR and a 0xFFFF-iteration
+PBKDF2-HMAC-SHA512 KDF) continue to be readable, and they are upgraded to the v2 format the next
+time the password is changed.
 Note that extended attributes are not encrypted by `fscrypt` and hence are suitable for carrying the key slots.
 Moreover, by using extended attributes, the slots are directly attached to the directory and
 an independent sidecar key database is not required.
