@@ -646,7 +646,7 @@ TEST(qmp_client_call) {
 
         /* Successful call: borrowed result pointer is valid until the next call. */
         sd_json_variant *result = NULL;
-        const char *error_desc = NULL;
+        _cleanup_free_ char *error_desc = NULL;
         ASSERT_EQ(qmp_client_call(client, "query-status", NULL, &result, &error_desc), 1);
         ASSERT_NULL(error_desc);
         ASSERT_NOT_NULL(result);
@@ -658,7 +658,7 @@ TEST(qmp_client_call) {
 
         /* QMP error with ret_error_desc provided: returns 1, result NULL, desc set. */
         result = (sd_json_variant*) 0x1;  /* poison to catch lack-of-write */
-        error_desc = NULL;
+        free(error_desc);
         ASSERT_EQ(qmp_client_call(client, "stop", NULL, &result, &error_desc), 1);
         ASSERT_NULL(result);
         ASSERT_STREQ(error_desc, "not running");
