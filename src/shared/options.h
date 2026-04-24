@@ -127,14 +127,22 @@ typedef enum OptionParserMode {
         _OPTION_PARSER_MODE_MAX,
 } OptionParserMode;
 
+typedef enum OptionParserState {
+        OPTION_PARSER_INIT,
+        OPTION_PARSER_RUNNING,
+        OPTION_PARSER_STOPPING, /* We processed an option with OPTION_STOPS_PARSING, and will eat up one more "--", but not more */
+        OPTION_PARSER_DONE,     /* Option parsing completed (could be because we reached the end, or because "--" was fully processed, or because we hit a terminating option) */
+        OPTION_PARSER_FAILED,   /* We encountered a parse error, and terminated option parsing. */
+        _OPTION_PARSER_MAX,
+} OptionParserState;
+
 typedef struct OptionParser {
         /* Those three should stay first so that it's possible to initialize the struct as { argc, argv }
          * or { argc, argv, mode }. */
         int argc;                     /* The original argc. */
         char **argv;                  /* The argv array, possibly reordered. */
         OptionParserMode mode;
-
-        bool parsing_stopped;         /* We processed "--" or an option that terminates option parsing. */
+        OptionParserState state;
         int optind;                   /* Position of the parameter being handled.
                                        * 0 → option parsing hasn't been started yet. */
         int short_option_offset;      /* Set when we're parsing an argument with one or more short options.
