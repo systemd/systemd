@@ -176,7 +176,7 @@ int NTS_parse_extension_fields(
         assert(nts);
         assert(fields);
 
-        struct iovec buf = { src + 48, src_len };
+        struct iovec buf = { src + 48, src_len - 48 };
         bool processed = false;
 
         while (buf.iov_len >= 4) {
