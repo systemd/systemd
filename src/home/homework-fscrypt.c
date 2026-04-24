@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "crypto-util.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hexdecoct.h"
@@ -186,7 +187,28 @@ static void calculate_key_descriptor(
         memcpy(ret_key_descriptor, hashed2, FS_KEY_DESCRIPTOR_SIZE);
 }
 
-static int fscrypt_slot_try_one(
+/* fscrypt slot wrapping
+ *
+ * Two on-disk formats are supported. New slots are always written in v2, which improves offline security.
+ *
+ *   v1 (legacy, read-only):
+ *      <salt_b64>:<ciphertext_b64>
+ *      KDF: PBKDF2-HMAC-SHA512, 0xFFFF iterations
+ *      Cipher: AES-256-CTR, all-zero IV (relies on per-slot random salt for key uniqueness)
+ *      Integrity: 64-bit truncated double-SHA512 key descriptor comparison only
+ *
+ *   v2:
+ *      v2:<iterations_dec>:<salt_b64>:<iv_b64>:<ciphertext_b64>:<tag_b64>
+ *      KDF: PBKDF2-HMAC-SHA512, FSCRYPT_SLOT_PBKDF2_ITERATIONS iterations (cost stored per slot)
+ *      Cipher: AES-256-GCM with explicit random 96-bit IV and 128-bit authentication tag
+ */
+
+#define FSCRYPT_SLOT_PBKDF2_ITERATIONS UINT32_C(600000)
+#define FSCRYPT_SLOT_SALT_SIZE 64u
+#define FSCRYPT_SLOT_GCM_IV_SIZE 12u
+#define FSCRYPT_SLOT_GCM_TAG_SIZE 16u
+
+static int fscrypt_slot_try_v1(
                 const char *password,
                 const void *salt, size_t salt_size,
                 const void *encrypted, size_t encrypted_size,
@@ -281,17 +303,201 @@ static int fscrypt_slot_try_one(
         return 0;
 }
 
+static int fscrypt_slot_try_v2(
+                const char *password,
+                uint32_t iterations,
+                const void *salt, size_t salt_size,
+                const void *iv, size_t iv_size,
+                const void *encrypted, size_t encrypted_size,
+                const void *tag, size_t tag_size,
+                const uint8_t match_key_descriptor[static FS_KEY_DESCRIPTOR_SIZE],
+                void **ret_decrypted, size_t *ret_decrypted_size) {
+
+        _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
+        _cleanup_(erase_and_freep) void *decrypted = NULL;
+        uint8_t key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
+        int decrypted_size_out1 = 0, decrypted_size_out2 = 0;
+        uint8_t derived[512 / 8] = {};
+        size_t decrypted_size;
+        const EVP_CIPHER *cc;
+        int r;
+
+        assert(password);
+        assert(iterations > 0);
+        assert(salt && salt_size > 0);
+        assert(iv && iv_size > 0);
+        assert(encrypted && encrypted_size > 0);
+        assert(tag && tag_size > 0);
+        assert(match_key_descriptor);
+
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        CLEANUP_ERASE(derived);
+
+        if (sym_PKCS5_PBKDF2_HMAC(
+                            password, strlen(password),
+                            salt, salt_size,
+                            (int) iterations, sym_EVP_sha512(),
+                            sizeof(derived), derived) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PBKDF2 failed.");
+
+        context = sym_EVP_CIPHER_CTX_new();
+        if (!context)
+                return log_oom();
+
+        assert_se(cc = sym_EVP_aes_256_gcm());
+
+        /* We only use the first 256 bit of the derived key */
+        assert(sizeof(derived) >= (size_t) sym_EVP_CIPHER_get_key_length(cc));
+
+        if (sym_EVP_DecryptInit_ex(context, cc, NULL, NULL, NULL) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize decryption context.");
+
+        if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_IVLEN, (int) iv_size, NULL) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set GCM IV length.");
+
+        if (sym_EVP_DecryptInit_ex(context, NULL, NULL, derived, iv) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set decryption key/IV.");
+
+        decrypted_size = encrypted_size + sym_EVP_CIPHER_get_block_size(cc);
+        decrypted = malloc(decrypted_size);
+        if (!decrypted)
+                return log_oom();
+
+        if (sym_EVP_DecryptUpdate(context, (uint8_t*) decrypted, &decrypted_size_out1, encrypted, encrypted_size) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to decrypt volume key.");
+
+        assert((size_t) decrypted_size_out1 <= decrypted_size);
+
+        /* Set the expected GCM tag before finalisation, as an authentication failure here means the wrong
+         * password (or a tampered slot). */
+        if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_TAG, (int) tag_size, (void*) tag) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set GCM tag.");
+
+        if (sym_EVP_DecryptFinal_ex(context, (uint8_t*) decrypted + decrypted_size_out1, &decrypted_size_out2) != 1)
+                return -ENOANO; /* GCM authentication failed: wrong password or tampered slot */
+
+        assert((size_t) decrypted_size_out1 + (size_t) decrypted_size_out2 <= decrypted_size);
+        decrypted_size = (size_t) decrypted_size_out1 + (size_t) decrypted_size_out2;
+
+        calculate_key_descriptor(decrypted, decrypted_size, key_descriptor);
+
+        if (memcmp(key_descriptor, match_key_descriptor, FS_KEY_DESCRIPTOR_SIZE) != 0)
+                /* Authenticated decryption succeeded but the resulting volume key does not match the policy
+                 * descriptor. Treat as a non-match (e.g. leftover slot from a different fscrypt setup). */
+                return -ENOANO;
+
+        r = fscrypt_upload_volume_key(key_descriptor, decrypted, decrypted_size, KEY_SPEC_THREAD_KEYRING);
+        if (r < 0)
+                return r;
+
+        if (ret_decrypted)
+                *ret_decrypted = TAKE_PTR(decrypted);
+        if (ret_decrypted_size)
+                *ret_decrypted_size = decrypted_size;
+
+        return 0;
+}
+
+static int fscrypt_slot_try_one(
+                const char *password,
+                const char *xattr_value, size_t xattr_size,
+                const uint8_t match_key_descriptor[static FS_KEY_DESCRIPTOR_SIZE],
+                void **ret_decrypted, size_t *ret_decrypted_size) {
+
+        _cleanup_free_ void *salt = NULL, *iv = NULL, *encrypted = NULL, *tag = NULL;
+        size_t salt_size, iv_size, encrypted_size, tag_size;
+        const char *p, *e;
+        int r;
+
+        assert(password);
+        assert(xattr_value);
+        assert(xattr_size > 0);
+        assert(match_key_descriptor);
+
+        /* Legacy v1 format: "<salt_b64>:<ciphertext_b64>" */
+        if (xattr_size <= 3 || memcmp(xattr_value, "v2:", 3) != 0) {
+                e = memchr(xattr_value, ':', xattr_size);
+                if (!e)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Malformed legacy fscrypt slot (no separator).");
+
+                r = unbase64mem_full(xattr_value, e - xattr_value, /* secure= */ false, &salt, &salt_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to decode legacy salt: %m");
+
+                r = unbase64mem_full(e + 1, xattr_size - (e - xattr_value) - 1, /* secure= */ false, &encrypted, &encrypted_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to decode legacy ciphertext: %m");
+
+                return fscrypt_slot_try_v1(password,
+                                           salt, salt_size,
+                                           encrypted, encrypted_size,
+                                           match_key_descriptor,
+                                           ret_decrypted, ret_decrypted_size);
+        }
+
+        /* v2 format: "v2:<iterations>:<salt_b64>:<iv_b64>:<ct_b64>:<tag_b64>" */
+        _cleanup_free_ char *iter_str = NULL, *salt_b64 = NULL, *iv_b64 = NULL,
+                            *encrypted_b64 = NULL, *tag_b64 = NULL;
+        uint32_t iterations;
+
+        p = xattr_value + 3;
+        r = extract_many_words(&p, ":", EXTRACT_DONT_COALESCE_SEPARATORS,
+                               &iter_str, &salt_b64, &iv_b64, &encrypted_b64, &tag_b64);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse v2 fscrypt slot: %m");
+        if (r < 5)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Malformed v2 fscrypt slot.");
+
+        if (safe_atou32(iter_str, &iterations) < 0 || iterations == 0 || iterations > INT_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid iteration count in v2 fscrypt slot.");
+
+        r = unbase64mem(salt_b64, &salt, &salt_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to decode v2 salt: %m");
+        if (salt_size == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid v2 salt size.");
+
+        r = unbase64mem(iv_b64, &iv, &iv_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to decode v2 IV: %m");
+        if (iv_size != FSCRYPT_SLOT_GCM_IV_SIZE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid v2 IV size.");
+
+        r = unbase64mem(encrypted_b64, &encrypted, &encrypted_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to decode v2 ciphertext: %m");
+        if (encrypted_size == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty v2 ciphertext.");
+
+        r = unbase64mem(tag_b64, &tag, &tag_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to decode v2 tag: %m");
+        if (tag_size != FSCRYPT_SLOT_GCM_TAG_SIZE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid v2 tag size.");
+
+        return fscrypt_slot_try_v2(password,
+                                   iterations,
+                                   salt, salt_size,
+                                   iv, iv_size,
+                                   encrypted, encrypted_size,
+                                   tag, tag_size,
+                                   match_key_descriptor,
+                                   ret_decrypted, ret_decrypted_size);
+}
+
 static int fscrypt_slot_try_many(
                 char **passwords,
-                const void *salt, size_t salt_size,
-                const void *encrypted, size_t encrypted_size,
+                const char *xattr_value, size_t xattr_size,
                 const uint8_t match_key_descriptor[static FS_KEY_DESCRIPTOR_SIZE],
                 void **ret_decrypted, size_t *ret_decrypted_size) {
 
         int r;
 
         STRV_FOREACH(i, passwords) {
-                r = fscrypt_slot_try_one(*i, salt, salt_size, encrypted, encrypted_size, match_key_descriptor, ret_decrypted, ret_decrypted_size);
+                r = fscrypt_slot_try_one(*i, xattr_value, xattr_size, match_key_descriptor, ret_decrypted, ret_decrypted_size);
                 if (r != -ENOANO)
                         return r;
         }
@@ -317,10 +523,9 @@ static int fscrypt_setup(
                 return log_error_errno(r, "Failed to retrieve xattr list: %m");
 
         NULSTR_FOREACH(xa, xattr_buf) {
-                _cleanup_free_ void *salt = NULL, *encrypted = NULL;
                 _cleanup_free_ char *value = NULL;
-                size_t salt_size, encrypted_size, vsize;
-                const char *nr, *e;
+                size_t vsize;
+                const char *nr;
 
                 /* Check if this xattr has the format 'trusted.fscrypt_slot<nr>' where '<nr>' is a 32-bit unsigned integer */
                 nr = startswith(xa, "trusted.fscrypt_slot");
@@ -334,26 +539,15 @@ static int fscrypt_setup(
                         continue;
                 if (r < 0)
                         return log_error_errno(r, "Failed to read %s xattr: %m", xa);
-
-                e = memchr(value, ':', vsize);
-                if (!e)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "xattr %s lacks ':' separator.", xa);
-
-                r = unbase64mem_full(value, e - value, /* secure= */ false, &salt, &salt_size);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to decode salt of %s: %m", xa);
-
-                r = unbase64mem_full(e + 1, vsize - (e - value) - 1, /* secure= */ false, &encrypted, &encrypted_size);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to decode encrypted key of %s: %m", xa);
+                if (vsize == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "xattr %s is empty.", xa);
 
                 r = -ENOANO;
                 char **list;
                 FOREACH_ARGUMENT(list, cache->pkcs11_passwords, cache->fido2_passwords, password) {
                         r = fscrypt_slot_try_many(
                                         list,
-                                        salt, salt_size,
-                                        encrypted, encrypted_size,
+                                        value, vsize,
                                         setup->fscrypt_key_descriptor,
                                         ret_volume_key, ret_volume_key_size);
                         if (r >= 0)
@@ -476,11 +670,16 @@ static int fscrypt_slot_set(
                 const char *password,
                 uint32_t nr) {
 
-        _cleanup_free_ char *salt_base64 = NULL, *encrypted_base64 = NULL, *joined = NULL;
+        _cleanup_free_ char *salt_base64 = NULL, *iv_base64 = NULL,
+                            *encrypted_base64 = NULL, *tag_base64 = NULL,
+                            *joined = NULL;
         char label[STRLEN("trusted.fscrypt_slot") + DECIMAL_STR_MAX(nr) + 1];
         _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
-        int r, encrypted_size_out1, encrypted_size_out2;
-        uint8_t salt[64], derived[512 / 8] = {};
+        int r, encrypted_size_out1 = 0, encrypted_size_out2 = 0;
+        uint8_t salt[FSCRYPT_SLOT_SALT_SIZE];
+        uint8_t iv[FSCRYPT_SLOT_GCM_IV_SIZE];
+        uint8_t tag[FSCRYPT_SLOT_GCM_TAG_SIZE];
+        uint8_t derived[512 / 8] = {};
         _cleanup_free_ void *encrypted = NULL;
         const EVP_CIPHER *cc;
         size_t encrypted_size;
@@ -494,12 +693,16 @@ static int fscrypt_slot_set(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate salt: %m");
 
+        r = crypto_random_bytes(iv, sizeof(iv));
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate IV: %m");
+
         CLEANUP_ERASE(derived);
 
         if (sym_PKCS5_PBKDF2_HMAC(
                             password, strlen(password),
                             salt, sizeof(salt),
-                            0xFFFF, sym_EVP_sha512(),
+                            (int) FSCRYPT_SLOT_PBKDF2_ITERATIONS, sym_EVP_sha512(),
                             sizeof(derived), derived) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PBKDF2 failed");
 
@@ -507,16 +710,22 @@ static int fscrypt_slot_set(
         if (!context)
                 return log_oom();
 
-        /* We use AES256 in counter mode */
-        cc = sym_EVP_aes_256_ctr();
+        /* AES-256-GCM: authenticated encryption with explicit random IV */
+        assert_se(cc = sym_EVP_aes_256_gcm());
 
-        /* We only use the first half of the derived key */
+        /* We only use the first 256 bit of the derived key */
         assert(sizeof(derived) >= (size_t) sym_EVP_CIPHER_get_key_length(cc));
 
-        if (sym_EVP_EncryptInit_ex(context, cc, NULL, derived, NULL) != 1)
+        if (sym_EVP_EncryptInit_ex(context, cc, NULL, NULL, NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize encryption context.");
 
-        encrypted_size = volume_key_size + sym_EVP_CIPHER_get_key_length(cc) * 2;
+        if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_IVLEN, (int) sizeof(iv), NULL) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set GCM IV length.");
+
+        if (sym_EVP_EncryptInit_ex(context, NULL, NULL, derived, iv) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set encryption key/IV.");
+
+        encrypted_size = volume_key_size + sym_EVP_CIPHER_get_block_size(cc);
         encrypted = malloc(encrypted_size);
         if (!encrypted)
                 return log_oom();
@@ -529,10 +738,17 @@ static int fscrypt_slot_set(
         if (sym_EVP_EncryptFinal_ex(context, (uint8_t*) encrypted + encrypted_size_out1, &encrypted_size_out2) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finish encryption of volume key.");
 
-        assert((size_t) encrypted_size_out1 + (size_t) encrypted_size_out2 < encrypted_size);
+        assert((size_t) encrypted_size_out1 + (size_t) encrypted_size_out2 <= encrypted_size);
         encrypted_size = (size_t) encrypted_size_out1 + (size_t) encrypted_size_out2;
 
+        if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_GET_TAG, (int) sizeof(tag), tag) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to retrieve GCM tag.");
+
         ss = base64mem(salt, sizeof(salt), &salt_base64);
+        if (ss < 0)
+                return log_oom();
+
+        ss = base64mem(iv, sizeof(iv), &iv_base64);
         if (ss < 0)
                 return log_oom();
 
@@ -540,8 +756,13 @@ static int fscrypt_slot_set(
         if (ss < 0)
                 return log_oom();
 
-        joined = strjoin(salt_base64, ":", encrypted_base64);
-        if (!joined)
+        ss = base64mem(tag, sizeof(tag), &tag_base64);
+        if (ss < 0)
+                return log_oom();
+
+        if (asprintf(&joined, "v2:%" PRIu32 ":%s:%s:%s:%s",
+                     FSCRYPT_SLOT_PBKDF2_ITERATIONS,
+                     salt_base64, iv_base64, encrypted_base64, tag_base64) < 0)
                 return log_oom();
 
         xsprintf(label, "trusted.fscrypt_slot%" PRIu32, nr);
