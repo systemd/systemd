@@ -248,7 +248,7 @@ TEST(qmp_client_basic) {
         qmp_client_bind_event(client, test_event_callback, &event_received);
 
         /* Execute query-status */
-        ASSERT_OK(qmp_client_invoke(client, "query-status", NULL, on_test_result, &t));
+        ASSERT_OK(qmp_client_invoke(client, /* ret_slot= */ NULL, "query-status", NULL, on_test_result, &t));
         qmp_test_wait(event, &t);
         ASSERT_EQ(t.error, 0);
         ASSERT_NOT_NULL(t.result);
@@ -262,13 +262,13 @@ TEST(qmp_client_basic) {
         qmp_test_result_done(&t);
 
         /* Execute stop */
-        ASSERT_OK(qmp_client_invoke(client, "stop", NULL, on_test_result, &t));
+        ASSERT_OK(qmp_client_invoke(client, /* ret_slot= */ NULL, "stop", NULL, on_test_result, &t));
         qmp_test_wait(event, &t);
         ASSERT_EQ(t.error, 0);
         qmp_test_result_done(&t);
 
         /* Execute cont -- the STOP event should be dispatched by the IO callback */
-        ASSERT_OK(qmp_client_invoke(client, "cont", NULL, on_test_result, &t));
+        ASSERT_OK(qmp_client_invoke(client, /* ret_slot= */ NULL, "cont", NULL, on_test_result, &t));
         qmp_test_wait(event, &t);
         ASSERT_EQ(t.error, 0);
         qmp_test_result_done(&t);
@@ -320,7 +320,7 @@ TEST(qmp_client_eof) {
         /* Executing a command should fail with a disconnect error because the server
          * closed. The handshake may succeed or fail inside invoke() — either way the
          * invoke itself or the async callback should report a disconnect. */
-        r = qmp_client_invoke(client, "query-status", NULL, on_test_result, &t);
+        r = qmp_client_invoke(client, /* ret_slot= */ NULL, "query-status", NULL, on_test_result, &t);
         if (r < 0)
                 ASSERT_TRUE(ERRNO_IS_NEG_DISCONNECT(r));
         else {
@@ -430,7 +430,7 @@ TEST(qmp_client_first_invoke_with_fd) {
 
         /* THIS is the previously-broken pattern: very first invoke against the client,
          * carrying an fd, with the handshake still pending. */
-        ASSERT_OK(qmp_client_invoke(client, "add-fd",
+        ASSERT_OK(qmp_client_invoke(client, /* ret_slot= */ NULL, "add-fd",
                                     QMP_CLIENT_ARGS_FD(args, TAKE_FD(fd_to_pass)),
                                     on_test_result, &t));
 
@@ -478,7 +478,7 @@ TEST(qmp_client_invoke_failure_closes_fds) {
         /* invoke must fail because the peer is gone. The TAKE_FD inside the macro
          * has already zeroed our local fd_to_pass; if invoke leaked the fd here,
          * the fd would stay open in our process. */
-        int r = qmp_client_invoke(client, "add-fd",
+        int r = qmp_client_invoke(client, /* ret_slot= */ NULL, "add-fd",
                                   QMP_CLIENT_ARGS_FD(args, TAKE_FD(fd_to_pass)),
                                   on_test_result, &t);
         ASSERT_TRUE(r < 0);
@@ -491,6 +491,125 @@ TEST(qmp_client_invoke_failure_closes_fds) {
         ASSERT_EQ(fd_to_pass, -EBADF);
         ASSERT_EQ(fcntl(saved_fd_value, F_GETFD), -1);
         ASSERT_EQ(errno, EBADF);
+}
+
+/* Mock for the slot lifecycle + cancel tests: greets, accepts capabilities, then accepts
+ * query-status and stop, replying with dummy returns. A cancelled query-status still gets
+ * sent on the wire (cancel merely removes the pending slot), so the server must be prepared
+ * to read and reply to it. */
+static _noreturn_ void mock_qmp_server_slot(int fd) {
+        _cleanup_(json_stream_done) JsonStream s = {};
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *status_return = NULL;
+
+        mock_qmp_init(&s, fd);
+
+        mock_qmp_send_literal(&s,
+                "{\"QMP\": {\"version\": {\"qemu\": {\"micro\": 0, \"minor\": 0, \"major\": 9}}, \"capabilities\": []}}");
+
+        mock_qmp_expect_and_reply(&s, "qmp_capabilities", NULL);
+
+        ASSERT_OK(sd_json_buildo(
+                        &status_return,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("running", true),
+                        SD_JSON_BUILD_PAIR_STRING("status", "running")));
+        mock_qmp_expect_and_reply(&s, "query-status", status_return);
+
+        mock_qmp_expect_and_reply(&s, "stop", NULL);
+
+        _exit(EXIT_SUCCESS);
+}
+
+/* Verify that when qmp_client_invoke() returns a slot, qmp_slot_get_client() tracks the
+ * connection state: the client pointer is reported while the call is in flight, and flipped
+ * back to NULL once the reply has been dispatched. The caller must still be able to drop its
+ * ref safely after that. */
+TEST(qmp_client_invoke_slot_lifecycle) {
+        _cleanup_(qmp_client_unrefp) QmpClient *client = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
+        _cleanup_(qmp_slot_unrefp) QmpSlot *slot = NULL;
+        QmpTestResult t = {};
+        int qmp_fds[2];
+        int r;
+
+        ASSERT_OK(sd_event_new(&event));
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, qmp_fds));
+
+        r = ASSERT_OK(pidref_safe_fork("(mock-qmp-slot-life)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid));
+        if (r == 0) {
+                safe_close(qmp_fds[0]);
+                mock_qmp_server_slot(qmp_fds[1]);
+        }
+        safe_close(qmp_fds[1]);
+
+        ASSERT_OK(qmp_client_connect_fd(&client, qmp_fds[0]));
+        ASSERT_OK(qmp_client_attach_event(client, event, SD_EVENT_PRIORITY_NORMAL));
+
+        ASSERT_OK(qmp_client_invoke(client, &slot, "query-status", NULL, on_test_result, &t));
+
+        /* While in flight the slot still references its client. */
+        ASSERT_NOT_NULL(slot);
+        ASSERT_PTR_EQ(qmp_slot_get_client(slot), client);
+
+        qmp_test_wait(event, &t);
+        ASSERT_EQ(t.error, 0);
+        ASSERT_NOT_NULL(t.result);
+
+        /* Once dispatched, the slot is disconnected from the client but still owned by us. */
+        ASSERT_NULL(qmp_slot_get_client(slot));
+
+        qmp_test_result_done(&t);
+
+        /* Drop our ref explicitly (out of order w.r.t. cleanup) to exercise the
+         * already-disconnected path in qmp_slot_free(). */
+        slot = qmp_slot_unref(slot);
+        ASSERT_NULL(slot);
+}
+
+/* Verify that dropping the only reference on a pending slot before the reply arrives cancels
+ * the callback. The command is already enqueued on the stream at that point, so the server
+ * still sees it and replies — but the reply lands on an unknown id and is discarded. */
+TEST(qmp_client_invoke_slot_cancel) {
+        _cleanup_(qmp_client_unrefp) QmpClient *client = NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
+        QmpTestResult t_cancelled = {};
+        QmpSlot *slot = NULL;
+        int qmp_fds[2];
+        int r;
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, qmp_fds));
+
+        r = ASSERT_OK(pidref_safe_fork("(mock-qmp-slot-cancel)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid));
+        if (r == 0) {
+                safe_close(qmp_fds[0]);
+                mock_qmp_server_slot(qmp_fds[1]);
+        }
+        safe_close(qmp_fds[1]);
+
+        /* Drive without an event loop so the subsequent qmp_client_call() owns all pumping;
+         * it serializes write→read round-trips, which avoids the mock server seeing the
+         * cancelled query-status and the follow-up stop concatenated into a single recv(). */
+        ASSERT_OK(qmp_client_connect_fd(&client, qmp_fds[0]));
+
+        ASSERT_OK(qmp_client_invoke(client, &slot, "query-status", NULL, on_test_result, &t_cancelled));
+        ASSERT_NOT_NULL(slot);
+
+        /* Drop our sole ref → slot disconnects itself from the client's pending set. The
+         * enqueued query-status is still on the wire; when its reply arrives, dispatch_reply
+         * won't find a matching slot and will log-and-discard it. */
+        slot = qmp_slot_unref(slot);
+        ASSERT_NULL(slot);
+
+        /* Synchronous call drives its own process+wait pump: it first drains the already-
+         * enqueued query-status write, consumes (and discards) its reply, then sends stop
+         * and waits for that reply. Any improper fire of the cancelled callback would have
+         * happened during that process() pass. */
+        ASSERT_EQ(qmp_client_call(client, "stop", NULL, NULL, NULL), 1);
+
+        /* The cancelled callback must never have fired. */
+        ASSERT_FALSE(t_cancelled.done);
+        ASSERT_NULL(t_cancelled.result);
+        ASSERT_NULL(t_cancelled.error_desc);
 }
 
 /* Drives a small wire dance for the sync call test: greeting, capabilities, one successful
