@@ -41,7 +41,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         const Option *opt;
         const char *arg;
 
-        FOREACH_OPTION_FULL(&state, c, &opt, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_FULL(&state, c, &opt, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -66,6 +66,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG_DATA("warn",           NULL, CHASE_WARN,           "Emit a warning on error"):
                         arg_flags |= opt->data;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         *ret_args = option_parser_get_args(&state);
