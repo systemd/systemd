@@ -800,11 +800,11 @@ static bool item_cleanup(
 
                 log_action("Would remove", "Removing", "%s directory \"%s\"", pathname);
                 if (!arg_dry_run &&
-                    unlinkat(dir_fd, name, AT_REMOVEDIR) < 0 &&
+                    (r=unlinkat(dir_fd, name, AT_REMOVEDIR)) < 0 &&
                     !IN_SET(errno, ENOENT, ENOTEMPTY))
                         log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", pathname);
-
-                return true; /* flag that a directory entry was deleted */
+                if (r >= 0)
+                        return true; /* flag that a directory entry was deleted */
 
         } else {
                 _cleanup_close_ int fd = -EBADF; /* This file descriptor is defined here so that the
@@ -863,11 +863,11 @@ static bool item_cleanup(
 
                 log_action("Would remove", "Removing", "%s \"%s\"", pathname);
                 if (!arg_dry_run &&
-                    unlinkat(dir_fd, name, 0) < 0 &&
+                    (r=unlinkat(dir_fd, name, 0)) < 0 &&
                     errno != ENOENT)
                         log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", pathname);
-
-                return true; /* flag that a file was deleted */
+                if (r >= 0)
+                        return true; /* flag that a file was deleted */
         }
         return false;
 }
@@ -3216,7 +3216,7 @@ static int clean_item_instance(
 static int clean_including_item(
                 Context *c,
                 Item *i,
-                const char* instance,
+                const char *instance,
                 CreationMode creation) {
 
         assert(i);
@@ -3238,8 +3238,8 @@ static int clean_including_item(
         int r;
 
         /* Find parent path so we can get stats on the directory that holds instance (file or dir) */
-        ChaseFlags flags = CHASE_SAFE | CHASE_NOFOLLOW | (i->allow_failure ? 0 : CHASE_WARN);
-        dir_fd = chase_and_open_parent_at(AT_FDCWD, instance, flags, NULL);
+        ChaseFlags chase_flags = CHASE_SAFE | CHASE_NOFOLLOW | (i->allow_failure ? 0 : CHASE_WARN);
+        dir_fd = chase_and_open_parent_at(AT_FDCWD, instance, chase_flags, NULL);
         if (dir_fd < 0)
                 return log_full_errno(i->allow_failure ? LOG_INFO : LOG_ERR,
                                       dir_fd,
