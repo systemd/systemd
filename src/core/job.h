@@ -52,6 +52,7 @@ enum JobType {
 typedef enum JobState {
         JOB_WAITING,
         JOB_RUNNING,
+        JOB_FINISHED,
         _JOB_STATE_MAX,
         _JOB_STATE_INVALID = -EINVAL,
 } JobState;
