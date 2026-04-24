@@ -225,12 +225,13 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
 
         <varlistentry>
           <term><varname>E</varname></term>
-          <listitem>
-            <para>Same as <varname>e</varname> except allows globs to clean up files and directories, not just
-            the contents of directories. Symlinks are not followed.</para>
+          <listitem><para>Similar to <varname>e</varname> but with changes in the cleanup behaviour. In
+          addition to cleaning the contents of directories matched by the glob, the matched files and directories
+          themselves are also subject to age-based cleanup. For all other behaviour, such as behaviour related to
+          <option>--remove</option>, mountpoints, sticky bits, and so on, <varname>E</varname> is identical to
+          <varname>e</varname>.</para>
 
-            <xi:include href="version-info.xml" xpointer="v261" xmlns:xi="http://www.w3.org/2001/XInclude"/>
-          </listitem>
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
 
         <varlistentry>

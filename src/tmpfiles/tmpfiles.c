@@ -800,7 +800,7 @@ static bool item_cleanup(
 
                 log_action("Would remove", "Removing", "%s directory \"%s\"", pathname);
                 if (!arg_dry_run &&
-                    (r=unlinkat(dir_fd, name, AT_REMOVEDIR)) < 0 &&
+                    (r = unlinkat(dir_fd, name, AT_REMOVEDIR)) < 0 &&
                     !IN_SET(errno, ENOENT, ENOTEMPTY))
                         log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", pathname);
                 if (r >= 0)
@@ -863,7 +863,7 @@ static bool item_cleanup(
 
                 log_action("Would remove", "Removing", "%s \"%s\"", pathname);
                 if (!arg_dry_run &&
-                    (r=unlinkat(dir_fd, name, 0)) < 0 &&
+                    (r = unlinkat(dir_fd, name, 0)) < 0 &&
                     errno != ENOENT)
                         log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", pathname);
                 if (r >= 0)
