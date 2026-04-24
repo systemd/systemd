@@ -289,6 +289,10 @@ typedef struct Unit {
 
         /* References to this unit from clients */
         sd_bus_track *bus_track;
+
+        /* If non-NULL, a varlink connection streaming unit state change notifications */
+        sd_varlink *varlink_unit_change;
+
         char **deserialized_refs;
 
         /* References to this */
@@ -973,6 +977,7 @@ int unit_write_settingf(Unit *u, UnitWriteFlags flags, const char *name, const c
 int unit_kill_context(Unit *u, KillOperation k);
 
 int unit_make_transient(Unit *u);
+int manager_setup_transient_unit(Manager *m, const char *name, Unit **ret, sd_bus_error *reterr_error);
 
 int unit_add_mounts_for(Unit *u, const char *path, UnitDependencyMask mask, UnitMountDependencyType type);
 
