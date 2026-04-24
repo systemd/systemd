@@ -92,7 +92,7 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
                 return -EIO;
         sym_SSL_set_bio(s, TAKE_PTR(rb), TAKE_PTR(wb));
 
-        if (server->manager->dns_over_tls_mode == DNS_OVER_TLS_YES) {
+        if (dns_server_get_dns_over_tls_mode(server) == DNS_OVER_TLS_YES) {
                 X509_VERIFY_PARAM *v;
 
                 sym_SSL_set_verify(s, SSL_VERIFY_PEER, NULL);
