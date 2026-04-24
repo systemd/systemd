@@ -17,13 +17,13 @@
 #include "fdset.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "notify-recv.h"
 #include "options.h"
 #include "parse-util.h"
 #include "pidref.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -57,31 +57,24 @@ STATIC_DESTRUCTOR_REGISTER(arg_fds, fdset_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fdname, freep);
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-notify", "1", &link);
-        if (r < 0)
-                return log_oom();
-
+        _cleanup_(table_unrefp) Table *options = NULL;
         r = option_parser_get_help_table(&options);
         if (r < 0)
                 return r;
 
-        printf("%1$s [OPTIONS...] [VARIABLE=VALUE...]\n"
-               "%1$s [OPTIONS...] --exec [VARIABLE=VALUE...] ; -- CMDLINE...\n"
-               "%1$s [OPTIONS...] --fork -- CMDLINE...\n"
-               "\n%2$sNotify the init system about service status updates.%3$s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] [VARIABLE=VALUE...]");
+        help_cmdline("[OPTIONS...] --exec [VARIABLE=VALUE...] ; -- CMDLINE...");
+        help_cmdline("[OPTIONS...] --fork -- CMDLINE...");
+        help_abstract("Notify the init system about service status updates.");
 
+        help_section("Options:");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-notify", "1");
         return 0;
 }
 
