@@ -450,7 +450,7 @@ static bool supports_ignore_if_target_missing(ItemType t) {
 }
 
 /* Search for 'match' in all config items besides 'except' (which may be NULL if there is no exception) */
-static struct Item* find_glob(OrderedHashmap *h, const char *match, Item *except) {
+static struct Item* find_glob(OrderedHashmap *h, const char *match, const Item *except) {
         ItemArray *j;
 
         ORDERED_HASHMAP_FOREACH(j, h)
@@ -690,7 +690,7 @@ static bool item_cleanup(
                 const char *name, /* basename of directory|file to be cleaned up */
                 int dir_fd, /* dirfd of directory that contains name -- used for unlinkat(dirfd) */
                 nsec_t cutoff_nsec,
-                bool mountpoint, /* whether the parent dir dir_fd is a mountpoint */
+                bool mountpoint, /* whether the parent directory (dir_fd) is a mountpoint */
                 int maxdepth, /* max directory recursion depth */
                 bool keep_this_level,
                 AgeBy age_by_file, /* age criteria ([a|m|c|b]_time) to examine against file age */
