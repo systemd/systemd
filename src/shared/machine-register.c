@@ -170,8 +170,7 @@ int register_machine(
         }
         if (r < 0)
                 return log_debug_errno(r, "Failed to connect to machined on %s: %m", strna(p));
-
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        sd_json_variant *reply = NULL;
         const char *error_id = NULL;
         r = sd_varlink_callbo(
                         vl,
@@ -306,7 +305,7 @@ int unregister_machine(sd_bus *bus, const char *machine_name, RuntimeScope scope
         if (r >= 0)
                 r = sd_varlink_connect_address(&vl, p);
         if (r >= 0) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+                sd_json_variant *reply = NULL;
                 const char *error_id = NULL;
                 r = sd_varlink_callbo(
                                 vl,
