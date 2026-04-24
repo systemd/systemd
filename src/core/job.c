@@ -41,6 +41,8 @@ Job* job_new_raw(Unit *unit) {
                 .manager = unit->manager,
                 .unit = unit,
                 .type = _JOB_TYPE_INVALID,
+                .state = JOB_WAITING,
+                .result = _JOB_RESULT_INVALID,
         };
 
         return j;
