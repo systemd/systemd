@@ -49,6 +49,7 @@ w+    /file/to/append-to                       -    -    -     -           conte
 d     /directory/to/create-and-clean-up        mode user group cleanup-age -
 D     /directory/to/create-and-remove          mode user group cleanup-age -
 e     /directory/to/clean-up                   mode user group cleanup-age -
+E     /path-or-glob/to/clean-up                mode user group cleanup-age -
 v     /subvolume-or-directory/to/create        mode user group cleanup-age -
 q     /subvolume-or-directory/to/create        mode user group cleanup-age -
 Q     /subvolume-or-directory/to/create        mode user group cleanup-age -
@@ -220,6 +221,17 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           be useful when combined with <varname>!</varname>, see the examples.</para>
 
           <xi:include href="version-info.xml" xpointer="v230"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>E</varname></term>
+          <listitem><para>Similar to <varname>e</varname> but with changes in the cleanup behaviour. In
+          addition to cleaning the contents of directories matched by the glob, the matched files and directories
+          themselves are also subject to age-based cleanup. For all other behaviour, such as behaviour related to
+          <option>--remove</option>, mountpoints, sticky bits, and so on, <varname>E</varname> is identical to
+          <varname>e</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -638,7 +650,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
 
       <para>The age field only applies to lines starting with
       <varname>d</varname>, <varname>D</varname>, <varname>e</varname>,
-      <varname>v</varname>, <varname>q</varname>,
+      <varname>E</varname>, <varname>v</varname>, <varname>q</varname>,
       <varname>Q</varname>, <varname>C</varname>, <varname>x</varname>
       and <varname>X</varname>. If omitted or set to
       <literal>-</literal>, no automatic clean-up is done.</para>
