@@ -54,9 +54,12 @@ bool qmp_client_is_idle(QmpClient *c);
 /* True iff the connection is dead. Stable terminal state — once set, it stays set. */
 bool qmp_client_is_disconnected(QmpClient *c);
 
-/* Async send. Returns 0 on send (callback will fire later), negative errno on failure. */
+/* Async send. Returns 0 on send (callback will fire later), negative errno on failure. If
+ * ret_slot is non-NULL, returns a reference to a QmpSlot which can be used to cancel the call
+ * (by unreffing it before the reply arrives). */
 int qmp_client_invoke(
                 QmpClient *client,
+                QmpSlot **ret_slot,
                 const char *command,
                 QmpClientArgs *args,
                 qmp_command_callback_t callback,
@@ -81,6 +84,13 @@ unsigned qmp_client_next_fdset_id(QmpClient *client);
 QmpClient* qmp_client_unref(QmpClient *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(QmpClient *, qmp_client_unref);
+
+QmpSlot* qmp_slot_ref(QmpSlot *slot);
+QmpSlot* qmp_slot_unref(QmpSlot *slot);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(QmpSlot *, qmp_slot_unref);
+
+QmpClient* qmp_slot_get_client(QmpSlot *slot);
 
 /* Returns true iff any object entry in schema (result of query-qmp-schema) has a member with this
  * name. QEMU's introspection replaces type names with opaque numeric ids, so lookup-by-type-name is

@@ -71,7 +71,7 @@ static int qmp_execute_varlink_async(
 
         sd_varlink_ref(link);
 
-        r = qmp_client_invoke(ctx->bridge->qmp, command, QMP_CLIENT_ARGS(arguments), callback, link);
+        r = qmp_client_invoke(ctx->bridge->qmp, /* ret_slot= */ NULL, command, QMP_CLIENT_ARGS(arguments), callback, link);
         if (r < 0)
                 sd_varlink_unref(link);
 
@@ -241,7 +241,7 @@ static int dispatch_pending_job(VmspawnQmpBridge *bridge, sd_json_variant *data)
         if (r < 0)
                 return sd_event_exit(qmp_client_get_event(bridge->qmp), r);
 
-        r = qmp_client_invoke(bridge->qmp, "job-dismiss", QMP_CLIENT_ARGS(dismiss_args),
+        r = qmp_client_invoke(bridge->qmp, /* ret_slot= */ NULL, "job-dismiss", QMP_CLIENT_ARGS(dismiss_args),
                               on_job_dismiss_complete, /* userdata= */ NULL);
         if (r < 0)
                 return sd_event_exit(qmp_client_get_event(bridge->qmp), r);
