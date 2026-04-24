@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "varlink-idl-common.h"
+#include "varlink-io.systemd.Job.h"
 #include "varlink-io.systemd.Unit.h"
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
@@ -972,6 +973,30 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Remount command"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecRemount, ExecCommand, SD_VARLINK_NULLABLE));
 
+/* Service-specific types */
+
+/* Keep in sync with service_type_table[] in src/core/service.c */
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                ServiceType,
+                SD_VARLINK_DEFINE_ENUM_VALUE(simple),
+                SD_VARLINK_DEFINE_ENUM_VALUE(exec),
+                SD_VARLINK_DEFINE_ENUM_VALUE(forking),
+                SD_VARLINK_DEFINE_ENUM_VALUE(oneshot),
+                SD_VARLINK_DEFINE_ENUM_VALUE(dbus),
+                SD_VARLINK_DEFINE_ENUM_VALUE(notify),
+                SD_VARLINK_FIELD_COMMENT("Like notify, but also implements a reload protocol via SIGHUP."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(notify_reload),
+                SD_VARLINK_DEFINE_ENUM_VALUE(idle));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ServiceContext,
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#Type="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Type, ServiceType, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#ExecStart="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecStart, ExecCommand, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.service.html#RemainAfterExit="),
+                SD_VARLINK_DEFINE_FIELD(RemainAfterExit, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 /* UnitContext */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Condition,
@@ -984,10 +1009,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The parameter passed to the condition"),
                 SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+/* UnitContext is used both as input to StartTransient (subset settable at creation time: ID,
+ * Description, Service) and as output from List/StartTransient (full unit configuration). Fields that
+ * are not settable at creation time are rejected with PropertyNotSupported when supplied as input. */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitContext,
                 SD_VARLINK_FIELD_COMMENT("The unit type"),
-                SD_VARLINK_DEFINE_FIELD(Type, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD(Type, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The unit ID"),
                 SD_VARLINK_DEFINE_FIELD(ID, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The aliases of this unit"),
@@ -1054,25 +1082,25 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.unit.html#WantsMountsFor="),
                 SD_VARLINK_DEFINE_FIELD(WantsMountsFor, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.unit.html#OnSuccessJobMode="),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(OnSuccessJobMode, JobMode, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(OnSuccessJobMode, JobMode, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.unit.html#OnSuccessJobMode="),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(OnFailureJobMode, JobMode, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(OnFailureJobMode, JobMode, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.unit.html#IgnoreOnIsolate="),
-                SD_VARLINK_DEFINE_FIELD(IgnoreOnIsolate, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(IgnoreOnIsolate, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.unit.html#StopWhenUnneeded="),
-                SD_VARLINK_DEFINE_FIELD(StopWhenUnneeded, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(StopWhenUnneeded, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.unit.html#RefuseManualStart="),
-                SD_VARLINK_DEFINE_FIELD(RefuseManualStart, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(RefuseManualStart, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.unit.html#RefuseManualStart="),
-                SD_VARLINK_DEFINE_FIELD(RefuseManualStop, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(RefuseManualStop, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.unit.html#AllowIsolate="),
-                SD_VARLINK_DEFINE_FIELD(AllowIsolate, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(AllowIsolate, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.unit.html#DefaultDependencies="),
-                SD_VARLINK_DEFINE_FIELD(DefaultDependencies, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(DefaultDependencies, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.unit.html#SurviveFinalKillSignal="),
-                SD_VARLINK_DEFINE_FIELD(SurviveFinalKillSignal, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(SurviveFinalKillSignal, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.unit.html#CollectMode="),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CollectMode, CollectMode, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CollectMode, CollectMode, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.unit.html#FailureAction="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(FailureAction, EmergencyAction, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.unit.html#FailureAction="),
@@ -1119,11 +1147,11 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The unit file preset for this unit"),
                 SD_VARLINK_DEFINE_FIELD(UnitFilePreset, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether this unit is transient"),
-                SD_VARLINK_DEFINE_FIELD(Transient, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(Transient, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether this unit is perpetual"),
-                SD_VARLINK_DEFINE_FIELD(Perpetual, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(Perpetual, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("When true, logs about this unit will be at debug level regardless of other log level settings"),
-                SD_VARLINK_DEFINE_FIELD(DebugInvocation, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(DebugInvocation, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
 
                 /* Other contexts */
                 SD_VARLINK_FIELD_COMMENT("The cgroup context of the unit"),
@@ -1132,6 +1160,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Exec, ExecContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The kill context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Kill, KillContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The service context of the unit (only for .service units)"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Service, ServiceContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The automount context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Automount, AutomountContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The mount context of the unit"),
@@ -1339,6 +1369,28 @@ static SD_VARLINK_DEFINE_ERROR(
                 PropertyNotSupported,
                 SD_VARLINK_DEFINE_FIELD(property, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_ERROR(UnitExists);
+static SD_VARLINK_DEFINE_ERROR(UnitTypeNotSupported);
+static SD_VARLINK_DEFINE_ERROR(BadUnitSetting);
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                StartTransient,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("Unit context. Must include ID (the unit name). Only the subset of fields settable at creation time is accepted; supplying any other field returns PropertyNotSupported."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(context, UnitContext, 0),
+                SD_VARLINK_FIELD_COMMENT("Job mode. Defaults to replace."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, JobMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream job state change notifications. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(notifyJobChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream unit runtime notifications on state changes. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(notifyUnitChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit context. Set in the final reply."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit runtime state. Set in the final reply and in intermediate streaming notifications when notifyUnitChanges is true."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The job that was enqueued. Always set in the final streaming reply; also included in intermediate streaming notifications when notifyJobChanges is true."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(job, Job, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD(
                 SetProperties,
                 SD_VARLINK_FIELD_COMMENT("The name of the unit to operate on."),
@@ -1355,6 +1407,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_List,
                 SD_VARLINK_SYMBOL_COMMENT("Set unit properties"),
                 &vl_method_SetProperties,
+                SD_VARLINK_SYMBOL_COMMENT("Create a transient unit and start it"),
+                &vl_method_StartTransient,
                 &vl_type_RateLimit,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's conditions"),
                 &vl_type_Condition,
@@ -1451,7 +1505,22 @@ SD_VARLINK_DEFINE_INTERFACE(
                 /* UnitContext enums */
                 &vl_type_CollectMode,
                 &vl_type_EmergencyAction,
+
+                /* Shared types (used by both StartTransient and Unit.List) */
+                SD_VARLINK_SYMBOL_COMMENT("Service type"),
+                &vl_type_ServiceType,
+                SD_VARLINK_SYMBOL_COMMENT("Job mode"),
                 &vl_type_JobMode,
+                SD_VARLINK_SYMBOL_COMMENT("Job type (defined in io.systemd.Job)"),
+                &vl_type_JobType,
+                SD_VARLINK_SYMBOL_COMMENT("Job state (defined in io.systemd.Job)"),
+                &vl_type_JobState,
+                SD_VARLINK_SYMBOL_COMMENT("Job result (defined in io.systemd.Job)"),
+                &vl_type_JobResult,
+                SD_VARLINK_SYMBOL_COMMENT("A job object (defined in io.systemd.Job)"),
+                &vl_type_Job,
+                SD_VARLINK_SYMBOL_COMMENT("Service-specific context"),
+                &vl_type_ServiceContext,
 
                 /* Errors */
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
@@ -1460,9 +1529,15 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_UnitMasked,
                 SD_VARLINK_SYMBOL_COMMENT("Unit is in a fatal error state"),
                 &vl_error_UnitError,
-                SD_VARLINK_SYMBOL_COMMENT("Changing this property via SetProperties() is not supported"),
+                SD_VARLINK_SYMBOL_COMMENT("The named property cannot be set (via SetProperties() or at creation time via StartTransient())"),
                 &vl_error_PropertyNotSupported,
                 SD_VARLINK_SYMBOL_COMMENT("Job for the unit may only be enqueued by dependencies"),
                 &vl_error_OnlyByDependency,
                 SD_VARLINK_SYMBOL_COMMENT("A unit that requires D-Bus cannot be started as D-Bus is shutting down"),
-                &vl_error_DBusShuttingDown);
+                &vl_error_DBusShuttingDown,
+                SD_VARLINK_SYMBOL_COMMENT("A unit with this name already exists"),
+                &vl_error_UnitExists,
+                SD_VARLINK_SYMBOL_COMMENT("This unit type does not support transient units"),
+                &vl_error_UnitTypeNotSupported,
+                SD_VARLINK_SYMBOL_COMMENT("The unit file content contains invalid settings"),
+                &vl_error_BadUnitSetting);

@@ -1028,7 +1028,6 @@ static int transient_unit_from_message(
                 Unit **ret_unit,
                 sd_bus_error *reterr_error) {
 
-        UnitType t;
         Unit *u;
         int r;
 
@@ -1036,27 +1035,7 @@ static int transient_unit_from_message(
         assert(message);
         assert(name);
 
-        t = unit_name_to_type(name);
-        if (t < 0)
-                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Invalid unit name or type: %s", name);
-
-        if (!unit_vtable[t]->can_transient)
-                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Unit type %s does not support transient units.",
-                                         unit_type_to_string(t));
-
-        r = manager_load_unit(m, name, NULL, reterr_error, &u);
-        if (r < 0)
-                return r;
-
-        if (!unit_is_pristine(u))
-                return sd_bus_error_setf(reterr_error, BUS_ERROR_UNIT_EXISTS,
-                                         "Unit %s was already loaded or has a fragment file.", name);
-
-        /* OK, the unit failed to load and is unreferenced, now let's
-         * fill in the transient data instead */
-        r = unit_make_transient(u);
+        r = manager_setup_transient_unit(m, name, &u, reterr_error);
         if (r < 0)
                 return r;
 
