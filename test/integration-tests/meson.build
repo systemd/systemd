@@ -22,7 +22,7 @@ integration_test_template = {
                 'service' : {},
                 'unit' : {},
         },
-        'cmdline' : [],
+        'cmdline' : ['systemd.default_device_timeout_sec=300'],
         'credentials' : [],
         'qemu-args' : [],
         'exit-code' : 123,
