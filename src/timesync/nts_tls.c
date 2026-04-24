@@ -69,6 +69,9 @@ ssize_t NTS_TLS_write(NTS_TLS *session, const void *buffer, size_t size) {
         assert(session);
         assert(buffer);
 
+        /* clamp size to fit in the range required by OpenSSL */
+        size = MIN(size, (size_t)INT_MAX);
+
         SSL *tls = (void *)session;
         int result = SSL_write(tls, buffer, size);
         if (result > 0)
@@ -86,6 +89,9 @@ ssize_t NTS_TLS_write(NTS_TLS *session, const void *buffer, size_t size) {
 ssize_t NTS_TLS_read(NTS_TLS *session, void *buffer, size_t size) {
         assert(session);
         assert(buffer);
+
+        /* clamp size to fit in the range required by OpenSSL */
+        size = MIN(size, (size_t)INT_MAX);
 
         SSL *tls = (void *)session;
         int result = SSL_read(tls, buffer, size);
