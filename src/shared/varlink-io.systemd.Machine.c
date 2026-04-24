@@ -57,7 +57,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(vSockCid,                SD_VARLINK_INT,    SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(sshAddress,              SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(sshPrivateKeyPath,       SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Varlink socket address for direct machine control. The server at this address is expected to implement io.systemd.MachineInstance and optionally io.systemd.VirtualMachineInstance and io.systemd.QemuMachineInstance."),
+                SD_VARLINK_FIELD_COMMENT("Varlink socket address for direct machine control. The server at this address is expected to implement io.systemd.MachineInstance and optionally io.systemd.VirtualMachineInstance."),
                 SD_VARLINK_DEFINE_INPUT(controlAddress,          SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Controls whether to allocate a scope unit for the machine to register. If false, the client already took care of that and registered a service/scope specific to the machine."),
                 SD_VARLINK_DEFINE_INPUT(allocateUnit,            SD_VARLINK_BOOL,   SD_VARLINK_NULLABLE),
