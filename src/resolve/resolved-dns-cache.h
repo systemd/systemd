@@ -3,11 +3,16 @@
 
 #include "resolved-forward.h"
 
+/* Never cache more than 4K entries. RFC 1536, Section 5 suggests to
+ * leave DNS caches unbounded, but that's crazy. */
+#define DEFAULT_CACHE_MAX 4096U
+
 typedef struct DnsCache {
         Hashmap *by_key;
         Prioq *by_expiry;
         unsigned n_hit;
         unsigned n_miss;
+        unsigned cache_max;
 } DnsCache;
 
 void dns_cache_flush(DnsCache *c);
