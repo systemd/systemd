@@ -3238,14 +3238,10 @@ static int clean_including_item(
         int r;
 
         /* Find parent path so we can get stats on the directory that holds instance (file or dir) */
-        ChaseFlags chase_flags = CHASE_SAFE | CHASE_NOFOLLOW | (i->allow_failure ? 0 : CHASE_WARN);
-        dir_fd = chase_and_open_parent_at(AT_FDCWD, instance, chase_flags, NULL);
+        dir_fd = path_open_parent_safe(instance, i->allow_failure);
         if (dir_fd < 0)
-                return log_full_errno(i->allow_failure ? LOG_INFO : LOG_ERR,
-                                      dir_fd,
-                                      "Failed to open path '%s'%s: %m",
-                                      instance,
-                                      i->allow_failure ? ", ignoring" : "");
+                return dir_fd;
+
         r = xstatx_full(dir_fd,
                         /* path= */ NULL,
                         /* statx_flags= */ AT_EMPTY_PATH|AT_NO_AUTOMOUNT,
