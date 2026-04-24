@@ -11,7 +11,6 @@
 #include "dissect-image.h"
 #include "format-table.h"
 #include "glyph-util.h"
-#include "hexdecoct.h"
 #include "image-policy.h"
 #include "loop-util.h"
 #include "main-func.h"
