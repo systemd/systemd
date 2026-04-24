@@ -9,42 +9,79 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
-#include "io-util.h"
+#include "json-stream.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "qmp-client.h"
-#include "socket-util.h"
 #include "string-util.h"
 #include "tests.h"
 
-/* Mock QMP server: runs in the child process of a fork, communicates via one end of a socketpair. */
+/* Mock QMP server: runs in the child process of a fork, communicates via one end of a socketpair.
+ * Uses JsonStream as the transport so framing (CRLF delimiter, message queuing, SCM_RIGHTS) is
+ * handled the same way as on the client side — individual recv() syscalls may coalesce multiple
+ * messages, and the parser must re-emit each one on its own. */
 
-static void mock_qmp_write_json(int fd, sd_json_variant *v) {
-        _cleanup_free_ char *s = NULL;
-
-        ASSERT_OK(sd_json_variant_format(v, 0, &s));
-        ASSERT_NOT_NULL(strextend(&s, "\r\n"));
-        ASSERT_OK(loop_write(fd, s, SIZE_MAX));
+/* We drive the stream manually via read/parse/wait; always report READING so json_stream_wait()
+ * asks for POLLIN. */
+static JsonStreamPhase mock_qmp_phase(void *userdata) {
+        return JSON_STREAM_PHASE_READING;
 }
 
-static void mock_qmp_write_literal(int fd, const char *msg) {
-        ASSERT_OK(loop_write(fd, msg, SIZE_MAX));
-        ASSERT_OK(loop_write(fd, "\r\n", 2));
+/* Never reached — we don't wire the mock stream up to sd-event — but required at init. */
+static int mock_qmp_dispatch(void *userdata) {
+        return 0;
 }
 
-/* Read a command from the QMP client, verify it contains the expected command name, extract the id,
- * and send a reply with that id. If reply_data is NULL, an empty return object is sent. */
-static void mock_qmp_expect_and_reply(int fd, const char *expected_command, sd_json_variant *reply_data) {
-        _cleanup_free_ char *buf = NULL;
+static void mock_qmp_init(JsonStream *s, int fd) {
+        static const JsonStreamParams params = {
+                .delimiter = "\r\n",
+                .phase = mock_qmp_phase,
+                .dispatch = mock_qmp_dispatch,
+        };
+
+        ASSERT_OK(json_stream_init(s, &params));
+        ASSERT_OK(json_stream_connect_fd_pair(s, fd, fd));
+}
+
+/* Read one complete JSON message, blocking until available. Handles the case where multiple
+ * client messages arrived coalesced into a single recv(): the parser walks the input buffer
+ * one CRLF-delimited message at a time. */
+static void mock_qmp_recv(JsonStream *s, sd_json_variant **ret) {
+        int r;
+
+        for (;;) {
+                r = ASSERT_OK(json_stream_parse(s, ret));
+                if (r > 0)
+                        return;
+
+                r = ASSERT_OK(json_stream_read(s));
+                if (r > 0)
+                        continue;
+
+                ASSERT_OK(json_stream_wait(s, USEC_INFINITY));
+        }
+}
+
+/* Enqueue one JSON variant and block until it has been fully written. */
+static void mock_qmp_send(JsonStream *s, sd_json_variant *v) {
+        ASSERT_OK(json_stream_enqueue(s, v));
+        ASSERT_OK(json_stream_flush(s));
+}
+
+/* Parse a literal JSON string and send it. Used for fixed greetings and unsolicited events. */
+static void mock_qmp_send_literal(JsonStream *s, const char *msg) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        ASSERT_OK(sd_json_parse(msg, 0, &v, NULL, NULL));
+        mock_qmp_send(s, v);
+}
+
+/* Read a command from the client, verify it contains the expected command name, and send a
+ * reply carrying the same id. If reply_data is NULL, an empty return object is sent. */
+static void mock_qmp_expect_and_reply(JsonStream *s, const char *expected_command, sd_json_variant *reply_data) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL, *reply_obj = NULL, *response = NULL;
 
-        buf = ASSERT_NOT_NULL(new(char, 4096));
-
-        ssize_t n = read(fd, buf, 4095);
-        assert_se(n > 0);
-        buf[n] = '\0';
-
-        ASSERT_OK(sd_json_parse(buf, 0, &cmd, NULL, NULL));
+        mock_qmp_recv(s, &cmd);
 
         sd_json_variant *execute = ASSERT_NOT_NULL(sd_json_variant_by_key(cmd, "execute"));
         ASSERT_STREQ(sd_json_variant_string(execute), expected_command);
@@ -59,38 +96,64 @@ static void mock_qmp_expect_and_reply(int fd, const char *expected_command, sd_j
                         SD_JSON_BUILD_PAIR("return", SD_JSON_BUILD_VARIANT(reply_data ?: reply_obj)),
                         SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_VARIANT(id))));
 
-        mock_qmp_write_json(fd, response);
+        mock_qmp_send(s, response);
+}
+
+/* Same shape as mock_qmp_expect_and_reply() but replies with a QMP error object. */
+static void mock_qmp_expect_and_reply_error(JsonStream *s, const char *expected_command, const char *error_desc) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL, *error_obj = NULL, *response = NULL;
+
+        mock_qmp_recv(s, &cmd);
+
+        sd_json_variant *execute = ASSERT_NOT_NULL(sd_json_variant_by_key(cmd, "execute"));
+        ASSERT_STREQ(sd_json_variant_string(execute), expected_command);
+
+        sd_json_variant *id = ASSERT_NOT_NULL(sd_json_variant_by_key(cmd, "id"));
+
+        ASSERT_OK(sd_json_buildo(
+                        &error_obj,
+                        SD_JSON_BUILD_PAIR_STRING("class", "GenericError"),
+                        SD_JSON_BUILD_PAIR_STRING("desc", error_desc)));
+
+        ASSERT_OK(sd_json_buildo(
+                        &response,
+                        SD_JSON_BUILD_PAIR("error", SD_JSON_BUILD_VARIANT(error_obj)),
+                        SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_VARIANT(id))));
+
+        mock_qmp_send(s, response);
 }
 
 static _noreturn_ void mock_qmp_server(int fd) {
+        _cleanup_(json_stream_done) JsonStream s = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *status_return = NULL;
 
+        mock_qmp_init(&s, fd);
+
         /* Send QMP greeting */
-        mock_qmp_write_literal(fd,
+        mock_qmp_send_literal(&s,
                 "{\"QMP\": {\"version\": {\"qemu\": {\"micro\": 0, \"minor\": 2, \"major\": 9}}, \"capabilities\": [\"oob\"]}}");
 
         /* Accept qmp_capabilities */
-        mock_qmp_expect_and_reply(fd, "qmp_capabilities", NULL);
+        mock_qmp_expect_and_reply(&s, "qmp_capabilities", NULL);
 
         /* Accept query-status, reply with running state */
         ASSERT_OK(sd_json_buildo(
                         &status_return,
                         SD_JSON_BUILD_PAIR_BOOLEAN("running", true),
                         SD_JSON_BUILD_PAIR_STRING("status", "running")));
-        mock_qmp_expect_and_reply(fd, "query-status", status_return);
+        mock_qmp_expect_and_reply(&s, "query-status", status_return);
 
         /* Accept stop */
-        mock_qmp_expect_and_reply(fd, "stop", NULL);
+        mock_qmp_expect_and_reply(&s, "stop", NULL);
 
         /* Send a STOP event */
-        mock_qmp_write_literal(fd,
+        mock_qmp_send_literal(&s,
                 "{\"event\": \"STOP\", \"timestamp\": {\"seconds\": 1234, \"microseconds\": 5678}}");
 
         /* Accept cont */
-        mock_qmp_expect_and_reply(fd, "cont", NULL);
+        mock_qmp_expect_and_reply(&s, "cont", NULL);
 
-        /* Close to trigger EOF */
-        safe_close(fd);
+        /* json_stream_done() on cleanup closes our fd and signals EOF. */
         _exit(EXIT_SUCCESS);
 }
 
@@ -166,8 +229,7 @@ TEST(qmp_client_basic) {
 
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, qmp_fds));
 
-        r = pidref_safe_fork("(mock-qmp)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid);
-        ASSERT_OK(r);
+        r = ASSERT_OK(pidref_safe_fork("(mock-qmp)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid));
 
         if (r == 0) {
                 safe_close(qmp_fds[0]);
@@ -186,7 +248,7 @@ TEST(qmp_client_basic) {
         qmp_client_bind_event(client, test_event_callback, &event_received);
 
         /* Execute query-status */
-        ASSERT_OK(qmp_client_invoke(client, "query-status", NULL, on_test_result, &t));
+        ASSERT_OK(qmp_client_invoke(client, /* ret_slot= */ NULL, "query-status", NULL, on_test_result, &t));
         qmp_test_wait(event, &t);
         ASSERT_EQ(t.error, 0);
         ASSERT_NOT_NULL(t.result);
@@ -200,13 +262,13 @@ TEST(qmp_client_basic) {
         qmp_test_result_done(&t);
 
         /* Execute stop */
-        ASSERT_OK(qmp_client_invoke(client, "stop", NULL, on_test_result, &t));
+        ASSERT_OK(qmp_client_invoke(client, /* ret_slot= */ NULL, "stop", NULL, on_test_result, &t));
         qmp_test_wait(event, &t);
         ASSERT_EQ(t.error, 0);
         qmp_test_result_done(&t);
 
         /* Execute cont -- the STOP event should be dispatched by the IO callback */
-        ASSERT_OK(qmp_client_invoke(client, "cont", NULL, on_test_result, &t));
+        ASSERT_OK(qmp_client_invoke(client, /* ret_slot= */ NULL, "cont", NULL, on_test_result, &t));
         qmp_test_wait(event, &t);
         ASSERT_EQ(t.error, 0);
         qmp_test_result_done(&t);
@@ -232,20 +294,21 @@ TEST(qmp_client_eof) {
         ASSERT_OK(sd_event_new(&event));
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, qmp_fds));
 
-        r = pidref_safe_fork("(mock-qmp-eof)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid);
-        ASSERT_OK(r);
+        r = ASSERT_OK(pidref_safe_fork("(mock-qmp-eof)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid));
 
         if (r == 0) {
+                _cleanup_(json_stream_done) JsonStream s = {};
+
                 safe_close(qmp_fds[0]);
+                mock_qmp_init(&s, qmp_fds[1]);
 
                 /* Send greeting and accept capabilities, then die */
-                mock_qmp_write_literal(qmp_fds[1],
+                mock_qmp_send_literal(&s,
                         "{\"QMP\": {\"version\": {\"qemu\": {\"micro\": 0, \"minor\": 0, \"major\": 9}}, \"capabilities\": []}}");
 
-                mock_qmp_expect_and_reply(qmp_fds[1], "qmp_capabilities", NULL);
+                mock_qmp_expect_and_reply(&s, "qmp_capabilities", NULL);
 
-                /* Close immediately to trigger EOF */
-                safe_close(qmp_fds[1]);
+                /* _exit() closes our fd via kernel teardown, signalling EOF to the peer. */
                 _exit(EXIT_SUCCESS);
         }
 
@@ -257,7 +320,7 @@ TEST(qmp_client_eof) {
         /* Executing a command should fail with a disconnect error because the server
          * closed. The handshake may succeed or fail inside invoke() — either way the
          * invoke itself or the async callback should report a disconnect. */
-        r = qmp_client_invoke(client, "query-status", NULL, on_test_result, &t);
+        r = qmp_client_invoke(client, /* ret_slot= */ NULL, "query-status", NULL, on_test_result, &t);
         if (r < 0)
                 ASSERT_TRUE(ERRNO_IS_NEG_DISCONNECT(r));
         else {
@@ -272,86 +335,47 @@ TEST(qmp_client_eof) {
         ASSERT_EQ(si.si_status, EXIT_SUCCESS);
 }
 
-/* Read one QMP command from fd (one recvmsg, expecting it fits in the buffer for typical
- * test commands). Returns the number of SCM_RIGHTS fds that arrived attached to the read,
- * stores the first received fd in *ret_received_fd (or -EBADF if none) and closes any extras,
- * and parses the JSON into *ret_cmd. */
-static size_t mock_qmp_recv_command(int fd, sd_json_variant **ret_cmd, int *ret_received_fd) {
-        char buf[4096];
-        char ctrl[CMSG_SPACE(sizeof(int) * 4)];
-        struct iovec iov = { .iov_base = buf, .iov_len = sizeof(buf) - 1 };
-        struct msghdr mh = {
-                .msg_iov = &iov, .msg_iovlen = 1,
-                .msg_control = ctrl, .msg_controllen = sizeof(ctrl),
-        };
-        size_t n_fds = 0;
-        int received_fd = -EBADF;
-
-        ssize_t n = recvmsg(fd, &mh, MSG_CMSG_CLOEXEC);
-        assert_se(n > 0);
-        buf[n] = '\0';
-
-        struct cmsghdr *cmsg;
-        CMSG_FOREACH(cmsg, &mh) {
-                if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS)
-                        continue;
-                size_t k = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
-                int *fds = (int*) CMSG_DATA(cmsg);
-                for (size_t i = 0; i < k; i++) {
-                        if (received_fd < 0)
-                                received_fd = fds[i];
-                        else
-                                safe_close(fds[i]);
-                }
-                n_fds += k;
-        }
-
-        ASSERT_OK(sd_json_parse(buf, 0, ret_cmd, NULL, NULL));
-
-        if (ret_received_fd)
-                *ret_received_fd = received_fd;
-        else if (received_fd >= 0)
-                safe_close(received_fd);
-
-        return n_fds;
-}
-
-/* Mock QMP server for the fd-on-first-invoke regression. Drives the wire dance:
- *   greeting → (recv qmp_capabilities, expect 0 fds) → reply →
- *   (recv add-fd, expect exactly 1 fd) → reply
- * Asserts the cmsg fd counts directly so a regression flips the child to
- * exit_failure and the parent test fails on the wait-for-terminate. */
-static _noreturn_ void mock_qmp_server_fd_first(int fd) {
+/* Mock QMP server for the fd-passing test. Drives the wire dance:
+ *   greeting → recv qmp_capabilities → reply → recv add-fd → reply
+ * Asserts that exactly one SCM_RIGHTS fd arrives total across the two recvs. We can't
+ * require the fd to come attached to add-fd specifically: AF_UNIX coalesces the client's
+ * non-SCM cap sendmsg forward into the SCM-bearing add-fd sendmsg, so the fd may surface
+ * with either recv depending on kernel scheduling. QEMU's FIFO fd queue doesn't care. */
+static _noreturn_ void mock_qmp_server_fd(int fd) {
+        _cleanup_(json_stream_done) JsonStream s = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cap_cmd = NULL,
                                                           *addfd_cmd = NULL,
                                                           *cap_reply = NULL,
                                                           *addfd_return = NULL,
                                                           *addfd_reply = NULL;
-        size_t n_fds;
-        int received_fd = -EBADF;
+
+        mock_qmp_init(&s, fd);
+        ASSERT_OK(json_stream_set_allow_fd_passing_input(&s, true, /* with_sockopt= */ true));
 
         /* Greeting */
-        mock_qmp_write_literal(fd,
+        mock_qmp_send_literal(&s,
                 "{\"QMP\": {\"version\": {\"qemu\": {\"micro\": 0, \"minor\": 0, \"major\": 9}}, \"capabilities\": []}}");
 
-        /* Receive qmp_capabilities — must arrive with NO fds attached. */
-        n_fds = mock_qmp_recv_command(fd, &cap_cmd, /* ret_received_fd= */ NULL);
-        ASSERT_EQ(n_fds, (size_t) 0);
+        /* Receive qmp_capabilities (may or may not carry the fd depending on coalescing). */
+        mock_qmp_recv(&s, &cap_cmd);
+        size_t n_fds_total = json_stream_get_n_input_fds(&s);
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(cap_cmd, "execute")), "qmp_capabilities");
+        json_stream_close_input_fds(&s);
 
         sd_json_variant *cap_id = ASSERT_NOT_NULL(sd_json_variant_by_key(cap_cmd, "id"));
         ASSERT_OK(sd_json_buildo(
                         &cap_reply,
                         SD_JSON_BUILD_PAIR("return", SD_JSON_BUILD_EMPTY_OBJECT),
                         SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_VARIANT(cap_id))));
-        mock_qmp_write_json(fd, cap_reply);
+        mock_qmp_send(&s, cap_reply);
 
-        /* Receive add-fd — must arrive with EXACTLY ONE fd attached. */
-        n_fds = mock_qmp_recv_command(fd, &addfd_cmd, &received_fd);
-        ASSERT_EQ(n_fds, (size_t) 1);
-        ASSERT_TRUE(received_fd >= 0);
+        /* Receive add-fd (fd may already have been consumed with cap's recv). */
+        mock_qmp_recv(&s, &addfd_cmd);
+        n_fds_total += json_stream_get_n_input_fds(&s);
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(addfd_cmd, "execute")), "add-fd");
-        safe_close(received_fd);
+        json_stream_close_input_fds(&s);
+
+        ASSERT_EQ(n_fds_total, (size_t) 1);
 
         sd_json_variant *addfd_id = ASSERT_NOT_NULL(sd_json_variant_by_key(addfd_cmd, "id"));
         ASSERT_OK(sd_json_buildo(
@@ -362,19 +386,14 @@ static _noreturn_ void mock_qmp_server_fd_first(int fd) {
                         &addfd_reply,
                         SD_JSON_BUILD_PAIR("return", SD_JSON_BUILD_VARIANT(addfd_return)),
                         SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_VARIANT(addfd_id))));
-        mock_qmp_write_json(fd, addfd_reply);
+        mock_qmp_send(&s, addfd_reply);
 
-        safe_close(fd);
         _exit(EXIT_SUCCESS);
 }
 
-/* Regression: pass an fd in the very first qmp_client_invoke() against a fresh client
- * (lazy-bootstrap state, handshake not yet done). The previous push_fd+invoke split would
- * stage the fd on the stream BEFORE qmp_client_ensure_running() drove the handshake; the
- * handshake's qmp_capabilities enqueue would then steal the staged fd onto its own
- * sendmsg. The new QmpClientArgs API stages fds inside invoke AFTER ensure_running, so
- * the fd lands on add-fd's sendmsg as it should. */
-TEST(qmp_client_first_invoke_with_fd) {
+/* End-to-end fd-passing through qmp_client_invoke() with QMP_CLIENT_ARGS_FD(): open a real
+ * fd, send add-fd, confirm the mock received a single SCM_RIGHTS fd and replied successfully. */
+TEST(qmp_client_invoke_with_fd) {
         _cleanup_(qmp_client_unrefp) QmpClient *client = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
@@ -387,12 +406,11 @@ TEST(qmp_client_first_invoke_with_fd) {
         ASSERT_OK(sd_event_new(&event));
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, qmp_fds));
 
-        r = pidref_safe_fork("(mock-qmp-fd-first)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid);
-        ASSERT_OK(r);
+        r = ASSERT_OK(pidref_safe_fork("(mock-qmp-fd)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid));
 
         if (r == 0) {
                 safe_close(qmp_fds[0]);
-                mock_qmp_server_fd_first(qmp_fds[1]);
+                mock_qmp_server_fd(qmp_fds[1]);
         }
 
         safe_close(qmp_fds[1]);
@@ -404,13 +422,9 @@ TEST(qmp_client_first_invoke_with_fd) {
         ASSERT_OK(qmp_client_connect_fd(&client, qmp_fds[0]));
         ASSERT_OK(qmp_client_attach_event(client, event, SD_EVENT_PRIORITY_NORMAL));
 
-        /* Build add-fd args. The fdset-id value is irrelevant — the mock server only
-         * cares that the fd arrived with the correct sendmsg. */
         ASSERT_OK(sd_json_buildo(&args, SD_JSON_BUILD_PAIR_UNSIGNED("fdset-id", 0)));
 
-        /* THIS is the previously-broken pattern: very first invoke against the client,
-         * carrying an fd, with the handshake still pending. */
-        ASSERT_OK(qmp_client_invoke(client, "add-fd",
+        ASSERT_OK(qmp_client_invoke(client, /* ret_slot= */ NULL, "add-fd",
                                     QMP_CLIENT_ARGS_FD(args, TAKE_FD(fd_to_pass)),
                                     on_test_result, &t));
 
@@ -419,113 +433,196 @@ TEST(qmp_client_first_invoke_with_fd) {
         ASSERT_NOT_NULL(t.result);
         qmp_test_result_done(&t);
 
-        /* Wait for the mock server child. If it received fds in the wrong order it
-         * exited via the test-assertion failure path and si.si_status will be non-zero. */
+        /* Wait for the mock. If its fd-count assertion tripped, si.si_status is non-zero. */
         siginfo_t si = {};
         ASSERT_OK(pidref_wait_for_terminate(&pid, &si));
         ASSERT_EQ(si.si_code, CLD_EXITED);
         ASSERT_EQ(si.si_status, EXIT_SUCCESS);
 }
 
-/* Regression: when qmp_client_invoke() fails before stage_fds runs (e.g.
- * ensure_running() returns -ENOTCONN because the peer closed mid-handshake), the
- * caller-supplied fds — already TAKE_FD()'d through QMP_CLIENT_ARGS_FD() — must be
- * closed inside invoke. Otherwise they leak. */
+/* Regression: the caller-supplied fds — already TAKE_FD()'d through QMP_CLIENT_ARGS_FD() —
+ * must never leak, regardless of whether the invoke reaches the wire. Verified here via a
+ * dead peer: invoke enqueues (non-blocking), the queue item owns the fd, and client teardown
+ * must close it. */
 TEST(qmp_client_invoke_failure_closes_fds) {
-        _cleanup_(qmp_client_unrefp) QmpClient *client = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
         _cleanup_close_ int fd_to_pass = -EBADF;
+        QmpClient *client = NULL;
         QmpTestResult t = {};
         int qmp_fds[2];
         int saved_fd_value;
 
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, qmp_fds));
 
-        /* Close the peer end immediately so ensure_running()'s read sees EOF and
-         * the client transitions straight to DISCONNECTED inside the first invoke. */
+        /* Close the peer end immediately so any write attempt sees EPIPE. */
         safe_close(qmp_fds[1]);
-
-        ASSERT_OK(qmp_client_connect_fd(&client, qmp_fds[0]));
-        /* Deliberately do NOT attach to an event loop — invoke uses ensure_running()'s
-         * synchronous process+wait pump for the handshake. */
 
         fd_to_pass = open("/dev/null", O_RDWR|O_CLOEXEC);
         ASSERT_OK(fd_to_pass);
         saved_fd_value = fd_to_pass;   /* remember the int value for the closed-check */
 
         ASSERT_OK(sd_json_buildo(&args, SD_JSON_BUILD_PAIR_UNSIGNED("fdset-id", 0)));
+        ASSERT_OK(qmp_client_connect_fd(&client, qmp_fds[0]));
 
-        /* invoke must fail because the peer is gone. The TAKE_FD inside the macro
-         * has already zeroed our local fd_to_pass; if invoke leaked the fd here,
-         * the fd would stay open in our process. */
-        int r = qmp_client_invoke(client, "add-fd",
-                                  QMP_CLIENT_ARGS_FD(args, TAKE_FD(fd_to_pass)),
-                                  on_test_result, &t);
-        ASSERT_TRUE(r < 0);
-        ASSERT_TRUE(ERRNO_IS_NEG_DISCONNECT(r));
+        /* invoke no longer blocks on the handshake — it just enqueues. The fd is now
+         * owned by the underlying JsonStream output queue. */
+        ASSERT_OK(qmp_client_invoke(client, /* ret_slot= */ NULL, "add-fd",
+                                    QMP_CLIENT_ARGS_FD(args, TAKE_FD(fd_to_pass)),
+                                    on_test_result, &t));
+        ASSERT_EQ(fd_to_pass, -EBADF);  /* TAKE_FD cleared our local handle */
 
-        /* fd_to_pass should now be -EBADF (TAKE_FD'd) and the underlying kernel fd
-         * should have been closed by the qmp_client_args_close_fds cleanup in
-         * qmp_client_invoke(). fcntl on the old int returns EBADF only if the slot
-         * is genuinely free. */
-        ASSERT_EQ(fd_to_pass, -EBADF);
+        /* The fd is still open here (held in JsonStream's queue). */
+        ASSERT_OK_ERRNO(fcntl(saved_fd_value, F_GETFD));
+
+        /* Client teardown (json_stream_done) must close queued output fds, otherwise the
+         * saved fd number would still be valid. */
+        client = qmp_client_unref(client);
         ASSERT_EQ(fcntl(saved_fd_value, F_GETFD), -1);
         ASSERT_EQ(errno, EBADF);
 }
 
-/* Reads one command, asserts its execute name, and replies with a QMP error object carrying
- * the given description. Mirrors mock_qmp_expect_and_reply() but on the error branch. */
-static void mock_qmp_expect_and_reply_error(int fd, const char *expected_command, const char *error_desc) {
-        _cleanup_free_ char *buf = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL, *error_obj = NULL, *response = NULL;
+/* Mock for the slot lifecycle + cancel tests: greets, accepts capabilities, then accepts
+ * query-status and stop, replying with dummy returns. A cancelled query-status still gets
+ * sent on the wire (cancel merely removes the pending slot), so the server must be prepared
+ * to read and reply to it. */
+static _noreturn_ void mock_qmp_server_slot(int fd) {
+        _cleanup_(json_stream_done) JsonStream s = {};
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *status_return = NULL;
 
-        buf = ASSERT_NOT_NULL(new(char, 4096));
+        mock_qmp_init(&s, fd);
 
-        ssize_t n = read(fd, buf, 4095);
-        assert_se(n > 0);
-        buf[n] = '\0';
+        mock_qmp_send_literal(&s,
+                "{\"QMP\": {\"version\": {\"qemu\": {\"micro\": 0, \"minor\": 0, \"major\": 9}}, \"capabilities\": []}}");
 
-        ASSERT_OK(sd_json_parse(buf, 0, &cmd, NULL, NULL));
-
-        sd_json_variant *execute = ASSERT_NOT_NULL(sd_json_variant_by_key(cmd, "execute"));
-        ASSERT_STREQ(sd_json_variant_string(execute), expected_command);
-
-        sd_json_variant *id = ASSERT_NOT_NULL(sd_json_variant_by_key(cmd, "id"));
+        mock_qmp_expect_and_reply(&s, "qmp_capabilities", NULL);
 
         ASSERT_OK(sd_json_buildo(
-                        &error_obj,
-                        SD_JSON_BUILD_PAIR_STRING("class", "GenericError"),
-                        SD_JSON_BUILD_PAIR_STRING("desc", error_desc)));
+                        &status_return,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("running", true),
+                        SD_JSON_BUILD_PAIR_STRING("status", "running")));
+        mock_qmp_expect_and_reply(&s, "query-status", status_return);
 
-        ASSERT_OK(sd_json_buildo(
-                        &response,
-                        SD_JSON_BUILD_PAIR("error", SD_JSON_BUILD_VARIANT(error_obj)),
-                        SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_VARIANT(id))));
+        mock_qmp_expect_and_reply(&s, "stop", NULL);
 
-        mock_qmp_write_json(fd, response);
+        _exit(EXIT_SUCCESS);
+}
+
+/* Verify that when qmp_client_invoke() returns a slot, qmp_slot_get_client() tracks the
+ * connection state: the client pointer is reported while the call is in flight, and flipped
+ * back to NULL once the reply has been dispatched. The caller must still be able to drop its
+ * ref safely after that. */
+TEST(qmp_client_invoke_slot_lifecycle) {
+        _cleanup_(qmp_client_unrefp) QmpClient *client = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
+        _cleanup_(qmp_slot_unrefp) QmpSlot *slot = NULL;
+        QmpTestResult t = {};
+        int qmp_fds[2];
+        int r;
+
+        ASSERT_OK(sd_event_new(&event));
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, qmp_fds));
+
+        r = ASSERT_OK(pidref_safe_fork("(mock-qmp-slot-life)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid));
+        if (r == 0) {
+                safe_close(qmp_fds[0]);
+                mock_qmp_server_slot(qmp_fds[1]);
+        }
+        safe_close(qmp_fds[1]);
+
+        ASSERT_OK(qmp_client_connect_fd(&client, qmp_fds[0]));
+        ASSERT_OK(qmp_client_attach_event(client, event, SD_EVENT_PRIORITY_NORMAL));
+
+        ASSERT_OK(qmp_client_invoke(client, &slot, "query-status", NULL, on_test_result, &t));
+
+        /* While in flight the slot still references its client. */
+        ASSERT_NOT_NULL(slot);
+        ASSERT_PTR_EQ(qmp_slot_get_client(slot), client);
+
+        qmp_test_wait(event, &t);
+        ASSERT_EQ(t.error, 0);
+        ASSERT_NOT_NULL(t.result);
+
+        /* Once dispatched, the slot is disconnected from the client but still owned by us. */
+        ASSERT_NULL(qmp_slot_get_client(slot));
+
+        qmp_test_result_done(&t);
+
+        /* Drop our ref explicitly (out of order w.r.t. cleanup) to exercise the
+         * already-disconnected path in qmp_slot_free(). */
+        slot = qmp_slot_unref(slot);
+        ASSERT_NULL(slot);
+}
+
+/* Verify that dropping the only reference on a pending slot before the reply arrives cancels
+ * the callback. The command is already enqueued on the stream at that point, so the server
+ * still sees it and replies — but the reply lands on an unknown id and is discarded. */
+TEST(qmp_client_invoke_slot_cancel) {
+        _cleanup_(qmp_client_unrefp) QmpClient *client = NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
+        QmpTestResult t_cancelled = {};
+        QmpSlot *slot = NULL;
+        int qmp_fds[2];
+        int r;
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, qmp_fds));
+
+        r = ASSERT_OK(pidref_safe_fork("(mock-qmp-slot-cancel)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid));
+        if (r == 0) {
+                safe_close(qmp_fds[0]);
+                mock_qmp_server_slot(qmp_fds[1]);
+        }
+        safe_close(qmp_fds[1]);
+
+        /* Drive without an event loop so the subsequent qmp_client_call() owns all pumping;
+         * it serializes write→read round-trips, which avoids the mock server seeing the
+         * cancelled query-status and the follow-up stop concatenated into a single recv(). */
+        ASSERT_OK(qmp_client_connect_fd(&client, qmp_fds[0]));
+
+        ASSERT_OK(qmp_client_invoke(client, &slot, "query-status", NULL, on_test_result, &t_cancelled));
+        ASSERT_NOT_NULL(slot);
+
+        /* Drop our sole ref → slot disconnects itself from the client's pending set. The
+         * enqueued query-status is still on the wire; when its reply arrives, dispatch_reply
+         * won't find a matching slot and will log-and-discard it. */
+        slot = qmp_slot_unref(slot);
+        ASSERT_NULL(slot);
+
+        /* Synchronous call drives its own process+wait pump: it first drains the already-
+         * enqueued query-status write, consumes (and discards) its reply, then sends stop
+         * and waits for that reply. Any improper fire of the cancelled callback would have
+         * happened during that process() pass. */
+        ASSERT_EQ(qmp_client_call(client, "stop", NULL, NULL, NULL), 1);
+
+        /* The cancelled callback must never have fired. */
+        ASSERT_FALSE(t_cancelled.done);
+        ASSERT_NULL(t_cancelled.result);
+        ASSERT_NULL(t_cancelled.error_desc);
 }
 
 /* Drives a small wire dance for the sync call test: greeting, capabilities, one successful
  * command reply, and two error replies (one for the ret_error_desc path, one for the -EIO
  * path). */
 static _noreturn_ void mock_qmp_server_call(int fd) {
+        _cleanup_(json_stream_done) JsonStream s = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *status_return = NULL;
 
-        mock_qmp_write_literal(fd,
+        mock_qmp_init(&s, fd);
+
+        mock_qmp_send_literal(&s,
                 "{\"QMP\": {\"version\": {\"qemu\": {\"micro\": 0, \"minor\": 0, \"major\": 9}}, \"capabilities\": []}}");
 
-        mock_qmp_expect_and_reply(fd, "qmp_capabilities", NULL);
+        mock_qmp_expect_and_reply(&s, "qmp_capabilities", NULL);
 
         ASSERT_OK(sd_json_buildo(
                         &status_return,
                         SD_JSON_BUILD_PAIR_BOOLEAN("running", true),
                         SD_JSON_BUILD_PAIR_STRING("status", "running")));
-        mock_qmp_expect_and_reply(fd, "query-status", status_return);
+        mock_qmp_expect_and_reply(&s, "query-status", status_return);
 
-        mock_qmp_expect_and_reply_error(fd, "stop", "not running");
-        mock_qmp_expect_and_reply_error(fd, "stop", "still not running");
+        mock_qmp_expect_and_reply_error(&s, "stop", "not running");
+        mock_qmp_expect_and_reply_error(&s, "stop", "still not running");
 
-        safe_close(fd);
         _exit(EXIT_SUCCESS);
 }
 
@@ -573,20 +670,21 @@ TEST(qmp_client_call) {
 /* Server variant for the sync-call disconnect test: greets, accepts capabilities, reads one
  * command without replying, then closes the socket so the client sees EOF mid-wait. */
 static _noreturn_ void mock_qmp_server_call_disconnect(int fd) {
-        _cleanup_free_ char *buf = NULL;
+        _cleanup_(json_stream_done) JsonStream s = {};
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *stop_cmd = NULL;
 
-        mock_qmp_write_literal(fd,
+        mock_qmp_init(&s, fd);
+
+        mock_qmp_send_literal(&s,
                 "{\"QMP\": {\"version\": {\"qemu\": {\"micro\": 0, \"minor\": 0, \"major\": 9}}, \"capabilities\": []}}");
 
-        mock_qmp_expect_and_reply(fd, "qmp_capabilities", NULL);
+        mock_qmp_expect_and_reply(&s, "qmp_capabilities", NULL);
 
-        /* Consume the stop command but don't reply — just close to trigger EOF while the
-         * client is blocked in qmp_client_call()'s process+wait pump. */
-        buf = ASSERT_NOT_NULL(new(char, 4096));
-        ssize_t n = read(fd, buf, 4095);
-        assert_se(n > 0);
+        /* Consume the stop command but don't reply — json_stream_done() on cleanup closes
+         * our fd, triggering EOF while the client is blocked in qmp_client_call()'s
+         * process+wait pump. */
+        mock_qmp_recv(&s, &stop_cmd);
 
-        safe_close(fd);
         _exit(EXIT_SUCCESS);
 }
 
