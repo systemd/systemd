@@ -225,9 +225,9 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
 
         <varlistentry>
           <term><varname>E</varname></term>
-          <listitem><para>Similar to <varname>e</varname> but with changes in the cleanup behaviour. In
+          <listitem><para>Similar to <varname>e</varname> but with changes in the cleanup behavior. In
           addition to cleaning the contents of directories matched by the glob, the matched files and directories
-          themselves are also subject to age-based cleanup. For all other behaviour, such as behaviour related to
+          themselves are also subject to age-based cleanup. For all other behavior, such as behavior related to
           <option>--remove</option>, mountpoints, sticky bits, and so on, <varname>E</varname> is identical to
           <varname>e</varname>.</para>
 
