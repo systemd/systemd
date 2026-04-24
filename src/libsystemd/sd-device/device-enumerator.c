@@ -841,7 +841,7 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
 
                 k = sd_device_new_from_device_id(&device, de->d_name);
                 if (k < 0) {
-                        if (k != -ENODEV)
+                        if (ERRNO_IS_NEG_DEVICE_ABSENT(k))
                                 /* this is necessarily racy, so ignore missing devices */
                                 r = k;
 
