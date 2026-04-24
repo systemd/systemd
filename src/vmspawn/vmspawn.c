@@ -332,7 +332,7 @@ static int parse_argv(int argc, char *argv[]) {
         const Option *current;
         const char *arg;
 
-        FOREACH_OPTION_FULL(&state, c, &current, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_FULL(&state, c, &current, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -921,6 +921,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         /* Drop duplicate --bind-user= and --bind-user-group= entries */

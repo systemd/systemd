@@ -234,7 +234,7 @@ static int parse_argv(int argc, char *argv[]) {
         const Option *current;
         const char *arg;
 
-        FOREACH_OPTION_FULL(&state, c, &current, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_FULL(&state, c, &current, &arg)
                 switch (c) {
 
                 OPTION_COMMON_NO_PAGER:
@@ -512,6 +512,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("shift", NULL, "Shift UID range to selected base"):
                         arg_action = ACTION_SHIFT;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
 
         if (system_scope_requested || user_scope_requested)
