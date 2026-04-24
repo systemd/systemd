@@ -106,7 +106,6 @@ typedef struct Job {
 
         JobType type;
         JobState state;
-
         JobResult result;
 
         unsigned run_queue_idx;
