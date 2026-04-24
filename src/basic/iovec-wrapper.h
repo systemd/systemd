@@ -11,6 +11,12 @@ struct iovec_wrapper {
 void iovw_done_free(struct iovec_wrapper *iovw);
 void iovw_done(struct iovec_wrapper *iovw);
 
+struct iovec_wrapper* iovw_free(struct iovec_wrapper *iovw);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct iovec_wrapper*, iovw_free);
+
+struct iovec_wrapper* iovw_free_free(struct iovec_wrapper *iovw);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct iovec_wrapper*, iovw_free_free);
+
 int iovw_compare(const struct iovec_wrapper *a, const struct iovec_wrapper *b) _pure_;
 static inline bool iovw_equal(const struct iovec_wrapper *a, const struct iovec_wrapper *b) {
         return iovw_compare(a, b) == 0;
@@ -44,3 +50,6 @@ void iovw_rebase(struct iovec_wrapper *iovw, void *old, void *new);
 size_t iovw_size(const struct iovec_wrapper *iovw);
 int iovw_concat(const struct iovec_wrapper *iovw, struct iovec *ret);
 char* iovw_to_cstring(const struct iovec_wrapper *iovw);
+
+int iovec_split(const struct iovec *iov, size_t length_size, struct iovec_wrapper *ret);
+int iovw_merge(const struct iovec_wrapper *iovw, size_t length_size, struct iovec *ret);
