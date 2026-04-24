@@ -64,7 +64,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 _cleanup_(unlink_tempfilep) char lease_file[] = "/tmp/fuzz-dhcp-client.XXXXXX";
                 _unused_ _cleanup_close_ int fd = ASSERT_OK(mkostemp_safe(lease_file));
 
-                ASSERT_OK(dhcp_lease_save(client->lease, lease_file));
+                ASSERT_OK(dhcp_lease_save(client->lease, AT_FDCWD, lease_file));
 
                 _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
                 ASSERT_OK(dhcp_lease_load(&lease, lease_file));
