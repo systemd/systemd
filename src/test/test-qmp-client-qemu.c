@@ -133,7 +133,7 @@ TEST(qmp_client_qemu_handshake_and_schema) {
 
         /* query-qmp-schema returns ~200KB -- validates the buffered reader handles large multi-read()
          * responses correctly. The handshake completes transparently inside invoke(). */
-        r = qmp_client_invoke(client, "query-qmp-schema", NULL, on_test_result, &t);
+        r = qmp_client_invoke(client, /* ret_slot= */ NULL, "query-qmp-schema", NULL, on_test_result, &t);
         if (r < 0) {
                 log_tests_skipped_errno(r, "QMP invoke failed (handshake or send)");
                 return;
@@ -153,7 +153,7 @@ TEST(qmp_client_qemu_handshake_and_schema) {
         qmp_test_result_done(&t);
 
         /* Clean shutdown */
-        ASSERT_OK(qmp_client_invoke(client, "quit", NULL, on_test_result, &t));
+        ASSERT_OK(qmp_client_invoke(client, /* ret_slot= */ NULL, "quit", NULL, on_test_result, &t));
         qmp_test_wait(event, &t);
         ASSERT_EQ(t.error, 0);
         qmp_test_result_done(&t);
@@ -197,7 +197,7 @@ TEST(qmp_client_qemu_query_status) {
 
         /* query-status validates response parsing against real QEMU output format.
          * The handshake completes transparently inside invoke(). */
-        r = qmp_client_invoke(client, "query-status", NULL, on_test_result, &t);
+        r = qmp_client_invoke(client, /* ret_slot= */ NULL, "query-status", NULL, on_test_result, &t);
         if (r < 0) {
                 log_tests_skipped_errno(r, "QMP invoke failed (handshake or send)");
                 return;
@@ -219,13 +219,13 @@ TEST(qmp_client_qemu_query_status) {
         qmp_test_result_done(&t);
 
         /* Test stop + cont to exercise command sequencing and id correlation */
-        ASSERT_OK(qmp_client_invoke(client, "stop", NULL, on_test_result, &t));
+        ASSERT_OK(qmp_client_invoke(client, /* ret_slot= */ NULL, "stop", NULL, on_test_result, &t));
         qmp_test_wait(event, &t);
         ASSERT_EQ(t.error, 0);
         qmp_test_result_done(&t);
 
         /* Verify status changed */
-        ASSERT_OK(qmp_client_invoke(client, "query-status", NULL, on_test_result, &t));
+        ASSERT_OK(qmp_client_invoke(client, /* ret_slot= */ NULL, "query-status", NULL, on_test_result, &t));
         qmp_test_wait(event, &t);
         ASSERT_EQ(t.error, 0);
         ASSERT_NOT_NULL(t.result);
@@ -236,13 +236,13 @@ TEST(qmp_client_qemu_query_status) {
 
         qmp_test_result_done(&t);
 
-        ASSERT_OK(qmp_client_invoke(client, "cont", NULL, on_test_result, &t));
+        ASSERT_OK(qmp_client_invoke(client, /* ret_slot= */ NULL, "cont", NULL, on_test_result, &t));
         qmp_test_wait(event, &t);
         ASSERT_EQ(t.error, 0);
         qmp_test_result_done(&t);
 
         /* Clean shutdown */
-        ASSERT_OK(qmp_client_invoke(client, "quit", NULL, on_test_result, &t));
+        ASSERT_OK(qmp_client_invoke(client, /* ret_slot= */ NULL, "quit", NULL, on_test_result, &t));
         qmp_test_wait(event, &t);
         ASSERT_EQ(t.error, 0);
         qmp_test_result_done(&t);
