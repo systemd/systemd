@@ -543,6 +543,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "DHCPPrefixDelegation\0"
                         "DHCPServer\0"
                         "DHCPServerStaticLease\0"
+                        "DHCPv6Server\0"
                         "IPv6AcceptRA\0"
                         "IPv6NDPProxyAddress\0"
                         "Bridge\0"
@@ -774,6 +775,10 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->dhcp_server_send_options);
         ordered_hashmap_free(network->dhcp_server_send_vendor_options);
         free(network->dhcp_server_local_lease_domain);
+
+        /* DHCPv6 server */
+        free(network->dhcp6_server_dns);
+        free(network->dhcp6_server_ntp);
 
         /* DHCP client */
         free(network->dhcp_vendor_class_identifier);

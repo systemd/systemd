@@ -13,6 +13,7 @@
 #include "sd-dhcp-server.h"
 #include "sd-dhcp6-client.h"
 #include "sd-dhcp6-lease.h"
+#include "sd-dhcp6-server.h"
 #include "sd-ipv4ll.h"
 #include "sd-lldp-rx.h"
 #include "sd-ndisc.h"
@@ -41,6 +42,7 @@
 #include "networkd-bridge-vlan.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-dhcp6-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
 #include "networkd-ipv4acd.h"
@@ -241,6 +243,7 @@ static void link_free_engines(Link *link) {
                 return;
 
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
+        link->dhcp6_server = sd_dhcp6_server_unref(link->dhcp6_server);
 
         link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
@@ -428,6 +431,10 @@ int link_stop_engines(Link *link, bool may_keep_dynamic) {
         r = sd_dhcp_server_stop(link->dhcp_server);
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv4 server: %m"));
+
+        r = sd_dhcp6_server_stop(link->dhcp6_server);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 server: %m"));
 
         r = sd_lldp_rx_stop(link->lldp_rx);
         if (r < 0)
@@ -708,6 +715,10 @@ static int link_acquire_dynamic_ipv6_conf(Link *link) {
         r = dhcp6_start(link);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to start DHCPv6 client: %m");
+
+        r = link_start_dhcp6_server(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not start DHCPv6 server: %m");
 
         return 0;
 }
@@ -1158,6 +1169,7 @@ static int link_drop_dynamic_config(Link *link, Network *network) {
         RET_GATHER(r, link_drop_dhcp6_config(link, network));
         RET_GATHER(r, link_drop_dhcp_pd_config(link, network));
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
+        link->dhcp6_server = sd_dhcp6_server_unref(link->dhcp6_server);
         link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx); /* TODO: keep the received neighbors. */
         link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
 
@@ -1276,6 +1288,10 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_request_dhcp_server(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_dhcp6_server(link);
         if (r < 0)
                 return r;
 
@@ -2614,6 +2630,12 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
                 r = sd_dhcp_server_set_ifname(link->dhcp_server, link->ifname);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Failed to update interface name in DHCP server: %m");
+        }
+
+        if (link->dhcp6_server) {
+                r = sd_dhcp6_server_set_ifname(link->dhcp6_server, link->ifname);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to update interface name in DHCPv6 server: %m");
         }
 
         if (link->radv) {
