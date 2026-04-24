@@ -359,7 +359,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(&state, c, &arg)
                 switch (c) {
 
                 OPTION_COMMON_HELP:

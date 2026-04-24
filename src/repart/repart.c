@@ -9689,7 +9689,7 @@ static int parse_argv(int argc, char *argv[]) {
         bool auto_public_key_pcr_mask = true, auto_pcrlock = true;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(&state, c, &arg)
                 switch (c) {
 
                 OPTION_GROUP("Options"): {}
