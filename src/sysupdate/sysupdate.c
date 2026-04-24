@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -16,6 +15,7 @@
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
+#include "options.h"
 #include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -1275,6 +1275,8 @@ static int process_image(
         return 0;
 }
 
+VERB(verb_list, "list", "[VERSION]", VERB_ANY, 2, VERB_DEFAULT,
+     "Show installed and available versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
@@ -1343,6 +1345,8 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 }
 
+VERB(verb_features, "features", "[FEATURE]", VERB_ANY, 2, 0,
+     "Show optional features");
 static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
@@ -1477,6 +1481,8 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         return 0;
 }
 
+VERB_NOARG(verb_check_new, "check-new",
+           "Check if there's a new version available");
 static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
@@ -1516,29 +1522,6 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
         }
 
         return EXIT_SUCCESS;
-}
-
-static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(context_freep) Context* context = NULL;
-        int r;
-
-        assert(argc <= 1);
-
-        if (arg_instances_max < 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                      "The --instances-max argument must be >= 1 while vacuuming");
-
-        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
-        if (r < 0)
-                return r;
-
-        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, /* requires_enabled_transfers= */ false);
-        if (r < 0)
-                return r;
-
-        return context_vacuum(context, 0, NULL);
 }
 
 typedef enum {
@@ -1613,6 +1596,8 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         return 0;
 }
 
+VERB(verb_update, "update", "[VERSION]", VERB_ANY, 2, 0,
+     "Install new version now");
 static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) {
         UpdateActionFlags flags = UPDATE_ACTION_INSTALL;
 
@@ -1622,10 +1607,41 @@ static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return verb_update_impl(argc, argv, flags);
 }
 
+VERB(verb_acquire, "acquire", "[VERSION]", VERB_ANY, 2, 0,
+     "Acquire (download) new version now");
 static int verb_acquire(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return verb_update_impl(argc, argv, UPDATE_ACTION_ACQUIRE);
 }
 
+VERB_NOARG(verb_vacuum, "vacuum",
+           "Make room, by deleting old versions");
+static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
+        _cleanup_(context_freep) Context* context = NULL;
+        int r;
+
+        assert(argc <= 1);
+
+        if (arg_instances_max < 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                      "The --instances-max argument must be >= 1 while vacuuming");
+
+        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
+        if (r < 0)
+                return r;
+
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL, /* requires_enabled_transfers= */ false);
+        if (r < 0)
+                return r;
+
+        return context_vacuum(context, 0, NULL);
+}
+
+VERB(verb_pending_or_reboot, "pending", NULL, 1, 1, 0,
+     "Report whether a newer version is installed than currently booted");
+VERB(verb_pending_or_reboot, "reboot", NULL, 1, 1, 0,
+     "Reboot if a newer version is installed than booted");
 static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_freep) Context* context = NULL;
         _cleanup_free_ char *booted_version = NULL;
@@ -1700,6 +1716,8 @@ static int component_name_valid(const char *c) {
         return filename_is_valid(j);
 }
 
+VERB_NOARG(verb_components, "components",
+           "Show list of components");
 static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
@@ -1792,190 +1810,149 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *common_options = NULL, *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-sysupdate", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] [VERSION]\n"
-               "\n%5$sUpdate OS images.%6$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "  list [VERSION]          Show installed and available versions\n"
-               "  features [FEATURE]      Show optional features\n"
-               "  check-new               Check if there's a new version available\n"
-               "  update [VERSION]        Install new version now\n"
-               "  acquire [VERSION]       Acquire (download) new version now\n"
-               "  vacuum                  Make room, by deleting old versions\n"
-               "  pending                 Report whether a newer version is installed than\n"
-               "                          currently booted\n"
-               "  reboot                  Reboot if a newer version is installed than booted\n"
-               "  components              Show list of components\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -C --component=NAME     Select component to update\n"
-               "     --definitions=DIR    Find transfer definitions in specified directory\n"
-               "     --root=PATH          Operate on an alternate filesystem root\n"
-               "     --image=PATH         Operate on disk image as filesystem root\n"
-               "     --image-policy=POLICY\n"
-               "                          Specify disk image dissection policy\n"
-               "  -m --instances-max=INT  How many instances to maintain\n"
-               "     --sync=BOOL          Controls whether to sync data to disk\n"
-               "     --verify=BOOL        Force signature verification on or off\n"
-               "     --reboot             Reboot after updating to newer version\n"
-               "     --offline            Do not fetch metadata from the network\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "     --json=pretty|short|off\n"
-               "                          Generate JSON output\n"
-               "     --transfer-source=PATH\n"
-               "                          Specify the directory to transfer sources from\n"
-               "\nSee the %2$s for details.\n",
-               program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
-               ansi_highlight(),
-               ansi_normal());
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
 
+        r = option_parser_get_help_table(&common_options);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table_group("Options", &options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, common_options, options);
+
+        printf("%s [OPTIONS...] [VERSION]\n"
+               "\n%sUpdate OS images.%s\n"
+               "\n%sCommands:%s\n",
+               program_invocation_short_name,
+               ansi_highlight(), ansi_normal(),
+               ansi_underline(), ansi_normal());
+
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        r = table_print_or_warn(common_options);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n", ansi_underline(), ansi_normal());
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP_HIDDEN(help);
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_SYNC,
-                ARG_DEFINITIONS,
-                ARG_JSON,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_REBOOT,
-                ARG_VERIFY,
-                ARG_OFFLINE,
-                ARG_TRANSFER_SOURCE,
-        };
-
-        static const struct option options[] = {
-                { "help",              no_argument,       NULL, 'h'                   },
-                { "version",           no_argument,       NULL, ARG_VERSION           },
-                { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
-                { "no-legend",         no_argument,       NULL, ARG_NO_LEGEND         },
-                { "definitions",       required_argument, NULL, ARG_DEFINITIONS       },
-                { "instances-max",     required_argument, NULL, 'm'                   },
-                { "sync",              required_argument, NULL, ARG_SYNC              },
-                { "json",              required_argument, NULL, ARG_JSON              },
-                { "root",              required_argument, NULL, ARG_ROOT              },
-                { "image",             required_argument, NULL, ARG_IMAGE             },
-                { "image-policy",      required_argument, NULL, ARG_IMAGE_POLICY      },
-                { "reboot",            no_argument,       NULL, ARG_REBOOT            },
-                { "component",         required_argument, NULL, 'C'                   },
-                { "verify",            required_argument, NULL, ARG_VERIFY            },
-                { "offline",           no_argument,       NULL, ARG_OFFLINE           },
-                { "transfer-source",   required_argument, NULL, ARG_TRANSFER_SOURCE   },
-                {}
-        };
-
-        int c, r;
-
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(remaining_args);
 
-        while ((c = getopt_long(argc, argv, "hm:C:", options, NULL)) >= 0) {
+        OptionParser state = { argc, argv };
+        const char *arg;
+        int r;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
+                OPTION_GROUP("Options"):
                         break;
 
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case 'm':
-                        r = safe_atou64(optarg, &arg_instances_max);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --instances-max= parameter: %s", optarg);
-
-                        break;
-
-                case ARG_SYNC:
-                        r = parse_boolean_argument("--sync=", optarg, &arg_sync);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_DEFINITIONS:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_definitions);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_REBOOT:
-                        arg_reboot = true;
-                        break;
-
-                case 'C':
-                        if (isempty(optarg)) {
+                OPTION('C', "component", "NAME",
+                       "Select component to update"):
+                        if (isempty(arg)) {
                                 arg_component = mfree(arg_component);
                                 break;
                         }
 
-                        r = component_name_valid(optarg);
+                        r = component_name_valid(arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine if component name is valid: %m");
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", arg);
 
-                        r = free_and_strdup_warn(&arg_component, optarg);
+                        r = free_and_strdup_warn(&arg_component, arg);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case ARG_VERIFY: {
+                OPTION_LONG("definitions", "DIR",
+                            "Find transfer definitions in specified directory"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_definitions);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("root", "PATH",
+                            "Operate on an alternate filesystem root"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("image", "PATH",
+                            "Operate on disk image as filesystem root"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("image-policy", "POLICY",
+                            "Specify disk image dissection policy"):
+                        r = parse_image_policy_argument(arg, &arg_image_policy);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("transfer-source", "PATH",
+                            "Specify the directory to transfer sources from"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_transfer_source);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                OPTION('m', "instances-max", "INT",
+                       "How many instances to maintain"):
+                        r = safe_atou64(arg, &arg_instances_max);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --instances-max= parameter: %s", arg);
+
+                        break;
+
+                OPTION_LONG("sync", "BOOL",
+                            "Controls whether to sync data to disk"):
+                        r = parse_boolean_argument("--sync=", arg, &arg_sync);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("verify", "BOOL",
+                            "Force signature verification on or off"): {
                         bool b;
 
-                        r = parse_boolean_argument("--verify=", optarg, &b);
+                        r = parse_boolean_argument("--verify=", arg, &b);
                         if (r < 0)
                                 return r;
 
@@ -1983,24 +1960,31 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_OFFLINE:
+                OPTION_LONG("reboot", NULL,
+                            "Reboot after updating to newer version"):
+                        arg_reboot = true;
+                        break;
+
+                OPTION_LONG("offline", NULL,
+                            "Do not fetch metadata from the network"):
                         arg_offline = true;
                         break;
 
-                case ARG_TRANSFER_SOURCE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_transfer_source);
-                        if (r < 0)
+                OPTION_COMMON_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                OPTION_COMMON_NO_LEGEND:
+                        arg_legend = false;
+                        break;
+
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        if (r <= 0)
                                 return r;
 
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
-        }
 
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
@@ -2011,26 +1995,8 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_definitions && arg_component)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --definitions= and --component= switches may not be combined.");
 
+        *remaining_args = option_parser_get_args(&state);
         return 1;
-}
-
-static int sysupdate_main(int argc, char *argv[]) {
-
-        static const Verb verbs[] = {
-                { "list",       VERB_ANY, 2, VERB_DEFAULT, verb_list              },
-                { "components", VERB_ANY, 1, 0,            verb_components        },
-                { "features",   VERB_ANY, 2, 0,            verb_features          },
-                { "check-new",  VERB_ANY, 1, 0,            verb_check_new         },
-                { "update",     VERB_ANY, 2, 0,            verb_update            },
-                { "acquire",    VERB_ANY, 2, 0,            verb_acquire           },
-                { "vacuum",     VERB_ANY, 1, 0,            verb_vacuum            },
-                { "reboot",     1,        1, 0,            verb_pending_or_reboot },
-                { "pending",    1,        1, 0,            verb_pending_or_reboot },
-                { "help",       VERB_ANY, 1, 0,            verb_help              },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 static int run(int argc, char *argv[]) {
@@ -2038,11 +2004,12 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        return sysupdate_main(argc, argv);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
