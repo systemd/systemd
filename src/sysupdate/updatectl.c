@@ -867,6 +867,10 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
                         clear_progress_bar_unbuffered(target);
                         fprintf(stderr, "%s: %s Already up-to-date\n", target, GREEN_CHECK_MARK());
                         n--; /* Don't consider this target in the total */
+                } else if (progress == -EUCLEAN) {
+                        clear_progress_bar_unbuffered(target);
+                        fprintf(stderr, "%s: %s Update is already acquired and partially installed. Vacuum it to try installing again.\n", target, RED_CROSS_MARK());
+                        total += 100;
                 } else if (progress < 0) {
                         clear_progress_bar_unbuffered(target);
                         fprintf(stderr, "%s: %s %s\n", target, RED_CROSS_MARK(), STRERROR(progress));
