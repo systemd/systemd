@@ -109,13 +109,16 @@ typedef struct Option {
                     "Allows the certificate to be loaded from an OpenSSL provider " \
                     "(file, provider:PROVIDER)")
 
+#define OPTION_ERROR \
+        case INT_MIN ... -1
+
 /* This is magically mapped to the beginning and end of the section */
 extern const Option __start_SYSTEMD_OPTIONS[];
 extern const Option __stop_SYSTEMD_OPTIONS[];
 
 typedef enum OptionParserMode {
         /* The default mode. This is the implicit default and doesn't have to be specified. */
-        OPTION_PARSER_NORMAL = 0,
+        OPTION_PARSER_NORMAL,
 
         /* Same as "+…" for getopt_long — only parse options before the first positional argument. */
         OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
@@ -127,14 +130,22 @@ typedef enum OptionParserMode {
         _OPTION_PARSER_MODE_MAX,
 } OptionParserMode;
 
+typedef enum OptionParserState {
+        OPTION_PARSER_INIT,
+        OPTION_PARSER_RUNNING,
+        OPTION_PARSER_DONE,     /* Option parsing completed (could be because we reached the end, or because "--" was fully processed, or because we hit a terminating option) */
+        OPTION_PARSER_STOPPING, /* We processed an option with OPTION_STOPS_PARSING, and will eat up one more "--", but not more */
+        OPTION_PARSER_FAILED,   /* We encountered a parse error, and terminated option parsing. */
+        _OPTION_PARSER_MAX,
+} OptionParserState;
+
 typedef struct OptionParser {
         /* Those three should stay first so that it's possible to initialize the struct as { argc, argv }
          * or { argc, argv, mode }. */
         int argc;                     /* The original argc. */
         char **argv;                  /* The argv array, possibly reordered. */
         OptionParserMode mode;
-
-        bool parsing_stopped;         /* We processed "--" or an option that terminates option parsing. */
+        OptionParserState state;
         int optind;                   /* Position of the parameter being handled.
                                        * 0 → option parsing hasn't been started yet. */
         int short_option_offset;      /* Set when we're parsing an argument with one or more short options.
@@ -150,16 +161,21 @@ int option_parse(
                 const Option **ret_option,
                 const char **ret_arg);
 
-/* Iterate over options. */
-#define FOREACH_OPTION_FULL(parser, opt, ret_o, ret_a, on_error) \
-        for (int opt; (opt = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, parser, ret_o, ret_a)) != 0; ) \
-                if (opt < 0) {                                                  \
-                        on_error;                                               \
-                        break;                                                  \
-                } else
+/* Iterate over options. Don't forget to handle OPTION_ERROR! */
+#define FOREACH_OPTION_FULL(parser, opt, ret_o, ret_a) \
+        for (int opt; (opt = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, (parser), (ret_o), (ret_a))) != 0; ) \
 
-#define FOREACH_OPTION(parser, opt, ret_a, on_error) \
-        FOREACH_OPTION_FULL(parser, opt, /* ret_o= */ NULL, ret_a, on_error)
+/* Same, but doesn't return the Option pointer. And again, don't forget to handle OPTION_ERROR! */
+#define FOREACH_OPTION(parser, opt, ret_a) \
+        FOREACH_OPTION_FULL((parser), opt, /* ret_o= */ NULL, (ret_a))
+
+/* Just like FOREACH_OPTION(), but returns from the current function on error with the error code. No need to
+ * handle OPTION_ERROR here! */
+#define FOREACH_OPTION_OR_RETURN(parser, opt, ret_a)                   \
+        FOREACH_OPTION_FULL((parser), opt, /* ret_o= */ NULL, (ret_a)) \
+                if (opt < 0)                                           \
+                        return opt;                                    \
+                else
 
 char* option_parser_next_arg(const OptionParser *state);
 char* option_parser_consume_next_arg(OptionParser *state);
