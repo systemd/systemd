@@ -3238,7 +3238,8 @@ static int clean_including_item(
         int r;
 
         /* Find parent path so we can get stats on the directory that holds instance (file or dir) */
-        dir_fd = chase_and_open_parent_at(AT_FDCWD, instance, i->allow_failure ? CHASE_SAFE : CHASE_SAFE|CHASE_WARN, NULL);
+        ChaseFlags flags = CHASE_SAFE | CHASE_NOFOLLOW | (i->allow_failure ? 0 : CHASE_WARN);
+        dir_fd = chase_and_open_parent_at(AT_FDCWD, instance, flags, NULL);
         if (dir_fd < 0)
                 return log_full_errno(i->allow_failure ? LOG_INFO : LOG_ERR,
                                       dir_fd,
