@@ -45,6 +45,7 @@ typedef enum UserDBFlags UserDBFlags;
 typedef enum UserRecordLoadFlags UserRecordLoadFlags;
 typedef enum UserStorage UserStorage;
 
+typedef struct AskPasswordRequest AskPasswordRequest;
 typedef struct Bitmap Bitmap;
 typedef struct BootConfig BootConfig;
 typedef struct BPFProgram BPFProgram;
@@ -79,6 +80,7 @@ typedef struct MStack MStack;
 typedef struct OpenFile OpenFile;
 typedef struct Pkcs11EncryptedKey Pkcs11EncryptedKey;
 typedef struct QmpClient QmpClient;
+typedef struct QmpSlot QmpSlot;
 typedef struct Table Table;
 typedef struct Tpm2Context Tpm2Context;
 typedef struct Tpm2Handle Tpm2Handle;

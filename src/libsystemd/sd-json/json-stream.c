@@ -990,8 +990,9 @@ static int json_stream_format_queue(JsonStream *s) {
 
         assert(s);
 
-        /* Drain entries out of the output queue and format them into the output buffer. Stop
-         * if there are unwritten output_fds, since adding more would corrupt the fd boundary. */
+        /* Drain entries out of the output queue and format them into the output buffer.
+         * Stop if there are unwritten output_fds or if the next item carries fds but
+         * the output buffer is non-empty, since adding more would corrupt the fd boundary. */
 
         while (s->output_queue) {
                 assert(s->n_output_queue > 0);
@@ -1000,8 +1001,24 @@ static int json_stream_format_queue(JsonStream *s) {
                         return 0;
 
                 JsonStreamQueueItem *q = s->output_queue;
-                _cleanup_free_ int *array = NULL;
 
+                /* If the next item carries fds but the output buffer still holds bytes from
+                 * a prior fast-path enqueue or a partial write, we must not concatenate its
+                 * JSON into that same buffer: the subsequent sendmsg() in json_stream_write()
+                 * would attach the fds to the combined bytes and break the message-to-fd boundary.
+                 * Stop here and let json_stream_write() drain the buffer first; the next write()
+                 * call will pull this item into a clean buffer.
+                 *
+                 * Note: this only produces a difference on SOCK_SEQPACKET / SOCK_DGRAM, where
+                 * each sendmsg() is its own datagram with its own SCM_RIGHTS cmsg. On AF_UNIX
+                 * SOCK_STREAM the kernel absorbs a preceding non-scm skb forward into the
+                 * next scm-bearing skb's recv, so per-sendmsg separation is invisible to the
+                 * receiver anyway. Kept as cheap defensive sender hygiene that's necessary
+                 * the moment a SEQPACKET/DGRAM consumer wires JsonStream up. */
+                if (q->n_fds > 0 && s->output_buffer_size > 0)
+                        return 0;
+
+                _cleanup_free_ int *array = NULL;
                 if (q->n_fds > 0) {
                         array = newdup(int, q->fds, q->n_fds);
                         if (!array)

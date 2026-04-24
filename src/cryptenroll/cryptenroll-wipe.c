@@ -15,7 +15,7 @@ static int find_all_slots(struct crypt_device *cd, Set *wipe_slots, Set *keep_sl
 
         assert(cd);
         assert(wipe_slots);
-        assert_se((slot_max = crypt_keyslot_max(CRYPT_LUKS2)) > 0);
+        assert_se((slot_max = sym_crypt_keyslot_max(CRYPT_LUKS2)) > 0);
 
         /* Finds all currently assigned slots, and adds them to 'wipe_slots', except if listed already in 'keep_slots' */
 
@@ -27,7 +27,7 @@ static int find_all_slots(struct crypt_device *cd, Set *wipe_slots, Set *keep_sl
                     set_contains(wipe_slots, INT_TO_PTR(slot)))
                         continue;
 
-                status = crypt_keyslot_status(cd, slot);
+                status = sym_crypt_keyslot_status(cd, slot);
                 if (!IN_SET(status, CRYPT_SLOT_ACTIVE, CRYPT_SLOT_ACTIVE_LAST))
                         continue;
 
@@ -44,12 +44,12 @@ static int find_empty_passphrase_slots(struct crypt_device *cd, Set *wipe_slots,
 
         assert(cd);
         assert(wipe_slots);
-        assert_se((slot_max = crypt_keyslot_max(CRYPT_LUKS2)) > 0);
+        assert_se((slot_max = sym_crypt_keyslot_max(CRYPT_LUKS2)) > 0);
 
         /* Finds all slots with an empty passphrase assigned (i.e. "") and adds them to 'wipe_slots', except
          * if listed already in 'keep_slots' */
 
-        r = crypt_get_volume_key_size(cd);
+        r = sym_crypt_get_volume_key_size(cd);
         if (r <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size");
         vks = (size_t) r;
@@ -63,7 +63,7 @@ static int find_empty_passphrase_slots(struct crypt_device *cd, Set *wipe_slots,
                     set_contains(wipe_slots, INT_TO_PTR(slot)))
                         continue;
 
-                status = crypt_keyslot_status(cd, slot);
+                status = sym_crypt_keyslot_status(cd, slot);
                 if (!IN_SET(status, CRYPT_SLOT_ACTIVE, CRYPT_SLOT_ACTIVE_LAST))
                         continue;
 
@@ -71,7 +71,7 @@ static int find_empty_passphrase_slots(struct crypt_device *cd, Set *wipe_slots,
                 if (!vk)
                         return log_oom();
 
-                r = crypt_volume_key_get(cd, slot, vk, &vks, "", 0);
+                r = sym_crypt_volume_key_get(cd, slot, vk, &vks, "", 0);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to acquire volume key from slot %i with empty password, ignoring: %m", slot);
                         continue;
@@ -164,7 +164,7 @@ static int find_slots_by_mask(
         if ((by_mask & (1U << ENROLL_PASSWORD)) != 0) {
                 int slot_max;
 
-                assert_se((slot_max = crypt_keyslot_max(CRYPT_LUKS2)) > 0);
+                assert_se((slot_max = sym_crypt_keyslot_max(CRYPT_LUKS2)) > 0);
 
                 for (int slot = 0; slot < slot_max; slot++) {
                         crypt_keyslot_info status;
@@ -177,7 +177,7 @@ static int find_slots_by_mask(
                         if (set_contains(listed_slots, INT_TO_PTR(slot))) /* This has a token, hence is not a password. */
                                 continue;
 
-                        status = crypt_keyslot_status(cd, slot);
+                        status = sym_crypt_keyslot_status(cd, slot);
                         if (!IN_SET(status, CRYPT_SLOT_ACTIVE, CRYPT_SLOT_ACTIVE_LAST)) /* Not actually assigned? */
                                 continue;
 
@@ -273,7 +273,7 @@ static bool slots_remain(struct crypt_device *cd, Set *wipe_slots, Set *keep_slo
         int slot_max;
 
         assert(cd);
-        assert_se((slot_max = crypt_keyslot_max(CRYPT_LUKS2)) > 0);
+        assert_se((slot_max = sym_crypt_keyslot_max(CRYPT_LUKS2)) > 0);
 
         /* Checks if any slots remaining in the LUKS2 header if we remove all slots listed in 'wipe_slots'
          * (keeping those listed in 'keep_slots') */
@@ -281,7 +281,7 @@ static bool slots_remain(struct crypt_device *cd, Set *wipe_slots, Set *keep_slo
         for (int slot = 0; slot < slot_max; slot++) {
                 crypt_keyslot_info status;
 
-                status = crypt_keyslot_status(cd, slot);
+                status = sym_crypt_keyslot_status(cd, slot);
                 if (!IN_SET(status, CRYPT_SLOT_ACTIVE, CRYPT_SLOT_ACTIVE_LAST))
                         continue;
 
@@ -338,7 +338,7 @@ int wipe_slots(struct crypt_device *cd,
                 if (set_put(keep_slots, INT_TO_PTR(except_slot)) < 0)
                         return log_oom();
 
-        assert_se((slot_max = crypt_keyslot_max(CRYPT_LUKS2)) > 0);
+        assert_se((slot_max = sym_crypt_keyslot_max(CRYPT_LUKS2)) > 0);
 
         /* Maintain another set of the slots we intend to wipe */
         for (size_t i = 0; i < n_explicit_slots; i++) {
@@ -425,7 +425,7 @@ int wipe_slots(struct crypt_device *cd,
          * first.) */
         ret = 0;
         for (size_t i = n_ordered_slots; i > 0; i--) {
-                r = crypt_keyslot_destroy(cd, ordered_slots[i - 1]);
+                r = sym_crypt_keyslot_destroy(cd, ordered_slots[i - 1]);
                 if (r < 0) {
                         if (r == -ENOENT)
                                 log_warning_errno(r, "Failed to wipe non-existent slot %i, continuing.", ordered_slots[i - 1]);
@@ -438,7 +438,7 @@ int wipe_slots(struct crypt_device *cd,
         }
 
         for (size_t i = n_ordered_tokens; i > 0; i--) {
-                r = crypt_token_json_set(cd, ordered_tokens[i - 1], NULL);
+                r = sym_crypt_token_json_set(cd, ordered_tokens[i - 1], NULL);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to wipe token %i, continuing: %m", ordered_tokens[i - 1]);
                         if (ret == 0)

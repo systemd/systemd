@@ -2411,10 +2411,12 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - **systemd-measure tool:**
   - pre-calculate PCR 12 (command line) + PCR 13 (sysext) the same way we can precalculate PCR 11
-
-- systemd-measure: add --pcrpkey-auto as an alternative to --pcrpkey=, where it
-  would just use the same public key specified with --public-key= (or the one
-  automatically derived from --private-key=).
+  - add --pcrpkey-auto as an alternative to --pcrpkey=, where it would just use
+    the same public key specified with --public-key= (or the one automatically
+    derived from --private-key=).
+  - allow multiple --initrd=, --efifw=, --dtbauto=, etc., params and pad and
+    concatenate the contents in the same way that ukify does, so we end up with
+    the expected measurement.
 
 - systemd-mount should only consider modern file systems when mounting, similar
   to systemd-dissect

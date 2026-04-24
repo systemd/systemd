@@ -19,9 +19,6 @@ systemd_journald_extract_sources = files(
         'journald-syslog.c',
         'journald-varlink.c',
         'journald-wall.c',
-        # Build fuzz-journald.c as part of systemd-journald so we only compile it once instead of once per
-        # fuzz test.
-        'fuzz-journald-util.c',
 )
 
 journald_gperf_c = custom_target(
@@ -58,7 +55,10 @@ journal_test_template = test_template + {
 }
 
 journal_fuzz_template = fuzz_template + {
-        'objects' : ['systemd-journald'],
+        'objects' : [
+                'fuzz-journald-audit',
+                'systemd-journald',
+        ],
         'dependencies' : libselinux_cflags,
 }
 
@@ -133,8 +133,11 @@ executables += [
                         libselinux_cflags,
                 ],
         },
-        journal_fuzz_template + {
+        fuzz_template + {
                 'sources' : files('fuzz-journald-audit.c'),
+                # fuzz-journald-util.c is shared with the other fuzzers below.
+                'extract' : files('fuzz-journald-util.c'),
+                'objects' : ['systemd-journald'],
         },
         journal_fuzz_template + {
                 'sources' : files('fuzz-journald-kmsg.c'),

@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#if HAVE_OPENSSL
-#  include <openssl/evp.h>
-#endif
-
 #if HAVE_P11KIT
 #  include <p11-kit/p11-kit.h>  /* IWYU pragma: export */
 #  include <p11-kit/uri.h>      /* IWYU pragma: export */
@@ -106,7 +102,7 @@ int pkcs11_crypt_device_callback(
 
 #endif
 
-int dlopen_p11kit(void);
+int dlopen_p11kit(int log_level);
 
 typedef struct {
         const char *friendly_name;

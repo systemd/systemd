@@ -49,6 +49,7 @@
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
+#include "fork-notify.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -95,6 +96,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "polkit-agent.h"
@@ -133,6 +135,7 @@
 /* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
 #define NSPAWN_NOTIFY_SOCKET_PATH "/run/host/notify"
 #define NSPAWN_MOUNT_TUNNEL "/run/host/incoming"
+#define NSPAWN_JOURNAL_SOCKET_PATH "/run/host/journal/socket"
 
 #define EXIT_FORCE_RESTART 133
 
@@ -262,6 +265,11 @@ static char *arg_background = NULL;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 static bool arg_cleanup = false;
 static bool arg_ask_password = true;
+static char *arg_forward_journal = NULL;
+static uint64_t arg_forward_journal_max_use = UINT64_MAX;
+static uint64_t arg_forward_journal_keep_free = UINT64_MAX;
+static uint64_t arg_forward_journal_max_file_size = UINT64_MAX;
+static uint64_t arg_forward_journal_max_files = UINT64_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_template, freep);
@@ -303,6 +311,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_restrict_address_families, set_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_forward_journal, freep);
 
 static int parse_private_users(
                 const char *s,
@@ -1250,6 +1259,36 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_LINK_JOURNAL;
                         break;
 
+                OPTION_LONG("forward-journal", "FILE|DIR", "Forward the container's journal to the host"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_forward_journal);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("forward-journal-max-use", "BYTES", "Maximum disk space for forwarded journal"):
+                        r = parse_size(arg, 1024, &arg_forward_journal_max_use);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-use= value: %s", optarg);
+                        break;
+
+                OPTION_LONG("forward-journal-keep-free", "BYTES", "Minimum disk space to keep free"):
+                        r = parse_size(arg, 1024, &arg_forward_journal_keep_free);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-keep-free= value: %s", optarg);
+                        break;
+
+                OPTION_LONG("forward-journal-max-file-size", "BYTES", "Maximum size of individual journal files"):
+                        r = parse_size(arg, 1024, &arg_forward_journal_max_file_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-file-size= value: %s", optarg);
+                        break;
+
+                OPTION_LONG("forward-journal-max-files", "N", "Maximum number of journal files to keep"):
+                        r = safe_atou64(arg, &arg_forward_journal_max_files);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-files= value: %s", optarg);
+                        break;
+
                 OPTION_GROUP("Mounts"): {}
 
                 OPTION_LONG("bind", "PATH[:PATH[:OPTIONS]]",
@@ -1445,6 +1484,12 @@ static int parse_argv(int argc, char *argv[]) {
         arg_caps_retain |= plus;
         arg_caps_retain |= arg_private_network ? UINT64_C(1) << CAP_NET_ADMIN : 0;
         arg_caps_retain &= ~minus;
+
+        if ((arg_forward_journal_max_use != UINT64_MAX ||
+             arg_forward_journal_keep_free != UINT64_MAX ||
+             arg_forward_journal_max_file_size != UINT64_MAX ||
+             arg_forward_journal_max_files != UINT64_MAX) && !arg_forward_journal)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--forward-journal-max-use=/--forward-journal-keep-free=/--forward-journal-max-file-size=/--forward-journal-max-files= require --forward-journal=.");
 
         /* Make sure to parse environment before we reset the settings mask below */
         r = parse_environment();
@@ -3708,9 +3753,10 @@ static int setup_notify_child(const void *directory) {
         return TAKE_FD(fd);
 }
 
-static int setup_unix_export_dir_outside(char **ret) {
+static int setup_unix_export_dir_outside(const char *runtime_dir, char **ret) {
         int r;
 
+        assert(runtime_dir);
         assert(ret);
 
         if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
@@ -3719,7 +3765,7 @@ static int setup_unix_export_dir_outside(char **ret) {
         }
 
         _cleanup_free_ char *p = NULL;
-        p = path_join("/run/systemd/nspawn/unix-export", arg_machine);
+        p = path_join(runtime_dir, "unix-export");
         if (!p)
                 return log_oom();
 
@@ -5103,6 +5149,7 @@ static int load_oci_bundle(void) {
 }
 
 static int run_container(
+                const char *runtime_dir,
                 const char *directory,
                 int mount_fd,
                 DissectedImage *dissected_image,
@@ -5141,7 +5188,7 @@ static int run_container(
         assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
 
         /* Set up the unix export host directory on the host first */
-        r = setup_unix_export_dir_outside(&unix_export_host_dir);
+        r = setup_unix_export_dir_outside(runtime_dir, &unix_export_host_dir);
         if (r < 0)
                 return r;
 
@@ -5907,18 +5954,22 @@ static int cant_be_in_netns(void) {
         return 0;
 }
 
-static void cleanup_propagation_and_export_directories(void) {
-        const char *p;
+static void cleanup_propagation_and_export_directories(const char *runtime_dir) {
+        _cleanup_free_ char *p = NULL;
 
-        if (!arg_machine || arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
+        if (!runtime_dir || arg_userns_mode == USER_NAMESPACE_MANAGED)
                 return;
 
-        p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
-        (void) rm_rf(p, REMOVE_ROOT);
+        p = path_join("/run/systemd/nspawn/propagate", arg_machine);
+        if (p)
+                (void) rm_rf(p, REMOVE_ROOT);
 
-        p = strjoina("/run/systemd/nspawn/unix-export/", arg_machine);
-        (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
-        (void) rmdir(p);
+        free(p);
+        p = path_join(runtime_dir, "unix-export");
+        if (p) {
+                (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
+                (void) rmdir(p);
+        }
 }
 
 static int do_cleanup(void) {
@@ -5931,7 +5982,16 @@ static int do_cleanup(void) {
         if (r < 0)
                 return r;
 
-        cleanup_propagation_and_export_directories();
+        _cleanup_free_ char *subdir = path_join("systemd/nspawn", arg_machine);
+        if (!subdir)
+                return log_oom();
+
+        _cleanup_free_ char *runtime_dir = NULL;
+        r = runtime_directory(arg_runtime_scope, subdir, &runtime_dir);
+        if (r < 0)
+                return r;
+
+        cleanup_propagation_and_export_directories(runtime_dir);
         return 0;
 }
 
@@ -5951,6 +6011,9 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL, *mountfsd_link = NULL;
+        _cleanup_free_ char *runtime_dir = NULL, *subdir = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
+        _cleanup_(fork_notify_terminate) PidRef journal_remote_pidref = PIDREF_NULL;
 
         log_setup();
 
@@ -5961,9 +6024,9 @@ static int run(int argc, char *argv[]) {
         if (arg_cleanup)
                 return do_cleanup();
 
-        (void) dlopen_libmount();
-        (void) dlopen_libseccomp();
-        (void) dlopen_libselinux();
+        (void) dlopen_libmount(LOG_DEBUG);
+        (void) dlopen_libseccomp(LOG_DEBUG);
+        (void) dlopen_libselinux(LOG_DEBUG);
 
         r = cg_has_legacy();
         if (r < 0)
@@ -6440,6 +6503,22 @@ static int run(int argc, char *argv[]) {
         } else
                 assert_not_reached();
 
+        subdir = path_join("systemd/nspawn", arg_machine);
+        if (!subdir) {
+                r = log_oom();
+                goto finish;
+        }
+
+        r = runtime_directory_make(
+                        arg_runtime_scope,
+                        subdir,
+                        &runtime_dir,
+                        &runtime_dir_destroy);
+        if (r < 0) {
+                log_error_errno(r, "Failed to create runtime directory: %m");
+                goto finish;
+        }
+
         /* Create a temporary place to mount stuff. */
         r = mkdtemp_malloc("/tmp/nspawn-root-XXXXXX", &rootdir);
         if (r < 0) {
@@ -6486,8 +6565,61 @@ static int run(int argc, char *argv[]) {
                 expose_args.nfnl = nfnl;
         }
 
+        if (arg_forward_journal) {
+                _cleanup_free_ char *socket_path = path_join(runtime_dir, "journal-remote-socket");
+                if (!socket_path) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                union sockaddr_union sa;
+                r = sockaddr_un_set_path(&sa.un, socket_path);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set AF_UNIX path to '%s': %m", socket_path);
+                        goto finish;
+                }
+
+                (void) sockaddr_un_unlink(&sa.un);
+
+                r = fork_journal_remote(
+                                socket_path,
+                                arg_forward_journal,
+                                arg_forward_journal_max_use,
+                                arg_forward_journal_keep_free,
+                                arg_forward_journal_max_file_size,
+                                arg_forward_journal_max_files,
+                                &journal_remote_pidref);
+                if (r < 0)
+                        goto finish;
+
+                CustomMount *cm = custom_mount_add(&arg_custom_mounts, &arg_n_custom_mounts, CUSTOM_MOUNT_BIND);
+                if (!cm) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                cm->source = TAKE_PTR(socket_path);
+                cm->read_only = true;
+                cm->destination = strdup(NSPAWN_JOURNAL_SOCKET_PATH);
+                if (!cm->destination) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                r = machine_credential_add(&arg_credentials, "journal.forward_to_socket", NSPAWN_JOURNAL_SOCKET_PATH, SIZE_MAX);
+                if (r == -EEXIST) {
+                        log_error_errno(r, "Credential 'journal.forward_to_socket' already set via --set-credential=, refusing --forward-journal=.");
+                        goto finish;
+                }
+                if (r < 0) {
+                        log_error_errno(r, "Failed to add 'journal.forward_to_socket' credential: %m");
+                        goto finish;
+                }
+        }
+
         for (;;) {
                 r = run_container(
+                                runtime_dir,
                                 rootdir,
                                 mount_fd,
                                 dissected_image,
@@ -6528,18 +6660,7 @@ finish:
                         log_warning_errno(errno, "Can't remove image file '%s', ignoring: %m", arg_image);
         }
 
-        if (arg_machine && arg_userns_mode != USER_NAMESPACE_MANAGED) {
-                const char *p;
-
-                p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
-                (void) rm_rf(p, REMOVE_ROOT);
-
-                p = strjoina("/run/systemd/nspawn/unix-export/", arg_machine);
-                (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
-                (void) rmdir(p);
-        }
-
-        cleanup_propagation_and_export_directories();
+        cleanup_propagation_and_export_directories(runtime_dir);
 
         expose_port_flush(nfnl, arg_expose_ports, AF_INET,  &expose_args.address4);
         expose_port_flush(nfnl, arg_expose_ports, AF_INET6, &expose_args.address6);

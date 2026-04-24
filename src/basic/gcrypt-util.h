@@ -4,7 +4,7 @@
 
 #include "basic-forward.h"
 
-int dlopen_gcrypt(void);
+int dlopen_gcrypt(int log_level);
 
 int initialize_libgcrypt(bool secmem);
 

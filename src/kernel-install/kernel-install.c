@@ -348,7 +348,7 @@ static int context_set_path(Context *c, const char *s, const char *source, const
                 return 0;
 
         if (c->rfd >= 0) {
-                r = chaseat(c->rfd, s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd= */ NULL);
+                r = chaseat(c->rfd, c->rfd, s, /* flags= */ 0, &p, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to chase path %s for %s specified via %s, ignoring: %m",
                                                  s, name, source);
@@ -396,7 +396,7 @@ static int context_set_path_strv(Context *c, char* const* strv, const char *sour
                 char *p;
 
                 if (c->rfd >= 0) {
-                        r = chaseat(c->rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd= */ NULL);
+                        r = chaseat(c->rfd, c->rfd, *s, /* flags= */ 0, &p, /* ret_fd= */ NULL);
                         if (r < 0)
                                 return log_warning_errno(r, "Failed to chase path %s for %s specified via %s: %m",
                                                          *s, name, source);
@@ -503,7 +503,7 @@ static int context_load_machine_info(Context *c) {
                 return 0;
         }
 
-        r = chase_and_fopenat_unlocked(c->rfd, path, CHASE_AT_RESOLVE_IN_ROOT, "re", NULL, &f);
+        r = chase_and_fopenat_unlocked(c->rfd, c->rfd, path, /* chase_flags= */ 0, "re", NULL, &f);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -631,7 +631,7 @@ static int context_ensure_boot_root(Context *c) {
 
         /* If all else fails, use /boot. */
         if (c->rfd >= 0) {
-                r = chaseat(c->rfd, "/boot", CHASE_AT_RESOLVE_IN_ROOT, &c->boot_root, /* ret_fd= */ NULL);
+                r = chaseat(c->rfd, c->rfd, "/boot", 0, &c->boot_root, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to chase '/boot/': %m");
         } else {
@@ -794,7 +794,7 @@ static int context_ensure_layout(Context *c) {
                 return log_oom();
 
         _cleanup_fclose_ FILE *f = NULL;
-        r = chase_and_fopenat_unlocked(c->rfd, srel_path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
+        r = chase_and_fopenat_unlocked(c->rfd, c->rfd, srel_path, CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
         if (r < 0) {
                 if (r != -ENOENT)
                         return log_error_errno(r, "Failed to open '%s': %m", srel_path);
@@ -824,7 +824,7 @@ static int context_ensure_layout(Context *c) {
         if (!entry_token_path)
                 return log_oom();
 
-        r = chaseat(c->rfd, entry_token_path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, /* ret_fd= */ NULL);
+        r = chaseat(c->rfd, c->rfd, entry_token_path, CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, /* ret_fd= */ NULL);
         if (r < 0) {
                 if (!IN_SET(r, -ENOENT, -ENOTDIR))
                         return log_error_errno(r, "Failed to check if '%s' exists and is a directory: %m", entry_token_path);
@@ -916,7 +916,7 @@ static int context_make_entry_dir(Context *c) {
                 return 0;
 
         log_debug("mkdir -p %s", c->entry_dir);
-        fd = chase_and_openat(c->rfd, c->entry_dir, CHASE_AT_RESOLVE_IN_ROOT | CHASE_MKDIR_0755,
+        fd = chase_and_openat(c->rfd, c->rfd, c->entry_dir, CHASE_MKDIR_0755,
                               O_CLOEXEC | O_CREAT | O_DIRECTORY | O_PATH, NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to make directory '%s': %m", c->entry_dir);
@@ -940,7 +940,7 @@ static int context_remove_entry_dir(Context *c) {
                 return 0;
 
         log_debug("rm -rf %s", c->entry_dir);
-        fd = chase_and_openat(c->rfd, c->entry_dir, CHASE_AT_RESOLVE_IN_ROOT, O_CLOEXEC | O_DIRECTORY, &p);
+        fd = chase_and_openat(c->rfd, c->rfd, c->entry_dir, /* chase_flags= */ 0, O_CLOEXEC | O_DIRECTORY, &p);
         if (fd < 0) {
                 if (IN_SET(fd, -ENOTDIR, -ENOENT))
                         return 0;
@@ -1237,7 +1237,7 @@ static int verb_add_all(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (r < 0)
                 return r;
 
-        fd = chase_and_openat(c.rfd, "/usr/lib/modules", CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
+        fd = chase_and_openat(c.rfd, c.rfd, "/usr/lib/modules", /* chase_flags= */ 0, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 
@@ -1467,7 +1467,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        fd = chase_and_openat(c.rfd, "/usr/lib/modules", CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
+        fd = chase_and_openat(c.rfd, c.rfd, "/usr/lib/modules", /* chase_flags= */ 0, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 

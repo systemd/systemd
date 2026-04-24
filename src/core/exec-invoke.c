@@ -1359,9 +1359,9 @@ static int setup_pam(
          * parent process will exec() the actual daemon. We do things this way to ensure that the main PID of
          * the daemon is the one we initially fork()ed. */
 
-        r = dlopen_libpam();
+        r = dlopen_libpam(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "PAM support not available: %m");
+                return r;
 
         r = barrier_create(&barrier);
         if (r < 0)
@@ -1625,7 +1625,7 @@ static bool seccomp_allows_drop_privileges(const ExecContext *c) {
         assert(c);
 
         /* No libseccomp, all is fine */
-        if (dlopen_libseccomp() < 0)
+        if (dlopen_libseccomp(LOG_DEBUG) < 0)
                 return true;
 
         /* No syscall filter, we are allowed to drop privileges */
@@ -1927,7 +1927,7 @@ static int apply_restrict_filesystems(const ExecContext *c, const ExecParameters
         }
 
         /* We are in a new binary, so dl-open again */
-        r = dlopen_bpf();
+        r = dlopen_bpf(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -4152,7 +4152,7 @@ static int apply_working_directory(
 
                 r = chase(wd,
                           runtime->ephemeral_copy ?: context->root_directory,
-                          CHASE_PREFIX_ROOT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS,
+                          CHASE_PREFIX_ROOT|CHASE_TRIGGER_AUTOFS,
                           /* ret_path= */ NULL,
                           &dfd);
                 if (r >= 0)
@@ -6026,10 +6026,10 @@ int exec_invoke(
         }
 
         /* Load a bunch of libraries we'll possibly need later, before we turn off dlopen() */
-        (void) dlopen_bpf();
-        (void) dlopen_cryptsetup();
-        (void) dlopen_libmount();
-        (void) dlopen_libseccomp();
+        (void) dlopen_bpf(LOG_DEBUG);
+        (void) dlopen_cryptsetup(LOG_DEBUG);
+        (void) dlopen_libmount(LOG_DEBUG);
+        (void) dlopen_libseccomp(LOG_DEBUG);
 
         /* Let's now disable further dlopen()ing of libraries, since we are about to do namespace
          * shenanigans, and do not want to mix resources from host and namespace */

@@ -21,10 +21,10 @@ executables += [
                 'public' : true,
                 'sources' : systemd_cryptenroll_sources,
                 'dependencies' : [
-                        libcryptsetup,
+                        libcryptsetup_cflags,
                         libdl,
                         libfido2_cflags,
-                        libopenssl,
+                        libopenssl_cflags,
                         libp11kit_cflags,
                 ],
         },

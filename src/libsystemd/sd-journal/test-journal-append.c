@@ -1,15 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <stdio.h>
 #include <unistd.h>
 
 #include "chattr-util.h"
+#include "format-table.h"
 #include "iovec-util.h"
 #include "journal-file-util.h"
 #include "log.h"
 #include "mmap-cache.h"
+#include "options.h"
 #include "parse-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
@@ -146,98 +147,81 @@ int main(int argc, char *argv[]) {
         uint64_t iteration_step = 1;
         uint64_t corrupt_step = 31;
         bool sequential = false, run_one = false;
-        int c, r;
+        int r;
 
         test_setup_logging(LOG_DEBUG);
 
-        enum {
-                ARG_START_OFFSET = 0x1000,
-                ARG_ITERATIONS,
-                ARG_ITERATION_STEP,
-                ARG_CORRUPT_STEP,
-                ARG_SEQUENTIAL,
-                ARG_RUN_ONE,
-        };
+        OptionParser state = { argc, argv };
+        const char *arg;
 
-        static const struct option options[] = {
-                { "help",                no_argument,       NULL, 'h'                     },
-                { "start-offset",        required_argument, NULL, ARG_START_OFFSET        },
-                { "iterations",          required_argument, NULL, ARG_ITERATIONS          },
-                { "iteration-step",      required_argument, NULL, ARG_ITERATION_STEP      },
-                { "corrupt-step",        required_argument, NULL, ARG_CORRUPT_STEP        },
-                { "sequential",          no_argument,       NULL, ARG_SEQUENTIAL          },
-                { "run-one",             required_argument, NULL, ARG_RUN_ONE             },
-                {}
-        };
-
-        ASSERT_GE(argc, 0);
-        ASSERT_NOT_NULL(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP: {
+                        _cleanup_(table_unrefp) Table *options = NULL;
+
+                        r = option_parser_get_help_table(&options);
+                        if (r < 0)
+                                return r;
+
                         printf("Syntax:\n"
                                "  %s [OPTION...]\n"
-                               "Options:\n"
-                               "    --start-offset=OFFSET   Offset at which to start corrupting the journal\n"
-                               "                            (default: random offset is picked, unless\n"
-                               "                            --sequential is used - in that case we use 0 + iteration)\n"
-                               "    --iterations=ITER       Number of iterations to perform before exiting\n"
-                               "                            (default: 100)\n"
-                               "    --iteration-step=STEP   Iteration step (default: 1)\n"
-                               "    --corrupt-step=STEP     Corrupt every n-th byte starting from OFFSET (default: 31)\n"
-                               "    --sequential            Go through offsets sequentially instead of picking\n"
-                               "                            a random one on each iteration. If set, we go through\n"
-                               "                            offsets <0; ITER), or <OFFSET, ITER) if --start-offset=\n"
-                               "                            is set (default: false)\n"
-                               "    --run-one=OFFSET        Single shot mode for reproducing issues. Takes the same\n"
-                               "                            offset as --start-offset= and does only one iteration\n"
-                               , program_invocation_short_name);
-                        return 0;
+                               "\nOptions:\n",
+                               program_invocation_short_name);
 
-                case ARG_START_OFFSET:
-                        r = safe_atou64(optarg, &start_offset);
+                        r = table_print_or_warn(options);
+                        if (r < 0)
+                                return r;
+
+                        return 0;
+                }
+
+                OPTION_LONG("start-offset", "OFFSET",
+                            "Offset at which to start corrupting the journal "
+                            "(default: random offset is picked, unless --sequential is used"
+                            " - in that case we use 0 + iteration)"):
+                        r = safe_atou64(arg, &start_offset);
                         if (r < 0)
                                 return log_error_errno(r, "Invalid starting offset: %m");
                         break;
 
-                case ARG_ITERATIONS:
-                        r = safe_atou64(optarg, &iterations);
+                OPTION_LONG("iterations", "ITER",
+                            "Number of iterations to perform before exiting (default: 100)"):
+                        r = safe_atou64(arg, &iterations);
                         if (r < 0)
                                 return log_error_errno(r, "Invalid value for iterations: %m");
                         break;
 
-                case ARG_CORRUPT_STEP:
-                        r = safe_atou64(optarg, &corrupt_step);
+                OPTION_LONG("corrupt-step", "STEP",
+                            "Corrupt every n-th byte starting from OFFSET (default: 31)"):
+                        r = safe_atou64(arg, &corrupt_step);
                         if (r < 0)
                                 return log_error_errno(r, "Invalid value for corrupt-step: %m");
                         break;
 
-                case ARG_ITERATION_STEP:
-                        r = safe_atou64(optarg, &iteration_step);
+                OPTION_LONG("iteration-step", "STEP", "Iteration step (default: 1)"):
+                        r = safe_atou64(arg, &iteration_step);
                         if (r < 0)
                                 return log_error_errno(r, "Invalid value for iteration-step: %m");
                         break;
 
-                case ARG_SEQUENTIAL:
+                OPTION_LONG("sequential", NULL,
+                            "Go through offsets sequentially instead of picking a random one on each iteration. "
+                            "Goes through offsets [OFFSET, ITER) if --start-offset= is used, [0, ITER) otherwise "
+                            "(default: false)"):
                         sequential = true;
                         break;
 
-                case ARG_RUN_ONE:
-                        r = safe_atou64(optarg, &start_offset);
+                OPTION_LONG("run-one", "OFFSET",
+                            "Single shot mode for reproducing issues. "
+                            "Takes the same offset as --start-offset= and does only one iteration"):
+                        r = safe_atou64(arg, &start_offset);
                         if (r < 0)
                                 return log_error_errno(r, "Invalid offset: %m");
 
                         run_one = true;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-        }
+                }
 
         if (run_one)
                 /* Reproducer mode */

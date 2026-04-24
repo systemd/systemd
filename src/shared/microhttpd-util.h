@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "shared-forward.h"
+
+int dlopen_microhttpd(int log_level);
+
 #if HAVE_MICROHTTPD
 
 #include <microhttpd.h>
 
-#include "shared-forward.h"
+#include "dlfcn-util.h"
 
 /* Those defines are added when options are renamed. If the old names
  * are not '#define'd, then they are not deprecated yet and there are
@@ -58,6 +62,26 @@
 #  define mhd_result int
 #endif
 
+extern DLSYM_PROTOTYPE(MHD_add_response_header);
+extern DLSYM_PROTOTYPE(MHD_create_response_from_buffer);
+extern DLSYM_PROTOTYPE(MHD_create_response_from_callback);
+#if MHD_VERSION < 0x00094203
+extern DLSYM_PROTOTYPE(MHD_create_response_from_fd_at_offset);
+#  define sym_MHD_create_response_from_fd_at_offset64 sym_MHD_create_response_from_fd_at_offset
+#else
+extern DLSYM_PROTOTYPE(MHD_create_response_from_fd_at_offset64);
+#endif
+extern DLSYM_PROTOTYPE(MHD_destroy_response);
+extern DLSYM_PROTOTYPE(MHD_get_connection_info);
+extern DLSYM_PROTOTYPE(MHD_get_connection_values);
+extern DLSYM_PROTOTYPE(MHD_get_daemon_info);
+extern DLSYM_PROTOTYPE(MHD_get_timeout);
+extern DLSYM_PROTOTYPE(MHD_lookup_connection_value);
+extern DLSYM_PROTOTYPE(MHD_queue_response);
+extern DLSYM_PROTOTYPE(MHD_run);
+extern DLSYM_PROTOTYPE(MHD_start_daemon);
+extern DLSYM_PROTOTYPE(MHD_stop_daemon);
+
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) _printf_(2, 0);
 
 /* respond_oom() must be usable with return, hence this form. */
@@ -107,7 +131,7 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
  */
 int setup_gnutls_logger(char **categories);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct MHD_Daemon*, MHD_stop_daemon, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct MHD_Response*, MHD_destroy_response, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct MHD_Daemon*, sym_MHD_stop_daemon, MHD_stop_daemonp, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct MHD_Response*, sym_MHD_destroy_response, MHD_destroy_responsep, NULL);
 
 #endif

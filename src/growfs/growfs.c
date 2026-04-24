@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <sys/vfs.h>
 
 #include "alloc-util.h"
@@ -13,10 +12,12 @@
 #include "devnum-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
+#include "options.h"
 #include "pretty-print.h"
 #include "resize-fs.h"
 #include "string-util.h"
@@ -27,14 +28,14 @@ static bool arg_dry_run = false;
 #if HAVE_LIBCRYPTSETUP
 static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_devno) {
         _cleanup_free_ char *devpath = NULL, *main_devpath = NULL;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_close_ int main_devfd = -EBADF;
         uint64_t size;
         int r;
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "Cannot resize LUKS device: %m");
+                return r;
 
         main_devfd = r = device_open_from_devnum(S_IFBLK, main_devno, O_RDONLY|O_CLOEXEC, &main_devpath);
         if (r < 0)
@@ -92,10 +93,6 @@ static int maybe_resize_underlying_device(
         assert(mountfd >= 0);
         assert(mountpath);
 
-#if HAVE_LIBCRYPTSETUP
-        cryptsetup_enable_logging(NULL);
-#endif
-
         r = get_block_device_harder_fd(mountfd, &devno);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine underlying block device of \"%s\": %m",
@@ -132,67 +129,60 @@ static int maybe_resize_underlying_device(
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-growfs@.service", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] /path/to/mountpoint\n\n"
-               "Grow filesystem or encrypted payload to device size.\n\n"
-               "Options:\n"
-               "  -h --help          Show this help and exit\n"
-               "     --version       Print version string and exit\n"
-               "  -n --dry-run       Just print what would be done\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               link);
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
 
+        printf("%s [OPTIONS...] /path/to/mountpoint\n\n"
+               "Grow filesystem or encrypted payload to device size.\n",
+               program_invocation_short_name);
+
+        printf("\n%sOptions:%s\n",
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-        };
-
-        int c;
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'           },
-                { "version" ,     no_argument,       NULL, ARG_VERSION   },
-                { "dry-run",      no_argument,       NULL, 'n'           },
-                {}
-        };
-
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hn", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
-                case 'h':
+
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case 'n':
+                OPTION('n', "dry-run", NULL, "Just print what would be done"):
                         arg_dry_run = true;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        if (optind + 1 != argc)
+        if (option_parser_get_n_args(&state) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s expects exactly one argument (the mount point).",
                                        program_invocation_short_name);
 
-        arg_target = argv[optind];
+        arg_target = option_parser_get_args(&state)[0];
 
         return 1;
 }

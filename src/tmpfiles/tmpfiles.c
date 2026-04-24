@@ -1247,7 +1247,7 @@ static int parse_acl_cond_exec(
         assert(cond_exec);
         assert(ret);
 
-        r = dlopen_libacl();
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1366,7 +1366,7 @@ static int path_set_acl(
 
         assert(c);
 
-        r = dlopen_libacl();
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -4225,8 +4225,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_VERSION:
                         return version();
 
-                OPTION_GROUP("Options"):
-                        break;
+                OPTION_GROUP("Options"): {}
 
                 OPTION_LONG("user", NULL, "Execute user configuration"):
                         arg_runtime_scope = RUNTIME_SCOPE_USER;

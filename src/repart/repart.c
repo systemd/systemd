@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -25,6 +24,7 @@
 #include "conf-parser.h"
 #include "constants.h"
 #include "copy.h"
+#include "crypto-util.h"
 #include "cryptsetup-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
@@ -60,7 +60,7 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
-#include "openssl-util.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
@@ -985,9 +985,11 @@ static Context* context_free(Context *context) {
                 free(context->node);
 
 #if HAVE_OPENSSL
-        X509_free(context->certificate);
+        if (context->certificate)
+                sym_X509_free(context->certificate);
         openssl_ask_password_ui_free(context->ui);
-        EVP_PKEY_free(context->private_key);
+        if (context->private_key)
+                sym_EVP_PKEY_free(context->private_key);
 #endif
 
         context->link = sd_varlink_unref(context->link);
@@ -3022,7 +3024,7 @@ static int partition_read_definition(
                                   "Cannot format %s filesystem without source files, refusing.", p->format);
 
         if (p->verity != VERITY_OFF || p->encrypt != ENCRYPT_OFF) {
-                r = dlopen_cryptsetup();
+                r = dlopen_cryptsetup(LOG_DEBUG);
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, path, 1, r,
                                           "libcryptsetup not found, Verity=/Encrypt= are not supported: %m");
@@ -4614,9 +4616,9 @@ static int context_wipe_range(Context *context, uint64_t offset, uint64_t size) 
         assert(offset != UINT64_MAX);
         assert(size != UINT64_MAX);
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "Failed to load libblkid: %m");
+                return r;
 
         probe = sym_blkid_new_probe();
         if (!probe)
@@ -5200,9 +5202,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         assert(p);
         assert(p->encrypt != ENCRYPT_OFF);
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "libcryptsetup not found, cannot encrypt: %m");
+                return r;
 
         log_info("Encrypting future partition %" PRIu64 "...", p->partno);
 
@@ -5253,7 +5255,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         return log_oom();
         }
 
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         r = sym_crypt_init(&cd, offline ? hp : node);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", hp);
@@ -5709,7 +5711,7 @@ static int partition_format_verity_hash(
 #if HAVE_LIBCRYPTSETUP
         Partition *dp;
         _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ char *hint = NULL;
         int r;
 
@@ -5733,9 +5735,9 @@ static int partition_format_verity_hash(
 
         (void) partition_hint(p, node, &hint);
 
-        r = dlopen_cryptsetup();
+        r = dlopen_cryptsetup(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "libcryptsetup not found, cannot setup verity: %m");
+                return r;
 
         if (!node) {
                 r = partition_target_prepare(context, p, p->new_size, /* need_path= */ true, &t);
@@ -5826,7 +5828,7 @@ static int sign_verity_roothash(
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         _cleanup_free_ char *hex = NULL;
         _cleanup_free_ uint8_t *sig = NULL;
-        int sigsz;
+        int sigsz, r;
 
         assert(context);
         assert(context->certificate);
@@ -5835,23 +5837,27 @@ static int sign_verity_roothash(
         assert(iovec_is_set(roothash));
         assert(ret_signature);
 
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
+                return r;
+
         hex = hexmem(roothash->iov_base, roothash->iov_len);
         if (!hex)
                 return log_oom();
 
-        rb = BIO_new_mem_buf(hex, -1);
+        rb = sym_BIO_new_mem_buf(hex, -1);
         if (!rb)
                 return log_oom();
 
-        p7 = PKCS7_sign(context->certificate, context->private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
+        p7 = sym_PKCS7_sign(context->certificate, context->private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
         if (!p7)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
+                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
-        sigsz = i2d_PKCS7(p7, &sig);
+        sigsz = sym_i2d_PKCS7(p7, &sig);
         if (sigsz < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
+                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
         *ret_signature = IOVEC_MAKE(TAKE_PTR(sig), sigsz);
 
@@ -6918,7 +6924,7 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
          * appear in the host namespace. Hence we fork a child that has its own file system namespace and
          * detached mount propagation. */
 
-        (void) dlopen_libmount();
+        (void) dlopen_libmount(LOG_DEBUG);
 
         r = pidref_safe_fork(
                         "(sd-copy)",
@@ -7754,9 +7760,30 @@ static int context_split(Context *context) {
                 if (lseek(fd, p->offset, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
-                r = copy_bytes(fd, fdt, p->new_size, COPY_REFLINK|COPY_HOLES|COPY_TRUNCATE);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to copy to split partition %s: %m", p->split_path);
+                /* Verity signature partitions contain a JSON object NUL-padded out to the partition
+                 * size. The on-disk partition must keep the padding, but the split-out file is a
+                 * standalone artifact, so trim the trailing NUL bytes there to avoid tripping jq. */
+                if (partition_designator_is_verity_sig(p->type.designator)) {
+                        _cleanup_free_ char *buf = malloc(p->new_size);
+                        if (!buf)
+                                return log_oom();
+
+                        r = loop_read_exact(fd, buf, p->new_size, /* do_poll= */ false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read verity signature partition: %m");
+
+                        size_t len = strnlen(buf, p->new_size);
+                        if (len == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Verity signature partition is empty");
+
+                        r = loop_write(fdt, buf, len);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write to split partition %s: %m", p->split_path);
+                } else {
+                        r = copy_bytes(fd, fdt, p->new_size, COPY_REFLINK|COPY_HOLES|COPY_TRUNCATE);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to copy to split partition %s: %m", p->split_path);
+                }
         }
 
         return 0;
@@ -8358,9 +8385,9 @@ static int resolve_copy_blocks_auto_candidate(
                 return log_error_errno(r, "Failed to open block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(whole_devno));
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "Failed to find libblkid: %m");
+                return r;
 
         b = sym_blkid_new_probe();
         if (!b)
@@ -9227,7 +9254,7 @@ static int context_minimize(Context *context) {
                                 attrs & FS_NOCOW_FL ? XO_NOCOW : 0,
                                 0600);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
+                        return log_error_errno(fd, "Failed to open temporary file %s: %m", temp);
 
                 if (fstype_is_ro(p->format) || is_btrfs)
                         /* Read-only filesystems and btrfs (with mkfs.btrfs --shrink) produce a minimal
@@ -9441,7 +9468,7 @@ static int context_minimize(Context *context) {
                                 attrs & FS_NOCOW_FL ? XO_NOCOW : 0,
                                 0600);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
+                        return log_error_errno(fd, "Failed to open temporary file %s: %m", temp);
 
                 r = partition_format_verity_hash(context, p, temp, dp->copy_blocks_path);
                 if (r < 0)
@@ -9606,355 +9633,157 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] [DEVICE]\n"
-               "\n%5$sGrow and add partitions to a partition table, and generate disk images (DDIs).%6$s\n\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "\n%3$sOperation:%4$s\n"
-               "     --dry-run=BOOL       Whether to run dry-run operation\n"
-               "     --empty=MODE         One of refuse, allow, require, force, create; controls\n"
-               "                          how to handle empty disks lacking partition tables\n"
-               "     --offline=BOOL       Whether to build the image offline\n"
-               "     --discard=BOOL       Whether to discard backing blocks for new partitions\n"
-               "     --sector-size=SIZE   Set the logical sector size for the image\n"
-               "     --grain-size=BYTES   Set the grain size for partition alignment\n"
-               "     --architecture=ARCH  Set the generic architecture for the image\n"
-               "     --size=BYTES         Grow loopback file to specified size\n"
-               "     --seed=UUID          128-bit seed UUID to derive all UUIDs from\n"
-               "     --split=BOOL         Whether to generate split artifacts\n"
-               "\n%3$sOutput:%4$s\n"
-               "     --pretty=BOOL        Whether to show pretty summary before doing changes\n"
-               "     --json=pretty|short|off\n"
-               "                          Generate JSON output\n"
-               "\n%3$sFactory Reset:%4$s\n"
-               "     --factory-reset=BOOL Whether to remove data partitions before recreating\n"
-               "                          them\n"
-               "     --can-factory-reset  Test whether factory reset is defined\n"
-               "\n%3$sConfiguration & Image Control:%4$s\n"
-               "     --root=PATH          Operate relative to root path\n"
-               "     --image=PATH         Operate relative to image file\n"
-               "     --image-policy=POLICY\n"
-               "                          Specify disk image dissection policy\n"
-               "     --definitions=DIR    Find partition definitions in specified directory\n"
-               "     --list-devices       List candidate block devices to operate on\n"
-               "\n%3$sVerity:%4$s\n"
-               "     --private-key=PATH|URI\n"
-               "                          Private key to use when generating verity roothash\n"
-               "                          signatures, or an engine or provider specific\n"
-               "                          designation if --private-key-source= is used\n"
-               "     --private-key-source=file|provider:PROVIDER|engine:ENGINE\n"
-               "                          Specify how to use KEY for --private-key=. Allows\n"
-               "                          an OpenSSL engine/provider to be used when generating\n"
-               "                          verity roothash signatures\n"
-               "     --certificate=PATH|URI\n"
-               "                          PEM certificate to use when generating verity roothash\n"
-               "                          signatures, or a provider specific designation if\n"
-               "                           --certificate-source= is used\n"
-               "     --certificate-source=file|provider:PROVIDER\n"
-               "                          Specify how to interpret the certificate from\n"
-               "                          --certificate=. Allows the certificate to be loaded\n"
-               "                          from an OpenSSL provider\n"
-               "     --join-signature=HASH:SIG\n"
-               "                          Specify root hash and pkcs7 signature of root hash for\n"
-               "                          verity as a tuple of hex encoded hash and a DER\n"
-               "                          encoded PKCS7, either as a path to a file or as an\n"
-               "                          ASCII base64 encoded string prefixed by 'base64:'\n"
-               "\n%3$sEncryption:%4$s\n"
-               "     --key-file=PATH      Key to use when encrypting partitions\n"
-               "     --tpm2-device=PATH   Path to TPM2 device node to use\n"
-               "     --tpm2-device-key=PATH\n"
-               "                          Enroll a TPM2 device using its public key\n"
-               "     --tpm2-seal-key-handle=HANDLE\n"
-               "                          Specify handle of key to use for sealing\n"
-               "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
-               "                          TPM2 PCR indexes to use for TPM2 enrollment\n"
-               "     --tpm2-public-key=PATH\n"
-               "                          Enroll signed TPM2 PCR policy against PEM public key\n"
-               "     --tpm2-public-key-pcrs=PCR1+PCR2+PCR3+…\n"
-               "                          Enroll signed TPM2 PCR policy for specified TPM2 PCRs\n"
-               "     --tpm2-pcrlock=PATH\n"
-               "                          Specify pcrlock policy to lock against\n"
-               "\n%3$sPartition Control:%4$s\n"
-               "     --include-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
-               "                          Ignore partitions not of the specified types\n"
-               "     --exclude-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
-               "                          Ignore partitions of the specified types\n"
-               "     --defer-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
-               "                          Take partitions of the specified types into account\n"
-               "                          but don't populate them yet\n"
-               "     --defer-partitions-empty=yes\n"
-               "                          Defer all partitions marked for formatting as empty\n"
-               "     --defer-partitions-factory-reset=yes\n"
-               "                          Defer all partitions marked for factory reset\n"
-               "\n%3$sCopying:%4$s\n"
-               "  -s --copy-source=PATH   Specify the primary source tree to copy files from\n"
-               "     --copy-from=IMAGE    Copy partitions from the given image(s)\n"
-               "\n%3$sDDI Profile:%4$s\n"
-               "  -S --make-ddi=sysext    Make a system extension DDI\n"
-               "  -C --make-ddi=confext   Make a configuration extension DDI\n"
-               "  -P --make-ddi=portable  Make a portable service DDI\n"
-               "\n%3$sAuxiliary Resource Generation:%4$s\n"
-               "     --append-fstab=MODE  One of no, auto, replace; controls how to join the\n"
-               "                          content of a pre-existing fstab with the generated one\n"
-               "     --generate-fstab=PATH\n"
-               "                          Write fstab configuration to the given path\n"
-               "     --generate-crypttab=PATH\n"
-               "                          Write crypttab configuration to the given path\n"
-               "\n%3$sEl Torito boot catalog:%4$s\n"
-               "     --el-torito=BOOL     Whether to add a boot catalog to boot the ESP\n"
-               "     --el-torito-system=STRING\n"
-               "                          Set the system identifier in the ISO9660 descriptor\n"
-               "     --el-torito-volume=STRING\n"
-               "                          Set the volume identifier in the ISO9660 descriptor\n"
-               "     --el-torito-publisher=STRING\n"
-               "                          Set the publisher identifier in the ISO9660 descriptor\n"
-               "\nSee the %2$s for details.\n",
+        static const char *const option_groups[] = {
+                "Options",
+                "Operation",
+                "Output",
+                "Factory Reset",
+                "Configuration & Image Control",
+                "Verity",
+                "Encryption",
+                "Partition Control",
+                "Copying",
+                "DDI Profile",
+                "Auxiliary Resource Generation",
+                "El Torito boot catalog",
+        };
+
+        _cleanup_(table_unref_many) Table *option_tables[ELEMENTSOF(option_groups) + 1] = {};
+
+        for (size_t i = 0; i < ELEMENTSOF(option_groups); i++) {
+                r = option_parser_get_help_table_group(option_groups[i], &option_tables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        (void) table_sync_column_widths(0,
+                                        option_tables[0], option_tables[1], option_tables[2],
+                                        option_tables[3], option_tables[4], option_tables[5],
+                                        option_tables[6], option_tables[7], option_tables[8],
+                                        option_tables[9], option_tables[10], option_tables[11]);
+
+        printf("%s [OPTIONS...] [DEVICE]\n"
+               "\n%sGrow and add partitions to a partition table, and generate disk images (DDIs).%s\n",
                program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
                ansi_highlight(),
                ansi_normal());
 
+        for (size_t i = 0; i < ELEMENTSOF(option_groups); i++) {
+                printf("\n%s%s:%s\n", ansi_underline(), option_groups[i], ansi_normal());
+
+                r = table_print_or_warn(option_tables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_DRY_RUN,
-                ARG_EMPTY,
-                ARG_DISCARD,
-                ARG_FACTORY_RESET,
-                ARG_CAN_FACTORY_RESET,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_SEED,
-                ARG_PRETTY,
-                ARG_DEFINITIONS,
-                ARG_SIZE,
-                ARG_JSON,
-                ARG_KEY_FILE,
-                ARG_PRIVATE_KEY,
-                ARG_PRIVATE_KEY_SOURCE,
-                ARG_CERTIFICATE,
-                ARG_CERTIFICATE_SOURCE,
-                ARG_TPM2_DEVICE,
-                ARG_TPM2_DEVICE_KEY,
-                ARG_TPM2_SEAL_KEY_HANDLE,
-                ARG_TPM2_PCRS,
-                ARG_TPM2_PUBLIC_KEY,
-                ARG_TPM2_PUBLIC_KEY_PCRS,
-                ARG_TPM2_PCRLOCK,
-                ARG_SPLIT,
-                ARG_INCLUDE_PARTITIONS,
-                ARG_EXCLUDE_PARTITIONS,
-                ARG_DEFER_PARTITIONS,
-                ARG_DEFER_PARTITIONS_EMPTY,
-                ARG_DEFER_PARTITIONS_FACTORY_RESET,
-                ARG_SECTOR_SIZE,
-                ARG_GRAIN_SIZE,
-                ARG_SKIP_PARTITIONS,
-                ARG_ARCHITECTURE,
-                ARG_OFFLINE,
-                ARG_COPY_FROM,
-                ARG_MAKE_DDI,
-                ARG_APPEND_FSTAB,
-                ARG_GENERATE_FSTAB,
-                ARG_GENERATE_CRYPTTAB,
-                ARG_LIST_DEVICES,
-                ARG_JOIN_SIGNATURE,
-                ARG_ELTORITO,
-                ARG_ELTORITO_SYSTEM,
-                ARG_ELTORITO_VOLUME,
-                ARG_ELTORITO_PUBLISHER,
-        };
-
-        static const struct option options[] = {
-                { "help",                           no_argument,       NULL, 'h'                                },
-                { "version",                        no_argument,       NULL, ARG_VERSION                        },
-                { "no-pager",                       no_argument,       NULL, ARG_NO_PAGER                       },
-                { "no-legend",                      no_argument,       NULL, ARG_NO_LEGEND                      },
-                { "dry-run",                        required_argument, NULL, ARG_DRY_RUN                        },
-                { "empty",                          required_argument, NULL, ARG_EMPTY                          },
-                { "discard",                        required_argument, NULL, ARG_DISCARD                        },
-                { "factory-reset",                  required_argument, NULL, ARG_FACTORY_RESET                  },
-                { "can-factory-reset",              no_argument,       NULL, ARG_CAN_FACTORY_RESET              },
-                { "root",                           required_argument, NULL, ARG_ROOT                           },
-                { "image",                          required_argument, NULL, ARG_IMAGE                          },
-                { "image-policy",                   required_argument, NULL, ARG_IMAGE_POLICY                   },
-                { "seed",                           required_argument, NULL, ARG_SEED                           },
-                { "pretty",                         required_argument, NULL, ARG_PRETTY                         },
-                { "definitions",                    required_argument, NULL, ARG_DEFINITIONS                    },
-                { "size",                           required_argument, NULL, ARG_SIZE                           },
-                { "json",                           required_argument, NULL, ARG_JSON                           },
-                { "key-file",                       required_argument, NULL, ARG_KEY_FILE                       },
-                { "private-key",                    required_argument, NULL, ARG_PRIVATE_KEY                    },
-                { "private-key-source",             required_argument, NULL, ARG_PRIVATE_KEY_SOURCE             },
-                { "certificate",                    required_argument, NULL, ARG_CERTIFICATE                    },
-                { "certificate-source",             required_argument, NULL, ARG_CERTIFICATE_SOURCE             },
-                { "tpm2-device",                    required_argument, NULL, ARG_TPM2_DEVICE                    },
-                { "tpm2-device-key",                required_argument, NULL, ARG_TPM2_DEVICE_KEY                },
-                { "tpm2-seal-key-handle",           required_argument, NULL, ARG_TPM2_SEAL_KEY_HANDLE           },
-                { "tpm2-pcrs",                      required_argument, NULL, ARG_TPM2_PCRS                      },
-                { "tpm2-public-key",                required_argument, NULL, ARG_TPM2_PUBLIC_KEY                },
-                { "tpm2-public-key-pcrs",           required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS           },
-                { "tpm2-pcrlock",                   required_argument, NULL, ARG_TPM2_PCRLOCK                   },
-                { "split",                          required_argument, NULL, ARG_SPLIT                          },
-                { "include-partitions",             required_argument, NULL, ARG_INCLUDE_PARTITIONS             },
-                { "exclude-partitions",             required_argument, NULL, ARG_EXCLUDE_PARTITIONS             },
-                { "defer-partitions",               required_argument, NULL, ARG_DEFER_PARTITIONS               },
-                { "defer-partitions-empty",         required_argument, NULL, ARG_DEFER_PARTITIONS_EMPTY         },
-                { "defer-partitions-factory-reset", required_argument, NULL, ARG_DEFER_PARTITIONS_FACTORY_RESET },
-                { "sector-size",                    required_argument, NULL, ARG_SECTOR_SIZE                    },
-                { "grain-size",                     required_argument, NULL, ARG_GRAIN_SIZE                     },
-                { "architecture",                   required_argument, NULL, ARG_ARCHITECTURE                   },
-                { "offline",                        required_argument, NULL, ARG_OFFLINE                        },
-                { "copy-from",                      required_argument, NULL, ARG_COPY_FROM                      },
-                { "copy-source",                    required_argument, NULL, 's'                                },
-                { "make-ddi",                       required_argument, NULL, ARG_MAKE_DDI                       },
-                { "append-fstab",                   required_argument, NULL, ARG_APPEND_FSTAB                   },
-                { "generate-fstab",                 required_argument, NULL, ARG_GENERATE_FSTAB                 },
-                { "generate-crypttab",              required_argument, NULL, ARG_GENERATE_CRYPTTAB              },
-                { "list-devices",                   no_argument,       NULL, ARG_LIST_DEVICES                   },
-                { "join-signature",                 required_argument, NULL, ARG_JOIN_SIGNATURE                 },
-                { "el-torito",                      required_argument, NULL, ARG_ELTORITO                       },
-                { "el-torito-system",               required_argument, NULL, ARG_ELTORITO_SYSTEM                },
-                { "el-torito-volume",               required_argument, NULL, ARG_ELTORITO_VOLUME                },
-                { "el-torito-publisher",            required_argument, NULL, ARG_ELTORITO_PUBLISHER             },
-                {}
-        };
-
-        bool auto_public_key_pcr_mask = true, auto_pcrlock = true;
-        int c, r;
-
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hs:SCP", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+        bool auto_public_key_pcr_mask = true, auto_pcrlock = true;
+        int r;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_GROUP("Options"): {}
+
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_NO_LEGEND:
+                OPTION_COMMON_NO_LEGEND:
                         arg_legend = false;
                         break;
 
-                case ARG_DRY_RUN:
-                        r = parse_boolean_argument("--dry-run=", optarg, &arg_dry_run);
+                OPTION_GROUP("Operation"): {}
+
+                OPTION_LONG("dry-run", "BOOL",
+                            "Whether to run dry-run operation"):
+                        r = parse_boolean_argument("--dry-run=", arg, &arg_dry_run);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_EMPTY:
-                        if (isempty(optarg)) {
+                OPTION_LONG("empty", "MODE",
+                            "How to handle empty disks lacking partition tables (refuse, allow, require, force, create)"):
+                        if (isempty(arg)) {
                                 arg_empty = EMPTY_UNSET;
                                 break;
                         }
 
-                        arg_empty = empty_mode_from_string(optarg);
+                        arg_empty = empty_mode_from_string(arg);
                         if (arg_empty < 0)
-                                return log_error_errno(arg_empty, "Failed to parse --empty= parameter: %s", optarg);
+                                return log_error_errno(arg_empty, "Failed to parse --empty= parameter: %s", arg);
 
                         break;
 
-                case ARG_DISCARD:
-                        r = parse_boolean_argument("--discard=", optarg, &arg_discard);
+                OPTION_LONG("offline", "BOOL",
+                            "Whether to build the image offline"):
+                        r = parse_tristate_argument_with_auto("--offline=", arg, &arg_offline);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_FACTORY_RESET:
-                        r = parse_boolean_argument("--factory-reset=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        arg_factory_reset = r;
-                        break;
-
-                case ARG_CAN_FACTORY_RESET:
-                        arg_can_factory_reset = true;
-                        break;
-
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root);
+                OPTION_LONG("discard", "BOOL",
+                            "Whether to discard backing blocks for new partitions"):
+                        r = parse_boolean_argument("--discard=", arg, &arg_discard);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
+                OPTION_LONG("sector-size", "SIZE",
+                            "Set the logical sector size for the image"):
+                        r = parse_sector_size(arg, &arg_sector_size);
                         if (r < 0)
                                 return r;
 
-                        arg_relax_copy_block_security = false;
-
                         break;
 
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                OPTION_LONG("grain-size", "BYTES",
+                            "Set the grain size for partition alignment"):
+                        r = parse_size(arg, 1024, &arg_grain_size);
                         if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_SEED:
-                        if (isempty(optarg)) {
-                                arg_seed = SD_ID128_NULL;
-                                arg_randomize = false;
-                        } else if (streq(optarg, "random"))
-                                arg_randomize = true;
-                        else {
-                                r = sd_id128_from_string(optarg, &arg_seed);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse seed: %s", optarg);
-
-                                arg_randomize = false;
-                        }
+                                return log_error_errno(r, "Failed to parse --grain-size= parameter: %s", arg);
+                        if (arg_grain_size < 512 || !ISPOWEROF2(arg_grain_size))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Grain size must be a power of 2 >= 512.");
 
                         break;
 
-                case ARG_PRETTY:
-                        r = parse_boolean_argument("--pretty=", optarg, NULL);
+                OPTION_LONG("architecture", "ARCH",
+                            "Set the generic architecture for the image"):
+                        r = architecture_from_string(arg);
                         if (r < 0)
-                                return r;
-                        arg_pretty = r;
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid architecture '%s'.", arg);
+
+                        arg_architecture = r;
                         break;
 
-                case ARG_DEFINITIONS: {
-                        _cleanup_free_ char *path = NULL;
-                        r = parse_path_argument(optarg, false, &path);
-                        if (r < 0)
-                                return r;
-                        if (strv_consume(&arg_definitions, TAKE_PTR(path)) < 0)
-                                return log_oom();
-                        break;
-                }
-
-                case ARG_SIZE: {
+                OPTION_LONG("size", "BYTES",
+                            "Grow loopback file to specified size"): {
                         uint64_t parsed, rounded;
 
-                        if (streq(optarg, "auto")) {
+                        if (streq(arg, "auto")) {
                                 arg_size = UINT64_MAX;
                                 arg_size_auto = true;
                                 break;
                         }
 
-                        r = parse_size(optarg, 1024, &parsed);
+                        r = parse_size(arg, 1024, &parsed);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --size= parameter: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --size= parameter: %s", arg);
 
                         rounded = round_up_size(parsed, 4096);
                         if (rounded == 0)
@@ -9971,59 +9800,168 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                OPTION_LONG("seed", "UUID",
+                            "128-bit seed UUID to derive all UUIDs from"):
+                        if (isempty(arg)) {
+                                arg_seed = SD_ID128_NULL;
+                                arg_randomize = false;
+                        } else if (streq(arg, "random"))
+                                arg_randomize = true;
+                        else {
+                                r = sd_id128_from_string(arg, &arg_seed);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse seed: %s", arg);
+
+                                arg_randomize = false;
+                        }
+
+                        break;
+
+                OPTION_LONG("split", "BOOL",
+                            "Whether to generate split artifacts"):
+                        r = parse_boolean_argument("--split=", arg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        arg_split = r;
+                        break;
+
+                OPTION_GROUP("Output"): {}
+
+                OPTION_LONG("pretty", "BOOL",
+                            "Whether to show pretty summary before doing changes"):
+                        r = parse_boolean_argument("--pretty=", arg, NULL);
+                        if (r < 0)
+                                return r;
+                        arg_pretty = r;
+                        break;
+
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
 
                         break;
 
-                case ARG_KEY_FILE: {
-                        r = parse_key_file(optarg, &arg_key);
+                OPTION_GROUP("Factory Reset"): {}
+
+                OPTION_LONG("factory-reset", "BOOL",
+                            "Whether to remove data partitions before recreating them"):
+                        r = parse_boolean_argument("--factory-reset=", arg, NULL);
+                        if (r < 0)
+                                return r;
+                        arg_factory_reset = r;
+                        break;
+
+                OPTION_LONG("can-factory-reset", NULL,
+                            "Test whether factory reset is defined"):
+                        arg_can_factory_reset = true;
+                        break;
+
+                OPTION_GROUP("Configuration & Image Control"): {}
+
+                OPTION_LONG("root", "PATH",
+                            "Operate relative to root path"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
-                }
 
-                case ARG_PRIVATE_KEY: {
-                        r = free_and_strdup_warn(&arg_private_key, optarg);
+                OPTION_LONG("image", "PATH",
+                            "Operate relative to image file"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image);
+                        if (r < 0)
+                                return r;
+
+                        arg_relax_copy_block_security = false;
+
+                        break;
+
+                OPTION_LONG("image-policy", "POLICY",
+                            "Specify disk image dissection policy"):
+                        r = parse_image_policy_argument(arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_LONG("definitions", "DIR",
+                            "Find partition definitions in specified directory"): {
+                        _cleanup_free_ char *path = NULL;
+                        r = parse_path_argument(arg, false, &path);
+                        if (r < 0)
+                                return r;
+                        if (strv_consume(&arg_definitions, TAKE_PTR(path)) < 0)
+                                return log_oom();
+                        break;
                 }
 
-                case ARG_PRIVATE_KEY_SOURCE:
+                OPTION_LONG("list-devices", NULL,
+                            "List candidate block devices to operate on"):
+                        r = blockdev_list(BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_ZRAM, /* ret_devices= */ NULL, /* ret_n_devices= */ NULL);
+                        if (r < 0)
+                                return r;
+
+                        return 0;
+
+                OPTION_GROUP("Verity"): {}
+
+                OPTION_COMMON_PRIVATE_KEY("Private key to use when generating verity roothash signatures"):
+                        r = free_and_strdup_warn(&arg_private_key, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_COMMON_PRIVATE_KEY_SOURCE:
                         r = parse_openssl_key_source_argument(
-                                        optarg,
+                                        arg,
                                         &arg_private_key_source,
                                         &arg_private_key_source_type);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CERTIFICATE:
-                        r = free_and_strdup_warn(&arg_certificate, optarg);
+                OPTION_COMMON_CERTIFICATE("PEM certificate to use when generating verity roothash signatures"):
+                        r = free_and_strdup_warn(&arg_certificate, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CERTIFICATE_SOURCE:
+                OPTION_COMMON_CERTIFICATE_SOURCE:
                         r = parse_openssl_certificate_source_argument(
-                                        optarg,
+                                        arg,
                                         &arg_certificate_source,
                                         &arg_certificate_source_type);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_TPM2_DEVICE: {
+                OPTION_LONG("join-signature", "HASH:SIG",
+                            "Specify root hash and pkcs7 signature of root hash for verity as a tuple of "
+                            "hex-encoded hash and a DER-encoded PKCS7, either as a path to a file or as an "
+                            "ASCII base64-encoded string prefixed by 'base64:'"):
+                        r = parse_join_signature(arg, &arg_verity_settings);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_GROUP("Encryption"): {}
+
+                OPTION_LONG("key-file", "PATH",
+                            "Key to use when encrypting partitions"):
+                        r = parse_key_file(arg, &arg_key);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("tpm2-device", "PATH",
+                            "Path to TPM2 device node to use"): {
                         _cleanup_free_ char *device = NULL;
 
-                        if (streq(optarg, "list"))
+                        if (streq(arg, "list"))
                                 return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
-                        if (!streq(optarg, "auto")) {
-                                device = strdup(optarg);
+                        if (!streq(arg, "auto")) {
+                                device = strdup(arg);
                                 if (!device)
                                         return log_oom();
                         }
@@ -10033,64 +9971,65 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_TPM2_DEVICE_KEY:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_device_key);
+                OPTION_LONG("tpm2-device-key", "PATH",
+                            "Enroll a TPM2 device using its public key"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_tpm2_device_key);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case ARG_TPM2_SEAL_KEY_HANDLE:
-                        r = safe_atou32_full(optarg, 16, &arg_tpm2_seal_key_handle);
+                OPTION_LONG("tpm2-seal-key-handle", "HANDLE",
+                            "Specify handle of key to use for sealing"):
+                        r = safe_atou32_full(arg, 16, &arg_tpm2_seal_key_handle);
                         if (r < 0)
-                                return log_error_errno(r, "Could not parse TPM2 seal key handle index '%s': %m", optarg);
+                                return log_error_errno(r, "Could not parse TPM2 seal key handle index '%s': %m", arg);
 
                         break;
 
-                case ARG_TPM2_PCRS:
-                        r = tpm2_parse_pcr_argument_append(optarg, &arg_tpm2_hash_pcr_values, &arg_tpm2_n_hash_pcr_values);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_TPM2_PUBLIC_KEY:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_public_key);
+                OPTION_LONG("tpm2-pcrs", "PCR1+PCR2+…",
+                            "TPM2 PCR indexes to use for TPM2 enrollment"):
+                        r = tpm2_parse_pcr_argument_append(arg, &arg_tpm2_hash_pcr_values, &arg_tpm2_n_hash_pcr_values);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case ARG_TPM2_PUBLIC_KEY_PCRS:
+                OPTION_LONG("tpm2-public-key", "PATH",
+                            "Enroll signed TPM2 PCR policy against PEM public key"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_tpm2_public_key);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                OPTION_LONG("tpm2-public-key-pcrs", "PCR1+PCR2+…",
+                            "Enroll signed TPM2 PCR policy for specified TPM2 PCRs"):
                         auto_public_key_pcr_mask = false;
-                        r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_tpm2_public_key_pcr_mask);
+                        r = tpm2_parse_pcr_argument_to_mask(arg, &arg_tpm2_public_key_pcr_mask);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case ARG_TPM2_PCRLOCK:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_pcrlock);
+                OPTION_LONG("tpm2-pcrlock", "PATH",
+                            "Specify pcrlock policy to lock against"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_tpm2_pcrlock);
                         if (r < 0)
                                 return r;
 
                         auto_pcrlock = false;
                         break;
 
-                case ARG_SPLIT:
-                        r = parse_boolean_argument("--split=", optarg, NULL);
-                        if (r < 0)
-                                return r;
+                OPTION_GROUP("Partition Control"): {}
 
-                        arg_split = r;
-                        break;
-
-                case ARG_INCLUDE_PARTITIONS:
+                OPTION_LONG("include-partitions", "PART1,PART2…",
+                            "Ignore partitions not of the specified types"):
                         if (arg_filter_partitions_type == FILTER_PARTITIONS_EXCLUDE)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Combination of --include-partitions= and --exclude-partitions= is invalid.");
 
-                        r = parse_partition_types(optarg, &arg_filter_partitions, &arg_n_filter_partitions);
+                        r = parse_partition_types(arg, &arg_filter_partitions, &arg_n_filter_partitions);
                         if (r < 0)
                                 return r;
 
@@ -10098,12 +10037,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_EXCLUDE_PARTITIONS:
+                OPTION_LONG("exclude-partitions", "PART1,PART2…",
+                            "Ignore partitions of the specified types"):
                         if (arg_filter_partitions_type == FILTER_PARTITIONS_INCLUDE)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Combination of --include-partitions= and --exclude-partitions= is invalid.");
 
-                        r = parse_partition_types(optarg, &arg_filter_partitions, &arg_n_filter_partitions);
+                        r = parse_partition_types(arg, &arg_filter_partitions, &arg_n_filter_partitions);
                         if (r < 0)
                                 return r;
 
@@ -10111,68 +10051,44 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_DEFER_PARTITIONS:
-                        r = parse_partition_types(optarg, &arg_defer_partitions, &arg_n_defer_partitions);
+                OPTION_LONG("defer-partitions", "PART1,PART2…",
+                            "Take partitions of the specified types into account but don't populate them yet"):
+                        r = parse_partition_types(arg, &arg_defer_partitions, &arg_n_defer_partitions);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case ARG_DEFER_PARTITIONS_EMPTY:
-                        r = parse_boolean_argument("--defer-partitions-empty=", optarg, &arg_defer_partitions_empty);
+                OPTION_LONG("defer-partitions-empty", "BOOL",
+                            "Defer all partitions marked for formatting as empty"):
+                        r = parse_boolean_argument("--defer-partitions-empty=", arg, &arg_defer_partitions_empty);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case ARG_DEFER_PARTITIONS_FACTORY_RESET:
-                        r = parse_boolean_argument("--defer-partitions-factory-reset=", optarg, &arg_defer_partitions_factory_reset);
+                OPTION_LONG("defer-partitions-factory-reset", "BOOL",
+                            "Defer all partitions marked for factory reset"):
+                        r = parse_boolean_argument("--defer-partitions-factory-reset=", arg, &arg_defer_partitions_factory_reset);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case ARG_SECTOR_SIZE:
-                        r = parse_sector_size(optarg, &arg_sector_size);
+                OPTION_GROUP("Copying"): {}
+
+                OPTION('s', "copy-source", "PATH",
+                       "Specify the primary source tree to copy files from"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_copy_source);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_GRAIN_SIZE:
-                        r = parse_size(optarg, 1024, &arg_grain_size);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --grain-size= parameter: %s", optarg);
-                        if (arg_grain_size < 512 || !ISPOWEROF2(arg_grain_size))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Grain size must be a power of 2 >= 512.");
-
-                        break;
-
-                case ARG_ARCHITECTURE:
-                        r = architecture_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid architecture '%s'.", optarg);
-
-                        arg_architecture = r;
-                        break;
-
-                case ARG_OFFLINE:
-                        if (streq(optarg, "auto"))
-                                arg_offline = -1;
-                        else {
-                                r = parse_boolean_argument("--offline=", optarg, NULL);
-                                if (r < 0)
-                                        return r;
-
-                                arg_offline = r;
-                        }
-
-                        break;
-
-                case ARG_COPY_FROM: {
+                OPTION_LONG("copy-from", "IMAGE",
+                            "Copy partitions from the given image"): {
                         _cleanup_free_ char *p = NULL;
 
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &p);
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &p);
                         if (r < 0)
                                 return r;
 
@@ -10182,120 +10098,110 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case 's':
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_copy_source);
+                OPTION_GROUP("DDI Profile"): {}
+
+                OPTION_LONG("make-ddi", "TYPE",
+                            "Create a DDI of the given type"):
+                        if (!filename_is_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid DDI type: %s", arg);
+
+                        r = free_and_strdup_warn(&arg_make_ddi, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_MAKE_DDI:
-                        if (!filename_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid DDI type: %s", optarg);
-
-                        r = free_and_strdup_warn(&arg_make_ddi, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'S':
+                OPTION_SHORT('S', NULL, "Same as --make-ddi=sysext, make a system extension"):
                         r = free_and_strdup_warn(&arg_make_ddi, "sysext");
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'C':
+                OPTION_SHORT('C', NULL, "Same as --make-ddi=confext, make a configuration extension"):
                         r = free_and_strdup_warn(&arg_make_ddi, "confext");
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'P':
+                OPTION_SHORT('P', NULL, "Same as --make-ddi=portable, make a portable service"):
                         r = free_and_strdup_warn(&arg_make_ddi, "portable");
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_APPEND_FSTAB:
-                        if (isempty(optarg)) {
+                OPTION_GROUP("Auxiliary Resource Generation"): {}
+
+                OPTION_LONG("append-fstab", "MODE",
+                            "How to join the content of a pre-existing fstab with the generated one "
+                            "(no, auto, replace)"):
+                        if (isempty(arg)) {
                                 arg_append_fstab = APPEND_AUTO;
                                 break;
                         }
 
-                        arg_append_fstab = append_mode_from_string(optarg);
+                        arg_append_fstab = append_mode_from_string(arg);
                         if (arg_append_fstab < 0)
-                                return log_error_errno(arg_append_fstab, "Failed to parse --append-fstab= parameter: %s", optarg);
+                                return log_error_errno(arg_append_fstab, "Failed to parse --append-fstab= parameter: %s", arg);
                         break;
 
-                case ARG_GENERATE_FSTAB:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_generate_fstab);
+                OPTION_LONG("generate-fstab", "PATH",
+                            "Write fstab configuration to the given path"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_generate_fstab);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_GENERATE_CRYPTTAB:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_generate_crypttab);
+                OPTION_LONG("generate-crypttab", "PATH",
+                            "Write crypttab configuration to the given path"):
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_generate_crypttab);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_LIST_DEVICES:
-                        r = blockdev_list(BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_ZRAM, /* ret_devices= */ NULL, /* ret_n_devices= */ NULL);
-                        if (r < 0)
-                                return r;
+                OPTION_GROUP("El Torito boot catalog"): {}
 
-                        return 0;
-
-                case ARG_JOIN_SIGNATURE:
-                        r = parse_join_signature(optarg, &arg_verity_settings);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_ELTORITO:
-                        r = parse_boolean_argument("--el-torito=", optarg, &arg_eltorito);
+                OPTION_LONG("el-torito", "BOOL",
+                            "Whether to add a boot catalog to boot the ESP"):
+                        r = parse_boolean_argument("--el-torito=", arg, &arg_eltorito);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case ARG_ELTORITO_SYSTEM:
-                        if (!iso9660_system_name_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-system=.", optarg);
+                OPTION_LONG("el-torito-system", "STRING",
+                            "Set the system identifier in the ISO9660 descriptor"):
+                        if (!iso9660_system_name_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-system=.", arg);
 
-                        r = free_and_strdup_warn(&arg_eltorito_system, optarg);
+                        r = free_and_strdup_warn(&arg_eltorito_system, arg);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case ARG_ELTORITO_VOLUME:
-                        if (!iso9660_volume_name_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-volume=.", optarg);
+                OPTION_LONG("el-torito-volume", "STRING",
+                            "Set the volume identifier in the ISO9660 descriptor"):
+                        if (!iso9660_volume_name_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-volume=.", arg);
 
-                        r = free_and_strdup_warn(&arg_eltorito_volume, optarg);
+                        r = free_and_strdup_warn(&arg_eltorito_volume, arg);
                         if (r < 0)
                                 return r;
 
                         break;
 
-                case ARG_ELTORITO_PUBLISHER:
-                        if (!iso9660_publisher_name_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-publisher=.", optarg);
+                OPTION_LONG("el-torito-publisher", "STRING",
+                            "Set the publisher identifier in the ISO9660 descriptor"):
+                        if (!iso9660_publisher_name_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-publisher=.", arg);
 
-                        r = free_and_strdup_warn(&arg_eltorito_publisher, optarg);
+                        r = free_and_strdup_warn(&arg_eltorito_publisher, arg);
                         if (r < 0)
                                 return r;
 
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        if (argc - optind > 1)
+        if (option_parser_get_n_args(&state) > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Expected at most one argument, the path to the block device or image file.");
 
@@ -10375,11 +10281,12 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_relax_copy_block_security = true;
         }
 
-        if (argc > optind) {
-                if (empty_or_dash(argv[optind]))
+        char **args = option_parser_get_args(&state);
+        if (!strv_isempty(args)) {
+                if (empty_or_dash(args[0]))
                         arg_node_none = true;
                 else {
-                        arg_node = strdup(argv[optind]);
+                        arg_node = strdup(args[0]);
                         if (!arg_node)
                                 return log_oom();
                         arg_node_none = false;
@@ -10604,7 +10511,7 @@ static int find_root(Context *context) {
 
                         fd = xopenat_full(AT_FDCWD, arg_node, O_RDONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW, XO_NOCOW, 0666);
                         if (fd < 0)
-                                return log_error_errno(errno, "Failed to create '%s': %m", arg_node);
+                                return log_error_errno(fd, "Failed to create '%s': %m", arg_node);
 
                         context->node = TAKE_PTR(s);
                         context->node_is_our_file = true;
@@ -11218,13 +11125,9 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = dlopen_fdisk();
+        r = dlopen_fdisk(LOG_ERR);
         if (r < 0)
                 return r;
-
-#if HAVE_LIBCRYPTSETUP
-        cryptsetup_enable_logging(NULL);
-#endif
 
         if (arg_varlink)
                 return vl_server();

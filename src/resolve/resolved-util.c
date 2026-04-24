@@ -36,7 +36,7 @@ int resolve_system_hostname(char **full_hostname, char **first_label) {
 #if HAVE_LIBIDN2
         _cleanup_free_ char *utf8 = NULL;
 
-        if (dlopen_idn() >= 0) {
+        if (dlopen_idn(LOG_DEBUG) >= 0) {
                 r = sym_idn2_to_unicode_8z8z(label, &utf8, 0);
                 if (r != IDN2_OK)
                         return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),

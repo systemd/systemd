@@ -1684,7 +1684,8 @@ int write_data_file_atomic_at(
         _cleanup_close_ int mfd = -EBADF;
         if (dn) {
                 /* If there's a directory component, readjust our position */
-                r = chaseat(dir_fd,
+                r = chaseat(XAT_FDROOT,
+                            dir_fd,
                             dn,
                             FLAGS_SET(flags, WRITE_DATA_FILE_MKDIR_0755) ? CHASE_MKDIR_0755 : 0,
                             /* ret_path= */ NULL,

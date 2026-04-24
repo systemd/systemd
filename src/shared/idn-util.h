@@ -11,10 +11,6 @@
 extern DLSYM_PROTOTYPE(idn2_lookup_u8);
 extern const char *(*sym_idn2_strerror)(int rc) _const_;
 extern DLSYM_PROTOTYPE(idn2_to_unicode_8z8z);
-
-int dlopen_idn(void);
-#else
-static inline int dlopen_idn(void) {
-        return -EOPNOTSUPP;
-}
 #endif
+
+int dlopen_idn(int log_level);

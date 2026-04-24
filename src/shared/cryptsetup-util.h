@@ -9,7 +9,9 @@
 
 extern DLSYM_PROTOTYPE(crypt_activate_by_passphrase);
 extern DLSYM_PROTOTYPE(crypt_activate_by_signed_key);
+extern DLSYM_PROTOTYPE(crypt_activate_by_token_pin);
 extern DLSYM_PROTOTYPE(crypt_activate_by_volume_key);
+extern DLSYM_PROTOTYPE(crypt_deactivate);
 extern DLSYM_PROTOTYPE(crypt_deactivate_by_name);
 extern DLSYM_PROTOTYPE(crypt_format);
 extern DLSYM_PROTOTYPE(crypt_free);
@@ -25,9 +27,11 @@ extern DLSYM_PROTOTYPE(crypt_get_volume_key_size);
 extern DLSYM_PROTOTYPE(crypt_header_restore);
 extern DLSYM_PROTOTYPE(crypt_init);
 extern DLSYM_PROTOTYPE(crypt_init_by_name);
+extern DLSYM_PROTOTYPE(crypt_init_data_device);
 extern DLSYM_PROTOTYPE(crypt_keyslot_add_by_volume_key);
 extern DLSYM_PROTOTYPE(crypt_keyslot_destroy);
 extern DLSYM_PROTOTYPE(crypt_keyslot_max);
+extern DLSYM_PROTOTYPE(crypt_keyslot_status);
 extern DLSYM_PROTOTYPE(crypt_load);
 extern DLSYM_PROTOTYPE(crypt_metadata_locking);
 extern DLSYM_PROTOTYPE(crypt_persistent_flags_get);
@@ -39,10 +43,15 @@ extern DLSYM_PROTOTYPE(crypt_resume_by_volume_key);
 extern DLSYM_PROTOTYPE(crypt_set_data_device);
 extern DLSYM_PROTOTYPE(crypt_set_data_offset);
 extern DLSYM_PROTOTYPE(crypt_set_debug_level);
+#if HAVE_CRYPT_SET_KEYRING_TO_LINK
+extern DLSYM_PROTOTYPE(crypt_set_keyring_to_link);
+#endif
 extern DLSYM_PROTOTYPE(crypt_set_log_callback);
 extern DLSYM_PROTOTYPE(crypt_set_metadata_size);
 extern DLSYM_PROTOTYPE(crypt_set_pbkdf_type);
+extern DLSYM_PROTOTYPE(crypt_status);
 extern DLSYM_PROTOTYPE(crypt_suspend);
+extern DLSYM_PROTOTYPE(crypt_token_external_path);
 extern DLSYM_PROTOTYPE(crypt_token_json_get);
 extern DLSYM_PROTOTYPE(crypt_token_json_set);
 extern DLSYM_PROTOTYPE(crypt_token_max);
@@ -55,10 +64,9 @@ extern DLSYM_PROTOTYPE(crypt_volume_key_keyring);
 extern DLSYM_PROTOTYPE(crypt_wipe);
 extern DLSYM_PROTOTYPE(crypt_get_integrity_info);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, crypt_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, sym_crypt_free, NULL);
-
-/* Be careful, this works with dlopen_cryptsetup(), that is, it calls sym_crypt_free() instead of crypt_free(). */
+/* Be careful, these work with dlopen_cryptsetup(), that is, they call sym_crypt_free() instead of
+ * crypt_free() and hence depend on dlopen_cryptsetup() having been called. */
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct crypt_device *, sym_crypt_free, crypt_freep, NULL);
 #define crypt_free_and_replace(a, b)                    \
         free_and_replace_full(a, b, sym_crypt_free)
 
@@ -73,7 +81,7 @@ int cryptsetup_get_volume_key_id(struct crypt_device *cd, const char *volume_nam
                                  size_t volume_key_size,  char **ret);
 #endif
 
-int dlopen_cryptsetup(void);
+int dlopen_cryptsetup(int log_level);
 
 int cryptsetup_get_keyslot_from_token(sd_json_variant *v);
 

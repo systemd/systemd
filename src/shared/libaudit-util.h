@@ -3,7 +3,7 @@
 
 #include "shared-forward.h"
 
-int dlopen_libaudit(void);
+int dlopen_libaudit(int log_level);
 
 #if HAVE_AUDIT
 #  include <libaudit.h>         /* IWYU pragma: export */

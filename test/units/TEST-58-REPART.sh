@@ -941,6 +941,7 @@ EOF
                             --dry-run=no \
                             --empty=create \
                             --size=auto \
+                            --split=yes \
                             --json=pretty \
                             --private-key="$defs/verity.key" \
                             --certificate="$defs/verity.crt" \
@@ -952,6 +953,13 @@ EOF
 
     assert_eq "$drh" "$hrh"
     assert_eq "$hrh" "$srh"
+
+    # The split-out verity signature file should be a valid JSON document (i.e. trailing NUL padding
+    # from the on-disk partition must be trimmed when writing the split file).
+    sig_split=$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .split_path" <<<"$output")
+    assert_neq "$sig_split" ""
+    assert_neq "$sig_split" "null"
+    jq . "$sig_split" >/dev/null
 
     # Check that offline signing works and the resulting image is valid
 

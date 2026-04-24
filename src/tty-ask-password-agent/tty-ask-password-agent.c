@@ -4,7 +4,6 @@
 ***/
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <poll.h>
 #include <stdlib.h>
 #include <sys/prctl.h>
@@ -23,12 +22,14 @@
 #include "errno-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
-#include "format-util.h"
 #include "fileio.h"
+#include "format-table.h"
+#include "format-util.h"
 #include "inotify-util.h"
 #include "io-util.h"
 #include "main-func.h"
 #include "mkdir-label.h"
+#include "options.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "pretty-print.h"
@@ -442,112 +443,85 @@ static int process_and_watch_password_files(bool watch) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-tty-ask-password-agent", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n\n"
-               "%sProcess system password requests.%s\n\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --list              Show pending password requests\n"
-               "     --query             Process pending password requests\n"
-               "     --watch             Continuously process password requests\n"
-               "     --wall              Continuously forward password requests to wall\n"
-               "     --plymouth          Ask question with Plymouth instead of on TTY\n"
-               "     --console[=DEVICE]  Ask question on /dev/console (or DEVICE if specified)\n"
-               "                         instead of the current TTY\n"
-               "\nSee the %s for details.\n",
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...]\n"
+               "\n%sProcess system password requests.%s\n\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_normal(),
-               link);
+               ansi_normal());
 
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_LIST = 0x100,
-                ARG_QUERY,
-                ARG_WATCH,
-                ARG_WALL,
-                ARG_PLYMOUTH,
-                ARG_CONSOLE,
-                ARG_VERSION
-        };
-
-        static const struct option options[] = {
-                { "help",     no_argument,       NULL, 'h'          },
-                { "version",  no_argument,       NULL, ARG_VERSION  },
-                { "list",     no_argument,       NULL, ARG_LIST     },
-                { "query",    no_argument,       NULL, ARG_QUERY    },
-                { "watch",    no_argument,       NULL, ARG_WATCH    },
-                { "wall",     no_argument,       NULL, ARG_WALL     },
-                { "plymouth", no_argument,       NULL, ARG_PLYMOUTH },
-                { "console",  optional_argument, NULL, ARG_CONSOLE  },
-                {}
-        };
-
-        int r, c;
-
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+        int r;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_LIST:
+                OPTION_LONG("list", NULL, "Show pending password requests"):
                         arg_action = ACTION_LIST;
                         break;
 
-                case ARG_QUERY:
+                OPTION_LONG("query", NULL, "Process pending password requests"):
                         arg_action = ACTION_QUERY;
                         break;
 
-                case ARG_WATCH:
+                OPTION_LONG("watch", NULL, "Continuously process password requests"):
                         arg_action = ACTION_WATCH;
                         break;
 
-                case ARG_WALL:
+                OPTION_LONG("wall", NULL, "Continuously forward password requests to wall"):
                         arg_action = ACTION_WALL;
                         break;
 
-                case ARG_PLYMOUTH:
+                OPTION_LONG("plymouth", NULL,
+                            "Ask question with Plymouth instead of on TTY"):
                         arg_plymouth = true;
                         break;
 
-                case ARG_CONSOLE:
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "console", "DEVICE",
+                                  "Ask question on /dev/console (or DEVICE if specified) instead of the current TTY"):
                         arg_console = true;
-                        if (optarg) {
-                                if (isempty(optarg))
+                        if (arg) {
+                                if (isempty(arg))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Empty console device path is not allowed.");
 
-                                r = free_and_strdup_warn(&arg_device, optarg);
+                                r = free_and_strdup_warn(&arg_device, arg);
                                 if (r < 0)
                                         return r;
                         }
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        if (optind != argc)
+        if (option_parser_get_n_args(&state) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s takes no arguments.", program_invocation_short_name);
 

@@ -16,14 +16,14 @@ DLSYM_PROTOTYPE(xkb_context_set_log_fn) = NULL;
 DLSYM_PROTOTYPE(xkb_keymap_new_from_names) = NULL;
 DLSYM_PROTOTYPE(xkb_keymap_unref) = NULL;
 
-static int dlopen_xkbcommon(void) {
+static int dlopen_xkbcommon(int log_level) {
         SD_ELF_NOTE_DLOPEN(
                         "xkbcommon",
                         "Support for keyboard locale descriptions",
                         SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED, "libxkbcommon.so.0");
 
         return dlopen_many_sym_or_warn(
-                        &xkbcommon_dl, "libxkbcommon.so.0", LOG_DEBUG,
+                        &xkbcommon_dl, "libxkbcommon.so.0", log_level,
                         DLSYM_ARG(xkb_context_new),
                         DLSYM_ARG(xkb_context_unref),
                         DLSYM_ARG(xkb_context_set_log_fn),
@@ -57,7 +57,7 @@ int verify_xkb_rmlvo(const char *model, const char *layout, const char *variant,
 
         /* Compile keymap from RMLVO information to check out its validity */
 
-        r = dlopen_xkbcommon();
+        r = dlopen_xkbcommon(LOG_DEBUG);
         if (r < 0)
                 return r;
 

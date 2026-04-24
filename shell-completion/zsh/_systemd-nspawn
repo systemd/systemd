@@ -54,4 +54,9 @@ _arguments \
     "--notify-ready=[Control when the ready notification is sent]:options:(yes no)" \
     "--suppress-sync=[Control whether to suppress disk synchronization for the container payload]:options:(yes no)" \
     '--restrict-address-families=[Restrict socket address families accessible in the container.]: : _message "address families"' \
+    '--forward-journal=[Forward the container journal to the host via systemd-journal-remote.]: : _files' \
+    '--forward-journal-max-use=[Maximum disk space used by forwarded journal files.]: : _message bytes' \
+    '--forward-journal-keep-free=[Disk space to keep free for forwarded journal files.]: : _message bytes' \
+    '--forward-journal-max-file-size=[Maximum size of individual forwarded journal files.]: : _message bytes' \
+    '--forward-journal-max-files=[Maximum number of forwarded journal files.]: : _message number' \
     '*:: : _normal'

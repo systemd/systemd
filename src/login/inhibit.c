@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <fnmatch.h>
-#include <getopt.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -18,6 +17,7 @@
 #include "format-table.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "pidref.h"
@@ -170,139 +170,100 @@ static int print_inhibitors(sd_bus *bus) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-inhibit", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n"
-               "\n%sExecute a process while inhibiting shutdown/sleep/idle.%s\n\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "     --no-ask-password    Do not attempt interactive authorization\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "     --json=pretty|short|off\n"
-               "                          Generate JSON output\n"
-               "     --what=WHAT          Operations to inhibit, colon separated list of:\n"
-               "                          shutdown, sleep, idle, handle-power-key,\n"
-               "                          handle-suspend-key, handle-hibernate-key,\n"
-               "                          handle-lid-switch\n"
-               "     --who=STRING         A descriptive string who is inhibiting\n"
-               "     --why=STRING         A descriptive string why is being inhibited\n"
-               "     --mode=MODE          One of block, block-weak, or delay\n"
-               "     --list               List active inhibitors\n"
-               "\nSee the %s for details.\n",
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "%sExecute a process while inhibiting shutdown/sleep/idle.%s\n\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_normal(),
-               link);
+               ansi_normal());
 
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_WHAT,
-                ARG_WHO,
-                ARG_WHY,
-                ARG_MODE,
-                ARG_LIST,
-                ARG_NO_ASK_PASSWORD,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_JSON,
-        };
-
-        static const struct option options[] = {
-                { "help",             no_argument,       NULL, 'h'                 },
-                { "version",          no_argument,       NULL, ARG_VERSION         },
-                { "no-ask-password",  no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                { "what",             required_argument, NULL, ARG_WHAT            },
-                { "who",              required_argument, NULL, ARG_WHO             },
-                { "why",              required_argument, NULL, ARG_WHY             },
-                { "mode",             required_argument, NULL, ARG_MODE            },
-                { "list",             no_argument,       NULL, ARG_LIST            },
-                { "no-pager",         no_argument,       NULL, ARG_NO_PAGER        },
-                { "no-legend",        no_argument,       NULL, ARG_NO_LEGEND       },
-                { "json",             required_argument, NULL, ARG_JSON            },
-                {}
-        };
-
-        int c, r;
-
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(remaining_args);
 
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
-        optind = 0;
-        while ((c = getopt_long(argc, argv, "+h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
+        const char *arg;
+        int r;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_WHAT:
-                        arg_what = optarg;
-                        break;
-
-                case ARG_WHO:
-                        arg_who = optarg;
-                        break;
-
-                case ARG_WHY:
-                        arg_why = optarg;
-                        break;
-
-                case ARG_MODE:
-                        arg_mode = optarg;
-                        break;
-
-                case ARG_LIST:
-                        arg_action = ACTION_LIST;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
+                OPTION_COMMON_NO_ASK_PASSWORD:
                         arg_ask_password = false;
                         break;
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_NO_LEGEND:
+                OPTION_COMMON_NO_LEGEND:
                         arg_legend = false;
                         break;
 
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
-
                         break;
 
-                case '?':
-                        return -EINVAL;
+                OPTION_LONG("what", "WHAT",
+                            "Operations to inhibit, colon separated list "
+                            "(shutdown, sleep, idle, handle-power-key, "
+                            "handle-suspend-key, handle-hibernate-key, "
+                            "handle-lid-switch)"):
+                        arg_what = arg;
+                        break;
 
-                default:
-                        assert_not_reached();
+                OPTION_LONG("who", "STRING",
+                            "A descriptive string who is inhibiting"):
+                        arg_who = arg;
+                        break;
+
+                OPTION_LONG("why", "STRING",
+                            "A descriptive string why is being inhibited"):
+                        arg_why = arg;
+                        break;
+
+                OPTION_LONG("mode", "MODE", "One of block, block-weak, or delay"):
+                        arg_mode = arg;
+                        break;
+
+                OPTION_LONG("list", NULL, "List active inhibitors"):
+                        arg_action = ACTION_LIST;
+                        break;
                 }
 
-        if (arg_action == ACTION_INHIBIT && optind == argc)
+        char **args = option_parser_get_args(&state);
+
+        if (arg_action == ACTION_INHIBIT && strv_isempty(args))
                 arg_action = ACTION_LIST;
 
-        else if (arg_action == ACTION_INHIBIT && optind >= argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Missing command line to execute.");
-
+        *remaining_args = args;
         return 1;
 }
 
@@ -312,7 +273,8 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -337,7 +299,7 @@ static int run(int argc, char *argv[]) {
                         arg_what = "idle:sleep:shutdown";
 
                 if (!arg_who) {
-                        w = strv_join(argv + optind, " ");
+                        w = strv_join(args, " ");
                         if (!w)
                                 return log_oom();
 
@@ -354,7 +316,7 @@ static int run(int argc, char *argv[]) {
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to inhibit: %s", bus_error_message(&error, fd));
 
-                arguments = strv_copy(argv + optind);
+                arguments = strv_copy(args);
                 if (!arguments)
                         return log_oom();
 
@@ -370,7 +332,7 @@ static int run(int argc, char *argv[]) {
                         _exit(EXIT_FAILURE);
                 }
 
-                return pidref_wait_for_terminate_and_check(argv[optind], &pidref, WAIT_LOG_ABNORMAL);
+                return pidref_wait_for_terminate_and_check(args[0], &pidref, WAIT_LOG_ABNORMAL);
         }
 }
 

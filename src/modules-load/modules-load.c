@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <limits.h>
 #include <pthread.h>
 #include <signal.h>
@@ -15,10 +14,12 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
 #include "module-util.h"
+#include "options.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "pretty-print.h"
@@ -331,53 +332,46 @@ static unsigned determine_num_worker_threads(unsigned n_modules) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
 
         if (terminal_urlify_man("systemd-modules-load.service", "8", &link) < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
-               "Loads statically configured kernel modules.\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               link);
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
 
+        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
+               "Loads statically configured kernel modules.\n\n",
+               program_invocation_short_name);
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                {}
-        };
-
-        int c;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+
+        FOREACH_OPTION(&state, c, /* arg= */ NULL, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
@@ -395,7 +389,8 @@ static int run(int argc, char *argv[]) {
         char *module;
         int ret = 0, r;
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -407,9 +402,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
-        if (argc > optind) {
-                for (int i = optind; i < argc; i++) {
-                        r = apply_file_from_path(argv[i], &module_set);
+        if (!strv_isempty(args)) {
+                STRV_FOREACH(i, args) {
+                        r = apply_file_from_path(*i, &module_set);
                         if (r < 0)
                                 RET_GATHER(ret, r);
                 }

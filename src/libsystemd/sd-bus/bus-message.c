@@ -1498,9 +1498,6 @@ _public_ int sd_bus_message_append_string_iovec(
                 const struct iovec *iov,
                 unsigned n /* should be size_t, but is API now… 😞 */) {
 
-        size_t size;
-        unsigned i;
-        char *p;
         int r;
 
         assert_return(m, -EINVAL);
@@ -1508,13 +1505,16 @@ _public_ int sd_bus_message_append_string_iovec(
         assert_return(iov || n == 0, -EINVAL);
         assert_return(!m->poisoned, -ESTALE);
 
-        size = iovec_total_size(iov, n);
+        size_t size = iovec_total_size(iov, n);
+        if (size == SIZE_MAX)
+                return -ENOBUFS;
 
+        char *p;
         r = sd_bus_message_append_string_space(m, size, &p);
         if (r < 0)
                 return r;
 
-        for (i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; i++) {
 
                 if (iov[i].iov_base)
                         memcpy(p, iov[i].iov_base, iov[i].iov_len);
@@ -2160,9 +2160,6 @@ _public_ int sd_bus_message_append_array_iovec(
                 const struct iovec *iov,
                 unsigned n /* should be size_t, but is API now… 😞 */) {
 
-        size_t size;
-        unsigned i;
-        void *p;
         int r;
 
         assert_return(m, -EINVAL);
@@ -2171,13 +2168,16 @@ _public_ int sd_bus_message_append_array_iovec(
         assert_return(iov || n == 0, -EINVAL);
         assert_return(!m->poisoned, -ESTALE);
 
-        size = iovec_total_size(iov, n);
+        size_t size = iovec_total_size(iov, n);
+        if (size == SIZE_MAX)
+                return -ENOBUFS;
 
+        void *p;
         r = sd_bus_message_append_array_space(m, type, size, &p);
         if (r < 0)
                 return r;
 
-        for (i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; i++) {
 
                 if (iov[i].iov_base)
                         memcpy(p, iov[i].iov_base, iov[i].iov_len);

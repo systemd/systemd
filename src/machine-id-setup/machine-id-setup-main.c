@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
 
 #include "alloc-util.h"
 #include "build.h"
 #include "dissect-image.h"
+#include "format-table.h"
 #include "id128-util.h"
 #include "image-policy.h"
 #include "log.h"
@@ -13,6 +13,7 @@
 #include "machine-id-setup.h"
 #include "main-func.h"
 #include "mount-util.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
 
@@ -28,104 +29,95 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *commands = NULL, *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-machine-id-setup", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...]\n"
-               "\n%2$sInitialize /etc/machine-id from a random source.%4$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "     --commit               Commit transient ID\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "\n%3$sOptions:%4$s\n"
-               "     --root=PATH            Operate on an alternate filesystem root\n"
-               "     --image=PATH           Operate on disk image as filesystem root\n"
-               "     --image-policy=POLICY  Specify disk image dissection policy\n"
-               "     --print                Print used machine ID\n"
-               "\nSee the %5$s for details.\n",
+        r = option_parser_get_help_table(&commands);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table_group("Options", &options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, commands, options);
+
+        printf("%s [OPTIONS...]\n\n"
+               "%sInitialize /etc/machine-id from a random source.%s\n"
+               "\n%sCommands:%s\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_underline(),
                ansi_normal(),
-               link);
+               ansi_underline(),
+               ansi_normal());
 
+        r = table_print_or_warn(commands);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n",
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_COMMIT,
-                ARG_PRINT,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "root",         required_argument, NULL, ARG_ROOT         },
-                { "image",        required_argument, NULL, ARG_IMAGE        },
-                { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
-                { "commit",       no_argument,       NULL, ARG_COMMIT       },
-                { "print",        no_argument,       NULL, ARG_PRINT        },
-                {}
-        };
-
-        int c, r;
-
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+        int r;
 
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, true, &arg_root);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, false, &arg_image);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_COMMIT:
+                OPTION_LONG("commit", NULL, "Commit transient ID"):
                         arg_commit = true;
                         break;
 
-                case ARG_PRINT:
-                        arg_print = true;
+                OPTION_GROUP("Options"): {}
+
+                OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
+                        r = parse_path_argument(arg, true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
 
-                case '?':
-                        return -EINVAL;
+                OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
+                        r = parse_path_argument(arg, false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
 
-                default:
-                        assert_not_reached();
+                OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
+                        r = parse_image_policy_argument(arg, &arg_image_policy);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("print", NULL, "Print used machine ID"):
+                        arg_print = true;
+                        break;
                 }
 
-        if (optind < argc)
+        if (option_parser_get_n_args(&state) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extraneous arguments");
 

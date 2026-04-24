@@ -60,6 +60,7 @@ void lookup_paths_done(LookupPaths *p);
 int config_directory_generic(RuntimeScope scope, const char *suffix, char **ret);
 int runtime_directory_generic(RuntimeScope scope, const char *suffix, char **ret);
 int runtime_directory(RuntimeScope scope, const char *fallback_suffix, char **ret);
+int runtime_directory_make(RuntimeScope scope, const char *subdir, char **ret_dir, char **ret_dir_destroy);
 
 /* We don't treat /etc/xdg/systemd/ in these functions as the xdg base dir spec suggests because we assume
  * that is a link to /etc/systemd/ anyway. */

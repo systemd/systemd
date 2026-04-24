@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "fdisk-util.h"
+#include "log.h"
 
 #if HAVE_LIBFDISK
 
@@ -12,7 +13,6 @@
 #include "dlfcn-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
-#include "log.h"
 #include "parse-util.h"
 #include "string-util.h"
 
@@ -78,8 +78,10 @@ DLSYM_PROTOTYPE(fdisk_unref_partition) = NULL;
 DLSYM_PROTOTYPE(fdisk_unref_parttype) = NULL;
 DLSYM_PROTOTYPE(fdisk_unref_table) = NULL;
 DLSYM_PROTOTYPE(fdisk_write_disklabel) = NULL;
+#endif
 
-int dlopen_fdisk(void) {
+int dlopen_fdisk(int log_level) {
+#if HAVE_LIBFDISK
         SD_ELF_NOTE_DLOPEN(
                         "fdisk",
                         "Support for reading and writing partition tables",
@@ -89,7 +91,7 @@ int dlopen_fdisk(void) {
         return dlopen_many_sym_or_warn(
                         &fdisk_dl,
                         "libfdisk.so.1",
-                        LOG_DEBUG,
+                        log_level,
                         DLSYM_ARG(fdisk_add_partition),
                         DLSYM_ARG(fdisk_apply_table),
                         DLSYM_ARG(fdisk_ask_get_type),
@@ -150,8 +152,13 @@ int dlopen_fdisk(void) {
                         DLSYM_ARG(fdisk_unref_parttype),
                         DLSYM_ARG(fdisk_unref_table),
                         DLSYM_ARG(fdisk_write_disklabel));
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libfdisk support is not compiled in.");
+#endif
 }
 
+#if HAVE_LIBFDISK
 int fdisk_new_context_at(
                 int dir_fd,
                 const char *path,

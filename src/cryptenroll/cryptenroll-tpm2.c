@@ -72,7 +72,7 @@ static int search_policy_hash(
                                         if (r < 0)
                                                 return log_error_errno(r, "Invalid hex data in 'tpm2-policy-hash' field item : %m");
 
-                                        if (iovec_memcmp(policy_hash + j, &thash) != 0) {
+                                        if (!iovec_equal(policy_hash + j, &thash)) {
                                                 match = false;
                                                 break;
                                         }
@@ -91,7 +91,7 @@ static int search_policy_hash(
                         if (r < 0)
                                 return log_error_errno(r, "Invalid hex data in 'tpm2-policy-hash' field: %m");
 
-                        if (iovec_memcmp(policy_hash + 0, &thash) == 0)
+                        if (iovec_equal(policy_hash + 0, &thash))
                                 return keyslot; /* Found entry with same hash. */
                 }
         }
@@ -272,7 +272,7 @@ int load_volume_key_tpm2(
         if (passphrase_size < 0)
                 return log_oom();
 
-        r = crypt_volume_key_get(
+        r = sym_crypt_volume_key_get(
                         cd,
                         CRYPT_ANY_SLOT,
                         ret_vk,
@@ -329,7 +329,7 @@ int enroll_tpm2(struct crypt_device *cd,
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
         assert(ret_slot_to_wipe);
 
-        assert_se(node = crypt_get_device_name(cd));
+        assert_se(node = sym_crypt_get_device_name(cd));
 
         if (use_pin) {
                 r = get_pin(&pin_str, &flags);
@@ -566,7 +566,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
-                if (iovec_memcmp(&secret, &secret2) != 0)
+                if (!iovec_equal(&secret, &secret2))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 seal/unseal verification failed.");
         }
 
@@ -579,7 +579,7 @@ int enroll_tpm2(struct crypt_device *cd,
         if (r < 0)
                 return log_error_errno(r, "Failed to set minimal PBKDF: %m");
 
-        keyslot = crypt_keyslot_add_by_volume_key(
+        keyslot = sym_crypt_keyslot_add_by_volume_key(
                         cd,
                         CRYPT_ANY_SLOT,
                         volume_key->iov_base,

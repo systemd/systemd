@@ -5911,7 +5911,7 @@ int service_determine_exec_selinux_label(Service *s, char **ret) {
 
         _cleanup_free_ char *path = NULL;
         if (s->exec_context.root_directory_as_fd)
-                r = chaseat(s->root_directory_fd, c->path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &path, NULL);
+                r = chaseat(s->root_directory_fd, s->root_directory_fd, c->path, CHASE_TRIGGER_AUTOFS, &path, NULL);
         else
                 r = chase(c->path, s->exec_context.root_directory, CHASE_PREFIX_ROOT|CHASE_TRIGGER_AUTOFS, &path, NULL);
         if (r < 0) {

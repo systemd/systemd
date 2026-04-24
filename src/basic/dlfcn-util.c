@@ -47,7 +47,7 @@ int dlsym_many_or_warn_sentinel(void *dl, int log_level, ...) {
         return r;
 }
 
-int dlopen_verbose(void **dlp, const char *filename) {
+int dlopen_verbose(void **dlp, const char *filename, int log_level) {
         int r;
 
         assert(dlp);
@@ -58,10 +58,9 @@ int dlopen_verbose(void **dlp, const char *filename) {
         _cleanup_(dlclosep) void *dl = NULL;
         const char *dle = NULL;
         r = dlopen_safe(filename, &dl, &dle);
-        if (r < 0) {
-                log_debug_errno(r, "Shared library '%s' is not available: %s", filename, dle ?: STRERROR(r));
-                return -EOPNOTSUPP; /* Turn into recognizable error */
-        }
+        if (r < 0)
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                      "Shared library '%s' is not available: %s", filename, dle ?: STRERROR(r));
 
         log_debug("Loaded shared library '%s' via dlopen().", filename);
         *dlp = TAKE_PTR(dl);
@@ -77,7 +76,7 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
                 return 0; /* Already loaded */
 
         _cleanup_(dlclosep) void *dl = NULL;
-        r = dlopen_verbose(&dl, filename);
+        r = dlopen_verbose(&dl, filename, log_level);
         if (r < 0)
                 return r;
 
