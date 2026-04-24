@@ -9,13 +9,16 @@ if [[ ! -f "$BUILDROOT/$LIBSYSTEMD" ]]; then
     exit 0
 fi
 
-# ASAN and syscall filters aren't compatible with each other.
+# ASAN and syscall filters aren't compatible with each other. Also, drop any memory limits
+# as these are quite unpredictable when running under sanitizers.
 find "$BUILDROOT"/usr "$BUILDROOT"/etc -name '*.service' -type f | while read -r unit; do
-    if grep -q -e MemoryDeny -e SystemCall "$unit" ; then
+    if grep -q -e MemoryDeny -e SystemCall -e MemoryMax -e MemorySwapMax "$unit" ; then
         mkdir -p "$unit.d"
         cat > "$unit.d/sanitizer-compat.conf" <<EOF
 [Service]
 MemoryDenyWriteExecute=no
+MemoryMax=
+MemorySwapMax=
 SystemCallFilter=
 EOF
     fi
@@ -56,6 +59,7 @@ wrap=(
     dbus-broker-launch
     dbus-daemon
     delv
+    dfuzzer
     dhcpd
     dig
     dnf
@@ -70,6 +74,7 @@ wrap=(
     groups
     id
     integritysetup
+    iscsiadm
     iscsid
     keymgr
     knotc
@@ -83,8 +88,11 @@ wrap=(
     lvm
     mdadm
     mkfs.btrfs
+    mkfs.erofs
+    mkfs.ext4
     mksquashfs
     mount
+    mountpoint
     multipath
     multipathd
     nvme
@@ -98,8 +106,12 @@ wrap=(
     stat
     stress-ng
     su
+    swapoff
+    swapon
     tar
     tgtd
+    # The tpm2 tools (tpm2_readpublic, tpm2_pcrextend, ...) all are symlinks to tpm2
+    tpm2
     umount
     unix_chkpwd
     useradd
