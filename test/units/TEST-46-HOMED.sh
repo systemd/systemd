@@ -1035,6 +1035,14 @@ testcase_fscrypt() {
     # After deactivation the fscrypt-encrypted directory is locked, so cleartext file names should not be visible
     [[ ! -e "$MNT/fscrypttest/file1" ]]
 
+    # Verify we actually use the v2 format
+    local SLOT
+    SLOT="$(getfattr --absolute-names --only-values -n trusted.fscrypt_slot0 "$MNT/fscrypttest")"
+    [[ "${SLOT:0:3}" == "v2:" ]] || {
+        echo "fscrypt slot 0 is not in v2 format: ${SLOT:0:32}"
+        return 1
+    }
+
     PASSWORD=fsfsfs1234 homectl activate fscrypttest
     [[ "$(fscrypt_run0 fsfsfs1234 'head -n1 /home/fscrypttest/file1')" == "hello fscrypt" ]]
     systemctl stop user@"$(id -u fscrypttest)".service 2>/dev/null || true
