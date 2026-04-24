@@ -19,4 +19,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dns_servers);
 CONFIG_PARSER_PROTOTYPE(config_parse_search_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_stub_listener_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_stub_listener_extra);
+CONFIG_PARSER_PROTOTYPE(config_parse_dns_cache_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_record_types);
