@@ -14,21 +14,11 @@
 #include "string-util.h"
 
 typedef enum QmpClientState {
-        QMP_CLIENT_HANDSHAKE_INITIAL,           /* waiting for QMP greeting */
-        QMP_CLIENT_HANDSHAKE_GREETING_RECEIVED, /* greeting received, sending qmp_capabilities */
-        QMP_CLIENT_HANDSHAKE_CAPABILITIES_SENT, /* waiting for qmp_capabilities response */
-        QMP_CLIENT_RUNNING,                     /* connected, ready for commands */
+        QMP_CLIENT_RUNNING,                     /* connection alive; qmp_capabilities may still be in flight */
         QMP_CLIENT_DISCONNECTED,                /* connection closed */
         _QMP_CLIENT_STATE_MAX,
         _QMP_CLIENT_STATE_INVALID = -EINVAL,
 } QmpClientState;
-
-/* States routed to dispatch_handshake. */
-#define QMP_CLIENT_STATE_IS_HANDSHAKE(s)               \
-        IN_SET(s,                                      \
-               QMP_CLIENT_HANDSHAKE_INITIAL,           \
-               QMP_CLIENT_HANDSHAKE_GREETING_RECEIVED, \
-               QMP_CLIENT_HANDSHAKE_CAPABILITIES_SENT)
 
 struct QmpSlot {
         unsigned n_ref;
@@ -281,7 +271,7 @@ static int qmp_client_build_command(
 }
 
 /* Route c->current to event callback or matching async slot. Returns 1 on dispatch. */
-static int qmp_client_dispatch_reply(QmpClient *c) {
+static int qmp_client_dispatch(QmpClient *c) {
         sd_json_variant *result = NULL;
         const char *desc = NULL;
         uint64_t id;
@@ -296,6 +286,14 @@ static int qmp_client_dispatch_reply(QmpClient *c) {
         if (sd_json_variant_by_key(c->current, "event")) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = TAKE_PTR(c->current);
                 qmp_client_dispatch_event(c, v);
+                return 1;
+        }
+
+        /* QEMU sends a one-shot greeting with a "QMP" key unsolicited on connect. We don't
+         * wait for it before sending qmp_capabilities (QEMU accepts commands the moment the
+         * socket is open), we detect it by the "QMP" key and drop it. */
+        if (sd_json_variant_by_key(c->current, "QMP")) {
+                qmp_client_clear_current(c);
                 return 1;
         }
 
@@ -424,88 +422,6 @@ static bool qmp_client_test_disconnect(QmpClient *c) {
         return qmp_client_handle_disconnect(c);
 }
 
-/* INITIAL → greeting → GREETING_RECEIVED → qmp_capabilities → CAPABILITIES_SENT → response → RUNNING. */
-static int qmp_client_dispatch_handshake(QmpClient *c) {
-        int r;
-
-        assert(c);
-        assert(QMP_CLIENT_STATE_IS_HANDSHAKE(c->state));
-
-        if (!c->current)
-                return 0;
-
-        /* Defensive: QEMU shouldn't emit events during capability negotiation, but if one
-         * arrives, dispatch it as an event rather than mis-parsing it as a handshake reply. */
-        if (sd_json_variant_by_key(c->current, "event")) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = TAKE_PTR(c->current);
-                qmp_client_dispatch_event(c, v);
-                return 1;
-        }
-
-        switch (c->state) {
-
-        case QMP_CLIENT_HANDSHAKE_INITIAL: {
-                /* Waiting for QMP greeting. Take ownership so by_key()'s borrowed pointer
-                 * stays valid through the case scope. */
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = TAKE_PTR(c->current);
-                if (!sd_json_variant_by_key(v, "QMP"))
-                        return json_stream_log_errno(&c->stream, SYNTHETIC_ERRNO(EPROTO),
-                                                     "Expected QMP greeting, got something else");
-
-                c->state = QMP_CLIENT_HANDSHAKE_GREETING_RECEIVED;
-
-                /* Fall through to immediately send capabilities */
-                _fallthrough_;
-        }
-
-        case QMP_CLIENT_HANDSHAKE_GREETING_RECEIVED: {
-                /* Send qmp_capabilities command */
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL;
-                r = sd_json_buildo(
-                                &cmd,
-                                SD_JSON_BUILD_PAIR_STRING("execute", "qmp_capabilities"),
-                                SD_JSON_BUILD_PAIR_UNSIGNED("id", c->next_id++));
-                if (r < 0)
-                        return r;
-
-                r = json_stream_enqueue(&c->stream, cmd);
-                if (r < 0)
-                        return r;
-
-                c->state = QMP_CLIENT_HANDSHAKE_CAPABILITIES_SENT;
-                return 1;
-        }
-
-        case QMP_CLIENT_HANDSHAKE_CAPABILITIES_SENT: {
-                /* Take ownership so desc (borrowed from v's "error.desc") survives the format string. */
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = TAKE_PTR(c->current);
-                const char *desc = NULL;
-                r = qmp_parse_response(v, /* ret_result= */ NULL, &desc);
-                if (r < 0)
-                        return json_stream_log_errno(&c->stream, SYNTHETIC_ERRNO(EPROTO),
-                                                     "qmp_capabilities failed: %s", desc);
-
-                c->state = QMP_CLIENT_RUNNING;
-                return 1;
-        }
-
-        default:
-                assert_not_reached();
-        }
-}
-
-static int qmp_client_dispatch(QmpClient *c) {
-        assert(c);
-
-        if (!c->current)
-                return 0;
-
-        if (QMP_CLIENT_STATE_IS_HANDSHAKE(c->state))
-                return qmp_client_dispatch_handshake(c);
-
-        return qmp_client_dispatch_reply(c);
-}
-
 /* Single step: write → dispatch → parse → read → disconnect. Matches sd_varlink_process(). */
 int qmp_client_process(QmpClient *c) {
         int r;
@@ -525,7 +441,7 @@ int qmp_client_process(QmpClient *c) {
         if (r != 0)
                 goto finish;
 
-        /* 2. Dispatch — route based on state */
+        /* 2. Dispatch — dispatch incoming messages to slots */
         r = qmp_client_dispatch(c);
         if (r < 0)
                 json_stream_log_errno(&c->stream, r, "Failed to dispatch QMP message: %m");
@@ -601,19 +517,14 @@ static JsonStreamPhase qmp_client_phase(void *userdata) {
         if (c->current)
                 return JSON_STREAM_PHASE_OTHER;
 
-        /* During handshake we're waiting for the greeting or qmp_capabilities response. */
-        if (QMP_CLIENT_STATE_IS_HANDSHAKE(c->state))
-                return JSON_STREAM_PHASE_AWAITING_REPLY;
+        if (c->state != QMP_CLIENT_RUNNING)
+                return JSON_STREAM_PHASE_OTHER;
 
-        /* Running with pending async commands — waiting for their responses. */
-        if (c->state == QMP_CLIENT_RUNNING && !set_isempty(c->slots))
-                return JSON_STREAM_PHASE_AWAITING_REPLY;
-
-        /* Running with no pending commands — waiting for unsolicited events. */
-        if (c->state == QMP_CLIENT_RUNNING)
-                return JSON_STREAM_PHASE_READING;
-
-        return JSON_STREAM_PHASE_OTHER;
+        /* Pending slots (user commands or the initial qmp_capabilities) → awaiting reply.
+         * Otherwise we're idling for unsolicited events. */
+        return set_isempty(c->slots)
+                        ? JSON_STREAM_PHASE_READING
+                        : JSON_STREAM_PHASE_AWAITING_REPLY;
 }
 
 static int qmp_client_dispatch_cb(void *userdata) {
@@ -629,33 +540,6 @@ static int qmp_client_defer_callback(sd_event_source *source, void *userdata) {
         (void) qmp_client_process(c);
 
         return 1;
-}
-
-/* Drive handshake to completion. Matches sd-bus's bus_ensure_running(). */
-static int qmp_client_ensure_running(QmpClient *c) {
-        int r;
-
-        assert(c);
-
-        if (c->state == QMP_CLIENT_RUNNING)
-                return 1;
-
-        for (;;) {
-                if (c->state < 0 || c->state == QMP_CLIENT_DISCONNECTED)
-                        return -ENOTCONN;
-
-                r = qmp_client_process(c);
-                if (r < 0)
-                        return r;
-                if (c->state == QMP_CLIENT_RUNNING)
-                        return 1;
-                if (r > 0)
-                        continue;
-
-                r = qmp_client_wait(c, USEC_INFINITY);
-                if (r < 0)
-                        return r;
-        }
 }
 
 static void qmp_client_detach_event(QmpClient *c) {
@@ -713,6 +597,37 @@ static int qmp_client_quit_callback(sd_event_source *source, void *userdata) {
         return 1;
 }
 
+static int qmp_client_send(
+                QmpClient *c,
+                const char *command,
+                QmpClientArgs *args,
+                qmp_command_callback_t callback,
+                void *userdata,
+                QmpSlot **ret_slot);
+
+/* Reply callback for the eagerly-enqueued qmp_capabilities command. Success → we stay in
+ * RUNNING. Failure → negotiation is unrecoverable, force-disconnect so the next user op gets
+ * -ENOTCONN rather than hanging. */
+static int qmp_client_capabilities_reply(
+                QmpClient *c,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        /* qmp_client_handle_disconnect() below fails all pending slots, which re-enters this
+         * callback with -ECONNRESET on our own still-registered slot. Short-circuit that. */
+        if (c->state == QMP_CLIENT_DISCONNECTED)
+                return 0;
+
+        if (error >= 0)
+                return 0;
+
+        json_stream_log_errno(&c->stream, error, "qmp_capabilities failed: %s", strna(error_desc));
+        qmp_client_handle_disconnect(c);
+        return 0;
+}
+
 int qmp_client_connect_fd(QmpClient **ret, int fd) {
         _cleanup_(qmp_client_unrefp) QmpClient *c = NULL;
         int r;
@@ -726,7 +641,7 @@ int qmp_client_connect_fd(QmpClient **ret, int fd) {
 
         *c = (QmpClient) {
                 .n_ref = 1,
-                .state = QMP_CLIENT_HANDSHAKE_INITIAL,
+                .state = QMP_CLIENT_RUNNING,
                 .next_id = 1,
         };
 
@@ -742,6 +657,16 @@ int qmp_client_connect_fd(QmpClient **ret, int fd) {
                 return r;
 
         r = json_stream_connect_fd_pair(&c->stream, fd, fd);
+        if (r < 0)
+                return r;
+
+        /* Eagerly queue qmp_capabilities. QEMU accepts commands as soon as the socket opens
+         * — its greeting is informational and doesn't gate writes on our side. FIFO ordering
+         * of the output queue guarantees cap precedes any user command a later invoke()
+         * enqueues, which is all QEMU actually requires. */
+        r = qmp_client_send(c, "qmp_capabilities", /* args= */ NULL,
+                            qmp_client_capabilities_reply, /* userdata= */ NULL,
+                            /* ret_slot= */ NULL);
         if (r < 0)
                 return r;
 
@@ -826,9 +751,8 @@ static int qmp_client_send(
         assert(c);
         assert(command);
 
-        r = qmp_client_ensure_running(c);
-        if (r < 0)
-                return r;
+        if (c->state == QMP_CLIENT_DISCONNECTED)
+                return -ENOTCONN;
 
         r = qmp_client_build_command(c, command, args ? args->arguments : NULL, &cmd, &id);
         if (r < 0)
