@@ -54,6 +54,9 @@ bool qmp_client_is_idle(QmpClient *c);
 /* True iff the connection is dead. Stable terminal state — once set, it stays set. */
 bool qmp_client_is_disconnected(QmpClient *c);
 
+void* qmp_client_set_userdata(QmpClient *c, void *userdata);
+void* qmp_client_get_userdata(QmpClient *c);
+
 /* Async send. Returns 0 on send (callback will fire later), negative errno on failure. If
  * ret_slot is non-NULL, returns a reference to a QmpSlot which can be used to cancel the call
  * (by unreffing it before the reply arrives). */
@@ -79,7 +82,7 @@ void qmp_client_bind_event(QmpClient *c, qmp_event_callback_t callback, void *us
 void qmp_client_bind_disconnect(QmpClient *c, qmp_disconnect_callback_t callback, void *userdata);
 int qmp_client_set_description(QmpClient *c, const char *description);
 sd_event* qmp_client_get_event(QmpClient *c);
-unsigned qmp_client_next_fdset_id(QmpClient *client);
+uint64_t qmp_client_next_fdset_id(QmpClient *client);
 
 DECLARE_TRIVIAL_REF_UNREF_FUNC(QmpClient, qmp_client);
 DEFINE_TRIVIAL_CLEANUP_FUNC(QmpClient *, qmp_client_unref);

@@ -3,7 +3,10 @@
 
 #include <net/ethernet.h>
 
+#include "machine-util.h"
 #include "shared-forward.h"
+
+#define VMSPAWN_PCIE_HOTPLUG_SPARES 10
 
 /* Pending job continuation — called when a QMP background job reaches "concluded" state.
  * Used by blockdev-create to chain remaining drive setup after the job completes. */
@@ -26,8 +29,15 @@ typedef enum VmspawnQmpFeatureFlags {
 
 typedef struct VmspawnQmpBridge {
         QmpClient *qmp;
-        Hashmap *pending_jobs;  /* job_id (string, owned) -> PendingJob* */
+        Hashmap *pending_jobs;         /* blockdev-create continuations */
+        Hashmap *block_devices;        /* user_id (char*) → DriveInfo* (owned ref) */
+        Hashmap *block_devices_by_qmp_id; /* qmp_device_id (char*) → DriveInfo* (non-owning view) */
+        char *hotplug_port_owner[VMSPAWN_PCIE_HOTPLUG_SPARES];  /* owner id per port; NULL = free */
+        int scsi_controller_port_idx;  /* hotplug port idx taken by virtio-scsi-pci, -1 if none */
+        uint64_t next_block_counter;   /* monotonic counter feeding internal QMP names (vmspawn-<N>-*) */
         VmspawnQmpFeatureFlags features;
+        bool setup_done;
+        bool scsi_controller_created;  /* virtio-scsi-pci has been device_add'd */
 } VmspawnQmpBridge;
 
 VmspawnQmpBridge* vmspawn_qmp_bridge_free(VmspawnQmpBridge *b);
@@ -64,25 +74,49 @@ typedef enum QmpDriveFlags {
         QMP_DRIVE_DISCARD_NO_UNREF = 1u << 6,  /* qcow2 only */
 } QmpDriveFlags;
 
-/* Drive info for QMP-based drive setup */
+typedef enum BlockDeviceStateFlags {
+        BLOCK_DEVICE_STATE_BLOCKDEV_ADDED = 1u << 0,
+        BLOCK_DEVICE_STATE_ADD_FAILED     = 1u << 1,  /* first error fired; suppress cascades */
+        BLOCK_DEVICE_STATE_REMOVE_PENDING = 1u << 2,  /* device_del in flight; reject concurrent removes */
+} BlockDeviceStateFlags;
+
+/* Ref-counted; each of the four add-stage QMP slots holds one ref.
+ *
+ * link == NULL → boot-time: failure calls sd_event_exit (if !setup_done).
+ * link != NULL → hotplug:    failure replies via the varlink link. */
 typedef struct DriveInfo {
-        const char *path;          /* kept for logging only — not passed to QEMU */
-        const char *format;        /* "raw" or "qcow2" */
-        const char *disk_driver;   /* "virtio-blk-pci", "scsi-hd", "scsi-cd", "nvme" */
-        char *serial;              /* owned */
-        char *node_name;           /* owned */
-        char *pcie_port;           /* owned: pcie-root-port id for device_add bus (NULL on non-PCIe) */
-        int fd;                    /* pre-opened image fd (owned, -EBADF if unused) */
-        int overlay_fd;            /* pre-opened anonymous overlay fd for ephemeral (owned, -EBADF if unused) */
+        unsigned n_ref;
+
+        /* Config */
+        char *path;                /* original path (for logging; not passed to QEMU) */
+        char *format;              /* "raw" or "qcow2" */
+        char *disk_driver;         /* "virtio-blk-pci", "scsi-hd", "scsi-cd", "nvme" */
+        char *serial;
+        char *pcie_port;           /* pcie-root-port id for device_add bus (NULL on non-PCIe) */
+        int fd;                    /* pre-opened image fd (-EBADF if unused) */
+        int overlay_fd;            /* pre-opened anonymous overlay fd for ephemeral (-EBADF if unused) */
         QmpDriveFlags flags;
+
+        /* Per-add-op state (populated by the add flow; zeroed at CLI-parse time) */
+        VmspawnQmpBridge *bridge;  /* weak */
+        char *id;                  /* varlink-visible id (caller-supplied, or falls back to qmp_device_id) */
+        DiskType disk_type;        /* for the ListBlockDevices `driver` field */
+        uint64_t counter;          /* internal N used in qmp_node_name / qmp_device_id */
+        char *qmp_node_name;       /* "vmspawn-<counter>-storage" */
+        char *qmp_device_id;       /* "vmspawn-<counter>-disk" */
+        char *fdset_path;          /* "/dev/fdset/N" */
+        int pcie_port_idx;         /* hotplug port idx held by this drive; -1 once committed or unused */
+        BlockDeviceStateFlags state;
+        sd_varlink *link;          /* ref'd iff hotplug */
 } DriveInfo;
 
-void drive_info_done(DriveInfo *info);
+DriveInfo* drive_info_new(void);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(DriveInfo, drive_info);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DriveInfo *, drive_info_unref);
 
 typedef struct DriveInfos {
-        DriveInfo *drives;
+        DriveInfo **drives;     /* array of individually heap-allocated entries */
         size_t n_drives;
-        char *scsi_pcie_port;  /* owned: pcie-root-port id for SCSI controller (NULL if no SCSI or non-PCIe) */
 } DriveInfos;
 
 void drive_infos_done(DriveInfos *infos);
@@ -143,3 +177,5 @@ int vmspawn_qmp_setup_drives(VmspawnQmpBridge *bridge, DriveInfos *drives);
 int vmspawn_qmp_setup_network(VmspawnQmpBridge *bridge, NetworkInfo *network);
 int vmspawn_qmp_setup_virtiofs(VmspawnQmpBridge *bridge, const VirtiofsInfos *virtiofs);
 int vmspawn_qmp_setup_vsock(VmspawnQmpBridge *bridge, VsockInfo *vsock);
+int vmspawn_qmp_remove_block_device(VmspawnQmpBridge *bridge, sd_varlink *link, const char *id);
+int vmspawn_qmp_dispatch_device_deleted(VmspawnQmpBridge *bridge, sd_json_variant *data);

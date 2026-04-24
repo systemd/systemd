@@ -3,22 +3,6 @@
 #include "string-table.h"
 #include "vmspawn-settings.h"
 
-static const char *const image_format_table[_IMAGE_FORMAT_MAX] = {
-        [IMAGE_FORMAT_RAW]   = "raw",
-        [IMAGE_FORMAT_QCOW2] = "qcow2",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(image_format, ImageFormat);
-
-static const char *const disk_type_table[_DISK_TYPE_MAX] = {
-        [DISK_TYPE_VIRTIO_BLK]          = "virtio-blk",
-        [DISK_TYPE_VIRTIO_SCSI]         = "virtio-scsi",
-        [DISK_TYPE_NVME]                = "nvme",
-        [DISK_TYPE_VIRTIO_SCSI_CDROM]   = "scsi-cd",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(disk_type, DiskType);
-
 void extra_drive_context_done(ExtraDriveContext *ctx) {
         assert(ctx);
 
