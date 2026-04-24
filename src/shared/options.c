@@ -76,8 +76,10 @@ int option_parse(
         if (state->optind == 0) {
                 assert(state->mode >= 0 && state->mode < _OPTION_PARSER_MODE_MAX);
 
-                if (state->argc < 1 || strv_isempty(state->argv))
+                if (state->argc < 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "argv cannot be empty");
+
+                assert_se((size_t) state->argc == strv_length(state->argv)); /* Make sure argc/argv are consistent */
 
                 state->optind = state->positional_offset = 1;
         }
