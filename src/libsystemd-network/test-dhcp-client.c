@@ -17,9 +17,9 @@
 #include "dhcp-duid-internal.h"
 #include "dhcp-network.h"
 #include "dhcp-option.h"
-#include "dhcp-packet.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
+#include "ip-util.h"
 #include "log.h"
 #include "tests.h"
 
@@ -107,16 +107,6 @@ TEST(dhcp_client_anonymize) {
         ASSERT_OK_ZERO(sd_dhcp_client_set_request_option(client, 101));
 }
 
-TEST(dhcp_packet_checksum) {
-        uint8_t buf[20] = {
-                0x45, 0x00, 0x02, 0x40, 0x00, 0x00, 0x00, 0x00,
-                0x40, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0xff, 0xff, 0xff, 0xff
-        };
-
-        ASSERT_EQ(dhcp_packet_checksum(buf, 20), be16toh(0x78ae));
-}
-
 TEST(dhcp_identifier_set_iaid) {
         uint32_t iaid_legacy;
         be32_t iaid;
@@ -181,13 +171,13 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link, const 
         discover->ip.ttl = 0;
         discover->ip.check = discover->udp.len;
 
-        udp_check = ~dhcp_packet_checksum(&discover->ip.ttl, len - 8);
+        udp_check = ~ip_checksum(&discover->ip.ttl, len - 8);
         ASSERT_EQ(udp_check, 0xffff);
 
         discover->ip.ttl = IPDEFTTL;
         discover->ip.check = ip_check;
 
-        ip_check = ~dhcp_packet_checksum((uint8_t*) &discover->ip, sizeof(discover->ip));
+        ip_check = ~ip_checksum((uint8_t*) &discover->ip, sizeof(discover->ip));
         ASSERT_EQ(ip_check, 0xffff);
 
         ASSERT_NE(discover->dhcp.xid, 0u);
