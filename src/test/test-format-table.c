@@ -581,6 +581,72 @@ TEST(table) {
                              "5min              5min              \n");
 }
 
+TEST(tristate) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
+        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        ASSERT_NOT_NULL((t = table_new("name", "flag")));
+
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "neg",
+                                 TABLE_TRISTATE, -1));
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "zero",
+                                 TABLE_TRISTATE, 0));
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "pos",
+                                 TABLE_TRISTATE, 1));
+
+        ASSERT_OK(table_format(t, &formatted));
+        printf("%s\n", formatted);
+        ASSERT_STREQ(formatted,
+                     "NAME FLAG\n"
+                     "neg  \n"
+                     "zero no\n"
+                     "pos  yes\n");
+        formatted = mfree(formatted);
+
+        /* Try a non-default ersatz string. */
+        table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
+        ASSERT_OK(table_format(t, &formatted));
+        printf("%s\n", formatted);
+        ASSERT_STREQ(formatted,
+                     "NAME FLAG\n"
+                     "neg  -\n"
+                     "zero no\n"
+                     "pos  yes\n");
+        formatted = mfree(formatted);
+
+        /* Sorting: -1 < 0 < 1 */
+        ASSERT_OK(table_set_sort(t, (size_t) 1, SIZE_MAX));
+        ASSERT_OK(table_format(t, &formatted));
+        printf("%s\n", formatted);
+        ASSERT_STREQ(formatted,
+                     "NAME FLAG\n"
+                     "neg  -\n"
+                     "zero no\n"
+                     "pos  yes\n");
+        formatted = mfree(formatted);
+
+        /* JSON: -1 → null, 0 → false, positive → true */
+        ASSERT_OK(table_to_json(t, &v));
+
+        ASSERT_OK(sd_json_build(&w,
+                                SD_JSON_BUILD_ARRAY(
+                                                SD_JSON_BUILD_OBJECT(
+                                                                SD_JSON_BUILD_PAIR("name", JSON_BUILD_CONST_STRING("neg")),
+                                                                SD_JSON_BUILD_PAIR("flag", SD_JSON_BUILD_NULL)),
+                                                SD_JSON_BUILD_OBJECT(
+                                                                SD_JSON_BUILD_PAIR("name", JSON_BUILD_CONST_STRING("zero")),
+                                                                SD_JSON_BUILD_PAIR_BOOLEAN("flag", false)),
+                                                SD_JSON_BUILD_OBJECT(
+                                                                SD_JSON_BUILD_PAIR("name", JSON_BUILD_CONST_STRING("pos")),
+                                                                SD_JSON_BUILD_PAIR_BOOLEAN("flag", true)))));
+
+        ASSERT_TRUE(sd_json_variant_equal(v, w));
+}
+
 TEST(signed_integers) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;

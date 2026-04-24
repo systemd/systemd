@@ -46,6 +46,7 @@
 #include "varlink-io.systemd.Udev.h"
 #include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-io.systemd.Volumes.h"
 #include "varlink-io.systemd.oom.h"
 #include "varlink-io.systemd.oom.Prekill.h"
 #include "varlink-io.systemd.service.h"
@@ -213,6 +214,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Udev,
                 &vl_interface_io_systemd_Unit,
                 &vl_interface_io_systemd_UserDatabase,
+                &vl_interface_io_systemd_Volumes,
                 &vl_interface_io_systemd_oom,
                 &vl_interface_io_systemd_oom_Prekill,
                 &vl_interface_io_systemd_service,
