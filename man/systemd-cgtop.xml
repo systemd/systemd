@@ -235,6 +235,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--root-memory=</option></term>
+
+        <listitem><para>Selects how the root control group row (<literal>/</literal>)
+        reports memory usage. Takes one of <literal>cgroup</literal> or
+        <literal>system</literal>. When <literal>cgroup</literal> (the default)
+        is used, the root row shows the sum of <filename>memory.current</filename>
+        across its direct children, which matches the accounting semantics of
+        every other row in the table. When <literal>system</literal> is used,
+        the root row shows whole-system RAM usage
+        (<literal>MemTotal - MemAvailable</literal> from
+        <filename>/proc/meminfo</filename>), which additionally accounts for
+        kernel slab, vmalloc, page tables, and other memory not attributable to
+        any cgroup. This setting may also be toggled at runtime by pressing the
+        <keycap>/</keycap> key.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-M <replaceable>MACHINE</replaceable></option></term>
         <term><option>--machine=<replaceable>MACHINE</replaceable></option></term>
 
@@ -301,6 +320,18 @@
         <option>--cpu=</option> command line switch.</para>
 
         <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>/</keycap></term>
+
+        <listitem><para>Toggle the root control group row between
+        cgroup-sum accounting (default) and whole-system accounting from
+        <filename>/proc/meminfo</filename>. This setting may also be
+        controlled using the <option>--root-memory=</option> command line
+        switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 
       <varlistentry>
