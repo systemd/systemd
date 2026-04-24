@@ -30,11 +30,14 @@ typedef enum QmpClientState {
                QMP_CLIENT_HANDSHAKE_GREETING_RECEIVED, \
                QMP_CLIENT_HANDSHAKE_CAPABILITIES_SENT)
 
-typedef struct QmpSlot {
+struct QmpSlot {
+        unsigned n_ref;
+        QmpClient *client;  /* NULL once disconnected (reply dispatched, cancelled, or client died) */
         uint64_t id;
+        bool floating;
         qmp_command_callback_t callback;
         void *userdata;
-} QmpSlot;
+};
 
 struct QmpClient {
         unsigned n_ref;
@@ -69,9 +72,91 @@ static int qmp_slot_compare_func(const QmpSlot *a, const QmpSlot *b) {
 DEFINE_PRIVATE_HASH_OPS(qmp_slot_hash_ops,
                         QmpSlot, qmp_slot_hash_func, qmp_slot_compare_func);
 
+
+/* Break the slot's connection to the client: remove from the lookup set, drop whichever reference
+ * is implied by the slot's floating-ness. For floating slots, the set is the sole owner, so with
+ * unref=true we also drop the slot's n_ref (usually dropping it to zero and freeing). For
+ * non-floating slots, we release the back-reference the slot holds on the client.
+ *
+ * Safe to call multiple times: once slot->client is NULL, subsequent calls are no-ops. */
+static void qmp_slot_disconnect(QmpSlot *slot, bool unref) {
+        assert(slot);
+
+        if (!slot->client)
+                return;
+
+        QmpClient *client = slot->client;
+
+        set_remove(client->slots, slot);
+        slot->client = NULL;
+
+        if (!slot->floating)
+                qmp_client_unref(client);
+        else if (unref)
+                qmp_slot_unref(slot);
+}
+
+static QmpSlot* qmp_slot_free(QmpSlot *slot) {
+        if (!slot)
+                return NULL;
+
+        /* Idempotent: if the slot was already disconnected (reply dispatched, explicit cancel,
+         * or client-side teardown), this is a no-op. Otherwise it removes us from the set and
+         * drops our client reference (for non-floating slots). */
+        qmp_slot_disconnect(slot, /* unref= */ false);
+
+        return mfree(slot);
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(QmpSlot, qmp_slot, qmp_slot_free);
+
+QmpClient* qmp_slot_get_client(QmpSlot *slot) {
+        assert(slot);
+        return slot->client;
+}
+
+static int qmp_slot_new(
+                QmpClient *client,
+                bool floating,
+                uint64_t id,
+                qmp_command_callback_t callback,
+                void *userdata,
+                QmpSlot **ret) {
+
+        int r;
+
+        assert(client);
+        assert(ret);
+
+        _cleanup_free_ QmpSlot *slot = new(QmpSlot, 1);
+        if (!slot)
+                return -ENOMEM;
+
+        *slot = (QmpSlot) {
+                .n_ref    = 1,
+                .client   = NULL,   /* wired up below, after set_put succeeds */
+                .id       = id,
+                .floating = floating,
+                .callback = callback,
+                .userdata = userdata,
+        };
+
+        r = set_ensure_put(&client->slots, &qmp_slot_hash_ops, slot);
+        if (r < 0)
+                return r;
+        assert(r > 0);
+
+        slot->client = client;
+        if (!floating)
+                qmp_client_ref(client);
+
+        *ret = TAKE_PTR(slot);
+        return 0;
+}
+
 static void qmp_client_clear(QmpClient *c);
 
-static QmpClient* qmp_client_destroy(QmpClient *c) {
+static QmpClient* qmp_client_free(QmpClient *c) {
         if (!c)
                 return NULL;
 
@@ -80,8 +165,7 @@ static QmpClient* qmp_client_destroy(QmpClient *c) {
         return mfree(c);
 }
 
-DEFINE_PRIVATE_TRIVIAL_REF_FUNC(QmpClient, qmp_client);
-DEFINE_TRIVIAL_UNREF_FUNC(QmpClient, qmp_client, qmp_client_destroy);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(QmpClient, qmp_client, qmp_client_free);
 
 static void qmp_client_clear_current(QmpClient *c) {
         assert(c);
@@ -225,42 +309,59 @@ static int qmp_client_dispatch_reply(QmpClient *c) {
                 return 1;
         }
 
-        _cleanup_free_ QmpSlot *pending = set_remove(c->slots, &(QmpSlot) { .id = id });
-        if (!pending) {
+        QmpSlot *slot = set_get(c->slots, &(QmpSlot) { .id = id });
+        if (!slot) {
                 qmp_client_clear_current(c);
                 json_stream_log(&c->stream, "Discarding QMP response with unknown id %" PRIu64, id);
                 return 1;
         }
 
         /* Synchronous slot (no callback): leave c->current pinned so qmp_client_call() can
-         * pick up the reply and hand out borrowed pointers into it. */
-        if (!pending->callback)
+         * pick up the reply and hand out borrowed pointers into it. The sync caller owns a
+         * ref on the slot and detects completion by observing slot->client turning NULL. */
+        if (!slot->callback) {
+                qmp_slot_disconnect(slot, /* unref= */ true);
                 return 1;
+        }
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = TAKE_PTR(c->current);
         error = qmp_parse_response(v, &result, &desc);
 
-        r = pending->callback(c, result, desc, error, pending->userdata);
+        /* Pin the slot across the callback regardless of floating-ness. For a floating slot,
+         * disconnect(unref=true) drops the set's implicit ref which would otherwise free it
+         * out from under the callback. */
+        qmp_slot_ref(slot);
+
+        r = slot->callback(c, result, desc, error, slot->userdata);
         if (r < 0)
                 json_stream_log_errno(&c->stream, r, "Command callback returned error, ignoring: %m");
+
+        qmp_slot_disconnect(slot, /* unref= */ true);
+        qmp_slot_unref(slot);
 
         return 1;
 }
 
-/* Fail all pending async commands with the given error. Called on disconnect. */
+/* Fail all pending commands with the given error. Called on disconnect. */
 static void qmp_client_fail_pending(QmpClient *c, int error) {
-        QmpSlot *p;
+        QmpSlot *slot;
         int r;
 
         assert(c);
 
-        while ((p = set_steal_first(c->slots))) {
-                if (p->callback) {
-                        r = p->callback(c, /* result= */ NULL, /* error_desc= */ NULL, error, p->userdata);
+        while ((slot = set_first(c->slots))) {
+                /* Keep alive across the callback and past disconnect (which may unref it for
+                 * floating slots). */
+                qmp_slot_ref(slot);
+
+                if (slot->callback) {
+                        r = slot->callback(c, /* result= */ NULL, /* error_desc= */ NULL, error, slot->userdata);
                         if (r < 0)
                                 json_stream_log_errno(&c->stream, r, "Command callback returned error, ignoring: %m");
                 }
-                free(p);
+
+                qmp_slot_disconnect(slot, /* unref= */ true);
+                qmp_slot_unref(slot);
         }
 }
 
@@ -701,17 +802,19 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(QmpClientArgs*, qmp_client_args_close_fds);
 
 /* Shared send path for qmp_client_invoke() and qmp_client_call(). A NULL callback registers
  * a "synchronous" slot: dispatch_reply leaves c->current pinned on match instead of invoking
- * a callback, so qmp_client_call() can hand out borrowed pointers into the reply. */
+ * a callback, so qmp_client_call() can hand out borrowed pointers into the reply. If ret_slot
+ * is NULL the slot is allocated as floating (owned by c->slots); otherwise a reference is
+ * handed back to the caller. */
 static int qmp_client_send(
                 QmpClient *c,
                 const char *command,
                 QmpClientArgs *args,
                 qmp_command_callback_t callback,
                 void *userdata,
-                uint64_t *ret_id) {
+                QmpSlot **ret_slot) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL;
-        _cleanup_free_ QmpSlot *pending = NULL;
+        _cleanup_(qmp_slot_unrefp) QmpSlot *slot = NULL;
         /* Closes any fds in args on every early-return path; TAKE_PTR()'d on the success path
          * below once json_stream_enqueue_full() has taken ownership of them. */
         _cleanup_(qmp_client_args_close_fdsp) QmpClientArgs *fds_owner = args;
@@ -729,50 +832,40 @@ static int qmp_client_send(
         if (r < 0)
                 return r;
 
-        pending = new(QmpSlot, 1);
-        if (!pending)
-                return -ENOMEM;
-
-        *pending = (QmpSlot) {
-                .id       = id,
-                .callback = callback,
-                .userdata = userdata,
-        };
-
-        r = set_ensure_put(&c->slots, &qmp_slot_hash_ops, pending);
+        r = qmp_slot_new(c, /* floating= */ !ret_slot, id, callback, userdata, &slot);
         if (r < 0)
                 return r;
-        assert(r > 0);
 
         r = json_stream_enqueue_full(&c->stream, cmd,
                                      args ? args->fds_consume : NULL,
                                      args ? args->n_fds : 0);
-        if (r < 0) {
-                set_remove(c->slots, pending);
-                return r;
-        }
+        if (r < 0)
+                return r;  /* slot cleanup disconnects it */
 
         /* Arm defer so process() drains the output on the next iteration. */
         if (c->defer_event_source)
                 (void) sd_event_source_set_enabled(c->defer_event_source, SD_EVENT_ON);
 
-        TAKE_PTR(pending);
         TAKE_PTR(fds_owner);
 
-        if (ret_id)
-                *ret_id = id;
+        if (ret_slot)
+                *ret_slot = TAKE_PTR(slot);
+        else
+                TAKE_PTR(slot);  /* floating: c->slots keeps it alive until dispatch */
+
         return 0;
 }
 
 int qmp_client_invoke(
                 QmpClient *c,
+                QmpSlot **ret_slot,
                 const char *command,
                 QmpClientArgs *args,
                 qmp_command_callback_t callback,
                 void *userdata) {
 
         assert(callback);
-        return qmp_client_send(c, command, args, callback, userdata, /* ret_id= */ NULL);
+        return qmp_client_send(c, command, args, callback, userdata, ret_slot);
 }
 
 int qmp_client_call(
@@ -782,7 +875,7 @@ int qmp_client_call(
                 sd_json_variant **ret_result,
                 const char **ret_error_desc) {
 
-        uint64_t id;
+        _cleanup_(qmp_slot_unrefp) QmpSlot *slot = NULL;
         int r;
 
         assert_return(c, -EINVAL);
@@ -793,17 +886,18 @@ int qmp_client_call(
 
         /* NULL callback marks this as a synchronous slot: dispatch_reply matches on id like
          * any other slot (so stray unknown-id replies still get logged and dropped), but
-         * pins c->current for us instead of invoking a callback. */
-        r = qmp_client_send(c, command, args, /* callback= */ NULL, /* userdata= */ NULL, &id);
+         * pins c->current for us instead of invoking a callback. The slot is non-floating so
+         * we can observe dispatch by watching slot->client go NULL. */
+        r = qmp_client_send(c, command, args, /* callback= */ NULL, /* userdata= */ NULL, &slot);
         if (r < 0)
                 return r;
 
-        /* Pump the loop until our sync slot fires (removed from c->slots, c->current pinned). */
+        /* Pump the loop until our sync slot fires (disconnected by dispatch, c->current pinned). */
         for (;;) {
                 if (c->state == QMP_CLIENT_DISCONNECTED)
                         return -ECONNRESET;
 
-                if (!set_contains(c->slots, &(QmpSlot) { .id = id })) {
+                if (!slot->client) {
                         assert(c->current);
                         break;
                 }
