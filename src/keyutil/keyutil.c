@@ -100,15 +100,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_VERSION:
                         return version();
 
-                OPTION_LONG("private-key", "KEY", "Private key in PEM format"):
+                OPTION_COMMON_PRIVATE_KEY("Private key in PEM format"):
                         r = free_and_strdup_warn(&arg_private_key, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                OPTION_LONG("private-key-source", "SOURCE",
-                            "Specify how to use KEY for --private-key= "
-                            "(file, provider:PROVIDER, engine:ENGINE)"):
+                OPTION_COMMON_PRIVATE_KEY_SOURCE:
                         r = parse_openssl_key_source_argument(
                                         arg,
                                         &arg_private_key_source,
@@ -117,17 +115,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return r;
                         break;
 
-                OPTION_LONG("certificate", "PATH|URI",
-                            "PEM certificate to use for signing, "
-                            "or a provider-specific designation if --certificate-source= is used"):
+                OPTION_COMMON_CERTIFICATE("PEM certificate to use for signing"):
                         r = free_and_strdup_warn(&arg_certificate, arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                OPTION_LONG("certificate-source", "SOURCE",
-                            "Specify how to interpret the certificate from --certificate= "
-                            "(file, provider:PROVIDER)"):
+                OPTION_COMMON_CERTIFICATE_SOURCE:
                         r = parse_openssl_certificate_source_argument(
                                         arg,
                                         &arg_certificate_source,
@@ -226,7 +220,7 @@ static int verb_validate(int argc, char *argv[], uintptr_t _data, void *userdata
 
 VERB_NOARG(verb_extract_public, "extract-public",
            "Extract a public key");
-VERB(verb_extract_public, "public", NULL, VERB_ANY, 1, 0, NULL); /* Deprecated alias */
+VERB_NOARG(verb_extract_public, "public", /* help= */ NULL); /* Deprecated but kept for backward compat. */
 static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *public_key = NULL;
         int r;
