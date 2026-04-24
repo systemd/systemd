@@ -690,7 +690,7 @@ static bool item_cleanup(
                 const char *name, /* basename of directory|file to be cleaned up */
                 int dir_fd, /* dirfd of directory that contains name -- used for unlinkat(dirfd) */
                 nsec_t cutoff_nsec,
-                bool mountpoint, /* whether d is a mountpoint */
+                bool mountpoint, /* whether the parent dir dir_fd is a mountpoint */
                 int maxdepth, /* max directory recursion depth */
                 bool keep_this_level,
                 AgeBy age_by_file, /* age criteria ([a|m|c|b]_time) to examine against file age */
@@ -3254,7 +3254,7 @@ static int clean_including_item(
                         /* mandatory_attributes= */ STATX_ATTR_MOUNT_ROOT,
                         &sx);
         if (r < 0)
-                return log_error_errno(r, "statx(%s) failed: %m", instance);
+                return log_error_errno(r, "statx on parent of '%s' failed: %m", instance);
 
         mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
         if (DEBUG_LOGGING) {
