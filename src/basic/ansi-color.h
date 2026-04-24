@@ -91,6 +91,8 @@ bool looks_like_ansi_color_code(const char *str);
 #define ANSI_UNDERLINE "\x1B[0;4m"
 #define ANSI_ADD_UNDERLINE "\x1B[4m"
 #define ANSI_ADD_UNDERLINE_GREY ANSI_ADD_UNDERLINE "\x1B[58:5:245m"
+#define ANSI_ITALICS "\x1B[0;3m"
+#define ANSI_ADD_ITALICS "\x1B[3m"
 #define ANSI_HIGHLIGHT "\x1B[0;1;39m"
 #define ANSI_HIGHLIGHT_UNDERLINE "\x1B[0;1;4m"
 
@@ -178,6 +180,15 @@ static inline const char* ansi_add_underline(void) {
 static inline const char* ansi_add_underline_grey(void) {
         return underline_enabled() ?
                 (colors_enabled() ? ANSI_ADD_UNDERLINE_GREY : ANSI_ADD_UNDERLINE) : "";
+}
+
+static inline const char* ansi_italics(void) {
+        /* We hook italics also into the underline checks, close enough */
+        return underline_enabled() ? ANSI_ITALICS : "";
+}
+
+static inline const char* ansi_add_italics(void) {
+        return underline_enabled() ? ANSI_ADD_ITALICS : "";
 }
 
 #define DEFINE_ANSI_FUNC_UNDERLINE(name, NAME)                          \
