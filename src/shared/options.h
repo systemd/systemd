@@ -115,7 +115,7 @@ extern const Option __stop_SYSTEMD_OPTIONS[];
 
 typedef enum OptionParserMode {
         /* The default mode. This is the implicit default and doesn't have to be specified. */
-        OPTION_PARSER_NORMAL = 0,
+        OPTION_PARSER_NORMAL,
 
         /* Same as "+…" for getopt_long — only parse options before the first positional argument. */
         OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
