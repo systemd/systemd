@@ -15,6 +15,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_OUTPUT(Chassis, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("An unique identifier of the system chassis."),
                 SD_VARLINK_DEFINE_OUTPUT(ChassisAssetTag, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("An unique identifier of the system board."),
+                SD_VARLINK_DEFINE_OUTPUT(BoardAssetTag, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT(Deployment, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT(Location, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT(KernelName, SD_VARLINK_STRING, 0),

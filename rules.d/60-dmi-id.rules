@@ -23,6 +23,10 @@ ENV{ID_HARDWARE_VERSION}=="", ENV{ID_BOARD_VERSION_IS_RUBBISH}!="1", ENV{ID_HARD
 ENV{MODALIAS}!="", ATTR{chassis_asset_tag}!="", IMPORT{builtin}="hwdb '$attr{modalias}cat$attr{chassis_asset_tag}:'"
 ENV{ID_CHASSIS_ASSET_TAG_IS_RUBBISH}!="1", ENV{ID_CHASSIS_ASSET_TAG}="$attr{chassis_asset_tag}"
 
+# Board asset tag
+ENV{MODALIAS}!="", ATTR{board_asset_tag}!="", IMPORT{builtin}="hwdb '$attr{modalias}rat$attr{board_asset_tag}:'"
+ENV{ID_BOARD_ASSET_TAG_IS_RUBBISH}!="1", ENV{ID_BOARD_ASSET_TAG}="$attr{board_asset_tag}"
+
 # Allow units to be ordered after the DMI device
 TAG+="systemd"
 

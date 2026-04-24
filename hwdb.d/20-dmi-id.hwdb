@@ -63,6 +63,16 @@ dmi:*:catToBeFilledByO.E.M.:*
 dmi:*:catTo Be Filled By O.E.M.:*
  ID_CHASSIS_ASSET_TAG_IS_RUBBISH=1
 
+dmi:*:ratDefaultstring:*
+dmi:*:ratDefault string:*
+dmi:*:ratN/A:*
+dmi:*:ratO.E.M.:*
+dmi:*:ratOEM:*
+dmi:*:ratTobefilledbyO.E.M.:*
+dmi:*:ratToBeFilledByO.E.M.:*
+dmi:*:ratTo Be Filled By O.E.M.:*
+ ID_BOARD_ASSET_TAG_IS_RUBBISH=1
+
 # Fix "Lenovo" capitalization in /sys/class/dmi/id/sys_vendor
 dmi:bvnLENOVO*
  ID_SYSFS_ATTRIBUTE_MODEL=product_version
