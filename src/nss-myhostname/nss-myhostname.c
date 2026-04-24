@@ -39,7 +39,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         _cleanup_free_ char *hn = NULL;
         const char *canonical = NULL;
         int n_addresses = 0;
-        uint32_t local_address_ipv4;
+        uint32_t local_address_ipv4 = 0;
         size_t l, idx, ms;
         char *r_name;
 
