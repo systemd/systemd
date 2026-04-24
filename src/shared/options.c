@@ -72,23 +72,46 @@ int option_parse(
                 const Option options_end[],
                 OptionParser *state) {
 
+        /* We define this one early, since we use goto below, and need to guarantee its initialization */
+        _cleanup_free_ char *_optname = NULL;  /* allocated option name */
+        int r;
+
+        assert(state);
+
         /* Check and initialize */
-        if (state->optind == 0) {
+        switch (state->state) {
+
+        case OPTION_PARSER_INIT:
                 assert(state->mode >= 0 && state->mode < _OPTION_PARSER_MODE_MAX);
 
-                if (state->argc < 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "argv cannot be empty");
+                if (state->argc < 1) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "argv cannot be empty");
+                        goto fail;
+                }
 
                 assert_se((size_t) state->argc == strv_length(state->argv)); /* Make sure argc/argv are consistent */
-
                 state->optind = state->positional_offset = 1;
+                state->state = OPTION_PARSER_RUNNING;
+                break;
+
+        case OPTION_PARSER_RUNNING:
+        case OPTION_PARSER_STOPPING:
+                break;
+
+        case OPTION_PARSER_DONE:
+                goto done;
+
+        case OPTION_PARSER_FAILED:
+                return log_error_errno(SYNTHETIC_ERRNO(ESTALE), "Option parser failed before, refusing.");
+
+        default:
+                assert_not_reached();
         }
 
         /* Look for the next option */
 
         const Option *option = NULL;  /* initialization to appease gcc 13 */
         const char *optname = NULL, *optval = NULL;
-        _cleanup_free_ char *_optname = NULL;  /* allocated option name */
         bool separate_optval = false;
         bool handling_positional_arg = false;
 
@@ -96,27 +119,27 @@ int option_parse(
                 /* Handle non-option parameters */
                 for (;;) {
                         if (state->optind == state->argc)
-                                goto finished;
+                                goto done;
 
                         if (streq(state->argv[state->optind], "--")) {
                                 /* No more options. Move "--" before positional args so that
                                  * the list of positional args is clean. */
                                 shift_arg(state->argv, state->positional_offset++, state->optind++);
-                                state->parsing_stopped = true;
+                                goto done;
                         }
 
-                        if (state->parsing_stopped)
-                                goto finished;
+                        /* If we are in OPTION_PARSER_STOPPING state we only wanted to read one more "--" if
+                         * there is one, nothing else, hence it's time to say goodbye now. */
+                        if (state->state == OPTION_PARSER_STOPPING)
+                                goto done;
 
                         if (state->argv[state->optind][0] == '-' &&
                             state->argv[state->optind][1] != '\0')
                                 /* Looks like we found an option parameter */
                                 break;
 
-                        if (state->mode == OPTION_PARSER_STOP_AT_FIRST_NONOPTION) {
-                                state->parsing_stopped = true;
-                                goto finished;
-                        }
+                        if (state->mode == OPTION_PARSER_STOP_AT_FIRST_NONOPTION)
+                                goto done;
 
                         if (state->mode == OPTION_PARSER_RETURN_POSITIONAL_ARGS) {
                                 handling_positional_arg = true;
@@ -147,8 +170,10 @@ int option_parse(
                         char *eq = strchr(state->argv[state->optind], '=');
                         if (eq) {
                                 optname = _optname = strndup(state->argv[state->optind], eq - state->argv[state->optind]);
-                                if (!_optname)
-                                        return log_oom();
+                                if (!_optname) {
+                                        r = log_oom();
+                                        goto fail;
+                                }
 
                                 /* joined argument */
                                 optval = eq + 1;
@@ -161,12 +186,16 @@ int option_parse(
 
                         for (option = options;; option++) {
                                 if (option >= options_end) {
-                                        if (n_partial_matches == 0)
-                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                                       "%s: unrecognized option '%s'",
-                                                                       program_invocation_short_name, optname);
-                                        if (n_partial_matches > 1)
-                                                return partial_match_error(options, options_end, optname, n_partial_matches);
+                                        if (n_partial_matches == 0) {
+                                                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                                    "%s: unrecognized option '%s'",
+                                                                    program_invocation_short_name, optname);
+                                                goto fail;
+                                        }
+                                        if (n_partial_matches > 1) {
+                                                r = partial_match_error(options, options_end, optname, n_partial_matches);
+                                                goto fail;
+                                        }
 
                                         /* just one partial — good */
                                         option = last_partial;
@@ -195,15 +224,19 @@ int option_parse(
         if (state->short_option_offset > 0) {
                 char optchar = state->argv[state->optind][state->short_option_offset];
 
-                if (asprintf(&_optname, "-%c", optchar) < 0)
-                        return log_oom();
+                if (asprintf(&_optname, "-%c", optchar) < 0) {
+                        r = log_oom();
+                        goto fail;
+                }
                 optname = _optname;
 
                 for (option = options;; option++) {
-                        if (option >= options_end)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "%s: unrecognized option '%s'",
-                                                       program_invocation_short_name, optname);
+                        if (option >= options_end) {
+                                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                    "%s: unrecognized option '%s'",
+                                                    program_invocation_short_name, optname);
+                                goto fail;
+                        }
 
                         if (option_is_metadata(option) || optchar != option->short_code)
                                 continue;
@@ -225,15 +258,19 @@ int option_parse(
 
         assert(option);
 
-        if (!handling_positional_arg && optval && !option_takes_arg(option))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s: option '%s' doesn't allow an argument",
-                                       program_invocation_short_name, optname);
+        if (!handling_positional_arg && optval && !option_takes_arg(option)) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                    "%s: option '%s' doesn't allow an argument",
+                                    program_invocation_short_name, optname);
+                goto fail;
+        }
         if (!handling_positional_arg && !optval && option_arg_required(option)) {
-                if (!state->argv[state->optind + 1])
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "%s: option '%s' requires an argument",
-                                               program_invocation_short_name, optname);
+                if (!state->argv[state->optind + 1]) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                            "%s: option '%s' requires an argument",
+                                            program_invocation_short_name, optname);
+                        goto fail;
+                }
                 optval = state->argv[state->optind + 1];
                 separate_optval = true;
         }
@@ -252,16 +289,23 @@ int option_parse(
         }
 
         if (FLAGS_SET(option->flags, OPTION_STOPS_PARSING))
-                state->parsing_stopped = true;
+                state->state = OPTION_PARSER_STOPPING;
 
         state->opt = option;
         state->arg = optval;
         return option->id;
 
- finished:
+ done:
+        state->state = OPTION_PARSER_DONE;
         state->opt = NULL;
         state->arg = NULL;
         return 0;
+
+ fail:
+        /* Invalidate the object for good on the first error */
+        assert(r < 0);
+        state->state = OPTION_PARSER_FAILED;
+        return r;
 }
 
 char* option_parser_next_arg(const OptionParser *state) {
@@ -294,7 +338,7 @@ char** option_parser_get_args(const OptionParser *state) {
          * original argv array, so it must not be freed or modified. */
 
         assert(state->optind > 0);
-        assert(state->optind == state->argc || state->parsing_stopped);
+        assert(state->state == OPTION_PARSER_DONE);
         assert(state->positional_offset <= state->argc);
 
         return state->argv + state->positional_offset;
@@ -302,7 +346,7 @@ char** option_parser_get_args(const OptionParser *state) {
 
 size_t option_parser_get_n_args(const OptionParser *state) {
         assert(state->optind > 0);
-        assert(state->optind == state->argc || state->parsing_stopped);
+        assert(state->state == OPTION_PARSER_DONE);
         assert(state->positional_offset <= state->argc);
 
         return state->argc - state->positional_offset;
