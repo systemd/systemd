@@ -46,7 +46,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(&state, c, &arg)
                 switch (c) {
 
                 OPTION('r', "root", "PATH", "Operate on an alternate filesystem root"):
