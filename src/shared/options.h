@@ -109,6 +109,12 @@ typedef struct Option {
                     "Allows the certificate to be loaded from an OpenSSL provider " \
                     "(file, provider:PROVIDER)")
 
+/* A form used in udev code for compatibility. -V is accepted but not documented. */
+#define OPTION_COMMON_VERSION_WITH_HIDDEN_V                                      \
+        OPTION_COMMON_VERSION: {}                                                \
+        OPTION_SHORT('V', NULL, /* help= */ NULL)
+
+
 /* This is magically mapped to the beginning and end of the section */
 extern const Option __start_SYSTEMD_OPTIONS[];
 extern const Option __stop_SYSTEMD_OPTIONS[];
