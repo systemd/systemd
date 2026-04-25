@@ -68,8 +68,8 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         char **args = option_parser_get_args(&state);
-        if (strv_length(args) > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Error: unexpected argument.");
+        if (strv_length(args) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Need exactly one DEVICE argument.");
 
         arg_device = args[0];
         return 1;
