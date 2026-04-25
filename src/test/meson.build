@@ -58,6 +58,7 @@ simple_tests += files(
         'test-alloc-util.c',
         'test-architecture.c',
         'test-argv-util.c',
+        'test-audit-type.c',
         'test-audit-util.c',
         'test-barrier.c',
         'test-binfmt-util.c',
@@ -66,11 +67,16 @@ simple_tests += files(
         'test-blockdev-util.c',
         'test-bootspec.c',
         'test-build-path.c',
+        'test-bus-creds.c',
+        'test-bus-introspect.c',
+        'test-bus-match.c',
         'test-bus-unit-util.c',
         'test-bus-util.c',
+        'test-bus-vtable.c',
         'test-calendarspec.c',
         'test-capability-list.c',
         'test-capability-util.c',
+        'test-catalog.c',
         'test-cgroup-setup.c',
         'test-cgroup-util.c',
         'test-chase.c',
@@ -90,6 +96,7 @@ simple_tests += files(
         'test-date.c',
         'test-dev-setup.c',
         'test-device-nodes.c',
+        'test-device-util.c',
         'test-devnum-util.c',
         'test-dirent-util.c',
         'test-dns-domain.c',
@@ -131,7 +138,15 @@ simple_tests += files(
         'test-io-util.c',
         'test-iovec-util.c',
         'test-iovec-wrapper.c',
+        'test-journal-file.c',
+        'test-journal-flush.c',
         'test-journal-importer.c',
+        'test-journal-init.c',
+        'test-journal-interleaving.c',
+        'test-journal-match.c',
+        'test-journal-send.c',
+        'test-journal-stream.c',
+        'test-journal.c',
         'test-kbd-util.c',
         'test-label.c',
         'test-limits-util.c',
@@ -142,17 +157,20 @@ simple_tests += files(
         'test-log.c',
         'test-logarithm.c',
         'test-login-util.c',
+        'test-login.c',
         'test-macro.c',
         'test-memfd-util.c',
         'test-memory-util.c',
         'test-mempool.c',
         'test-memstream-util.c',
         'test-mkdir.c',
+        'test-mmap-cache.c',
         'test-modhex.c',
         'test-mountpoint-util.c',
         'test-mstack.c',
         'test-namespace-util.c',
         'test-net-naming-scheme.c',
+        'test-netlink.c',
         'test-notify-recv.c',
         'test-nsresource.c',
         'test-nulstr-util.c',
@@ -180,7 +198,9 @@ simple_tests += files(
         'test-replace-var.c',
         'test-rlimit-util.c',
         'test-rm-rf.c',
+        'test-sd-device-monitor.c',
         'test-sd-hwdb.c',
+        'test-sd-login.c',
         'test-sd-path.c',
         'test-secure-bits.c',
         'test-serialize.c',
@@ -265,6 +285,70 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
+                'sources' : files('test-bus-address.c'),
+                'dependencies' : threads,
+        },
+        test_template + {
+                'sources' : files('test-bus-benchmark.c'),
+                'dependencies' : threads,
+                'type' : 'manual',
+        },
+        test_template + {
+                'sources' : files('test-bus-chat.c'),
+                'dependencies' : threads,
+        },
+        test_template + {
+                'sources' : files('test-bus-cleanup.c'),
+                'dependencies' : [threads, libseccomp_cflags],
+        },
+        test_template + {
+                'sources' : files('test-bus-error.c'),
+                'link_with' : [
+                        libshared_static,
+                        libsystemd_static,
+                ],
+        },
+        test_template + {
+                'sources' : files('test-bus-marshal.c'),
+                'dependencies' : [
+                        libdbus,
+                        libgio,
+                        libglib,
+                        libgobject,
+                        libm,
+                        threads,
+                ],
+        },
+        test_template + {
+                'sources' : files('test-bus-objects.c'),
+                'dependencies' : threads,
+        },
+        test_template + {
+                'sources' : files('test-bus-peersockaddr.c'),
+                'dependencies' : threads,
+        },
+        test_template + {
+                'sources' : files('test-bus-queue-ref-cycle.c'),
+                'dependencies' : threads,
+        },
+        test_template + {
+                'sources' : files('test-bus-server.c'),
+                'dependencies' : threads,
+        },
+        test_template + {
+                'sources' : files('test-bus-signature.c'),
+                'dependencies' : threads,
+        },
+        test_template + {
+                'sources' : files('test-bus-track.c'),
+                'dependencies' : libseccomp_cflags,
+        },
+        test_template + {
+                'sources' : files('test-bus-watch-bind.c'),
+                'dependencies' : threads,
+                'timeout' : 120,
+        },
+        test_template + {
                 'sources' : files('test-chase-manual.c'),
                 'type' : 'manual',
         },
@@ -327,6 +411,10 @@ executables += [
                             generated_gperf_headers,
         },
         test_template + {
+                'sources' : files('test-event.c'),
+                'timeout' : 120,
+        },
+        test_template + {
                 'sources' : files('test-fd-util.c'),
                 'dependencies' : libseccomp_cflags,
         },
@@ -347,6 +435,22 @@ executables += [
                 'type' : 'unsafe',
         },
         test_template + {
+                'sources' : files('test-journal-append.c'),
+                'type' : 'manual',
+        },
+        test_template + {
+                'sources' : files('test-journal-dump.c'),
+                'type' : 'manual',
+        },
+        test_template + {
+                'sources' : files('test-journal-enum.c'),
+                'timeout' : 360,
+        },
+        test_template + {
+                'sources' : files('test-journal-verify.c'),
+                'timeout' : 90,
+        },
+        test_template + {
                 'sources' : files('test-json.c'),
                 'dependencies' : libm,
         },
@@ -365,6 +469,14 @@ executables += [
                 'dependencies' : [
                         libmount_cflags,
                         threads,
+                ],
+        },
+        test_template + {
+                'sources' : files('test-libudev.c'),
+                'include_directories' : libudev_includes,
+                'link_with' : [
+                        libshared,
+                        libudev_basic,
                 ],
         },
         test_template + {
@@ -455,9 +567,27 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
+                'sources' : files('test-resolve.c'),
+                'dependencies' : threads,
+                'timeout' : 120,
+        },
+        test_template + {
                 'sources' : files('test-sbat.c'),
                 'conditions' : ['ENABLE_BOOTLOADER'],
                 'c_args' : f'-I@efi_config_h_dir@',
+        },
+        test_template + {
+                'sources' : files('test-sd-device.c'),
+                'dependencies' : [ threads, libmount_cflags ],
+        },
+        test_template + {
+                'sources' : files('test-sd-device-thread.c'),
+                'link_with' : [
+                        libc_wrapper_static,
+                        libbasic_static,
+                        libsystemd,
+                ],
+                'dependencies' : threads,
         },
         test_template + {
                 'sources' : files('test-seccomp.c'),
@@ -491,6 +621,16 @@ executables += [
                 'sources' : files('test-tpm2.c'),
                 'dependencies' : libopenssl_cflags,
                 'timeout' : 120,
+        },
+        test_template + {
+                'sources' : files('test-udev-device-thread.c'),
+                'include_directories' : libudev_includes,
+                'link_with' : [
+                        libc_wrapper_static,
+                        libbasic_static,
+                        libudev,
+                ],
+                'dependencies' : threads,
         },
         test_template + {
                 'sources' : files('test-utmp.c'),
@@ -649,41 +789,11 @@ executables += [
                 'sources' : files('test-watch-pid.c'),
                 'dependencies' : common_test_dependencies,
         },
-
-        # Tests from other directories that have link_with deps that were not defined earlier
-        test_template + {
-                'sources' : files('../libsystemd/sd-bus/test-bus-error.c'),
-                'link_with' : [
-                        libshared_static,
-                        libsystemd_static,
-                ],
-        },
-        test_template + {
-                'sources' : files('../libsystemd/sd-device/test-sd-device-thread.c'),
-                'link_with' : [
-                        libc_wrapper_static,
-                        libbasic_static,
-                        libsystemd,
-                ],
-                'dependencies' : threads,
-        },
-        test_template + {
-                'sources' : files('../libudev/test-udev-device-thread.c'),
-                'link_with' : [
-                        libc_wrapper_static,
-                        libbasic_static,
-                        libudev,
-                ],
-                'dependencies' : threads,
-        },
-        test_template + {
-                'sources' : files('../libudev/test-libudev.c'),
-                'link_with' : [
-                        libshared,
-                        libudev_basic,
-                ],
-        },
 ]
+
+if cxx_cmd != ''
+        simple_tests += files('test-bus-vtable-cc.cc')
+endif
 
 if static_libsystemd != 'false'
         executables += [

@@ -1733,7 +1733,6 @@ man_page_depends = []
 #####################################################################
 
 simple_tests = []
-libsystemd_tests = []
 simple_fuzzers = []
 catalogs = []
 modules = [] # nss, pam, and other plugins
@@ -2180,10 +2179,6 @@ alias_target('devel', libsystemd_pc, libudev_pc, systemd_pc, udev_pc)
 
 foreach test : simple_tests
         executables += test_template + { 'sources' : [test] }
-endforeach
-
-foreach test : libsystemd_tests
-        executables += test_template + test
 endforeach
 
 foreach fuzzer : simple_fuzzers

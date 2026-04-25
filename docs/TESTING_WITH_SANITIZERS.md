@@ -56,7 +56,7 @@ CFLAGS=-shared-libasan
 CXXFLAGS=-shared-libasan
 ```
 
-The `CXXFLAGS` are necessary for `src/libsystemd/sd-bus/test-bus-vtable-cc.c`. Compilation
+The `CXXFLAGS` are necessary for `src/test/test-bus-vtable-cc.cc`. Compilation
 is then the same as in case of gcc, simply add `-Db_sanitize=address,undefined`
 to the `meson` call and use the same environment variables for runtime configuration.
 
