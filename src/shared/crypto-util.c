@@ -68,10 +68,12 @@ DLSYM_PROTOTYPE(BIO_ctrl) = NULL;
 DLSYM_PROTOTYPE(BIO_find_type) = NULL;
 DLSYM_PROTOTYPE(BIO_free) = NULL;
 DLSYM_PROTOTYPE(BIO_free_all) = NULL;
+DLSYM_PROTOTYPE(BIO_int_ctrl) = NULL;
 DLSYM_PROTOTYPE(BIO_new) = NULL;
 DLSYM_PROTOTYPE(BIO_new_mem_buf) = NULL;
 DLSYM_PROTOTYPE(BIO_new_socket) = NULL;
 DLSYM_PROTOTYPE(BIO_s_mem) = NULL;
+DLSYM_PROTOTYPE(BIO_s_socket) = NULL;
 DLSYM_PROTOTYPE(BIO_write) = NULL;
 DLSYM_PROTOTYPE(BN_CTX_free) = NULL;
 DLSYM_PROTOTYPE(BN_CTX_new) = NULL;
@@ -375,10 +377,12 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(BIO_find_type),
                         DLSYM_ARG(BIO_free_all),
                         DLSYM_ARG(BIO_free),
+                        DLSYM_ARG(BIO_int_ctrl),
                         DLSYM_ARG(BIO_new_mem_buf),
                         DLSYM_ARG(BIO_new_socket),
                         DLSYM_ARG(BIO_new),
                         DLSYM_ARG(BIO_s_mem),
+                        DLSYM_ARG(BIO_s_socket),
                         DLSYM_ARG(BIO_write),
                         DLSYM_ARG(BN_bin2bn),
                         DLSYM_ARG(BN_bn2bin),
