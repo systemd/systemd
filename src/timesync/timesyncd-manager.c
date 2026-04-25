@@ -1570,10 +1570,6 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                                 return -errno;
                 }
 
-                r = setsockopt_int(m->server_socket, SOL_SOCKET, SO_TIMESTAMPNS, true);
-                if (r < 0)
-                        return r;
-
                 (void) socket_set_option(m->server_socket, addr->sa_family, IP_TOS, IPV6_TCLASS, IPTOS_DSCP_EF);
 
                 log_debug("Performing key exchange with %s", m->current_server_name->string);
