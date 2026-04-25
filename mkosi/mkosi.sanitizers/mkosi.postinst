@@ -137,11 +137,11 @@ for bin in "${wrap[@]}"; do
 
     cat >"$BUILDROOT/$target" <<EOF
 #!/bin/bash
-# Preload the ASan runtime DSO, otherwise ASan will complain
-export LD_PRELOAD="$ASAN_RT_PATH"
 # Disable LSan to speed things up, since we don't care about leak reports
-# from 'external' binaries
-export ASAN_OPTIONS=detect_leaks=$enable_lsan
+# from 'external' binaries. Also, tell ASan to ignore if it's not the first runtime
+# library as it won't be, when we load an instrumented library from an uninstrumented
+# binary
+export ASAN_OPTIONS=detect_leaks=$enable_lsan:verify_asan_link_order=0
 # Set argv[0] to the original binary name without the ".orig" suffix
 exec -a "\$0" -- "${target}.orig" "\$@"
 EOF
@@ -149,6 +149,5 @@ EOF
 done
 
 cat >"$BUILDROOT"/usr/lib/systemd/systemd-asan-env <<EOF
-LD_PRELOAD=$ASAN_RT_PATH
-LSAN_OPTIONS=detect_leaks=0
+LSAN_OPTIONS=detect_leaks=0:verify_asan_link_order=0
 EOF
