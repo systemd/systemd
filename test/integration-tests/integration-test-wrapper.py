@@ -142,7 +142,19 @@ def process_sanitizer_report(args: argparse.Namespace, journal_file: Path) -> bo
     fatal_end = re.compile(r'==[0-9]+==HINT:\s+\w+Sanitizer')
 
     # 'Standard' errors:
-    standard_begin = re.compile(r'([0-9]+: runtime error|==[0-9]+==.+?\w+Sanitizer)')
+    #
+    # TODO: there's currently a bug in LLVM 22 due to which certain systemd
+    # units can throw the following warning:
+    # [ 3366.747202] systemd-oomd[93]: ==93==WARNING: ptrace appears to be blocked (is seccomp enabled?).
+    #                LeakSanitizer may hang.
+    # [ 3366.747202] systemd-oomd[93]: ==93==Child exited with signal 15.
+    #
+    # which is then picked up by the following regex and causes the test to
+    # fail. Let's, temporarily, exclude this warning from the regex to mitigate
+    # this.
+    #
+    # See: https://github.com/llvm/llvm-project/issues/193714
+    standard_begin = re.compile(r'([0-9]+: runtime error|==[0-9]+==(?!WARNING: ptrace).+?\w+Sanitizer)')
     standard_end = re.compile(r'SUMMARY:\s+(\w+)Sanitizer')
 
     # extract COMM
