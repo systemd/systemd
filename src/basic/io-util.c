@@ -10,6 +10,14 @@
 #include "io-util.h"
 #include "time-util.h"
 
+/* EPOLL_POLL_COMMON_MASK in io-util.h treats POLL* and EPOLL* as interchangeable; verify it. */
+assert_cc((uint32_t) POLLIN    == EPOLLIN);
+assert_cc((uint32_t) POLLOUT   == EPOLLOUT);
+assert_cc((uint32_t) POLLERR   == EPOLLERR);
+assert_cc((uint32_t) POLLHUP   == EPOLLHUP);
+assert_cc((uint32_t) POLLPRI   == EPOLLPRI);
+assert_cc((uint32_t) POLLRDHUP == EPOLLRDHUP);
+
 int flush_fd(int fd) {
         int count = 0;
 
