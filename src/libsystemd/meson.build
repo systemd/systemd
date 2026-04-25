@@ -77,6 +77,7 @@ sd_device_sources = files(
 ############################################################
 
 sd_future_sources = files(
+        'sd-future/fiber-io.c',
         'sd-future/fiber.c',
         'sd-future/sd-future.c',
 )
@@ -192,6 +193,7 @@ simple_tests += files(
         'sd-device/test-device-util.c',
         'sd-device/test-sd-device-monitor.c',
         'sd-future/test-fiber.c',
+        'sd-future/test-fiber-io.c',
         'sd-hwdb/test-sd-hwdb.c',
         'sd-id128/test-id128.c',
         'sd-journal/test-audit-type.c',

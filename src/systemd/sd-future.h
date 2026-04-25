@@ -17,9 +17,16 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/socket.h>
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
+
+struct iovec;
+struct pollfd;
+struct sockaddr;
+struct msghdr;
 
 typedef struct sd_event sd_event;
 typedef struct sd_future sd_future;
@@ -94,6 +101,21 @@ sd_future* sd_fiber_timeout(uint64_t timeout);
                        *_SD_CONCATENATE(_sd_fto_b_, uniq) = (sd_future *) 1;                                                                                    \
              _SD_CONCATENATE(_sd_fto_b_, uniq);                                                                                                                 \
              _SD_CONCATENATE(_sd_fto_b_, uniq) = NULL)
+
+/* Fiber I/O operations - use sd-event for non-blocking I/O when in fiber context */
+ssize_t sd_fiber_read(int fd, void *buf, size_t count);
+ssize_t sd_fiber_write(int fd, const void *buf, size_t count);
+ssize_t sd_fiber_readv(int fd, const struct iovec *iov, int iovcnt);
+ssize_t sd_fiber_writev(int fd, const struct iovec *iov, int iovcnt);
+ssize_t sd_fiber_recv(int sockfd, void *buf, size_t len, int flags);
+ssize_t sd_fiber_send(int sockfd, const void *buf, size_t len, int flags);
+int sd_fiber_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+ssize_t sd_fiber_recvmsg(int sockfd, struct msghdr *msg, int flags);
+ssize_t sd_fiber_sendmsg(int sockfd, const struct msghdr *msg, int flags);
+ssize_t sd_fiber_recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
+ssize_t sd_fiber_sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
+int sd_fiber_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags);
+int sd_fiber_poll(struct pollfd *fds, size_t n_fds, uint64_t timeout);
 
 _SD_END_DECLARATIONS;
 
