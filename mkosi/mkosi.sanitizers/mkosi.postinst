@@ -9,13 +9,17 @@ if [[ ! -f "$BUILDROOT/$LIBSYSTEMD" ]]; then
     exit 0
 fi
 
-# ASAN and syscall filters aren't compatible with each other.
+# ASAN and syscall filters aren't compatible with each other. Also, drop any memory limits
+# as these are quite unpredictable when running under sanitizers.
 find "$BUILDROOT"/usr "$BUILDROOT"/etc -name '*.service' -type f | while read -r unit; do
-    if grep -q -e MemoryDeny -e SystemCall "$unit" ; then
+    if grep -q -e MemoryDeny -e MemoryMax -e MemoryHigh -e MemorySwapMax -e SystemCall "$unit" ; then
         mkdir -p "$unit.d"
         cat > "$unit.d/sanitizer-compat.conf" <<EOF
 [Service]
 MemoryDenyWriteExecute=no
+MemoryMax=
+MemoryHigh=
+MemorySwapMax=
 SystemCallFilter=
 EOF
     fi
@@ -56,6 +60,7 @@ wrap=(
     dbus-broker-launch
     dbus-daemon
     delv
+    dfuzzer
     dhcpd
     dig
     dnf
@@ -70,6 +75,7 @@ wrap=(
     groups
     id
     integritysetup
+    iscsiadm
     iscsid
     keymgr
     knotc
@@ -83,8 +89,11 @@ wrap=(
     lvm
     mdadm
     mkfs.btrfs
+    mkfs.erofs
+    mkfs.ext4
     mksquashfs
     mount
+    mountpoint
     multipath
     multipathd
     nvme
@@ -98,8 +107,12 @@ wrap=(
     stat
     stress-ng
     su
+    swapoff
+    swapon
     tar
     tgtd
+    # The tpm2 tools (tpm2_readpublic, tpm2_pcrextend, ...) all are symlinks to tpm2
+    tpm2
     umount
     unix_chkpwd
     useradd
@@ -124,11 +137,11 @@ for bin in "${wrap[@]}"; do
 
     cat >"$BUILDROOT/$target" <<EOF
 #!/bin/bash
-# Preload the ASan runtime DSO, otherwise ASan will complain
-export LD_PRELOAD="$ASAN_RT_PATH"
 # Disable LSan to speed things up, since we don't care about leak reports
-# from 'external' binaries
-export ASAN_OPTIONS=detect_leaks=$enable_lsan
+# from 'external' binaries. Also, tell ASan to ignore if it's not the first runtime
+# library as it won't be, when we load an instrumented library from an uninstrumented
+# binary
+export ASAN_OPTIONS=detect_leaks=$enable_lsan:verify_asan_link_order=0
 # Set argv[0] to the original binary name without the ".orig" suffix
 exec -a "\$0" -- "${target}.orig" "\$@"
 EOF
@@ -136,6 +149,6 @@ EOF
 done
 
 cat >"$BUILDROOT"/usr/lib/systemd/systemd-asan-env <<EOF
-LD_PRELOAD=$ASAN_RT_PATH
+ASAN_OPTIONS=verify_asan_link_order=0
 LSAN_OPTIONS=detect_leaks=0
 EOF
