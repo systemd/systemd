@@ -45,13 +45,12 @@ int iovw_compare(const struct iovec_wrapper *a, const struct iovec_wrapper *b) {
         return CMP(a->count, b->count);
 }
 
-int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
+int iovw_put_full(struct iovec_wrapper *iovw, bool accept_zero, void *data, size_t len) {
         assert(iovw);
+        assert(data || len == 0);
 
-        if (len == 0)
+        if (len == 0 && !accept_zero)
                 return 0;
-
-        assert(data);
 
         if (iovw->count >= IOV_MAX)
                 return -E2BIG;
@@ -63,16 +62,18 @@ int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
         return 1;
 }
 
-int iovw_put_iov(struct iovec_wrapper *iovw, const struct iovec *iov) {
+int iovw_put_iov_full(struct iovec_wrapper *iovw, bool accept_zero, const struct iovec *iov) {
         assert(iovw);
 
         if (!iov)
                 return 0;
 
-        return iovw_put(iovw, iov->iov_base, iov->iov_len);
+        return iovw_put_full(iovw, accept_zero, iov->iov_base, iov->iov_len);
 }
 
-int iovw_put_iovw(struct iovec_wrapper *iovw, const struct iovec_wrapper *source) {
+int iovw_put_iovw_full(struct iovec_wrapper *iovw, bool accept_zero, const struct iovec_wrapper *source) {
+        int r;
+
         assert(iovw);
 
         if (iovw_isempty(source))
@@ -87,24 +88,41 @@ int iovw_put_iovw(struct iovec_wrapper *iovw, const struct iovec_wrapper *source
         if (iovw->count + source->count > IOV_MAX)
                 return -E2BIG;
 
-        if (!GREEDY_REALLOC_APPEND(iovw->iovec, iovw->count, source->iovec, source->count))
-                return -ENOMEM;
+        if (accept_zero) {
+                if (!GREEDY_REALLOC_APPEND(iovw->iovec, iovw->count, source->iovec, source->count))
+                        return -ENOMEM;
+
+                return 0;
+        }
+
+        /* When accept_zero is false, we need to filter zero length iovec in source. */
+        size_t original_count = iovw->count;
+
+        FOREACH_ARRAY(iovec, source->iovec, source->count) {
+                r = iovw_put_iov_full(iovw, accept_zero, iovec);
+                if (r < 0)
+                        goto rollback;
+        }
 
         return 0;
+
+rollback:
+        iovw->count = original_count;
+        return r;
 }
 
-int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
+int iovw_consume_full(struct iovec_wrapper *iovw, bool accept_zero, void *data, size_t len) {
         /* Move data into iovw or free on error */
         int r;
 
-        r = iovw_put(iovw, data, len);
+        r = iovw_put_full(iovw, accept_zero, data, len);
         if (r <= 0)
                 free(data);
 
         return r;
 }
 
-int iovw_consume_iov(struct iovec_wrapper *iovw, struct iovec *iov) {
+int iovw_consume_iov_full(struct iovec_wrapper *iovw, bool accept_zero, struct iovec *iov) {
         int r;
 
         assert(iovw);
@@ -112,7 +130,7 @@ int iovw_consume_iov(struct iovec_wrapper *iovw, struct iovec *iov) {
         if (!iov)
                 return 0;
 
-        r = iovw_put_iov(iovw, iov);
+        r = iovw_put_iov_full(iovw, accept_zero, iov);
         if (r <= 0)
                 iovec_done(iov);
         else
@@ -123,27 +141,30 @@ int iovw_consume_iov(struct iovec_wrapper *iovw, struct iovec *iov) {
         return r;
 }
 
-int iovw_extend(struct iovec_wrapper *iovw, const void *data, size_t len) {
+int iovw_extend_full(struct iovec_wrapper *iovw, bool accept_zero, const void *data, size_t len) {
+        assert(iovw);
+        assert(data || len == 0);
+
         if (len == 0)
-                return 0;
+                return iovw_put_full(iovw, accept_zero, /* data= */ NULL, /* len= */ 0);
 
         void *c = memdup(data, len);
         if (!c)
                 return -ENOMEM;
 
-        return iovw_consume(iovw, c, len);
+        return iovw_consume_full(iovw, accept_zero, c, len);
 }
 
-int iovw_extend_iov(struct iovec_wrapper *iovw, const struct iovec *iov) {
+int iovw_extend_iov_full(struct iovec_wrapper *iovw, bool accept_zero, const struct iovec *iov) {
         assert(iovw);
 
-        if (!iovec_is_set(iov))
+        if (!iov)
                 return 0;
 
-        return iovw_extend(iovw, iov->iov_base, iov->iov_len);
+        return iovw_extend_full(iovw, accept_zero, iov->iov_base, iov->iov_len);
 }
 
-int iovw_extend_iovw(struct iovec_wrapper *iovw, const struct iovec_wrapper *source) {
+int iovw_extend_iovw_full(struct iovec_wrapper *iovw, bool accept_zero, const struct iovec_wrapper *source) {
         int r;
 
         assert(iovw);
@@ -165,7 +186,7 @@ int iovw_extend_iovw(struct iovec_wrapper *iovw, const struct iovec_wrapper *sou
         size_t original_count = iovw->count;
 
         FOREACH_ARRAY(iovec, source->iovec, source->count) {
-                r = iovw_extend_iov(iovw, iovec);
+                r = iovw_extend_iov_full(iovw, accept_zero, iovec);
                 if (r < 0)
                         goto rollback;
         }
@@ -260,7 +281,7 @@ int iovw_concat(const struct iovec_wrapper *iovw, struct iovec *ret) {
 
         uint8_t *p = buf;
         FOREACH_ARRAY(i, iovw->iovec, iovw->count)
-                p = mempcpy(p, i->iov_base, i->iov_len);
+                p = mempcpy_safe(p, i->iov_base, i->iov_len);
 
         *p = 0;
 
