@@ -101,7 +101,6 @@ wrap=(
     socat
     sshd
     stat
-    stress-ng
     su
     swapoff
     swapon
