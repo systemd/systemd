@@ -1019,6 +1019,13 @@ librt = cc.find_library('rt')
 libm = cc.find_library('m')
 libdl = cc.find_library('dl')
 
+if get_option('libc') == 'musl'
+        libucontext = dependency('libucontext', required : true)
+else
+        libucontext = dependency('libucontext', required : get_option('libucontext'))
+endif
+conf.set10('HAVE_LIBUCONTEXT', libucontext.found())
+
 # On some distributions that use musl (e.g. Alpine), libintl.h may be provided by gettext rather than musl.
 # In that case, we need to explicitly link with libintl.so.
 if cc.has_function('dgettext',
@@ -2874,6 +2881,7 @@ foreach tuple : [
         ['libfdisk'],
         ['libfido2'],
         ['libidn2'],
+        ['libucontext'],
         ['microhttpd'],
         ['openssl'],
         ['p11kit'],

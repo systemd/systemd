@@ -68,6 +68,7 @@ jobs:
             libqrencode-dev
             libseccomp-dev
             libselinux-dev
+            libucontext-dev
             libxkbcommon-dev
             linux-pam-dev
             lz4-dev
