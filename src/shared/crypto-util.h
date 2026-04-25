@@ -72,9 +72,11 @@ extern DLSYM_PROTOTYPE(BIO_ctrl);
 extern DLSYM_PROTOTYPE(BIO_find_type);
 extern DLSYM_PROTOTYPE(BIO_free_all);
 extern DLSYM_PROTOTYPE(BIO_free);
+extern DLSYM_PROTOTYPE(BIO_int_ctrl);
 extern DLSYM_PROTOTYPE(BIO_new_mem_buf);
 extern DLSYM_PROTOTYPE(BIO_new_socket);
 extern DLSYM_PROTOTYPE(BIO_new);
+extern DLSYM_PROTOTYPE(BIO_s_socket);
 extern DLSYM_PROTOTYPE(BIO_s_mem);
 extern DLSYM_PROTOTYPE(BIO_write);
 extern DLSYM_PROTOTYPE(BN_bin2bn);
@@ -111,6 +113,7 @@ extern DLSYM_PROTOTYPE(EVP_aes_256_gcm);
 extern DLSYM_PROTOTYPE(EVP_CIPHER_CTX_ctrl);
 extern DLSYM_PROTOTYPE(EVP_CIPHER_CTX_free);
 extern DLSYM_PROTOTYPE(EVP_CIPHER_CTX_new);
+extern DLSYM_PROTOTYPE(EVP_CIPHER_fetch);
 extern DLSYM_PROTOTYPE(EVP_CIPHER_free);
 extern DLSYM_PROTOTYPE(EVP_CIPHER_get_block_size);
 extern DLSYM_PROTOTYPE(EVP_CIPHER_get_iv_length);
@@ -246,6 +249,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(RSA*, sym_RSA_free, RSA_freep, NULL);
 #define sym_BIO_get_md_ctx(b, mdcp) sym_BIO_ctrl((b), BIO_C_GET_MD_CTX, 0, (char*) (mdcp))
 #define sym_BIO_get_mem_ptr(b, pp) sym_BIO_ctrl((b), BIO_C_GET_BUF_MEM_PTR, 0, (char *) (pp))
 #define sym_BIO_reset(b) sym_BIO_ctrl((b), BIO_CTRL_RESET, 0, NULL)
+#define sym_BIO_set_fd(b, fd, c) sym_BIO_int_ctrl((b), BIO_C_SET_FD, (c), (fd))
 #define sym_BN_num_bytes(a) ((sym_BN_num_bits(a) + 7) / 8)
 #define sym_EVP_MD_CTX_get_size(ctx) sym_EVP_MD_get_size(sym_EVP_MD_CTX_get0_md(ctx))
 #define sym_EVP_MD_CTX_get0_name(ctx) sym_EVP_MD_get0_name(sym_EVP_MD_CTX_get0_md(ctx))
