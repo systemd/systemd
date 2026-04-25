@@ -111,6 +111,7 @@ typedef enum UnitType UnitType;
 typedef enum WaitFlags WaitFlags;
 
 typedef struct Fiber Fiber;
+typedef struct FiberOps FiberOps;
 typedef struct Hashmap Hashmap;
 typedef struct HashmapBase HashmapBase;
 typedef struct IteratedCache IteratedCache;
