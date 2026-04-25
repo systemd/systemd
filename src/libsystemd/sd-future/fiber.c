@@ -27,6 +27,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "event-future.h"
+#include "fiber-ops.h"
 #include "log-context.h"
 #include "log.h"
 #include "memory-util.h"
@@ -405,6 +406,7 @@ static void reset_current_fiber(void) {
         Fiber *f = fiber_get_current();
         if (f) {
                 fiber_swap_log_state(f);
+                fiber_ops_set(NULL);
         }
         fiber_set_current(NULL);
 }
@@ -441,9 +443,19 @@ static void fiber_resolve(sd_future *f) {
         sd_future_resolve(f, fiber->result);
 }
 
+static const FiberOps fiber_ops = {
+        .ppoll = sd_fiber_ppoll,
+        .read = sd_fiber_read,
+        .write = sd_fiber_write,
+        .timeout = sd_fiber_timeout,
+        .cancel_wait_unref = sd_future_cancel_wait_unref,
+};
+
 static void fiber_enter(Fiber *fiber, Fiber *prev, void **fake_stack_save) {
         fiber_set_current(fiber);
         fiber_swap_log_state(fiber);
+        if (!prev)
+                fiber_ops_set(&fiber_ops);
 
         struct iovec fiber_stack = fiber_stack_usable(&fiber->stack);
         start_switch_stack(fake_stack_save, &fiber_stack);
@@ -452,6 +464,8 @@ static void fiber_enter(Fiber *fiber, Fiber *prev, void **fake_stack_save) {
 
 static void fiber_leave(Fiber *fiber, Fiber *prev, void *fake_stack_save) {
         finish_switch_stack(fake_stack_save);
+        if (!prev)
+                fiber_ops_set(NULL);
         fiber_swap_log_state(fiber);
         fiber_set_current(prev);
 }
