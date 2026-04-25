@@ -29,7 +29,8 @@ int NTS_add_extension_fields(
                 NTS_Identifier *identifier);
 
 /* Processed the NTP extension fields in the provided buffer based on the configuration in the NTS struct,
- * and make this information available in the NTS_Receipt struct.
+ * and make this information available in the NTS_Receipt struct. The identifier and cookies in NTS_Receipt
+ * all point into the given src buffer, so the caller must make copies if they are to live longer than src.
  *
  * RETURNS
  *      The amount of data processed in bytes (including the NTP packet size).
