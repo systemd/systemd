@@ -194,6 +194,7 @@ simple_tests += files(
         'sd-device/test-sd-device-monitor.c',
         'sd-future/test-fiber.c',
         'sd-future/test-fiber-io.c',
+        'sd-future/test-fiber-ops.c',
         'sd-hwdb/test-sd-hwdb.c',
         'sd-id128/test-id128.c',
         'sd-journal/test-audit-type.c',

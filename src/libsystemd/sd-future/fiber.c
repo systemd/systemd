@@ -402,6 +402,14 @@ static const sd_future_ops fiber_future_ops = {
         .set_priority = fiber_set_priority,
 };
 
+static const FiberOps fiber_ops = {
+        .ppoll = sd_fiber_poll,
+        .read = sd_fiber_read,
+        .write = sd_fiber_write,
+        .timeout = sd_fiber_timeout,
+        .timeout_done = sd_future_unref,
+};
+
 int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *userdata, sd_fiber_destroy_t destroy, sd_future **ret) {
         int r;
 
@@ -429,6 +437,7 @@ int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *user
                 .func = func,
                 .userdata = userdata,
                 .event = sd_event_ref(e),
+                .ops = &fiber_ops,
         };
         if (!fiber->name)
                 return -ENOMEM;
