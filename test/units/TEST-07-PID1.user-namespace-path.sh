@@ -6,15 +6,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-# When sanitizers are used, export LD_PRELOAD with the sanitizers path,
-# lsns doesn't work otherwise.
-if [ -f /usr/lib/systemd/systemd-asan-env ]; then
-    # shellcheck source=/dev/null
-    . /usr/lib/systemd/systemd-asan-env
-    export LD_PRELOAD
-    export ASAN_OPTIONS
-fi
-
 # Only reuse the user namespace
 systemd-run --unit=oldservice --property=Type=exec --property=PrivateUsers=true sleep 3600
 OLD_PID=$(systemctl show oldservice -p MainPID | awk -F= '{print $2}')
