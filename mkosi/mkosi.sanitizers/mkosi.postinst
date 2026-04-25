@@ -140,8 +140,11 @@ for bin in "${wrap[@]}"; do
 # Preload the ASan runtime DSO, otherwise ASan will complain
 export LD_PRELOAD="$ASAN_RT_PATH"
 # Disable LSan to speed things up, since we don't care about leak reports
-# from 'external' binaries
-export ASAN_OPTIONS=detect_leaks=$enable_lsan
+# from 'external' binaries. In addition, disable quarantine (for use-after-free
+# detection) and malloc stack frame collection as we don't care about these in
+# 'external' binaries either, and they just unnecessarily hog up memory & cpu
+# cycles.
+export ASAN_OPTIONS=detect_leaks=$enable_lsan:quarantine_size_mb=0:malloc_context_size=0
 # Set argv[0] to the original binary name without the ".orig" suffix
 exec -a "\$0" -- "${target}.orig" "\$@"
 EOF
