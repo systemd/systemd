@@ -1521,18 +1521,22 @@ static int manager_nts_handshake_setup(Manager *m) {
 
         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
 
+        r = connect(m->server_socket, addr, m->current_server_address->socklen);
+        if (r < 0 && errno != EINPROGRESS) {
+                m->server_socket = safe_close(m->server_socket);
+                return -errno;
+        }
+
         r = sd_event_add_time_relative(
                         m->event,
                         &m->nts_timeout,
                         CLOCK_BOOTTIME,
                         m->nts_keyexchange_timeout_usec, 0,
                         manager_nts_handshake_timeout, m);
-        if (r < 0)
+        if (r < 0) {
+                m->server_socket = safe_close(m->server_socket);
                 return log_error_errno(r, "Failed to arm NTS key exchange timeout timer: %m");
-
-        r = connect(m->server_socket, addr, m->current_server_address->socklen);
-        if (r < 0 && errno != EINPROGRESS)
-                return -errno;
+        }
 
         return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN|EPOLLOUT, manager_nts_obtain_agreement, m);
 }
