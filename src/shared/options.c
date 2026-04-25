@@ -311,6 +311,44 @@ size_t option_parser_get_n_args(const OptionParser *state) {
         return state->argc - state->positional_offset;
 }
 
+char* option_get_synopsis(const char *prefix, const Option *opt, const char *joiner, bool show_metavar) {
+        if (FLAGS_SET(opt->flags, OPTION_HELP_ENTRY_VERBATIM)) {
+                assert(opt->long_code);
+
+                return strjoin(prefix, opt->long_code);
+        }
+
+        char sc[] = "  ";
+        if (opt->short_code != 0)
+                xsprintf(sc, "-%c", opt->short_code);
+
+        if (opt->short_code == 0 || !opt->long_code)
+                joiner = "";
+
+        /* "=" is shown only when a long option is defined: -l --long=ARG, --long=ARG, -s ARG. */
+        bool need_eq = option_takes_arg(opt) && opt->long_code;
+        if (!show_metavar)
+                return strjoin(prefix,
+                               sc,
+                               joiner,
+                               opt->long_code ? "--" : "",
+                               strempty(opt->long_code),
+                               need_eq ? "=" : "");
+
+        bool need_quote = opt->metavar && strchr(opt->metavar, ' ');
+        return strjoin(prefix,
+                       sc,
+                       joiner,
+                       opt->long_code ? "--" : "",
+                       strempty(opt->long_code),
+                       option_arg_optional(opt) ? "[" : "",
+                       need_eq ? "=" : "",
+                       need_quote ? "'" : "",
+                       strempty(opt->metavar),
+                       need_quote ? "'" : "",
+                       option_arg_optional(opt) ? "]" : "");
+}
+
 int _option_parser_get_help_table(
                 const Option options[],
                 const Option options_end[],
@@ -341,38 +379,10 @@ int _option_parser_get_help_table(
                         /* No help string — we do not show the option */
                         continue;
 
-                _cleanup_free_ char *s = NULL;
-
-                if (FLAGS_SET(opt->flags, OPTION_HELP_ENTRY_VERBATIM)) {
-                        assert(opt->long_code);
-
-                        s = strjoin("  ",
-                                    opt->long_code);
-                } else {
-                        char sc[3] = "  ";
-                        if (opt->short_code != 0)
-                                xsprintf(sc, "-%c", opt->short_code);
-
-                        /* We indent the option string by two spaces. We could set the minimum cell width and
-                         * right-align for a similar result, but that'd be more work. This is only used for
-                         * display.
-                         *
-                         * "=" is shown only when a long option is defined: -l --long=ARG, --long=ARG, -s ARG.
-                         */
-                        bool need_eq = option_takes_arg(opt) && opt->long_code;
-                        bool need_quote = opt->metavar && strchr(opt->metavar, ' ');
-                        s = strjoin("  ",
-                                    sc,
-                                    " ",
-                                    opt->long_code ? "--" : "",
-                                    strempty(opt->long_code),
-                                    option_arg_optional(opt) ? "[" : "",
-                                    need_eq ? "=" : "",
-                                    need_quote ? "'" : "",
-                                    strempty(opt->metavar),
-                                    need_quote ? "'" : "",
-                                    option_arg_optional(opt) ? "]" : "");
-                }
+                /* We indent the option string by two spaces. We could set the minimum cell width and
+                 * right-align for a similar result, but that'd be more work. This is only used for
+                 * display. */
+                _cleanup_free_ char *s = option_get_synopsis("  ", opt, " ", /* show_metavar= */ true);
                 if (!s)
                         return log_oom();
 
