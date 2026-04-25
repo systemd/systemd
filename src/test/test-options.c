@@ -1302,4 +1302,24 @@ TEST(option_optional_arg_consume) {
         }
 }
 
+static void test_option_get_synopsis_one(
+                const Option *opt,
+                const char *joiner,
+                bool show_metavar,
+                const char *expected) {
+        _cleanup_free_ char *s = option_get_synopsis("__", opt, joiner, show_metavar);
+        ASSERT_STREQ(s, expected);
+}
+
+TEST(option_get_synopsis) {
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "X" }, "/", true,  "__-x/--xxx=X");
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "X" }, "/", false, "__-x/--xxx=" );
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "X" }, " ", true,  "__-x --xxx=X");
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "X" }, " ", false, "__-x --xxx=" );
+        test_option_get_synopsis_one(&(const Option) { 0, 0,   0, "xxx", "X" }, "+", true,  "__--xxx=X"   );
+        test_option_get_synopsis_one(&(const Option) { 0, 0,   0, "xxx", "X" }, "+", false, "__--xxx="    );
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', NULL,  "X" }, " ", true,  "__-x X"      );
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', NULL,  "X" }, "/", false, "__-x"        );
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
