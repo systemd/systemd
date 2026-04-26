@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
 
-#include "alloc-util.h"
 #include "argv-util.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "label-util.h"
 #include "main-func.h"
-#include "pretty-print.h"
+#include "options.h"
 #include "udev-util.h"
 #include "udevadm.h"
 #include "udevd.h"
@@ -28,60 +28,53 @@ static int help(void) {
                 { "lock",         "Lock a block device"               },
         };
 
-        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
-        r = terminal_urlify_man("udevadm", "8", &link);
+        r = option_parser_get_help_table_ns("udevadm", &options);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        printf("%s [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n\n"
-               "Send control commands or test the device manager.\n\n"
-               "Commands:\n",
-               program_invocation_short_name);
+        help_cmdline("[OPTIONS…] COMMAND [COMMAND OPTIONS…]");
+        help_abstract("Send control commands or test the device manager.");
 
+        help_section("Commands:");
         FOREACH_ELEMENT(desc, short_descriptions)
                 printf("  %-12s  %s\n", (*desc)[0], (*desc)[1]);
 
-        printf("\nSee the %s for details.\n", link);
+        help_section("Options:");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("udevadm", "8");
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "debug",   no_argument, NULL, 'd' },
-                { "help",    no_argument, NULL, 'h' },
-                { "version", no_argument, NULL, 'V' },
-                {}
-        };
-        int c;
-
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
         assert(argv);
+        assert(remaining_args);
 
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
-        optind = 0;
-        while ((c = getopt_long(argc, argv, "+dhV", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION, "udevadm" };
+
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
-                case 'd':
-                        log_set_max_level(LOG_DEBUG);
-                        break;
+                OPTION_NAMESPACE("udevadm"): {}
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case 'V':
+                OPTION_COMMON_VERSION_WITH_HIDDEN_V:
                         return print_version();
 
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
+                OPTION('d', "debug", NULL, "Enable debug logging"):
+                        log_set_max_level(LOG_DEBUG);
+                        break;
                 }
 
+        *remaining_args = option_parser_get_args(&opts);
         return 1; /* work to do */
 }
 
@@ -99,7 +92,7 @@ static int verb_help_main(int argc, char *argv[], uintptr_t _data, void *userdat
         return help();
 }
 
-static int udevadm_main(int argc, char *argv[]) {
+static int udevadm_main(char **args) {
         static const Verb verbs[] = {
                 { "cat",          VERB_ANY, VERB_ANY, 0, verb_cat_main     },
                 { "info",         VERB_ANY, VERB_ANY, 0, verb_info_main    },
@@ -118,10 +111,11 @@ static int udevadm_main(int argc, char *argv[]) {
                 {}
         };
 
-        return dispatch_verb(argc, argv, verbs, NULL);
+        return _dispatch_verb_with_args(args, verbs, verbs + ELEMENTSOF(verbs) - 1, NULL);
 }
 
 static int run(int argc, char *argv[]) {
+        char **args = NULL;
         int r;
 
         if (invoked_as(argv, "udevd"))
@@ -130,7 +124,7 @@ static int run(int argc, char *argv[]) {
         (void) udev_parse_config();
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -138,7 +132,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        return udevadm_main(argc, argv);
+        return udevadm_main(args);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
