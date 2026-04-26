@@ -128,6 +128,18 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- StorageProvider interface + storagectl
+  - hook-up in systemd-nspawn
+  - hook-up in systemd-vmspawn
+  - hook-up in service manager (BindVolume=)
+  - man pages
+  - integration test
+  - unit files
+  - return read-only, newly created mount via new mount API
+  - make sure runs in user context
+  - move dir storage one level down, i.e. <name>.storage/data
+  - make create of .volume inodes "atomic" via temporary directories
+
 - a small tool that can do basic btrfs raid policy mgmt. i.e. gets started as
   part of the initial transaction for some btrfs raid fs, waits for some time,
   then puts message on screen (plymouth, console) that some devices apparently
