@@ -8,6 +8,7 @@
 
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
+#include "pkcs11-padding.h"
 #include "shared-forward.h"
 
 bool pkcs11_uri_valid(const char *uri);
@@ -66,7 +67,13 @@ int pkcs11_token_read_x509_certificate(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE se
 #endif
 
 int pkcs11_token_find_private_key(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, P11KitUri *search_uri, CK_OBJECT_HANDLE *ret_object);
-int pkcs11_token_decrypt_data(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE object, const void *encrypted_data, size_t encrypted_data_size, void **ret_decrypted_data, size_t *ret_decrypted_data_size);
+int pkcs11_token_decrypt_data(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE object, const void *encrypted_data, size_t encrypted_data_size, Pkcs11RsaPadding rsa_padding, void **ret_decrypted_data, size_t *ret_decrypted_data_size);
+
+/* Probe the token at enrollment time to determine which OAEP hash variant the private key supports for
+ * decryption. Some PKCS#11 implementations (notably SoftHSM <2.6.2) reject anything other than SHA-1 with
+ * CKR_ARGUMENTS_BAD on C_DecryptInit. Returns the strongest variant the token accepts, or
+ * PKCS11_RSA_PADDING_OAEP_SHA1 as a safe fallback if the probe is inconclusive. */
+int pkcs11_token_probe_rsa_oaep_padding(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE private_key, Pkcs11RsaPadding *ret);
 
 int pkcs11_token_acquire_rng(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session);
 
@@ -74,7 +81,7 @@ typedef int (*pkcs11_find_token_callback_t)(CK_FUNCTION_LIST *m, CK_SESSION_HAND
 int pkcs11_find_token(const char *pkcs11_uri, pkcs11_find_token_callback_t callback, void *userdata);
 
 #if HAVE_OPENSSL
-int pkcs11_acquire_public_key(const char *uri, const char *askpw_friendly_name, const char *askpw_icon, const char *askpw_credential, AskPasswordFlags askpw_flags, EVP_PKEY **ret_pkey, char **ret_pin_used);
+int pkcs11_acquire_public_key(const char *uri, const char *askpw_friendly_name, const char *askpw_icon, const char *askpw_credential, AskPasswordFlags askpw_flags, EVP_PKEY **ret_pkey, Pkcs11RsaPadding *ret_rsa_padding, char **ret_pin_used);
 #endif
 
 typedef struct {
@@ -87,6 +94,7 @@ typedef struct {
         bool free_encrypted_key;
         const char *askpw_credential;
         AskPasswordFlags askpw_flags;
+        Pkcs11RsaPadding rsa_padding;
 } pkcs11_crypt_device_callback_data;
 
 void pkcs11_crypt_device_callback_data_release(pkcs11_crypt_device_callback_data *data);
