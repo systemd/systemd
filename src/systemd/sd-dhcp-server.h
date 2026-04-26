@@ -26,7 +26,6 @@
 _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_event sd_event;
-typedef struct sd_dhcp_option sd_dhcp_option;
 typedef struct sd_dhcp_server sd_dhcp_server;
 
 enum {
