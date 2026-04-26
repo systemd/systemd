@@ -10,7 +10,7 @@ typedef enum BlockDevListFlags {
         BLOCKDEV_LIST_REQUIRE_LUKS               = 1 << 3, /* Only consider block devices with LUKS superblocks */
         BLOCKDEV_LIST_IGNORE_ROOT                = 1 << 4, /* Ignore the block device we are currently booted from */
         BLOCKDEV_LIST_IGNORE_EMPTY               = 1 << 5, /* Ignore disks of zero size (usually drives without a medium) */
-        BLOCKDEV_LIST_METADATA                   = 1 << 6, /* Fill in model, vendor, subsystem */
+        BLOCKDEV_LIST_METADATA                   = 1 << 6, /* Fill in model, vendor, subsystem, read_only */
 } BlockDevListFlags;
 
 typedef struct BlockDevice {
@@ -21,11 +21,13 @@ typedef struct BlockDevice {
         char *subsystem;
         uint64_t diskseq;
         uint64_t size;     /* in bytes */
+        int read_only;
 } BlockDevice;
 
 #define BLOCK_DEVICE_NULL (BlockDevice) { \
                 .diskseq = UINT64_MAX,    \
                 .size = UINT64_MAX,       \
+                .read_only = -1,          \
         }
 
 void block_device_done(BlockDevice *d);
