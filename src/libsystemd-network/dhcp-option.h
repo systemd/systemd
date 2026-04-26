@@ -1,21 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-dhcp-option.h" /* IWYU pragma: export */
-
 #include "dhcp-protocol.h"
 #include "sd-forward.h"
-#include "hash-funcs.h"
-
-struct sd_dhcp_option {
-        unsigned n_ref;
-
-        uint8_t option;
-        void *data;
-        size_t length;
-};
-
-extern const struct hash_ops dhcp_option_hash_ops;
 
 typedef struct DHCPServerData {
         struct in_addr *addr;
