@@ -67,7 +67,7 @@ static int help(void) {
         help_cmdline("[OPTIONS...] [VARIABLE=VALUE...]");
         help_cmdline("[OPTIONS...] --exec [VARIABLE=VALUE...] ; -- CMDLINE...");
         help_cmdline("[OPTIONS...] --fork -- CMDLINE...");
-        help_abstract("Notify the init system about service status updates.");
+        help_abstract("Notify the service manager about service status updates.");
 
         help_section("Options:");
         r = table_print_or_warn(options);
@@ -644,7 +644,7 @@ static int run(int argc, char* argv[]) {
         if (r == -E2BIG)
                 return log_error_errno(r, "Too many file descriptors passed.");
         if (r < 0)
-                return log_error_errno(r, "Failed to notify init system: %m");
+                return log_error_errno(r, "Failed to notify service manager: %m");
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "No status data could be sent: $NOTIFY_SOCKET was not set");
