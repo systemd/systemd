@@ -16,6 +16,7 @@ int decrypt_pkcs11_key(
                 const char *volume_name,
                 const char *friendly_name,
                 const char *pkcs11_uri,
+                Pkcs11RsaPadding rsa_padding,
                 const char *key_file,         /* We either expect key_file and associated parameters to be set (for file keys) … */
                 size_t key_file_size,
                 uint64_t key_file_offset,
@@ -29,6 +30,7 @@ int decrypt_pkcs11_key(
                 .friendly_name = friendly_name,
                 .askpw_flags = askpw_flags,
                 .until = until,
+                .rsa_padding = rsa_padding,
         };
         int r;
 
@@ -83,6 +85,7 @@ int find_pkcs11_auto_data(
                 char **ret_uri,
                 void **ret_encrypted_key,
                 size_t *ret_encrypted_key_size,
+                Pkcs11RsaPadding *ret_rsa_padding,
                 int *ret_keyslot) {
 
 #if HAVE_P11KIT
@@ -90,11 +93,13 @@ int find_pkcs11_auto_data(
         _cleanup_free_ void *key = NULL;
         int r, keyslot = -1;
         size_t key_size = 0;
+        Pkcs11RsaPadding rsa_padding = PKCS11_RSA_PADDING_PKCS1V15;
 
         assert(cd);
         assert(ret_uri);
         assert(ret_encrypted_key);
         assert(ret_encrypted_key_size);
+        assert(ret_rsa_padding);
         assert(ret_keyslot);
 
         /* Loads PKCS#11 metadata from LUKS2 JSON token headers. */
@@ -148,6 +153,23 @@ int find_pkcs11_auto_data(
                 r = sd_json_variant_unbase64(w, &key, &key_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode base64 encoded key: %m");
+
+                /* Optional padding-scheme tag. Absent in legacy tokens (which used PKCS#1 v1.5). */
+                w = sd_json_variant_by_key(v, "pkcs11-padding");
+                if (w) {
+                        Pkcs11RsaPadding p;
+
+                        if (!sd_json_variant_is_string(w))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "PKCS#11 token field 'pkcs11-padding' is not a string.");
+                        p = pkcs11_rsa_padding_from_string(sd_json_variant_string(w));
+                        if (p < 0)
+                                return log_error_errno(p,
+                                                       "PKCS#11 token field 'pkcs11-padding' has unsupported value '%s'.",
+                                                       sd_json_variant_string(w));
+                        rsa_padding = p;
+                } else
+                        rsa_padding = PKCS11_RSA_PADDING_PKCS1V15;
         }
 
         if (!uri)
@@ -159,6 +181,7 @@ int find_pkcs11_auto_data(
         *ret_uri = TAKE_PTR(uri);
         *ret_encrypted_key = TAKE_PTR(key);
         *ret_encrypted_key_size = key_size;
+        *ret_rsa_padding = rsa_padding;
         *ret_keyslot = keyslot;
         return 0;
 #else
