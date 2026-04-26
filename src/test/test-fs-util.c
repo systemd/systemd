@@ -800,6 +800,90 @@ TEST(xopenat_trigger_automount) {
         ASSERT_OK_POSITIVE(fd_inode_same(fd, fd2));
 }
 
+TEST(xopenat_auto_rw_ro) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        int fl;
+
+        assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
+
+        /* Regular writable file: XO_AUTO_RW_RO should end up in O_RDWR. */
+
+        fd = xopenat_full(tfd, "rw", O_CREAT|O_EXCL|O_CLOEXEC, XO_AUTO_RW_RO, 0644);
+        assert_se(fd >= 0);
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
+        assert_se((fl & O_ACCMODE) == O_RDWR);
+        fd = safe_close(fd);
+
+        /* Same thing, but with XO_REGULAR set too. */
+
+        fd = xopenat_full(tfd, "rw2", O_CREAT|O_EXCL|O_CLOEXEC, XO_AUTO_RW_RO|XO_REGULAR, 0644);
+        assert_se(fd >= 0);
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
+        assert_se((fl & O_ACCMODE) == O_RDWR);
+        fd = safe_close(fd);
+
+        /* Reopen via empty path on an O_PATH fd must also end up in O_RDWR. */
+
+        _cleanup_close_ int path_fd = xopenat_full(tfd, "rw", O_PATH|O_CLOEXEC, 0, 0);
+        assert_se(path_fd >= 0);
+        fd = xopenat_full(path_fd, "", O_CLOEXEC, XO_AUTO_RW_RO, 0);
+        assert_se(fd >= 0);
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
+        assert_se((fl & O_ACCMODE) == O_RDWR);
+        fd = safe_close(fd);
+
+        /* Directories can only be opened read-only: XO_AUTO_RW_RO with O_DIRECTORY must fall back to O_RDONLY. */
+
+        fd = xopenat_full(tfd, "subdir", O_DIRECTORY|O_CREAT|O_CLOEXEC, XO_AUTO_RW_RO, 0755);
+        assert_se(fd >= 0);
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
+        assert_se((fl & O_ACCMODE) == O_RDONLY);
+        fd = safe_close(fd);
+
+        /* Same for opening an existing directory. */
+
+        fd = xopenat_full(tfd, "subdir", O_DIRECTORY|O_CLOEXEC, XO_AUTO_RW_RO, 0);
+        assert_se(fd >= 0);
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
+        assert_se((fl & O_ACCMODE) == O_RDONLY);
+        fd = safe_close(fd);
+
+        /* Fallback when the inode is not writable: create a file as read-only mode and verify that
+         * XO_AUTO_RW_RO falls back to O_RDONLY. Root bypasses mode bits via CAP_DAC_OVERRIDE, so skip
+         * this when running as root. */
+
+        if (geteuid() != 0) {
+                fd = openat(tfd, "ro", O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0444);
+                assert_se(fd >= 0);
+                fd = safe_close(fd);
+                assert_se(fchmodat(tfd, "ro", 0444, 0) >= 0);
+
+                /* Plain case: no XO_REGULAR. */
+                fd = xopenat_full(tfd, "ro", O_CLOEXEC, XO_AUTO_RW_RO, 0);
+                assert_se(fd >= 0);
+                ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
+                assert_se((fl & O_ACCMODE) == O_RDONLY);
+                fd = safe_close(fd);
+
+                /* With XO_REGULAR (exercises the pin-via-O_PATH + reopen path). */
+                fd = xopenat_full(tfd, "ro", O_CLOEXEC, XO_AUTO_RW_RO|XO_REGULAR, 0);
+                assert_se(fd >= 0);
+                ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
+                assert_se((fl & O_ACCMODE) == O_RDONLY);
+                fd = safe_close(fd);
+
+                /* Also exercise the empty-path/fd-reopen branch. */
+                _cleanup_close_ int ro_path_fd = xopenat_full(tfd, "ro", O_PATH|O_CLOEXEC, 0, 0);
+                assert_se(ro_path_fd >= 0);
+                fd = xopenat_full(ro_path_fd, "", O_CLOEXEC, XO_AUTO_RW_RO, 0);
+                assert_se(fd >= 0);
+                ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
+                assert_se((fl & O_ACCMODE) == O_RDONLY);
+                fd = safe_close(fd);
+        }
+}
+
 TEST(xopenat_lock_full) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
