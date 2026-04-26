@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "pkcs11-padding.h"
 #include "shared-forward.h"
 
 int decrypt_pkcs11_key(
                 const char *volume_name,
                 const char *friendly_name,
                 const char *pkcs11_uri,
+                Pkcs11RsaPadding rsa_padding,
                 const char *key_file,
                 size_t key_file_size,
                 uint64_t key_file_offset,
@@ -21,4 +23,5 @@ int find_pkcs11_auto_data(
                 char **ret_uri,
                 void **ret_encrypted_key,
                 size_t *ret_encrypted_key_size,
+                Pkcs11RsaPadding *ret_rsa_padding,
                 int *ret_keyslot);

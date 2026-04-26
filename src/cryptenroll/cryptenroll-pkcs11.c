@@ -45,6 +45,7 @@ int enroll_pkcs11(struct crypt_device *cd, const struct iovec *volume_key,const 
         size_t decrypted_key_size, saved_key_size;
         _cleanup_free_ void *saved_key = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        Pkcs11RsaPadding rsa_padding = _PKCS11_RSA_PADDING_INVALID;
         ssize_t base64_encoded_size;
         const char *node;
         int r;
@@ -62,11 +63,14 @@ int enroll_pkcs11(struct crypt_device *cd, const struct iovec *volume_key,const 
                         "cryptenroll.pkcs11-pin",
                         /* askpw_flags= */ 0,
                         &pkey,
+                        &rsa_padding,
                         /* ret_pin_used= */ NULL);
         if (r < 0)
                 return r;
 
-        r = pkey_generate_volume_keys(pkey, &decrypted_key, &decrypted_key_size, &saved_key, &saved_key_size);
+        r = pkey_generate_volume_keys(pkey,
+                                      rsa_padding == PKCS11_RSA_PADDING_OAEP_SHA256 ? "SHA-256" : "SHA-1",
+                                      &decrypted_key, &decrypted_key_size, &saved_key, &saved_key_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate volume keys: %m");
 
@@ -104,7 +108,9 @@ int enroll_pkcs11(struct crypt_device *cd, const struct iovec *volume_key,const 
                            SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-pkcs11")),
                            SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))),
                            SD_JSON_BUILD_PAIR_STRING("pkcs11-uri", private_uri ?: uri),
-                           SD_JSON_BUILD_PAIR_BASE64("pkcs11-key", saved_key, saved_key_size));
+                           SD_JSON_BUILD_PAIR_BASE64("pkcs11-key", saved_key, saved_key_size),
+                           SD_JSON_BUILD_PAIR_CONDITION(rsa_padding >= 0,
+                                                        "pkcs11-padding", SD_JSON_BUILD_STRING(pkcs11_rsa_padding_to_string(rsa_padding))));
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare PKCS#11 JSON token object: %m");
 
