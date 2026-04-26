@@ -416,10 +416,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_GROUP("Block Device Discovery Commands"): {}
@@ -464,53 +463,53 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("esp-path", "PATH", "Path to the EFI System Partition (ESP)"): {}
                 OPTION_LONG("path", "PATH", /* help= */ NULL):  /* Compatibility alias */
-                        r = free_and_strdup(&arg_esp_path, arg);
+                        r = free_and_strdup(&arg_esp_path, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
                 OPTION_LONG("boot-path", "PATH", "Path to the $BOOT partition"):
-                        r = free_and_strdup(&arg_xbootldr_path, arg);
+                        r = free_and_strdup(&arg_xbootldr_path, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
                 OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
-                        r = parse_path_argument(arg, /* suppress_root= */ true, &arg_root);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
-                        r = parse_image_policy_argument(arg, &arg_image_policy);
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("install-source", "SOURCE",
                             "Where to pick files when using --root=/--image= (auto, image, host)"): {
-                        InstallSource is = install_source_from_string(arg);
+                        InstallSource is = install_source_from_string(opts.arg);
                         if (is < 0)
-                                return log_error_errno(is, "Unexpected parameter for --install-source=: %s", arg);
+                                return log_error_errno(is, "Unexpected parameter for --install-source=: %s", opts.arg);
 
                         arg_install_source = is;
                         break;
                 }
 
                 OPTION_LONG("variables", "BOOL", "Whether to modify EFI variables"):
-                        r = parse_tristate_argument_with_auto("--variables=", arg, &arg_touch_variables);
+                        r = parse_tristate_argument_with_auto("--variables=", opts.arg, &arg_touch_variables);
                         if (r < 0)
                                 return r;
 #if !ENABLE_EFI
                         if (arg_touch_variables > 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                       "Compiled without support for EFI, --variables=%s cannot be specified.", arg);
+                                                       "Compiled without support for EFI, --variables=%s cannot be specified.", opts.arg);
 #endif
                         break;
 
@@ -519,7 +518,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("random-seed", "BOOL", "Whether to create random-seed file during install"):
-                        r = parse_boolean_argument("--random-seed=", arg, &arg_install_random_seed);
+                        r = parse_boolean_argument("--random-seed=", opts.arg, &arg_install_random_seed);
                         if (r < 0)
                                 return r;
                         break;
@@ -540,17 +539,17 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("entry-token", "TOKEN",
                             "Entry token to use for this installation"
                             " (machine-id, os-id, os-image-id, auto, literal:…)"):
-                        r = parse_boot_entry_token_type(arg, &arg_entry_token_type, &arg_entry_token);
+                        r = parse_boot_entry_token_type(opts.arg, &arg_entry_token_type, &arg_entry_token);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("make-entry-directory", "yes|no|auto", "Create $BOOT/ENTRY-TOKEN/ directory"): {}
                 OPTION_LONG("make-machine-id-directory", "BOOL", /* help= */ NULL):  /* Compatibility alias */
-                        if (streq(arg, "auto"))  /* retained for backwards compatibility */
+                        if (streq(opts.arg, "auto"))  /* retained for backwards compatibility */
                                 arg_make_entry_directory = -1; /* yes if machine-id is permanent */
                         else {
-                                r = parse_boolean_argument("--make-entry-directory=", arg, NULL);
+                                r = parse_boolean_argument("--make-entry-directory=", opts.arg, NULL);
                                 if (r < 0)
                                         return r;
 
@@ -559,7 +558,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
@@ -570,23 +569,23 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("efi-boot-option-description", "DESCRIPTION",
                             "Description of the entry in the boot option list"):
-                        if (!string_is_safe(arg, STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS)) {
-                                _cleanup_free_ char *escaped = cescape(arg);
+                        if (!string_is_safe(opts.arg, STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS)) {
+                                _cleanup_free_ char *escaped = cescape(opts.arg);
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Invalid --efi-boot-option-description=: %s", strna(escaped));
                         }
-                        if (strlen(arg) > EFI_BOOT_OPTION_DESCRIPTION_MAX)
+                        if (strlen(opts.arg) > EFI_BOOT_OPTION_DESCRIPTION_MAX)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--efi-boot-option-description= too long: %zu > %zu",
-                                                       strlen(arg), EFI_BOOT_OPTION_DESCRIPTION_MAX);
-                        r = free_and_strdup_warn(&arg_efi_boot_option_description, arg);
+                                                       strlen(opts.arg), EFI_BOOT_OPTION_DESCRIPTION_MAX);
+                        r = free_and_strdup_warn(&arg_efi_boot_option_description, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("efi-boot-option-description-with-device", "BOOL",
                             "Suffix description with disk vendor/model/serial"):
-                        r = parse_boolean_argument("--efi-boot-option-description-with-device=", arg,
+                        r = parse_boolean_argument("--efi-boot-option-description-with-device=", opts.arg,
                                                    &arg_efi_boot_option_description_with_device);
                         if (r < 0)
                                 return r;
@@ -597,20 +596,20 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("secure-boot-auto-enroll", "BOOL", "Set up secure boot auto-enrollment"):
-                        r = parse_boolean_argument("--secure-boot-auto-enroll=", arg,
+                        r = parse_boolean_argument("--secure-boot-auto-enroll=", opts.arg,
                                                    &arg_secure_boot_auto_enroll);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_COMMON_PRIVATE_KEY("Private key for Secure Boot auto-enrollment"):
-                        r = free_and_strdup_warn(&arg_private_key, arg);
+                        r = free_and_strdup_warn(&arg_private_key, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_COMMON_PRIVATE_KEY_SOURCE:
-                        r = parse_openssl_key_source_argument(arg,
+                        r = parse_openssl_key_source_argument(opts.arg,
                                                               &arg_private_key_source,
                                                               &arg_private_key_source_type);
                         if (r < 0)
@@ -618,13 +617,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_CERTIFICATE("PEM certificate to use when setting up Secure Boot auto-enrollment"):
-                        r = free_and_strdup_warn(&arg_certificate, arg);
+                        r = free_and_strdup_warn(&arg_certificate, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_COMMON_CERTIFICATE_SOURCE:
-                        r = parse_openssl_certificate_source_argument(arg,
+                        r = parse_openssl_certificate_source_argument(opts.arg,
                                                                       &arg_certificate_source,
                                                                       &arg_certificate_source_type);
                         if (r < 0)
@@ -632,7 +631,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
                 }
 
-        char **args = option_parser_get_args(&state);
+        char **args = option_parser_get_args(&opts);
 
         if (!!arg_print_esp_path + !!arg_print_dollar_boot_path + (arg_print_root_device > 0) + arg_print_loader_path + arg_print_stub_path + arg_print_efi_architecture > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

@@ -985,10 +985,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -1013,7 +1012,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
@@ -1024,49 +1023,49 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("url", "URL",
                             "Upload to this address"):
-                        r = free_and_strdup_warn(&arg_url, arg);
+                        r = free_and_strdup_warn(&arg_url, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("key", "FILENAME",
                             "Specify key in PEM format (default: \"" REPORT_PRIV_KEY_FILE "\")"):
-                        r = free_and_strdup_warn(&arg_key, arg);
+                        r = free_and_strdup_warn(&arg_key, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("cert", "FILENAME",
                             "Specify certificate in PEM format (default: \"" REPORT_CERT_FILE "\")"):
-                        r = free_and_strdup_warn(&arg_cert, arg);
+                        r = free_and_strdup_warn(&arg_cert, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("trust", "FILENAME|all",
                             "Specify CA certificate or disable checking (default: \"" REPORT_TRUST_FILE "\")"):
-                        r = free_and_strdup_warn(&arg_trust, arg);
+                        r = free_and_strdup_warn(&arg_trust, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("network-timeout", "SEC", "Specify timeout for network upload operation"):
-                        r = parse_sec(arg, &arg_network_timeout_usec);
+                        r = parse_sec(opts.arg, &arg_network_timeout_usec);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --network-timeout value: %s", arg);
+                                return log_error_errno(r, "Failed to parse --network-timeout value: %s", opts.arg);
                         break;
 
                 OPTION_LONG("extra-header", "NAME: VALUE",
                             "Inject additional header into the upload request"):
-                        if (isempty(arg)) {
+                        if (isempty(opts.arg)) {
                                 arg_extra_headers = strv_free(arg_extra_headers);
                                 break;
                         }
 
-                        if (!http_header_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid HTTP header: %s", arg);
+                        if (!http_header_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid HTTP header: %s", opts.arg);
 
-                        if (strv_extend(&arg_extra_headers, arg) < 0)
+                        if (strv_extend(&arg_extra_headers, opts.arg) < 0)
                                 return log_oom();
                         break;
                 }
@@ -1074,7 +1073,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         if ((arg_url || arg_key || arg_cert || arg_trust || arg_extra_headers) && !HAVE_LIBCURL)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without libcurl.");
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 

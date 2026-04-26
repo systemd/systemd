@@ -420,11 +420,10 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -435,9 +434,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION('c', "connections-max", "NUMBER",
                        "Set the maximum number of connections to be accepted"):
-                        r = safe_atou(arg, &arg_connections_max);
+                        r = safe_atou(opts.arg, &arg_connections_max);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --connections-max= argument: %s", arg);
+                                return log_error_errno(r, "Failed to parse --connections-max= argument: %s", opts.arg);
 
                         if (arg_connections_max < 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -447,13 +446,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("exit-idle-time", "TIME",
                             "Exit when without a connection for this duration"):
-                        r = parse_sec(arg, &arg_exit_idle_time);
+                        r = parse_sec(opts.arg, &arg_exit_idle_time);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --exit-idle-time= argument: %s", arg);
+                                return log_error_errno(r, "Failed to parse --exit-idle-time= argument: %s", opts.arg);
                         break;
                 }
 
-        char **args = option_parser_get_args(&state);
+        char **args = option_parser_get_args(&opts);
         size_t n = strv_length(args);
         if (n < 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not enough parameters.");

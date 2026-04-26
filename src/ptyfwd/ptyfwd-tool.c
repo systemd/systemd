@@ -62,11 +62,10 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argv);
         assert(remaining_args);
 
-        OptionParser state = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
-        const char *arg;
+        OptionParser opts = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -84,22 +83,22 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("background", "COLOR", "Set ANSI color for background"):
-                        r = parse_background_argument(arg, &arg_background);
+                        r = parse_background_argument(opts.arg, &arg_background);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("title", "TITLE", "Set terminal title"):
-                        r = free_and_strdup_warn(&arg_title, arg);
+                        r = free_and_strdup_warn(&arg_title, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
                 }
 
-        if (option_parser_get_n_args(&state) == 0)
+        if (option_parser_get_n_args(&opts) == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected command line, refusing.");
 
-        *remaining_args = option_parser_get_args(&state);
+        *remaining_args = option_parser_get_args(&opts);
         return 1;
 }
 
