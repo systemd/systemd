@@ -236,6 +236,8 @@ int _option_parser_get_help_table_full(
                 Table **ret);
 #define option_parser_get_help_table_full(namespace, group, ret)        \
         _option_parser_get_help_table_full(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, namespace, group, ret)
+#define option_parser_get_help_table_ns(ns, ret)                        \
+        option_parser_get_help_table_full(ns, /* group= */ NULL, ret)
 #define option_parser_get_help_table_group(group, ret)                  \
         option_parser_get_help_table_full(/* namespace= */ NULL, group, ret)
 #define option_parser_get_help_table(ret)                               \
