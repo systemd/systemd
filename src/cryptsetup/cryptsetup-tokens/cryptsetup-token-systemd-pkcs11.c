@@ -88,8 +88,9 @@ _public_ void cryptsetup_token_dump(
         size_t pkcs11_key_size;
         _cleanup_free_ char *pkcs11_uri = NULL, *key_str = NULL;
         _cleanup_free_ void *pkcs11_key = NULL;
+        Pkcs11RsaPadding rsa_padding = PKCS11_RSA_PADDING_PKCS1V15;
 
-        r = parse_luks2_pkcs11_data(cd, json, &pkcs11_uri, &pkcs11_key, &pkcs11_key_size);
+        r = parse_luks2_pkcs11_data(cd, json, &pkcs11_uri, &pkcs11_key, &pkcs11_key_size, &rsa_padding);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " metadata: %m.");
 
@@ -99,6 +100,7 @@ _public_ void cryptsetup_token_dump(
 
         crypt_log(cd, "\tpkcs11-uri: %s\n", pkcs11_uri);
         crypt_log(cd, "\tpkcs11-key: %s\n", key_str);
+        crypt_log(cd, "\tpkcs11-padding: %s\n", pkcs11_rsa_padding_to_string(rsa_padding));
 }
 
 /*
@@ -139,6 +141,20 @@ _public_ int cryptsetup_token_validate(
         r = sd_json_variant_unbase64(w, NULL, NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Failed to decode base64 encoded key: %m.");
+
+        /* Optional 'pkcs11-padding' field: must be a known padding scheme string if present. Older systemd
+         * versions will just ignore this field entirely and assume PKCS#1 v1.5. */
+        w = sd_json_variant_by_key(v, "pkcs11-padding");
+        if (w) {
+                if (!sd_json_variant_is_string(w)) {
+                        crypt_log_debug(cd, "PKCS#11 token field 'pkcs11-padding' is not a string.");
+                        return 1;
+                }
+                if (pkcs11_rsa_padding_from_string(sd_json_variant_string(w)) < 0) {
+                        crypt_log_debug(cd, "PKCS#11 token field 'pkcs11-padding' has unsupported value.");
+                        return 1;
+                }
+        }
 
         return 0;
 }
