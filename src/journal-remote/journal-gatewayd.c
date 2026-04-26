@@ -1119,10 +1119,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -1136,7 +1135,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Certificate file specified twice");
                         r = read_full_file_full(
-                                        AT_FDCWD, arg, UINT64_MAX, SIZE_MAX,
+                                        AT_FDCWD, state.argument, UINT64_MAX, SIZE_MAX,
                                         READ_FULL_FILE_CONNECT_SOCKET,
                                         NULL,
                                         &arg_cert_pem, NULL);
@@ -1150,7 +1149,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Key file specified twice");
                         r = read_full_file_full(
-                                        AT_FDCWD, arg, UINT64_MAX, SIZE_MAX,
+                                        AT_FDCWD, state.argument, UINT64_MAX, SIZE_MAX,
                                         READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
                                         NULL,
                                         &arg_key_pem, NULL);
@@ -1165,7 +1164,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "CA certificate file specified twice");
                         r = read_full_file_full(
-                                        AT_FDCWD, arg, UINT64_MAX, SIZE_MAX,
+                                        AT_FDCWD, state.argument, UINT64_MAX, SIZE_MAX,
                                         READ_FULL_FILE_CONNECT_SOCKET,
                                         NULL,
                                         &arg_trust_pem, NULL);
@@ -1191,13 +1190,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION('D', "directory", "PATH", "Serve journal files in directory"):
-                        r = free_and_strdup_warn(&arg_directory, arg);
+                        r = free_and_strdup_warn(&arg_directory, state.argument);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("file", "PATH", "Serve this journal file"):
-                        r = glob_extend(&arg_file, arg, GLOB_NOCHECK);
+                        r = glob_extend(&arg_file, state.argument, GLOB_NOCHECK);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add paths: %m");
                         break;

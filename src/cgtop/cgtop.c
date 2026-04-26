@@ -720,10 +720,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -734,11 +733,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("order", "PROPERTY",
                             "Order by specified property (path, tasks, cpu, memory, io)"):
-                        arg_order = order_from_string(arg);
+                        arg_order = order_from_string(state.argument);
                         if (arg_order < 0)
                                 return log_error_errno(arg_order,
                                                        "Invalid argument to --order=: %s",
-                                                       arg);
+                                                       state.argument);
                         break;
 
                 OPTION_SHORT('p', NULL, "Same as --order=path, order by path"):
@@ -767,12 +766,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "cpu", "percentage|time",
                                   "Show CPU usage as percentage (default) or time"):
-                        if (arg) {
-                                arg_cpu_type = cpu_type_from_string(arg);
+                        if (state.argument) {
+                                arg_cpu_type = cpu_type_from_string(state.argument);
                                 if (arg_cpu_type < 0)
                                         return log_error_errno(arg_cpu_type,
                                                                "Unknown argument to --cpu=: %s",
-                                                               arg);
+                                                               state.argument);
                         } else
                                 arg_cpu_type = CPU_TIME;
                         break;
@@ -786,7 +785,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("recursive", "BOOL", "Sum up process count recursively"):
-                        r = parse_boolean_argument("--recursive=", arg, &arg_recursive);
+                        r = parse_boolean_argument("--recursive=", state.argument, &arg_recursive);
                         if (r < 0)
                                 return r;
 
@@ -794,19 +793,19 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION('d', "delay", "DELAY", "Delay between updates"):
-                        r = parse_sec(arg, &arg_delay);
+                        r = parse_sec(state.argument, &arg_delay);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse delay parameter '%s': %m", arg);
+                                return log_error_errno(r, "Failed to parse delay parameter '%s': %m", state.argument);
                         if (arg_delay <= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Invalid delay parameter '%s'",
-                                                       arg);
+                                                       state.argument);
                         break;
 
                 OPTION('n', "iterations", "N", "Run for N iterations before exiting"):
-                        r = safe_atou(arg, &arg_iterations);
+                        r = safe_atou(state.argument, &arg_iterations);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse iterations parameter '%s': %m", arg);
+                                return log_error_errno(r, "Failed to parse iterations parameter '%s': %m", state.argument);
                         break;
 
                 OPTION_SHORT('1', NULL, "Shortcut for --iterations=1"):
@@ -819,13 +818,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("depth", "DEPTH",
                             "Maximum traversal depth (default: "STRINGIFY(DEFAULT_MAXIMUM_DEPTH)")"):
-                        r = safe_atou(arg, &arg_depth);
+                        r = safe_atou(state.argument, &arg_depth);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse depth parameter '%s': %m", arg);
+                                return log_error_errno(r, "Failed to parse depth parameter '%s': %m", state.argument);
                         break;
 
                 OPTION_COMMON_MACHINE:
-                        arg_machine = arg;
+                        arg_machine = state.argument;
                         break;
                 }
 

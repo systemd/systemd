@@ -314,10 +314,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(ret_args);
 
         OptionParser state = { argc, argv };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -331,7 +330,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("image-root", "PATH", "Image root directory"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image_root);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_image_root);
                         if (r < 0)
                                 return r;
                         break;
@@ -346,29 +345,29 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("btrfs-subvol", "BOOL",
                             "Controls whether to create a btrfs subvolume instead of a directory"):
-                        r = parse_boolean_argument("--btrfs-subvol=", arg, &arg_btrfs_subvol);
+                        r = parse_boolean_argument("--btrfs-subvol=", state.argument, &arg_btrfs_subvol);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("btrfs-quota", "BOOL",
                             "Controls whether to set up quota for btrfs subvolume"):
-                        r = parse_boolean_argument("--btrfs-quota=", arg, &arg_btrfs_quota);
+                        r = parse_boolean_argument("--btrfs-quota=", state.argument, &arg_btrfs_quota);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("sync", "BOOL", "Controls whether to sync() before completing"):
-                        r = parse_boolean_argument("--sync=", arg, &arg_sync);
+                        r = parse_boolean_argument("--sync=", state.argument, &arg_sync);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("class", "CLASS",
                             "Select image class (machine, sysext, confext, portable)"):
-                        arg_class = image_class_from_string(arg);
+                        arg_class = image_class_from_string(state.argument);
                         if (arg_class < 0)
-                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", arg);
+                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", state.argument);
                         break;
 
                 OPTION_LONG("system", NULL, "Operate in per-system mode"):

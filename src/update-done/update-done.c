@@ -97,9 +97,8 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -108,7 +107,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 OPTION_LONG("root", "PATH", "Operate on root directory PATH"):
-                        r = parse_path_argument(arg, /* suppress_root= */ true, &arg_root);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;

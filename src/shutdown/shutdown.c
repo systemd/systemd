@@ -64,32 +64,31 @@ static int parse_argv(int argc, char *argv[]) {
          * are warned about and ignored. See 4b5d8d0f22ae61ceb45a25391354ba53b43ee992. */
 
         OptionParser state = { argc, argv, OPTION_PARSER_RETURN_POSITIONAL_ARGS };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_LOG_LEVEL:
-                        r = log_set_max_level_from_string(arg);
+                        r = log_set_max_level_from_string(state.argument);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse log level %s, ignoring: %m", arg);
+                                log_warning_errno(r, "Failed to parse log level %s, ignoring: %m", state.argument);
 
                         break;
 
                 OPTION_COMMON_LOG_TARGET:
-                        r = log_set_target_from_string(arg);
+                        r = log_set_target_from_string(state.argument);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse log target %s, ignoring: %m", arg);
+                                log_warning_errno(r, "Failed to parse log target %s, ignoring: %m", state.argument);
 
                         break;
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "log-color", "BOOL",
                                   "Highlight important messages"):
-                        if (arg) {
-                                r = log_show_color_from_string(arg);
+                        if (state.argument) {
+                                r = log_show_color_from_string(state.argument);
                                 if (r < 0)
-                                        log_warning_errno(r, "Failed to parse log color setting %s, ignoring: %m", arg);
+                                        log_warning_errno(r, "Failed to parse log color setting %s, ignoring: %m", state.argument);
                         } else
                                 log_show_color(true);
 
@@ -97,10 +96,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "log-location", "BOOL",
                                   "Include code location in messages"):
-                        if (arg) {
-                                r = log_show_location_from_string(arg);
+                        if (state.argument) {
+                                r = log_show_location_from_string(state.argument);
                                 if (r < 0)
-                                        log_warning_errno(r, "Failed to parse log location setting %s, ignoring: %m", arg);
+                                        log_warning_errno(r, "Failed to parse log location setting %s, ignoring: %m", state.argument);
                         } else
                                 log_show_location(true);
 
@@ -108,10 +107,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "log-time", "BOOL",
                                   "Prefix messages with current time"):
-                        if (arg) {
-                                r = log_show_time_from_string(arg);
+                        if (state.argument) {
+                                r = log_show_time_from_string(state.argument);
                                 if (r < 0)
-                                        log_warning_errno(r, "Failed to parse log time setting %s, ignoring: %m", arg);
+                                        log_warning_errno(r, "Failed to parse log time setting %s, ignoring: %m", state.argument);
                         } else
                                 log_show_time(true);
 
@@ -119,23 +118,23 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("exit-code", "N",
                             "Exit code for reboot/kexec"):
-                        r = safe_atou8(arg, &arg_exit_code);
+                        r = safe_atou8(state.argument, &arg_exit_code);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse exit code %s, ignoring: %m", arg);
+                                log_warning_errno(r, "Failed to parse exit code %s, ignoring: %m", state.argument);
 
                         break;
 
                 OPTION_LONG("timeout", "TIME",
                             "Overall shutdown timeout"):
-                        r = parse_sec(arg, &arg_timeout);
+                        r = parse_sec(state.argument, &arg_timeout);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse shutdown timeout %s, ignoring: %m", arg);
+                                log_warning_errno(r, "Failed to parse shutdown timeout %s, ignoring: %m", state.argument);
 
                         break;
 
                 OPTION_POSITIONAL:
                         if (!arg_verb)
-                                arg_verb = arg;
+                                arg_verb = state.argument;
                         else
                                 log_warning("Got extraneous argument, ignoring.");
                         break;

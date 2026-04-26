@@ -74,9 +74,8 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -85,13 +84,13 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 OPTION_LONG("icon", "NAME", "Icon name"):
-                        arg_icon = arg;
+                        arg_icon = state.argument;
                         break;
 
                 OPTION_LONG("timeout", "SEC", "Timeout in seconds"):
-                        r = parse_sec(arg, &arg_timeout);
+                        r = parse_sec(state.argument, &arg_timeout);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --timeout= parameter: %s", arg);
+                                return log_error_errno(r, "Failed to parse --timeout= parameter: %s", state.argument);
                         break;
 
                         /* Note the asymmetry: the long option --echo= allows an optional argument,
@@ -99,15 +98,15 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "echo", "yes|no|masked",
                                   "Control whether to show password while typing"): {}
                 OPTION('e', "echo", NULL, "Equivalent to --echo=yes"):
-                        if (!arg) {
+                        if (!state.argument) {
                                 /* Short option -e is used, or no argument to long option --echo= */
                                 arg_flags |= ASK_PASSWORD_ECHO;
                                 arg_flags &= ~ASK_PASSWORD_SILENT;
-                        } else if (isempty(arg) || streq(arg, "masked"))
+                        } else if (isempty(state.argument) || streq(state.argument, "masked"))
                                 /* Empty argument or explicit string "masked" for default behaviour. */
                                 arg_flags &= ~(ASK_PASSWORD_ECHO|ASK_PASSWORD_SILENT);
                         else {
-                                r = parse_boolean_argument("--echo=", arg, NULL);
+                                r = parse_boolean_argument("--echo=", state.argument, NULL);
                                 if (r < 0)
                                         return r;
 
@@ -117,7 +116,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("emoji", "yes|no|auto", "Show a lock and key emoji"):
-                        emoji = arg;
+                        emoji = state.argument;
                         break;
 
                 OPTION_LONG("no-tty", NULL, "Ask question via agent even on TTY"):
@@ -133,11 +132,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("id", "ID", "Query identifier (e.g. \"cryptsetup:/dev/sda5\")"):
-                        arg_id = arg;
+                        arg_id = state.argument;
                         break;
 
                 OPTION_LONG("keyname", "NAME", "Kernel key name for caching passwords"):
-                        arg_key_name = arg;
+                        arg_key_name = state.argument;
                         break;
 
                 OPTION_LONG("no-output", NULL, "Do not print password to standard output"):
@@ -146,7 +145,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("credential", "NAME",
                             "Credential name for ImportCredential=, LoadCredential= or SetCredential= credentials"):
-                        arg_credential_name = arg;
+                        arg_credential_name = state.argument;
                         break;
 
                 OPTION_LONG("user", NULL, "Ask only our own user's agents"):

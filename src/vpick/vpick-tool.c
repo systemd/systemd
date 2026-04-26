@@ -100,70 +100,69 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION('B', "basename", "BASENAME", "Look for specified basename"):
-                        if (!filename_part_is_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid basename string: %s", arg);
+                        if (!filename_part_is_valid(state.argument))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid basename string: %s", state.argument);
 
-                        r = free_and_strdup_warn(&arg_filter_basename, arg);
+                        r = free_and_strdup_warn(&arg_filter_basename, state.argument);
                         if (r < 0)
                                 return r;
 
                         break;
 
                 OPTION_SHORT('V', "VERSION", "Look for specified version"):
-                        if (!version_is_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid version string: %s", arg);
+                        if (!version_is_valid(state.argument))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid version string: %s", state.argument);
 
-                        r = free_and_strdup_warn(&arg_filter_version, arg);
+                        r = free_and_strdup_warn(&arg_filter_version, state.argument);
                         if (r < 0)
                                 return r;
 
                         break;
 
                 OPTION_SHORT('A', "ARCH", "Look for specified architecture"):
-                        if (streq(arg, "native"))
+                        if (streq(state.argument, "native"))
                                 arg_filter_architecture = native_architecture();
-                        else if (streq(arg, "secondary")) {
+                        else if (streq(state.argument, "secondary")) {
 #ifdef ARCHITECTURE_SECONDARY
                                 arg_filter_architecture = ARCHITECTURE_SECONDARY;
 #else
                                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Local architecture has no secondary architecture.");
 #endif
-                        } else if (streq(arg, "uname"))
+                        } else if (streq(state.argument, "uname"))
                                 arg_filter_architecture = uname_architecture();
-                        else if (streq(arg, "auto"))
+                        else if (streq(state.argument, "auto"))
                                 arg_filter_architecture = _ARCHITECTURE_INVALID;
                         else {
-                                arg_filter_architecture = architecture_from_string(arg);
+                                arg_filter_architecture = architecture_from_string(state.argument);
                                 if (arg_filter_architecture < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown architecture: %s", arg);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown architecture: %s", state.argument);
                         }
                         break;
 
                 OPTION('S', "suffix", "SUFFIX", "Look for specified suffix"):
-                        if (!filename_part_is_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid suffix string: %s", arg);
+                        if (!filename_part_is_valid(state.argument))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid suffix string: %s", state.argument);
 
-                        r = free_and_strdup_warn(&arg_filter_suffix, arg);
+                        r = free_and_strdup_warn(&arg_filter_suffix, state.argument);
                         if (r < 0)
                                 return r;
 
                         break;
 
                 OPTION('t', "type", "TYPE", "Look for specified inode type"):
-                        if (isempty(arg))
+                        if (isempty(state.argument))
                                 arg_filter_type_mask = 0;
                         else {
                                 mode_t m;
 
-                                m = inode_type_from_string(arg);
+                                m = inode_type_from_string(state.argument);
                                 if (m == MODE_INVALID)
-                                        return log_error_errno(m, "Unknown inode type: %s", arg);
+                                        return log_error_errno(m, "Unknown inode type: %s", state.argument);
 
                                 arg_filter_type_mask |= UINT32_C(1) << IFTODT(m);
                         }
@@ -193,17 +192,17 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG_FLAGS(OPTION_HELP_ENTRY, "print", "all",
                                   "... print all of the above"):
 
-                        if (streq(arg, "arch")) /* accept abbreviation too */
+                        if (streq(state.argument, "arch")) /* accept abbreviation too */
                                 arg_print = PRINT_ARCHITECTURE;
                         else
-                                arg_print = print_from_string(arg);
+                                arg_print = print_from_string(state.argument);
                         if (arg_print < 0)
-                                return log_error_errno(arg_print, "Unknown --print= argument: %s", arg);
+                                return log_error_errno(arg_print, "Unknown --print= argument: %s", state.argument);
 
                         break;
 
                 OPTION_LONG("resolve", "BOOL", "Canonicalize the result path"):
-                        r = parse_boolean(arg);
+                        r = parse_boolean(state.argument);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --resolve= value: %m");
 

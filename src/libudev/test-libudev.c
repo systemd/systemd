@@ -429,9 +429,8 @@ static int parse_args(int argc, char *argv[], const char **syspath, const char *
         assert(subsystem);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -442,11 +441,11 @@ static int parse_args(int argc, char *argv[], const char **syspath, const char *
                         return 0;
 
                 OPTION('p', "syspath", "PATH", "Syspath to test"):
-                        *syspath = arg;
+                        *syspath = state.argument;
                         break;
 
                 OPTION('s', "subsystem", "SUBSYSTEM", "Subsystem to enumerate"):
-                        *subsystem = arg;
+                        *subsystem = state.argument;
                         break;
 
                 OPTION('d', "debug", NULL, "Enable debug logging"):

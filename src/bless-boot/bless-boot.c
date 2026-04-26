@@ -80,9 +80,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -91,7 +90,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return version();
 
                 OPTION_LONG("path", "PATH", "Path to the $BOOT partition (may be used multiple times)"):
-                        r = strv_extend(&arg_path, arg);
+                        r = strv_extend(&arg_path, state.argument);
                         if (r < 0)
                                 return log_oom();
                         break;

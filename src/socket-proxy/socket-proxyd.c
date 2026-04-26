@@ -421,10 +421,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -435,9 +434,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION('c', "connections-max", "NUMBER",
                        "Set the maximum number of connections to be accepted"):
-                        r = safe_atou(arg, &arg_connections_max);
+                        r = safe_atou(state.argument, &arg_connections_max);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --connections-max= argument: %s", arg);
+                                return log_error_errno(r, "Failed to parse --connections-max= argument: %s", state.argument);
 
                         if (arg_connections_max < 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -447,9 +446,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("exit-idle-time", "TIME",
                             "Exit when without a connection for this duration"):
-                        r = parse_sec(arg, &arg_exit_idle_time);
+                        r = parse_sec(state.argument, &arg_exit_idle_time);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --exit-idle-time= argument: %s", arg);
+                                return log_error_errno(r, "Failed to parse --exit-idle-time= argument: %s", state.argument);
                         break;
                 }
 

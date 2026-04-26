@@ -361,9 +361,8 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(remaining_args);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -384,7 +383,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_LONG("prefix", "PATH",
                             "Only apply rules with the specified prefix"): {
-                        _cleanup_free_ char *normalized = strdup(arg);
+                        _cleanup_free_ char *normalized = strdup(state.argument);
                         if (!normalized)
                                 return log_oom();
                         sysctl_normalize(normalized);

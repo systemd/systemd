@@ -70,10 +70,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         OptionParser state = { argc, argv, OPTION_PARSER_RETURN_POSITIONAL_ARGS };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -97,7 +96,7 @@ static int parse_argv(int argc, char *argv[]) {
                                                 "Cannot combine --unit with --user-unit.");
 
                         arg_show_unit = SHOW_UNIT_SYSTEM;
-                        if (strv_extend(&arg_names, arg) < 0) /* push arg if not empty */
+                        if (strv_extend(&arg_names, state.argument) < 0) /* push arg if not empty */
                                 return log_oom();
                         break;
 
@@ -108,17 +107,17 @@ static int parse_argv(int argc, char *argv[]) {
                                                 "Cannot combine --user-unit with --unit.");
 
                         arg_show_unit = SHOW_UNIT_USER;
-                        if (strv_extend(&arg_names, arg) < 0) /* push arg if not empty */
+                        if (strv_extend(&arg_names, state.argument) < 0) /* push arg if not empty */
                                 return log_oom();
                         break;
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "xattr", "BOOL",
                                   "Show cgroup extended attributes"): {}
                 OPTION_SHORT('x', NULL, "Same as --xattr=true"):
-                        if (arg) {
-                                r = parse_boolean(arg);
+                        if (state.argument) {
+                                r = parse_boolean(state.argument);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --xattr= value: %s", arg);
+                                        return log_error_errno(r, "Failed to parse --xattr= value: %s", state.argument);
                         } else
                                 r = true;
 
@@ -128,10 +127,10 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "cgroup-id", "BOOL",
                                   "Show cgroup ID"): {}
                 OPTION_SHORT('c', NULL, "Same as --cgroup-id=true"):
-                        if (arg) {
-                                r = parse_boolean(arg);
+                        if (state.argument) {
+                                r = parse_boolean(state.argument);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --cgroup-id= value: %s", arg);
+                                        return log_error_errno(r, "Failed to parse --cgroup-id= value: %s", state.argument);
                         } else
                                 r = true;
 
@@ -147,11 +146,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_COMMON_MACHINE:
-                        arg_machine = arg;
+                        arg_machine = state.argument;
                         break;
 
                 OPTION_POSITIONAL:
-                        if (strv_extend(&arg_names, arg) < 0) /* push arg */
+                        if (strv_extend(&arg_names, state.argument) < 0) /* push arg */
                                 return log_oom();
                         break;
                 }

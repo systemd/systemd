@@ -238,9 +238,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -258,7 +257,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("json", "FORMAT",
                             "Output inspection data in JSON (takes one of pretty, short, off)"):
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(state.argument, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
@@ -279,11 +278,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION('a', "app-specific", "ID", "Generate app-specific IDs"):
-                        r = id128_from_string_nonzero(arg, &arg_app);
+                        r = id128_from_string_nonzero(state.argument, &arg_app);
                         if (r == -ENXIO)
                                 return log_error_errno(r, "Application ID cannot be all zeros.");
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse \"%s\" as application ID: %m", arg);
+                                return log_error_errno(r, "Failed to parse \"%s\" as application ID: %m", state.argument);
                         break;
 
                 OPTION('u', "uuid", NULL, "Output in UUID format"):

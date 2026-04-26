@@ -205,9 +205,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -217,7 +216,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return version();
 
                 OPTION_LONG("suffix", "SUFFIX", "Suffix to append to paths"):
-                        arg_suffix = arg;
+                        arg_suffix = state.argument;
                         break;
 
                 OPTION_COMMON_NO_PAGER:

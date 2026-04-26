@@ -365,9 +365,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -381,7 +380,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("image-root", "PATH", "Image root directory"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image_root);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_image_root);
                         if (r < 0)
                                 return r;
                         break;
@@ -390,7 +389,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Verify downloaded image, one of: 'no', 'checksum', 'signature' or literal SHA256 hash"): {
                         ImportVerify v;
 
-                        v = import_verify_from_string(arg);
+                        v = import_verify_from_string(state.argument);
                         if (v < 0) {
                                 _cleanup_free_ void *h = NULL;
                                 size_t n;
@@ -398,10 +397,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 /* If this is not a valid verification mode, maybe it's a literally specified
                                  * SHA256 hash? We can handle that too... */
 
-                                r = unhexmem(arg, &h, &n);
+                                r = unhexmem(state.argument, &h, &n);
                                 if (r < 0 || n == 0)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Invalid verification setting: %s", arg);
+                                                               "Invalid verification setting: %s", state.argument);
                                 if (n != 32)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "64 hex character SHA256 hash required when specifying explicit checksum, %zu specified", n * 2);
@@ -418,7 +417,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 }
 
                 OPTION_LONG("settings", "BOOL", "Download settings file with image"):
-                        r = parse_boolean_argument("--settings=", arg, NULL);
+                        r = parse_boolean_argument("--settings=", state.argument, NULL);
                         if (r < 0)
                                 return r;
 
@@ -427,7 +426,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("roothash", "BOOL", "Download root hash file with image"):
-                        r = parse_boolean_argument("--roothash=", arg, NULL);
+                        r = parse_boolean_argument("--roothash=", state.argument, NULL);
                         if (r < 0)
                                 return r;
 
@@ -440,7 +439,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("roothash-signature", "BOOL",
                             "Download root hash signature file with image"):
-                        r = parse_boolean_argument("--roothash-signature=", arg, NULL);
+                        r = parse_boolean_argument("--roothash-signature=", state.argument, NULL);
                         if (r < 0)
                                 return r;
 
@@ -448,7 +447,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("verity", "BOOL", "Download verity file with image"):
-                        r = parse_boolean_argument("--verity=", arg, NULL);
+                        r = parse_boolean_argument("--verity=", state.argument, NULL);
                         if (r < 0)
                                 return r;
 
@@ -466,7 +465,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("btrfs-subvol", "BOOL",
                             "Controls whether to create a btrfs subvolume instead of a directory"):
-                        r = parse_boolean_argument("--btrfs-subvol=", arg, NULL);
+                        r = parse_boolean_argument("--btrfs-subvol=", state.argument, NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_import_flags, IMPORT_BTRFS_SUBVOL, r);
@@ -474,7 +473,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("btrfs-quota", "BOOL",
                             "Controls whether to set up quota for btrfs subvolume"):
-                        r = parse_boolean_argument("--btrfs-quota=", arg, NULL);
+                        r = parse_boolean_argument("--btrfs-quota=", state.argument, NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_import_flags, IMPORT_BTRFS_QUOTA, r);
@@ -482,14 +481,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("convert-qcow2", "BOOL",
                             "Controls whether to convert QCOW2 images to regular disk images"):
-                        r = parse_boolean_argument("--convert-qcow2=", arg, NULL);
+                        r = parse_boolean_argument("--convert-qcow2=", state.argument, NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_import_flags, IMPORT_CONVERT_QCOW2, r);
                         break;
 
                 OPTION_LONG("sync", "BOOL", "Controls whether to sync() before completing"):
-                        r = parse_boolean_argument("--sync=", arg, NULL);
+                        r = parse_boolean_argument("--sync=", state.argument, NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_import_flags, IMPORT_SYNC, r);
@@ -498,11 +497,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("offset", "BYTES", "Offset to seek to in destination"): {
                         uint64_t u;
 
-                        r = safe_atou64(arg, &u);
+                        r = safe_atou64(state.argument, &u);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --offset= argument: %s", arg);
+                                return log_error_errno(r, "Failed to parse --offset= argument: %s", state.argument);
                         if (!FILE_SIZE_VALID(u))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument to --offset= switch too large: %s", arg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument to --offset= switch too large: %s", state.argument);
 
                         arg_offset = u;
                         break;
@@ -511,11 +510,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("size-max", "BYTES", "Maximum number of bytes to write to destination"): {
                         uint64_t u;
 
-                        r = parse_size(arg, 1024, &u);
+                        r = parse_size(state.argument, 1024, &u);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --size-max= argument: %s", arg);
+                                return log_error_errno(r, "Failed to parse --size-max= argument: %s", state.argument);
                         if (!FILE_SIZE_VALID(u))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument to --size-max= switch too large: %s", arg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument to --size-max= switch too large: %s", state.argument);
 
                         arg_size_max = u;
                         break;
@@ -523,16 +522,16 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("class", "CLASS",
                             "Select image class (machine, sysext, confext, portable)"):
-                        arg_class = image_class_from_string(arg);
+                        arg_class = image_class_from_string(state.argument);
                         if (arg_class < 0)
-                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", arg);
+                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", state.argument);
                         break;
 
                 OPTION_LONG("keep-download", "BOOL",
                             "Keep a pristine copy of the downloaded file around"):
-                        r = parse_boolean(arg);
+                        r = parse_boolean(state.argument);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --keep-download= argument: %s", arg);
+                                return log_error_errno(r, "Failed to parse --keep-download= argument: %s", state.argument);
 
                         SET_FLAG(arg_import_flags, IMPORT_PULL_KEEP_DOWNLOAD, r);
                         auto_keep_download = false;

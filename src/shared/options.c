@@ -70,9 +70,7 @@ static int partial_match_error(
 int option_parse(
                 const Option options[],
                 const Option options_end[],
-                OptionParser *state,
-                const Option **ret_option,
-                const char **ret_arg) {
+                OptionParser *state) {
 
         /* Check and initialize */
         if (state->optind == 0) {
@@ -254,15 +252,8 @@ int option_parse(
         if (FLAGS_SET(option->flags, OPTION_STOPS_PARSING))
                 state->parsing_stopped = true;
 
-        if (ret_option)
-                /* Return the matched Option structure to allow the caller to "know" what was matched */
-                *ret_option = option;
-
-        if (ret_arg)
-                *ret_arg = optval;
-        else
-                /* It's fine to omit ret_arg, but only if no options return a value. */
-                assert(!optval);
+        state->current = option;
+        state->argument = optval;
 
         return option->id;
 }

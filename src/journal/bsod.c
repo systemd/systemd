@@ -248,10 +248,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -265,7 +264,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("tty", "TTY", "Specify path to TTY to use"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_tty);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_tty);
                         if (r < 0)
                                 return r;
                         break;

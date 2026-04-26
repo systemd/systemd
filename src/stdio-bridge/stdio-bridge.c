@@ -47,10 +47,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -69,11 +68,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION('p', "bus-path", "PATH",
                        "Path to the bus address (default: " DEFAULT_SYSTEM_BUS_ADDRESS ")"):
-                        arg_bus_path = arg;
+                        arg_bus_path = state.argument;
                         break;
 
                 OPTION_COMMON_MACHINE:
-                        r = parse_machine_argument(arg, &arg_bus_path, &arg_transport);
+                        r = parse_machine_argument(state.argument, &arg_bus_path, &arg_transport);
                         if (r < 0)
                                 return r;
                         break;

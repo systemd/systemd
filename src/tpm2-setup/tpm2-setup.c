@@ -77,9 +77,8 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -89,17 +88,17 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 OPTION_LONG("tpm2-device", "PATH", "Pick TPM2 device"):
-                        if (streq(arg, "list"))
+                        if (streq(state.argument, "list"))
                                 return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
-                        if (free_and_strdup(&arg_tpm2_device, streq(arg, "auto") ? NULL : arg) < 0)
+                        if (free_and_strdup(&arg_tpm2_device, streq(state.argument, "auto") ? NULL : state.argument) < 0)
                                 return log_oom();
                         break;
 
                 OPTION_LONG("early", "BOOL", "Store SRK public key in /run/ rather than /var/lib/"):
-                        r = parse_boolean(arg);
+                        r = parse_boolean(state.argument);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --early= argument: %s", arg);
+                                return log_error_errno(r, "Failed to parse --early= argument: %s", state.argument);
 
                         arg_early = r;
                         break;

@@ -356,10 +356,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(remaining_args);
 
         OptionParser state = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -370,7 +369,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION('l', "listen", "ADDR",
                        "Listen for raw connections at ADDR"):
-                        r = strv_extend(&arg_listen, arg);
+                        r = strv_extend(&arg_listen, state.argument);
                         if (r < 0)
                                 return log_oom();
 
@@ -402,16 +401,16 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION('E', "setenv", "NAME[=VALUE]",
                        "Pass an environment variable to children"): {}
                 OPTION_LONG("environment", "NAME[=VALUE]", /* help= */ NULL): /* legacy alias */
-                        r = strv_env_replace_strdup_passthrough(&arg_setenv, arg);
+                        r = strv_env_replace_strdup_passthrough(&arg_setenv, state.argument);
                         if (r < 0)
-                                return log_error_errno(r, "Cannot assign environment variable %s: %m", arg);
+                                return log_error_errno(r, "Cannot assign environment variable %s: %m", state.argument);
                         break;
 
                 OPTION_LONG("fdname", "NAME[:NAME...]",
                             "Specify names for file descriptors"): {
                         _cleanup_strv_free_ char **names = NULL;
 
-                        names = strv_split(arg, ":");
+                        names = strv_split(state.argument, ":");
                         if (!names)
                                 return log_oom();
 
