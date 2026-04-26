@@ -17,6 +17,7 @@
 #include "memory-util.h"
 #include "pkcs11-util.h"
 #include "random-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -40,6 +41,14 @@ bool pkcs11_uri_valid(const char *uri) {
 
         return true;
 }
+
+static const char* const pkcs11_rsa_padding_table[_PKCS11_RSA_PADDING_MAX] = {
+        [PKCS11_RSA_PADDING_PKCS1V15]    = "pkcs1",
+        [PKCS11_RSA_PADDING_OAEP_SHA1]   = "oaep-sha1",
+        [PKCS11_RSA_PADDING_OAEP_SHA256] = "oaep-sha256",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(pkcs11_rsa_padding, Pkcs11RsaPadding);
 
 #if HAVE_P11KIT
 
@@ -1173,12 +1182,27 @@ static int pkcs11_token_decrypt_data_rsa(
                 CK_OBJECT_HANDLE object,
                 const void *encrypted_data,
                 size_t encrypted_data_size,
+                Pkcs11RsaPadding rsa_padding,
                 void **ret_decrypted_data,
                 size_t *ret_decrypted_data_size) {
 
-        static const CK_MECHANISM mechanism = {
-                 .mechanism = CKM_RSA_PKCS
+        /* For RSA-OAEP we use SHA-256 or SHA-1 with the matching MGF1 and an empty (zero-length) label.
+         * SHA-256 is preferred when the token supports it, but for example SoftHSM doesn't support it. */
+        CK_RSA_PKCS_OAEP_PARAMS oaep_params_sha1 = {
+                .hashAlg = CKM_SHA_1,
+                .mgf = CKG_MGF1_SHA1,
+                .source = CKZ_DATA_SPECIFIED,
+                .pSourceData = NULL,
+                .ulSourceDataLen = 0,
         };
+        CK_RSA_PKCS_OAEP_PARAMS oaep_params_sha256 = {
+                .hashAlg = CKM_SHA256,
+                .mgf = CKG_MGF1_SHA256,
+                .source = CKZ_DATA_SPECIFIED,
+                .pSourceData = NULL,
+                .ulSourceDataLen = 0,
+        };
+        CK_MECHANISM mechanism;
         _cleanup_(erase_and_freep) CK_BYTE *dbuffer = NULL;
         CK_ULONG dbuffer_size = 0;
         CK_RV rv;
@@ -1186,7 +1210,36 @@ static int pkcs11_token_decrypt_data_rsa(
         assert(ret_decrypted_data);
         assert(ret_decrypted_data_size);
 
-        rv = m->C_DecryptInit(session, (CK_MECHANISM*) &mechanism, object);
+        switch (rsa_padding) {
+
+        case PKCS11_RSA_PADDING_PKCS1V15:
+                mechanism = (CK_MECHANISM) {
+                        .mechanism = CKM_RSA_PKCS,
+                };
+                break;
+
+        case PKCS11_RSA_PADDING_OAEP_SHA1:
+                mechanism = (CK_MECHANISM) {
+                        .mechanism = CKM_RSA_PKCS_OAEP,
+                        .pParameter = &oaep_params_sha1,
+                        .ulParameterLen = sizeof(oaep_params_sha1),
+                };
+                break;
+
+        case PKCS11_RSA_PADDING_OAEP_SHA256:
+                mechanism = (CK_MECHANISM) {
+                        .mechanism = CKM_RSA_PKCS_OAEP,
+                        .pParameter = &oaep_params_sha256,
+                        .ulParameterLen = sizeof(oaep_params_sha256),
+                };
+                break;
+
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Unknown RSA padding scheme requested for PKCS#11 decryption.");
+        }
+
+        rv = m->C_DecryptInit(session, &mechanism, object);
         if (rv != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to initialize decryption on security token: %s", sym_p11_kit_strerror(rv));
@@ -1210,11 +1263,100 @@ static int pkcs11_token_decrypt_data_rsa(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to decrypt key on security token: %s", sym_p11_kit_strerror(rv));
 
-        log_info("Successfully decrypted key with security token.");
+        log_info("Successfully decrypted key with security token (%s padding).",
+                 pkcs11_rsa_padding_to_string(rsa_padding));
 
         *ret_decrypted_data = TAKE_PTR(dbuffer);
         *ret_decrypted_data_size = dbuffer_size;
         return 0;
+}
+
+static int pkcs11_token_try_oaep_mechanism(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_OBJECT_HANDLE private_key,
+                CK_MECHANISM_TYPE hash_alg,
+                CK_RSA_PKCS_MGF_TYPE mgf) {
+
+        CK_RSA_PKCS_OAEP_PARAMS params = {
+                .hashAlg = hash_alg,
+                .mgf = mgf,
+                .source = CKZ_DATA_SPECIFIED,
+                .pSourceData = NULL,
+                .ulSourceDataLen = 0,
+        };
+        CK_MECHANISM mechanism = {
+                .mechanism = CKM_RSA_PKCS_OAEP,
+                .pParameter = &params,
+                .ulParameterLen = sizeof(params),
+        };
+        CK_RV rv;
+
+        rv = m->C_DecryptInit(session, &mechanism, private_key);
+        if (rv != CKR_OK)
+                return -EIO;
+
+        /* Accepted: terminate the operation. Per PKCS#11 spec section 5.2 any cryptographic function
+         * returning an error other than CKR_BUFFER_TOO_SMALL terminates the active operation, so feed
+         * deliberately invalid (too-short) ciphertext to C_Decrypt to trigger a cancellation that's
+         * likely to be portable across token implementations. */
+        CK_BYTE in[1] = {};
+        CK_BYTE out[1];
+        CK_ULONG out_len = sizeof(out);
+        (void) m->C_Decrypt(session, in, sizeof(in), out, &out_len);
+
+        return 0;
+}
+
+static int pkcs11_token_probe_rsa_oaep_padding(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_OBJECT_HANDLE private_key,
+                Pkcs11RsaPadding *ret) {
+
+        CK_KEY_TYPE key_type;
+        CK_ATTRIBUTE key_type_template = { CKA_KEY_TYPE, &key_type, sizeof(key_type) };
+        CK_RV rv;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        /* Probes whether the token will accept the OAEP-SHA256 or OAEP-SHA1 mechanism for decryption with
+         * the given private key. On any failure (wrong key type, related-object lookup ambiguity yielded
+         * an EC private key, both mechanisms rejected, etc.) ret is left untouched so the caller's
+         * default is preserved. The probe is best-effort: callers should set a sensible default (e.g.
+         * OAEP_SHA1) before calling. */
+        rv = m->C_GetAttributeValue(session, private_key, &key_type_template, 1);
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to retrieve private key type: %s", sym_p11_kit_strerror(rv));
+        if (key_type != CKK_RSA)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Located private key is not RSA, skipping OAEP padding probe.");
+
+        /* For RSA-OAEP we use SHA-256 or SHA-1 with the matching MGF1 and an empty (zero-length) label.
+         * SHA-256 is preferred when the token supports it, but for example SoftHSM doesn't support it, so
+         * fall back to SHA-1. If neither is accepted the token doesn't support OAEP at all; we keep the
+         * caller's default in that case. */
+        r = pkcs11_token_try_oaep_mechanism(m, session, private_key, CKM_SHA256, CKG_MGF1_SHA256);
+        if (r >= 0) {
+                *ret = PKCS11_RSA_PADDING_OAEP_SHA256;
+                log_debug("Token accepts OAEP-SHA256 for decryption.");
+                return 0;
+        }
+
+        log_debug("Token rejected OAEP-SHA256, trying OAEP-SHA1.");
+
+        r = pkcs11_token_try_oaep_mechanism(m, session, private_key, CKM_SHA_1, CKG_MGF1_SHA1);
+        if (r >= 0) {
+                *ret = PKCS11_RSA_PADDING_OAEP_SHA1;
+                log_debug("Token accepts OAEP-SHA1 for decryption.");
+                return 0;
+        }
+
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Token rejected both OAEP-SHA256 and OAEP-SHA1, RSA-OAEP enrollment not supported by this token.");
 }
 
 int pkcs11_token_decrypt_data(
@@ -1223,6 +1365,7 @@ int pkcs11_token_decrypt_data(
                 CK_OBJECT_HANDLE object,
                 const void *encrypted_data,
                 size_t encrypted_data_size,
+                Pkcs11RsaPadding rsa_padding,
                 void **ret_decrypted_data,
                 size_t *ret_decrypted_data_size) {
 
@@ -1243,7 +1386,7 @@ int pkcs11_token_decrypt_data(
         switch (key_type) {
 
         case CKK_RSA:
-                return pkcs11_token_decrypt_data_rsa(m, session, object, encrypted_data, encrypted_data_size, ret_decrypted_data, ret_decrypted_data_size);
+                return pkcs11_token_decrypt_data_rsa(m, session, object, encrypted_data, encrypted_data_size, rsa_padding, ret_decrypted_data, ret_decrypted_data_size);
 
         case CKK_EC:
                 return pkcs11_token_decrypt_data_ecc(m, session, object, encrypted_data, encrypted_data_size, ret_decrypted_data, ret_decrypted_data_size);
@@ -1531,6 +1674,7 @@ int pkcs11_find_token(
 struct pkcs11_acquire_public_key_callback_data {
         char *pin_used;
         EVP_PKEY *pkey;
+        Pkcs11RsaPadding rsa_padding;
         const char *askpw_friendly_name, *askpw_icon, *askpw_credential;
         AskPasswordFlags askpw_flags;
 };
@@ -1704,6 +1848,27 @@ success:
          * kernel's and the token's pool */
         (void) pkcs11_token_acquire_rng(m, session);
 
+        /* Decide whether the enrolled key needs RSA padding metadata at all based on the public key we
+         * extracted (RSA vs EC). For RSA, default to OAEP-SHA1 which works on all known tokens (e.g.
+         * SoftHSM only accepts SHA-1), then try to upgrade to OAEP-SHA256 by probing the matching private
+         * key on the token. The probe is best-effort: if we cannot find the private key (e.g. token holds
+         * only the certificate, or the related-object lookup is ambiguous because CKA_ID is missing or
+         * doesn't match) we keep the OAEP-SHA1 default. For non-RSA keys (EC) we leave rsa_padding as
+         * _INVALID, so no padding tag is recorded and the decrypt path uses ECDH instead. */
+        data->rsa_padding = _PKCS11_RSA_PADDING_INVALID;
+
+        if (IN_SET(sym_EVP_PKEY_get_id(pkey), EVP_PKEY_RSA, EVP_PKEY_RSA_PSS)) {
+                CK_OBJECT_HANDLE prototype = public_key != CK_INVALID_HANDLE ? public_key : certificate;
+                CK_OBJECT_HANDLE private_key = CK_INVALID_HANDLE;
+
+                data->rsa_padding = PKCS11_RSA_PADDING_OAEP_SHA1;
+
+                if (pkcs11_token_find_related_object(m, session, prototype, CKO_PRIVATE_KEY, &private_key) >= 0)
+                        (void) pkcs11_token_probe_rsa_oaep_padding(m, session, private_key, &data->rsa_padding);
+                else
+                        log_debug("No matching PKCS#11 private key found, OAEP padding probe skipped, defaulting RSA enrollment to OAEP-SHA1.");
+        }
+
         data->pin_used = TAKE_PTR(pin_used);
         data->pkey = TAKE_PTR(pkey);
         return 0;
@@ -1716,6 +1881,7 @@ int pkcs11_acquire_public_key(
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
                 EVP_PKEY **ret_pkey,
+                Pkcs11RsaPadding *ret_rsa_padding,
                 char **ret_pin_used) {
 
         _cleanup_(pkcs11_acquire_public_key_callback_data_release) struct pkcs11_acquire_public_key_callback_data data = {
@@ -1723,6 +1889,7 @@ int pkcs11_acquire_public_key(
                 .askpw_icon = askpw_icon,
                 .askpw_credential = askpw_credential,
                 .askpw_flags = askpw_flags,
+                .rsa_padding = _PKCS11_RSA_PADDING_INVALID,
         };
         int r;
 
@@ -1738,6 +1905,8 @@ int pkcs11_acquire_public_key(
                 return r;
 
         *ret_pkey = TAKE_PTR(data.pkey);
+        if (ret_rsa_padding)
+                *ret_rsa_padding = data.rsa_padding;
         if (ret_pin_used)
                 *ret_pin_used = TAKE_PTR(data.pin_used);
         return 0;
@@ -1978,6 +2147,7 @@ int pkcs11_crypt_device_callback(
                         object,
                         data->encrypted_key,
                         data->encrypted_key_size,
+                        data->rsa_padding,
                         &data->decrypted_key,
                         &data->decrypted_key_size);
         if (r < 0)
