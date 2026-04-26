@@ -472,11 +472,10 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -509,19 +508,19 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "console", "DEVICE",
                                   "Ask question on /dev/console (or DEVICE if specified) instead of the current TTY"):
                         arg_console = true;
-                        if (arg) {
-                                if (isempty(arg))
+                        if (opts.arg) {
+                                if (isempty(opts.arg))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Empty console device path is not allowed.");
 
-                                r = free_and_strdup_warn(&arg_device, arg);
+                                r = free_and_strdup_warn(&arg_device, opts.arg);
                                 if (r < 0)
                                         return r;
                         }
                         break;
                 }
 
-        if (option_parser_get_n_args(&state) > 0)
+        if (option_parser_get_n_args(&opts) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s takes no arguments.", program_invocation_short_name);
 

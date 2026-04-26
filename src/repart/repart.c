@@ -9684,12 +9684,11 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         bool auto_public_key_pcr_mask = true, auto_pcrlock = true;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_GROUP("Options"): {}
@@ -9712,41 +9711,41 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("dry-run", "BOOL",
                             "Whether to run dry-run operation"):
-                        r = parse_boolean_argument("--dry-run=", arg, &arg_dry_run);
+                        r = parse_boolean_argument("--dry-run=", opts.arg, &arg_dry_run);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("empty", "MODE",
                             "How to handle empty disks lacking partition tables (refuse, allow, require, force, create)"):
-                        if (isempty(arg)) {
+                        if (isempty(opts.arg)) {
                                 arg_empty = EMPTY_UNSET;
                                 break;
                         }
 
-                        arg_empty = empty_mode_from_string(arg);
+                        arg_empty = empty_mode_from_string(opts.arg);
                         if (arg_empty < 0)
-                                return log_error_errno(arg_empty, "Failed to parse --empty= parameter: %s", arg);
+                                return log_error_errno(arg_empty, "Failed to parse --empty= parameter: %s", opts.arg);
 
                         break;
 
                 OPTION_LONG("offline", "BOOL",
                             "Whether to build the image offline"):
-                        r = parse_tristate_argument_with_auto("--offline=", arg, &arg_offline);
+                        r = parse_tristate_argument_with_auto("--offline=", opts.arg, &arg_offline);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("discard", "BOOL",
                             "Whether to discard backing blocks for new partitions"):
-                        r = parse_boolean_argument("--discard=", arg, &arg_discard);
+                        r = parse_boolean_argument("--discard=", opts.arg, &arg_discard);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("sector-size", "SIZE",
                             "Set the logical sector size for the image"):
-                        r = parse_sector_size(arg, &arg_sector_size);
+                        r = parse_sector_size(opts.arg, &arg_sector_size);
                         if (r < 0)
                                 return r;
 
@@ -9754,9 +9753,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("grain-size", "BYTES",
                             "Set the grain size for partition alignment"):
-                        r = parse_size(arg, 1024, &arg_grain_size);
+                        r = parse_size(opts.arg, 1024, &arg_grain_size);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --grain-size= parameter: %s", arg);
+                                return log_error_errno(r, "Failed to parse --grain-size= parameter: %s", opts.arg);
                         if (arg_grain_size < 512 || !ISPOWEROF2(arg_grain_size))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Grain size must be a power of 2 >= 512.");
 
@@ -9764,9 +9763,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("architecture", "ARCH",
                             "Set the generic architecture for the image"):
-                        r = architecture_from_string(arg);
+                        r = architecture_from_string(opts.arg);
                         if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid architecture '%s'.", arg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid architecture '%s'.", opts.arg);
 
                         arg_architecture = r;
                         break;
@@ -9775,15 +9774,15 @@ static int parse_argv(int argc, char *argv[]) {
                             "Grow loopback file to specified size"): {
                         uint64_t parsed, rounded;
 
-                        if (streq(arg, "auto")) {
+                        if (streq(opts.arg, "auto")) {
                                 arg_size = UINT64_MAX;
                                 arg_size_auto = true;
                                 break;
                         }
 
-                        r = parse_size(arg, 1024, &parsed);
+                        r = parse_size(opts.arg, 1024, &parsed);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --size= parameter: %s", arg);
+                                return log_error_errno(r, "Failed to parse --size= parameter: %s", opts.arg);
 
                         rounded = round_up_size(parsed, 4096);
                         if (rounded == 0)
@@ -9802,15 +9801,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("seed", "UUID",
                             "128-bit seed UUID to derive all UUIDs from"):
-                        if (isempty(arg)) {
+                        if (isempty(opts.arg)) {
                                 arg_seed = SD_ID128_NULL;
                                 arg_randomize = false;
-                        } else if (streq(arg, "random"))
+                        } else if (streq(opts.arg, "random"))
                                 arg_randomize = true;
                         else {
-                                r = sd_id128_from_string(arg, &arg_seed);
+                                r = sd_id128_from_string(opts.arg, &arg_seed);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse seed: %s", arg);
+                                        return log_error_errno(r, "Failed to parse seed: %s", opts.arg);
 
                                 arg_randomize = false;
                         }
@@ -9819,7 +9818,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("split", "BOOL",
                             "Whether to generate split artifacts"):
-                        r = parse_boolean_argument("--split=", arg, NULL);
+                        r = parse_boolean_argument("--split=", opts.arg, NULL);
                         if (r < 0)
                                 return r;
 
@@ -9830,14 +9829,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("pretty", "BOOL",
                             "Whether to show pretty summary before doing changes"):
-                        r = parse_boolean_argument("--pretty=", arg, NULL);
+                        r = parse_boolean_argument("--pretty=", opts.arg, NULL);
                         if (r < 0)
                                 return r;
                         arg_pretty = r;
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
 
@@ -9847,7 +9846,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("factory-reset", "BOOL",
                             "Whether to remove data partitions before recreating them"):
-                        r = parse_boolean_argument("--factory-reset=", arg, NULL);
+                        r = parse_boolean_argument("--factory-reset=", opts.arg, NULL);
                         if (r < 0)
                                 return r;
                         arg_factory_reset = r;
@@ -9862,14 +9861,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("root", "PATH",
                             "Operate relative to root path"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_root);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image", "PATH",
                             "Operate relative to image file"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
 
@@ -9879,7 +9878,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("image-policy", "POLICY",
                             "Specify disk image dissection policy"):
-                        r = parse_image_policy_argument(arg, &arg_image_policy);
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
@@ -9887,7 +9886,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("definitions", "DIR",
                             "Find partition definitions in specified directory"): {
                         _cleanup_free_ char *path = NULL;
-                        r = parse_path_argument(arg, false, &path);
+                        r = parse_path_argument(opts.arg, false, &path);
                         if (r < 0)
                                 return r;
                         if (strv_consume(&arg_definitions, TAKE_PTR(path)) < 0)
@@ -9906,14 +9905,14 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Verity"): {}
 
                 OPTION_COMMON_PRIVATE_KEY("Private key to use when generating verity roothash signatures"):
-                        r = free_and_strdup_warn(&arg_private_key, arg);
+                        r = free_and_strdup_warn(&arg_private_key, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_COMMON_PRIVATE_KEY_SOURCE:
                         r = parse_openssl_key_source_argument(
-                                        arg,
+                                        opts.arg,
                                         &arg_private_key_source,
                                         &arg_private_key_source_type);
                         if (r < 0)
@@ -9921,14 +9920,14 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_COMMON_CERTIFICATE("PEM certificate to use when generating verity roothash signatures"):
-                        r = free_and_strdup_warn(&arg_certificate, arg);
+                        r = free_and_strdup_warn(&arg_certificate, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_COMMON_CERTIFICATE_SOURCE:
                         r = parse_openssl_certificate_source_argument(
-                                        arg,
+                                        opts.arg,
                                         &arg_certificate_source,
                                         &arg_certificate_source_type);
                         if (r < 0)
@@ -9939,7 +9938,7 @@ static int parse_argv(int argc, char *argv[]) {
                             "Specify root hash and pkcs7 signature of root hash for verity as a tuple of "
                             "hex-encoded hash and a DER-encoded PKCS7, either as a path to a file or as an "
                             "ASCII base64-encoded string prefixed by 'base64:'"):
-                        r = parse_join_signature(arg, &arg_verity_settings);
+                        r = parse_join_signature(opts.arg, &arg_verity_settings);
                         if (r < 0)
                                 return r;
                         break;
@@ -9948,7 +9947,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("key-file", "PATH",
                             "Key to use when encrypting partitions"):
-                        r = parse_key_file(arg, &arg_key);
+                        r = parse_key_file(opts.arg, &arg_key);
                         if (r < 0)
                                 return r;
                         break;
@@ -9957,11 +9956,11 @@ static int parse_argv(int argc, char *argv[]) {
                             "Path to TPM2 device node to use"): {
                         _cleanup_free_ char *device = NULL;
 
-                        if (streq(arg, "list"))
+                        if (streq(opts.arg, "list"))
                                 return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
-                        if (!streq(arg, "auto")) {
-                                device = strdup(arg);
+                        if (!streq(opts.arg, "auto")) {
+                                device = strdup(opts.arg);
                                 if (!device)
                                         return log_oom();
                         }
@@ -9973,7 +9972,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("tpm2-device-key", "PATH",
                             "Enroll a TPM2 device using its public key"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_tpm2_device_key);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_tpm2_device_key);
                         if (r < 0)
                                 return r;
 
@@ -9981,15 +9980,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("tpm2-seal-key-handle", "HANDLE",
                             "Specify handle of key to use for sealing"):
-                        r = safe_atou32_full(arg, 16, &arg_tpm2_seal_key_handle);
+                        r = safe_atou32_full(opts.arg, 16, &arg_tpm2_seal_key_handle);
                         if (r < 0)
-                                return log_error_errno(r, "Could not parse TPM2 seal key handle index '%s': %m", arg);
+                                return log_error_errno(r, "Could not parse TPM2 seal key handle index '%s': %m", opts.arg);
 
                         break;
 
                 OPTION_LONG("tpm2-pcrs", "PCR1+PCR2+…",
                             "TPM2 PCR indexes to use for TPM2 enrollment"):
-                        r = tpm2_parse_pcr_argument_append(arg, &arg_tpm2_hash_pcr_values, &arg_tpm2_n_hash_pcr_values);
+                        r = tpm2_parse_pcr_argument_append(opts.arg, &arg_tpm2_hash_pcr_values, &arg_tpm2_n_hash_pcr_values);
                         if (r < 0)
                                 return r;
 
@@ -9997,7 +9996,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("tpm2-public-key", "PATH",
                             "Enroll signed TPM2 PCR policy against PEM public key"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_tpm2_public_key);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_tpm2_public_key);
                         if (r < 0)
                                 return r;
 
@@ -10006,7 +10005,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("tpm2-public-key-pcrs", "PCR1+PCR2+…",
                             "Enroll signed TPM2 PCR policy for specified TPM2 PCRs"):
                         auto_public_key_pcr_mask = false;
-                        r = tpm2_parse_pcr_argument_to_mask(arg, &arg_tpm2_public_key_pcr_mask);
+                        r = tpm2_parse_pcr_argument_to_mask(opts.arg, &arg_tpm2_public_key_pcr_mask);
                         if (r < 0)
                                 return r;
 
@@ -10014,7 +10013,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("tpm2-pcrlock", "PATH",
                             "Specify pcrlock policy to lock against"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_tpm2_pcrlock);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_tpm2_pcrlock);
                         if (r < 0)
                                 return r;
 
@@ -10029,7 +10028,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Combination of --include-partitions= and --exclude-partitions= is invalid.");
 
-                        r = parse_partition_types(arg, &arg_filter_partitions, &arg_n_filter_partitions);
+                        r = parse_partition_types(opts.arg, &arg_filter_partitions, &arg_n_filter_partitions);
                         if (r < 0)
                                 return r;
 
@@ -10043,7 +10042,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Combination of --include-partitions= and --exclude-partitions= is invalid.");
 
-                        r = parse_partition_types(arg, &arg_filter_partitions, &arg_n_filter_partitions);
+                        r = parse_partition_types(opts.arg, &arg_filter_partitions, &arg_n_filter_partitions);
                         if (r < 0)
                                 return r;
 
@@ -10053,7 +10052,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("defer-partitions", "PART1,PART2…",
                             "Take partitions of the specified types into account but don't populate them yet"):
-                        r = parse_partition_types(arg, &arg_defer_partitions, &arg_n_defer_partitions);
+                        r = parse_partition_types(opts.arg, &arg_defer_partitions, &arg_n_defer_partitions);
                         if (r < 0)
                                 return r;
 
@@ -10061,7 +10060,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("defer-partitions-empty", "BOOL",
                             "Defer all partitions marked for formatting as empty"):
-                        r = parse_boolean_argument("--defer-partitions-empty=", arg, &arg_defer_partitions_empty);
+                        r = parse_boolean_argument("--defer-partitions-empty=", opts.arg, &arg_defer_partitions_empty);
                         if (r < 0)
                                 return r;
 
@@ -10069,7 +10068,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("defer-partitions-factory-reset", "BOOL",
                             "Defer all partitions marked for factory reset"):
-                        r = parse_boolean_argument("--defer-partitions-factory-reset=", arg, &arg_defer_partitions_factory_reset);
+                        r = parse_boolean_argument("--defer-partitions-factory-reset=", opts.arg, &arg_defer_partitions_factory_reset);
                         if (r < 0)
                                 return r;
 
@@ -10079,7 +10078,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION('s', "copy-source", "PATH",
                        "Specify the primary source tree to copy files from"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_copy_source);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_copy_source);
                         if (r < 0)
                                 return r;
                         break;
@@ -10088,7 +10087,7 @@ static int parse_argv(int argc, char *argv[]) {
                             "Copy partitions from the given image"): {
                         _cleanup_free_ char *p = NULL;
 
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &p);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &p);
                         if (r < 0)
                                 return r;
 
@@ -10102,10 +10101,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("make-ddi", "TYPE",
                             "Create a DDI of the given type"):
-                        if (!filename_is_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid DDI type: %s", arg);
+                        if (!filename_is_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid DDI type: %s", opts.arg);
 
-                        r = free_and_strdup_warn(&arg_make_ddi, arg);
+                        r = free_and_strdup_warn(&arg_make_ddi, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
@@ -10133,26 +10132,26 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("append-fstab", "MODE",
                             "How to join the content of a pre-existing fstab with the generated one "
                             "(no, auto, replace)"):
-                        if (isempty(arg)) {
+                        if (isempty(opts.arg)) {
                                 arg_append_fstab = APPEND_AUTO;
                                 break;
                         }
 
-                        arg_append_fstab = append_mode_from_string(arg);
+                        arg_append_fstab = append_mode_from_string(opts.arg);
                         if (arg_append_fstab < 0)
-                                return log_error_errno(arg_append_fstab, "Failed to parse --append-fstab= parameter: %s", arg);
+                                return log_error_errno(arg_append_fstab, "Failed to parse --append-fstab= parameter: %s", opts.arg);
                         break;
 
                 OPTION_LONG("generate-fstab", "PATH",
                             "Write fstab configuration to the given path"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_generate_fstab);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_generate_fstab);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("generate-crypttab", "PATH",
                             "Write crypttab configuration to the given path"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_generate_crypttab);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_generate_crypttab);
                         if (r < 0)
                                 return r;
                         break;
@@ -10161,7 +10160,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("el-torito", "BOOL",
                             "Whether to add a boot catalog to boot the ESP"):
-                        r = parse_boolean_argument("--el-torito=", arg, &arg_eltorito);
+                        r = parse_boolean_argument("--el-torito=", opts.arg, &arg_eltorito);
                         if (r < 0)
                                 return r;
 
@@ -10169,10 +10168,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("el-torito-system", "STRING",
                             "Set the system identifier in the ISO9660 descriptor"):
-                        if (!iso9660_system_name_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-system=.", arg);
+                        if (!iso9660_system_name_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-system=.", opts.arg);
 
-                        r = free_and_strdup_warn(&arg_eltorito_system, arg);
+                        r = free_and_strdup_warn(&arg_eltorito_system, opts.arg);
                         if (r < 0)
                                 return r;
 
@@ -10180,10 +10179,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("el-torito-volume", "STRING",
                             "Set the volume identifier in the ISO9660 descriptor"):
-                        if (!iso9660_volume_name_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-volume=.", arg);
+                        if (!iso9660_volume_name_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-volume=.", opts.arg);
 
-                        r = free_and_strdup_warn(&arg_eltorito_volume, arg);
+                        r = free_and_strdup_warn(&arg_eltorito_volume, opts.arg);
                         if (r < 0)
                                 return r;
 
@@ -10191,17 +10190,17 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("el-torito-publisher", "STRING",
                             "Set the publisher identifier in the ISO9660 descriptor"):
-                        if (!iso9660_publisher_name_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-publisher=.", arg);
+                        if (!iso9660_publisher_name_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-publisher=.", opts.arg);
 
-                        r = free_and_strdup_warn(&arg_eltorito_publisher, arg);
+                        r = free_and_strdup_warn(&arg_eltorito_publisher, opts.arg);
                         if (r < 0)
                                 return r;
 
                         break;
                 }
 
-        if (option_parser_get_n_args(&state) > 1)
+        if (option_parser_get_n_args(&opts) > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Expected at most one argument, the path to the block device or image file.");
 
@@ -10281,7 +10280,7 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_relax_copy_block_security = true;
         }
 
-        char **args = option_parser_get_args(&state);
+        char **args = option_parser_get_args(&opts);
         if (!strv_isempty(args)) {
                 if (empty_or_dash(args[0]))
                         arg_node_none = true;

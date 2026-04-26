@@ -64,10 +64,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -76,21 +75,21 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 OPTION_LONG("root", "PATH|auto", "Operate relative to the specified path"):
-                        if (streq(arg, "auto"))
+                        if (streq(opts.arg, "auto"))
                                 r = free_and_strdup_warn(&arg_root, in_initrd() ? "/sysroot" : NULL);
                         else {
-                                if (!path_is_absolute(arg))
+                                if (!path_is_absolute(opts.arg))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "--root= argument must be 'auto' or absolute path, got: %s", arg);
+                                                               "--root= argument must be 'auto' or absolute path, got: %s", opts.arg);
 
-                                r = parse_path_argument(arg, /* suppress_root= */ true, &arg_root);
+                                r = parse_path_argument(opts.arg, /* suppress_root= */ true, &arg_root);
                         }
                         if (r < 0)
                                 return r;
                         break;
                 }
 
-        char **args = option_parser_get_args(&state);
+        char **args = option_parser_get_args(&opts);
 
         if (strv_length(args) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

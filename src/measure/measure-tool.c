@@ -136,12 +136,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
         assert(ret_args);
 
-        OptionParser state = { argc, argv };
-        const Option *opt;
-        const char *arg;
+        OptionParser opts = { argc, argv };
         int r;
 
-        FOREACH_OPTION_FULL(&state, c, &opt, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -163,7 +161,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Specify a boot phase to sign for"): {
                         char *n;
 
-                        n = normalize_phase(arg);
+                        n = normalize_phase(opts.arg);
                         if (!n)
                                 return log_oom();
 
@@ -182,9 +180,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r < 0)
                                 return r;
 
-                        implementation = sym_EVP_get_digestbyname(arg);
+                        implementation = sym_EVP_get_digestbyname(opts.arg);
                         if (!implementation)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", arg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", opts.arg);
 
                         if (strv_extend(&arg_banks, sym_EVP_MD_get0_name(implementation)) < 0)
                                 return log_oom();
@@ -196,11 +194,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Use specified TPM2 device"): {
                         _cleanup_free_ char *device = NULL;
 
-                        if (streq(arg, "list"))
+                        if (streq(opts.arg, "list"))
                                 return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
-                        if (!streq(arg, "auto")) {
-                                device = strdup(arg);
+                        if (!streq(opts.arg, "auto")) {
+                                device = strdup(opts.arg);
                                 if (!device)
                                         return log_oom();
                         }
@@ -210,7 +208,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 }
 
                 OPTION_COMMON_PRIVATE_KEY("Private key (PEM) to sign with"):
-                        r = free_and_strdup_warn(&arg_private_key, arg);
+                        r = free_and_strdup_warn(&arg_private_key, opts.arg);
                         if (r < 0)
                                 return r;
 
@@ -218,7 +216,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_COMMON_PRIVATE_KEY_SOURCE:
                         r = parse_openssl_key_source_argument(
-                                        arg,
+                                        opts.arg,
                                         &arg_private_key_source,
                                         &arg_private_key_source_type);
                         if (r < 0)
@@ -228,21 +226,21 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("public-key", "KEY",
                             "Public key (PEM) to validate against"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_public_key);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_public_key);
                         if (r < 0)
                                 return r;
 
                         break;
 
                 OPTION_COMMON_CERTIFICATE("PEM certificate to use for signing"):
-                        r = free_and_strdup_warn(&arg_certificate, arg);
+                        r = free_and_strdup_warn(&arg_certificate, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_COMMON_CERTIFICATE_SOURCE:
                         r = parse_openssl_certificate_source_argument(
-                                        arg,
+                                        opts.arg,
                                         &arg_certificate_source,
                                         &arg_certificate_source_type);
                         if (r < 0)
@@ -250,7 +248,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
 
@@ -262,7 +260,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("append", "PATH",
                             "Load specified JSON signature, and append new signature to it"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_append);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_append);
                         if (r < 0)
                                 return r;
 
@@ -301,9 +299,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                  "Path to EFI firmware file (→ .efifw)"): {}
                         /* Make sure that if new sections are added, the list here is updated. */
                         assert_cc(UNIFIED_SECTION_EFIFW + 1 == _UNIFIED_SECTION_MAX);
-                        assert(opt->data < _UNIFIED_SECTION_MAX);
+                        assert(opts.opt->data < _UNIFIED_SECTION_MAX);
 
-                        r = parse_path_argument(arg, /* suppress_root= */ false, arg_sections + opt->data);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, arg_sections + opts.opt->data);
                         if (r < 0)
                                 return r;
                         break;
@@ -349,7 +347,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         log_debug("Measuring boot phases: %s", j);
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 

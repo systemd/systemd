@@ -5189,12 +5189,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
         assert(ret_args);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         bool auto_location = true;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -5208,7 +5207,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
@@ -5220,21 +5219,21 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("pcr", "NR",
                             "Generate .pcrlock for specified PCR"):
-                        r = tpm2_parse_pcr_argument_to_mask(arg, &arg_pcr_mask);
+                        r = tpm2_parse_pcr_argument_to_mask(opts.arg, &arg_pcr_mask);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse PCR specification: %s", arg);
+                                return log_error_errno(r, "Failed to parse PCR specification: %s", opts.arg);
                         break;
 
                 OPTION_LONG("nv-index", "NUMBER",
                             "Use the specified NV index, instead of a random one"):
-                        if (isempty(arg))
+                        if (isempty(opts.arg))
                                 arg_nv_index = 0;
                         else {
                                 uint32_t u;
 
-                                r = safe_atou32_full(arg, 16, &u);
+                                r = safe_atou32_full(opts.arg, 16, &u);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --nv-index= argument: %s", arg);
+                                        return log_error_errno(r, "Failed to parse --nv-index= argument: %s", opts.arg);
 
                                 if (u < TPM2_NV_INDEX_FIRST || u > TPM2_NV_INDEX_LAST)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument for --nv-index= outside of valid range 0x%" PRIx32 "…0x%"  PRIx32 ": 0x%" PRIx32,
@@ -5248,7 +5247,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Directory to read .pcrlock files from"): {
                         _cleanup_free_ char *p = NULL;
 
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &p);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &p);
                         if (r < 0)
                                 return r;
 
@@ -5266,15 +5265,15 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                         auto_location = false;
 
-                        if (isempty(arg)) {
+                        if (isempty(opts.arg)) {
                                 arg_location_start = mfree(arg_location_start);
                                 arg_location_end = mfree(arg_location_end);
                                 break;
                         }
 
-                        e = strchr(arg, ':');
+                        e = strchr(opts.arg, ':');
                         if (e) {
-                                start = strndup(arg, e - arg);
+                                start = strndup(opts.arg, e - opts.arg);
                                 if (!start)
                                         return log_oom();
 
@@ -5282,11 +5281,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 if (!end)
                                         return log_oom();
                         } else {
-                                start = strdup(arg);
+                                start = strdup(opts.arg);
                                 if (!start)
                                         return log_oom();
 
-                                end = strdup(arg);
+                                end = strdup(opts.arg);
                                 if (!end)
                                         return log_oom();
                         }
@@ -5303,17 +5302,17 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("recovery-pin", "MODE",
                             "Controls whether to show, hide, or ask for a recovery PIN"):
-                        arg_recovery_pin = recovery_pin_mode_from_string(arg);
+                        arg_recovery_pin = recovery_pin_mode_from_string(opts.arg);
                         if (arg_recovery_pin < 0)
-                                return log_error_errno(arg_recovery_pin, "Failed to parse --recovery-pin= mode: %s", arg);
+                                return log_error_errno(arg_recovery_pin, "Failed to parse --recovery-pin= mode: %s", opts.arg);
                         break;
 
                 OPTION_LONG("pcrlock", "PATH",
                             ".pcrlock file to write expected PCR measurement to"):
-                        if (empty_or_dash(arg))
+                        if (empty_or_dash(opts.arg))
                                 arg_pcrlock_path = mfree(arg_pcrlock_path);
                         else {
-                                r = parse_path_argument(arg, /* suppress_root= */ false, &arg_pcrlock_path);
+                                r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_pcrlock_path);
                                 if (r < 0)
                                         return r;
                         }
@@ -5323,10 +5322,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("policy", "PATH",
                             "JSON file to write policy output to"):
-                        if (empty_or_dash(arg))
+                        if (empty_or_dash(opts.arg))
                                 arg_policy_path = mfree(arg_policy_path);
                         else {
-                                r = parse_path_argument(arg, /* suppress_root= */ false, &arg_policy_path);
+                                r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_policy_path);
                                 if (r < 0)
                                         return r;
                         }
@@ -5341,7 +5340,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("entry-token", "TOKEN",
                             "Boot entry token to use for this installation "
                             "(machine-id, os-id, os-image-id, auto, literal:…)"):
-                        r = parse_boot_entry_token_type(arg, &arg_entry_token_type, &arg_entry_token);
+                        r = parse_boot_entry_token_type(opts.arg, &arg_entry_token_type, &arg_entry_token);
                         if (r < 0)
                                 return r;
                         break;
@@ -5372,7 +5371,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 arg_pager_flags |= PAGER_DISABLE;
         }
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 

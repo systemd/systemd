@@ -729,9 +729,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
         assert(ret_args);
 
-        OptionParser state = { argc, argv };
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, /* arg= */ NULL, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -741,7 +741,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return version();
                 }
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 
