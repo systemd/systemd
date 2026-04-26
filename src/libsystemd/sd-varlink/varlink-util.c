@@ -335,7 +335,7 @@ ssize_t varlink_execute_directory(
 
                 r = sd_varlink_set_relative_timeout(link, timeout_usec);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to set relative timeout: %m");
 
                 if (more)
                         r = sd_varlink_observe(link, method, parameters);
