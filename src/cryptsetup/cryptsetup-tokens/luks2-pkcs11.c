@@ -20,6 +20,7 @@ struct luks2_pkcs11_callback_data {
         size_t pin_size;
         void *encrypted_key;
         size_t encrypted_key_size;
+        Pkcs11RsaPadding rsa_padding;
         void *decrypted_key;
         size_t decrypted_key_size;
 };
@@ -90,6 +91,7 @@ static int luks2_pkcs11_callback(
                         object,
                         data->encrypted_key,
                         data->encrypted_key_size,
+                        data->rsa_padding,
                         &data->decrypted_key,
                         &data->decrypted_key_size);
         if (r < 0)
@@ -109,6 +111,7 @@ static int acquire_luks2_key_by_pin(
                 size_t pin_size,
                 void *encrypted_key,
                 size_t encrypted_key_size,
+                Pkcs11RsaPadding rsa_padding,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
@@ -119,6 +122,7 @@ static int acquire_luks2_key_by_pin(
                 .pin_size = pin_size,
                 .encrypted_key = encrypted_key,
                 .encrypted_key_size = encrypted_key_size,
+                .rsa_padding = rsa_padding,
         };
 
         assert(pkcs11_uri);
@@ -142,6 +146,7 @@ static int acquire_luks2_key_systemd(
                 systemd_pkcs11_plugin_params *params,
                 void *encrypted_key,
                 size_t encrypted_key_size,
+                Pkcs11RsaPadding rsa_padding,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
@@ -149,7 +154,8 @@ static int acquire_luks2_key_systemd(
         _cleanup_(pkcs11_crypt_device_callback_data_release) pkcs11_crypt_device_callback_data data = {
                 .encrypted_key = encrypted_key,
                 .encrypted_key_size = encrypted_key_size,
-                .free_encrypted_key = false
+                .free_encrypted_key = false,
+                .rsa_padding = rsa_padding,
         };
 
         assert(pkcs11_uri);
@@ -189,6 +195,7 @@ int acquire_luks2_key(
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         _cleanup_free_ char *pkcs11_uri = NULL;
         _cleanup_free_ void *encrypted_key = NULL;
+        Pkcs11RsaPadding rsa_padding = PKCS11_RSA_PADDING_PKCS1V15;
         systemd_pkcs11_plugin_params *pkcs11_params = userdata;
         ssize_t base64_encoded_size;
 
@@ -196,7 +203,7 @@ int acquire_luks2_key(
         assert(ret_password);
         assert(ret_password_size);
 
-        r = parse_luks2_pkcs11_data(cd, json, &pkcs11_uri, &encrypted_key, &encrypted_key_size);
+        r = parse_luks2_pkcs11_data(cd, json, &pkcs11_uri, &encrypted_key, &encrypted_key_size, &rsa_padding);
         if (r < 0)
                 return r;
 
@@ -208,11 +215,13 @@ int acquire_luks2_key(
                         pkcs11_uri,
                         pkcs11_params,
                         encrypted_key, encrypted_key_size,
+                        rsa_padding,
                         &decrypted_key, &decrypted_key_size);
         else /* default activation that provides single PIN if needed */
                 r = acquire_luks2_key_by_pin(
                         cd, pkcs11_uri, pin, pin_size,
                         encrypted_key, encrypted_key_size,
+                        rsa_padding,
                         &decrypted_key, &decrypted_key_size);
         if (r < 0)
                 return r;
@@ -232,7 +241,8 @@ int parse_luks2_pkcs11_data(
                 const char *json,
                 char **ret_uri,
                 void **ret_encrypted_key,
-                size_t *ret_encrypted_key_size) {
+                size_t *ret_encrypted_key_size,
+                Pkcs11RsaPadding *ret_rsa_padding) {
 
         int r;
         size_t key_size;
@@ -240,6 +250,7 @@ int parse_luks2_pkcs11_data(
         _cleanup_free_ void *key = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         sd_json_variant *w;
+        Pkcs11RsaPadding rsa_padding = PKCS11_RSA_PADDING_PKCS1V15;
 
         assert(json);
         assert(ret_uri);
@@ -266,9 +277,27 @@ int parse_luks2_pkcs11_data(
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Failed to decode base64 encoded key: %m.");
 
+        /* Optional padding-scheme tag. Absent in legacy tokens (which used PKCS#1 v1.5). */
+        w = sd_json_variant_by_key(v, "pkcs11-padding");
+        if (w) {
+                Pkcs11RsaPadding p;
+
+                if (!sd_json_variant_is_string(w))
+                        return crypt_log_debug_errno(cd, -EINVAL,
+                                                     "LUKS2 token field 'pkcs11-padding' is not a string.");
+                p = pkcs11_rsa_padding_from_string(sd_json_variant_string(w));
+                if (p < 0)
+                        return crypt_log_debug_errno(cd, p,
+                                                     "LUKS2 token field 'pkcs11-padding' has unsupported value '%s'.",
+                                                     sd_json_variant_string(w));
+                rsa_padding = p;
+        }
+
         *ret_uri = TAKE_PTR(uri);
         *ret_encrypted_key = TAKE_PTR(key);
         *ret_encrypted_key_size = key_size;
+        if (ret_rsa_padding)
+                *ret_rsa_padding = rsa_padding;
 
         return 0;
 }
