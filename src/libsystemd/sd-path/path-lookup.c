@@ -140,6 +140,30 @@ int runtime_directory_make(RuntimeScope scope, const char *subdir, char **ret_di
         return 0;
 }
 
+int state_directory_generic(RuntimeScope scope, const char *suffix, char **ret) {
+        assert(ret);
+
+        /* This does not bother with $STATE_DIRECTORY, and hence can be applied to get other service's state
+         * dir */
+
+        switch (scope) {
+
+        case RUNTIME_SCOPE_USER:
+                return xdg_user_state_dir(suffix, ret);
+
+        case RUNTIME_SCOPE_SYSTEM: {
+                char *d = path_join("/var/lib", suffix);
+                if (!d)
+                        return -ENOMEM;
+                *ret = d;
+                return 0;
+        }
+
+        default:
+                return -EINVAL;
+        }
+}
+
 static const char* const user_data_unit_paths[] = {
         "/usr/local/lib/systemd/user",
         "/usr/local/share/systemd/user",
