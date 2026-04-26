@@ -98,6 +98,7 @@ static int add_pkcs11_token_uri(sd_json_variant **v, const char *uri) {
 static int add_pkcs11_encrypted_key(
                 sd_json_variant **v,
                 const char *uri,
+                Pkcs11RsaPadding rsa_padding,
                 const void *encrypted_key, size_t encrypted_key_size,
                 const void *decrypted_key, size_t decrypted_key_size) {
 
@@ -126,7 +127,8 @@ static int add_pkcs11_encrypted_key(
         r = sd_json_buildo(&e,
                            SD_JSON_BUILD_PAIR_STRING("uri", uri),
                            SD_JSON_BUILD_PAIR_BASE64("data", encrypted_key, encrypted_key_size),
-                           SD_JSON_BUILD_PAIR_STRING("hashedPassword", hashed));
+                           SD_JSON_BUILD_PAIR_STRING("hashedPassword", hashed),
+                           SD_JSON_BUILD_PAIR_STRING("padding", pkcs11_rsa_padding_to_string(rsa_padding)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build encrypted JSON key object: %m");
 
@@ -156,6 +158,7 @@ int identity_add_pkcs11_key_data(sd_json_variant **v, const char *uri) {
         _cleanup_(erase_and_freep) char *pin = NULL;
         size_t decrypted_key_size, saved_key_size;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        Pkcs11RsaPadding rsa_padding = PKCS11_RSA_PADDING_OAEP_SHA1;
         int r;
 
         assert(v);
@@ -167,11 +170,14 @@ int identity_add_pkcs11_key_data(sd_json_variant **v, const char *uri) {
                         "home.token-pin",
                         /* askpw_flags= */ 0,
                         &pkey,
+                        &rsa_padding,
                         &pin);
         if (r < 0)
                 return r;
 
-        r = pkey_generate_volume_keys(pkey, &decrypted_key, &decrypted_key_size, &saved_key, &saved_key_size);
+        r = pkey_generate_volume_keys(pkey,
+                                      rsa_padding == PKCS11_RSA_PADDING_OAEP_SHA256 ? "SHA-256" : "SHA-1",
+                                      &decrypted_key, &decrypted_key_size, &saved_key, &saved_key_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate volume keys: %m");
 
@@ -184,6 +190,7 @@ int identity_add_pkcs11_key_data(sd_json_variant **v, const char *uri) {
         r = add_pkcs11_encrypted_key(
                         v,
                         uri,
+                        rsa_padding,
                         saved_key, saved_key_size,
                         decrypted_key, decrypted_key_size);
         if (r < 0)
