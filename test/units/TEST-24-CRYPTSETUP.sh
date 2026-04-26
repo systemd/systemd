@@ -261,6 +261,64 @@ if [[ -d /usr/lib/softhsm/tokens ]]; then
     cryptsetup_start_and_check empty_pkcs11_auto
     cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
     cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
+
+    # Verify that new RSA enrollments tag the LUKS2 token with the OAEP padding scheme. Old systemd
+    # versions ignore this field and fall back to PKCS#1 v1.5, which causes the token to refuse to
+    # decrypt the OAEP-wrapped blob, so this metadata is what makes graceful rejection on old systems
+    # possible. The actual OAEP hash variant (SHA-1 vs SHA-256) is probed at enrollment time and
+    # depends on what the token supports, but SoftHSM through at least 2.7.0 only accepts SHA-1
+    PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=RSATestKey" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
+    cryptsetup luksDump --dump-json-metadata "$IMAGE_EMPTY" |
+        jq -e '.tokens | with_entries(select(.value.type == "systemd-pkcs11"))[].["pkcs11-padding"] | select(. == "oaep-sha256" or . == "oaep-sha1")' >/dev/null
+
+    # Forward-compat negative check: tampering with the padding tag must cause unlocking to fail
+    # cleanly (the token rejects the OAEP blob when asked to do PKCS#1 v1.5, and vice versa).
+    TOKEN_ID=$(cryptsetup luksDump --dump-json-metadata "$IMAGE_EMPTY" |
+        jq -r '.tokens | to_entries[] | select(.value.type == "systemd-pkcs11") | .key' | head -n1)
+    cryptsetup token export --token-id "$TOKEN_ID" "$IMAGE_EMPTY" |
+        jq '. + {"pkcs11-padding": "pkcs1"}' >"$WORKDIR/tampered-token.json"
+    cryptsetup token remove --token-id "$TOKEN_ID" "$IMAGE_EMPTY"
+    cryptsetup token import --json-file="$WORKDIR/tampered-token.json" --token-id "$TOKEN_ID" "$IMAGE_EMPTY"
+    cryptsetup_start_and_check -f empty_pkcs11_auto
+    # Restore the correct token and confirm unlock works again.
+    cryptsetup token remove --token-id "$TOKEN_ID" "$IMAGE_EMPTY"
+    cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
+
+    PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=RSATestKey" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
+    cryptsetup_start_and_check empty_pkcs11_auto
+    cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
+    cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
+
+    # Backward-compat check: mock a legacy LUKS2 token wrapped with PKCS#1 v1.5 (no
+    # 'pkcs11-padding' field) and verify the new code can still decrypt it
+    SOFTHSM_MODULE=$(awk -F: '/^[[:space:]]*module[[:space:]]*:/ { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; exit }' /usr/share/p11-kit/modules/softhsm2.module)
+    [[ -n "$SOFTHSM_MODULE" ]] || { echo "Could not locate libsofthsm2.so via /usr/share/p11-kit/modules/softhsm2.module" >&2; exit 1; }
+    # Read the RSA public key out of the matching certificate object on the token, generate random key and
+    # wrap it
+    pkcs11-tool --module "$SOFTHSM_MODULE" --token-label TestToken --pin 1234 \
+                --read-object --type cert --label RSATestKey --output-file "$WORKDIR/rsa.der"
+    openssl x509 -inform DER -in "$WORKDIR/rsa.der" -pubkey -noout >"$WORKDIR/rsa-pub.pem"
+    openssl rand -out "$WORKDIR/decrypted.bin" 32
+    openssl pkeyutl -encrypt -pubin -inkey "$WORKDIR/rsa-pub.pem" \
+                    -pkeyopt rsa_padding_mode:pkcs1 \
+                    -in "$WORKDIR/decrypted.bin" -out "$WORKDIR/encrypted.bin"
+    base64 -w0 "$WORKDIR/decrypted.bin" >"$WORKDIR/passphrase"
+    cryptsetup luksAddKey --batch-mode --key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY" "$WORKDIR/passphrase"
+    LEGACY_SLOT=$(cryptsetup luksDump --dump-json-metadata "$IMAGE_EMPTY" |
+        jq -r '.keyslots | keys | map(tonumber) | max')
+    ENCRYPTED_B64=$(base64 -w0 "$WORKDIR/encrypted.bin")
+    cat >"$WORKDIR/legacy-token.json" <<EOF
+{
+    "type": "systemd-pkcs11",
+    "keyslots": ["$LEGACY_SLOT"],
+    "pkcs11-uri": "pkcs11:token=TestToken;object=RSATestKey;type=private",
+    "pkcs11-key": "$ENCRYPTED_B64"
+}
+EOF
+    cryptsetup token import --json-file="$WORKDIR/legacy-token.json" "$IMAGE_EMPTY"
+    cryptsetup_start_and_check empty_pkcs11_auto
+    cryptsetup luksKillSlot -q "$IMAGE_EMPTY" "$LEGACY_SLOT"
+    cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
 fi
 
 cryptsetup_start_and_check detached
