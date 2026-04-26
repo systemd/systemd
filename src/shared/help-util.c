@@ -8,8 +8,8 @@
 /* These are helpers for putting together --help texts in a uniform way with a common output style. Each
  * function generates a separate part of the --help text:
  *
- *   1. help_cmdline() outputs a brief summary of the command line syntax. (used at least once, in some cases
- *      multiple times.) This generally comes first in the output.
+ *   1. help_cmdline() outputs a brief summary of the command line syntax. This shall be used at least once,
+ *      in some cases multiple times. This generally comes first in the output.
  *
  *   2. help_abstract() outputs a brief prose abstract of the command, should carry a single line of text
  *      that gives the user a hint what this tool does. Use only once, right after the last help_cmdline().

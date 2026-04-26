@@ -1009,7 +1009,7 @@ TEST(execute_directory) {
                                      /* timeout_usec= */ USEC_INFINITY,
                                      execute_dir_reply,
                                      &reply_count), (ssize_t) ELEMENTSOF(names));
-        ASSERT_EQ(reply_count, (unsigned) ELEMENTSOF(names));
+        ASSERT_EQ(reply_count, ELEMENTSOF(names));
 
         FOREACH_ELEMENT(eds, servers) {
                 ASSERT_OK(-pthread_join(eds->thread, NULL));
