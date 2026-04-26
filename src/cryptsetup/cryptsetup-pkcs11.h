@@ -2,11 +2,13 @@
 #pragma once
 
 #include "shared-forward.h"
+#include "user-record.h"
 
 int decrypt_pkcs11_key(
                 const char *volume_name,
                 const char *friendly_name,
                 const char *pkcs11_uri,
+                Pkcs11RsaPadding rsa_padding,
                 const char *key_file,
                 size_t key_file_size,
                 uint64_t key_file_offset,
@@ -21,4 +23,5 @@ int find_pkcs11_auto_data(
                 char **ret_uri,
                 void **ret_encrypted_key,
                 size_t *ret_encrypted_key_size,
+                Pkcs11RsaPadding *ret_rsa_padding,
                 int *ret_keyslot);

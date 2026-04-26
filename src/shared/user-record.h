@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <errno.h>
 #include <time.h>
 
 #include "sd-id128.h"
@@ -8,6 +9,17 @@
 #include "bitfield.h"
 #include "rlimit-util.h"
 #include "shared-forward.h"
+
+typedef enum Pkcs11RsaPadding {
+        PKCS11_RSA_PADDING_PKCS1V15,    /* CKM_RSA_PKCS, RFC 8017 PKCS#1 v1.5 (legacy) */
+        PKCS11_RSA_PADDING_OAEP_SHA1,   /* CKM_RSA_PKCS_OAEP with SHA-1/MGF1-SHA-1 (more supported) */
+        PKCS11_RSA_PADDING_OAEP_SHA256, /* CKM_RSA_PKCS_OAEP with SHA-256/MGF1-SHA-256 (preferred if supported) */
+        _PKCS11_RSA_PADDING_MAX,
+        _PKCS11_RSA_PADDING_INVALID = -EINVAL,
+} Pkcs11RsaPadding;
+
+const char* pkcs11_rsa_padding_to_string(Pkcs11RsaPadding p);
+Pkcs11RsaPadding pkcs11_rsa_padding_from_string(const char *s);
 
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
@@ -188,6 +200,10 @@ typedef struct Pkcs11EncryptedKey {
 
         /* Where to find the private key to decrypt the encrypted passphrase above */
         char *uri;
+
+        /* Which RSA padding scheme was used to wrap the encrypted passphrase. Defaults to PKCS#1 v1.5 for
+         * legacy records that omit the field; new enrollments use RSA-OAEP with SHA-256 or SHA-1. */
+        Pkcs11RsaPadding padding;
 
         /* What to test the decrypted passphrase against to allow access (classic UNIX password hash).  Note
          * that the decrypted passphrase is also used for unlocking LUKS and fscrypt, and if the account is
