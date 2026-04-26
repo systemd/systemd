@@ -100,7 +100,7 @@ decrypt:
         if (r < 0)
                 return r;
 
-        r = pkcs11_token_decrypt_data(m, session, object, data->encrypted_key->data, data->encrypted_key->size, &decrypted_key, &decrypted_key_size);
+        r = pkcs11_token_decrypt_data(m, session, object, data->encrypted_key->data, data->encrypted_key->size, data->encrypted_key->padding, &decrypted_key, &decrypted_key_size);
         if (r < 0)
                 return r;
 
