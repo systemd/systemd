@@ -1081,12 +1081,12 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         break;
 
                 case TABLE_IN_ADDR:
-                        buffer.address = *va_arg(ap, union in_addr_union *);
+                        buffer.address.in = *va_arg(ap, struct in_addr *);
                         data = &buffer.address.in;
                         break;
 
                 case TABLE_IN6_ADDR:
-                        buffer.address = *va_arg(ap, union in_addr_union *);
+                        buffer.address.in6 = *va_arg(ap, struct in6_addr *);
                         data = &buffer.address.in6;
                         break;
 
