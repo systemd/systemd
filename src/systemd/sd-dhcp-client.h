@@ -30,7 +30,6 @@ struct in_addr;
 typedef struct sd_device sd_device;
 typedef struct sd_dhcp_client_id sd_dhcp_client_id;
 typedef struct sd_dhcp_lease sd_dhcp_lease;
-typedef struct sd_dhcp_option sd_dhcp_option;
 typedef struct sd_event sd_event;
 
 enum {
