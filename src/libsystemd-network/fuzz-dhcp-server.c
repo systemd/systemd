@@ -3,9 +3,15 @@
 #include <fcntl.h>
 #include <net/if_arp.h>
 
+#include "alloc-util.h"
+#include "dhcp-server-internal.h"
+#include "dhcp-server-lease-internal.h"
+#include "dhcp-server-request.h"
+#include "fd-util.h"
 #include "fuzz.h"
+#include "hashmap.h"
+#include "iovec-util.h"
 #include "rm-rf.h"
-#include "sd-dhcp-server.c"
 #include "tmpfile-util.h"
 
 /* stub out network so that the server doesn't send */
@@ -30,10 +36,10 @@ static int add_lease(sd_dhcp_server *server, const struct in_addr *server_addres
         *lease = (sd_dhcp_server_lease) {
                 .n_ref = 1,
                 .address = htobe32(UINT32_C(10) << 24 | i),
-                .chaddr = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 },
+                .hw_addr.length = ETH_ALEN,
+                .hw_addr.bytes = { 3, 3, 3, 3, 3, 3, },
                 .expiration = usec_add(now(CLOCK_BOOTTIME), USEC_PER_DAY),
                 .gateway = server_address->s_addr,
-                .hlen = ETH_ALEN,
                 .htype = ARPHRD_ETHER,
 
                 .client_id.size = 2,
@@ -67,15 +73,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         struct in_addr address = { .s_addr = htobe32(UINT32_C(10) << 24 | UINT32_C(1))};
-        _cleanup_free_ uint8_t *duped = NULL;
         _cleanup_close_ int dir_fd = -EBADF;
 
-        if (size < sizeof(DHCPMessage))
-                return 0;
-
         fuzz_setup_logging();
-
-        assert_se(duped = memdup(data, size));
 
         dir_fd = mkdtemp_open(NULL, 0, &tmpdir);
         assert_se(dir_fd >= 0);
@@ -95,7 +95,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(add_static_lease(server, 3) >= 0);
         assert_se(add_static_lease(server, 4) >= 0);
 
-        (void) dhcp_server_handle_message(server, (DHCPMessage*) duped, size, NULL);
+        (void) dhcp_server_process_message(server, &IOVEC_MAKE(data, size), /* timestamp= */ NULL);
 
         assert_se(dhcp_server_save_leases(server) >= 0);
         server->bound_leases_by_address = hashmap_free(server->bound_leases_by_address);
