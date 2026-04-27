@@ -239,9 +239,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(ret_args);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -251,17 +250,17 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return version();
 
                 OPTION_LONG("format", "FORMAT", "Select format"):
-                        arg_compress = compression_from_string_harder(arg);
+                        arg_compress = compression_from_string_harder(state.argument);
                         if (arg_compress < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown format: %s", arg);
+                                                       "Unknown format: %s", state.argument);
                         break;
 
                 OPTION_LONG("class", "CLASS",
                             "Select image class (machine, sysext, confext, portable)"):
-                        arg_class = image_class_from_string(arg);
+                        arg_class = image_class_from_string(state.argument);
                         if (arg_class < 0)
-                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", arg);
+                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", state.argument);
                         break;
 
                 OPTION_LONG("system", NULL, "Operate in per-system mode"):

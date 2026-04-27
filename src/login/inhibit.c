@@ -201,10 +201,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(remaining_args);
 
         OptionParser state = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -226,7 +225,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(state.argument, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
@@ -236,21 +235,21 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                             "(shutdown, sleep, idle, handle-power-key, "
                             "handle-suspend-key, handle-hibernate-key, "
                             "handle-lid-switch)"):
-                        arg_what = arg;
+                        arg_what = state.argument;
                         break;
 
                 OPTION_LONG("who", "STRING",
                             "A descriptive string who is inhibiting"):
-                        arg_who = arg;
+                        arg_who = state.argument;
                         break;
 
                 OPTION_LONG("why", "STRING",
                             "A descriptive string why is being inhibited"):
-                        arg_why = arg;
+                        arg_why = state.argument;
                         break;
 
                 OPTION_LONG("mode", "MODE", "One of block, block-weak, or delay"):
-                        arg_mode = arg;
+                        arg_mode = state.argument;
                         break;
 
                 OPTION_LONG("list", NULL, "List active inhibitors"):

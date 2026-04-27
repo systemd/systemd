@@ -2102,9 +2102,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_CAT_CONFIG:
@@ -2124,32 +2123,32 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_GROUP("Options"): {}
 
                 OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_root);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
-                        r = parse_image_policy_argument(arg, &arg_image_policy);
+                        r = parse_image_policy_argument(state.argument, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("replace", "PATH", "Treat arguments as replacement for PATH"):
-                        if (!path_is_absolute(arg))
+                        if (!path_is_absolute(state.argument))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "The argument to --replace= must be an absolute path.");
-                        if (!endswith(arg, ".conf"))
+                        if (!endswith(state.argument, ".conf"))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "The argument to --replace= must have the extension '.conf'.");
 
-                        arg_replace = arg;
+                        arg_replace = state.argument;
                         break;
 
                 OPTION_LONG("dry-run", NULL, "Just print what would be done"):

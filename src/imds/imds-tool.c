@@ -83,9 +83,8 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -98,32 +97,32 @@ static int parse_argv(int argc, char *argv[]) {
                        "Select well-known key/base, one of:"
                        " hostname, region, zone, ipv4-public, ipv6-public, ssh-key,"
                        " userdata, userdata-base, userdata-base64"): {
-                        if (isempty(arg)) {
+                        if (isempty(state.argument)) {
                                 arg_well_known = _IMDS_WELL_KNOWN_INVALID;
                                 break;
                         }
 
-                        if (streq(arg, "help"))
+                        if (streq(state.argument, "help"))
                                 return DUMP_STRING_TABLE(imds_well_known, ImdsWellKnown, _IMDS_WELL_KNOWN_MAX);
 
-                        ImdsWellKnown wk = imds_well_known_from_string(arg);
+                        ImdsWellKnown wk = imds_well_known_from_string(state.argument);
                         if (wk < 0)
-                                return log_error_errno(wk, "Failed to parse --well-known= argument: %s", arg);
+                                return log_error_errno(wk, "Failed to parse --well-known= argument: %s", state.argument);
 
                         arg_well_known = wk;
                         break;
                 }
 
                 OPTION_LONG("refresh", "SEC", "Set minimum freshness time for returned data"): {
-                        if (isempty(arg)) {
+                        if (isempty(state.argument)) {
                                 arg_refresh_usec_set = false;
                                 break;
                         }
 
                         usec_t t;
-                        r = parse_sec(arg, &t);
+                        r = parse_sec(state.argument, &t);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse refresh timeout: %s", arg);
+                                return log_error_errno(r, "Failed to parse refresh timeout: %s", state.argument);
 
                         arg_refresh_usec = t;
                         arg_refresh_usec_set = true;
@@ -131,7 +130,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 OPTION_LONG("cache", "BOOL", "Control cache use"):
-                        r = parse_tristate_argument_with_auto("--cache=", arg, &arg_cache);
+                        r = parse_tristate_argument_with_auto("--cache=", state.argument, &arg_cache);
                         if (r < 0)
                                 return r;
                         break;

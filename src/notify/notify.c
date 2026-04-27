@@ -154,9 +154,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -184,28 +183,28 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Set main PID of daemon"):
                         pidref_done(&arg_pid);
 
-                        if (isempty(arg) || streq(arg, "auto"))
+                        if (isempty(state.argument) || streq(state.argument, "auto"))
                                 r = pidref_parent_if_applicable(&arg_pid);
-                        else if (streq(arg, "parent"))
+                        else if (streq(state.argument, "parent"))
                                 r = pidref_set_parent(&arg_pid);
-                        else if (streq(arg, "self"))
+                        else if (streq(state.argument, "self"))
                                 r = pidref_set_self(&arg_pid);
                         else
-                                r = pidref_set_pidstr(&arg_pid, arg);
+                                r = pidref_set_pidstr(&arg_pid, state.argument);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to refer to --pid='%s': %m", arg);
+                                return log_error_errno(r, "Failed to refer to --pid='%s': %m", state.argument);
                         break;
 
                 OPTION_LONG("uid", "USER", "Set user to send from"):
-                        r = get_user_creds(&arg, &arg_uid, &arg_gid, NULL, NULL, 0);
+                        r = get_user_creds(&state.argument, &arg_uid, &arg_gid, NULL, NULL, 0);
                         if (r == -ESRCH) /* If the user doesn't exist, then accept it anyway as numeric */
-                                r = parse_uid(arg, &arg_uid);
+                                r = parse_uid(state.argument, &arg_uid);
                         if (r < 0)
-                                return log_error_errno(r, "Can't resolve user %s: %m", arg);
+                                return log_error_errno(r, "Can't resolve user %s: %m", state.argument);
                         break;
 
                 OPTION_LONG("status", "TEXT", "Set status text"):
-                        arg_status = arg;
+                        arg_status = state.argument;
                         break;
 
                 OPTION_LONG("booted", NULL, "Check if the system was booted up with systemd"):
@@ -223,9 +222,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("fd", "FD", "Pass specified file descriptor along with the message"): {
                         _cleanup_close_ int owned_fd = -EBADF;
 
-                        int fdnr = parse_fd(arg);
+                        int fdnr = parse_fd(state.argument);
                         if (fdnr < 0)
-                                return log_error_errno(fdnr, "Failed to parse file descriptor: %s", arg);
+                                return log_error_errno(fdnr, "Failed to parse file descriptor: %s", state.argument);
 
                         if (!passed) {
                                 /* Take possession of all passed fds */
@@ -259,10 +258,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 }
 
                 OPTION_LONG("fdname", "NAME", "Name to assign to passed file descriptors"):
-                        if (!fdname_is_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File descriptor name invalid: %s", arg);
+                        if (!fdname_is_valid(state.argument))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File descriptor name invalid: %s", state.argument);
 
-                        if (free_and_strdup(&arg_fdname, arg) < 0)
+                        if (free_and_strdup(&arg_fdname, state.argument) < 0)
                                 return log_oom();
 
                         break;

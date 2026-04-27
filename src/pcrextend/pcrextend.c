@@ -82,10 +82,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -101,9 +100,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r < 0)
                                 return r;
 
-                        implementation = sym_EVP_get_digestbyname(arg);
+                        implementation = sym_EVP_get_digestbyname(state.argument);
                         if (!implementation)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", arg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", state.argument);
 
                         if (strv_extend(&arg_banks, sym_EVP_MD_get0_name(implementation)) < 0)
                                 return log_oom();
@@ -112,23 +111,23 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 }
 
                 OPTION_LONG("pcr", "INDEX", "Select TPM PCR index (0…23)"):
-                        if (isempty(arg)) {
+                        if (isempty(state.argument)) {
                                 arg_pcr_mask = 0;
                                 break;
                         }
 
-                        r = tpm2_pcr_index_from_string(arg);
+                        r = tpm2_pcr_index_from_string(state.argument);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse PCR index: %s", arg);
+                                return log_error_errno(r, "Failed to parse PCR index: %s", state.argument);
 
                         arg_pcr_mask |= INDEX_TO_MASK(uint32_t, r);
                         break;
 
                 OPTION_LONG("nvpcr", "NAME", "Select TPM PCR mode nvindex name"):
-                        if (!tpm2_nvpcr_name_is_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NvPCR name is not valid: %s", arg);
+                        if (!tpm2_nvpcr_name_is_valid(state.argument))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NvPCR name is not valid: %s", state.argument);
 
-                        r = free_and_strdup_warn(&arg_nvpcr_name, arg);
+                        r = free_and_strdup_warn(&arg_nvpcr_name, state.argument);
                         if (r < 0)
                                 return r;
                         break;
@@ -136,11 +135,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("tpm2-device", "PATH", "Use specified TPM2 device"): {
                         _cleanup_free_ char *device = NULL;
 
-                        if (streq(arg, "list"))
+                        if (streq(state.argument, "list"))
                                 return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
-                        if (!streq(arg, "auto")) {
-                                device = strdup(arg);
+                        if (!streq(state.argument, "auto")) {
+                                device = strdup(state.argument);
                                 if (!device)
                                         return log_oom();
                         }
@@ -156,7 +155,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("file-system", "PATH",
                             "Measure UUID/labels of file system into PCR 15"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_file_system);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_file_system);
                         if (r < 0)
                                 return r;
                         break;
@@ -177,12 +176,12 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("event-type", "TYPE",
                             "Event type to include in the event log"):
-                        if (streq(arg, "help"))
+                        if (streq(state.argument, "help"))
                                 return DUMP_STRING_TABLE(tpm2_userspace_event_type, Tpm2UserspaceEventType, _TPM2_USERSPACE_EVENT_TYPE_MAX);
 
-                        arg_event_type = tpm2_userspace_event_type_from_string(arg);
+                        arg_event_type = tpm2_userspace_event_type_from_string(state.argument);
                         if (arg_event_type < 0)
-                                return log_error_errno(arg_event_type, "Failed to parse --event-type= argument: %s", arg);
+                                return log_error_errno(arg_event_type, "Failed to parse --event-type= argument: %s", state.argument);
                         break;
                 }
 

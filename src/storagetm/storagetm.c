@@ -78,10 +78,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -92,10 +91,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("nqn", "STRING",
                             "Select NQN (NVMe Qualified Name)"):
-                        if (!filename_is_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NQN invalid: %s", arg);
+                        if (!filename_is_valid(state.argument))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NQN invalid: %s", state.argument);
 
-                        if (free_and_strdup(&arg_nqn, arg) < 0)
+                        if (free_and_strdup(&arg_nqn, state.argument) < 0)
                                 return log_oom();
 
                         break;

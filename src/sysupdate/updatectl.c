@@ -1688,9 +1688,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_LONG("reboot", NULL, "Reboot after updating to newer version"):
@@ -1707,7 +1706,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_COMMON_HOST:
                         arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = arg;
+                        arg_host = state.argument;
                         break;
 
                 OPTION_COMMON_NO_PAGER:

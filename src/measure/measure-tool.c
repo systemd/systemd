@@ -137,11 +137,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(ret_args);
 
         OptionParser state = { argc, argv };
-        const Option *opt;
-        const char *arg;
         int r;
 
-        FOREACH_OPTION_FULL(&state, c, &opt, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -163,7 +161,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Specify a boot phase to sign for"): {
                         char *n;
 
-                        n = normalize_phase(arg);
+                        n = normalize_phase(state.argument);
                         if (!n)
                                 return log_oom();
 
@@ -182,9 +180,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r < 0)
                                 return r;
 
-                        implementation = sym_EVP_get_digestbyname(arg);
+                        implementation = sym_EVP_get_digestbyname(state.argument);
                         if (!implementation)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", arg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", state.argument);
 
                         if (strv_extend(&arg_banks, sym_EVP_MD_get0_name(implementation)) < 0)
                                 return log_oom();
@@ -196,11 +194,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Use specified TPM2 device"): {
                         _cleanup_free_ char *device = NULL;
 
-                        if (streq(arg, "list"))
+                        if (streq(state.argument, "list"))
                                 return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
-                        if (!streq(arg, "auto")) {
-                                device = strdup(arg);
+                        if (!streq(state.argument, "auto")) {
+                                device = strdup(state.argument);
                                 if (!device)
                                         return log_oom();
                         }
@@ -210,7 +208,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 }
 
                 OPTION_COMMON_PRIVATE_KEY("Private key (PEM) to sign with"):
-                        r = free_and_strdup_warn(&arg_private_key, arg);
+                        r = free_and_strdup_warn(&arg_private_key, state.argument);
                         if (r < 0)
                                 return r;
 
@@ -218,7 +216,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_COMMON_PRIVATE_KEY_SOURCE:
                         r = parse_openssl_key_source_argument(
-                                        arg,
+                                        state.argument,
                                         &arg_private_key_source,
                                         &arg_private_key_source_type);
                         if (r < 0)
@@ -228,21 +226,21 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("public-key", "KEY",
                             "Public key (PEM) to validate against"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_public_key);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_public_key);
                         if (r < 0)
                                 return r;
 
                         break;
 
                 OPTION_COMMON_CERTIFICATE("PEM certificate to use for signing"):
-                        r = free_and_strdup_warn(&arg_certificate, arg);
+                        r = free_and_strdup_warn(&arg_certificate, state.argument);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_COMMON_CERTIFICATE_SOURCE:
                         r = parse_openssl_certificate_source_argument(
-                                        arg,
+                                        state.argument,
                                         &arg_certificate_source,
                                         &arg_certificate_source_type);
                         if (r < 0)
@@ -250,7 +248,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(state.argument, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
 
@@ -262,7 +260,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("append", "PATH",
                             "Load specified JSON signature, and append new signature to it"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_append);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_append);
                         if (r < 0)
                                 return r;
 
@@ -301,9 +299,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                  "Path to EFI firmware file (→ .efifw)"): {}
                         /* Make sure that if new sections are added, the list here is updated. */
                         assert_cc(UNIFIED_SECTION_EFIFW + 1 == _UNIFIED_SECTION_MAX);
-                        assert(opt->data < _UNIFIED_SECTION_MAX);
+                        assert(state.current->data < _UNIFIED_SECTION_MAX);
 
-                        r = parse_path_argument(arg, /* suppress_root= */ false, arg_sections + opt->data);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, arg_sections + state.current->data);
                         if (r < 0)
                                 return r;
                         break;

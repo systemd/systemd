@@ -326,10 +326,8 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         OptionParser state = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
-        const Option *current;
-        const char *arg;
 
-        FOREACH_OPTION_FULL(&state, c, &current, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -361,7 +359,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Image"): {}
 
                 OPTION('D', "directory", "PATH", "Root directory for the VM"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_directory);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_directory);
                         if (r < 0)
                                 return r;
                         break;
@@ -371,31 +369,31 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION('i', "image", "FILE|DEVICE", "Root file system disk image or device for the VM"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image-format", "FORMAT", "Specify disk image format (raw, qcow2; default: raw)"):
-                        arg_image_format = image_format_from_string(arg);
+                        arg_image_format = image_format_from_string(state.argument);
                         if (arg_image_format < 0)
                                 return log_error_errno(arg_image_format,
-                                                       "Invalid image format: %s", arg);
+                                                       "Invalid image format: %s", state.argument);
                         break;
 
                 OPTION_LONG("image-disk-type", "TYPE",
                             "Specify disk type (virtio-blk, virtio-scsi, nvme, scsi-cd; default: virtio-blk)"):
-                        arg_image_disk_type = disk_type_from_string(arg);
+                        arg_image_disk_type = disk_type_from_string(state.argument);
                         if (arg_image_disk_type < 0)
                                 return log_error_errno(arg_image_disk_type,
-                                                       "Invalid image disk type: %s", arg);
+                                                       "Invalid image disk type: %s", state.argument);
                         break;
 
                 OPTION_GROUP("Host Configuration"): {}
 
                 OPTION_LONG("cpus", "CPUS", "Configure number of CPUs in guest"): {}
                 OPTION_LONG("qemu-smp", "CPUS", /* help= */ NULL):  /* Compat alias */
-                        r = free_and_strdup_warn(&arg_cpus, arg);
+                        r = free_and_strdup_warn(&arg_cpus, state.argument);
                         if (r < 0)
                                 return r;
                         break;
@@ -403,34 +401,34 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("ram", "BYTES[:MAXBYTES[:SLOTS]]",
                             "Configure guest's RAM size (and max/slots for hotplug)"): {}
                 OPTION_LONG("qemu-mem", "BYTES", /* help= */ NULL):  /* Compat alias */
-                        r = parse_ram(arg);
+                        r = parse_ram(state.argument);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("kvm", "BOOL", "Enable use of KVM"): {}
                 OPTION_LONG("qemu-kvm", "BOOL", /* help= */ NULL):  /* Compat alias */
-                        r = parse_tristate_argument_with_auto("--kvm=", arg, &arg_kvm);
+                        r = parse_tristate_argument_with_auto("--kvm=", state.argument, &arg_kvm);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("vsock", "BOOL", "Override autodetection of VSOCK support"): {}
                 OPTION_LONG("qemu-vsock", "BOOL", /* help= */ NULL):  /* Compat alias */
-                        r = parse_tristate_argument_with_auto("--vsock=", arg, &arg_vsock);
+                        r = parse_tristate_argument_with_auto("--vsock=", state.argument, &arg_vsock);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("vsock-cid", "CID", "Specify the CID to use for the guest's VSOCK support"):
-                        if (isempty(arg))
+                        if (isempty(state.argument))
                                 arg_vsock_cid = VMADDR_CID_ANY;
                         else {
                                 unsigned cid;
 
-                                r = vsock_parse_cid(arg, &cid);
+                                r = vsock_parse_cid(state.argument, &cid);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --vsock-cid: %s", arg);
+                                        return log_error_errno(r, "Failed to parse --vsock-cid: %s", state.argument);
                                 if (!VSOCK_CID_IS_REGULAR(cid))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified CID is not regular, refusing: %u", cid);
 
@@ -439,28 +437,28 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("tpm", "BOOL", "Enable use of a virtual TPM"):
-                        r = parse_tristate_argument_with_auto("--tpm=", arg, &arg_tpm);
+                        r = parse_tristate_argument_with_auto("--tpm=", state.argument, &arg_tpm);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("tpm-state", "off|auto|PATH", "Where to store TPM state"):
-                        r = isempty(arg) ? false :
-                                streq(arg, "auto") ? true :
-                                parse_boolean(arg);
+                        r = isempty(state.argument) ? false :
+                                streq(state.argument, "auto") ? true :
+                                parse_boolean(state.argument);
                         if (r >= 0) {
                                 arg_tpm_state_mode = r ? STATE_AUTO : STATE_OFF;
                                 arg_tpm_state_path = mfree(arg_tpm_state_path);
                                 break;
                         }
 
-                        if (!path_is_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid path in --tpm-state= parameter: %s", arg);
+                        if (!path_is_valid(state.argument))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid path in --tpm-state= parameter: %s", state.argument);
 
-                        if (!path_is_absolute(arg) && !startswith(arg, "./"))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path in --tpm-state= parameter must be absolute or start with './': %s", arg);
+                        if (!path_is_absolute(state.argument) && !startswith(state.argument, "./"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path in --tpm-state= parameter must be absolute or start with './': %s", state.argument);
 
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_tpm_state_path);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_tpm_state_path);
                         if (r < 0)
                                 return r;
 
@@ -468,31 +466,31 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("efi-nvram-template", "PATH", "Set the path to the EFI NVRAM template file to use"):
-                        if (!isempty(arg) && !path_is_absolute(arg) && !startswith(arg, "./"))
+                        if (!isempty(state.argument) && !path_is_absolute(state.argument) && !startswith(state.argument, "./"))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Absolute path or path starting with './' required.");
 
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_efi_nvram_template);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_efi_nvram_template);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("efi-nvram-state", "off|auto|PATH", "Where to store EFI Variable NVRAM state"):
-                        r = isempty(arg) ? false :
-                                streq(arg, "auto") ? true :
-                                parse_boolean(arg);
+                        r = isempty(state.argument) ? false :
+                                streq(state.argument, "auto") ? true :
+                                parse_boolean(state.argument);
                         if (r >= 0) {
                                 arg_efi_nvram_state_mode = r ? STATE_AUTO : STATE_OFF;
                                 arg_efi_nvram_state_path = mfree(arg_efi_nvram_state_path);
                                 break;
                         }
 
-                        if (!path_is_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid path in --efi-nvram-state= parameter: %s", arg);
+                        if (!path_is_valid(state.argument))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid path in --efi-nvram-state= parameter: %s", state.argument);
 
-                        if (!path_is_absolute(arg) && !startswith(arg, "./"))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path in --efi-nvram-state= parameter must be absolute or start with './': %s", arg);
+                        if (!path_is_absolute(state.argument) && !startswith(state.argument, "./"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path in --efi-nvram-state= parameter must be absolute or start with './': %s", state.argument);
 
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_efi_nvram_state_path);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_efi_nvram_state_path);
                         if (r < 0)
                                 return r;
 
@@ -500,14 +498,14 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("linux", "PATH", "Specify the linux kernel for direct kernel boot"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_linux);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_linux);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("initrd", "PATH", "Specify the initrd for direct kernel boot"): {
                         _cleanup_free_ char *initrd_path = NULL;
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &initrd_path);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &initrd_path);
                         if (r < 0)
                                 return r;
 
@@ -528,7 +526,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("secure-boot", "BOOL|auto", "Enable searching for firmware supporting SecureBoot"): {
                         int b;
 
-                        r = parse_tristate_argument_with_auto("--secure-boot=", arg, &b);
+                        r = parse_tristate_argument_with_auto("--secure-boot=", state.argument, &b);
                         if (r < 0)
                                 return r;
 
@@ -545,14 +543,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("firmware", "auto|uefi|bios|none|PATH|list|describe",
                             "Select firmware to use, or a firmware definition file (or list/describe available)"): {
-                        if (isempty(arg) || streq(arg, "auto")) {
+                        if (isempty(state.argument) || streq(state.argument, "auto")) {
                                 arg_firmware = mfree(arg_firmware);
                                 arg_firmware_type = _FIRMWARE_INVALID;
                                 arg_firmware_describe = false;
                                 break;
                         }
 
-                        if (streq(arg, "list")) {
+                        if (streq(state.argument, "list")) {
                                 _cleanup_strv_free_ char **l = NULL;
 
                                 r = list_ovmf_config(&l);
@@ -567,7 +565,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return 0;
                         }
 
-                        if (streq(arg, "describe")) {
+                        if (streq(state.argument, "describe")) {
                                 /* Handled after argument parsing so that --firmware-features= is
                                  * taken into account. */
                                 arg_firmware = mfree(arg_firmware);
@@ -577,7 +575,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
-                        Firmware f = firmware_from_string(arg);
+                        Firmware f = firmware_from_string(state.argument);
                         if (f >= 0) {
                                 arg_firmware = mfree(arg_firmware);
                                 arg_firmware_type = f;
@@ -585,12 +583,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
-                        if (!path_is_absolute(arg) && !startswith(arg, "./"))
+                        if (!path_is_absolute(state.argument) && !startswith(state.argument, "./"))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Expected one of 'auto', 'uefi', 'bios', 'none', 'list', 'describe', or an absolute path or path starting with './', got: %s",
-                                                       arg);
+                                                       state.argument);
 
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_firmware);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_firmware);
                         if (r < 0)
                                 return r;
 
@@ -601,13 +599,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("firmware-features", "FEATURE,...|list",
                             "Require/exclude specific firmware features"): {
-                        if (isempty(arg)) {
+                        if (isempty(state.argument)) {
                                 arg_firmware_features_include = set_free(arg_firmware_features_include);
                                 arg_firmware_features_exclude = set_free(arg_firmware_features_exclude);
                                 break;
                         }
 
-                        if (streq(arg, "list")) {
+                        if (streq(state.argument, "list")) {
                                 _cleanup_strv_free_ char **l = NULL;
 
                                 r = list_ovmf_firmware_features(&l);
@@ -622,7 +620,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return 0;
                         }
 
-                        _cleanup_strv_free_ char **features = strv_split(arg, ",");
+                        _cleanup_strv_free_ char **features = strv_split(state.argument, ",");
                         if (!features)
                                 return log_oom();
 
@@ -636,39 +634,39 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 OPTION_LONG("discard-disk", "BOOL", "Control processing of discard requests"):
-                        r = parse_boolean_argument("--discard-disk=", arg, &arg_discard_disk);
+                        r = parse_boolean_argument("--discard-disk=", state.argument, &arg_discard_disk);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION('G', "grow-image", "BYTES", "Grow image file to specified size in bytes"):
-                        if (isempty(arg)) {
+                        if (isempty(state.argument)) {
                                 arg_grow_image = 0;
                                 break;
                         }
 
-                        r = parse_size(arg, 1024, &arg_grow_image);
+                        r = parse_size(state.argument, 1024, &arg_grow_image);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --grow-image= parameter: %s", arg);
+                                return log_error_errno(r, "Failed to parse --grow-image= parameter: %s", state.argument);
                         break;
 
                 OPTION_GROUP("Execution"): {}
 
                 OPTION('s', "smbios11", "STRING", "Pass an arbitrary SMBIOS Type #11 string to the VM"):
-                        if (isempty(arg)) {
+                        if (isempty(state.argument)) {
                                 arg_smbios11 = strv_free(arg_smbios11);
                                 break;
                         }
 
-                        if (!utf8_is_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SMBIOS Type 11 string is not UTF-8 clean, refusing: %s", arg);
+                        if (!utf8_is_valid(state.argument))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SMBIOS Type 11 string is not UTF-8 clean, refusing: %s", state.argument);
 
-                        if (strv_extend(&arg_smbios11, arg) < 0)
+                        if (strv_extend(&arg_smbios11, state.argument) < 0)
                                 return log_oom();
                         break;
 
                 OPTION_LONG("notify-ready", "BOOL", "Wait for ready notification from the VM"):
-                        r = parse_boolean_argument("--notify-ready=", arg, &arg_notify_ready);
+                        r = parse_boolean_argument("--notify-ready=", state.argument, &arg_notify_ready);
                         if (r < 0)
                                 return r;
                         break;
@@ -676,25 +674,25 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("System Identity"): {}
 
                 OPTION('M', "machine", "NAME", "Set the machine name for the VM"):
-                        if (isempty(arg))
+                        if (isempty(state.argument))
                                 arg_machine = mfree(arg_machine);
                         else {
-                                if (!hostname_is_valid(arg, 0))
+                                if (!hostname_is_valid(state.argument, 0))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Invalid machine name: %s", arg);
+                                                               "Invalid machine name: %s", state.argument);
 
-                                r = free_and_strdup(&arg_machine, arg);
+                                r = free_and_strdup(&arg_machine, state.argument);
                                 if (r < 0)
                                         return log_oom();
                         }
                         break;
 
                 OPTION_LONG("uuid", "UUID", "Set a specific machine UUID for the VM"):
-                        r = id128_from_string_nonzero(arg, &arg_uuid);
+                        r = id128_from_string_nonzero(state.argument, &arg_uuid);
                         if (r == -ENXIO)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Machine UUID may not be all zeroes.");
                         if (r < 0)
-                                return log_error_errno(r, "Invalid UUID: %s", arg);
+                                return log_error_errno(r, "Invalid UUID: %s", state.argument);
                         break;
 
                 OPTION_GROUP("Properties"): {}
@@ -702,21 +700,21 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION('S', "slice", "SLICE", "Place the VM in the specified slice"): {
                         _cleanup_free_ char *mangled = NULL;
 
-                        r = unit_name_mangle_with_suffix(arg, /* operation= */ NULL, UNIT_NAME_MANGLE_WARN, ".slice", &mangled);
+                        r = unit_name_mangle_with_suffix(state.argument, /* operation= */ NULL, UNIT_NAME_MANGLE_WARN, ".slice", &mangled);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to turn '%s' into unit name: %m", arg);
+                                return log_error_errno(r, "Failed to turn '%s' into unit name: %m", state.argument);
 
                         free_and_replace(arg_slice, mangled);
                         break;
                 }
 
                 OPTION_LONG("property", "NAME=VALUE", "Set scope unit property"):
-                        if (strv_extend(&arg_property, arg) < 0)
+                        if (strv_extend(&arg_property, state.argument) < 0)
                                 return log_oom();
                         break;
 
                 OPTION_LONG("register", "BOOLEAN", "Register VM as machine"):
-                        r = parse_tristate_argument_with_auto("--register=", arg, &arg_register);
+                        r = parse_tristate_argument_with_auto("--register=", state.argument, &arg_register);
                         if (r < 0)
                                 return r;
                         break;
@@ -730,7 +728,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("private-users", "UIDBASE[:NUIDS]",
                             "Configure the UID/GID range to map into the virtiofsd namespace"):
-                        r = parse_userns_uid_range(arg, &arg_uid_shift, &arg_uid_range);
+                        r = parse_userns_uid_range(state.argument, &arg_uid_shift, &arg_uid_range);
                         if (r < 0)
                                 return r;
                         break;
@@ -739,10 +737,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("bind", "SOURCE[:TARGET]", "Mount a file or directory from the host into the VM"): {}
                 OPTION_LONG("bind-ro", "SOURCE[:TARGET]", "Mount a file or directory, but read-only"): {
-                        bool read_only = streq(current->long_code, "bind-ro");
-                        r = runtime_mount_parse(&arg_runtime_mounts, arg, read_only);
+                        bool read_only = streq(state.current->long_code, "bind-ro");
+                        r = runtime_mount_parse(&arg_runtime_mounts, state.argument, read_only);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --%s= argument %s: %m", current->long_code, arg);
+                                return log_error_errno(r, "Failed to parse --%s= argument %s: %m",
+                                                       state.current->long_code, state.argument);
                         break;
                 }
 
@@ -751,7 +750,7 @@ static int parse_argv(int argc, char *argv[]) {
                         DiskType extra_disk_type = _DISK_TYPE_INVALID;
                         _cleanup_free_ char *drive_path = NULL;
 
-                        r = parse_disk_spec(arg, &format, &extra_disk_type, &drive_path);
+                        r = parse_disk_spec(state.argument, &format, &extra_disk_type, &drive_path);
                         if (r < 0)
                                 return r;
 
@@ -767,10 +766,10 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 OPTION_LONG("bind-user", "NAME", "Bind user from host to virtual machine"):
-                        if (!valid_user_group_name(arg, /* flags= */ 0))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid user name to bind: %s", arg);
+                        if (!valid_user_group_name(state.argument, /* flags= */ 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid user name to bind: %s", state.argument);
 
-                        if (strv_extend(&arg_bind_user, arg) < 0)
+                        if (strv_extend(&arg_bind_user, state.argument) < 0)
                                 return log_oom();
                         break;
 
@@ -778,11 +777,11 @@ static int parse_argv(int argc, char *argv[]) {
                             "Configure the shell to use for --bind-user= users"): {
                         bool copy = false;
                         char *sh = NULL;
-                        r = parse_user_shell(arg, &sh, &copy);
+                        r = parse_user_shell(state.argument, &sh, &copy);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
-                                return log_error_errno(r, "Invalid user shell to bind: %s", arg);
+                                return log_error_errno(r, "Invalid user shell to bind: %s", state.argument);
 
                         free_and_replace(arg_bind_user_shell, sh);
                         arg_bind_user_shell_copy = copy;
@@ -790,61 +789,61 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 OPTION_LONG("bind-user-group", "GROUP", "Add an auxiliary group to --bind-user= users"):
-                        if (!valid_user_group_name(arg, /* flags= */ 0))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid bind user auxiliary group name: %s", arg);
+                        if (!valid_user_group_name(state.argument, /* flags= */ 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid bind user auxiliary group name: %s", state.argument);
 
-                        if (strv_extend(&arg_bind_user_groups, arg) < 0)
+                        if (strv_extend(&arg_bind_user_groups, state.argument) < 0)
                                 return log_oom();
                         break;
 
                 OPTION_GROUP("Integration"): {}
 
                 OPTION_LONG("forward-journal", "FILE|DIR", "Forward the VM's journal to the host"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_forward_journal);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_forward_journal);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("forward-journal-max-use", "BYTES", "Maximum disk space for forwarded journal"):
-                        r = parse_size(arg, 1024, &arg_forward_journal_max_use);
+                        r = parse_size(state.argument, 1024, &arg_forward_journal_max_use);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --forward-journal-max-use= value: %s", optarg);
                         break;
 
                 OPTION_LONG("forward-journal-keep-free", "BYTES", "Minimum disk space to keep free"):
-                        r = parse_size(arg, 1024, &arg_forward_journal_keep_free);
+                        r = parse_size(state.argument, 1024, &arg_forward_journal_keep_free);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --forward-journal-keep-free= value: %s", optarg);
                         break;
 
                 OPTION_LONG("forward-journal-max-file-size", "BYTES", "Maximum size of individual journal files"):
-                        r = parse_size(arg, 1024, &arg_forward_journal_max_file_size);
+                        r = parse_size(state.argument, 1024, &arg_forward_journal_max_file_size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --forward-journal-max-file-size= value: %s", optarg);
                         break;
 
                 OPTION_LONG("forward-journal-max-files", "N", "Maximum number of journal files to keep"):
-                        r = safe_atou64(arg, &arg_forward_journal_max_files);
+                        r = safe_atou64(state.argument, &arg_forward_journal_max_files);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --forward-journal-max-files= value: %s", optarg);
                         break;
 
                 OPTION_LONG("pass-ssh-key", "BOOL", "Create an SSH key to access the VM"):
-                        r = parse_boolean_argument("--pass-ssh-key=", arg, &arg_pass_ssh_key);
+                        r = parse_boolean_argument("--pass-ssh-key=", state.argument, &arg_pass_ssh_key);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("ssh-key-type", "TYPE", "Choose what type of SSH key to pass"):
-                        if (isempty(arg)) {
+                        if (isempty(state.argument)) {
                                 arg_ssh_key_type = mfree(arg_ssh_key_type);
                                 break;
                         }
 
-                        if (!string_is_safe(arg, STRING_ALLOW_GLOBS))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value for --ssh-key-type=: %s", arg);
+                        if (!string_is_safe(state.argument, STRING_ALLOW_GLOBS))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value for --ssh-key-type=: %s", state.argument);
 
-                        r = free_and_strdup_warn(&arg_ssh_key_type, arg);
+                        r = free_and_strdup_warn(&arg_ssh_key_type, state.argument);
                         if (r < 0)
                                 return r;
                         break;
@@ -853,15 +852,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("console", "MODE",
                             "Console mode (interactive, native, gui, read-only or headless)"):
-                        arg_console_mode = console_mode_from_string(arg);
+                        arg_console_mode = console_mode_from_string(state.argument);
                         if (arg_console_mode < 0)
-                                return log_error_errno(arg_console_mode, "Failed to parse specified console mode: %s", arg);
+                                return log_error_errno(arg_console_mode, "Failed to parse specified console mode: %s", state.argument);
                         break;
 
                 OPTION_LONG("console-transport", "TRANSPORT", "Console transport (virtio or serial)"):
-                        arg_console_transport = console_transport_from_string(arg);
+                        arg_console_transport = console_transport_from_string(state.argument);
                         if (arg_console_transport < 0)
-                                return log_error_errno(arg_console_transport, "Failed to parse specified console transport: %s", arg);
+                                return log_error_errno(arg_console_transport, "Failed to parse specified console transport: %s", state.argument);
                         break;
 
                 OPTION_LONG("qemu-gui", NULL, /* help= */ NULL):  /* Compat alias */
@@ -869,7 +868,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("background", "COLOR", "Set ANSI color for background"):
-                        r = parse_background_argument(arg, &arg_background);
+                        r = parse_background_argument(state.argument, &arg_background);
                         if (r < 0)
                                 return r;
                         break;
@@ -877,14 +876,14 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Credentials"): {}
 
                 OPTION_LONG("set-credential", "ID:VALUE", "Pass a credential with literal value to the VM"):
-                        r = machine_credential_set(&arg_credentials, arg);
+                        r = machine_credential_set(&arg_credentials, state.argument);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("load-credential", "ID:PATH",
                             "Load credential for the VM from file or AF_UNIX stream socket"):
-                        r = machine_credential_load(&arg_credentials, arg);
+                        r = machine_credential_load(&arg_credentials, state.argument);
                         if (r < 0)
                                 return r;
                         break;

@@ -52,7 +52,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         OptionParser state = { argc, argv };
 
-        FOREACH_OPTION(&state, c, /* ret_a= */ NULL, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:

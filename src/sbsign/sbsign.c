@@ -94,10 +94,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(ret_args);
 
         OptionParser state = { argc, argv };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -108,21 +107,21 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("output", "PATH",
                             "Where to write the signed PE binary"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_output);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_output);
                         if (r < 0)
                                 return r;
 
                         break;
 
                 OPTION_COMMON_CERTIFICATE("PEM certificate to use for signing"):
-                        r = free_and_strdup_warn(&arg_certificate, arg);
+                        r = free_and_strdup_warn(&arg_certificate, state.argument);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_COMMON_CERTIFICATE_SOURCE:
                         r = parse_openssl_certificate_source_argument(
-                                        arg,
+                                        state.argument,
                                         &arg_certificate_source,
                                         &arg_certificate_source_type);
                         if (r < 0)
@@ -130,7 +129,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_PRIVATE_KEY("Private key (PEM) to sign with"):
-                        r = free_and_strdup_warn(&arg_private_key, arg);
+                        r = free_and_strdup_warn(&arg_private_key, state.argument);
                         if (r < 0)
                                 return r;
 
@@ -138,7 +137,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_COMMON_PRIVATE_KEY_SOURCE:
                         r = parse_openssl_key_source_argument(
-                                        arg,
+                                        state.argument,
                                         &arg_private_key_source,
                                         &arg_private_key_source_type);
                         if (r < 0)
@@ -151,14 +150,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("signed-data", "PATH", /* help= */ NULL):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_signed_data);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_signed_data);
                         if (r < 0)
                                 return r;
 
                         break;
 
                 OPTION_LONG("signed-data-signature", "PATH", /* help= */ NULL):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_signed_data_signature);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_signed_data_signature);
                         if (r < 0)
                                 return r;
 

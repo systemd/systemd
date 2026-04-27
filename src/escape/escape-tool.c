@@ -57,9 +57,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -69,20 +68,20 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return version();
 
                 OPTION_LONG("suffix", "SUFFIX", "Unit suffix to append to escaped strings"): {
-                        UnitType t = unit_type_from_string(arg);
+                        UnitType t = unit_type_from_string(state.argument);
                         if (t < 0)
-                                return log_error_errno(t, "Invalid unit suffix type \"%s\".", arg);
+                                return log_error_errno(t, "Invalid unit suffix type \"%s\".", state.argument);
 
-                        arg_suffix = arg;
+                        arg_suffix = state.argument;
                         break;
                 }
 
                 OPTION_LONG("template", "TEMPLATE", "Insert strings as instance into template"):
-                        if (!unit_name_is_valid(arg, UNIT_NAME_TEMPLATE))
+                        if (!unit_name_is_valid(state.argument, UNIT_NAME_TEMPLATE))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Template name %s is not valid.", arg);
+                                                       "Template name %s is not valid.", state.argument);
 
-                        arg_template = arg;
+                        arg_template = state.argument;
                         break;
 
                 OPTION_LONG("instance", NULL, "With --unescape, show just the instance part"):

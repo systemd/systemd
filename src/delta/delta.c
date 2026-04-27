@@ -518,10 +518,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -535,7 +534,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION('t', "type", "TYPE...", "Only display a selected set of override types"):
-                        r = parse_flags(arg, arg_flags);
+                        r = parse_flags(state.argument, arg_flags);
                         if (r < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to parse flags field.");
@@ -544,7 +543,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "diff", "yes|no",
                                   "Show a diff when overridden files differ"):
-                        r = parse_boolean_argument("--diff", arg, NULL);
+                        r = parse_boolean_argument("--diff", state.argument, NULL);
                         if (r < 0)
                                 return r;
                         arg_diff = r;

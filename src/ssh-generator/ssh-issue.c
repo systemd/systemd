@@ -160,11 +160,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(ret_args);
 
         OptionParser state = { argc, argv };
-        const Option *opt;
-        const char *arg, *verb = NULL;
+        const char *verb = NULL;
         int r;
 
-        FOREACH_OPTION_FULL(&state, c, &opt, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -175,18 +174,18 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("make-vsock", NULL, /* help= */ NULL): {}
                 OPTION_LONG("rm-vsock", NULL, /* help= */ NULL):
-                        verb = opt->long_code;
+                        verb = state.current->long_code;
                         break;
 
                 OPTION_LONG("issue-path", "PATH",
                             "Change path to /run/issue.d/50-ssh-vsock.issue"):
-                        if (empty_or_dash(arg)) {
+                        if (empty_or_dash(state.argument)) {
                                 arg_issue_path = mfree(arg_issue_path);
                                 arg_issue_stdout = true;
                                 break;
                         }
 
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_issue_path);
+                        r = parse_path_argument(state.argument, /* suppress_root= */ false, &arg_issue_path);
                         if (r < 0)
                                 return r;
 

@@ -61,10 +61,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         OptionParser state = { argc, argv };
-        const char *arg;
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &state, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -74,13 +73,13 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 OPTION_LONG("kernel", "BOOL", "Mute kernel log output"):
-                        r = parse_boolean_argument("--kernel=", arg, &arg_mute_kernel);
+                        r = parse_boolean_argument("--kernel=", state.argument, &arg_mute_kernel);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("pid1", "BOOL", "Mute PID 1 status output"):
-                        r = parse_boolean_argument("--pid1=", arg, &arg_mute_pid1);
+                        r = parse_boolean_argument("--pid1=", state.argument, &arg_mute_pid1);
                         if (r < 0)
                                 return r;
                         break;
