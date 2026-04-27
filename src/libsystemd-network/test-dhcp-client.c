@@ -326,6 +326,30 @@ static void verify_request(sd_dhcp_message *m, uint8_t type) {
         ASSERT_STREQ(str, extra_option_164);
 }
 
+static void verify_anonymized_request(sd_dhcp_message *m, uint8_t type) {
+        verify_header(m);
+        verify_basic_options(m, type);
+
+        _cleanup_set_free_ Set *prl = NULL;
+        ASSERT_OK(dhcp_message_get_option_parameter_request_list(m, &prl));
+
+        for (uint8_t i = 178; i <= 207; i++)
+                ASSERT_FALSE(set_contains(prl, UINT_TO_PTR(i)));
+
+        uint8_t code;
+        FOREACH_ARGUMENT(code,
+                         SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
+                         SD_DHCP_OPTION_MUD_URL,
+                         SD_DHCP_OPTION_HOST_NAME,
+                         SD_DHCP_OPTION_FQDN,
+                         SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER,
+                         SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION,
+                         SD_DHCP_OPTION_USER_CLASS,
+                         163,
+                         164)
+                ASSERT_FALSE(dhcp_message_has_option(m, code));
+}
+
 static void verify_request_server_address(sd_dhcp_message *m) {
         struct in_addr a;
         ASSERT_OK(dhcp_message_get_option_address(m, SD_DHCP_OPTION_SERVER_IDENTIFIER, &a));
@@ -590,6 +614,79 @@ TEST(basic) {
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
         setup(basic_io_handler, basic_client_handler, &client);
         ASSERT_OK(sd_dhcp_client_set_send_release(client, true));
+        ASSERT_OK(sd_dhcp_client_start(client));
+        ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
+}
+
+static int anonymize_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        sd_dhcp_client *client = ASSERT_PTR(userdata);
+        static unsigned count = 0;
+
+        count++;
+        log_debug("%s: count=%u", __func__, count);
+
+        switch (count) {
+        case 1: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                verify_anonymized_request(request, DHCP_DISCOVER);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_OFFER, &reply);
+
+                send_message(fd, /* raw= */ true, client, reply);
+                break;
+        }
+        case 2: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                /* REQUEST (selecting) */
+                verify_anonymized_request(request, DHCP_REQUEST);
+                verify_request_server_address(request);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_ACK, &reply);
+
+                send_message(fd, /* raw= */ true, client, reply);
+                break;
+        }
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+static int anonymize_client_handler(sd_dhcp_client *client, int event, void *userdata) {
+        sd_event *e = ASSERT_PTR(userdata);
+        static unsigned count = 0;
+
+        count++;
+        log_debug("%s: count=%u, event=%i", __func__, count, event);
+
+        switch (count) {
+        case 1:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_SELECTING);
+                verify_reply(client, DHCP_STATE_SELECTING);
+                break;
+        case 2:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
+                verify_reply(client, DHCP_STATE_BOUND);
+                ASSERT_OK(sd_event_exit(e, 0));
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+TEST(anonymize) {
+        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
+        setup(anonymize_io_handler, anonymize_client_handler, &client);
+        ASSERT_OK(sd_dhcp_client_set_anonymize(client, true));
         ASSERT_OK(sd_dhcp_client_start(client));
         ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
 }
