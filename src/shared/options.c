@@ -21,7 +21,8 @@ static bool option_arg_required(const Option *opt) {
 
 static bool option_is_metadata(const Option *opt) {
         /* A metadata entry that is not a real option, like the group marker */
-        return ASSERT_PTR(opt)->flags & (OPTION_GROUP_MARKER |
+        return ASSERT_PTR(opt)->flags & (OPTION_NAMESPACE_MARKER |
+                                         OPTION_GROUP_MARKER |
                                          OPTION_POSITIONAL_ENTRY |
                                          OPTION_HELP_ENTRY |
                                          OPTION_HELP_ENTRY_VERBATIM);
@@ -81,7 +82,7 @@ int option_parse(
         /* Check and initialize */
         switch (state->state) {
 
-        case OPTION_PARSER_INIT:
+        case OPTION_PARSER_INIT: {
                 assert(state->mode >= 0 && state->mode < _OPTION_PARSER_MODE_MAX);
 
                 if (state->argc < 1) {
@@ -90,9 +91,34 @@ int option_parse(
                 }
 
                 assert_se((size_t) state->argc == strv_length(state->argv)); /* Make sure argc/argv are consistent */
+
+                /* Figure out the right range of options */
+                bool in_ns = state->namespace == NULL;  /* Are we currently in the section of the array that
+                                                         * forms namespace <namespace>? The first part is the
+                                                         * default unnamed namespace, so if the namespace was
+                                                         * not specified, we are in it. */
+                if (in_ns)
+                        state->namespace_start = options;
+
+                const Option *opt;
+                for (opt = options; opt < options_end; opt++) {
+                        bool ns_marker = FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER);
+                        if (!in_ns) {
+                                in_ns = ns_marker && streq(state->namespace, opt->long_code);
+                                if (in_ns)
+                                        state->namespace_start = opt + 1;
+                                continue;
+                        }
+                        if (ns_marker)
+                                break;  /* End of namespace */
+                }
+                assert(state->namespace_start);
+                state->namespace_end = opt;
+
                 state->optind = state->positional_offset = 1;
                 state->state = OPTION_PARSER_RUNNING;
                 break;
+        }
 
         case OPTION_PARSER_RUNNING:
         case OPTION_PARSER_STOPPING:
@@ -156,10 +182,10 @@ int option_parse(
 
                 if (handling_positional_arg)
                         /* We are supposed to return the positional arg to be handled. */
-                        for (option = options;; option++) {
+                        for (option = state->namespace_start;; option++) {
                                 /* If OPTION_PARSER_RETURN_POSITIONAL_ARGS is specified,
                                  * OPTION_POSITIONAL must be used. */
-                                assert(option < options_end);
+                                assert(option < state->namespace_end);
 
                                 if (FLAGS_SET(option->flags, OPTION_POSITIONAL_ENTRY))
                                         break;
@@ -184,8 +210,8 @@ int option_parse(
                         const Option *last_partial = NULL;
                         unsigned n_partial_matches = 0;  /* The commandline option matches a defined prefix. */
 
-                        for (option = options;; option++) {
-                                if (option >= options_end) {
+                        for (option = state->namespace_start;; option++) {
+                                if (option >= state->namespace_end) {
                                         if (n_partial_matches == 0) {
                                                 r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                     "%s: unrecognized option '%s'",
@@ -193,7 +219,11 @@ int option_parse(
                                                 goto fail;
                                         }
                                         if (n_partial_matches > 1) {
-                                                r = partial_match_error(options, options_end, optname, n_partial_matches);
+                                                r = partial_match_error(
+                                                                state->namespace_start,
+                                                                state->namespace_end,
+                                                                optname,
+                                                                n_partial_matches);
                                                 goto fail;
                                         }
 
@@ -230,8 +260,8 @@ int option_parse(
                 }
                 optname = _optname;
 
-                for (option = options;; option++) {
-                        if (option >= options_end) {
+                for (option = state->namespace_start;; option++) {
+                        if (option >= state->namespace_end) {
                                 r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                     "%s: unrecognized option '%s'",
                                                     program_invocation_short_name, optname);
@@ -354,7 +384,8 @@ size_t option_parser_get_n_args(const OptionParser *state) {
 
 char* option_get_synopsis(const char *prefix, const Option *opt, const char *joiner, bool show_metavar) {
         assert(opt);
-        assert(!FLAGS_SET(opt->flags, OPTION_GROUP_MARKER));  /* A group marker should not be displayed */
+        assert(!(opt->flags & (OPTION_NAMESPACE_MARKER |
+                               OPTION_GROUP_MARKER)));  /* The markers should not be displayed */
 
         if (!prefix)
                 prefix = "";
@@ -405,9 +436,10 @@ char* option_get_synopsis(const char *prefix, const Option *opt, const char *joi
                        option_arg_optional(opt) ? "]" : "");
 }
 
-int _option_parser_get_help_table(
+int _option_parser_get_help_table_full(
                 const Option options[],
                 const Option options_end[],
+                const char *namespace,
                 const char *group,
                 Table **ret) {
         int r;
@@ -418,11 +450,23 @@ int _option_parser_get_help_table(
         if (!table)
                 return log_oom();
 
-        bool in_group = group == NULL;  /* Are we currently in the section on the array that forms
-                                         * group <group>? The first part is the default group, so
-                                         * if the group was not specified, we are in. */
+        bool in_ns = namespace == NULL;  /* Are we currently in the section of the array that forms namespace
+                                          * <namespace>? The first part is the default unnamed namespace, so
+                                          * if the namespace was not specified, we are in it. */
+
+        bool in_group = group == NULL;  /* Are we currently in the section of the array that forms group
+                                         * <group>? The first part is the default group, so if the group was
+                                         * not specified, we are in it. */
 
         for (const Option *opt = options; opt < options_end; opt++) {
+                bool ns_marker = FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER);
+                if (!in_ns) {
+                        in_ns = ns_marker && streq(namespace, opt->long_code);
+                        continue;
+                }
+                if (ns_marker)
+                        break;  /* End of namespace */
+
                 bool group_marker = FLAGS_SET(opt->flags, OPTION_GROUP_MARKER);
                 if (!in_group) {
                         in_group = group_marker && streq(group, opt->long_code);
@@ -454,6 +498,8 @@ int _option_parser_get_help_table(
                 if (r < 0)
                         return table_log_add_error(r);
         }
+
+        assert(!table_isempty(table));  /* The namespace or group were not found. Something is off. */
 
         table_set_header(table, false);
         *ret = TAKE_PTR(table);
