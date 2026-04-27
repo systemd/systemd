@@ -26,6 +26,7 @@ rules = [
                '60-tpm2-id.rules',
                '65-integration.rules',
                '70-camera.rules',
+               '70-flipperzero.rules',
                '70-joystick.rules',
                '70-mouse.rules',
                '70-touchpad.rules',
