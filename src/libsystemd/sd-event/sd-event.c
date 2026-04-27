@@ -2,6 +2,7 @@
 
 #include <linux/magic.h>
 #include <malloc.h>
+#include <poll.h>
 #include <stdlib.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
@@ -24,11 +25,14 @@
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
+#include "io-uring-util.h"
+#include "io-util.h"
 #include "list.h"
 #include "log.h"
 #include "logarithm.h"
 #include "memory-util.h"
 #include "origin-id.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
 #include "prioq.h"
@@ -46,6 +50,12 @@
 #include "time-util.h"
 
 #define DEFAULT_ACCURACY_USEC (250 * USEC_PER_MSEC)
+
+/* user_data sentinel we stamp on every cancel SQE we submit ourselves. We also set
+ * IOSQE_CQE_SKIP_SUCCESS on those SQEs, so on success no CQE is generated at all. The sentinel exists for
+ * the failure path: if cancel returns an error, the kernel still posts a CQE which we then drop in
+ * dispatch_cqe() by matching on this user_data. */
+#define EVENT_URING_CANCEL_USER_DATA UINT64_MAX
 
 static bool EVENT_SOURCE_WATCH_PIDFD(const sd_event_source *s) {
         /* Returns true if this is a PID event source and can be implemented by watching EPOLLIN */
@@ -113,6 +123,48 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(event_source_type, int);
  * EVENT_SOURCE_CAN_RATE_LIMIT() macro. */
 #define EVENT_SOURCE_USES_TIME_PRIOQ(t) EVENT_SOURCE_CAN_RATE_LIMIT(t)
 
+/* sd_event_slot is a refcounted handle for asynchronous operations whose lifecycle does not match the
+ * source enable/disable model — currently just io_uring SQE submissions. Two refs are held while a slot is
+ * inflight: one by the user (via the ret_slot output), one by the in-flight kernel operation; the latter
+ * is dropped when the terminal CQE is dispatched. */
+struct sd_event_slot {
+        WakeupType wakeup;          /* MUST be first — discriminator for dispatch_cqe + pending_prioq_compare */
+
+        unsigned n_ref;
+        sd_event *event;            /* NULL once disconnected */
+
+        bool floating;
+        bool inflight;              /* SQE submitted, terminal CQE not yet seen */
+        bool cancel_submitted;      /* prevent duplicate cancel SQEs */
+        bool pending;
+        bool dispatching;
+
+        unsigned pending_index;
+        uint64_t pending_iteration;
+        int64_t priority;
+
+        void *userdata;
+        sd_event_destroy_t destroy_callback;
+        char *description;
+
+        LIST_FIELDS(sd_event_slot, slots);   /* on event->slots */
+
+        sd_event_io_uring_handler_t callback;
+        int32_t cqe_res;            /* res from terminal CQE; forwarded to callback */
+        uint32_t cqe_flags;
+
+#if HAVE_LIBURING
+        /* Set in sd_event_add_io_uring_sqe() and cleared just before we hand the SQE to the kernel
+         * (event_io_uring_flush_pending_sqes()) or when sd_event_slot_cancel() rewrites it to a NOP.
+         * Non-NULL means the SQE is still in the userspace submission ring and we can mutate it in
+         * place — that's our window for synchronous cancellation without round-tripping through the
+         * kernel. NULL means either pre-registration or post-submission; in both cases the field is
+         * not a valid pointer to anything we own. */
+        struct io_uring_sqe *pending_sqe;
+        LIST_FIELDS(sd_event_slot, pending_sqes);   /* on event->pending_sqes when pending_sqe != NULL */
+#endif
+};
+
 struct sd_event {
         unsigned n_ref;
 
@@ -179,47 +231,328 @@ struct sd_event {
 
         LIST_HEAD(sd_event_source, sources);
 
+        unsigned n_slots;
+        LIST_HEAD(sd_event_slot, slots);
+
         sd_event_source *sigint_event_source, *sigterm_event_source;
 
         usec_t last_run_usec, last_log_usec;
         unsigned delays[sizeof(usec_t) * 8];
+
+#if HAVE_LIBURING
+        /* The io_uring backend is opt-in via sd_event_set_io_uring_enabled(). Liveness is tracked via
+         * io_uring.ring_fd: sd_event_new() initializes it to -EBADF, and io_uring_queue_init_params()
+         * stamps a valid fd on success. event_io_uring_enabled() below checks for that. */
+        struct io_uring io_uring;
+
+        /* Slots whose SQE is sitting in the userspace submission ring but hasn't yet been handed to
+         * the kernel. Walked by event_io_uring_flush_pending_sqes() right before any io_uring_submit
+         * call to clear the per-slot pending_sqe pointers (which become stale as soon as the kernel
+         * claims them). Also lets sd_event_slot_cancel() unlink synchronously when it rewrites an
+         * unsubmitted SQE to a NOP. */
+        LIST_HEAD(sd_event_slot, pending_sqes);
+
+        /* Set once event_io_uring_cancel_all() submitted the blanket cancel-all SQE, so we don't submit
+         * it twice. The exit cascade then loops until every slot in e->slots has its inflight flag
+         * cleared (kernel CQEs have arrived for each) and its callback has fired. */
+        bool io_uring_cancel_all_submitted;
+
+        /* Sum of every sd_event_source's io_uring_inflight (one per armed POLL_ADD). Used by the
+         * exit cascade to wait for all source POLL_ADDs to drain before transitioning to FINISHED. */
+        size_t io_uring_inflight;
+
+        /* Sources whose pending_sqe is non-NULL: a POLL_ADD SQE has been queued in userspace
+         * but hasn't been submitted to the kernel yet. */
+        LIST_HEAD(sd_event_source, pending_source_sqes);
+#endif
 };
+
+#if HAVE_LIBURING
+static void event_io_uring_flush_pending_sqes(sd_event *e) {
+        assert(e);
+
+        sd_event_slot *s;
+        while ((s = LIST_POP(pending_sqes, e->pending_sqes)))
+                s->pending_sqe = NULL;
+
+        sd_event_source *src;
+        while ((src = LIST_POP(pending_source_sqes, e->pending_source_sqes)))
+                src->pending_sqe = NULL;
+}
+
+/* Synchronous-cancel fast path: if `s` has a POLL_ADD SQE that hasn't been submitted to the kernel,
+ * rewrite it to NOP+CQE_SKIP_SUCCESS and drop the inflight ref. */
+static bool source_io_uring_cancel_pending(sd_event_source *s) {
+        assert(s);
+
+        if (!s->pending_sqe)
+                return false;
+
+        io_uring_prep_nop(s->pending_sqe);
+        io_uring_sqe_set_flags(s->pending_sqe, IOSQE_CQE_SKIP_SUCCESS);
+
+        LIST_REMOVE(pending_source_sqes, s->event->pending_source_sqes, s);
+        s->pending_sqe = NULL;
+
+        assert(s->io_uring_inflight > 0);
+        assert(s->event->io_uring_inflight > 0);
+        s->io_uring_inflight--;
+        s->event->io_uring_inflight--;
+        sd_event_source_unref(s);
+        return true;
+}
+
+/* Wraps io_uring_get_sqe() with a "submit and retry" fallback: when the SQ is full we flush pending
+ * SQEs to the kernel (which frees their slots) and try once more. Without this, callers that queue
+ * many SQEs back-to-back (e.g. a varlink server attaching hundreds of connections) hit -ENOSPC the
+ * moment the ring is saturated. */
+static int event_io_uring_get_sqe(sd_event *e, struct io_uring_sqe **ret) {
+        int r;
+
+        assert(e);
+        assert(ret);
+
+        struct io_uring_sqe *sqe = io_uring_get_sqe(&e->io_uring);
+        if (sqe) {
+                *ret = sqe;
+                return 0;
+        }
+
+        event_io_uring_flush_pending_sqes(e);
+        r = sym_io_uring_submit(&e->io_uring);
+        if (r < 0)
+                return r;
+
+        sqe = io_uring_get_sqe(&e->io_uring);
+        if (!sqe)
+                return -ENOSPC;
+
+        *ret = sqe;
+        return 0;
+}
+#endif
+
+static inline bool event_io_uring_enabled(sd_event *e) {
+        assert(e);
+#if HAVE_LIBURING
+        return e->io_uring.ring_fd >= 0;
+#else
+        return false;
+#endif
+}
 
 DEFINE_PRIVATE_ORIGIN_ID_HELPERS(sd_event, event);
 
 static thread_local sd_event *default_event = NULL;
 
+static struct signal_data* event_free_signal_data(struct signal_data *d) {
+        if (!d)
+                return NULL;
+
+        safe_close(d->fd);
+        return mfree(d);
+}
+
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(struct signal_data, signal_data, event_free_signal_data);
+
+static InotifyData* event_free_inotify_data(InotifyData *d) {
+        if (!d)
+                return NULL;
+
+        hashmap_free(d->inodes);
+        hashmap_free(d->wd);
+        safe_close(d->fd);
+        return mfree(d);
+}
+
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(InotifyData, inotify_data, event_free_inotify_data);
+
 static void source_disconnect(sd_event_source *s);
 static void event_gc_inode_data(sd_event *e, InodeData *d);
+#if HAVE_LIBURING
+static int dispatch_cqe(sd_event *e, struct io_uring_cqe *cqe, int64_t threshold, int64_t *min_priority);
+#endif
 
 static sd_event* event_resolve(sd_event *e) {
         return e == SD_EVENT_DEFAULT ? default_event : e;
 }
 
+/* Internal wrapper around the kernel readiness facility used to wake the event loop on fd activity. Maps to
+ * epoll_ctl() in epoll mode; under io_uring it queues POLL_ADD / cancel_fd SQEs. Returns 0 on success,
+ * -errno on failure. For EPOLL_CTL_DEL the events argument is ignored. */
+static int event_attach_fd(sd_event *e, int op, int fd, uint32_t events, void *userdata) {
+#if HAVE_LIBURING
+        int r;
+#endif
+
+        assert(e);
+        assert(IN_SET(op, EPOLL_CTL_ADD, EPOLL_CTL_MOD, EPOLL_CTL_DEL));
+        assert(fd >= 0);
+
+#if HAVE_LIBURING
+        if (event_io_uring_enabled(e)) {
+                struct io_uring_sqe *sqe;
+
+                /* If userdata is a source we track per-source pending SQEs for, grab the pointer once. */
+                sd_event_source *src = NULL;
+                if (userdata && userdata != INT_TO_PTR(SOURCE_WATCHDOG) &&
+                    pending_kind(userdata) == WAKEUP_EVENT_SOURCE)
+                        src = userdata;
+
+                /* Fast path for MOD: if a POLL_ADD for this source has not yet been submitted to the kernel,
+                 * re-prep that SQE in place with the new mask instead of queuing CANCEL+POLL_ADD. The
+                 * inflight ref we took when first queuing remains valid — it still represents one SQE that
+                 * will produce one terminal CQE. */
+                if (op == EPOLL_CTL_MOD && src && src->pending_sqe) {
+                        if (FLAGS_SET(events, EPOLLET))
+                                io_uring_prep_poll_multishot(src->pending_sqe, fd, epoll_events_to_poll(events));
+                        else
+                                io_uring_prep_poll_add(src->pending_sqe, fd, epoll_events_to_poll(events));
+                        io_uring_sqe_set_data(src->pending_sqe, src);
+                        return 0;
+                }
+
+                /* Fast path for DEL: NOP any not yet submitted POLL_ADD synchronously and drop the inflight
+                 * ref, then return. Safe to skip the CANCEL even if a kernel-armed POLL_ADD also exists
+                 * for this source: the only way to get pending + kernel-armed simultaneously is via the
+                 * MOD path that queues CANCEL immediately before its new POLL_ADD, and because
+                 * event_io_uring_flush_pending_sqes() runs before every submit, pending_sqe != NULL
+                 * implies the SQE is still in our SQ — which means the prior MOD's CANCEL is also still
+                 * in the SQ ahead of it, and will tear down the kernel-armed POLL_ADD on the next
+                 * submit. */
+                if (op == EPOLL_CTL_DEL && src && source_io_uring_cancel_pending(src))
+                        return 0;
+
+                if (IN_SET(op, EPOLL_CTL_MOD, EPOLL_CTL_DEL)) {
+                        r = event_io_uring_get_sqe(e, &sqe);
+                        if (r < 0)
+                                return r;
+
+                        /* Cancel by user_data, not by fd. io_uring's POLL_ADD holds a kernel file
+                         * reference, so close(fd) on a fd with an inflight POLL_ADD doesn't free the
+                         * file (and for sockets, the peer never sees the disconnect). cancel_fd
+                         * returns -EBADF once the fd is gone, leaving the POLL_ADD armed forever.
+                         * cancel by user_data doesn't depend on the fd table and lets the kernel
+                         * cleanly tear down inflight POLL_ADDs even after the user has closed the fd.
+                         * Every event_attach_fd caller passes a non-NULL userdata for this reason. */
+                        assert(userdata);
+                        io_uring_prep_cancel(sqe, userdata, 0);
+                        io_uring_sqe_set_flags(sqe, IOSQE_CQE_SKIP_SUCCESS);
+                        io_uring_sqe_set_data64(sqe, EVENT_URING_CANCEL_USER_DATA);
+                }
+
+                if (IN_SET(op, EPOLL_CTL_ADD, EPOLL_CTL_MOD)) {
+                        r = event_io_uring_get_sqe(e, &sqe);
+                        if (r < 0)
+                                return r;
+
+                        /* POLL_ADD_MULTI is edge-triggered: it stays armed and fires a CQE on each
+                         * waitqueue wake. That's the right thing for EPOLLET callers. For default
+                         * (level-triggered) sd-event semantics, we'd need vfs_poll() to be re-checked
+                         * after the user reads — which only happens on a fresh POLL_ADD arm — so we
+                         * use oneshot POLL_ADD and re-arm in dispatch_cqe() after each CQE.
+                         * EPOLLONESHOT is also oneshot but never re-armed (it fires once, source then
+                         * auto-disables). The kernel ORs EPOLLERR|EPOLLHUP|EPOLLNVAL|EPOLLRDHUP into
+                         * the mask automatically in io_init_poll_iocb(), so peer-close fires the
+                         * POLL_ADD even if the caller only requested EPOLLIN. */
+                        if (FLAGS_SET(events, EPOLLET))
+                                io_uring_prep_poll_multishot(sqe, fd, epoll_events_to_poll(events));
+                        else
+                                io_uring_prep_poll_add(sqe, fd, epoll_events_to_poll(events));
+                        io_uring_sqe_set_data(sqe, userdata);
+
+                        /* Pin the userdata across the kernel's POLL_ADD lifetime: if it goes away
+                         * while a CQE is in flight, the struct memory must remain valid until
+                         * dispatch_cqe() processes that CQE and drops this ref. Sources also use
+                         * the pending_sqe machinery for in-SQ NOP/re-prep fast paths; the
+                         * internal data structs don't need that — they only get ADD (initial
+                         * arm + re-arm), never MOD. */
+                        if (src) {
+                                src->pending_sqe = sqe;
+                                LIST_PREPEND(pending_source_sqes, e->pending_source_sqes, src);
+
+                                src->io_uring_inflight++;
+                                e->io_uring_inflight++;
+                                sd_event_source_ref(src);
+                        } else if (userdata && pending_kind(userdata) == WAKEUP_INOTIFY_DATA) {
+                                e->io_uring_inflight++;
+                                inotify_data_ref(userdata);
+                        } else if (userdata && pending_kind(userdata) == WAKEUP_SIGNAL_DATA) {
+                                e->io_uring_inflight++;
+                                signal_data_ref(userdata);
+                        }
+                }
+
+                return 0;
+        }
+#endif
+
+        struct epoll_event ev = {
+                .events = events,
+                .data.ptr = userdata,
+        };
+
+        return RET_NERRNO(epoll_ctl(e->epoll_fd, op, fd, op == EPOLL_CTL_DEL ? NULL : &ev));
+}
+
+typedef struct PendingPrioqKey {
+        bool off;
+        bool ratelimited;
+        int64_t priority;
+        uint64_t iteration;
+} PendingPrioqKey;
+
+/* The pending prioq holds both sd_event_source and sd_event_slot pointers; both structs have WakeupType
+ * as their first field so we can discriminate. Slots have no enable/ratelimit concept so they're treated
+ * as always-enabled and never-ratelimited for ordering purposes. */
+static PendingPrioqKey pending_prioq_key(const void *p) {
+        const WakeupType *wt = p;
+
+        if (*wt == WAKEUP_EVENT_SOURCE) {
+                const sd_event_source *s = p;
+                assert(s->pending);
+                return (PendingPrioqKey) {
+                        .off = (s->enabled == SD_EVENT_OFF),
+                        .ratelimited = s->ratelimited,
+                        .priority = s->priority,
+                        .iteration = s->pending_iteration,
+                };
+        }
+
+        if (*wt == WAKEUP_EVENT_SLOT) {
+                const sd_event_slot *s = p;
+                assert(s->pending);
+                return (PendingPrioqKey) {
+                        .priority = s->priority,
+                        .iteration = s->pending_iteration,
+                };
+        }
+
+        assert_not_reached();
+}
+
 static int pending_prioq_compare(const void *a, const void *b) {
-        const sd_event_source *x = a, *y = b;
+        PendingPrioqKey x = pending_prioq_key(a);
+        PendingPrioqKey y = pending_prioq_key(b);
         int r;
 
-        assert(x->pending);
-        assert(y->pending);
-
         /* Enabled ones first */
-        r = CMP(x->enabled == SD_EVENT_OFF, y->enabled == SD_EVENT_OFF);
+        r = CMP(x.off, y.off);
         if (r != 0)
                 return r;
 
         /* Non rate-limited ones first. */
-        r = CMP(!!x->ratelimited, !!y->ratelimited);
+        r = CMP(x.ratelimited, y.ratelimited);
         if (r != 0)
                 return r;
 
         /* Lower priority values first */
-        r = CMP(x->priority, y->priority);
+        r = CMP(x.priority, y.priority);
         if (r != 0)
                 return r;
 
         /* Older entries first */
-        return CMP(x->pending_iteration, y->pending_iteration);
+        return CMP(x.iteration, y.iteration);
 }
 
 static int prepare_prioq_compare(const void *a, const void *b) {
@@ -348,6 +681,186 @@ static void free_clock_data(struct clock_data *d) {
         prioq_free(d->latest);
 }
 
+static int slot_set_pending(sd_event_slot *s, bool b) {
+        int r;
+
+        assert(s);
+        assert(s->event);
+
+        if (s->pending == b)
+                return 0;
+
+        s->pending = b;
+
+        if (b) {
+                s->pending_iteration = s->event->iteration;
+                r = prioq_put(s->event->pending, s, &s->pending_index);
+                if (r < 0) {
+                        s->pending = false;
+                        return r;
+                }
+        } else
+                assert_se(prioq_remove(s->event->pending, s, &s->pending_index));
+
+        return 0;
+}
+
+static void slot_disconnect(sd_event_slot *s) {
+        assert(s);
+
+        if (!s->event)
+                return;
+
+        if (s->pending)
+                slot_set_pending(s, false);
+
+        sd_event *event = s->event;
+        s->event = NULL;
+        LIST_REMOVE(slots, event->slots, s);
+        event->n_slots--;
+
+        if (!s->floating)
+                sd_event_unref(event);
+}
+
+static sd_event_slot* slot_free(sd_event_slot *s) {
+        assert(s);
+
+        slot_disconnect(s);
+
+        if (s->destroy_callback)
+                s->destroy_callback(s->userdata);
+
+        free(s->description);
+        return mfree(s);
+}
+
+static sd_event_slot* slot_allocate(sd_event *e, bool floating) {
+        assert(e);
+
+        sd_event_slot *s = new(sd_event_slot, 1);
+        if (!s)
+                return NULL;
+
+        *s = (sd_event_slot) {
+                .wakeup = WAKEUP_EVENT_SLOT,
+                .n_ref = 1,
+                .event = e,
+                .floating = floating,
+                .priority = SD_EVENT_PRIORITY_NORMAL,
+        };
+
+        if (!floating)
+                sd_event_ref(e);
+
+        LIST_PREPEND(slots, e->slots, s);
+        e->n_slots++;
+
+        return s;
+}
+
+static int slot_dispatch(sd_event_slot *s) {
+        int r;
+
+        assert(s);
+        assert(s->pending);
+
+        slot_set_pending(s, false);
+
+        /* The submit-time ref taken in sd_event_add_io_uring_sqe() is still held here, so the slot
+         * stays alive across the callback even if the handler drops the user ref. */
+        s->dispatching = true;
+        r = s->callback(s, s->cqe_res, s->cqe_flags, s->userdata);
+        s->dispatching = false;
+
+        /* For multishot ops (IORING_CQE_F_MORE was set on this CQE) the kernel will deliver more CQEs
+         * for the same SQE, so we keep the submit-time ref. Only drop it on the terminal CQE. */
+        if (!s->inflight)
+                sd_event_slot_unref(s);   /* drop submit-time ref */
+        return r;
+}
+
+static int event_io_uring_cancel_all(sd_event *e) {
+#if HAVE_LIBURING
+        int r;
+
+        /* Kick off teardown of the io_uring ring once exit_requested is set. Submits a blanket cancel that
+         * targets every inflight op (fd-based POLL_ADDs and slot-wrapped SQE submissions alike). Subsequent
+         * sd_event_wait() iterations drain the CQ alongside EXIT-source dispatch and only transition to
+         * FINISHED once every slot has had its terminal CQE delivered . */
+
+        assert(e);
+
+        if (!event_io_uring_enabled(e))
+                return 0;
+
+        if (e->io_uring_cancel_all_submitted)
+                return 0;
+
+        struct io_uring_sqe *sqe;
+        r = event_io_uring_get_sqe(e, &sqe);
+        if (r < 0)
+                return r;
+
+        io_uring_prep_cancel(sqe, NULL, IORING_ASYNC_CANCEL_ANY | IORING_ASYNC_CANCEL_ALL);
+        io_uring_sqe_set_flags(sqe, IOSQE_CQE_SKIP_SUCCESS);
+        io_uring_sqe_set_data64(sqe, EVENT_URING_CANCEL_USER_DATA);
+
+        LIST_FOREACH(slots, s, e->slots)
+                if (s->inflight)
+                        s->cancel_submitted = true;
+
+        e->io_uring_cancel_all_submitted = true;
+#endif
+        return 0;
+}
+
+static void event_io_uring_teardown(sd_event *e) {
+#if HAVE_LIBURING
+        int r;
+
+        assert(e);
+
+        if (!event_io_uring_enabled(e))
+                return;
+
+        /* Flush pending_sqe pointers so the per-slot fields don't outlive the ring memory they reference,
+         * then drain any source POLL_ADDs still inflight in the kernel so dispatch_cqe drops each inflight
+         * ref naturally. The drain dispatches only the inflight-ref drop, no user callbacks, no re-arms.
+         * Because sources reach this point with `s->event == NULL` which short-circuits
+         * dispatch_source_cqe(). */
+
+        event_io_uring_flush_pending_sqes(e);
+
+        if (e->io_uring_inflight > 0) {
+                (void) event_io_uring_cancel_all(e);
+
+                struct __kernel_timespec ts;
+                kernel_timespec_store(&ts, 5 * USEC_PER_SEC);
+
+                while (e->io_uring_inflight > 0) {
+                        struct io_uring_cqe *first = NULL;
+                        r = sym_io_uring_submit_and_wait_timeout(&e->io_uring, &first, 1, &ts, NULL);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to drain io_uring CQEs at teardown, ignoring: %m");
+                                break;  /* -ETIME or kernel error; bail to avoid hang */
+                        }
+
+                        unsigned head, n = 0;
+                        struct io_uring_cqe *cqe;
+                        io_uring_for_each_cqe(&e->io_uring, head, cqe) {
+                                int64_t min_priority = INT64_MAX;
+                                (void) dispatch_cqe(e, cqe, INT64_MAX, &min_priority);
+                                n++;
+                        }
+                        io_uring_cq_advance(&e->io_uring, n);
+                }
+        }
+
+        sym_io_uring_queue_exit(&e->io_uring);
+#endif
+}
+
 static sd_event* event_free(sd_event *e) {
         sd_event_source *s;
 
@@ -366,6 +879,26 @@ static sd_event* event_free(sd_event *e) {
 
         if (e->default_event_ptr)
                 *(e->default_event_ptr) = NULL;
+
+        /* Tear down the ring before walking slots: once it's gone the kernel can't fire any more CQEs,
+         * so we can safely drop each slot's inflight ref without worrying about a callback being invoked
+         * on freed memory. */
+        event_io_uring_teardown(e);
+
+        sd_event_slot *sl;
+        while ((sl = e->slots)) {
+                assert(sl->floating);
+
+                if (sl->inflight) {
+                        sl->inflight = false;
+                        sd_event_slot_unref(sl);           /* drop inflight ref */
+                }
+
+                slot_disconnect(sl);
+                sd_event_slot_unref(sl);                   /* drop floating ref */
+        }
+
+        assert(e->n_slots == 0);
 
         safe_close(e->epoll_fd);
         safe_close(e->watchdog_fd);
@@ -424,24 +957,36 @@ _public_ int sd_event_new(sd_event** ret) {
                 .boottime_alarm.next = USEC_INFINITY,
                 .perturb = USEC_INFINITY,
                 .origin_id = origin_id_query(),
+#if HAVE_LIBURING
+                /* event_io_uring_enabled() reads .io_uring.ring_fd; mark it as not-yet-initialized so the
+                 * predicate is false until sd_event_set_io_uring_enabled(e, 1) succeeds. */
+                .io_uring.ring_fd = -EBADF,
+#endif
         };
 
         r = prioq_ensure_allocated(&e->pending, pending_prioq_compare);
         if (r < 0)
                 goto fail;
 
-        e->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
-        if (e->epoll_fd < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        e->epoll_fd = fd_move_above_stdio(e->epoll_fd);
-
         if (secure_getenv("SD_EVENT_PROFILE_DELAYS")) {
                 log_debug("Event loop profiling enabled. Logarithmic histogram of event loop iterations in the range 2^0 %s 2^63 us will be logged every 5s.",
                           glyph(GLYPH_ELLIPSIS));
                 e->profile_delays = true;
+        }
+
+        /* Backend selection: try io_uring if SYSTEMD_EVENT_IO_URING=1, otherwise fall back to epoll.
+         * sd_event_set_io_uring_enabled() handles both fd creation paths so all the init lives there. */
+        const char *io_uring_env = secure_getenv("SYSTEMD_EVENT_IO_URING");
+        if (io_uring_env && parse_boolean(io_uring_env) > 0) {
+                r = sd_event_set_io_uring_enabled(e, 1);
+                if (r < 0)
+                        goto fail;
+        }
+
+        if (!event_io_uring_enabled(e)) {
+                r = sd_event_set_io_uring_enabled(e, 0);
+                if (r < 0)
+                        goto fail;
         }
 
         *ret = e;
@@ -489,6 +1034,8 @@ _public_ sd_event_source* sd_event_source_disable_unref(sd_event_source *s) {
 }
 
 static void source_io_unregister(sd_event_source *s) {
+        int r;
+
         assert(s);
         assert(s->type == SOURCE_IO);
 
@@ -498,8 +1045,9 @@ static void source_io_unregister(sd_event_source *s) {
         if (!s->io.registered)
                 return;
 
-        if (epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->io.fd, NULL) < 0)
-                log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll, ignoring: %m",
+        r = event_attach_fd(s->event, EPOLL_CTL_DEL, s->io.fd, /* events= */ 0, s);
+        if (r < 0)
+                log_debug_errno(r, "Failed to remove source %s (type %s) from event loop, ignoring: %m",
                                 strna(s->description), event_source_type_to_string(s->type));
 
         s->io.registered = false;
@@ -510,19 +1058,19 @@ static int source_io_register(
                 int enabled,
                 uint32_t events) {
 
+        int r;
+
         assert(s);
         assert(s->type == SOURCE_IO);
         assert(enabled != SD_EVENT_OFF);
 
-        struct epoll_event ev = {
-                .events = events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
-                .data.ptr = s,
-        };
-
-        if (epoll_ctl(s->event->epoll_fd,
-                      s->io.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
-                      s->io.fd, &ev) < 0)
-                return -errno;
+        r = event_attach_fd(s->event,
+                            s->io.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
+                            s->io.fd,
+                            events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
+                            s);
+        if (r < 0)
+                return r;
 
         s->io.registered = true;
 
@@ -530,6 +1078,8 @@ static int source_io_register(
 }
 
 static void source_child_pidfd_unregister(sd_event_source *s) {
+        int r;
+
         assert(s);
         assert(s->type == SOURCE_CHILD);
 
@@ -539,29 +1089,31 @@ static void source_child_pidfd_unregister(sd_event_source *s) {
         if (!s->child.registered)
                 return;
 
-        if (EVENT_SOURCE_WATCH_PIDFD(s))
-                if (epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->child.pidfd, NULL) < 0)
-                        log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll, ignoring: %m",
+        if (EVENT_SOURCE_WATCH_PIDFD(s)) {
+                r = event_attach_fd(s->event, EPOLL_CTL_DEL, s->child.pidfd, /* events= */ 0, s);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to remove source %s (type %s) from event loop, ignoring: %m",
                                         strna(s->description), event_source_type_to_string(s->type));
+        }
 
         s->child.registered = false;
 }
 
 static int source_child_pidfd_register(sd_event_source *s, int enabled) {
+        int r;
+
         assert(s);
         assert(s->type == SOURCE_CHILD);
         assert(enabled != SD_EVENT_OFF);
 
         if (EVENT_SOURCE_WATCH_PIDFD(s)) {
-                struct epoll_event ev = {
-                        .events = EPOLLIN | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
-                        .data.ptr = s,
-                };
-
-                if (epoll_ctl(s->event->epoll_fd,
-                              s->child.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
-                              s->child.pidfd, &ev) < 0)
-                        return -errno;
+                r = event_attach_fd(s->event,
+                                    s->child.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
+                                    s->child.pidfd,
+                                    EPOLLIN | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
+                                    s);
+                if (r < 0)
+                        return r;
         }
 
         s->child.registered = true;
@@ -571,6 +1123,8 @@ static int source_child_pidfd_register(sd_event_source *s, int enabled) {
 #define EVENT_SOURCE_IS_PRESSURE(s) IN_SET((s)->type, SOURCE_MEMORY_PRESSURE, SOURCE_CPU_PRESSURE, SOURCE_IO_PRESSURE)
 
 static void source_pressure_unregister(sd_event_source *s) {
+        int r;
+
         assert(s);
         assert(EVENT_SOURCE_IS_PRESSURE(s));
 
@@ -580,28 +1134,29 @@ static void source_pressure_unregister(sd_event_source *s) {
         if (!s->pressure.registered)
                 return;
 
-        if (epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->pressure.fd, NULL) < 0)
-                log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll, ignoring: %m",
+        r = event_attach_fd(s->event, EPOLL_CTL_DEL, s->pressure.fd, /* events= */ 0, s);
+        if (r < 0)
+                log_debug_errno(r, "Failed to remove source %s (type %s) from event loop, ignoring: %m",
                                 strna(s->description), event_source_type_to_string(s->type));
 
         s->pressure.registered = false;
 }
 
 static int source_pressure_register(sd_event_source *s, int enabled) {
+        int r;
+
         assert(s);
         assert(EVENT_SOURCE_IS_PRESSURE(s));
         assert(enabled != SD_EVENT_OFF);
 
-        struct epoll_event ev = {
-                .events = s->pressure.write_buffer_size > 0 ? EPOLLOUT :
-                          (s->pressure.events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0)),
-                .data.ptr = s,
-        };
-
-        if (epoll_ctl(s->event->epoll_fd,
-                      s->pressure.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
-                      s->pressure.fd, &ev) < 0)
-                return -errno;
+        r = event_attach_fd(s->event,
+                            s->pressure.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
+                            s->pressure.fd,
+                            s->pressure.write_buffer_size > 0 ? EPOLLOUT :
+                                (s->pressure.events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0)),
+                            s);
+        if (r < 0)
+                return r;
 
         s->pressure.registered = true;
         return 0;
@@ -702,24 +1257,30 @@ static struct clock_data* event_get_clock_data(sd_event *e, EventSourceType t) {
         }
 }
 
-static void event_free_signal_data(sd_event *e, struct signal_data *d) {
+static void signal_data_disconnect_and_unref(sd_event *e, struct signal_data *d) {
+        int r;
+
         assert(e);
 
         if (!d)
                 return;
 
         hashmap_remove(e->signal_data, &d->priority);
-        safe_close(d->fd);
-        free(d);
+
+        if (d->fd >= 0 && event_io_uring_enabled(e) && !event_origin_changed(e)) {
+                r = event_attach_fd(e, EPOLL_CTL_DEL, d->fd, /* events= */ 0, d);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to remove signalfd from event loop, ignoring: %m");
+        }
+
+        /* Safe to close immediately: epoll's EPOLL_CTL_DEL is synchronous, and io_uring's CANCEL
+         * (queued by event_attach_fd above) targets by user_data not fd. */
+        d->fd = safe_close(d->fd);
+        signal_data_unref(d);
 }
 
-static int event_make_signal_data(
-                sd_event *e,
-                int sig,
-                struct signal_data **ret) {
-
+static int event_make_signal_data(sd_event *e, int sig, struct signal_data **ret) {
         struct signal_data *d;
-        bool added = false;
         sigset_t ss_copy;
         int64_t priority;
         int r;
@@ -736,72 +1297,64 @@ static int event_make_signal_data(
 
         d = hashmap_get(e->signal_data, &priority);
         if (d) {
+                /* Existing signal_data at this priority — just update its mask on the existing
+                 * signalfd. No cleanup needed on failure; we never mutated d. */
                 if (sigismember(&d->sigset, sig) > 0) {
                         if (ret)
                                 *ret = d;
                         return 0;
                 }
-        } else {
-                d = new(struct signal_data, 1);
-                if (!d)
-                        return -ENOMEM;
 
-                *d = (struct signal_data) {
-                        .wakeup = WAKEUP_SIGNAL_DATA,
-                        .fd = -EBADF,
-                        .priority = priority,
-                };
+                ss_copy = d->sigset;
+                assert_se(sigaddset(&ss_copy, sig) >= 0);
 
-                r = hashmap_ensure_put(&e->signal_data, &uint64_hash_ops, &d->priority, d);
-                if (r < 0) {
-                        free(d);
-                        return r;
-                }
+                if (signalfd(d->fd, &ss_copy, SFD_NONBLOCK|SFD_CLOEXEC) < 0)
+                        return -errno;
 
-                added = true;
-        }
-
-        ss_copy = d->sigset;
-        assert_se(sigaddset(&ss_copy, sig) >= 0);
-
-        r = signalfd(d->fd >= 0 ? d->fd : -1,   /* the first arg must be -1 or a valid signalfd */
-                     &ss_copy,
-                     SFD_NONBLOCK|SFD_CLOEXEC);
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        d->sigset = ss_copy;
-
-        if (d->fd >= 0) {
+                d->sigset = ss_copy;
                 if (ret)
                         *ret = d;
                 return 0;
         }
 
-        d->fd = fd_move_above_stdio(r);
+        d = new(struct signal_data, 1);
+        if (!d)
+                return -ENOMEM;
 
-        struct epoll_event ev = {
-                .events = EPOLLIN,
-                .data.ptr = d,
+        *d = (struct signal_data) {
+                .n_ref = 1,
+                .wakeup = WAKEUP_SIGNAL_DATA,
+                .fd = -EBADF,
+                .priority = priority,
         };
 
-        if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, d->fd, &ev) < 0) {
-                r = -errno;
-                goto fail;
+        assert_se(sigaddset(&d->sigset, sig) >= 0);
+
+        r = signalfd(-1, &d->sigset, SFD_NONBLOCK|SFD_CLOEXEC);
+        if (r < 0) {
+                event_free_signal_data(d);
+                return -errno;
+        }
+
+        d->fd = fd_move_above_stdio(r);
+
+        r = hashmap_ensure_put(&e->signal_data, &uint64_hash_ops, &d->priority, d);
+        if (r < 0) {
+                event_free_signal_data(d);
+                return r;
+        }
+
+        r = event_attach_fd(e, EPOLL_CTL_ADD, d->fd, EPOLLIN, d);
+        if (r < 0) {
+                d->fd = safe_close(d->fd); /* close ourselves so inotify_data_disconnect() skips the
+                                            * EPOLL_CTL_DEL — we couldn't add it in the first place. */
+                signal_data_disconnect_and_unref(e, d);
+                return r;
         }
 
         if (ret)
                 *ret = d;
-
         return 0;
-
-fail:
-        if (added)
-                event_free_signal_data(e, d);
-
-        return r;
 }
 
 static void event_unmask_signal_data(sd_event *e, struct signal_data *d, int sig) {
@@ -819,7 +1372,7 @@ static void event_unmask_signal_data(sd_event *e, struct signal_data *d, int sig
 
         if (sigisemptyset(&d->sigset)) {
                 /* If all the mask is all-zero we can get rid of the structure */
-                event_free_signal_data(e, d);
+                signal_data_disconnect_and_unref(e, d);
                 return;
         }
 
@@ -1083,18 +1636,24 @@ static void source_disconnect(sd_event_source *s) {
                 sd_event_unref(event);
 }
 
-static sd_event_source* source_free(sd_event_source *s) {
+/* Per-type "ownership" cleanup: close fds the source claimed ownership of, kill+reap a child it
+ * owned. Idempotent — flags are flipped to false as the work is done so a second call is a no-op.
+ * Called from source_free() and (eagerly, when the user drops their last live ref) from
+ * sd_event_source_unref() so process_own's kill happens at unref time rather than being deferred
+ * until the io_uring backend drops its ref. */
+static void source_disown(sd_event_source *s) {
         int r;
 
         assert(s);
 
-        source_disconnect(s);
-
-        if (s->type == SOURCE_IO && s->io.owned)
+        if (s->type == SOURCE_IO && s->io.owned) {
                 s->io.fd = safe_close(s->io.fd);
+                s->io.owned = false;
+        }
 
         if (s->type == SOURCE_CHILD) {
-                /* Eventually the kernel will do this automatically for us, but for now let's emulate this (unreliably) in userspace. */
+                /* Eventually the kernel will do this automatically for us, but for now let's emulate
+                 * this (unreliably) in userspace. */
 
                 if (s->child.process_owned) {
                         assert(s->child.pid > 0);
@@ -1105,6 +1664,8 @@ static sd_event_source* source_free(sd_event_source *s) {
                                 if (r < 0 && r != -ESRCH)
                                         log_debug_errno(r, "Failed to kill process " PID_FMT ", ignoring: %m",
                                                         s->child.pid);
+                                else
+                                        s->child.exited = true;
                         }
 
                         if (!s->child.waited) {
@@ -1112,17 +1673,29 @@ static sd_event_source* source_free(sd_event_source *s) {
 
                                 /* Reap the child if we can */
                                 (void) waitid(P_PIDFD, s->child.pidfd, &si, WEXITED);
+                                s->child.waited = true;
                         }
+
+                        s->child.process_owned = false;
                 }
 
-                if (s->child.pidfd_owned)
+                if (s->child.pidfd_owned) {
                         s->child.pidfd = safe_close(s->child.pidfd);
+                        s->child.pidfd_owned = false;
+                }
         }
 
         if (EVENT_SOURCE_IS_PRESSURE(s)) {
                 s->pressure.fd = safe_close(s->pressure.fd);
                 s->pressure.write_buffer = mfree(s->pressure.write_buffer);
         }
+}
+
+static sd_event_source* source_free(sd_event_source *s) {
+        assert(s);
+
+        source_disconnect(s);
+        source_disown(s);
 
         if (s->destroy_callback)
                 s->destroy_callback(s->userdata);
@@ -1221,6 +1794,7 @@ static sd_event_source* source_new(sd_event *e, bool floating, EventSourceType t
         /* Note: we cannot use compound initialization here, because sizeof(sd_event_source) is likely larger
          * than what we allocated here. */
         s->n_ref = 1;
+        s->wakeup = WAKEUP_EVENT_SOURCE;
         s->event = e;
         s->floating = floating;
         s->type = type;
@@ -1308,6 +1882,8 @@ static int event_setup_timer_fd(
                 struct clock_data *d,
                 clockid_t clock) {
 
+        int r;
+
         assert(e);
         assert(d);
 
@@ -1322,13 +1898,9 @@ static int event_setup_timer_fd(
 
         fd = fd_move_above_stdio(fd);
 
-        struct epoll_event ev = {
-                .events = EPOLLIN,
-                .data.ptr = d,
-        };
-
-        if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
-                return -errno;
+        r = event_attach_fd(e, EPOLL_CTL_ADD, fd, EPOLLIN, d);
+        if (r < 0)
+                return r;
 
         d->fd = TAKE_FD(fd);
         return 0;
@@ -2185,7 +2757,9 @@ _public_ int sd_event_add_io_pressure(
                         PRESSURE_IO);
 }
 
-static void event_free_inotify_data(sd_event *e, InotifyData *d) {
+static void inotify_data_disconnect_and_unref(sd_event *e, InotifyData *d) {
+        int r;
+
         assert(e);
 
         if (!d)
@@ -2197,19 +2771,20 @@ static void event_free_inotify_data(sd_event *e, InotifyData *d) {
         if (d->buffer_filled > 0)
                 LIST_REMOVE(buffered, e->buffered_inotify_data_list, d);
 
-        hashmap_free(d->inodes);
-        hashmap_free(d->wd);
-
         assert_se(hashmap_remove(e->inotify_data, &d->priority) == d);
 
-        if (d->fd >= 0) {
-                if (!event_origin_changed(e) &&
-                    epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, d->fd, NULL) < 0)
-                        log_debug_errno(errno, "Failed to remove inotify fd from epoll, ignoring: %m");
-
-                safe_close(d->fd);
+        if (d->fd >= 0 && !event_origin_changed(e)) {
+                r = event_attach_fd(e, EPOLL_CTL_DEL, d->fd, /* events= */ 0, d);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to remove inotify fd from event loop, ignoring: %m");
         }
-        free(d);
+
+        /* Safe to close immediately: epoll's EPOLL_CTL_DEL is synchronous, and io_uring's CANCEL
+         * (queued by event_attach_fd above) targets by user_data not fd. */
+        d->fd = safe_close(d->fd);
+        d->inodes = hashmap_free(d->inodes);
+        d->wd = hashmap_free(d->wd);
+        inotify_data_unref(d);
 }
 
 static int event_make_inotify_data(sd_event *e, int64_t priority, InotifyData **ret) {
@@ -2237,6 +2812,7 @@ static int event_make_inotify_data(sd_event *e, int64_t priority, InotifyData **
                 return -ENOMEM;
 
         *d = (InotifyData) {
+                .n_ref = 1,
                 .wakeup = WAKEUP_INOTIFY_DATA,
                 .fd = TAKE_FD(fd),
                 .priority = priority,
@@ -2249,17 +2825,11 @@ static int event_make_inotify_data(sd_event *e, int64_t priority, InotifyData **
                 return r;
         }
 
-        struct epoll_event ev = {
-                .events = EPOLLIN,
-                .data.ptr = d,
-        };
-
-        if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, d->fd, &ev) < 0) {
-                r = -errno;
-                d->fd = safe_close(d->fd); /* let's close this ourselves, as event_free_inotify_data() would otherwise
-                                            * remove the fd from the epoll first, which we don't want as we couldn't
-                                            * add it in the first place. */
-                event_free_inotify_data(e, d);
+        r = event_attach_fd(e, EPOLL_CTL_ADD, d->fd, EPOLLIN, d);
+        if (r < 0) {
+                d->fd = safe_close(d->fd); /* close ourselves so inotify_data_disconnect() skips the
+                                            * EPOLL_CTL_DEL — we couldn't add it in the first place. */
+                inotify_data_disconnect_and_unref(e, d);
                 return r;
         }
 
@@ -2345,7 +2915,7 @@ static void event_gc_inotify_data(sd_event *e, InotifyData *d) {
         if (d->n_busy > 0)
                 return;
 
-        event_free_inotify_data(e, d);
+        inotify_data_disconnect_and_unref(e, d);
 }
 
 static void event_gc_inode_data(sd_event *e, InodeData *d) {
@@ -2648,7 +3218,29 @@ static sd_event_source* event_source_free(sd_event_source *s) {
         return NULL;
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_event_source, sd_event_source, event_source_free);
+DEFINE_PUBLIC_TRIVIAL_REF_FUNC(sd_event_source, sd_event_source);
+
+_public_ sd_event_source* sd_event_source_unref(sd_event_source *s) {
+        if (!s)
+                return NULL;
+
+        assert(s->n_ref > 0);
+
+        /* If after this drop the only refs left are held by the io_uring backend (one per armed
+         * POLL_ADD), the user has just released their last live ref. Disconnect + disown the source
+         * eagerly so any process_own kill / fd close happens synchronously here (matching epoll
+         * behaviour); the resulting terminal CQEs in dispatch_cqe() drop the remaining refs and
+         * trigger the actual free. */
+        if (s->n_ref - 1 > 0 && s->n_ref - 1 == s->io_uring_inflight && s->event) {
+                source_disconnect(s);
+                source_disown(s);
+        }
+
+        if (--s->n_ref > 0)
+                return NULL;
+
+        return event_source_free(s);
+}
 
 _public_ int sd_event_source_set_description(sd_event_source *s, const char *description) {
         assert_return(s, -EINVAL);
@@ -2709,16 +3301,26 @@ _public_ int sd_event_source_set_io_fd(sd_event_source *s, int fd) {
         assert(event_source_is_offline(s) == !s->io.registered);
 
         if (s->io.registered) {
+                /* Cancel the existing POLL_ADD on saved_fd first, then arm a fresh one on the new fd.
+                 * Both POLL_ADDs use the source pointer as user_data, so we can't have both inflight at
+                 * once and disambiguate them. */
                 s->io.registered = false;
 
-                r = source_io_register(s, s->enabled, s->io.events);
+                r = event_attach_fd(s->event, EPOLL_CTL_DEL, saved_fd, /* events= */ 0, s);
                 if (r < 0) {
                         s->io.fd = saved_fd;
                         s->io.registered = true;
                         return r;
                 }
 
-                (void) epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, saved_fd, NULL);
+                r = source_io_register(s, s->enabled, s->io.events);
+                if (r < 0) {
+                        /* New fd register failed. Try to put the source back on saved_fd; if that also
+                         * fails the source is left disarmed and the caller gets the original error. */
+                        s->io.fd = saved_fd;
+                        (void) source_io_register(s, s->enabled, s->io.events);
+                        return r;
+                }
         }
 
         if (s->io.owned)
@@ -2916,7 +3518,7 @@ fail:
                 event_free_inode_data(s->event, new_inode_data);
 
         if (rm_inotify)
-                event_free_inotify_data(s->event, new_inotify_data);
+                inotify_data_disconnect_and_unref(s->event, new_inotify_data);
 
         return r;
 }
@@ -4411,6 +5013,26 @@ static int event_prepare(sd_event *e) {
         return 0;
 }
 
+static bool event_has_undispatched_slots(sd_event *e) {
+        assert(e);
+
+        LIST_FOREACH(slots, s, e->slots)
+                if (s->inflight || s->pending)
+                        return true;
+
+        return false;
+}
+
+static bool event_has_undrained_io_uring(sd_event *e) {
+        assert(e);
+
+#if HAVE_LIBURING
+        if (e->io_uring_inflight > 0)
+                return true;
+#endif
+        return event_has_undispatched_slots(e);
+}
+
 static int dispatch_exit(sd_event *e) {
         sd_event_source *p;
         int r;
@@ -4421,6 +5043,13 @@ static int dispatch_exit(sd_event *e) {
         assert(!p || p->type == SOURCE_EXIT);
 
         if (!p || event_source_is_offline(p)) {
+                /* Don't transition to FINISHED until every inflight io_uring op (slot or source
+                 * POLL_ADD) has had its terminal CQE drained; the exit cascade in sd_event_wait()
+                 * drives this by waiting for more CQEs. */
+                if (event_has_undrained_io_uring(e)) {
+                        e->state = SD_EVENT_INITIAL;
+                        return 0;
+                }
                 e->state = SD_EVENT_FINISHED;
                 return 0;
         }
@@ -4433,8 +5062,8 @@ static int dispatch_exit(sd_event *e) {
         return r;
 }
 
-static sd_event_source* event_next_pending(sd_event *e) {
-        sd_event_source *p;
+static void* event_next_pending(sd_event *e) {
+        void *p;
 
         assert(e);
 
@@ -4442,10 +5071,23 @@ static sd_event_source* event_next_pending(sd_event *e) {
         if (!p)
                 return NULL;
 
-        if (event_source_is_offline(p))
+        /* The pending prioq holds both sd_event_source and sd_event_slot pointers; both start with
+         * WakeupType. Slots are always considered online; only sources can be offline. */
+        if (pending_kind(p) == WAKEUP_EVENT_SOURCE && event_source_is_offline(p))
                 return NULL;
 
         return p;
+}
+
+/* Dispatch the head of the pending prioq, branching on whether it's a source or a slot. */
+static int event_pending_dispatch(void *p) {
+        assert(p);
+
+        if (pending_kind(p) == WAKEUP_EVENT_SLOT)
+                return slot_dispatch(p);
+
+        assert(pending_kind(p) == WAKEUP_EVENT_SOURCE);
+        return source_dispatch(p);
 }
 
 static int arm_watchdog(sd_event *e) {
@@ -4546,6 +5188,13 @@ static bool event_loop_idle(sd_event *e) {
 
                 return false;
         }
+
+        /* Inflight io_uring SQEs (e.g. a fiber suspended on sd_fiber_accept) are real work in flight, even
+         * though they don't appear in e->sources. Treating the loop as idle in that case would trigger
+         * sd_event_exit() under exit_on_idle, which submits a blanket cancel-all and resolves the slot with
+         * -ECANCELED out from under the fiber. */
+        if (event_has_undispatched_slots(e))
+                return false;
 
         return true;
 }
@@ -4661,6 +5310,301 @@ static int epoll_wait_usec(
         }
 
         return RET_NERRNO(epoll_wait(fd, events, maxevents, msec));
+}
+
+#if HAVE_LIBURING
+static bool cqe_is_terminal_refcounted(struct io_uring_cqe *cqe) {
+        void *userdata = io_uring_cqe_get_data(cqe);
+
+        if (!userdata || userdata == INT_TO_PTR(SOURCE_WATCHDOG))
+                return false;
+
+        if (!IN_SET(pending_kind(userdata),
+                    WAKEUP_EVENT_SOURCE, WAKEUP_INOTIFY_DATA, WAKEUP_SIGNAL_DATA))
+                return false;
+
+        return !FLAGS_SET(cqe->flags, IORING_CQE_F_MORE);
+}
+
+static int dispatch_source_cqe(
+                sd_event *e,
+                struct io_uring_cqe *cqe,
+                int64_t threshold,
+                int64_t *min_priority) {
+
+        void *userdata = io_uring_cqe_get_data(cqe);
+        int r;
+
+        if (cqe->res == -ECANCELED)
+                /* The cancelled POLL_ADD's CQE arrives with -ECANCELED whenever we modify or remove
+                 * an fd from the loop; the successor POLL_ADD (if any) will pump its own CQEs. */
+                return 0;
+
+        if (cqe->res < 0) {
+                log_debug_errno(cqe->res, "io_uring POLL_ADD CQE returned unexpected error, ignoring: %m");
+                return 0;
+        }
+
+        /* cqe->res from a POLL_ADD is the kernel's mangle_poll() output — poll() values, not
+         * epoll values. Translate to our internal epoll bitset before handing to the dispatcher. */
+        uint32_t events = poll_events_to_epoll(cqe->res);
+
+        /* POLL_ADD is oneshot. To emulate sd-event's default level-triggered semantics we re-arm
+         * before dispatching: a fresh POLL_ADD runs vfs_poll() immediately, so if the fd is still
+         * readable the next CQE fires right away. EPOLLET callers got POLL_ADD_MULTI and don't need
+         * this; EPOLLONESHOT IO/child/pressure sources skip re-arm because they auto-disable in
+         * source_dispatch (which cancels the fd anyway). Once exit has been requested, skip every
+         * re-arm: new POLL_ADDs we queued would land after the blanket cancel-all. For sources that
+         * keep firing level-triggered (e.g. a peer-closed socket's POLLHUP) this would spin the
+         * drain forever; for the others it would just leak work that queue_exit reaps anyway. */
+        bool rearm = !e->exit_requested;
+
+        if (userdata == INT_TO_PTR(SOURCE_WATCHDOG)) {
+                if (rearm) {
+                        r = event_attach_fd(e, EPOLL_CTL_ADD, e->watchdog_fd, EPOLLIN, INT_TO_PTR(SOURCE_WATCHDOG));
+                        if (r < 0)
+                                return r;
+                }
+
+                return flush_timer(e, e->watchdog_fd, events, NULL);
+        }
+
+        switch (pending_kind(userdata)) {
+
+        case WAKEUP_EVENT_SOURCE: {
+                sd_event_source *s = userdata;
+
+                /* If the user dropped their last live ref while this CQE was in flight,
+                 * sd_event_source_unref() already ran source_disconnect() and s->event is NULL. */
+                if (!s->event)
+                        return 0;
+
+                if (s->priority > threshold)
+                        return 0;
+
+                *min_priority = MIN(*min_priority, s->priority);
+
+                switch (s->type) {
+
+                case SOURCE_IO:
+                        if (rearm && !FLAGS_SET(s->io.events, EPOLLET) && s->enabled != SD_EVENT_ONESHOT) {
+                                r = event_attach_fd(e, EPOLL_CTL_ADD, s->io.fd, s->io.events, s);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        return process_io(e, s, events);
+
+                case SOURCE_CHILD:
+                        if (rearm && s->enabled != SD_EVENT_ONESHOT) {
+                                r = event_attach_fd(e, EPOLL_CTL_ADD, s->child.pidfd, EPOLLIN, s);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        return process_pidfd(e, s, events);
+
+                case SOURCE_MEMORY_PRESSURE:
+                case SOURCE_CPU_PRESSURE:
+                case SOURCE_IO_PRESSURE:
+                        if (rearm && s->enabled != SD_EVENT_ONESHOT) {
+                                r = event_attach_fd(
+                                                e,
+                                                EPOLL_CTL_ADD,
+                                                s->pressure.fd,
+                                                s->pressure.write_buffer_size > 0 ? EPOLLOUT : s->pressure.events,
+                                                s);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        return process_pressure(s, events);
+
+                default:
+                        assert_not_reached();
+                }
+        }
+
+        case WAKEUP_CLOCK_DATA: {
+                struct clock_data *d = userdata;
+                if (rearm) {
+                        r = event_attach_fd(e, EPOLL_CTL_ADD, d->fd, EPOLLIN, d);
+                        if (r < 0)
+                                return r;
+                }
+
+                return flush_timer(e, d->fd, events, &d->next);
+        }
+
+        case WAKEUP_SIGNAL_DATA: {
+                struct signal_data *d = userdata;
+
+                /* Exit early if this signal data was already disconnected from the event loop. */
+                if (d->fd < 0)
+                        return 0;
+
+                if (rearm) {
+                        r = event_attach_fd(e, EPOLL_CTL_ADD, d->fd, EPOLLIN, d);
+                        if (r < 0)
+                                return r;
+                }
+
+                return process_signal(e, userdata, events, min_priority);
+        }
+
+        case WAKEUP_INOTIFY_DATA: {
+                InotifyData *d = userdata;
+
+                /* Exit early if this inotify data was already disconnected from the event loop. */
+                if (d->fd < 0)
+                        return 0;
+
+                if (rearm) {
+                        r = event_attach_fd(e, EPOLL_CTL_ADD, d->fd, EPOLLIN, d);
+                        if (r < 0)
+                                return r;
+                }
+
+                return event_inotify_data_read(e, userdata, events, threshold);
+        }
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static int dispatch_cqe(
+                sd_event *e,
+                struct io_uring_cqe *cqe,
+                int64_t threshold,
+                int64_t *min_priority) {
+
+        int r;
+
+        assert(e);
+        assert(cqe);
+        assert(min_priority);
+
+        if (io_uring_cqe_get_data64(cqe) == EVENT_URING_CANCEL_USER_DATA) {
+                /* IOSQE_CQE_SKIP_SUCCESS suppresses CQEs for successful cancels, so we only get here on
+                 * failure. -ENOENT (target already gone) and -EALREADY (target running, can't cancel
+                 * synchronously) are expected; anything else suggests a bug or kernel oddity. */
+                if (cqe->res < 0 && !IN_SET(cqe->res, -ENOENT, -EALREADY))
+                        log_debug_errno(cqe->res, "io_uring cancel SQE failed unexpectedly, ignoring: %m");
+                return 0;
+        }
+
+        void *userdata = io_uring_cqe_get_data(cqe);
+
+        /* sd_event_slot CQEs forward res/flags directly to the user callback (including negative results
+         * like -ECANCELED), so they have to come before the generic res<0 short-circuit below. */
+        if (userdata && userdata != INT_TO_PTR(SOURCE_WATCHDOG) && pending_kind(userdata) == WAKEUP_EVENT_SLOT) {
+                sd_event_slot *s = userdata;
+
+                s->cqe_res = cqe->res;
+                s->cqe_flags = cqe->flags;
+                /* IORING_CQE_F_MORE means another CQE will follow for the same SQE (multishot ops); only
+                 * clear inflight on the terminal CQE so the submit-time ref is held until the kernel is
+                 * really done. */
+                if (!FLAGS_SET(cqe->flags, IORING_CQE_F_MORE))
+                        s->inflight = false;
+
+                if (s->priority > threshold)
+                        return 0;
+
+                *min_priority = MIN(*min_priority, s->priority);
+                return slot_set_pending(s, true);
+        }
+
+        r = dispatch_source_cqe(e, cqe, threshold, min_priority);
+
+        /* Drop the per-armament ref taken in event_attach_fd. The kernel's POLL_ADD ref kept
+         * userdata alive through dispatch_source_cqe; the unref below may free it, so userdata
+         * must not be touched afterwards. */
+        if (cqe_is_terminal_refcounted(cqe)) {
+                assert(e->io_uring_inflight > 0);
+                e->io_uring_inflight--;
+
+                switch (pending_kind(userdata)) {
+                case WAKEUP_EVENT_SOURCE: {
+                        sd_event_source *s = userdata;
+                        assert(s->io_uring_inflight > 0);
+                        s->io_uring_inflight--;
+                        sd_event_source_unref(s);
+                        break;
+                }
+                case WAKEUP_INOTIFY_DATA:
+                        inotify_data_unref(userdata);
+                        break;
+                case WAKEUP_SIGNAL_DATA:
+                        signal_data_unref(userdata);
+                        break;
+                default:
+                        assert_not_reached();
+                }
+        }
+
+        return r;
+}
+#endif
+
+static int process_io_uring(sd_event *e, usec_t timeout, int64_t threshold, int64_t *ret_min_priority) {
+#if HAVE_LIBURING
+        int64_t min_priority = threshold;
+        bool something_new = false;
+        struct __kernel_timespec ts, *tsp = NULL;
+        struct io_uring_cqe *first;
+        int r;
+
+        assert(e);
+        assert(ret_min_priority);
+
+        /* If we still have inotify data buffered, then drain io_uring without blocking. */
+        if (e->buffered_inotify_data_list)
+                timeout = 0;
+
+        if (timeout != USEC_INFINITY) {
+                kernel_timespec_store(&ts, timeout);
+                tsp = &ts;
+        }
+
+        event_io_uring_flush_pending_sqes(e);
+
+        first = NULL;
+        r = sym_io_uring_submit_and_wait_timeout(&e->io_uring, &first, 1, tsp, NULL);
+        if (r == -ETIME) {
+                if (threshold == INT64_MAX)
+                        triple_timestamp_now(&e->timestamp);
+                *ret_min_priority = min_priority;
+                return 0;
+        }
+        if (r == -EINTR)
+                return -EINTR;
+        if (r < 0)
+                return r;
+
+        if (threshold == INT64_MAX)
+                triple_timestamp_now(&e->timestamp);
+
+        unsigned head, n = 0;
+        struct io_uring_cqe *cqe;
+        io_uring_for_each_cqe(&e->io_uring, head, cqe) {
+                int q = dispatch_cqe(e, cqe, threshold, &min_priority);
+                n++;
+                if (q < 0) {
+                        io_uring_cq_advance(&e->io_uring, n);
+                        return q;
+                }
+                if (q > 0)
+                        something_new = true;
+        }
+        io_uring_cq_advance(&e->io_uring, n);
+
+        *ret_min_priority = min_priority;
+        return something_new;
+#else
+        return 0;
+#endif
 }
 
 static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t *ret_min_priority) {
@@ -4790,8 +5734,21 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         assert_return(e->state == SD_EVENT_ARMED, -EBUSY);
 
         if (e->exit_requested) {
-                e->state = SD_EVENT_PENDING;
-                return 1;
+                /* The io_uring backend keeps draining the CQ during exit so slot callbacks fire with
+                 * -ECANCELED. Kick off cancellation on first detection (the call is idempotent and a
+                 * no-op without liburing). */
+                r = event_io_uring_cancel_all(e);
+                if (r < 0)
+                        goto finish;
+
+                /* When no inflight io_uring op (slot or source POLL_ADD) is undrained, transition
+                 * straight to PENDING so the caller sees the FINISHED state on the next dispatch.
+                 * Otherwise fall through into the wait+process_io_uring path below to keep draining
+                 * CQEs. */
+                if (!event_has_undrained_io_uring(e)) {
+                        e->state = SD_EVENT_PENDING;
+                        return 1;
+                }
         }
 
         for (int64_t threshold = INT64_MAX; ; threshold--) {
@@ -4805,7 +5762,10 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
                  * https://github.com/systemd/systemd/pull/18750#issuecomment-785801085
                  * https://github.com/systemd/systemd/pull/18922#issuecomment-792825226 */
 
-                r = process_epoll(e, timeout, threshold, &epoll_min_priority);
+                if (event_io_uring_enabled(e))
+                        r = process_io_uring(e, timeout, threshold, &epoll_min_priority);
+                else
+                        r = process_epoll(e, timeout, threshold, &epoll_min_priority);
                 if (r == -EINTR) {
                         e->state = SD_EVENT_PENDING;
                         return 1;
@@ -4883,7 +5843,7 @@ finish:
 }
 
 _public_ int sd_event_dispatch(sd_event *e) {
-        sd_event_source *p;
+        void *p;
         int r;
 
         assert_return(e, -EINVAL);
@@ -4892,15 +5852,29 @@ _public_ int sd_event_dispatch(sd_event *e) {
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(e->state == SD_EVENT_PENDING, -EBUSY);
 
-        if (e->exit_requested)
+        /* During the exit cascade we still drain any pending slots before transitioning to FINISHED, so
+         * their callbacks see -ECANCELED. Pending sources are skipped — only slots and exit sources
+         * still dispatch once exit was requested. */
+        if (e->exit_requested) {
+                p = event_next_pending(e);
+                if (p && pending_kind(p) == WAKEUP_EVENT_SLOT) {
+                        PROTECT_EVENT(e);
+
+                        e->state = SD_EVENT_RUNNING;
+                        r = event_pending_dispatch(p);
+                        e->state = SD_EVENT_INITIAL;
+                        return r;
+                }
+
                 return dispatch_exit(e);
+        }
 
         p = event_next_pending(e);
         if (p) {
                 PROTECT_EVENT(e);
 
                 e->state = SD_EVENT_RUNNING;
-                r = source_dispatch(p);
+                r = event_pending_dispatch(p);
                 e->state = SD_EVENT_INITIAL;
                 return r;
         }
@@ -5002,6 +5976,10 @@ _public_ int sd_event_get_fd(sd_event *e) {
         assert_return(e = event_resolve(e), -ENOPKG);
         assert_return(!event_origin_changed(e), -ECHILD);
 
+#if HAVE_LIBURING
+        if (event_io_uring_enabled(e))
+                return e->io_uring.ring_fd;
+#endif
         return e->epoll_fd;
 }
 
@@ -5121,19 +6099,13 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
                 if (r < 0)
                         goto fail;
 
-                struct epoll_event ev = {
-                        .events = EPOLLIN,
-                        .data.ptr = INT_TO_PTR(SOURCE_WATCHDOG),
-                };
-
-                if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, e->watchdog_fd, &ev) < 0) {
-                        r = -errno;
+                r = event_attach_fd(e, EPOLL_CTL_ADD, e->watchdog_fd, EPOLLIN, INT_TO_PTR(SOURCE_WATCHDOG));
+                if (r < 0)
                         goto fail;
-                }
 
         } else {
                 if (e->watchdog_fd >= 0) {
-                        (void) epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, e->watchdog_fd, NULL);
+                        (void) event_attach_fd(e, EPOLL_CTL_DEL, e->watchdog_fd, /* events= */ 0, INT_TO_PTR(SOURCE_WATCHDOG));
                         e->watchdog_fd = safe_close(e->watchdog_fd);
                 }
         }
@@ -5152,6 +6124,311 @@ _public_ int sd_event_get_watchdog(sd_event *e) {
         assert_return(!event_origin_changed(e), -ECHILD);
 
         return e->watchdog;
+}
+
+_public_ int sd_event_set_io_uring_enabled(sd_event *e, int b) {
+#if HAVE_LIBURING
+        int r;
+#endif
+
+        assert_return(e, -EINVAL);
+        assert_return(e = event_resolve(e), -ENOPKG);
+        assert_return(!event_origin_changed(e), -ECHILD);
+
+        if (e->n_sources > 0 || e->state != SD_EVENT_INITIAL || e->iteration > 0)
+                return -EBUSY;
+
+        if (b <= 0) {
+                /* Going to (or staying on) the epoll backend: tear down any io_uring ring and ensure
+                 * the epoll fd exists. This is also the path sd_event_new() uses to initialize the
+                 * epoll fd on a freshly allocated event. */
+#if HAVE_LIBURING
+                if (event_io_uring_enabled(e)) {
+                        sym_io_uring_queue_exit(&e->io_uring);
+                        e->io_uring.ring_fd = -EBADF;
+                        e->io_uring_cancel_all_submitted = false;
+                }
+#endif
+
+                if (e->epoll_fd < 0) {
+                        int fd = epoll_create1(EPOLL_CLOEXEC);
+                        if (fd < 0)
+                                return -errno;
+                        e->epoll_fd = fd_move_above_stdio(fd);
+                }
+
+                return 0;
+        }
+
+#if HAVE_LIBURING
+        if (event_io_uring_enabled(e))
+                return 0;
+
+        r = dlopen_io_uring(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        /* SUBMIT_ALL was added in 5.18 and COOP_TASKRUN in 5.19; their presence implies POLL_ADD /
+         * ASYNC_CANCEL / POLL_ADD_MULTI (all older), so a successful queue_init_params() is sufficient
+         * as a probe. CQE-overflow buffering is automatic on supporting kernels (advertised as
+         * IORING_FEAT_NODROP), so we don't request it explicitly.
+         *
+         * We deliberately don't request DEFER_TASKRUN/SINGLE_ISSUER: they make polling an io_uring fd
+         * from another io_uring ring on the same task deadlock, because activating the inner ring's
+         * pollwq requires task_work to be processed on the submitter task — which is blocked waiting on
+         * the outer ring. Nested rings (e.g. an inner event loop driven from a fiber on an outer event
+         * loop) are a supported use case, so we keep task_work on the inline path. */
+        struct io_uring_params params = {
+                .flags = IORING_SETUP_COOP_TASKRUN |  /* skip IPI for task-work */
+                         IORING_SETUP_SUBMIT_ALL,     /* keep submitting after one SQE fails */
+        };
+        r = sym_io_uring_queue_init_params(256, &e->io_uring, &params);
+        if (r < 0)
+                return -EOPNOTSUPP;
+
+        e->epoll_fd = safe_close(e->epoll_fd);
+        /* event_io_uring_enabled() now reads true: queue_init_params() stamped a valid io_uring.ring_fd. */
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+_public_ int sd_event_get_io_uring_enabled(sd_event *e) {
+        assert_return(e, -EINVAL);
+        assert_return(e = event_resolve(e), -ENOPKG);
+        assert_return(!event_origin_changed(e), -ECHILD);
+
+        return event_io_uring_enabled(e);
+}
+
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_event_slot, sd_event_slot, slot_free);
+
+_public_ sd_event* sd_event_slot_get_event(sd_event_slot *s) {
+        assert_return(s, NULL);
+
+        return s->event;
+}
+
+_public_ void* sd_event_slot_get_userdata(sd_event_slot *s) {
+        assert_return(s, NULL);
+
+        return s->userdata;
+}
+
+_public_ void* sd_event_slot_set_userdata(sd_event_slot *s, void *userdata) {
+        void *ret;
+
+        assert_return(s, NULL);
+
+        ret = s->userdata;
+        s->userdata = userdata;
+        return ret;
+}
+
+_public_ int sd_event_slot_set_description(sd_event_slot *s, const char *description) {
+        assert_return(s, -EINVAL);
+
+        return free_and_strdup(&s->description, description);
+}
+
+_public_ int sd_event_slot_get_description(sd_event_slot *s, const char **ret) {
+        assert_return(s, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!s->description)
+                return -ENXIO;
+
+        *ret = s->description;
+        return 0;
+}
+
+_public_ int sd_event_slot_set_destroy_callback(sd_event_slot *s, sd_event_destroy_t callback) {
+        assert_return(s, -EINVAL);
+
+        s->destroy_callback = callback;
+        return 0;
+}
+
+_public_ int sd_event_slot_get_destroy_callback(sd_event_slot *s, sd_event_destroy_t *ret) {
+        assert_return(s, -EINVAL);
+
+        if (ret)
+                *ret = s->destroy_callback;
+
+        return !!s->destroy_callback;
+}
+
+_public_ int sd_event_slot_get_floating(sd_event_slot *s) {
+        assert_return(s, -EINVAL);
+
+        return s->floating;
+}
+
+_public_ int sd_event_slot_cancel(sd_event_slot *s) {
+#if HAVE_LIBURING
+        int r;
+#endif
+
+        assert_return(s, -EINVAL);
+        assert_return(s->event, -ESTALE);
+
+        if (!s->inflight || s->cancel_submitted)
+                return 0;       /* idempotent */
+
+#if HAVE_LIBURING
+        /* Fast path: the SQE is still in our submission ring (kernel hasn't claimed it yet). Rewrite
+         * it to a NOP with CQE_SKIP_SUCCESS so the kernel does nothing and produces no completion, then
+         * synthesize the dispatch right here — the future resolves with -ECANCELED before we return,
+         * which is what callers like sd_future_cancel_unref() need to free safely without a round-trip
+         * through the kernel. Mirrors slot_dispatch() but bypasses the pending prioq. */
+        if (s->pending_sqe) {
+                io_uring_prep_nop(s->pending_sqe);
+                io_uring_sqe_set_data(s->pending_sqe, s);    /* prep_nop wiped userdata; not strictly
+                                                              * needed since SKIP_SUCCESS suppresses the
+                                                              * CQE, but keep it consistent in case the
+                                                              * NOP somehow errors and a CQE arrives. */
+                io_uring_sqe_set_flags(s->pending_sqe, IOSQE_CQE_SKIP_SUCCESS);
+
+                LIST_REMOVE(pending_sqes, s->event->pending_sqes, s);
+                s->pending_sqe = NULL;
+                s->cancel_submitted = true;
+
+                /* Pin across the callback: the user's handler may drop their ref to s. */
+                _cleanup_(sd_event_slot_unrefp) sd_event_slot *self = sd_event_slot_ref(s);
+
+                s->cqe_res = -ECANCELED;
+                s->cqe_flags = 0;
+                s->inflight = false;
+
+                s->dispatching = true;
+                r = s->callback(s, s->cqe_res, s->cqe_flags, s->userdata);
+                s->dispatching = false;
+
+                sd_event_slot_unref(s);    /* drop submit-time ref (no CQE will do it for us) */
+                return r;
+        }
+
+        struct io_uring_sqe *sqe;
+        r = event_io_uring_get_sqe(s->event, &sqe);
+        if (r < 0)
+                return r;
+
+        io_uring_prep_cancel(sqe, s, 0);
+        io_uring_sqe_set_flags(sqe, IOSQE_CQE_SKIP_SUCCESS);
+        io_uring_sqe_set_data64(sqe, EVENT_URING_CANCEL_USER_DATA);
+
+        s->cancel_submitted = true;
+        return 0;
+#else
+        return 0;
+#endif
+}
+
+_public_ int sd_event_slot_set_floating(sd_event_slot *s, int b) {
+        assert_return(s, -EINVAL);
+
+        if (s->floating == !!b)
+                return 0;
+
+        if (!s->event) /* already disconnected slots can't be reconnected */
+                return -ESTALE;
+
+        s->floating = b;
+
+        /* Floating ↔ non-floating swaps the direction of the user/list ref. Mirror sd_bus_slot_set_floating. */
+        if (b) {
+                sd_event_slot_ref(s);
+                sd_event_unref(s->event);
+        } else {
+                sd_event_ref(s->event);
+                sd_event_slot_unref(s);
+        }
+
+        return 1;
+}
+
+_public_ int sd_event_slot_set_priority(sd_event_slot *s, int64_t priority) {
+        assert_return(s, -EINVAL);
+
+        if (s->priority == priority)
+                return 0;
+
+        s->priority = priority;
+
+        if (s->pending && s->event)
+                prioq_reshuffle(s->event->pending, s, &s->pending_index);
+
+        return 0;
+}
+
+_public_ int sd_event_slot_get_priority(sd_event_slot *s, int64_t *ret) {
+        assert_return(s, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        *ret = s->priority;
+        return 0;
+}
+
+_public_ int sd_event_add_io_uring_sqe(
+                sd_event *e,
+                sd_event_slot **ret_slot,
+                struct io_uring_sqe **ret_sqe,
+                sd_event_io_uring_handler_t callback,
+                void *userdata) {
+
+#if HAVE_LIBURING
+        int r;
+#endif
+
+        assert_return(e, -EINVAL);
+        assert_return(e = event_resolve(e), -ENOPKG);
+        assert_return(ret_sqe, -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
+        assert_return(!event_origin_changed(e), -ECHILD);
+
+        /* Refuse new slots once an exit has been requested: the cancel-all is already in flight and we
+         * don't want to keep adding work the kernel just has to cancel right back. */
+        if (e->exit_requested)
+                return -ESHUTDOWN;
+
+#if HAVE_LIBURING
+        if (!event_io_uring_enabled(e))
+                return -EOPNOTSUPP;
+
+        _cleanup_(sd_event_slot_unrefp) sd_event_slot *s = slot_allocate(e, !ret_slot);
+        if (!s)
+                return -ENOMEM;
+
+        r = event_io_uring_get_sqe(e, ret_sqe);
+        if (r < 0)
+                return r;
+
+        s->callback = callback;
+        s->userdata = userdata;
+        s->inflight = true;
+
+        io_uring_sqe_set_data(*ret_sqe, s);
+
+        /* Track the in-ring SQE so sd_event_slot_cancel() can rewrite it to a NOP synchronously if
+         * the caller cancels before we submit. event_io_uring_flush_pending_sqes() clears this in
+         * lockstep with handing the ring to the kernel. */
+        s->pending_sqe = *ret_sqe;
+        LIST_PREPEND(pending_sqes, e->pending_sqes, s);
+
+        /* Submit-time ref: balanced by dispatch_cqe()/slot_dispatch() once the CQE arrives. Keeps the
+         * slot alive between caller's unref and CQE delivery. */
+        sd_event_slot_ref(s);
+
+        if (ret_slot)
+                *ret_slot = s;
+        TAKE_PTR(s);
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 _public_ int sd_event_get_iteration(sd_event *e, uint64_t *ret) {

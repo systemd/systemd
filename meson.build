@@ -2155,7 +2155,7 @@ foreach dict : executables
                 if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'objects', 'sources', 'extract',
                            'include_directories', 'build_by_default', 'install',
-                           'bpf_programs']
+                           'bpf_programs', 'io_uring']
                         continue
                 endif
 
@@ -2258,6 +2258,14 @@ foreach dict : executables
                              timeout : dict.get('timeout', 30),
                              suite : suite,
                              is_parallel : dict.get('parallel', true))
+
+                        if dict.get('io_uring', false)
+                                test(name + '-io-uring', exe,
+                                     env : test_env + {'SYSTEMD_EVENT_IO_URING' : '1'},
+                                     timeout : dict.get('timeout', 30),
+                                     suite : suite,
+                                     is_parallel : dict.get('parallel', true))
+                        endif
                 endif
         endif
 

@@ -42,6 +42,7 @@ _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_event sd_event;
 typedef struct sd_event_source sd_event_source;
+typedef struct sd_event_slot sd_event_slot;
 
 enum {
         SD_EVENT_OFF = 0,
@@ -78,6 +79,8 @@ typedef int (*sd_event_child_handler_t)(sd_event_source *s, const siginfo_t *si,
 typedef void* sd_event_child_handler_t;
 #endif
 typedef int (*sd_event_inotify_handler_t)(sd_event_source *s, const struct inotify_event *event, void *userdata);
+struct io_uring_sqe;
+typedef int (*sd_event_io_uring_handler_t)(sd_event_slot *s, int32_t res, uint32_t flags, void *userdata);
 typedef _sd_destroy_t sd_event_destroy_t;
 
 int sd_event_default(sd_event **ret);
@@ -119,6 +122,23 @@ int sd_event_get_iteration(sd_event *e, uint64_t *ret);
 int sd_event_set_signal_exit(sd_event *e, int b);
 int sd_event_set_exit_on_idle(sd_event *e, int b);
 int sd_event_get_exit_on_idle(sd_event *e);
+int sd_event_set_io_uring_enabled(sd_event *e, int b);
+int sd_event_get_io_uring_enabled(sd_event *e);
+int sd_event_add_io_uring_sqe(sd_event *e, sd_event_slot **ret_slot, struct io_uring_sqe **ret_sqe, sd_event_io_uring_handler_t callback, void *userdata);
+
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_event_slot);
+int sd_event_slot_cancel(sd_event_slot *s);
+sd_event* sd_event_slot_get_event(sd_event_slot *s);
+void* sd_event_slot_get_userdata(sd_event_slot *s);
+void* sd_event_slot_set_userdata(sd_event_slot *s, void *userdata);
+int sd_event_slot_set_description(sd_event_slot *s, const char *description);
+int sd_event_slot_get_description(sd_event_slot *s, const char **ret);
+int sd_event_slot_set_destroy_callback(sd_event_slot *s, sd_event_destroy_t callback);
+int sd_event_slot_get_destroy_callback(sd_event_slot *s, sd_event_destroy_t *ret);
+int sd_event_slot_set_floating(sd_event_slot *s, int b);
+int sd_event_slot_get_floating(sd_event_slot *s);
+int sd_event_slot_set_priority(sd_event_slot *s, int64_t priority);
+int sd_event_slot_get_priority(sd_event_slot *s, int64_t *ret);
 
 _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_event_source);
 sd_event_source* sd_event_source_disable_unref(sd_event_source *s);
@@ -186,6 +206,7 @@ int sd_event_trim_memory(void);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_event, sd_event_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_event_source, sd_event_source_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_event_source, sd_event_source_disable_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_event_slot, sd_event_slot_unref);
 
 _SD_END_DECLARATIONS;
 
