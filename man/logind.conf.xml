@@ -270,6 +270,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LongPressDurationSec=</varname></term>
+
+        <listitem><para>Specifies the duration a key is to be kept pressed until a "long press" is detected.
+        Defaults to 5. It may be necessary to set it to a lower value to avoid hardware pre-defined
+        behaviours, especially for the power key.</para>
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PowerKeyIgnoreInhibited=</varname></term>
         <term><varname>SuspendKeyIgnoreInhibited=</varname></term>
         <term><varname>HibernateKeyIgnoreInhibited=</varname></term>
