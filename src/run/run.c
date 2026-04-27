@@ -40,9 +40,11 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "help-util.h"
 #include "hostname-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -139,80 +141,43 @@ STATIC_DESTRUCTOR_REGISTER(arg_shell_prompt_prefix, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_area, freep);
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
         int r;
 
         pager_open(arg_pager_flags);
 
-        r = terminal_urlify_man("systemd-run", "1", &link);
-        if (r < 0)
-                return log_oom();
+        static const char* const groups[] = {
+                NULL,
+                "Path options",
+                "Socket options",
+                "Timer options",
+        };
 
-        printf("%1$s [OPTIONS...] COMMAND [ARGUMENTS...]\n"
-               "\n%5$sRun the specified command in a transient scope or service.%6$s\n\n"
-               "  -h --help                       Show this help\n"
-               "     --version                    Show package version\n"
-               "     --no-ask-password            Do not prompt for password\n"
-               "     --user                       Run as user unit\n"
-               "  -H --host=[USER@]HOST           Operate on remote host\n"
-               "  -M --machine=CONTAINER          Operate on local container\n"
-               "     --scope                      Run this as scope rather than service\n"
-               "  -u --unit=UNIT                  Run under the specified unit name\n"
-               "  -p --property=NAME=VALUE        Set service or scope unit property\n"
-               "     --description=TEXT           Description for unit\n"
-               "     --slice=SLICE                Run in the specified slice\n"
-               "     --slice-inherit              Inherit the slice from the caller\n"
-               "     --expand-environment=BOOL    Control expansion of environment variables\n"
-               "     --no-block                   Do not wait until operation finished\n"
-               "  -r --remain-after-exit          Leave service around until explicitly stopped\n"
-               "     --wait                       Wait until service stopped again\n"
-               "     --send-sighup                Send SIGHUP when terminating\n"
-               "     --service-type=TYPE          Service type\n"
-               "     --uid=USER                   Run as system user\n"
-               "     --gid=GROUP                  Run as system group\n"
-               "     --nice=NICE                  Nice level\n"
-               "     --working-directory=PATH     Set working directory\n"
-               "  -d --same-dir                   Inherit working directory from caller\n"
-               "     --root-directory=PATH        Set root directory\n"
-               "  -R --same-root-dir              Inherit root directory from caller\n"
-               "  -E --setenv=NAME[=VALUE]        Set environment variable\n"
-               "  -t --pty                        Run service on pseudo TTY as STDIN/STDOUT/\n"
-               "                                  STDERR\n"
-               "  -T --pty-late                   Just like --pty, but leave TTY access to\n"
-               "                                  agents until unit is started up\n"
-               "  -P --pipe                       Pass STDIN/STDOUT/STDERR directly to service\n"
-               "  -q --quiet                      Suppress information messages during runtime\n"
-               "  -v --verbose                    Show unit logs while executing operation\n"
-               "     --output=STRING              Controls formatting of verbose logs, see\n"
-               "                                  journalctl for valid values\n"
-               "     --json=pretty|short|off      Print unit name and invocation id as JSON\n"
-               "  -G --collect                    Unload unit after it ran, even when failed\n"
-               "  -S --shell                      Invoke a $SHELL interactively\n"
-               "     --job-mode=MODE              Specify how to deal with already queued jobs,\n"
-               "                                  when queueing a new job\n"
-               "     --ignore-failure             Ignore the exit status of the invoked process\n"
-               "     --background=COLOR           Set ANSI color for background\n"
-               "     --no-pager                   Do not pipe output into a pager\n"
-               "\n%3$sPath options:%4$s\n"
-               "     --path-property=NAME=VALUE   Set path unit property\n"
-               "\n%3$sSocket options:%4$s\n"
-               "     --socket-property=NAME=VALUE Set socket unit property\n"
-               "\n%3$sTimer options:%4$s\n"
-               "     --on-active=SECONDS          Run after SECONDS delay\n"
-               "     --on-boot=SECONDS            Run SECONDS after machine was booted up\n"
-               "     --on-startup=SECONDS         Run SECONDS after systemd activation\n"
-               "     --on-unit-active=SECONDS     Run SECONDS after the last activation\n"
-               "     --on-unit-inactive=SECONDS   Run SECONDS after the last deactivation\n"
-               "     --on-calendar=SPEC           Realtime timer\n"
-               "     --on-timezone-change         Run when the timezone changes\n"
-               "     --on-clock-change            Run when the realtime clock jumps\n"
-               "     --timer-property=NAME=VALUE  Set timer unit property\n"
-               "\nSee the %2$s for details.\n",
-               program_invocation_short_name,
-               link,
-               ansi_underline(), ansi_normal(),
-               ansi_highlight(), ansi_normal());
+        _cleanup_(table_unref_many) Table *tables[ELEMENTSOF(groups) + 1] = {};
 
+        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
+                r = option_parser_get_help_table_group(groups[i], &tables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        (void) table_sync_column_widths(0, tables[0], tables[1], tables[2], tables[3]);
+
+        help_cmdline("[OPTIONS...] COMMAND [ARGUMENTS...]");
+        help_abstract("Run the specified command in a transient scope or service.");
+
+        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
+                _cleanup_free_ char *title = strjoin(groups[i] ?: "Options", ":");
+                if (!title)
+                        return log_oom();
+
+                help_section(title);
+
+                r = table_print_or_warn(tables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        help_man_page_reference("systemd-run", "1");
         return 0;
 }
 
@@ -306,239 +271,142 @@ static char** make_login_shell_cmdline(const char *shell) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_USER,
-                ARG_SYSTEM,
-                ARG_SCOPE,
-                ARG_DESCRIPTION,
-                ARG_SLICE,
-                ARG_SLICE_INHERIT,
-                ARG_EXPAND_ENVIRONMENT,
-                ARG_SEND_SIGHUP,
-                ARG_SERVICE_TYPE,
-                ARG_EXEC_USER,
-                ARG_EXEC_GROUP,
-                ARG_NICE,
-                ARG_OUTPUT,
-                ARG_ON_ACTIVE,
-                ARG_ON_BOOT,
-                ARG_ON_STARTUP,
-                ARG_ON_UNIT_ACTIVE,
-                ARG_ON_UNIT_INACTIVE,
-                ARG_ON_CALENDAR,
-                ARG_ON_TIMEZONE_CHANGE,
-                ARG_ON_CLOCK_CHANGE,
-                ARG_TIMER_PROPERTY,
-                ARG_PATH_PROPERTY,
-                ARG_SOCKET_PROPERTY,
-                ARG_NO_BLOCK,
-                ARG_NO_ASK_PASSWORD,
-                ARG_WAIT,
-                ARG_WORKING_DIRECTORY,
-                ARG_ROOT_DIRECTORY,
-                ARG_JOB_MODE,
-                ARG_IGNORE_FAILURE,
-                ARG_BACKGROUND,
-                ARG_NO_PAGER,
-                ARG_JSON,
-        };
-
-        static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'                    },
-                { "version",            no_argument,       NULL, ARG_VERSION            },
-                { "user",               no_argument,       NULL, ARG_USER               },
-                { "system",             no_argument,       NULL, ARG_SYSTEM             },
-                { "capsule",            required_argument, NULL, 'C'                    },
-                { "scope",              no_argument,       NULL, ARG_SCOPE              },
-                { "unit",               required_argument, NULL, 'u'                    },
-                { "description",        required_argument, NULL, ARG_DESCRIPTION        },
-                { "slice",              required_argument, NULL, ARG_SLICE              },
-                { "slice-inherit",      no_argument,       NULL, ARG_SLICE_INHERIT      },
-                { "remain-after-exit",  no_argument,       NULL, 'r'                    },
-                { "expand-environment", required_argument, NULL, ARG_EXPAND_ENVIRONMENT },
-                { "send-sighup",        no_argument,       NULL, ARG_SEND_SIGHUP        },
-                { "host",               required_argument, NULL, 'H'                    },
-                { "machine",            required_argument, NULL, 'M'                    },
-                { "service-type",       required_argument, NULL, ARG_SERVICE_TYPE       },
-                { "wait",               no_argument,       NULL, ARG_WAIT               },
-                { "uid",                required_argument, NULL, ARG_EXEC_USER          },
-                { "gid",                required_argument, NULL, ARG_EXEC_GROUP         },
-                { "nice",               required_argument, NULL, ARG_NICE               },
-                { "setenv",             required_argument, NULL, 'E'                    },
-                { "property",           required_argument, NULL, 'p'                    },
-                { "tty",                no_argument,       NULL, 't'                    }, /* deprecated alias */
-                { "pty",                no_argument,       NULL, 't'                    },
-                { "pty-late",           no_argument,       NULL, 'T'                    },
-                { "pipe",               no_argument,       NULL, 'P'                    },
-                { "quiet",              no_argument,       NULL, 'q'                    },
-                { "verbose",            no_argument,       NULL, 'v'                    },
-                { "output",             required_argument, NULL, ARG_OUTPUT             },
-                { "on-active",          required_argument, NULL, ARG_ON_ACTIVE          },
-                { "on-boot",            required_argument, NULL, ARG_ON_BOOT            },
-                { "on-startup",         required_argument, NULL, ARG_ON_STARTUP         },
-                { "on-unit-active",     required_argument, NULL, ARG_ON_UNIT_ACTIVE     },
-                { "on-unit-inactive",   required_argument, NULL, ARG_ON_UNIT_INACTIVE   },
-                { "on-calendar",        required_argument, NULL, ARG_ON_CALENDAR        },
-                { "on-timezone-change", no_argument,       NULL, ARG_ON_TIMEZONE_CHANGE },
-                { "on-clock-change",    no_argument,       NULL, ARG_ON_CLOCK_CHANGE    },
-                { "timer-property",     required_argument, NULL, ARG_TIMER_PROPERTY     },
-                { "path-property",      required_argument, NULL, ARG_PATH_PROPERTY      },
-                { "socket-property",    required_argument, NULL, ARG_SOCKET_PROPERTY    },
-                { "no-block",           no_argument,       NULL, ARG_NO_BLOCK           },
-                { "no-ask-password",    no_argument,       NULL, ARG_NO_ASK_PASSWORD    },
-                { "collect",            no_argument,       NULL, 'G'                    },
-                { "working-directory",  required_argument, NULL, ARG_WORKING_DIRECTORY  },
-                { "same-dir",           no_argument,       NULL, 'd'                    },
-                { "root-directory",     required_argument, NULL, ARG_ROOT_DIRECTORY     },
-                { "same-root-dir",      no_argument,       NULL, 'R'                    },
-                { "shell",              no_argument,       NULL, 'S'                    },
-                { "job-mode",           required_argument, NULL, ARG_JOB_MODE           },
-                { "ignore-failure",     no_argument,       NULL, ARG_IGNORE_FAILURE     },
-                { "background",         required_argument, NULL, ARG_BACKGROUND         },
-                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER           },
-                { "json",               required_argument, NULL, ARG_JSON               },
-                {},
-        };
-
         bool with_trigger = false, same_dir = false;
-        int r, c;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
-        optind = 0;
-        while ((c = getopt_long(argc, argv, "+hrC:H:M:E:p:tTPqvGdSu:", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
 
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_NO_ASK_PASSWORD:
+                OPTION_COMMON_NO_ASK_PASSWORD:
                         arg_ask_password = false;
                         break;
 
-                case ARG_USER:
+                OPTION_LONG("user", NULL, "Run as user unit"):
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, "Talk to the service manager (implied default)"):
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
-                case 'H':
+                OPTION_COMMON_HOST:
                         arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
+                        arg_host = opts.arg;
                         break;
 
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                OPTION_COMMON_MACHINE:
+                        r = parse_machine_argument(opts.arg, &arg_host, &arg_transport);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'C':
-                        r = capsule_name_is_valid(optarg);
+                OPTION('C', "capsule", "NAME", "Operate on specified capsule"):
+                        r = capsule_name_is_valid(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", optarg);
+                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", opts.arg);
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", opts.arg);
 
-                        arg_host = optarg;
+                        arg_host = opts.arg;
                         arg_transport = BUS_TRANSPORT_CAPSULE;
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
-                case ARG_SCOPE:
+                OPTION_LONG("scope", NULL, "Run this as scope rather than service"):
                         arg_scope = true;
                         break;
 
-                case 'u':
-                        arg_unit = optarg;
+                OPTION('u', "unit", "UNIT", "Run under the specified unit name"):
+                        arg_unit = opts.arg;
                         break;
 
-                case 'p':
-                        if (strv_extend(&arg_property, optarg) < 0)
+                OPTION('p', "property", "NAME=VALUE", "Set service or scope unit property"):
+                        if (strv_extend(&arg_property, opts.arg) < 0)
                                 return log_oom();
-
                         break;
 
-                case ARG_DESCRIPTION:
-                        r = free_and_strdup_warn(&arg_description, optarg);
+                OPTION_LONG("description", "TEXT", "Description for unit"):
+                        r = free_and_strdup_warn(&arg_description, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SLICE:
-                        r = free_and_strdup_warn(&arg_slice, optarg);
+                OPTION_LONG("slice", "SLICE", "Run in the specified slice"):
+                        r = free_and_strdup_warn(&arg_slice, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SLICE_INHERIT:
+                OPTION_LONG("slice-inherit", NULL, "Inherit the slice from the caller"):
                         arg_slice_inherit = true;
                         break;
 
-                case ARG_EXPAND_ENVIRONMENT:
-                        r = parse_boolean_argument("--expand-environment=", optarg, &arg_expand_environment);
+                OPTION_LONG("expand-environment", "BOOL",
+                            "Control expansion of environment variables"):
+                        r = parse_boolean_argument("--expand-environment=", opts.arg, &arg_expand_environment);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NO_BLOCK:
+                OPTION_LONG("no-block", NULL, "Do not wait until operation finished"):
                         arg_no_block = true;
                         break;
 
-                case 'r':
+                OPTION('r', "remain-after-exit", NULL,
+                       "Leave service around until explicitly stopped"):
                         arg_remain_after_exit = true;
                         break;
 
-                case ARG_WAIT:
+                OPTION_LONG("wait", NULL, "Wait until service stopped again"):
                         arg_wait = true;
                         break;
 
-                case ARG_SEND_SIGHUP:
+                OPTION_LONG("send-sighup", NULL, "Send SIGHUP when terminating"):
                         arg_send_sighup = true;
                         break;
 
-                case ARG_SERVICE_TYPE:
-                        arg_service_type = optarg;
+                OPTION_LONG("service-type", "TYPE", "Service type"):
+                        arg_service_type = opts.arg;
                         break;
 
-                case ARG_EXEC_USER:
-                        r = free_and_strdup_warn(&arg_exec_user, optarg);
+                OPTION_LONG("uid", "USER", "Run as system user"):
+                        r = free_and_strdup_warn(&arg_exec_user, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_EXEC_GROUP:
-                        arg_exec_group = optarg;
+                OPTION_LONG("gid", "GROUP", "Run as system group"):
+                        arg_exec_group = opts.arg;
                         break;
 
-                case ARG_NICE:
-                        r = parse_nice(optarg, &arg_nice);
+                OPTION_LONG("nice", "NICE", "Nice level"):
+                        r = parse_nice(opts.arg, &arg_nice);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse nice value: %s", optarg);
+                                return log_error_errno(r, "Failed to parse nice value: %s", opts.arg);
 
                         arg_nice_set = true;
                         break;
 
-                case ARG_WORKING_DIRECTORY:
-                        r = parse_path_argument(optarg, true, &arg_working_directory);
+                OPTION_LONG("working-directory", "PATH", "Set working directory"):
+                        r = parse_path_argument(opts.arg, true, &arg_working_directory);
                         if (r < 0)
                                 return r;
 
                         same_dir = false;
                         break;
 
-                case 'd': {
+                OPTION('d', "same-dir", NULL, "Inherit working directory from caller"): {
                         _cleanup_free_ char *p = NULL;
 
                         r = safe_getcwd(&p);
@@ -554,151 +422,156 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_ROOT_DIRECTORY:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root_directory);
+                OPTION_LONG("root-directory", "PATH", "Set root directory"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_root_directory);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case 'R':
+                OPTION('R', "same-root-dir", NULL, "Inherit root directory from caller"):
                         r = free_and_strdup_warn(&arg_root_directory, "/");
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case 'E':
-                        r = strv_env_replace_strdup_passthrough(&arg_environment, optarg);
+                OPTION('E', "setenv", "NAME[=VALUE]", "Set environment variable"):
+                        r = strv_env_replace_strdup_passthrough(&arg_environment, opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
-
+                                return log_error_errno(r, "Cannot assign environment variable %s: %m", opts.arg);
                         break;
 
-                case 't': /* --pty (and --tty deprecated alias) */
-                case 'T': /* --pty-late */
+                OPTION_LONG("tty", NULL, NULL): {} /* deprecated alias for --pty */
+                OPTION('t', "pty", NULL,
+                       "Run service on pseudo TTY as STDIN/STDOUT/STDERR"): {}
+                OPTION('T', "pty-late", NULL,
+                       "Just like --pty, but leave TTY access to agents until unit is started up"):
                         arg_stdio |= ARG_STDIO_PTY;
-                        arg_pty_late = c == 'T';
+                        arg_pty_late = opts.opt->short_code == 'T';
                         break;
 
-                case 'P': /* --pipe */
+                OPTION('P', "pipe", NULL, "Pass STDIN/STDOUT/STDERR directly to service"):
                         arg_stdio |= ARG_STDIO_DIRECT;
                         break;
 
-                case 'q':
+                OPTION('q', "quiet", NULL, "Suppress information messages during runtime"):
                         arg_quiet = true;
                         break;
 
-                case 'v':
+                OPTION('v', "verbose", NULL, "Show unit logs while executing operation"):
                         arg_verbose = true;
                         break;
 
-                case ARG_OUTPUT:
-                        if (streq(optarg, "help"))
+                OPTION_LONG("output", "MODE",
+                            "Controls formatting of verbose logs, see journalctl for valid values"):
+                        if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
 
-                        arg_output = output_mode_from_string(optarg);
+                        arg_output = output_mode_from_string(opts.arg);
                         if (arg_output < 0)
-                                return log_error_errno(arg_output, "Unknown output format '%s'.", optarg);
+                                return log_error_errno(arg_output, "Unknown output format '%s'.", opts.arg);
                         break;
 
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
 
-                case 'G':
+                OPTION('G', "collect", NULL, "Unload unit after it ran, even when failed"):
                         arg_aggressive_gc = true;
                         break;
 
-                case 'S':
+                OPTION('S', "shell", NULL, "Invoke a $SHELL interactively"):
                         arg_shell = true;
                         break;
 
-                case ARG_JOB_MODE:
-                        if (streq(optarg, "help"))
+                OPTION_LONG("job-mode", "MODE",
+                            "Specify how to deal with already queued jobs, when queueing a new job"):
+                        if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(job_mode, JobMode, _JOB_MODE_MAX);
 
-                        r = job_mode_from_string(optarg);
+                        r = job_mode_from_string(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Invalid job mode: %s", optarg);
+                                return log_error_errno(r, "Invalid job mode: %s", opts.arg);
 
                         arg_job_mode = r;
                         break;
 
-                case ARG_IGNORE_FAILURE:
+                OPTION_LONG("ignore-failure", NULL, "Ignore the exit status of the invoked process"):
                         arg_ignore_failure = true;
                         break;
 
-                case ARG_BACKGROUND:
-                        r = parse_background_argument(optarg, &arg_background);
+                OPTION_LONG("background", "COLOR", "Set ANSI color for background"):
+                        r = parse_background_argument(opts.arg, &arg_background);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_PATH_PROPERTY:
+                OPTION_GROUP("Path options"): {}
 
-                        if (strv_extend(&arg_path_property, optarg) < 0)
+                OPTION_LONG("path-property", "NAME=VALUE", "Set path unit property"):
+                        if (strv_extend(&arg_path_property, opts.arg) < 0)
                                 return log_oom();
-
                         break;
 
-                case ARG_SOCKET_PROPERTY:
+                OPTION_GROUP("Socket options"): {}
 
-                        if (strv_extend(&arg_socket_property, optarg) < 0)
+                OPTION_LONG("socket-property", "NAME=VALUE", "Set socket unit property"):
+                        if (strv_extend(&arg_socket_property, opts.arg) < 0)
                                 return log_oom();
-
                         break;
 
-                case ARG_ON_ACTIVE:
-                        r = add_timer_property("OnActiveSec", optarg);
+                OPTION_GROUP("Timer options"): {}
+
+                OPTION_LONG("on-active", "SECONDS", "Run after SECONDS delay"):
+                        r = add_timer_property("OnActiveSec", opts.arg);
                         if (r < 0)
                                 return r;
 
                         arg_with_timer = true;
                         break;
 
-                case ARG_ON_BOOT:
-                        r = add_timer_property("OnBootSec", optarg);
+                OPTION_LONG("on-boot", "SECONDS", "Run SECONDS after machine was booted up"):
+                        r = add_timer_property("OnBootSec", opts.arg);
                         if (r < 0)
                                 return r;
 
                         arg_with_timer = true;
                         break;
 
-                case ARG_ON_STARTUP:
-                        r = add_timer_property("OnStartupSec", optarg);
+                OPTION_LONG("on-startup", "SECONDS", "Run SECONDS after systemd activation"):
+                        r = add_timer_property("OnStartupSec", opts.arg);
                         if (r < 0)
                                 return r;
 
                         arg_with_timer = true;
                         break;
 
-                case ARG_ON_UNIT_ACTIVE:
-                        r = add_timer_property("OnUnitActiveSec", optarg);
+                OPTION_LONG("on-unit-active", "SECONDS", "Run SECONDS after the last activation"):
+                        r = add_timer_property("OnUnitActiveSec", opts.arg);
                         if (r < 0)
                                 return r;
 
                         arg_with_timer = true;
                         break;
 
-                case ARG_ON_UNIT_INACTIVE:
-                        r = add_timer_property("OnUnitInactiveSec", optarg);
+                OPTION_LONG("on-unit-inactive", "SECONDS",
+                            "Run SECONDS after the last deactivation"):
+                        r = add_timer_property("OnUnitInactiveSec", opts.arg);
                         if (r < 0)
                                 return r;
 
                         arg_with_timer = true;
                         break;
 
-                case ARG_ON_CALENDAR: {
+                OPTION_LONG("on-calendar", "SPEC", "Realtime timer"): {
                         _cleanup_(calendar_spec_freep) CalendarSpec *cs = NULL;
 
-                        r = calendar_spec_from_string(optarg, &cs);
+                        r = calendar_spec_from_string(opts.arg, &cs);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse calendar event specification: %m");
 
@@ -713,7 +586,7 @@ static int parse_argv(int argc, char *argv[]) {
                         else if (r < 0)
                                 return log_error_errno(r, "Failed to calculate next time calendar expression elapses: %m");
 
-                        r = add_timer_property("OnCalendar", optarg);
+                        r = add_timer_property("OnCalendar", opts.arg);
                         if (r < 0)
                                 return r;
 
@@ -721,7 +594,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_ON_TIMEZONE_CHANGE:
+                OPTION_LONG("on-timezone-change", NULL, "Run when the timezone changes"):
                         r = add_timer_property("OnTimezoneChange", "yes");
                         if (r < 0)
                                 return r;
@@ -729,7 +602,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_with_timer = true;
                         break;
 
-                case ARG_ON_CLOCK_CHANGE:
+                OPTION_LONG("on-clock-change", NULL, "Run when the realtime clock jumps"):
                         r = add_timer_property("OnClockChange", "yes");
                         if (r < 0)
                                 return r;
@@ -737,13 +610,12 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_with_timer = true;
                         break;
 
-                case ARG_TIMER_PROPERTY:
-
-                        if (strv_extend(&arg_timer_property, optarg) < 0)
+                OPTION_LONG("timer-property", "NAME=VALUE", "Set timer unit property"):
+                        if (strv_extend(&arg_timer_property, opts.arg) < 0)
                                 return log_oom();
 
                         arg_with_timer = arg_with_timer ||
-                                STARTSWITH_SET(optarg,
+                                STARTSWITH_SET(opts.arg,
                                                "OnActiveSec=",
                                                "OnBootSec=",
                                                "OnStartupSec=",
@@ -751,12 +623,6 @@ static int parse_argv(int argc, char *argv[]) {
                                                "OnUnitInactiveSec=",
                                                "OnCalendar=");
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         /* If we are talking to the per-user instance PolicyKit isn't going to help */
@@ -805,13 +671,14 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_pty_late < 0)
                 arg_pty_late = false; /* For systemd-run this defaults to false, for compat reasons */
 
-        if (argc > optind) {
+        char **args = option_parser_get_args(&opts);
+        if (!strv_isempty(args)) {
                 char **l;
 
                 if (arg_shell)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "If --shell is used, no command line is expected.");
 
-                l = strv_copy(argv + optind);
+                l = strv_copy(args);
                 if (!l)
                         return log_oom();
 
