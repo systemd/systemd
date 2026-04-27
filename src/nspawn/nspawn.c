@@ -606,7 +606,7 @@ static int parse_argv(int argc, char *argv[]) {
         const Option *opt;
         const char *arg;
 
-        FOREACH_OPTION_FULL(&state, c, &opt, &arg, /* on_error= */ return c) {
+        FOREACH_OPTION_FULL(&state, c, &opt, &arg) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -1441,6 +1441,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("system", NULL, "Run in the system service manager scope"):
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
+
+                OPTION_ERROR:
+                        return c;
                 }
         }
 
