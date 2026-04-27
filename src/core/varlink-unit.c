@@ -640,18 +640,12 @@ void varlink_unit_send_change_signal(Unit *u) {
 static int job_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Job *j = ASSERT_PTR(userdata);
 
-        /* We cannot just "blindly" use the j->state as it will get reset to WAITING in
-         * core/job.c:job_uninstall() before varlink_job_send_removed_signal(). This happens from
-         * unit.c:unit_free(). It is probably something that should be fixed but its a subtle part of
-         * systemd so for now we just deal with it here. */
-        JobState state = j->result >= 0 ? JOB_FINISHED : j->state;
-
         /* Note that "Result" is suppressed until the job reaches JOB_FINISHED. */
         return sd_json_buildo(
                         ASSERT_PTR(ret),
                         SD_JSON_BUILD_PAIR_INTEGER("Id", j->id),
                         JSON_BUILD_PAIR_ENUM("JobType", job_type_to_string(j->type)),
-                        JSON_BUILD_PAIR_ENUM("State", job_state_to_string(state)),
+                        JSON_BUILD_PAIR_ENUM("State", job_state_to_string(j->state)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY("Result", job_result_to_string(j->result)));
 }
 
