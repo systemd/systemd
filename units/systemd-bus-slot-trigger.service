@@ -1,0 +1,23 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Trigger udev Events for Bus Slots
+Documentation=man:udev(7) man:systemd-udevd.service(8)
+DefaultDependencies=no
+Wants=systemd-udevd.service
+After=systemd-udev-trigger.service systemd-udevd-kernel.socket systemd-udevd-control.socket systemd-udevd-varlink.socket
+Before=sysinit.target
+ConditionPathIsReadWrite=/sys
+ConditionPathExists=/sys/bus
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=-/bin/sh -c 'for bus in /sys/bus/*/slots; do [ -d "$bus" ] && for slot in "$bus"/*; do [ -e "$slot" ] && udevadm trigger --action=add "$slot"; done; done'
