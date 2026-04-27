@@ -1092,7 +1092,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
 
                 break;
 
-        case SD_DHCP_OPTION_VENDOR_SPECIFIC:
+        case SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION:
 
                 if (len <= 0)
                         lease->vendor_specific = mfree(lease->vendor_specific);
