@@ -65,7 +65,7 @@ static const uint8_t default_req_opts_anonymize[] = {
         SD_DHCP_OPTION_DOMAIN_NAME,                     /* 15 */
         SD_DHCP_OPTION_ROUTER_DISCOVERY,                /* 31 */
         SD_DHCP_OPTION_STATIC_ROUTE,                    /* 33 */
-        SD_DHCP_OPTION_VENDOR_SPECIFIC,                 /* 43 */
+        SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION,     /* 43 */
         SD_DHCP_OPTION_NETBIOS_NAME_SERVER,             /* 44 */
         SD_DHCP_OPTION_NETBIOS_NODE_TYPE,               /* 46 */
         SD_DHCP_OPTION_NETBIOS_SCOPE,                   /* 47 */
@@ -972,7 +972,7 @@ static int client_append_common_discover_request_options(sd_dhcp_client *client,
         if (!ordered_hashmap_isempty(client->vendor_options)) {
                 r = dhcp_option_append(
                                 &packet->dhcp, optlen, optoffset, 0,
-                                SD_DHCP_OPTION_VENDOR_SPECIFIC,
+                                SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION,
                                 /* optlen= */ 0, client->vendor_options);
                 if (r < 0)
                         return r;

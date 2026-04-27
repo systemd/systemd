@@ -728,7 +728,7 @@ static int server_send_offer_or_ack(
         if (!ordered_set_isempty(server->vendor_options)) {
                 r = dhcp_option_append(
                                 &packet->dhcp, req->max_optlen, &offset, 0,
-                                SD_DHCP_OPTION_VENDOR_SPECIFIC,
+                                SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION,
                                 /* optlen= */ 0, server->vendor_options);
                 if (r < 0)
                         return r;
