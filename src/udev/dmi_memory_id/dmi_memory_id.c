@@ -42,13 +42,15 @@
  *    https://www.dmtf.org/sites/default/files/DSP0270_1.0.1.pdf
  */
 
-#include <getopt.h>
 #include <stdio.h>
 
 #include "alloc-util.h"
 #include "build.h"
 #include "fileio.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "main-func.h"
+#include "options.h"
 #include "string-util.h"
 #include "udev-util.h"
 #include "unaligned.h"
@@ -643,45 +645,49 @@ static int legacy_decode(const uint8_t *buf, const char *devmem, bool no_file_of
 }
 
 static int help(void) {
-        printf("%s [OPTIONS...]\n\n"
-               "  -F --from-dump FILE  Read DMI information from a binary file\n"
-               "  -h --help            Show this help text\n"
-               "     --version         Show package version\n",
-               program_invocation_short_name);
-        return 0;
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        help_cmdline("[OPTIONS...]");
+        help_section("Options:");
+
+        return table_print_or_warn(options);
 }
 
-static int parse_argv(int argc, char * const *argv) {
-        static const struct option options[] = {
-                { "from-dump", required_argument, NULL, 'F' },
-                { "version",   no_argument,       NULL, 'V' },
-                { "help",      no_argument,       NULL, 'h' },
-                { "version",   no_argument,       NULL, 'v' },
-                {}
-        };
-        int c;
+static int parse_argv(int argc, char *argv[]) {
+        assert(argc >= 0);
+        assert(argv);
 
-        while ((c = getopt_long(argc, argv, "F:hV", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
-                case 'F':
-                        arg_source_file = optarg;
-                        break;
-                case 'V':
-                        return version();
-                case 'h':
+
+                OPTION_COMMON_HELP:
                         return help();
-                case '?':
-                        return -EINVAL;
-                case 'v':
+
+                OPTION_COMMON_VERSION_WITH_HIDDEN_V:
                         return version();
-                default:
-                        assert_not_reached();
+
+                OPTION('F', "from-dump", "FILE",
+                       "Read DMI information from a binary file"):
+                        arg_source_file = arg;
+                        break;
                 }
+
+        if (option_parser_get_n_args(&state) > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program takes no arguments.");
 
         return 1;
 }
 
-static int run(int argc, char* const* argv) {
+static int run(int argc, char *argv[]) {
         _cleanup_free_ uint8_t *buf = NULL;
         bool no_file_offset = false;
         size_t size;
