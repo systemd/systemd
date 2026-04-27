@@ -1323,6 +1323,15 @@ libfido2_cflags = declare_dependency(
 )
 conf.set10('HAVE_LIBFIDO2', libfido2.found())
 
+liburing = dependency('liburing',
+                      version : '>= 2.3',
+                      required : get_option('liburing'))
+liburing_cflags = declare_dependency(
+        dependencies : liburing.partial_dependency(includes: true, compile_args: true),
+        compile_args : '-DSYSTEMD_CFLAGS_MARKER_LIBURING',
+)
+conf.set10('HAVE_LIBURING', liburing.found())
+
 tss2_esys = dependency('tss2-esys', required : get_option('tpm2'))
 tss2_mu = dependency('tss2-mu', required : get_option('tpm2'))
 tss2_rc = dependency('tss2-rc', required : get_option('tpm2'))
