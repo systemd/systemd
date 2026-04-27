@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
+#include "errno-util.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
 #include "network-internal.h"
@@ -115,9 +116,13 @@ static void test_route_tables_one(Manager *manager, const char *name, uint32_t n
 
 TEST(route_tables) {
         _cleanup_(manager_freep) Manager *manager = NULL;
+        int r;
 
         ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
-        ASSERT_OK(manager_setup(manager));
+        r = manager_setup(manager);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped_errno(r, "manager_setup() not supported (netlink restricted?)");
+        ASSERT_OK(r);
 
         ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "hoge:123 foo:456 aaa:111", manager, manager));
         ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "bbb:11111 ccc:22222", manager, manager));
@@ -154,9 +159,13 @@ TEST(route_tables) {
 TEST(vrf_table) {
         _cleanup_(manager_freep) Manager *manager = NULL;
         Vrf vrf = {};
+        int r;
 
         ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
-        ASSERT_OK(manager_setup(manager));
+        r = manager_setup(manager);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped_errno(r, "manager_setup() not supported (netlink restricted?)");
+        ASSERT_OK(r);
 
         vrf.meta.manager = manager;
 
@@ -176,9 +185,16 @@ TEST(vrf_table) {
 
 TEST(manager_enumerate) {
         _cleanup_(manager_freep) Manager *manager = NULL;
+        int r;
 
         ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
-        ASSERT_OK(manager_setup(manager));
+        r = manager_setup(manager);
+        /* Some restricted build sandboxes (mock/nspawn, TCG emulation) refuse
+         * NETLINK_ROUTE socket opening with -EPROTONOSUPPORT. Skip rather than
+         * abort in that case. */
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped_errno(r, "manager_setup() not supported (netlink restricted?)");
+        ASSERT_OK(r);
 
         /* TODO: should_reload, is false if the config dirs do not exist, so we can't do this test here, move
          * it to a test for paths_check_timestamps directly. */
