@@ -20,6 +20,10 @@ static int client_get_socket(sd_dhcp_client *client, int domain) {
         assert(client);
         assert(IN_SET(domain, AF_PACKET, AF_INET));
 
+        /* When a socket fd is given externally, unconditionally use it. */
+        if (client->socket_fd >= 0)
+                return client->socket_fd;
+
         if (!client->receive_message)
                 return -EBADF;
 
@@ -50,6 +54,12 @@ static int client_setup_io_event(
         assert(callback);
         assert(description);
 
+        /* When the socket fd is given externally, the fd is used for both UDP and RAW packet operations.
+         * Hence, first we need to disable the previous event source, otherwise sd_event_add_io() will fail
+         * with -EEXIST. */
+        if (fd == client->socket_fd)
+                client->receive_message = sd_event_source_disable_unref(client->receive_message);
+
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         r = sd_event_add_io(client->event, &s, fd, EPOLLIN, callback, client);
         if (r < 0)
@@ -63,9 +73,14 @@ static int client_setup_io_event(
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_io_fd_own(s, true);
-        if (r < 0)
-                return r;
+        /* When the socket fd is given externally, do not close it while we are running. The IO event source
+         * is freed when not necessary, hence the lifetime of the socket fd should not be tied to the one of
+         * the event source in that case. */
+        if (fd != client->socket_fd) {
+                r = sd_event_source_set_io_fd_own(s, true);
+                if (r < 0)
+                        return r;
+        }
 
         sd_event_source_disable_unref(client->receive_message);
         client->receive_message = TAKE_PTR(s);
@@ -143,7 +158,7 @@ static int client_send_raw(
                 return 0;
         }
 
-        if (fd_close < 0)
+        if (fd_close < 0 && fd != client->socket_fd)
                 return 0; /* Already opened socket is reused. Not necessary to setup new IO event source. */
 
         r = client_setup_io_event(client, fd, client_receive_message_raw, "dhcp4-receive-message-raw");
@@ -200,7 +215,7 @@ static int client_send_udp(
                 return 0;
         }
 
-        if (fd_close < 0)
+        if (fd_close < 0 && fd != client->socket_fd)
                 return 0; /* Already opened socket is reused. Not necessary to setup new IO event source. */
 
         r = client_setup_io_event(client, fd, client_receive_message_udp, "dhcp4-receive-message-udp");
