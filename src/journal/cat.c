@@ -59,11 +59,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
-        const char *arg;
+        OptionParser opts = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -73,11 +72,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return version();
 
                 OPTION('t', "identifier", "STRING", "Set syslog identifier"):
-                        arg_identifier = empty_to_null(arg);
+                        arg_identifier = empty_to_null(opts.arg);
                         break;
 
                 OPTION('p', "priority", "PRIORITY", "Set priority value (0..7)"):
-                        arg_priority = log_level_from_string(arg);
+                        arg_priority = log_level_from_string(opts.arg);
                         if (arg_priority < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to parse priority value.");
@@ -85,7 +84,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("stderr-priority", "PRIORITY",
                             "Set priority value (0..7) used for stderr"):
-                        arg_stderr_priority = log_level_from_string(arg);
+                        arg_stderr_priority = log_level_from_string(opts.arg);
                         if (arg_stderr_priority < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to parse stderr priority value.");
@@ -93,18 +92,18 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("level-prefix", "BOOL",
                             "Control whether level prefix shall be parsed"):
-                        r = parse_boolean_argument("--level-prefix=", arg, &arg_level_prefix);
+                        r = parse_boolean_argument("--level-prefix=", opts.arg, &arg_level_prefix);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("namespace", "NAMESPACE",
                             "Connect to specified journal namespace"):
-                        arg_namespace = empty_to_null(arg);
+                        arg_namespace = empty_to_null(opts.arg);
                         break;
                 }
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 

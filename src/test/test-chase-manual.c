@@ -37,18 +37,16 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
         assert(ret_args);
 
-        OptionParser state = { argc, argv };
-        const Option *opt;
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION_FULL(&state, c, &opt, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
                         return help();
 
                 OPTION_LONG("root", "PATH", "Operate below specified root directory"):
-                        arg_root = arg;
+                        arg_root = opts.arg;
                         break;
 
                 OPTION_LONG("open", NULL, "Open the resolved path"):
@@ -64,11 +62,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG_DATA("step",           NULL, CHASE_STEP,           "Execute a single normalization step"): {}
                 OPTION_LONG_DATA("nofollow",       NULL, CHASE_NOFOLLOW,       "Do not follow the path's right-most component"): {}
                 OPTION_LONG_DATA("warn",           NULL, CHASE_WARN,           "Emit a warning on error"):
-                        arg_flags |= opt->data;
+                        arg_flags |= opts.opt->data;
                         break;
                 }
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         if (strv_isempty(*ret_args))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "At least one argument is required.");
 

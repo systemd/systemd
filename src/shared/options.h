@@ -141,25 +141,25 @@ typedef struct OptionParser {
                                        * 0 → we're not parsing short options. */
         int positional_offset;        /* Offset to where positional parameters are. After processing has been
                                        * finished, all options and their args are to the left of this offset. */
+
+        /* The two variables below encompass the state of the last option_parse() call.
+         * Before parsing has commenced, and after it has finished, they will be NULL. */
+        const Option *opt;            /* … the matched option or NULL */
+        const char *arg;              /* … the argument or NULL */
 } OptionParser;
 
 int option_parse(
                 const Option options[],
                 const Option options_end[],
-                OptionParser *state,
-                const Option **ret_option,
-                const char **ret_arg);
+                OptionParser *state);
 
 /* Iterate over options. */
-#define FOREACH_OPTION_FULL(parser, opt, ret_o, ret_a, on_error) \
-        for (int opt; (opt = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, parser, ret_o, ret_a)) != 0; ) \
-                if (opt < 0) {                                                  \
-                        on_error;                                               \
-                        break;                                                  \
+#define FOREACH_OPTION(c, state, on_error)                              \
+        for (int c; (c = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, state)) != 0; ) \
+                if (c < 0) {                                            \
+                        on_error;                                       \
+                        break;                                          \
                 } else
-
-#define FOREACH_OPTION(parser, opt, ret_a, on_error) \
-        FOREACH_OPTION_FULL(parser, opt, /* ret_o= */ NULL, ret_a, on_error)
 
 char* option_parser_next_arg(const OptionParser *state);
 char* option_parser_consume_next_arg(OptionParser *state);

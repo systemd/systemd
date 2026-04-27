@@ -51,10 +51,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -72,12 +71,12 @@ static int parse_argv(int argc, char *argv[]) {
                             "Write D-Bus XML introspection data"):
                         return bus_introspect_implementations(
                                         stdout,
-                                        arg,
+                                        opts.arg,
                                         BUS_IMPLEMENTATIONS(&manager_object,
                                                             &log_control_object));
                 }
 
-        if (option_parser_get_n_args(&state) > 0)
+        if (option_parser_get_n_args(&opts) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This program takes no arguments.");
 

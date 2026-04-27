@@ -32,34 +32,32 @@ static void test_option_parse_one(
         for (const Entry *e = entries; e && (e->long_code || e->short_code != 0); e++)
                 n_entries++;
 
-        OptionParser state = { argc, argv, mode };
-        const Option *opt;
-        const char *arg;
-        for (int c; (c = option_parse(options, options + n_options, &state, &opt, &arg)) != 0; ) {
+        OptionParser opts = { argc, argv, mode };
+        for (int c; (c = option_parse(options, options + n_options, &opts)) != 0; ) {
                 ASSERT_OK(c);
-                ASSERT_NOT_NULL(opt);
+                ASSERT_NOT_NULL(opts.opt);
 
                 log_debug("%c %s: %s=%s",
-                          opt->short_code != 0 ? opt->short_code : ' ',
-                          opt->long_code ?: "",
-                          strnull(opt->metavar), strnull(arg));
+                          opts.opt->short_code != 0 ? opts.opt->short_code : ' ',
+                          opts.opt->long_code ?: "",
+                          strnull(opts.opt->metavar), strnull(opts.arg));
 
                 ASSERT_LT(i, n_entries);
                 if (entries[i].long_code)
-                        ASSERT_TRUE(streq_ptr(opt->long_code, entries[i].long_code));
+                        ASSERT_TRUE(streq_ptr(opts.opt->long_code, entries[i].long_code));
                 if (entries[i].short_code != 0)
-                        ASSERT_EQ(opt->short_code, entries[i].short_code);
-                ASSERT_TRUE(streq_ptr(arg, entries[i].argument));
+                        ASSERT_EQ(opts.opt->short_code, entries[i].short_code);
+                ASSERT_TRUE(streq_ptr(opts.arg, entries[i].argument));
                 i++;
         }
 
         ASSERT_EQ(i, n_entries);
 
-        char **args = option_parser_get_args(&state);
+        char **args = option_parser_get_args(&opts);
         ASSERT_TRUE(strv_equal(args, remaining));
         ASSERT_STREQ(argv[0], saved_argv0);
 
-        ASSERT_EQ(option_parser_get_n_args(&state), strv_length(remaining));
+        ASSERT_EQ(option_parser_get_n_args(&opts), strv_length(remaining));
 }
 
 static void test_option_invalid_one(
@@ -78,11 +76,9 @@ static void test_option_invalid_one(
         for (const Option *o = options; o->short_code != 0 || o->long_code; o++)
                 n_options++;
 
-        OptionParser state = { argc, argv };
-        const Option *opt;
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        int c = option_parse(options, options + n_options, &state, &opt, &arg);
+        int c = option_parse(options, options + n_options, &opts);
         ASSERT_ERROR(c, EINVAL);
 }
 
@@ -736,7 +732,7 @@ TEST(option_optional_arg) {
 }
 
 /* Test the OPTION, OPTION_LONG, OPTION_SHORT, OPTION_FULL, OPTION_GROUP macros
- * by using them in a FOREACH_OPTION_FULL switch, as they would be used in real code. */
+ * by using them in a FOREACH_OPTION switch, as they would be used in real code. */
 
 static void test_macros_parse_one(
                 char **argv,
@@ -756,27 +752,25 @@ static void test_macros_parse_one(
         for (const Entry *e = entries; e && (e->long_code || e->short_code != 0); e++)
                 n_entries++;
 
-        OptionParser state = { argc, argv, mode };
-        const Option *opt;
-        const char *arg;
+        OptionParser opts = { argc, argv, mode };
 
-        FOREACH_OPTION_FULL(&state, c, &opt, &arg, ASSERT_TRUE(false)) {
+        FOREACH_OPTION(c, &opts, assert_not_reached()) {
                 log_debug("%c %s: %s=%s",
-                          opt->short_code != 0 ? opt->short_code : ' ',
-                          opt->long_code ?: "",
-                          strnull(opt->metavar), strnull(arg));
+                          opts.opt->short_code != 0 ? opts.opt->short_code : ' ',
+                          opts.opt->long_code ?: "",
+                          strnull(opts.opt->metavar), strnull(opts.arg));
 
                 ASSERT_LT(i, n_entries);
                 if (entries[i].long_code)
-                        ASSERT_TRUE(streq_ptr(opt->long_code, entries[i].long_code));
+                        ASSERT_TRUE(streq_ptr(opts.opt->long_code, entries[i].long_code));
                 if (entries[i].short_code != 0)
-                        ASSERT_EQ(opt->short_code, entries[i].short_code);
-                ASSERT_TRUE(streq_ptr(arg, entries[i].argument));
+                        ASSERT_EQ(opts.opt->short_code, entries[i].short_code);
+                ASSERT_TRUE(streq_ptr(opts.arg, entries[i].argument));
 
                 if (streq_ptr(entries[i].long_code, "optional2"))
-                        ASSERT_EQ(opt->data, 666u);
+                        ASSERT_EQ(opts.opt->data, 666u);
                 else
-                        ASSERT_EQ(opt->data, 0u);
+                        ASSERT_EQ(opts.opt->data, 0u);
 
                 i++;
 
@@ -828,9 +822,11 @@ static void test_macros_parse_one(
 
         ASSERT_EQ(i, n_entries);
 
-        char **args = option_parser_get_args(&state);
+        char **args = option_parser_get_args(&opts);
         ASSERT_TRUE(strv_equal(args, remaining));
         ASSERT_STREQ(argv[0], saved_argv0);
+        ASSERT_NULL(opts.opt);
+        ASSERT_NULL(opts.arg);
 }
 
 TEST(option_macros) {
@@ -1202,19 +1198,19 @@ TEST(option_optional_arg_consume) {
                 char **argv = STRV_MAKE("arg0", "--user", "someuser", "pos1");
                 int argc = strv_length(argv);
 
-                OptionParser state = { argc, argv };
-                const Option *opt;
-                const char *arg;
+                OptionParser opts = { argc, argv };
 
-                ASSERT_OK_POSITIVE(option_parse(options, options + 3, &state, &opt, &arg));
-                ASSERT_STREQ(opt->long_code, "user");
-                ASSERT_NULL(arg);
-                ASSERT_STREQ(option_parser_next_arg(&state), "someuser");
-                ASSERT_STREQ(option_parser_consume_next_arg(&state), "someuser");
+                ASSERT_OK_POSITIVE(option_parse(options, options + 3, &opts));
+                ASSERT_STREQ(opts.opt->long_code, "user");
+                ASSERT_NULL(opts.arg);
+                ASSERT_STREQ(option_parser_next_arg(&opts), "someuser");
+                ASSERT_STREQ(option_parser_consume_next_arg(&opts), "someuser");
 
-                ASSERT_EQ(option_parse(options, options + 3, &state, &opt, &arg), 0);
+                ASSERT_EQ(option_parse(options, options + 3, &opts), 0);
+                ASSERT_NULL(opts.opt);
+                ASSERT_NULL(opts.arg);
 
-                ASSERT_TRUE(strv_equal(option_parser_get_args(&state), STRV_MAKE("pos1")));
+                ASSERT_TRUE(strv_equal(option_parser_get_args(&opts), STRV_MAKE("pos1")));
         }
 
         /* --user at end of args: no next arg, so scope mode */
@@ -1222,19 +1218,19 @@ TEST(option_optional_arg_consume) {
                 char **argv = STRV_MAKE("arg0", "--user");
                 int argc = strv_length(argv);
 
-                OptionParser state = { argc, argv };
-                const Option *opt;
-                const char *arg;
+                OptionParser opts = { argc, argv };
 
-                ASSERT_OK_POSITIVE(option_parse(options, options + 3, &state, &opt, &arg));
-                ASSERT_STREQ(opt->long_code, "user");
-                ASSERT_NULL(arg);
-                ASSERT_NULL(option_parser_next_arg(&state));
-                ASSERT_NULL(option_parser_consume_next_arg(&state));
+                ASSERT_OK_POSITIVE(option_parse(options, options + 3, &opts));
+                ASSERT_STREQ(opts.opt->long_code, "user");
+                ASSERT_NULL(opts.arg);
+                ASSERT_NULL(option_parser_next_arg(&opts));
+                ASSERT_NULL(option_parser_consume_next_arg(&opts));
 
-                ASSERT_EQ(option_parse(options, options + 3, &state, &opt, &arg), 0);
+                ASSERT_EQ(option_parse(options, options + 3, &opts), 0);
+                ASSERT_NULL(opts.opt);
+                ASSERT_NULL(opts.arg);
 
-                ASSERT_TRUE(strv_isempty(option_parser_get_args(&state)));
+                ASSERT_TRUE(strv_isempty(option_parser_get_args(&opts)));
         }
 
         /* --user followed by -u (option): scope mode, -u gets its own processing */
@@ -1242,24 +1238,24 @@ TEST(option_optional_arg_consume) {
                 char **argv = STRV_MAKE("arg0", "--user", "-u", "nobody");
                 int argc = strv_length(argv);
 
-                OptionParser state = { argc, argv };
-                const Option *opt;
-                const char *arg;
+                OptionParser opts = { argc, argv };
 
-                ASSERT_OK_POSITIVE(option_parse(options, options + 3, &state, &opt, &arg));
-                ASSERT_STREQ(opt->long_code, "user");
-                ASSERT_NULL(arg);
-                ASSERT_STREQ(option_parser_next_arg(&state), "-u");
+                ASSERT_OK_POSITIVE(option_parse(options, options + 3, &opts));
+                ASSERT_STREQ(opts.opt->long_code, "user");
+                ASSERT_NULL(opts.arg);
+                ASSERT_STREQ(option_parser_next_arg(&opts), "-u");
 
-                ASSERT_OK_POSITIVE(option_parse(options, options + 3, &state, &opt, &arg));
-                ASSERT_STREQ(opt->long_code, "uid");
-                ASSERT_STREQ(arg, "nobody");
-                ASSERT_NULL(option_parser_next_arg(&state));
-                ASSERT_NULL(option_parser_consume_next_arg(&state));
+                ASSERT_OK_POSITIVE(option_parse(options, options + 3, &opts));
+                ASSERT_STREQ(opts.opt->long_code, "uid");
+                ASSERT_STREQ(opts.arg, "nobody");
+                ASSERT_NULL(option_parser_next_arg(&opts));
+                ASSERT_NULL(option_parser_consume_next_arg(&opts));
 
-                ASSERT_EQ(option_parse(options, options + 3, &state, &opt, &arg), 0);
+                ASSERT_EQ(option_parse(options, options + 3, &opts), 0);
+                ASSERT_NULL(opts.opt);
+                ASSERT_NULL(opts.arg);
 
-                ASSERT_TRUE(strv_isempty(option_parser_get_args(&state)));
+                ASSERT_TRUE(strv_isempty(option_parser_get_args(&opts)));
         }
 
         /* "Functional test": --user followed by -u (option): scope mode, -u gets its own processing,
@@ -1268,20 +1264,20 @@ TEST(option_optional_arg_consume) {
                 char **argv = STRV_MAKE("arg0", "--user", "-u", "nobody", "nogroup", "--user=nobody", "--user");
                 int argc = strv_length(argv);
 
-                OptionParser state = { argc, argv };
-                const Option *opt;
-                const char *arg;
+                OptionParser opts = { argc, argv };
                 int scope_seen = 0;
                 int nobody_seen = 0;
 
-                for (int c; (c = option_parse(options, options + 3, &state, &opt, &arg)) != 0; ) {
+                for (int c; (c = option_parse(options, options + 3, &opts)) != 0; ) {
                         ASSERT_OK(c);
 
-                        if (streq_ptr(opt->long_code, "user")) {
+                        if (streq_ptr(opts.opt->long_code, "user")) {
+                                const char *arg = opts.arg;
+
                                 if (!arg) {
-                                        const char *t = option_parser_next_arg(&state);
+                                        const char *t = option_parser_next_arg(&opts);
                                         if (t && t[0] != '-')
-                                                arg = option_parser_consume_next_arg(&state);
+                                                arg = option_parser_consume_next_arg(&opts);
                                 }
 
                                 if (arg) {
@@ -1290,15 +1286,17 @@ TEST(option_optional_arg_consume) {
                                 } else
                                         scope_seen ++;
 
-                        } else if (streq_ptr(opt->long_code, "uid")) {
-                                ASSERT_STREQ(arg, "nobody");
+                        } else if (streq_ptr(opts.opt->long_code, "uid")) {
+                                ASSERT_STREQ(opts.arg, "nobody");
                                 nobody_seen ++;
                         }
                 }
 
                 ASSERT_EQ(nobody_seen, 2);
                 ASSERT_EQ(scope_seen, 2);
-                ASSERT_TRUE(strv_equal(option_parser_get_args(&state), STRV_MAKE("nogroup")));
+                ASSERT_TRUE(strv_equal(option_parser_get_args(&opts), STRV_MAKE("nogroup")));
+                ASSERT_NULL(opts.opt);
+                ASSERT_NULL(opts.arg);
         }
 }
 

@@ -62,10 +62,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -75,39 +74,39 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 OPTION_COMMON_LOG_LEVEL:
-                        r = log_set_max_level_from_string(arg);
+                        r = log_set_max_level_from_string(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse log level \"%s\": %m", arg);
+                                return log_error_errno(r, "Failed to parse log level \"%s\": %m", opts.arg);
                         break;
 
                 OPTION_COMMON_LOG_TARGET:
-                        r = log_set_target_from_string(arg);
+                        r = log_set_target_from_string(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse log target \"%s\": %m", arg);
+                                return log_error_errno(r, "Failed to parse log target \"%s\": %m", opts.arg);
                         break;
 
                 OPTION_COMMON_LOG_COLOR:
-                        r = log_show_color_from_string(arg);
+                        r = log_show_color_from_string(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse log color setting \"%s\": %m", arg);
+                                return log_error_errno(r, "Failed to parse log color setting \"%s\": %m", opts.arg);
                         break;
 
                 OPTION_COMMON_LOG_LOCATION:
-                        r = log_show_location_from_string(arg);
+                        r = log_show_location_from_string(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse log location setting \"%s\": %m", arg);
+                                return log_error_errno(r, "Failed to parse log location setting \"%s\": %m", opts.arg);
                         break;
 
                 OPTION_COMMON_LOG_TIME:
-                        r = log_show_time_from_string(arg);
+                        r = log_show_time_from_string(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse log time setting \"%s\": %m", arg);
+                                return log_error_errno(r, "Failed to parse log time setting \"%s\": %m", opts.arg);
                         break;
 
                 OPTION_LONG("deserialize", "FD", "Deserialize process config from FD"): {
-                        int fd = parse_fd(arg);
+                        int fd = parse_fd(opts.arg);
                         if (fd < 0)
-                                return log_error_errno(fd, "Failed to parse serialization fd \"%s\": %m", arg);
+                                return log_error_errno(fd, "Failed to parse serialization fd \"%s\": %m", opts.arg);
 
                         /* Set O_CLOEXEC and as a side effect, verify that the fd is valid. */
                         r = fd_cloexec(fd, /* cloexec= */ true);
