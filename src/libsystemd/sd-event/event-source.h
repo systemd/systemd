@@ -44,6 +44,10 @@ typedef enum WakeupType {
         _WAKEUP_TYPE_INVALID = -EINVAL,
 } WakeupType;
 
+static inline WakeupType pending_kind(const void *p) {
+        return *(const WakeupType *) p;
+}
+
 typedef struct inode_data InodeData;
 typedef struct inotify_data InotifyData;
 
@@ -51,6 +55,10 @@ struct sd_event_source {
         WakeupType wakeup;
 
         unsigned n_ref;
+        /* Subset of n_ref held by armed POLL_ADD SQEs. Transiently 2 when EPOLL_CTL_MOD has both the
+         * old POLL_ADD's cancel and the new POLL_ADD inflight. n_ref reaching this count means the user
+         * dropped their last live ref. */
+        unsigned io_uring_inflight;
 
         sd_event *event;
         void *userdata;
@@ -76,6 +84,12 @@ struct sd_event_source {
         sd_event_handler_t ratelimit_expire_callback;
 
         LIST_FIELDS(sd_event_source, sources);
+
+#if HAVE_LIBURING
+        /* Pointer to a POLL_ADD SQE that hasn't been submitted to the kernel yet (NULL otherwise). */
+        struct io_uring_sqe *pending_sqe;
+        LIST_FIELDS(sd_event_source, pending_source_sqes);
+#endif
 
         RateLimit rate_limit;
 
@@ -171,6 +185,8 @@ struct clock_data {
 struct signal_data {
         WakeupType wakeup;
 
+        unsigned n_ref;
+
         /* For each priority we maintain one signal fd, so that we
          * only have to dequeue a single event per priority at a
          * time. */
@@ -218,6 +234,8 @@ struct inode_data {
 /* A structure encapsulating an inotify fd */
 struct inotify_data {
         WakeupType wakeup;
+
+        unsigned n_ref;
 
         /* For each priority we maintain one inotify fd, so that we only have to dequeue a single event per priority at
          * a time */
