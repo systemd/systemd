@@ -353,6 +353,7 @@ executables += [
                         libpcre2_cflags,
                         libseccomp_cflags,
                         libselinux_cflags,
+                        liburing_cflags,
                         tpm2_cflags,
                 ],
         },
