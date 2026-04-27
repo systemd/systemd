@@ -168,7 +168,7 @@ void job_uninstall(Job *j) {
         assert(j);
         assert(j->installed);
 
-        job_set_state(j, JOB_WAITING);
+        job_set_state(j, JOB_FINISHED);
 
         pj = j->type == JOB_NOP ? &j->unit->nop_job : &j->unit->job;
         assert(*pj == j);
