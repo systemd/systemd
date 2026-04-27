@@ -561,6 +561,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "QDisc\0"
                         "BFIFO\0"
                         "CAKE\0"
+                        "CreditBasedShaper\0"
                         "ControlledDelay\0"
                         "DeficitRoundRobinScheduler\0"
                         "DeficitRoundRobinSchedulerClass\0"
@@ -583,6 +584,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "QuickFairQueueingClass\0"
                         "StochasticFairBlue\0"
                         "StochasticFairnessQueueing\0"
+                        "TimeAwarePriorityShaper\0"
                         "TokenBucketFilter\0"
                         "TrivialLinkEqualizer\0",
                         config_item_perf_lookup,

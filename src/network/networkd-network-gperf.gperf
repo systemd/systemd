@@ -46,6 +46,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "tclass.h"
 
 #include "cake.h"
+#include "cbs.h"
 #include "codel.h"
 #include "ets.h"
 #include "fifo.h"
@@ -61,6 +62,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "drr.h"
 #include "sfb.h"
 #include "sfq.h"
+#include "taprio.h"
 #include "tbf.h"
 #include "teql.h"
 %}
@@ -525,6 +527,13 @@ CAKE.Wash,                                       config_parse_cake_tristate,    
 CAKE.SplitGSO,                                   config_parse_cake_tristate,                     QDISC_KIND_CAKE,                        0
 CAKE.RTTSec,                                     config_parse_cake_rtt,                          QDISC_KIND_CAKE,                        0
 CAKE.AckFilter,                                  config_parse_cake_ack_filter,                   QDISC_KIND_CAKE,                        0
+CreditBasedShaper.Parent,                        config_parse_qdisc_parent,                      QDISC_KIND_CBS,                         0
+CreditBasedShaper.Handle,                        config_parse_qdisc_handle,                      QDISC_KIND_CBS,                         0
+CreditBasedShaper.IdleSlope,                     config_parse_cbs_slope,                         QDISC_KIND_CBS,                         0
+CreditBasedShaper.SendSlope,                     config_parse_cbs_slope,                         QDISC_KIND_CBS,                         0
+CreditBasedShaper.HiCredit,                      config_parse_cbs_s32,                           QDISC_KIND_CBS,                         0
+CreditBasedShaper.LoCredit,                      config_parse_cbs_s32,                           QDISC_KIND_CBS,                         0
+CreditBasedShaper.Offload,                       config_parse_cbs_tristate,                      QDISC_KIND_CBS,                         0
 ControlledDelay.Parent,                          config_parse_qdisc_parent,                      QDISC_KIND_CODEL,                       0
 ControlledDelay.Handle,                          config_parse_qdisc_handle,                      QDISC_KIND_CODEL,                       0
 ControlledDelay.PacketLimit,                     config_parse_codel_u32,                         QDISC_KIND_CODEL,                       0
@@ -623,6 +632,17 @@ StochasticFairBlue.PacketLimit,                  config_parse_sfb_u32,          
 StochasticFairnessQueueing.Parent,               config_parse_qdisc_parent,                      QDISC_KIND_SFQ,                         0
 StochasticFairnessQueueing.Handle,               config_parse_qdisc_handle,                      QDISC_KIND_SFQ,                         0
 StochasticFairnessQueueing.PerturbPeriodSec,     config_parse_sfq_perturb_period,                QDISC_KIND_SFQ,                         0
+TimeAwarePriorityShaper.Parent,                  config_parse_qdisc_parent,                      QDISC_KIND_TAPRIO,                      0
+TimeAwarePriorityShaper.Handle,                  config_parse_qdisc_handle,                      QDISC_KIND_TAPRIO,                      0
+TimeAwarePriorityShaper.ClockId,                 config_parse_taprio_clockid,                    QDISC_KIND_TAPRIO,                      0
+TimeAwarePriorityShaper.NumTrafficClasses,       config_parse_taprio_u32,                        QDISC_KIND_TAPRIO,                      0
+TimeAwarePriorityShaper.TrafficClassMap,         config_parse_taprio_traffic_class_map,          QDISC_KIND_TAPRIO,                      0
+TimeAwarePriorityShaper.TrafficClassQueues,      config_parse_taprio_traffic_class_queues,       QDISC_KIND_TAPRIO,                      0
+TimeAwarePriorityShaper.ScheduleEntry,           config_parse_taprio_schedule_entry,             QDISC_KIND_TAPRIO,                      0
+TimeAwarePriorityShaper.BaseTime,                config_parse_taprio_base_time,                  QDISC_KIND_TAPRIO,                      0
+TimeAwarePriorityShaper.CycleTime,               config_parse_taprio_cycle_time,                 QDISC_KIND_TAPRIO,                      0
+TimeAwarePriorityShaper.CycleTimeExtension,      config_parse_taprio_cycle_time,                 QDISC_KIND_TAPRIO,                      0
+TimeAwarePriorityShaper.Flags,                   config_parse_taprio_flags,                      QDISC_KIND_TAPRIO,                      0
 TokenBucketFilter.Parent,                        config_parse_qdisc_parent,                      QDISC_KIND_TBF,                         0
 TokenBucketFilter.Handle,                        config_parse_qdisc_handle,                      QDISC_KIND_TBF,                         0
 TokenBucketFilter.Rate,                          config_parse_tbf_rate,                          QDISC_KIND_TBF,                         0
