@@ -151,7 +151,8 @@ static int help(void) {
                 "Timer options",
         };
 
-        _cleanup_(table_unref_many) Table *tables[ELEMENTSOF(groups) + 1] = {};
+        Table *tables[ELEMENTSOF(groups)] = {};
+        CLEANUP_ELEMENTS(tables, table_unref_array_clear);
 
         for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
                 r = option_parser_get_help_table_full("systemd-run", groups[i], &tables[i]);
