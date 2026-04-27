@@ -1862,11 +1862,10 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argv);
         assert(remaining_args);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -1880,18 +1879,18 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION('C', "component", "NAME",
                        "Select component to update"):
-                        if (isempty(arg)) {
+                        if (isempty(opts.arg)) {
                                 arg_component = mfree(arg_component);
                                 break;
                         }
 
-                        r = component_name_valid(arg);
+                        r = component_name_valid(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine if component name is valid: %m");
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", arg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", opts.arg);
 
-                        r = free_and_strdup_warn(&arg_component, arg);
+                        r = free_and_strdup_warn(&arg_component, opts.arg);
                         if (r < 0)
                                 return r;
 
@@ -1899,35 +1898,35 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_LONG("definitions", "DIR",
                             "Find transfer definitions in specified directory"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_definitions);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_definitions);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("root", "PATH",
                             "Operate on an alternate filesystem root"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_root);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image", "PATH",
                             "Operate on disk image as filesystem root"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image-policy", "POLICY",
                             "Specify disk image dissection policy"):
-                        r = parse_image_policy_argument(arg, &arg_image_policy);
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("transfer-source", "PATH",
                             "Specify the directory to transfer sources from"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_transfer_source);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_transfer_source);
                         if (r < 0)
                                 return r;
 
@@ -1935,15 +1934,15 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION('m', "instances-max", "INT",
                        "How many instances to maintain"):
-                        r = safe_atou64(arg, &arg_instances_max);
+                        r = safe_atou64(opts.arg, &arg_instances_max);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --instances-max= parameter: %s", arg);
+                                return log_error_errno(r, "Failed to parse --instances-max= parameter: %s", opts.arg);
 
                         break;
 
                 OPTION_LONG("sync", "BOOL",
                             "Controls whether to sync data to disk"):
-                        r = parse_boolean_argument("--sync=", arg, &arg_sync);
+                        r = parse_boolean_argument("--sync=", opts.arg, &arg_sync);
                         if (r < 0)
                                 return r;
                         break;
@@ -1952,7 +1951,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                             "Force signature verification on or off"): {
                         bool b;
 
-                        r = parse_boolean_argument("--verify=", arg, &b);
+                        r = parse_boolean_argument("--verify=", opts.arg, &b);
                         if (r < 0)
                                 return r;
 
@@ -1979,7 +1978,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
 
@@ -1995,7 +1994,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         if (arg_definitions && arg_component)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --definitions= and --component= switches may not be combined.");
 
-        *remaining_args = option_parser_get_args(&state);
+        *remaining_args = option_parser_get_args(&opts);
         return 1;
 }
 

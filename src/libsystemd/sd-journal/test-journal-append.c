@@ -151,10 +151,9 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP: {
@@ -180,27 +179,27 @@ int main(int argc, char *argv[]) {
                             "Offset at which to start corrupting the journal "
                             "(default: random offset is picked, unless --sequential is used"
                             " - in that case we use 0 + iteration)"):
-                        r = safe_atou64(arg, &start_offset);
+                        r = safe_atou64(opts.arg, &start_offset);
                         if (r < 0)
                                 return log_error_errno(r, "Invalid starting offset: %m");
                         break;
 
                 OPTION_LONG("iterations", "ITER",
                             "Number of iterations to perform before exiting (default: 100)"):
-                        r = safe_atou64(arg, &iterations);
+                        r = safe_atou64(opts.arg, &iterations);
                         if (r < 0)
                                 return log_error_errno(r, "Invalid value for iterations: %m");
                         break;
 
                 OPTION_LONG("corrupt-step", "STEP",
                             "Corrupt every n-th byte starting from OFFSET (default: 31)"):
-                        r = safe_atou64(arg, &corrupt_step);
+                        r = safe_atou64(opts.arg, &corrupt_step);
                         if (r < 0)
                                 return log_error_errno(r, "Invalid value for corrupt-step: %m");
                         break;
 
                 OPTION_LONG("iteration-step", "STEP", "Iteration step (default: 1)"):
-                        r = safe_atou64(arg, &iteration_step);
+                        r = safe_atou64(opts.arg, &iteration_step);
                         if (r < 0)
                                 return log_error_errno(r, "Invalid value for iteration-step: %m");
                         break;
@@ -215,7 +214,7 @@ int main(int argc, char *argv[]) {
                 OPTION_LONG("run-one", "OFFSET",
                             "Single shot mode for reproducing issues. "
                             "Takes the same offset as --start-offset= and does only one iteration"):
-                        r = safe_atou64(arg, &start_offset);
+                        r = safe_atou64(opts.arg, &start_offset);
                         if (r < 0)
                                 return log_error_errno(r, "Invalid offset: %m");
 

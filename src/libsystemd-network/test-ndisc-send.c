@@ -78,88 +78,87 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_VERSION:
                         return version();
 
                 OPTION('i', "interface", "INTERFACE", "Network interface"):
-                        r = rtnl_resolve_interface_or_warn(&rtnl, arg);
+                        r = rtnl_resolve_interface_or_warn(&rtnl, opts.arg);
                         if (r < 0)
                                 return r;
                         arg_ifindex = r;
                         break;
 
                 OPTION('t', "type", "TYPE", "ICMPv6 message type"):
-                        r = parse_icmp6_type(arg);
+                        r = parse_icmp6_type(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse message type: %m");
                         arg_icmp6_type = r;
                         break;
 
                 OPTION('d', "dest", "ADDRESS", "Destination address"):
-                        r = in_addr_from_string(AF_INET6, arg, &arg_dest);
+                        r = in_addr_from_string(AF_INET6, opts.arg, &arg_dest);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse destination address: %m");
                         if (!in6_addr_is_link_local(&arg_dest.in6))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "The destination address %s is not a link-local address.", arg);
+                                                       "The destination address %s is not a link-local address.", opts.arg);
                         break;
 
                 OPTION_GROUP("Router Advertisement"): {}
 
                 OPTION_LONG("hop-limit", "LIMIT", "Hop limit"):
-                        r = safe_atou8(arg, &arg_hop_limit);
+                        r = safe_atou8(opts.arg, &arg_hop_limit);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse hop limit: %m");
                         break;
 
                 OPTION_LONG("managed", "BOOL", "Managed flag"):
-                        r = parse_boolean(arg);
+                        r = parse_boolean(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse managed flag: %m");
                         SET_FLAG(arg_ra_flags, ND_RA_FLAG_MANAGED, r);
                         break;
 
                 OPTION_LONG("other", "BOOL", "Other flag"):
-                        r = parse_boolean(arg);
+                        r = parse_boolean(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse other flag: %m");
                         SET_FLAG(arg_ra_flags, ND_RA_FLAG_OTHER, r);
                         break;
 
                 OPTION_LONG("home-agent", "BOOL", "Home-agent flag"):
-                        r = parse_boolean(arg);
+                        r = parse_boolean(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse home-agent flag: %m");
                         SET_FLAG(arg_ra_flags, ND_RA_FLAG_HOME_AGENT, r);
                         break;
 
                 OPTION_LONG("preference", "PREF", "Preference"):
-                        r = parse_preference(arg);
+                        r = parse_preference(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse preference: %m");
                         arg_preference = r;
                         break;
 
                 OPTION_LONG("lifetime", "SECS", "Lifetime"):
-                        r = parse_sec(arg, &arg_lifetime);
+                        r = parse_sec(opts.arg, &arg_lifetime);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse lifetime: %m");
                         break;
 
                 OPTION_LONG("reachable-time", "SECS", "Reachable time"):
-                        r = parse_sec(arg, &arg_reachable);
+                        r = parse_sec(opts.arg, &arg_reachable);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse reachable time: %m");
                         break;
 
                 OPTION_LONG("retransmit-timer", "SECS", "Retransmit timer"):
-                        r = parse_sec(arg, &arg_retransmit);
+                        r = parse_sec(opts.arg, &arg_retransmit);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse retransmit timer: %m");
                         break;
@@ -167,21 +166,21 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Neighbor Advertisement"): {}
 
                 OPTION_LONG("is-router", "BOOL", "Router flag"):
-                        r = parse_boolean(arg);
+                        r = parse_boolean(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse is-router flag: %m");
                         SET_FLAG(arg_na_flags, ND_NA_FLAG_ROUTER, r);
                         break;
 
                 OPTION_LONG("is-solicited", "BOOL", "Solicited flag"):
-                        r = parse_boolean(arg);
+                        r = parse_boolean(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse is-solicited flag: %m");
                         SET_FLAG(arg_na_flags, ND_NA_FLAG_SOLICITED, r);
                         break;
 
                 OPTION_LONG("is-override", "BOOL", "Override flag"):
-                        r = parse_boolean(arg);
+                        r = parse_boolean(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse is-override flag: %m");
                         SET_FLAG(arg_na_flags, ND_NA_FLAG_OVERRIDE, r);
@@ -190,7 +189,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Neighbor Solicit/Advertisement and Redirect"): {}
 
                 OPTION_LONG("target-address", "ADDRESS", "Target address"):
-                        r = in_addr_from_string(AF_INET6, arg, &arg_target_address);
+                        r = in_addr_from_string(AF_INET6, opts.arg, &arg_target_address);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse target address: %m");
                         break;
@@ -198,7 +197,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Redirect"): {}
 
                 OPTION_LONG("redirect-destination", "ADDRESS", "Redirect destination address"):
-                        r = in_addr_from_string(AF_INET6, arg, &arg_redirect_destination);
+                        r = in_addr_from_string(AF_INET6, opts.arg, &arg_redirect_destination);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse destination address: %m");
                         break;
@@ -206,14 +205,14 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("NDisc Options"): {}
 
                 OPTION_LONG("source-ll-address", "BOOL", "Include source link-layer address"):
-                        r = parse_boolean(arg);
+                        r = parse_boolean(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse source LL address option: %m");
                         arg_set_source_mac = r;
                         break;
 
                 OPTION_LONG("target-ll-address", "ADDRESS", "Target link-layer address"):
-                        r = parse_ether_addr(arg, &arg_target_mac);
+                        r = parse_ether_addr(opts.arg, &arg_target_mac);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse target LL address option: %m");
                         arg_set_target_mac = true;
@@ -223,7 +222,7 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_free_ void *p = NULL;
                         size_t len;
 
-                        r = unbase64mem(arg, &p, &len);
+                        r = unbase64mem(opts.arg, &p, &len);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse redirected header: %m");
 
@@ -235,7 +234,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 OPTION_LONG("mtu", "MTU", "MTU"):
-                        r = safe_atou32(arg, &arg_mtu);
+                        r = safe_atou32(opts.arg, &arg_mtu);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse MTU: %m");
                         arg_set_mtu = true;

@@ -153,10 +153,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -184,28 +183,28 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Set main PID of daemon"):
                         pidref_done(&arg_pid);
 
-                        if (isempty(arg) || streq(arg, "auto"))
+                        if (isempty(opts.arg) || streq(opts.arg, "auto"))
                                 r = pidref_parent_if_applicable(&arg_pid);
-                        else if (streq(arg, "parent"))
+                        else if (streq(opts.arg, "parent"))
                                 r = pidref_set_parent(&arg_pid);
-                        else if (streq(arg, "self"))
+                        else if (streq(opts.arg, "self"))
                                 r = pidref_set_self(&arg_pid);
                         else
-                                r = pidref_set_pidstr(&arg_pid, arg);
+                                r = pidref_set_pidstr(&arg_pid, opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to refer to --pid='%s': %m", arg);
+                                return log_error_errno(r, "Failed to refer to --pid='%s': %m", opts.arg);
                         break;
 
                 OPTION_LONG("uid", "USER", "Set user to send from"):
-                        r = get_user_creds(&arg, &arg_uid, &arg_gid, NULL, NULL, 0);
+                        r = get_user_creds(&opts.arg, &arg_uid, &arg_gid, NULL, NULL, 0);
                         if (r == -ESRCH) /* If the user doesn't exist, then accept it anyway as numeric */
-                                r = parse_uid(arg, &arg_uid);
+                                r = parse_uid(opts.arg, &arg_uid);
                         if (r < 0)
-                                return log_error_errno(r, "Can't resolve user %s: %m", arg);
+                                return log_error_errno(r, "Can't resolve user %s: %m", opts.arg);
                         break;
 
                 OPTION_LONG("status", "TEXT", "Set status text"):
-                        arg_status = arg;
+                        arg_status = opts.arg;
                         break;
 
                 OPTION_LONG("booted", NULL, "Check if the system was booted up with systemd"):
@@ -223,9 +222,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("fd", "FD", "Pass specified file descriptor along with the message"): {
                         _cleanup_close_ int owned_fd = -EBADF;
 
-                        int fdnr = parse_fd(arg);
+                        int fdnr = parse_fd(opts.arg);
                         if (fdnr < 0)
-                                return log_error_errno(fdnr, "Failed to parse file descriptor: %s", arg);
+                                return log_error_errno(fdnr, "Failed to parse file descriptor: %s", opts.arg);
 
                         if (!passed) {
                                 /* Take possession of all passed fds */
@@ -259,10 +258,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 }
 
                 OPTION_LONG("fdname", "NAME", "Name to assign to passed file descriptors"):
-                        if (!fdname_is_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File descriptor name invalid: %s", arg);
+                        if (!fdname_is_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File descriptor name invalid: %s", opts.arg);
 
-                        if (free_and_strdup(&arg_fdname, arg) < 0)
+                        if (free_and_strdup(&arg_fdname, opts.arg) < 0)
                                 return log_oom();
 
                         break;
@@ -278,7 +277,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || pidref_is_set(&arg_pid) || !fdset_isempty(arg_fds);
 
-        char **args = option_parser_get_args(&state);
+        char **args = option_parser_get_args(&opts);
 
         switch (arg_action) {
 

@@ -225,11 +225,10 @@ static int set_options(int argc, char **argv, char *maj_min_dev) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -240,26 +239,26 @@ static int set_options(int argc, char **argv, char *maj_min_dev) {
 
                 OPTION('d', "device", "PATH", "Device node for SG_IO commands"):
                         dev_specified = true;
-                        strscpy(maj_min_dev, MAX_PATH_LEN, arg);
+                        strscpy(maj_min_dev, MAX_PATH_LEN, opts.arg);
                         break;
 
                 OPTION('f', "config", "PATH", "Location of config file"):
-                        strscpy(config_file, MAX_PATH_LEN, arg);
+                        strscpy(config_file, MAX_PATH_LEN, opts.arg);
                         break;
 
                 OPTION('p', "page", "0x80|0x83|pre-spc3-83", "SCSI page"):
-                        r = parse_page_code(arg, &default_page_code);
+                        r = parse_page_code(opts.arg, &default_page_code);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION('s', "sg-version", "3|4", "Use SGv3 or SGv4"):
-                        r = safe_atoi(arg, &sg_version);
+                        r = safe_atoi(opts.arg, &sg_version);
                         if (r < 0)
-                                return log_error_errno(r, "Invalid SG version '%s'", arg);
+                                return log_error_errno(r, "Invalid SG version '%s'", opts.arg);
                         if (!IN_SET(sg_version, 3, 4))
                                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
-                                                       "Unknown SG version '%s'", arg);
+                                                       "Unknown SG version '%s'", opts.arg);
                         break;
 
                 OPTION('b', "denylisted", NULL, "Treat device as denylisted"): {}
@@ -287,7 +286,7 @@ static int set_options(int argc, char **argv, char *maj_min_dev) {
                         break;
                 }
 
-        char **args = option_parser_get_args(&state);
+        char **args = option_parser_get_args(&opts);
         if (!strv_isempty(args) && !dev_specified) {
                 dev_specified = true;
                 strscpy(maj_min_dev, MAX_PATH_LEN, args[0]);
@@ -315,26 +314,24 @@ static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, enum 
         if (newargc > INT_MAX)
                 return log_oom();  /* Close enough :) */
 
-        OptionParser state = { newargc, newargv };
-        const Option *opt;
-        const char *arg;
+        OptionParser opts = { newargc, newargv };
 
         /* We reuse the option parser, but only a subset of the options is supported here.
          * If any others are encountered, return an error. */
 
-        FOREACH_OPTION_FULL(&state, c, &opt, &arg, /* on_error= */ return c)
-                if (opt->short_code == 'b')
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
+                if (opts.opt->short_code == 'b')
                         *good_bad = 0;
-                else if (opt->short_code == 'g')
+                else if (opts.opt->short_code == 'g')
                         *good_bad = 1;
-                else if (opt->short_code == 'p') {
-                        r = parse_page_code(arg, page_code);
+                else if (opts.opt->short_code == 'p') {
+                        r = parse_page_code(opts.arg, page_code);
                         if (r < 0)
                                 return r;
                 } else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Option %s not supported in the config file.",
-                                               strnull(option_get_synopsis("", opt, "/", /* show_metavar=*/ false)));
+                                               strnull(option_get_synopsis("", opts.opt, "/", /* show_metavar=*/ false)));
 
         return 0;
 }

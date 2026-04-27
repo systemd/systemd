@@ -905,10 +905,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -918,19 +917,19 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 OPTION_LONG("url", "URL", "Read events from systemd-journal-gatewayd at URL"):
-                        r = free_and_strdup_warn(&arg_url, arg);
+                        r = free_and_strdup_warn(&arg_url, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("getter", "COMMAND", "Read events from the output of COMMAND"):
-                        r = free_and_strdup_warn(&arg_getter, arg);
+                        r = free_and_strdup_warn(&arg_getter, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("listen-raw", "ADDR", "Listen for connections at ADDR"):
-                        r = free_and_strdup_warn(&arg_listen_raw, arg);
+                        r = free_and_strdup_warn(&arg_listen_raw, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
@@ -940,11 +939,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Cannot currently use --listen-http= more than once");
 
-                        r = negative_fd(arg);
+                        r = negative_fd(opts.arg);
                         if (r >= 0)
                                 http_socket = r;
                         else {
-                                r = free_and_strdup_warn(&arg_listen_http, arg);
+                                r = free_and_strdup_warn(&arg_listen_http, opts.arg);
                                 if (r < 0)
                                         return r;
                         }
@@ -955,24 +954,24 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Cannot currently use --listen-https= more than once");
 
-                        r = negative_fd(arg);
+                        r = negative_fd(opts.arg);
                         if (r >= 0)
                                 https_socket = r;
                         else {
-                                r = free_and_strdup_warn(&arg_listen_https, arg);
+                                r = free_and_strdup_warn(&arg_listen_https, opts.arg);
                                 if (r < 0)
                                         return r;
                         }
                         break;
 
                 OPTION_LONG("key", "FILENAME", "SSL key in PEM format (default: \"" PRIV_KEY_FILE "\")"):
-                        r = free_and_strdup_warn(&arg_key, arg);
+                        r = free_and_strdup_warn(&arg_key, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("cert", "FILENAME", "SSL certificate in PEM format (default: \"" CERT_FILE "\")"):
-                        r = free_and_strdup_warn(&arg_cert, arg);
+                        r = free_and_strdup_warn(&arg_cert, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
@@ -980,7 +979,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("trust", "FILENAME|all",
                             "SSL CA certificate or disable checking (default: \"" TRUST_FILE "\")"):
 #if HAVE_GNUTLS
-                        r = free_and_strdup_warn(&arg_trust, arg);
+                        r = free_and_strdup_warn(&arg_trust, opts.arg);
                         if (r < 0)
                                 return r;
 #else
@@ -989,34 +988,34 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION('o', "output", "FILE|DIR", "Write output to FILE or DIR/external-*.journal"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_output);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_output);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("split-mode", "none|host", "How many output files to create"):
-                        arg_split_mode = journal_write_split_mode_from_string(arg);
+                        arg_split_mode = journal_write_split_mode_from_string(opts.arg);
                         if (arg_split_mode == _JOURNAL_WRITE_SPLIT_INVALID)
-                                return log_error_errno(arg_split_mode, "Invalid split mode: %s", arg);
+                                return log_error_errno(arg_split_mode, "Invalid split mode: %s", opts.arg);
                         break;
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "compress", "BOOL",
                                   "Use compression in the output journal (default: yes)"):
-                        r = parse_boolean_argument("--compress", arg, &arg_compress);
+                        r = parse_boolean_argument("--compress", opts.arg, &arg_compress);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "seal", "BOOL",
                                   "Use event sealing (default: no)"):
-                        r = parse_boolean_argument("--seal", arg, &arg_seal);
+                        r = parse_boolean_argument("--seal", opts.arg, &arg_seal);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("gnutls-log", "CATEGORY,...", "Specify a list of gnutls logging categories"):
 #if HAVE_GNUTLS
-                        for (const char *p = arg;;) {
+                        for (const char *p = opts.arg;;) {
                                 _cleanup_free_ char *word = NULL;
 
                                 r = extract_first_word(&p, &word, ",", 0);
@@ -1034,31 +1033,31 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("max-use", "BYTES", "Maximum disk space to use"):
-                        r = parse_size(arg, 1024, &arg_max_use);
+                        r = parse_size(opts.arg, 1024, &arg_max_use);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --max-use= value: %s", arg);
+                                return log_error_errno(r, "Failed to parse --max-use= value: %s", opts.arg);
                         break;
 
                 OPTION_LONG("keep-free", "BYTES", "Minimum disk space to keep free"):
-                        r = parse_size(arg, 1024, &arg_keep_free);
+                        r = parse_size(opts.arg, 1024, &arg_keep_free);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --keep-free= value: %s", arg);
+                                return log_error_errno(r, "Failed to parse --keep-free= value: %s", opts.arg);
                         break;
 
                 OPTION_LONG("max-file-size", "BYTES", "Maximum size of individual journal files"):
-                        r = parse_size(arg, 1024, &arg_max_size);
+                        r = parse_size(opts.arg, 1024, &arg_max_size);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --max-file-size= value: %s", arg);
+                                return log_error_errno(r, "Failed to parse --max-file-size= value: %s", opts.arg);
                         break;
 
                 OPTION_LONG("max-files", "N", "Maximum number of journal files to keep"):
-                        r = safe_atou64(arg, &arg_n_max_files);
+                        r = safe_atou64(opts.arg, &arg_n_max_files);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --max-files= value: %s", arg);
+                                return log_error_errno(r, "Failed to parse --max-files= value: %s", opts.arg);
                         break;
                 }
 
-        arg_files = strv_copy(option_parser_get_args(&state));
+        arg_files = strv_copy(option_parser_get_args(&opts));
         if (!arg_files)
                 return log_oom();
 

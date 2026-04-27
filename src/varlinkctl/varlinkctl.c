@@ -124,10 +124,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -165,7 +164,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
@@ -179,25 +178,25 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("graceful", "ERROR", "Treat specified Varlink error as success"):
-                        r = varlink_idl_qualified_symbol_name_is_valid(arg);
+                        r = varlink_idl_qualified_symbol_name_is_valid(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to validate Varlink error name '%s': %m", arg);
+                                return log_error_errno(r, "Failed to validate Varlink error name '%s': %m", opts.arg);
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid Varlink error name: %s", arg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid Varlink error name: %s", opts.arg);
 
-                        if (strv_extend(&arg_graceful, arg) < 0)
+                        if (strv_extend(&arg_graceful, opts.arg) < 0)
                                 return log_oom();
                         break;
 
                 OPTION_LONG("timeout", "SECS", "Maximum time to wait for method call completion"):
-                        if (isempty(arg)) {
+                        if (isempty(opts.arg)) {
                                 arg_timeout = USEC_INFINITY;
                                 break;
                         }
 
-                        r = parse_sec(arg, &arg_timeout);
+                        r = parse_sec(opts.arg, &arg_timeout);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", arg);
+                                return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", opts.arg);
 
                         if (arg_timeout == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Timeout cannot be zero.");
@@ -223,17 +222,17 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return log_oom();
 
                         _cleanup_close_ int add_fd = -EBADF;
-                        if (STARTSWITH_SET(arg, "/", "./")) {
+                        if (STARTSWITH_SET(opts.arg, "/", "./")) {
                                 /* We usually expect a numeric fd spec, but as an extension let's treat this
                                  * as a path to open in read-only mode in case this is clearly an absolute or
                                  * relative path */
-                                add_fd = open(arg, O_CLOEXEC|O_RDONLY|O_NOCTTY);
+                                add_fd = open(opts.arg, O_CLOEXEC|O_RDONLY|O_NOCTTY);
                                 if (add_fd < 0)
-                                        return log_error_errno(errno, "Failed to open '%s': %m", arg);
+                                        return log_error_errno(errno, "Failed to open '%s': %m", opts.arg);
                         } else {
-                                int parsed_fd = parse_fd(arg);
+                                int parsed_fd = parse_fd(opts.arg);
                                 if (parsed_fd < 0)
-                                        return log_error_errno(parsed_fd, "Failed to parse --push-fd= parameter: %s", arg);
+                                        return log_error_errno(parsed_fd, "Failed to parse --push-fd= parameter: %s", opts.arg);
 
                                 /* Make a copy, so that the same fd could be used multiple times in a reasonable
                                  * way. This also validates the fd early */
@@ -253,7 +252,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         strv_sort_uniq(arg_graceful);
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 

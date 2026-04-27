@@ -360,10 +360,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argv);
         assert(remaining_args);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -384,7 +383,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_LONG("prefix", "PATH",
                             "Only apply rules with the specified prefix"): {
-                        _cleanup_free_ char *normalized = strdup(arg);
+                        _cleanup_free_ char *normalized = strdup(opts.arg);
                         if (!normalized)
                                 return log_oom();
                         sysctl_normalize(normalized);
@@ -416,7 +415,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
                 }
 
-        *remaining_args = option_parser_get_args(&state);
+        *remaining_args = option_parser_get_args(&opts);
 
         if (arg_cat_flags != CAT_CONFIG_OFF && !strv_isempty(*remaining_args))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
