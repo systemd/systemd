@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
 
 #include "sd-device.h"
@@ -11,7 +10,10 @@
 #include "conf-parser.h"
 #include "device-util.h"
 #include "devnum-util.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "main-func.h"
+#include "options.h"
 #include "string-util.h"
 #include "strv.h"
 #include "udev-util.h"
@@ -50,53 +52,52 @@ static int parse_config(void) {
 }
 
 static int help(void) {
-        printf("%s [OPTIONS...]\n\n"
-               "Set up iocost model and qos solutions for block devices\n"
-               "\nCommands:\n"
-               "  apply <path> [SOLUTION]    Apply solution for the device if\n"
-               "                             found, do nothing otherwise\n"
-               "  query <path>               Query the known solution for\n"
-               "                             the device\n"
-               "\nOptions:\n"
-               "  -h --help                  Show this help\n"
-               "     --version               Show package version\n",
-               program_invocation_short_name);
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
+        int r;
 
-        return 0;
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, options, verbs);
+
+        help_cmdline("[OPTIONS...] COMMAND");
+        help_abstract("Set up iocost model and qos solutions for block devices.");
+
+        help_section("Commands:");
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        help_section("Options:");
+        return table_print_or_warn(options);
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-        };
+VERB_COMMON_HELP_HIDDEN(help);
 
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 1);
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
+        assert(argc >= 0);
         assert(argv);
+        assert(remaining_args);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = { argc, argv };
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
+        *remaining_args = option_parser_get_args(&state);
         return 1;
 }
 
@@ -280,32 +281,27 @@ static int query_solutions_for_path(const char *path) {
         return 0;
 }
 
+VERB(verb_query, "query", "PATH", 2, 2, 0,
+     "Query the known solution for the device");
 static int verb_query(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return query_solutions_for_path(ASSERT_PTR(argv[1]));
 }
 
+VERB(verb_apply, "apply", "PATH [SOLUTION]", 2, 3, 0,
+     "Apply solution for the device if found, do nothing otherwise");
 static int verb_apply(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return apply_solution_for_path(
                         ASSERT_PTR(argv[1]),
                         argc > 2 ? ASSERT_PTR(argv[2]) : NULL);
 }
 
-static int iocost_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "query", 2, 2, 0, verb_query },
-                { "apply", 2, 3, 0, verb_apply },
-                {},
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
-}
-
 static int run(int argc, char *argv[]) {
+        char **args = NULL;
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -313,7 +309,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        return iocost_main(argc, argv);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

@@ -6,7 +6,6 @@
  */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <linux/bsg.h>
 #include <linux/hdreg.h>
 #include <scsi/sg.h>
@@ -18,8 +17,12 @@
 #include "device-nodes.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
+#include "strv.h"
 #include "udev-util.h"
 #include "unaligned.h"
 
@@ -356,40 +359,47 @@ static int disk_identify(int fd,
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "export",   no_argument, NULL, 'x' },
-                { "help",     no_argument, NULL, 'h' },
-                { "version",  no_argument, NULL, 'v' },
-                {}
-        };
-        int c;
+static int help(void) {
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
 
-        while ((c = getopt_long(argc, argv, "xh", options, NULL)) >= 0)
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        help_cmdline("[OPTIONS...] DEVICE");
+        help_section("Options:");
+
+        return table_print_or_warn(options);
+}
+
+static int parse_argv(int argc, char *argv[]) {
+        assert(argc >= 0);
+        assert(argv);
+
+        OptionParser state = { argc, argv };
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
-                case 'x':
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION('x', "export", NULL,
+                       "Print values as environment keys"):
                         arg_export = true;
                         break;
-                case 'h':
-                        printf("%s [OPTIONS...] DEVICE\n\n"
-                               "  -x --export    Print values as environment keys\n"
-                               "  -h --help      Show this help text\n"
-                               "     --version   Show package version\n",
-                               program_invocation_short_name);
-                        return 0;
-                case 'v':
-                        return version();
-                case '?':
-                        return -EINVAL;
-                default:
-                        assert_not_reached();
                 }
 
-        if (!argv[optind])
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "DEVICE argument missing.");
+        char **args = option_parser_get_args(&state);
+        if (strv_length(args) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Need exactly one DEVICE argument.");
 
-        arg_device = argv[optind];
+        arg_device = args[0];
         return 1;
 }
 
