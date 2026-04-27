@@ -1137,9 +1137,9 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 OPTION_LONG("restrict-address-families", "LIST", "Restrict socket address families to the given allowlist"):
-                        r = parse_address_families(optarg, &arg_restrict_address_families, &arg_restrict_address_families_is_allowlist);
+                        r = parse_address_families(opts.arg, &arg_restrict_address_families, &arg_restrict_address_families_is_allowlist);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --restrict-address-families= argument: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --restrict-address-families= argument: %s", opts.arg);
 
                         arg_settings_mask |= SETTING_RESTRICT_ADDRESS_FAMILIES;
                         break;
@@ -1266,25 +1266,25 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("forward-journal-max-use", "BYTES", "Maximum disk space for forwarded journal"):
                         r = parse_size(opts.arg, 1024, &arg_forward_journal_max_use);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --forward-journal-max-use= value: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-use= value: %s", opts.arg);
                         break;
 
                 OPTION_LONG("forward-journal-keep-free", "BYTES", "Minimum disk space to keep free"):
                         r = parse_size(opts.arg, 1024, &arg_forward_journal_keep_free);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --forward-journal-keep-free= value: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --forward-journal-keep-free= value: %s", opts.arg);
                         break;
 
                 OPTION_LONG("forward-journal-max-file-size", "BYTES", "Maximum size of individual journal files"):
                         r = parse_size(opts.arg, 1024, &arg_forward_journal_max_file_size);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --forward-journal-max-file-size= value: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-file-size= value: %s", opts.arg);
                         break;
 
                 OPTION_LONG("forward-journal-max-files", "N", "Maximum number of journal files to keep"):
                         r = safe_atou64(opts.arg, &arg_forward_journal_max_files);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --forward-journal-max-files= value: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-files= value: %s", opts.arg);
                         break;
 
                 OPTION_GROUP("Mounts"): {}
