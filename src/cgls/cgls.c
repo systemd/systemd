@@ -69,11 +69,10 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        OptionParser state = { argc, argv, OPTION_PARSER_RETURN_POSITIONAL_ARGS };
-        const char *arg;
+        OptionParser opts = { argc, argv, OPTION_PARSER_RETURN_POSITIONAL_ARGS };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -97,7 +96,7 @@ static int parse_argv(int argc, char *argv[]) {
                                                 "Cannot combine --unit with --user-unit.");
 
                         arg_show_unit = SHOW_UNIT_SYSTEM;
-                        if (strv_extend(&arg_names, arg) < 0) /* push arg if not empty */
+                        if (strv_extend(&arg_names, opts.arg) < 0) /* push arg if not empty */
                                 return log_oom();
                         break;
 
@@ -108,17 +107,17 @@ static int parse_argv(int argc, char *argv[]) {
                                                 "Cannot combine --user-unit with --unit.");
 
                         arg_show_unit = SHOW_UNIT_USER;
-                        if (strv_extend(&arg_names, arg) < 0) /* push arg if not empty */
+                        if (strv_extend(&arg_names, opts.arg) < 0) /* push arg if not empty */
                                 return log_oom();
                         break;
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "xattr", "BOOL",
                                   "Show cgroup extended attributes"): {}
                 OPTION_SHORT('x', NULL, "Same as --xattr=true"):
-                        if (arg) {
-                                r = parse_boolean(arg);
+                        if (opts.arg) {
+                                r = parse_boolean(opts.arg);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --xattr= value: %s", arg);
+                                        return log_error_errno(r, "Failed to parse --xattr= value: %s", opts.arg);
                         } else
                                 r = true;
 
@@ -128,10 +127,10 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "cgroup-id", "BOOL",
                                   "Show cgroup ID"): {}
                 OPTION_SHORT('c', NULL, "Same as --cgroup-id=true"):
-                        if (arg) {
-                                r = parse_boolean(arg);
+                        if (opts.arg) {
+                                r = parse_boolean(opts.arg);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --cgroup-id= value: %s", arg);
+                                        return log_error_errno(r, "Failed to parse --cgroup-id= value: %s", opts.arg);
                         } else
                                 r = true;
 
@@ -147,11 +146,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_COMMON_MACHINE:
-                        arg_machine = arg;
+                        arg_machine = opts.arg;
                         break;
 
                 OPTION_POSITIONAL:
-                        if (strv_extend(&arg_names, arg) < 0) /* push arg */
+                        if (strv_extend(&arg_names, opts.arg) < 0) /* push arg */
                                 return log_oom();
                         break;
                 }
@@ -160,7 +159,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Cannot combine --unit or --user-unit with --machine=.");
 
-        assert(option_parser_get_n_args(&state) == 0);
+        assert(option_parser_get_n_args(&opts) == 0);
 
         return 1;
 }

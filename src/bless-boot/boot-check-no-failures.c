@@ -44,9 +44,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, /* ret_a= */ NULL, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:

@@ -230,11 +230,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const Option *current;
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION_FULL(&state, c, &current, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_NO_PAGER:
@@ -260,15 +258,15 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("discard", "MODE", "Choose discard mode (disabled, loop, all, crypto)"): {
                         DissectImageFlags flags;
 
-                        if (streq(arg, "disabled"))
+                        if (streq(opts.arg, "disabled"))
                                 flags = 0;
-                        else if (streq(arg, "loop"))
+                        else if (streq(opts.arg, "loop"))
                                 flags = DISSECT_IMAGE_DISCARD_ON_LOOP;
-                        else if (streq(arg, "all"))
+                        else if (streq(opts.arg, "all"))
                                 flags = DISSECT_IMAGE_DISCARD_ON_LOOP | DISSECT_IMAGE_DISCARD;
-                        else if (streq(arg, "crypt"))
+                        else if (streq(opts.arg, "crypt"))
                                 flags = DISSECT_IMAGE_DISCARD_ANY;
-                        else if (streq(arg, "list")) {
+                        else if (streq(opts.arg, "list")) {
                                 puts("disabled\n"
                                      "all\n"
                                      "crypt\n"
@@ -276,7 +274,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return 0;
                         } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown --discard= parameter: %s", arg);
+                                                       "Unknown --discard= parameter: %s", opts.arg);
                         arg_flags = (arg_flags & ~DISSECT_IMAGE_DISCARD_ANY) | flags;
 
                         break;
@@ -290,18 +288,18 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("usr-hash", "HASH", "Same, but for the usr partition"): {
                         _cleanup_(iovec_done) struct iovec roothash = {};
 
-                        PartitionDesignator d = streq(current->long_code, "root-hash") ? PARTITION_ROOT : PARTITION_USR;
+                        PartitionDesignator d = streq(opts.opt->long_code, "root-hash") ? PARTITION_ROOT : PARTITION_USR;
                         if (arg_verity_settings.designator >= 0 &&
                             arg_verity_settings.designator != d)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Cannot combine --root-hash=/--root-hash-sig= and --usr-hash=/--usr-hash-sig= options.");
 
-                        r = unhexmem(arg, &roothash.iov_base, &roothash.iov_len);
+                        r = unhexmem(opts.arg, &roothash.iov_base, &roothash.iov_len);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse root hash '%s': %m", arg);
+                                return log_error_errno(r, "Failed to parse root hash '%s': %m", opts.arg);
                         if (roothash.iov_len < sizeof(sd_id128_t))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Root hash must be at least 128-bit long: %s", arg);
+                                                       "Root hash must be at least 128-bit long: %s", opts.arg);
 
                         iovec_done(&arg_verity_settings.root_hash);
                         arg_verity_settings.root_hash = TAKE_STRUCT(roothash);
@@ -317,20 +315,20 @@ static int parse_argv(int argc, char *argv[]) {
                         const char *value;
                         _cleanup_(iovec_done) struct iovec sig = {};
 
-                        PartitionDesignator d = streq(current->long_code, "root-hash-sig") ? PARTITION_ROOT : PARTITION_USR;
+                        PartitionDesignator d = streq(opts.opt->long_code, "root-hash-sig") ? PARTITION_ROOT : PARTITION_USR;
                         if (arg_verity_settings.designator >= 0 &&
                             arg_verity_settings.designator != d)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Cannot combine --root-hash=/--root-hash-sig= and --usr-hash=/--usr-hash-sig= options.");
 
-                        if ((value = startswith(arg, "base64:"))) {
+                        if ((value = startswith(opts.arg, "base64:"))) {
                                 r = unbase64mem(value, &sig.iov_base, &sig.iov_len);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse root hash signature '%s': %m", arg);
+                                        return log_error_errno(r, "Failed to parse root hash signature '%s': %m", opts.arg);
                         } else {
-                                r = read_full_file(arg, (char**) &sig.iov_base, &sig.iov_len);
+                                r = read_full_file(opts.arg, (char**) &sig.iov_base, &sig.iov_len);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to read root hash signature file '%s': %m", arg);
+                                        return log_error_errno(r, "Failed to read root hash signature file '%s': %m", opts.arg);
                         }
 
                         iovec_done(&arg_verity_settings.root_hash_sig);
@@ -341,44 +339,44 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("verity-data", "PATH",
                             "Specify data file with hash tree for verity if it is not embedded in IMAGE"):
-                        r = parse_path_argument(arg, false, &arg_verity_settings.data_path);
+                        r = parse_path_argument(opts.arg, false, &arg_verity_settings.data_path);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("fsck", "BOOL", "Run fsck before mounting"):
-                        r = parse_boolean(arg);
+                        r = parse_boolean(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --fsck= parameter: %s", arg);
+                                return log_error_errno(r, "Failed to parse --fsck= parameter: %s", opts.arg);
 
                         SET_FLAG(arg_flags, DISSECT_IMAGE_FSCK, r);
                         break;
 
                 OPTION_LONG("growfs", "BOOL", "Grow file system to partition size, if marked"):
-                        r = parse_boolean(arg);
+                        r = parse_boolean(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --growfs= parameter: %s", arg);
+                                return log_error_errno(r, "Failed to parse --growfs= parameter: %s", opts.arg);
 
                         SET_FLAG(arg_flags, DISSECT_IMAGE_GROWFS, r);
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
 
                 OPTION_LONG("loop-ref", "NAME", "Set reference string for loopback device"):
-                        if (isempty(arg)) {
+                        if (isempty(opts.arg)) {
                                 arg_loop_ref = mfree(arg_loop_ref);
                                 arg_loop_ref_auto = false;
                                 break;
                         }
 
-                        if (strlen(arg) >= sizeof_field(struct loop_info64, lo_file_name))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Loop device ref string '%s' is too long.", arg);
+                        if (strlen(opts.arg) >= sizeof_field(struct loop_info64, lo_file_name))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Loop device ref string '%s' is too long.", opts.arg);
 
-                        r = free_and_strdup_warn(&arg_loop_ref, arg);
+                        r = free_and_strdup_warn(&arg_loop_ref, opts.arg);
                         if (r < 0)
                                 return r;
 
@@ -391,13 +389,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("image-policy", "POLICY", "Specify image dissection policy"):
-                        r = parse_image_policy_argument(arg, &arg_image_policy);
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("mtree-hash", "BOOL", "Whether to include SHA256 hash in the mtree output"):
-                        r = parse_boolean_argument("--mtree-hash=", arg, &arg_mtree_hash);
+                        r = parse_boolean_argument("--mtree-hash=", opts.arg, &arg_mtree_hash);
                         if (r < 0)
                                 return r;
                         break;
@@ -420,9 +418,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("image-filter", "FILTER", "Specify image dissection filter"): {
                         _cleanup_(image_filter_freep) ImageFilter *f = NULL;
-                        r = image_filter_parse(arg, &f);
+                        r = image_filter_parse(opts.arg, &f);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse image filter expression: %s", arg);
+                                return log_error_errno(r, "Failed to parse image filter expression: %s", opts.arg);
 
                         image_filter_free(arg_image_filter);
                         arg_image_filter = TAKE_PTR(f);
@@ -430,7 +428,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 OPTION_LONG("copy-ownership", "BOOL", "Whether to copy ownership when copying files"):
-                        r = parse_tristate_argument_with_auto("--copy-ownership=", arg, &arg_copy_ownership);
+                        r = parse_tristate_argument_with_auto("--copy-ownership=", opts.arg, &arg_copy_ownership);
                         if (r < 0)
                                 return r;
                         break;
@@ -518,7 +516,7 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_runtime_scope = system_scope_requested && user_scope_requested ? _RUNTIME_SCOPE_INVALID :
                         system_scope_requested ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
 
-        char **args = option_parser_get_args(&state);
+        char **args = option_parser_get_args(&opts);
 
         switch (arg_action) {
 

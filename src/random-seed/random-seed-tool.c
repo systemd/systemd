@@ -349,11 +349,10 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -363,7 +362,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
                 }
 
-        r = dispatch_verb_with_args(option_parser_get_args(&state), NULL);
+        r = dispatch_verb_with_args(option_parser_get_args(&opts), NULL);
         if (r < 0)
                 return r;
 

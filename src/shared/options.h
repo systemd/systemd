@@ -59,52 +59,71 @@ typedef struct Option {
 #define OPTION_POSITIONAL OPTION_FULL(OPTION_POSITIONAL_ENTRY, /* sc= */ 0, "(positional)", /* mv= */ NULL, /* h= */ NULL)
 #define OPTION_HELP_VERBATIM(lc, h) OPTION_FULL(OPTION_HELP_ENTRY_VERBATIM, /* sc= */ 0, lc, /* mv= */ NULL, h)
 
-#define OPTION_COMMON_HELP \
+#define OPTION_COMMON_HELP                                              \
         OPTION('h', "help", NULL, "Show this help")
-#define OPTION_COMMON_VERSION \
+
+#define OPTION_COMMON_VERSION                                           \
         OPTION_LONG("version", NULL, "Show package version")
-#define OPTION_COMMON_NO_PAGER \
+
+#define OPTION_COMMON_NO_PAGER                                          \
         OPTION_LONG("no-pager", NULL, "Do not start a pager")
-#define OPTION_COMMON_NO_LEGEND \
+
+#define OPTION_COMMON_NO_LEGEND                                         \
         OPTION_LONG("no-legend", NULL, "Do not show headers and footers")
-#define OPTION_COMMON_LOG_LEVEL \
-        OPTION_LONG("log-level", "LEVEL", \
+
+#define OPTION_COMMON_LOG_LEVEL                                         \
+        OPTION_LONG("log-level", "LEVEL",                               \
                     "Set log level (debug, info, notice, warning, err, crit, alert, emerg)")
-#define OPTION_COMMON_LOG_TARGET \
-        OPTION_LONG("log-target", "TARGET", \
+
+#define OPTION_COMMON_LOG_TARGET                                        \
+        OPTION_LONG("log-target", "TARGET",                             \
                     "Set log target (console, journal, journal-or-kmsg, kmsg, null)")
-#define OPTION_COMMON_LOG_COLOR \
+
+#define OPTION_COMMON_LOG_COLOR                                         \
         OPTION_LONG("log-color", "BOOL", "Highlight important messages")
-#define OPTION_COMMON_LOG_LOCATION \
+
+#define OPTION_COMMON_LOG_LOCATION                                      \
         OPTION_LONG("log-location", "BOOL", "Include code location in messages")
-#define OPTION_COMMON_LOG_TIME \
+
+#define OPTION_COMMON_LOG_TIME                                          \
         OPTION_LONG("log-time", "BOOL", "Prefix messages with current time")
-#define OPTION_COMMON_CAT_CONFIG \
+
+#define OPTION_COMMON_CAT_CONFIG                                        \
         OPTION_LONG("cat-config", NULL, "Show configuration files")
-#define OPTION_COMMON_TLDR \
+
+#define OPTION_COMMON_TLDR                                              \
         OPTION_LONG("tldr", NULL, "Show non-comment parts of configuration")
-#define OPTION_COMMON_NO_ASK_PASSWORD \
+
+#define OPTION_COMMON_NO_ASK_PASSWORD                                   \
         OPTION_LONG("no-ask-password", NULL, "Do not prompt for password")
-#define OPTION_COMMON_HOST \
+
+#define OPTION_COMMON_HOST                                              \
         OPTION('H', "host", "[USER@]HOST", "Operate on remote host")
-#define OPTION_COMMON_MACHINE \
+
+#define OPTION_COMMON_MACHINE                                           \
         OPTION('M', "machine", "CONTAINER", "Operate on local container")
-#define OPTION_COMMON_JSON \
+
+#define OPTION_COMMON_JSON                                              \
         OPTION_LONG("json", "FORMAT", "Generate JSON output (pretty, short, or off)")
-#define OPTION_COMMON_LOWERCASE_J \
-        OPTION_SHORT('j', NULL, \
+
+#define OPTION_COMMON_LOWERCASE_J                                       \
+        OPTION_SHORT('j', NULL,                                         \
                      "Equivalent to --json=pretty (on TTY) or --json=short (otherwise)")
-#define OPTION_COMMON_PRIVATE_KEY(purpose) \
+
+#define OPTION_COMMON_PRIVATE_KEY(purpose)                              \
         OPTION_LONG("private-key", "PATH|URI", purpose)
-#define OPTION_COMMON_PRIVATE_KEY_SOURCE \
-        OPTION_LONG("private-key-source", "SOURCE", \
-                    "Specify how to use the private key " \
+
+#define OPTION_COMMON_PRIVATE_KEY_SOURCE                                \
+        OPTION_LONG("private-key-source", "SOURCE",                     \
+                    "Specify how to use the private key "               \
                     "(file, provider:PROVIDER, engine:ENGINE)")
-#define OPTION_COMMON_CERTIFICATE(purpose) \
-        OPTION_LONG("certificate", "PATH|URI", purpose \
+
+#define OPTION_COMMON_CERTIFICATE(purpose)                              \
+        OPTION_LONG("certificate", "PATH|URI", purpose                  \
                     ", or a provider-specific designation if --certificate-source= is used")
-#define OPTION_COMMON_CERTIFICATE_SOURCE \
-        OPTION_LONG("certificate-source", "SOURCE", \
+
+#define OPTION_COMMON_CERTIFICATE_SOURCE                                \
+        OPTION_LONG("certificate-source", "SOURCE",                     \
                     "Specify how to interpret the certificate from --certificate=. " \
                     "Allows the certificate to be loaded from an OpenSSL provider " \
                     "(file, provider:PROVIDER)")
@@ -147,25 +166,25 @@ typedef struct OptionParser {
                                        * 0 → we're not parsing short options. */
         int positional_offset;        /* Offset to where positional parameters are. After processing has been
                                        * finished, all options and their args are to the left of this offset. */
+
+        /* The two variables below encompass the state of the last option_parse() call.
+         * Before parsing has commenced, and after it has finished, they will be NULL. */
+        const Option *opt;            /* … the matched option or NULL */
+        const char *arg;              /* … the argument or NULL */
 } OptionParser;
 
 int option_parse(
                 const Option options[],
                 const Option options_end[],
-                OptionParser *state,
-                const Option **ret_option,
-                const char **ret_arg);
+                OptionParser *state);
 
 /* Iterate over options. */
-#define FOREACH_OPTION_FULL(parser, opt, ret_o, ret_a, on_error) \
-        for (int opt; (opt = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, parser, ret_o, ret_a)) != 0; ) \
-                if (opt < 0) {                                                  \
-                        on_error;                                               \
-                        break;                                                  \
+#define FOREACH_OPTION(c, state, on_error)                              \
+        for (int c; (c = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, state)) != 0; ) \
+                if (c < 0) {                                            \
+                        on_error;                                       \
+                        break;                                          \
                 } else
-
-#define FOREACH_OPTION(parser, opt, ret_a, on_error) \
-        FOREACH_OPTION_FULL(parser, opt, /* ret_o= */ NULL, ret_a, on_error)
 
 char* option_parser_next_arg(const OptionParser *state);
 char* option_parser_consume_next_arg(OptionParser *state);

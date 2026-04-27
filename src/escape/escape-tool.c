@@ -56,10 +56,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -69,20 +68,20 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return version();
 
                 OPTION_LONG("suffix", "SUFFIX", "Unit suffix to append to escaped strings"): {
-                        UnitType t = unit_type_from_string(arg);
+                        UnitType t = unit_type_from_string(opts.arg);
                         if (t < 0)
-                                return log_error_errno(t, "Invalid unit suffix type \"%s\".", arg);
+                                return log_error_errno(t, "Invalid unit suffix type \"%s\".", opts.arg);
 
-                        arg_suffix = arg;
+                        arg_suffix = opts.arg;
                         break;
                 }
 
                 OPTION_LONG("template", "TEMPLATE", "Insert strings as instance into template"):
-                        if (!unit_name_is_valid(arg, UNIT_NAME_TEMPLATE))
+                        if (!unit_name_is_valid(opts.arg, UNIT_NAME_TEMPLATE))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Template name %s is not valid.", arg);
+                                                       "Template name %s is not valid.", opts.arg);
 
-                        arg_template = arg;
+                        arg_template = opts.arg;
                         break;
 
                 OPTION_LONG("instance", NULL, "With --unescape, show just the instance part"):
@@ -103,7 +102,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
                 }
 
-        if (option_parser_get_n_args(&state) == 0)
+        if (option_parser_get_n_args(&opts) == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Not enough arguments.");
 
@@ -131,7 +130,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--instance may not be combined with --template.");
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 
