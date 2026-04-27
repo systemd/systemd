@@ -64,6 +64,15 @@
                 free(array);                                    \
         }
 
+/* Like DEFINE_POINTER_ARRAY_FREE_FUNC() but does not deallocate the array itself, useful for
+ * arrays with automatic storage duration (e.g. on the stack). */
+#define DEFINE_POINTER_ARRAY_CLEAR_FUNC(type, helper)           \
+        void helper ## _array_clear(type *array, size_t n) {    \
+                assert(array || n == 0);                        \
+                FOREACH_ARRAY(item, array, n)                   \
+                        helper(*item);                          \
+        }
+
 /* Clean up an array of objects of known size by dropping all the items in it.
  * Then free the array itself. */
 #define DEFINE_ARRAY_FREE_FUNC(name, type, helper)              \
@@ -105,6 +114,36 @@ static inline void array_cleanup(const ArrayCleanup *c) {
                 .pn = &(n),                                             \
                 .pfunc = (free_array_func_t) ({                         \
                                 void (*_f)(typeof(array[0]) *a, size_t b) = func; \
+                                _f;                                     \
+                         }),                                            \
+        }
+
+/* An automatic _cleanup_-like logic for fixed-size arrays where the bound is known via
+ * ELEMENTSOF(). Unlike CLEANUP_ARRAY() this neither frees the storage nor zeroes it: it just
+ * invokes func() across the elements when leaving scope. */
+typedef struct ElementsCleanup {
+        void *array;
+        size_t n;
+        free_array_func_t pfunc;
+} ElementsCleanup;
+
+static inline void elements_cleanup(const ElementsCleanup *c) {
+        assert(c);
+
+        if (c->n == 0)
+                return;
+
+        assert(c->array);
+        assert(c->pfunc);
+        c->pfunc(c->array, c->n);
+}
+
+#define CLEANUP_ELEMENTS(_array, _func)                                 \
+        _cleanup_(elements_cleanup) _unused_ const ElementsCleanup CONCATENATE(_cleanup_elements_, UNIQ) = { \
+                .array = (_array),                                      \
+                .n = ELEMENTSOF(_array),                                \
+                .pfunc = (free_array_func_t) ({                         \
+                                void (*_f)(typeof((_array)[0]) *a, size_t b) = _func; \
                                 _f;                                     \
                          }),                                            \
         }
