@@ -295,8 +295,6 @@ ssize_t sd_fiber_recvfrom(int sockfd, void *buf, size_t len, int flags, struct s
         assert_return(buf || len == 0, -EINVAL);
         assert_return(!src_addr || addrlen, -EINVAL);
 
-        /* io_uring has no direct recvfrom prep helper, so emulate via recvmsg with a single-iovec
-         * msghdr. The kernel updates msg_namelen in place; we copy it back to *addrlen below. */
         struct iovec iov = { .iov_base = buf, .iov_len = len };
         struct msghdr msg = {
                 .msg_name = src_addr,
