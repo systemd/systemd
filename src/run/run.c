@@ -433,6 +433,17 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
+                case 'H':
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = optarg;
+                        break;
+
+                case 'M':
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case 'C':
                         r = capsule_name_is_valid(optarg);
                         if (r < 0)
@@ -451,6 +462,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'u':
                         arg_unit = optarg;
+                        break;
+
+                case 'p':
+                        if (strv_extend(&arg_property, optarg) < 0)
+                                return log_oom();
+
                         break;
 
                 case ARG_DESCRIPTION:
@@ -475,23 +492,20 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_SEND_SIGHUP:
-                        arg_send_sighup = true;
+                case ARG_NO_BLOCK:
+                        arg_no_block = true;
                         break;
 
                 case 'r':
                         arg_remain_after_exit = true;
                         break;
 
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
+                case ARG_WAIT:
+                        arg_wait = true;
                         break;
 
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
-                        if (r < 0)
-                                return r;
+                case ARG_SEND_SIGHUP:
+                        arg_send_sighup = true;
                         break;
 
                 case ARG_SERVICE_TYPE:
@@ -516,6 +530,44 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_nice_set = true;
                         break;
 
+                case ARG_WORKING_DIRECTORY:
+                        r = parse_path_argument(optarg, true, &arg_working_directory);
+                        if (r < 0)
+                                return r;
+
+                        same_dir = false;
+                        break;
+
+                case 'd': {
+                        _cleanup_free_ char *p = NULL;
+
+                        r = safe_getcwd(&p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get current working directory: %m");
+
+                        if (empty_or_root(p))
+                                arg_working_directory = mfree(arg_working_directory);
+                        else
+                                free_and_replace(arg_working_directory, p);
+
+                        same_dir = true;
+                        break;
+                }
+
+                case ARG_ROOT_DIRECTORY:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root_directory);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case 'R':
+                        r = free_and_strdup_warn(&arg_root_directory, "/");
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case 'E':
                         r = strv_env_replace_strdup_passthrough(&arg_environment, optarg);
                         if (r < 0)
@@ -523,14 +575,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case 'p':
-                        if (strv_extend(&arg_property, optarg) < 0)
-                                return log_oom();
-
-                        break;
-
+                case 't': /* --pty (and --tty deprecated alias) */
                 case 'T': /* --pty-late */
-                case 't': /* --pty */
                         arg_stdio |= ARG_STDIO_PTY;
                         arg_pty_late = c == 'T';
                         break;
@@ -554,6 +600,59 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0)
                                 return log_error_errno(arg_output, "Unknown output format '%s'.", optarg);
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+                        break;
+
+                case 'G':
+                        arg_aggressive_gc = true;
+                        break;
+
+                case 'S':
+                        arg_shell = true;
+                        break;
+
+                case ARG_JOB_MODE:
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(job_mode, JobMode, _JOB_MODE_MAX);
+
+                        r = job_mode_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid job mode: %s", optarg);
+
+                        arg_job_mode = r;
+                        break;
+
+                case ARG_IGNORE_FAILURE:
+                        arg_ignore_failure = true;
+                        break;
+
+                case ARG_BACKGROUND:
+                        r = parse_background_argument(optarg, &arg_background);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_PATH_PROPERTY:
+
+                        if (strv_extend(&arg_path_property, optarg) < 0)
+                                return log_oom();
+
+                        break;
+
+                case ARG_SOCKET_PROPERTY:
+
+                        if (strv_extend(&arg_socket_property, optarg) < 0)
+                                return log_oom();
+
                         break;
 
                 case ARG_ON_ACTIVE:
@@ -651,105 +750,6 @@ static int parse_argv(int argc, char *argv[]) {
                                                "OnUnitActiveSec=",
                                                "OnUnitInactiveSec=",
                                                "OnCalendar=");
-                        break;
-
-                case ARG_PATH_PROPERTY:
-
-                        if (strv_extend(&arg_path_property, optarg) < 0)
-                                return log_oom();
-
-                        break;
-
-                case ARG_SOCKET_PROPERTY:
-
-                        if (strv_extend(&arg_socket_property, optarg) < 0)
-                                return log_oom();
-
-                        break;
-
-                case ARG_NO_BLOCK:
-                        arg_no_block = true;
-                        break;
-
-                case ARG_WAIT:
-                        arg_wait = true;
-                        break;
-
-                case ARG_WORKING_DIRECTORY:
-                        r = parse_path_argument(optarg, true, &arg_working_directory);
-                        if (r < 0)
-                                return r;
-
-                        same_dir = false;
-                        break;
-
-                case 'd': {
-                        _cleanup_free_ char *p = NULL;
-
-                        r = safe_getcwd(&p);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get current working directory: %m");
-
-                        if (empty_or_root(p))
-                                arg_working_directory = mfree(arg_working_directory);
-                        else
-                                free_and_replace(arg_working_directory, p);
-
-                        same_dir = true;
-                        break;
-                }
-
-                case ARG_ROOT_DIRECTORY:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root_directory);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case 'R':
-                        r = free_and_strdup_warn(&arg_root_directory, "/");
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case 'G':
-                        arg_aggressive_gc = true;
-                        break;
-
-                case 'S':
-                        arg_shell = true;
-                        break;
-
-                case ARG_JOB_MODE:
-                        if (streq(optarg, "help"))
-                                return DUMP_STRING_TABLE(job_mode, JobMode, _JOB_MODE_MAX);
-
-                        r = job_mode_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Invalid job mode: %s", optarg);
-
-                        arg_job_mode = r;
-                        break;
-
-                case ARG_IGNORE_FAILURE:
-                        arg_ignore_failure = true;
-                        break;
-
-                case ARG_BACKGROUND:
-                        r = parse_background_argument(optarg, &arg_background);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
                         break;
 
                 case '?':
@@ -1066,6 +1066,18 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_VIA_SHELL:
+                        arg_via_shell = true;
+                        break;
+
+                case 'i':
+                        r = free_and_strdup_warn(&arg_working_directory, "~");
+                        if (r < 0)
+                                return r;
+
+                        arg_via_shell = true;
+                        break;
+
                 case ARG_SETENV:
                         r = strv_env_replace_strdup_passthrough(&arg_environment, optarg);
                         if (r < 0)
@@ -1111,16 +1123,6 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        break;
-
-                case 'i':
-                        r = free_and_strdup_warn(&arg_working_directory, "~");
-                        if (r < 0)
-                                return r;
-
-                        _fallthrough_;
-                case ARG_VIA_SHELL:
-                        arg_via_shell = true;
                         break;
 
                 case ARG_EMPOWER:
