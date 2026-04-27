@@ -60,6 +60,29 @@ static int on_qmp_simple_complete(
         return 0;
 }
 
+/* "quit" tells QEMU to exit, which races the QMP reply with the socket EOF — sometimes the
+ * disconnect lands in qmp_client_fail_pending() before the reply has been parsed. For Terminate
+ * that's the desired outcome, so treat disconnect-class errors as success. */
+static int on_qmp_terminate_complete(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        sd_varlink *link = ASSERT_PTR(userdata);
+
+        assert(client);
+
+        if (error < 0 && !ERRNO_IS_DISCONNECT(error))
+                (void) qmp_error_to_varlink(link, error_desc, error);
+        else
+                (void) sd_varlink_reply(link, NULL);
+
+        sd_varlink_unref(link);
+        return 0;
+}
+
 static int qmp_execute_varlink_async(
                 VmspawnVarlinkContext *ctx,
                 sd_varlink *link,
@@ -87,7 +110,7 @@ static int qmp_execute_simple_async(sd_varlink *link, VmspawnVarlinkContext *ctx
 }
 
 static int vl_method_terminate(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return qmp_execute_simple_async(link, ASSERT_PTR(userdata), "quit");
+        return qmp_execute_varlink_async(ASSERT_PTR(userdata), link, "quit", /* arguments= */ NULL, on_qmp_terminate_complete);
 }
 
 static int vl_method_pause(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
