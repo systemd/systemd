@@ -1,0 +1,138 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Native s390x rpm-build (alternative to qemu-user-static cell)
+#
+# Functionally equivalent to packit's `rpm-build:fedora-rawhide-s390x`
+# COPR cell, except this path executes on real IBM Z hardware (via the
+# ubuntu-24.04-s390x runner) without qemu-user-static binary translation.
+# Eliminates qemu translation bugs from the test signal so failures
+# observed under qemu (sigqueue/sigval delivery, mnt_id population,
+# raw_clone semantics) cannot mask or be masked by the testing layer.
+#
+# Pipeline (mirrors COPR mock + rpmbuild):
+#   ubuntu-24.04-s390x runner (native IBM Z hardware)
+#     -> podman run quay.io/fedora/fedora:rawhide (s390x via multi-arch)
+#       -> rpmbuild -bs (SRPM from local source + inline minimal spec)
+#       -> rpmbuild -bi (runs %prep + %build + %check natively)
+#         -> %check invokes meson test on the full suite (no skips)
+
+name: native-s390x-fedora-rpm-build
+
+on:
+  pull_request:
+  workflow_dispatch:    # equivalent of /packit build for manual re-trigger
+
+permissions: read-all
+
+jobs:
+  rpm-build:
+    runs-on: ubuntu-24.04-s390x
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Verify native s390x environment
+        run: |
+          set -ex
+          uname -a
+          arch
+          podman --version
+
+      - name: Workaround partner-runner network restrictions
+        run: |
+          set -ex
+          # The IBM partner runner blocks both UDP DNS sockets (against
+          # systemd-resolved 127.0.0.53:53) and TCP IPv6 sockets for
+          # podman's Go runtime. Apt-get works through libc/nss but
+          # podman gets EPERM on socket() for those families. Pin IPv4
+          # entries for the registry endpoints in /etc/hosts so podman
+          # bypasses DNS and connects over the unblocked IPv4 path.
+          for h in quay.io cdn01.quay.io cdn02.quay.io cdn03.quay.io cdn.redhat.com; do
+            # ahostsv4 returns only IPv4 entries (one per line, multiple types).
+            ip=$(getent ahostsv4 "$h" | awk '{print $1; exit}' || true)
+            if [ -n "$ip" ]; then
+              echo "$ip $h" | sudo tee -a /etc/hosts >/dev/null
+            fi
+          done
+          tail -10 /etc/hosts
+
+      - name: Pull Fedora rawhide (s390x via multi-arch manifest)
+        run: |
+          set -ex
+          podman pull quay.io/fedora/fedora:rawhide
+          arch_in_image=$(podman inspect quay.io/fedora/fedora:rawhide --format '{{.Architecture}}')
+          test "$arch_in_image" = "s390x"
+
+      - name: Generate spec file
+        run: |
+          mkdir -p rpm
+          VER=$(cat meson.version)
+          cat > rpm/systemd.spec <<SPEC_EOF
+          %global meson_extra_configure_options --werror
+
+          Name:           systemd
+          Version:        ${VER}
+          Release:        1%{?dist}.native_s390x
+          Summary:        systemd, native s390x rpm-build (alternative to qemu-user-static cell)
+          License:        LGPL-2.1-or-later
+          Source0:        systemd-%{version}.tar.gz
+
+          BuildRequires:  meson ninja-build gcc gcc-c++ pkgconfig
+          BuildRequires:  glibc-devel glibc-langpack-en libcap-devel libacl-devel
+          BuildRequires:  libcryptsetup-devel libidn2-devel libcurl-devel libfdisk-devel
+          BuildRequires:  libmount-devel libxcrypt-devel openssl-devel pam-devel
+          BuildRequires:  python3-jinja2 polkit-devel python3-pyelftools
+          BuildRequires:  audit-libs-devel dbus-devel libxslt docbook-style-xsl
+          BuildRequires:  kmod-devel kbd cryptsetup qrencode-devel libpwquality-devel
+          BuildRequires:  pkgconfig(libseccomp) pkgconfig(blkid)
+
+          %description
+          Native s390x rpm-build of systemd on real IBM Z hardware via the
+          ubuntu-24.04-s390x runner. Functionally equivalent to the COPR
+          fedora-rawhide-s390x cell except this path executes natively without
+          qemu-user-static binary translation. Eliminates qemu translation bugs
+          (sigqueue/sigval delivery, mnt_id population, raw_clone semantics)
+          from the test signal.
+
+          %prep
+          %autosetup -p1 -n systemd-%{version}
+
+          %build
+          %meson -Dmode=developer -Dman=disabled -Dtests=unsafe
+          %meson_build
+
+          %check
+          %meson_test --no-rebuild --print-errorlogs --timeout-multiplier 6
+
+          %install
+          :
+
+          %files
+
+          %changelog
+          * Sun Apr 27 2026 systemd CI <noreply@example.com> - ${VER}-1
+          - Native s390x rpm-build (alternative to qemu-user-static cell)
+          SPEC_EOF
+
+      - name: Build SRPM + rebuild natively (full test suite, no qemu)
+        run: |
+          set -ex
+          podman run --rm --privileged \
+            -v "${GITHUB_WORKSPACE}:/src:ro,Z" \
+            -w /work \
+            quay.io/fedora/fedora:rawhide bash -ec '
+              dnf install -y --setopt=install_weak_deps=False rpm-build dnf-plugins-core
+              mkdir -p ~/rpmbuild/{SOURCES,SPECS,BUILD,BUILDROOT,RPMS,SRPMS}
+              VER=$(cat /src/meson.version)
+              mkdir -p /work/systemd-${VER}
+              tar -C /src --exclude=.git -cf - . | tar -C /work/systemd-${VER} -xf -
+              tar -C /work -czf ~/rpmbuild/SOURCES/systemd-${VER}.tar.gz systemd-${VER}/
+              cp /src/rpm/systemd.spec ~/rpmbuild/SPECS/systemd.spec
+              rpmbuild -bs ~/rpmbuild/SPECS/systemd.spec
+              rpmbuild -bi --define "_topdir ${HOME}/rpmbuild" ~/rpmbuild/SPECS/systemd.spec
+            '
