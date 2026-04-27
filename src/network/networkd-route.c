@@ -41,8 +41,12 @@ static Route* route_detach_impl(Route *route) {
         }
 
         if (route->manager) {
-                route_detach_from_nexthop(route);
-                set_remove(route->manager->routes, route);
+                if (route->section)
+                        hashmap_remove(route->manager->routes_by_section, route->section);
+                else {
+                        route_detach_from_nexthop(route);
+                        set_remove(route->manager->routes, route);
+                }
                 route->manager = NULL;
                 return route;
         }
@@ -300,6 +304,43 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
         route->source = NETWORK_CONFIG_SOURCE_STATIC;
 
         r = hashmap_ensure_put(&network->routes_by_section, &route_section_hash_ops, route->section, route);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(route);
+        return 0;
+}
+
+int route_new_static_manager(Manager *manager, const char *filename, unsigned section_line, Route **ret) {
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
+        int r;
+
+        assert(manager);
+        assert(ret);
+        assert(filename);
+        assert(section_line > 0);
+
+        r = config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        route = hashmap_get(manager->routes_by_section, n);
+        if (route) {
+                *ret = TAKE_PTR(route);
+                return 0;
+        }
+
+        r = route_new(&route);
+        if (r < 0)
+                return r;
+
+        route->protocol = RTPROT_STATIC;
+        route->manager = manager;
+        route->section = TAKE_PTR(n);
+        route->source = NETWORK_CONFIG_SOURCE_STATIC;
+
+        r = hashmap_ensure_put(&manager->routes_by_section, &route_section_hash_ops, route->section, route);
         if (r < 0)
                 return r;
 
@@ -1119,6 +1160,99 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
         return 0;
 }
 
+static int manager_route_configure(const Route *route, Manager *manager, Request *req) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        int r;
+
+        assert(route);
+        assert(route_is_reject(route));
+        assert(manager);
+        assert(manager->rtnl);
+        assert(req);
+
+        log_route_debug(route, "Configuring", manager);
+
+        r = sd_rtnl_message_new_route(manager->rtnl, &m, RTM_NEWROUTE, route->family, route->protocol);
+        if (r < 0)
+                return r;
+
+        r = route_set_netlink_message(route, m);
+        if (r < 0)
+                return r;
+
+        return request_call_netlink_async(manager->rtnl, m, req);
+}
+
+static int manager_route_configure_handler(
+                sd_netlink *rtnl,
+                sd_netlink_message *m,
+                Request *req,
+                Link *link,
+                void *userdata) {
+
+        Manager *manager = ASSERT_PTR(ASSERT_PTR(req)->manager);
+        int r;
+
+        assert(m);
+        assert(!link);
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_message_warning_errno(m, r, "Could not set route");
+                return 1;
+        }
+
+        if (manager->static_route_messages == 0) {
+                log_debug("Routes set.");
+                manager->static_routes_configured = true;
+        }
+
+        return 1;
+}
+
+static int manager_route_process_request(Request *req, Link *link, void *userdata) {
+        Route *route = ASSERT_PTR(userdata);
+        int r;
+
+        assert(req);
+        assert(req->manager);
+        assert(!link);
+
+        r = manager_route_configure(route, req->manager, req);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to configure route: %m");
+
+        return 1;
+}
+
+int manager_request_static_routes(Manager *manager) {
+        Route *route;
+        int r;
+
+        assert(manager);
+
+        manager->static_routes_configured = false;
+
+        HASHMAP_FOREACH(route, manager->routes_by_section) {
+                r = manager_queue_request_full(manager, REQUEST_TYPE_ROUTE,
+                                               route, NULL,
+                                               (hash_func_t) route_hash_func,
+                                               (compare_func_t) route_compare_func,
+                                               (request_process_func_t) manager_route_process_request,
+                                               &manager->static_route_messages,
+                                               (request_netlink_handler_t) manager_route_configure_handler, NULL);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to request route: %m");
+        }
+
+        if (manager->static_route_messages == 0)
+                manager->static_routes_configured = true;
+        else
+                log_debug("Setting routes.");
+
+        return 0;
+}
+
 static int process_route_one(
                 Manager *manager,
                 uint16_t type,
@@ -1629,6 +1763,14 @@ int link_drop_routes(Link *link, bool only_static) {
                 }
         }
 
+        /* Unmark routes requested by manager-level config (e.g. global blackhole/prohibit routes). */
+        HASHMAP_FOREACH(route, link->manager->routes_by_section) {
+                Route *existing;
+
+                if (route_get(link->manager, route, &existing) >= 0)
+                        route_unmark(existing);
+        }
+
         /* Finally, remove all marked routes. */
         SET_FOREACH(route, link->manager->routes) {
                 if (!route_is_marked(route))
@@ -1872,10 +2014,15 @@ static int config_parse_route_table(
                 void *userdata) {
 
         Route *route = ASSERT_PTR(userdata);
-        Manager *manager = ASSERT_PTR(ASSERT_PTR(route->network)->manager);
+        Manager *manager;
         int r;
 
         assert(rvalue);
+
+        if (route->network)
+                manager = ASSERT_PTR(route->network->manager);
+        else
+                manager = ASSERT_PTR(route->manager);
 
         r = manager_get_route_table_from_string(manager, rvalue, &route->table);
         if (r < 0)
@@ -2002,12 +2149,20 @@ int config_parse_route_section(
         };
 
         _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
-        Network *network = ASSERT_PTR(userdata);
+        Manager *manager = NULL;
+        Network *network = NULL;
         int r;
 
         assert(filename);
 
-        if (streq(section, "Network")) {
+        if (FLAGS_SET(ltype, ROUTE_BY_MANAGER))
+                manager = ASSERT_PTR(userdata);
+        else
+                network = ASSERT_PTR(userdata);
+
+        ltype &= ROUTE_SECTION_MASK;
+
+        if (network && streq(section, "Network")) {
                 assert(streq_ptr(lvalue, "Gateway"));
 
                 /* Clear all previously defined routes when Gateway= (empty) is set in [Network] section */
@@ -2018,7 +2173,9 @@ int config_parse_route_section(
 
                 /* we are not in an Route section, so use line number instead */
                 r = route_new_static(network, filename, line, &route);
-        } else
+        } else if (manager)
+                r = route_new_static_manager(manager, filename, section_line, &route);
+        else
                 r = route_new_static(network, filename, section_line, &route);
         if (r == -ENOMEM)
                 return log_oom();
@@ -2097,5 +2254,55 @@ void network_drop_invalid_routes(Network *network) {
 
         HASHMAP_FOREACH(route, network->routes_by_section)
                 if (route_section_verify(route) < 0)
+                        route_detach(route);
+}
+
+static int manager_route_section_verify(Route *route) {
+        assert(route);
+        assert(route->section);
+
+        if (section_is_invalid(route->section))
+                return -EINVAL;
+
+        if (route->family == AF_UNSPEC) {
+                log_section_warning(route->section,
+                                    "[Route] section in networkd.conf without Destination= field. "
+                                    "Ignoring [Route] section.");
+                return -EINVAL;
+        }
+
+        if (!IN_SET(route->type, RTN_BLACKHOLE, RTN_PROHIBIT, RTN_UNREACHABLE)) {
+                log_section_warning(route->section,
+                                    "[Route] section in networkd.conf with non-reject type. "
+                                    "Only blackhole, prohibit, and unreachable route types are supported. "
+                                    "Ignoring [Route] section.");
+                return -EINVAL;
+        }
+
+        if (in_addr_is_set(route->nexthop.family, &route->nexthop.gw) ||
+            !ordered_set_isempty(route->nexthops) ||
+            route->nexthop_id != 0) {
+                log_section_warning(route->section,
+                                    "[Route] section in networkd.conf with Gateway=, MultiPathRoute=, or NextHopId= specified. "
+                                    "Ignoring [Route] section.");
+                return -EINVAL;
+        }
+
+        /* IPv6 route */
+        if (route->family == AF_INET6) {
+                if (route->priority == 0)
+                        route->priority = IP6_RT_PRIO_USER;
+        }
+
+        return 0;
+}
+
+void manager_drop_invalid_routes(Manager *manager) {
+        Route *route;
+
+        assert(manager);
+
+        HASHMAP_FOREACH(route, manager->routes_by_section)
+                if (manager_route_section_verify(route) < 0)
                         route_detach(route);
 }

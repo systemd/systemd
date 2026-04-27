@@ -4805,6 +4805,47 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2004:da8:1::/64 dev dummy98 label 4444')
         self.assertRegex(output, '2004:da8:2::/64 label 5555')
 
+    def test_route_global_reject(self):
+        copy_networkd_conf_dropin('networkd-route.conf')
+        copy_network_unit('12-dummy.netdev', '12-dummy.network')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        print('### ip -4 route show type blackhole')
+        output = check_output('ip -4 route show type blackhole')
+        print(output)
+        self.assertIn('blackhole 192.168.222.0/24 proto static', output)
+
+        print('### ip -4 route show type prohibit')
+        output = check_output('ip -4 route show type prohibit')
+        print(output)
+        self.assertIn('prohibit 192.168.223.0/24 proto static', output)
+
+        print('### ip -4 route show type unreachable')
+        output = check_output('ip -4 route show type unreachable')
+        print(output)
+        self.assertIn('unreachable 192.168.224.0/24 proto static', output)
+
+        print('### ip -6 route show type blackhole')
+        output = check_output('ip -6 route show type blackhole')
+        print(output)
+        self.assertIn('blackhole 2001:db8:abcd::/48 dev lo proto static', output)
+
+        print('### ip -6 route show type prohibit')
+        output = check_output('ip -6 route show type prohibit')
+        print(output)
+        self.assertIn('prohibit 2001:db8:abce::/48 dev lo proto static', output)
+
+        print('### ip -6 route show type unreachable')
+        output = check_output('ip -6 route show type unreachable')
+        print(output)
+        self.assertIn('unreachable 2001:db8:abcf::/48 dev lo proto static', output)
+
+        print('### ip -4 route show table 100 type blackhole')
+        output = check_output('ip -4 route show table 100 type blackhole')
+        print(output)
+        self.assertIn('blackhole 10.99.0.0/16 proto static metric 200', output)
+
     def test_ipv6_proxy_ndp(self):
         copy_network_unit('25-ipv6-proxy-ndp.network', '12-dummy.netdev')
         start_networkd()
