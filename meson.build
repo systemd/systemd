@@ -1233,6 +1233,12 @@ libfido2 = dependency('libfido2',
 libfido2_cflags = libfido2.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBFIDO2', libfido2.found())
 
+liburing = dependency('liburing',
+                      version : '>= 2.3',
+                      required : get_option('liburing'))
+liburing_cflags = liburing.partial_dependency(includes: true, compile_args: true)
+conf.set10('HAVE_LIBURING', liburing.found())
+
 tpm2 = dependency('tss2-esys tss2-rc tss2-mu tss2-tcti-device',
                   required : get_option('tpm2'))
 tpm2_cflags = tpm2.partial_dependency(includes: true, compile_args: true)
@@ -2800,6 +2806,7 @@ foreach tuple : [
         ['libfdisk'],
         ['libfido2'],
         ['libidn2'],
+        ['liburing'],
         ['microhttpd'],
         ['openssl'],
         ['p11kit'],
