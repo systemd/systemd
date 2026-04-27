@@ -7,7 +7,7 @@ EXCLUDED_PATHS=(
     "src/boot/*"
     "src/include/uapi/*"
     # Symlinked to test-bus-vtable-cc.cc, which causes issues with the IN_SET macro
-    "src/libsystemd/sd-bus/test-bus-vtable.c"
+    "src/test/test-bus-vtable.c"
     "src/libsystemd/sd-journal/lookup3.c"
     # Our BPF programs don't have access to systemd stuff
     "src/network/bpf/*"
