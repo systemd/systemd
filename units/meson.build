@@ -863,6 +863,11 @@ units = [
           'install_tag' : 'udev',
         },
         {
+          'file' : 'systemd-pci-slot-trigger.service',
+          'symlinks' : ['sysinit.target.wants/'],
+          'install_tag' : 'udev',
+        },
+        {
           'file' : 'systemd-udevd-control.socket',
           'symlinks' : ['sockets.target.wants/'],
           'install_tag' : 'udev',
