@@ -4409,6 +4409,10 @@ static int outer_child(
         if (notify_fd < 0)
                 return notify_fd;
 
+        /* Join the external netns first, before dropping outer's CAP_SYS_ADMIN capability. */
+        if (arg_network_namespace_path && setns(netns_fd, CLONE_NEWNET) < 0)
+                return log_error_errno(errno, "Failed to join network namespace: %m");
+
         pid_t pid = raw_clone(SIGCHLD|CLONE_NEWNS|
                         arg_clone_ns_flags |
                         (IN_SET(arg_userns_mode, USER_NAMESPACE_FIXED, USER_NAMESPACE_PICK) ? CLONE_NEWUSER : 0) |
@@ -4423,9 +4427,6 @@ static int outer_child(
 
                 /* The inner child has all namespaces that are requested, so that we all are owned by the
                  * user if user namespaces are turned on. */
-
-                if (arg_network_namespace_path && setns(netns_fd, CLONE_NEWNET) < 0)
-                        return log_error_errno(errno, "Failed to join network namespace: %m");
 
                 if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
                         /* In managed usernamespace operation, sysfs + procfs are special, we'll have to
