@@ -355,11 +355,10 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argv);
         assert(remaining_args);
 
-        OptionParser state = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
-        const char *arg;
+        OptionParser opts = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -370,7 +369,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION('l', "listen", "ADDR",
                        "Listen for raw connections at ADDR"):
-                        r = strv_extend(&arg_listen, arg);
+                        r = strv_extend(&arg_listen, opts.arg);
                         if (r < 0)
                                 return log_oom();
 
@@ -402,16 +401,16 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION('E', "setenv", "NAME[=VALUE]",
                        "Pass an environment variable to children"): {}
                 OPTION_LONG("environment", "NAME[=VALUE]", /* help= */ NULL): /* legacy alias */
-                        r = strv_env_replace_strdup_passthrough(&arg_setenv, arg);
+                        r = strv_env_replace_strdup_passthrough(&arg_setenv, opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Cannot assign environment variable %s: %m", arg);
+                                return log_error_errno(r, "Cannot assign environment variable %s: %m", opts.arg);
                         break;
 
                 OPTION_LONG("fdname", "NAME[:NAME...]",
                             "Specify names for file descriptors"): {
                         _cleanup_strv_free_ char **names = NULL;
 
-                        names = strv_split(arg, ":");
+                        names = strv_split(opts.arg, ":");
                         if (!names)
                                 return log_oom();
 
@@ -443,7 +442,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
                 }
 
-        *remaining_args = option_parser_get_args(&state);
+        *remaining_args = option_parser_get_args(&opts);
         if (strv_isempty(*remaining_args))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: command to execute is missing.",

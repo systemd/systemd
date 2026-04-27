@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "alloc-util.h"
-#include "ansi-color.h"
 #include "battery-util.h"
 #include "build.h"
 #include "format-table.h"
+#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "options.h"
-#include "pretty-print.h"
 #include "string-util.h"
 
 static bool arg_verbose = false;
@@ -19,29 +17,22 @@ static enum {
 } arg_action = ACTION_AC_POWER;
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-ac-power", "1", &link);
-        if (r < 0)
-                return log_oom();
-
+        _cleanup_(table_unrefp) Table *options = NULL;
         r = option_parser_get_help_table(&options);
         if (r < 0)
                 return r;
 
-        printf("%s [OPTIONS...]\n"
-               "\n%sReport whether we are connected to an external power source.%s\n"
-               "\nOptions:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...]");
+        help_abstract("Report whether we are connected to an external power source.");
+
+        help_section("Options:");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-ac-power", "1");
         return 0;
 }
 
@@ -50,10 +41,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -70,7 +60,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-        if (option_parser_get_n_args(&state) > 0)
+        if (option_parser_get_n_args(&opts) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         return 1;

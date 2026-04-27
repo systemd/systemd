@@ -77,11 +77,10 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -92,10 +91,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("nqn", "STRING",
                             "Select NQN (NVMe Qualified Name)"):
-                        if (!filename_is_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NQN invalid: %s", arg);
+                        if (!filename_is_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NQN invalid: %s", opts.arg);
 
-                        if (free_and_strdup(&arg_nqn, arg) < 0)
+                        if (free_and_strdup(&arg_nqn, opts.arg) < 0)
                                 return log_oom();
 
                         break;
@@ -113,7 +112,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
                 }
 
-        char **args = option_parser_get_args(&state);
+        char **args = option_parser_get_args(&opts);
         if (arg_all > 0) {
                 if (!strv_isempty(args))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expects no further arguments if --all/-a is specified.");

@@ -20,6 +20,7 @@ typedef enum TableDataType {
         TABLE_VERSION,             /* just like TABLE_STRING, but uses version comparison when sorting */
         TABLE_BOOLEAN,
         TABLE_BOOLEAN_CHECKMARK,
+        TABLE_TRISTATE,
         TABLE_TIMESTAMP,
         TABLE_TIMESTAMP_UTC,
         TABLE_TIMESTAMP_RELATIVE,

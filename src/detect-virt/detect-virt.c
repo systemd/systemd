@@ -53,10 +53,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -95,7 +94,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return DUMP_STRING_TABLE(confidential_virtualization, ConfidentialVirtualization, _CONFIDENTIAL_VIRTUALIZATION_MAX);
                 }
 
-        if (option_parser_get_n_args(&state) > 0)
+        if (option_parser_get_n_args(&opts) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s takes no arguments.",
                                        program_invocation_short_name);
