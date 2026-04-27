@@ -28,11 +28,14 @@ actions:
 jobs:
 - job: copr_build
   trigger: pull_request
+  # fedora-rawhide-s390x removed — replaced by the native s390x rpm-build
+  # workflow at .github/workflows/native-s390x-fedora-rpm-build.yml which
+  # runs on real IBM Z hardware (ubuntu-24.04-s390x runner) without the
+  # qemu-user-static translation layer.
   targets:
   - fedora-rawhide-aarch64
   - fedora-rawhide-i386
   - fedora-rawhide-ppc64le
-  - fedora-rawhide-s390x
   - fedora-rawhide-x86_64
 
 - job: tests
