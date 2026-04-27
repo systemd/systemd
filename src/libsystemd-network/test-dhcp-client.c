@@ -691,6 +691,63 @@ TEST(anonymize) {
         ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
 }
 
+static int rapid_commit_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        sd_dhcp_client *client = ASSERT_PTR(userdata);
+        static unsigned count = 0;
+
+        count++;
+        log_debug("%s: count=%u", __func__, count);
+
+        switch (count) {
+        case 1: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                verify_request(request, DHCP_DISCOVER);
+                ASSERT_TRUE(dhcp_message_has_option(request, SD_DHCP_OPTION_RAPID_COMMIT));
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_ACK, &reply);
+                ASSERT_OK(dhcp_message_append_option_flag(reply, SD_DHCP_OPTION_RAPID_COMMIT));
+
+                send_message(fd, /* raw= */ true, client, reply);
+                break;
+        }
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+static int rapid_commit_client_handler(sd_dhcp_client *client, int event, void *userdata) {
+        sd_event *e = ASSERT_PTR(userdata);
+        static unsigned count = 0;
+
+        count++;
+        log_debug("%s: count=%u, event=%i", __func__, count, event);
+
+        switch (count) {
+        case 1:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
+                verify_reply(client, DHCP_STATE_BOUND);
+                ASSERT_OK(sd_event_exit(e, 0));
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+TEST(rapid_commit) {
+        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
+        setup(rapid_commit_io_handler, rapid_commit_client_handler, &client);
+        ASSERT_OK(sd_dhcp_client_set_rapid_commit(client, true));
+        ASSERT_OK(sd_dhcp_client_start(client));
+        ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
+}
+
 static int intro(void) {
         ASSERT_OK_ERRNO(setenv("SYSTEMD_NETWORK_TEST_MODE", "1", /* overwrite= */ true));
         return 0;
