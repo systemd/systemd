@@ -82,18 +82,13 @@ _public_ int sd_device_enumerator_new(sd_device_enumerator **ret) {
         return 0;
 }
 
-static void device_unref_many(sd_device **devices, size_t n) {
-        assert(devices || n == 0);
-
-        for (size_t i = 0; i < n; i++)
-                sd_device_unref(devices[i]);
-}
+static DEFINE_POINTER_ARRAY_CLEAR_FUNC(sd_device*, sd_device_unref);
 
 static void device_enumerator_unref_devices(sd_device_enumerator *enumerator) {
         assert(enumerator);
 
         hashmap_clear(enumerator->devices_by_syspath);
-        device_unref_many(enumerator->devices, enumerator->n_devices);
+        sd_device_unref_array_clear(enumerator->devices, enumerator->n_devices);
         enumerator->devices = mfree(enumerator->devices);
         enumerator->n_devices = 0;
 }
@@ -461,7 +456,7 @@ static int enumerator_sort_devices(sd_device_enumerator *enumerator) {
 
         typesafe_qsort(devices + n_sorted, n - n_sorted, device_compare);
 
-        device_unref_many(enumerator->devices, enumerator->n_devices);
+        sd_device_unref_array_clear(enumerator->devices, enumerator->n_devices);
 
         enumerator->n_devices = n;
         free_and_replace(enumerator->devices, devices);
@@ -470,7 +465,7 @@ static int enumerator_sort_devices(sd_device_enumerator *enumerator) {
         return 0;
 
 failed:
-        device_unref_many(devices, n);
+        sd_device_unref_array_clear(devices, n);
         free(devices);
         return r;
 }
