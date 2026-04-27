@@ -166,7 +166,7 @@ DLSYM_PROTOTYPE(EVP_PKEY_free) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_fromdata) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_fromdata_init) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_get1_encoded_public_key) = NULL;
-static DLSYM_PROTOTYPE(EVP_PKEY_get_base_id) = NULL;
+DLSYM_PROTOTYPE(EVP_PKEY_get_base_id) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_get_bits) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_get_bn_param) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_get_group_name) = NULL;
@@ -1123,52 +1123,6 @@ int kdf_kb_hmac_derive(
         return 0;
 }
 
-int rsa_encrypt_bytes(
-                EVP_PKEY *pkey,
-                const void *decrypted_key,
-                size_t decrypted_key_size,
-                void **ret_encrypt_key,
-                size_t *ret_encrypt_key_size) {
-
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
-        _cleanup_free_ void *b = NULL;
-        size_t l;
-        int r;
-
-        assert(ret_encrypt_key);
-        assert(ret_encrypt_key_size);
-
-        r = dlopen_libcrypto(LOG_DEBUG);
-        if (r < 0)
-                return r;
-
-        ctx = sym_EVP_PKEY_CTX_new(pkey, NULL);
-        if (!ctx)
-                return log_openssl_errors("Failed to allocate public key context");
-
-        if (sym_EVP_PKEY_encrypt_init(ctx) <= 0)
-                return log_openssl_errors("Failed to initialize public key context");
-
-        if (sym_EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0)
-                return log_openssl_errors("Failed to configure PKCS#1 padding");
-
-        if (sym_EVP_PKEY_encrypt(ctx, NULL, &l, decrypted_key, decrypted_key_size) <= 0)
-                return log_openssl_errors("Failed to determine encrypted key size");
-
-        b = malloc(l);
-        if (!b)
-                return -ENOMEM;
-
-        if (sym_EVP_PKEY_encrypt(ctx, b, &l, decrypted_key, decrypted_key_size) <= 0)
-                return log_openssl_errors("Failed to determine encrypted key size");
-
-        *ret_encrypt_key = TAKE_PTR(b);
-        *ret_encrypt_key_size = l;
-        return 0;
-}
-
-/* Encrypt the key data using RSA-OAEP with the provided label and specified digest algorithm. Returns 0 on
- * success, -EOPNOTSUPP if the digest algorithm is not supported, or < 0 for any other error. */
 int rsa_oaep_encrypt_bytes(
                 const EVP_PKEY *pkey,
                 const char *digest_alg,
@@ -1182,7 +1136,6 @@ int rsa_oaep_encrypt_bytes(
 
         assert(pkey);
         assert(digest_alg);
-        assert(label);
         assert(decrypted_key);
         assert(decrypted_key_size > 0);
         assert(ret_encrypt_key);
@@ -1210,14 +1163,16 @@ int rsa_oaep_encrypt_bytes(
         if (sym_EVP_PKEY_CTX_set_rsa_oaep_md(ctx, md) <= 0)
                 return log_openssl_errors("Failed to configure RSA-OAEP MD");
 
-        _cleanup_free_ char *duplabel = strdup(label);
-        if (!duplabel)
-                return log_oom_debug();
+        if (label) {
+                _cleanup_free_ char *duplabel = strdup(label);
+                if (!duplabel)
+                        return log_oom_debug();
 
-        if (sym_EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, duplabel, strlen(duplabel) + 1) <= 0)
-                return log_openssl_errors("Failed to configure RSA-OAEP label");
-        /* ctx owns this now, don't free */
-        TAKE_PTR(duplabel);
+                if (sym_EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, duplabel, strlen(duplabel) + 1) <= 0)
+                        return log_openssl_errors("Failed to configure RSA-OAEP label");
+                /* ctx owns this now, don't free */
+                TAKE_PTR(duplabel);
+        }
 
         size_t size = 0;
         if (sym_EVP_PKEY_encrypt(ctx, NULL, &size, decrypted_key, decrypted_key_size) <= 0)
@@ -1259,8 +1214,9 @@ int rsa_pkey_to_suitable_key_size(
         bits = sym_EVP_PKEY_get_bits(pkey);
         log_debug("Bits in RSA key: %i", bits);
 
-        /* We use PKCS#1 padding for the RSA cleartext, hence let's leave some extra space for it, hence only
-         * generate a random key half the size of the RSA length */
+        /* We use RSA-OAEP for the cleartext, which has 2*hash_len + 2 bytes of overhead (e.g. 66 bytes
+         * for SHA-256, 42 for SHA-1). Leave plenty of headroom by only generating a key half the size of
+         * the RSA modulus. */
         suitable_key_size = bits / 8 / 2;
 
         if (suitable_key_size < 1)
@@ -1862,6 +1818,7 @@ static int ecc_pkey_generate_volume_keys(
 
 static int rsa_pkey_generate_volume_keys(
                 EVP_PKEY *pkey,
+                const char *digest_alg,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size,
                 void **ret_saved_key,
@@ -1872,6 +1829,7 @@ static int rsa_pkey_generate_volume_keys(
         size_t decrypted_key_size, saved_key_size;
         int r;
 
+        assert(digest_alg);
         assert(ret_decrypted_key);
         assert(ret_decrypted_key_size);
         assert(ret_saved_key);
@@ -1891,9 +1849,14 @@ static int rsa_pkey_generate_volume_keys(
         if (r < 0)
                 return log_debug_errno(r, "Failed to generate random key: %m");
 
-        r = rsa_encrypt_bytes(pkey, decrypted_key, decrypted_key_size, &saved_key, &saved_key_size);
+        r = rsa_oaep_encrypt_bytes(
+                        pkey,
+                        digest_alg,
+                        /* label= */ NULL, /* matches PKCS#11 CKZ_DATA_SPECIFIED with empty source */
+                        decrypted_key, decrypted_key_size,
+                        &saved_key, &saved_key_size);
         if (r < 0)
-                return log_debug_errno(r, "Failed to encrypt random key: %m");
+                return log_debug_errno(r, "Failed to RSA-OAEP encrypt random key: %m");
 
         *ret_decrypted_key = TAKE_PTR(decrypted_key);
         *ret_decrypted_key_size = decrypted_key_size;
@@ -1904,6 +1867,7 @@ static int rsa_pkey_generate_volume_keys(
 
 int pkey_generate_volume_keys(
                 EVP_PKEY *pkey,
+                const char *rsa_oaep_digest_alg,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size,
                 void **ret_saved_key,
@@ -1925,7 +1889,7 @@ int pkey_generate_volume_keys(
         switch (type) {
 
         case EVP_PKEY_RSA:
-                return rsa_pkey_generate_volume_keys(pkey, ret_decrypted_key, ret_decrypted_key_size, ret_saved_key, ret_saved_key_size);
+                return rsa_pkey_generate_volume_keys(pkey, rsa_oaep_digest_alg ?: "SHA-1", ret_decrypted_key, ret_decrypted_key_size, ret_saved_key, ret_saved_key_size);
 
         case EVP_PKEY_EC:
                 return ecc_pkey_generate_volume_keys(pkey, ret_decrypted_key, ret_decrypted_key_size, ret_saved_key, ret_saved_key_size);
