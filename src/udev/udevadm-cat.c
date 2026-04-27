@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <getopt.h>
-
 #include "alloc-util.h"
 #include "conf-files.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "log.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "static-destruct.h"
@@ -19,83 +20,75 @@ static bool arg_config = false;
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
-        r = terminal_urlify_man("udevadm", "8", &link);
+        r = option_parser_get_help_table_ns("udevadm-cat", &options);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        printf("%s cat [OPTIONS] [FILE...]\n"
-               "\n%sShow udev rules files.%s\n\n"
-               "  -h --help            Show this help\n"
-               "  -V --version         Show package version\n"
-               "     --root=PATH       Operate on an alternate filesystem root\n"
-               "     --tldr            Skip comments and empty lines\n"
-               "     --config          Show udev.conf rather than udev rules files\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               link);
+        help_cmdline("cat [OPTIONS...] [FILE...]");
+        help_abstract("Show udev rules files.");
+        help_section("Options:");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
 
+        help_man_page_reference("udevadm", "8");
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_ROOT = 0x100,
-                ARG_TLDR,
-                ARG_CONFIG,
-        };
-        static const struct option options[] = {
-                { "help",          no_argument,       NULL, 'h'             },
-                { "version",       no_argument,       NULL, 'V'             },
-                { "root",          required_argument, NULL, ARG_ROOT        },
-                { "tldr",          no_argument,       NULL, ARG_TLDR        },
-                { "config",        no_argument,       NULL, ARG_CONFIG      },
-                {}
-        };
-
-        int r, c;
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
+        assert(remaining_args);
 
-        while ((c = getopt_long(argc, argv, "hVN:", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv, .namespace = "udevadm-cat" };
+
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
-                case 'h':
+
+                OPTION_NAMESPACE("udevadm-cat"): {}
+
+                OPTION_COMMON_HELP:
                         return help();
-                case 'V':
+
+                OPTION_COMMON_VERSION_WITH_HIDDEN_V:
                         return print_version();
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
+
+                OPTION_LONG("root", "PATH",
+                            "Operate on an alternate filesystem root"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
-                case ARG_TLDR:
+
+                OPTION_LONG("tldr", NULL,
+                            "Skip comments and empty lines"):
                         arg_cat_flags = CAT_TLDR;
                         break;
-                case ARG_CONFIG:
+
+                OPTION_LONG("config", NULL,
+                            "Show udev.conf rather than udev rules files"):
                         arg_config = true;
                         break;
-                case '?':
-                        return -EINVAL;
-                default:
-                        assert_not_reached();
                 }
 
-        if (arg_config && optind < argc)
+        if (arg_config && option_parser_get_n_args(&opts) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Combination of --config and FILEs is not supported.");
 
+        *remaining_args = option_parser_get_args(&opts);
         return 1;
 }
 
 int verb_cat_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        char **args = NULL;
         int r;
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -107,7 +100,7 @@ int verb_cat_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
-        r = search_rules_files(strv_skip(argv, optind), arg_root, &files, &n_files);
+        r = search_rules_files(args, arg_root, &files, &n_files);
         if (r < 0)
                 return r;
 
