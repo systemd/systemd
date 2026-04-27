@@ -1,5 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#if HAVE_LIBURING
+#include <liburing.h>
+#endif
+#include <poll.h>
+#include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -7,6 +12,7 @@
 
 #include "alloc-util.h"
 #include "event-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
@@ -713,11 +719,23 @@ TEST(simple_timeout) {
 
         ASSERT_OK(sd_event_default(&e));
 
-        ASSERT_OK_ZERO(sd_event_prepare(e));
+        /* Tearing down an io_uring ring leaves kernel exit work that interrupts the task's next blocking
+         * syscall exactly once, and sd_event_wait() reports EINTR as a wakeup rather than retrying. So an
+         * earlier test that enabled the backend can cut one wait short with nothing pending: take the
+         * timing reading from a wait that actually reported a timeout. */
+        int r;
+        for (;;) {
+                ASSERT_OK_ZERO(sd_event_prepare(e));
 
-        f = now(CLOCK_MONOTONIC);
-        ASSERT_OK(sd_event_wait(e, some_time));
-        t = now(CLOCK_MONOTONIC);
+                f = now(CLOCK_MONOTONIC);
+                r = ASSERT_OK(sd_event_wait(e, some_time));
+                t = now(CLOCK_MONOTONIC);
+
+                if (r == 0)
+                        break;
+
+                ASSERT_OK(sd_event_dispatch(e));
+        }
 
         /* The event loop may sleep longer than the specified time (timer accuracy, scheduling latencies, …),
          * but never shorter. Let's check that. */
@@ -1198,5 +1216,510 @@ TEST(child_autoreap_ebusy) {
         /* Restore original SIGCHLD disposition */
         ASSERT_OK_ERRNO(sigaction(SIGCHLD, &old_sa, NULL));
 }
+
+#if HAVE_LIBURING
+/* -ENOSYS on a kernel without io_uring, -EPERM when kernel.io_uring_disabled locks it down.
+ * Neither is a test failure. */
+static bool io_uring_enable_or_skip(sd_event *e) {
+        int r;
+
+        r = sd_event_set_io_uring_enabled(e, true);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || r == -EPERM) {
+                log_tests_skipped("io_uring backend unavailable");
+                return false;
+        }
+        ASSERT_OK(r);
+
+        return true;
+}
+
+static int time_handler_count(sd_event_source *s, uint64_t usec, void *userdata) {
+        unsigned *c = ASSERT_PTR(userdata);
+
+        (*c)++;
+        return 0;
+}
+
+static int io_handler_count(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        unsigned *fired = userdata;
+        char buf[16];
+        ssize_t n;
+
+        n = read(fd, buf, sizeof buf);
+        ASSERT_OK(n);
+
+        (*fired)++;
+        if (*fired >= 2)
+                ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), 0));
+        return 0;
+}
+
+TEST(io_uring_enable_ok) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_enable_or_skip(e))
+                return;
+
+        ASSERT_EQ(sd_event_get_io_uring_enabled(e), 1);
+
+        /* The reported fd should be the ring fd, not the (closed) epoll fd. */
+        ASSERT_OK(sd_event_get_fd(e));
+}
+
+TEST(io_uring_disable_default) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_io_uring_enabled(e, 0));
+        ASSERT_EQ(sd_event_get_io_uring_enabled(e), 0);
+}
+
+TEST(io_uring_disable_after_enable) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_enable_or_skip(e))
+                return;
+
+        ASSERT_OK(sd_event_set_io_uring_enabled(e, 0));
+        ASSERT_EQ(sd_event_get_io_uring_enabled(e), 0);
+        ASSERT_OK(sd_event_get_fd(e));   /* now reports the recreated epoll fd */
+
+        ASSERT_OK(sd_event_set_io_uring_enabled(e, 1));
+        ASSERT_EQ(sd_event_get_io_uring_enabled(e), 1);
+}
+
+TEST(io_uring_enable_after_source_rejected) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        ASSERT_OK(sd_event_add_io(e, &s, sv[0], EPOLLIN, NULL, NULL));
+
+        ASSERT_ERROR(sd_event_set_io_uring_enabled(e, 1), EBUSY);
+}
+
+TEST(io_uring_watchdog) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_enable_or_skip(e))
+                return;
+
+        ASSERT_OK_ERRNO(setenv("WATCHDOG_USEC", "10000000", /* overwrite= */ true));
+        ASSERT_OK_ERRNO(unsetenv("WATCHDOG_PID"));
+
+        ASSERT_OK_POSITIVE(sd_event_set_watchdog(e, true));
+        ASSERT_OK(sd_event_run(e, 0));
+        ASSERT_OK_ZERO(sd_event_set_watchdog(e, false));
+
+        ASSERT_OK_ERRNO(unsetenv("WATCHDOG_USEC"));
+}
+
+/* A watchdog POLL_ADD that completed before sd_event_set_watchdog(e, false) closed the timerfd still has a
+ * CQE waiting for us, and by then e->watchdog_fd is -EBADF. */
+TEST(io_uring_watchdog_stale_cqe_after_disable) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_enable_or_skip(e))
+                return;
+
+        ASSERT_OK_ERRNO(setenv("WATCHDOG_USEC", "10000", /* overwrite= */ true));
+        ASSERT_OK_ERRNO(unsetenv("WATCHDOG_PID"));
+
+        ASSERT_OK_POSITIVE(sd_event_set_watchdog(e, true));
+
+        /* Arm the POLL_ADD in the kernel without dispatching it, then let the timerfd expire. */
+        ASSERT_OK_ZERO(sd_event_run(e, 0));
+        usleep_safe(50 * USEC_PER_MSEC);
+
+        ASSERT_OK_ZERO(sd_event_set_watchdog(e, false));
+
+        /* The completion is sitting in the CQ now; dispatching it must not touch the closed fd. */
+        ASSERT_OK(sd_event_run(e, 0));
+
+        ASSERT_OK_ERRNO(unsetenv("WATCHDOG_USEC"));
+}
+
+TEST(io_uring_io_source_via_uring_multi) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_enable_or_skip(e))
+                return;
+
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        unsigned fired = 0;
+        ASSERT_OK(sd_event_add_io(e, &s, sv[0], EPOLLIN, io_handler_count, &fired));
+
+        /* Two writes; the non-oneshot POLL_ADD_MULTI should produce two callbacks. */
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(sv[1], "a", 1)), (ssize_t) 1);
+        ASSERT_OK(sd_event_run(e, 1000000));
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(sv[1], "b", 1)), (ssize_t) 1);
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_EQ(fired, 2u);
+}
+
+/* The external event loop documented in sd_event_wait(3): prepare() -> poll(sd_event_get_fd()) -> wait(0).
+ * Once prepare() reports ARMED the kernel has to be watching our fds already, or poll() never wakes. */
+TEST(io_uring_external_poll_loop) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_enable_or_skip(e))
+                return;
+
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        unsigned fired = 0;
+        ASSERT_OK(sd_event_add_io(e, &s, sv[0], EPOLLIN, io_handler_count, &fired));
+
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(sv[1], "x", 1)), (ssize_t) 1);
+
+        int r = ASSERT_OK(sd_event_prepare(e));
+        if (r == 0)
+                ASSERT_OK_EQ_ERRNO(poll(&(struct pollfd) {
+                        .fd = ASSERT_OK(sd_event_get_fd(e)),
+                        .events = POLLIN,
+                }, 1, 5000), 1);
+
+        ASSERT_OK_POSITIVE(sd_event_wait(e, 0));
+        ASSERT_OK(sd_event_dispatch(e));
+
+        ASSERT_EQ(fired, 1u);
+}
+
+/* The watchdog fd is registered outside the source machinery, so switching backends under it has to
+ * re-register it; otherwise the timerfd is silently unwatched and pings stop. */
+TEST(io_uring_watchdog_survives_backend_switch) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_io_uring_enabled(e, false));
+
+        ASSERT_OK_ERRNO(setenv("WATCHDOG_USEC", "20000", /* overwrite= */ true));
+        ASSERT_OK_ERRNO(unsetenv("WATCHDOG_PID"));
+
+        /* Arm the watchdog on the epoll backend, then switch to io_uring under it. */
+        ASSERT_OK_POSITIVE(sd_event_set_watchdog(e, true));
+        if (io_uring_enable_or_skip(e)) {
+                /* The timerfd fires at half the period, so a watched fd wakes us well before the timeout. */
+                usec_t t = now(CLOCK_MONOTONIC);
+                (void) sd_event_run(e, 2 * USEC_PER_SEC);
+                ASSERT_LT(usec_sub_unsigned(now(CLOCK_MONOTONIC), t), USEC_PER_SEC);
+        }
+
+        ASSERT_OK_ERRNO(unsetenv("WATCHDOG_USEC"));
+}
+
+/* A clock's timerfd is created by its first time source and kept for the lifetime of the loop, so it can
+ * be registered with nobody using it. Switching backends has to carry it over, or a timer added afterwards
+ * finds the fd already there and never arms it. */
+TEST(io_uring_timer_survives_backend_switch) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        unsigned fired = 0;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_io_uring_enabled(e, false));
+
+        /* Create the monotonic timerfd on epoll, then drop the only source using it. */
+        ASSERT_OK(sd_event_add_time_relative(e, &s, CLOCK_MONOTONIC, USEC_PER_SEC, 0, time_handler_count, &fired));
+        s = sd_event_source_unref(s);
+
+        if (!io_uring_enable_or_skip(e))
+                return;
+
+        /* Without the timerfd watched the timer still fires, but only once the run timeout wakes the loop
+         * and process_timer() notices it is overdue, so the elapsed time is what tells the two apart. */
+        ASSERT_OK(sd_event_add_time_relative(e, &s, CLOCK_MONOTONIC, 10 * USEC_PER_MSEC, 0, time_handler_count, &fired));
+        usec_t t = now(CLOCK_MONOTONIC);
+        ASSERT_OK(sd_event_run(e, 2 * USEC_PER_SEC));
+        ASSERT_LT(usec_sub_unsigned(now(CLOCK_MONOTONIC), t), USEC_PER_SEC);
+        ASSERT_EQ(fired, 1U);
+}
+
+/* The epoll fd already watches the watchdog fd. Disabling io_uring again must not add it a second time. */
+TEST(io_uring_disable_twice_with_watchdog) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_io_uring_enabled(e, false));
+
+        ASSERT_OK_ERRNO(setenv("WATCHDOG_USEC", "10000000", /* overwrite= */ true));
+        ASSERT_OK_ERRNO(unsetenv("WATCHDOG_PID"));
+
+        ASSERT_OK_POSITIVE(sd_event_set_watchdog(e, true));
+        ASSERT_OK(sd_event_set_io_uring_enabled(e, false));
+
+        ASSERT_OK_ERRNO(unsetenv("WATCHDOG_USEC"));
+}
+
+static int io_handler_nop(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        return 0;
+}
+
+static int exit_add_io_handler(sd_event_source *s, void *userdata) {
+        int *fd = ASSERT_PTR(userdata);
+
+        ASSERT_OK(sd_event_add_io(sd_event_source_get_event(s), NULL, *fd, EPOLLIN, io_handler_nop, NULL));
+        return 0;
+}
+
+static int defer_nop_handler(sd_event_source *s, void *userdata) {
+        return 0;
+}
+
+/* exit_add_io_handler() adds an io source after sd_event_wait() queued the cancel-all. Nobody writes to the
+ * pipe, so the loop reaches SD_EVENT_FINISHED only if it cancels the POLL_ADD of the new source as well. The
+ * defer source stays pending during the exit, and sd_event_wait() returns immediately. A loop that never
+ * finishes then fails the test after 100 iterations instead of blocking forever. */
+TEST(io_uring_exit_callback_adds_io_source) {
+        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_enable_or_skip(e))
+                return;
+
+        ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
+
+        ASSERT_OK(sd_event_add_defer(e, NULL, defer_nop_handler, NULL));
+        ASSERT_OK(sd_event_add_exit(e, NULL, exit_add_io_handler, &p[0]));
+        ASSERT_OK(sd_event_exit(e, 0));
+
+        /* Call prepare, wait and dispatch by hand, as an external loop does. sd_event_dispatch() may
+         * return 0 only after the loop has finished. */
+        for (unsigned i = 0; i < 100 && sd_event_get_state(e) != SD_EVENT_FINISHED; i++) {
+                int r = ASSERT_OK(sd_event_prepare(e));
+                if (r == 0)
+                        r = ASSERT_OK(sd_event_wait(e, 100 * USEC_PER_MSEC));
+                if (r == 0)
+                        continue;
+
+                if (ASSERT_OK(sd_event_dispatch(e)) == 0)
+                        ASSERT_EQ(sd_event_get_state(e), SD_EVENT_FINISHED);
+        }
+
+        ASSERT_EQ(sd_event_get_state(e), SD_EVENT_FINISHED);
+}
+
+/* EPOLLET sources get POLL_ADD_MULTI, which stays armed across CQEs instead of being re-armed per event. */
+TEST(io_uring_edge_triggered_source) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_enable_or_skip(e))
+                return;
+
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        unsigned fired = 0;
+        ASSERT_OK(sd_event_add_io(e, &s, sv[0], EPOLLIN | EPOLLET, io_handler_count, &fired));
+
+        /* Each write is its own waitqueue wake, so an armed multishot poll reports both. */
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(sv[1], "a", 1)), (ssize_t) 1);
+        ASSERT_OK(sd_event_run(e, USEC_PER_SEC));
+        ASSERT_EQ(fired, 1u);
+
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(sv[1], "b", 1)), (ssize_t) 1);
+        ASSERT_OK(sd_event_run(e, USEC_PER_SEC));
+        ASSERT_EQ(fired, 2u);
+}
+
+static int io_handler_count_only(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        unsigned *fired = userdata;
+
+        (*fired)++;
+        /* Deliberately leave the fd readable, so the source keeps being armed while it is enabled. */
+        return 0;
+}
+
+/* Disabling a source while a CQE for it is already in the completion queue must not re-arm it: the fd
+ * stays ready, so a fresh POLL_ADD on an offline source spins the loop and never drains its refs. */
+TEST(io_uring_disabled_source_not_rearmed) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        unsigned fired = 0;
+        int r;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_enable_or_skip(e))
+                return;
+
+        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(p[1], "x", 1)), (ssize_t) 1);
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        ASSERT_OK(sd_event_add_io(e, &s, p[0], EPOLLIN, io_handler_count_only, &fired));
+
+        /* Dispatches once and leaves a fresh POLL_ADD armed, which completes immediately because the
+         * pipe is still readable. */
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_EQ(fired, 1U);
+
+        /* Now disable the source with that CQE already queued. */
+        ASSERT_OK(sd_event_source_set_enabled(s, SD_EVENT_OFF));
+
+        for (unsigned i = 0; i < 20; i++) {
+                r = sd_event_run(e, 0);
+                ASSERT_OK(r);
+                if (r == 0)
+                        break;
+        }
+
+        ASSERT_OK_ZERO(sd_event_run(e, 0));
+        ASSERT_EQ(fired, 1U);
+}
+
+static int time_handler_nop(sd_event_source *s, uint64_t usec, void *userdata) {
+        return 0;
+}
+
+/* The teardown drain must not re-arm anything: its POLL_ADDs land after the blanket cancel-all, so nothing
+ * tears them down, and one the drain waits on would stall it until the 5s timeout. Sources are already
+ * disconnected by now, but clock data and the watchdog are not. */
+TEST(io_uring_teardown_with_watchdog_and_timer) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_enable_or_skip(e))
+                return;
+
+        ASSERT_OK_ERRNO(setenv("WATCHDOG_USEC", "10000", /* overwrite= */ true));
+        ASSERT_OK_ERRNO(unsetenv("WATCHDOG_PID"));
+        ASSERT_OK_POSITIVE(sd_event_set_watchdog(e, true));
+
+        /* A timer that will have expired by the time we tear down, so its timerfd POLL_ADD completes. */
+        ASSERT_OK(sd_event_add_time_relative(e, NULL, CLOCK_MONOTONIC, USEC_PER_MSEC, 0, time_handler_nop, NULL));
+
+        /* An io source on an fd that never becomes ready, so its POLL_ADD is still inflight at teardown and
+         * the drain actually runs. */
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+        unsigned fired = 0;
+        ASSERT_OK(sd_event_add_io(e, NULL, sv[0], EPOLLIN, io_handler_count_only, &fired));
+
+        ASSERT_OK_ZERO(sd_event_run(e, 0));
+        usleep_safe(50 * USEC_PER_MSEC);
+
+        ASSERT_OK_ERRNO(unsetenv("WATCHDOG_USEC"));
+
+        usec_t t = now(CLOCK_MONOTONIC);
+        e = sd_event_unref(e);
+        ASSERT_LT(usec_sub_unsigned(now(CLOCK_MONOTONIC), t), 2 * USEC_PER_SEC);
+}
+
+static int io_handler_record_revents(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        uint32_t *got = userdata;
+        *got = revents;
+        ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), 0));
+        return 0;
+}
+
+/* POLL_ADD holds a kernel file reference, so closing one end must still let the peer see POLLHUP. */
+TEST(io_uring_close_fd_with_inflight_poll) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_enable_or_skip(e))
+                return;
+
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s_a = NULL, *s_b = NULL;
+        uint32_t revents = 0, ignore_a = 0;
+        ASSERT_OK(sd_event_add_io(e, &s_a, sv[0], EPOLLIN, io_handler_record_revents, &ignore_a));
+        ASSERT_OK(sd_event_add_io(e, &s_b, sv[1], EPOLLIN, io_handler_record_revents, &revents));
+
+        /* Push the POLL_ADDs into the kernel before tearing one end down. */
+        ASSERT_OK(sd_event_run(e, 0));
+
+        s_a = sd_event_source_disable_unref(s_a);
+        sv[0] = safe_close(sv[0]);
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_TRUE(FLAGS_SET(revents, EPOLLHUP));
+}
+
+/* With io_fd_own=true set_io_fd() closes the old fd, so its POLL_ADD must be cancelled (by
+ * user_data) first. */
+TEST(io_uring_set_io_fd_with_inflight_poll) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_enable_or_skip(e))
+                return;
+
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR, quiet[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, quiet));
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s_a = NULL, *s_b = NULL;
+        uint32_t revents = 0, ignore_a = 0;
+        ASSERT_OK(sd_event_add_io(e, &s_a, sv[0], EPOLLIN, io_handler_record_revents, &ignore_a));
+        ASSERT_OK(sd_event_source_set_io_fd_own(s_a, true));
+        TAKE_FD(sv[0]);
+        ASSERT_OK(sd_event_add_io(e, &s_b, sv[1], EPOLLIN, io_handler_record_revents, &revents));
+
+        ASSERT_OK(sd_event_run(e, 0));
+
+        /* Quiet socketpair (peer kept open) so the new POLL_ADD doesn't fire spuriously. */
+        ASSERT_OK(sd_event_source_set_io_fd(s_a, quiet[0]));
+        TAKE_FD(quiet[0]);
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_TRUE(FLAGS_SET(revents, EPOLLHUP));
+}
+
+/* A POLL_ADD CQE for signal_data must not UAF when the source is dropped before the CQE drains. */
+TEST(io_uring_signal_stale_cqe_after_unref) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        sd_event_source *signal_source = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_enable_or_skip(e))
+                return;
+
+        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGUSR2));
+        ASSERT_OK(sd_event_add_signal(e, &signal_source, SIGUSR2, NULL, NULL));
+
+        ASSERT_OK(sd_event_run(e, 0));         /* push POLL_ADD into the kernel */
+        ASSERT_OK_ERRNO(raise(SIGUSR2));       /* fires CQE into the ring; not drained */
+        signal_source = sd_event_source_unref(signal_source); /* disconnect, kernel ref still held */
+        ASSERT_OK(sd_event_run(e, 0));         /* drain; must not UAF */
+
+        /* The source went away before its signalfd dequeued SIGUSR2, and SIGUSR2 does not queue, so a
+         * later sigqueue() of it would be dropped in favour of this one. */
+        ASSERT_OK(pop_pending_signal(SIGUSR2));
+}
+#endif
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

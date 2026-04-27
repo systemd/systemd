@@ -1116,4 +1116,6 @@ global:
 LIBSYSTEMD_263 {
 global:
         sd_device_trigger_with_args;
+        sd_event_get_io_uring_enabled;
+        sd_event_set_io_uring_enabled;
 } LIBSYSTEMD_262;
