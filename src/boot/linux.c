@@ -159,7 +159,7 @@ EFI_STATUS linux_exec(
                 const struct iovec *kernel,
                 const struct iovec *initrd) {
 
-        size_t kernel_size_in_memory = 0;
+        size_t headers_size = 0, kernel_size_in_memory = 0;
         uint32_t compat_entry_point, entry_point;
         EFI_STATUS err;
 
@@ -167,7 +167,7 @@ EFI_STATUS linux_exec(
         assert(iovec_is_set(kernel));
         assert(iovec_is_valid(initrd));
 
-        err = pe_kernel_info(kernel->iov_base, &entry_point, &compat_entry_point, &kernel_size_in_memory);
+        err = pe_kernel_info(kernel->iov_base, &entry_point, &compat_entry_point, &kernel_size_in_memory, &headers_size);
 #if defined(__i386__) || defined(__x86_64__)
         if (err == EFI_UNSUPPORTED)
                 /* Kernel is too old to support LINUX_INITRD_MEDIA_GUID, try the deprecated EFI handover
@@ -232,10 +232,6 @@ EFI_STATUS linux_exec(
                                 initrd,
                                 kernel_file_path);
 
-        err = pe_kernel_check_no_relocation(kernel->iov_base);
-        if (err != EFI_SUCCESS)
-                return err;
-
         /* As per MSFT requirement, memory pages need to be marked W^X, so mark code pages RO+X.
          * Firmwares will start enforcing this at some point in the near-ish future.
          * The kernel needs to mark this as supported explicitly, otherwise it will crash.
@@ -259,40 +255,68 @@ EFI_STATUS linux_exec(
         const PeSectionHeader *headers;
         size_t n_headers;
 
-        /* Do we need to validate anything here? the len? */
         err = pe_section_table_from_base(kernel->iov_base, &headers, &n_headers);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Cannot read sections: %m");
 
-        /* Do we need to ensure under 4gb address on x86? */
         _cleanup_pages_ Pages loaded_kernel_pages = xmalloc_pages(
                         AllocateAnyPages, EfiLoaderCode, EFI_SIZE_TO_PAGES(kernel_size_in_memory), 0);
 
-        uint8_t* loaded_kernel = PHYSICAL_ADDRESS_TO_POINTER(loaded_kernel_pages.addr);
+        uint8_t *loaded_kernel = PHYSICAL_ADDRESS_TO_POINTER(loaded_kernel_pages.addr);
+        memzero(loaded_kernel, kernel_size_in_memory);
+
+        /* Copy the PE headers (DOS header, PE header, section table) too. The kernel stub
+         * expects these to be present at ImageBase when it looks up its embedded sections. */
+        if (headers_size > kernel->iov_len)
+                return log_error_status(EFI_LOAD_ERROR, "PE SizeOfHeaders exceeds file size");
+        if (headers_size > kernel_size_in_memory)
+                return log_error_status(EFI_LOAD_ERROR, "PE SizeOfHeaders exceeds SizeOfImage");
+        memcpy(loaded_kernel, kernel->iov_base, headers_size);
+
+        /* First pass: copy all sections into the loaded image */
         FOREACH_ARRAY(h, headers, n_headers) {
-                if (h->PointerToRelocations != 0)
-                        return log_error_status(EFI_LOAD_ERROR, "Inner kernel image contains sections with relocations, which we do not support.");
                 if (h->SizeOfRawData == 0)
                         continue;
 
-                if (UINT32_MAX - h->VirtualAddress < h->SizeOfRawData)
-                        return log_error_status(EFI_LOAD_ERROR, "Invalid PE section, SizeOfRawData + VirtualAddress, overflows");
-                if (h->VirtualAddress + h->SizeOfRawData > kernel_size_in_memory)
+                /* SizeOfRawData is rounded up to FileAlignment per the PE spec, so it
+                 * can legitimately exceed VirtualSize. Only copy up to VirtualSize in
+                 * that case, matching pe_locate_sections_internal(). */
+                size_t copy_size = MIN(h->SizeOfRawData, h->VirtualSize);
+
+                if (UINT32_MAX - h->VirtualAddress < h->VirtualSize)
+                        return log_error_status(EFI_LOAD_ERROR, "Invalid PE section, VirtualSize + VirtualAddress overflows");
+                if (h->VirtualAddress + h->VirtualSize > kernel_size_in_memory)
                         return log_error_status(EFI_LOAD_ERROR, "Section would write outside of memory");
-                if (h->SizeOfRawData > h->VirtualSize)
-                        return log_error_status(EFI_LOAD_ERROR, "Invalid PE section, raw data size is greater than virtual size");
                 if (UINT32_MAX - h->PointerToRawData < h->SizeOfRawData)
                         return log_error_status(EFI_LOAD_ERROR, "Invalid PE section, PointerToRawData + SizeOfRawData overflows");
                 if (h->PointerToRawData + h->SizeOfRawData > kernel->iov_len)
                         return log_error_status(EFI_LOAD_ERROR, "Invalid PE section, raw data extends outside of file");
                 memcpy(loaded_kernel + h->VirtualAddress,
-                       (const uint8_t*)kernel->iov_base + h->PointerToRawData,
-                       h->SizeOfRawData);
-                memzero(loaded_kernel + h->VirtualAddress + h->SizeOfRawData,
-                        h->VirtualSize - h->SizeOfRawData);
+                       (const uint8_t *)kernel->iov_base + h->PointerToRawData,
+                       copy_size);
+                if (h->VirtualSize > copy_size)
+                        memzero(loaded_kernel + h->VirtualAddress + copy_size,
+                                h->VirtualSize - copy_size);
+        }
 
-                /* Not a code section? Nothing to do, leave as-is. */
-                if (memory_proto && (h->Characteristics & (PE_CODE|PE_EXECUTE))) {
+        /* Apply PE base relocations before marking pages RO+X. This custom loader does not go
+         * through LoadImage(), hence it must perform the fixups itself. */
+        err = pe_kernel_apply_relocations(
+                        kernel->iov_base,
+                        loaded_kernel,
+                        kernel_size_in_memory,
+                        loaded_kernel_pages.addr);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        /* Second pass: mark code sections RO+X for W^X compliance */
+        if (memory_proto) {
+                FOREACH_ARRAY(h, headers, n_headers) {
+                        if (h->SizeOfRawData == 0)
+                                continue;
+                        if (!(h->Characteristics & (PE_CODE|PE_EXECUTE)))
+                                continue;
+
                         nx_sections = xrealloc(nx_sections, n_nx_sections * sizeof(struct iovec), (n_nx_sections + 1) * sizeof(struct iovec));
                         nx_sections[n_nx_sections].iov_base = loaded_kernel + h->VirtualAddress;
                         nx_sections[n_nx_sections].iov_len = h->VirtualSize;
