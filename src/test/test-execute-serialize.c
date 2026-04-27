@@ -150,4 +150,35 @@ TEST(roundtrip_quotes) {
         test_roundtrip_by_calling(roundtrip_quotes_setup, roundtrip_quotes_check);
 }
 
+/* Test whether MountImage= and ExtensionImage= paths containing (trailing) space characters survive a roundtrip. */
+
+static const char *spaces_str = "  I contain leading and trailing spaces  ";
+
+static void roundtrip_spaces_setup(RoundtripState *s) {
+        assert_se(mount_image_add(&s->exec_context->mount_images, &s->exec_context->n_mount_images, &(MountImage) {
+                .source = (char *) spaces_str,
+                .destination = (char *) spaces_str,
+                0,
+        }) >= 0);
+
+        assert_se(mount_image_add(&s->exec_context->extension_images, &s->exec_context->n_extension_images, &(MountImage) {
+                .source = (char *) spaces_str,
+                0,
+        }) >= 0);
+}
+
+static void roundtrip_spaces_check(RoundtripState *s) {
+        assert(s->exec_context->n_mount_images == 1);
+        assert(s->exec_context->n_extension_images == 1);
+
+        assert(streq(spaces_str, s->exec_context->mount_images[0].source));
+        assert(streq(spaces_str, s->exec_context->mount_images[0].destination));
+
+        assert(streq(spaces_str, s->exec_context->extension_images[0].source));
+}
+
+TEST(roundtrip_spaces) {
+        test_roundtrip_by_calling(roundtrip_spaces_setup, roundtrip_spaces_check);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
