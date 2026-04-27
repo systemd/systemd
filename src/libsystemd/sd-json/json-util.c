@@ -419,7 +419,7 @@ int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref) {
         return sd_json_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR_INTEGER("pid", pidref->pid),
-                        SD_JSON_BUILD_PAIR_CONDITION(pidref->fd_id > 0, "pidfdId", SD_JSON_BUILD_INTEGER(pidref->fd_id)),
+                        SD_JSON_BUILD_PAIR_CONDITION(pidref->fd_id > 0, "pidfdId", SD_JSON_BUILD_UNSIGNED(pidref->fd_id)),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(boot_id), "bootId", SD_JSON_BUILD_ID128(boot_id)));
 }
 
