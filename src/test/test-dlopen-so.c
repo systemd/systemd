@@ -13,6 +13,7 @@
 #include "gcrypt-util.h"
 #include "gnutls-util.h"
 #include "idn-util.h"
+#include "io-uring-util.h"
 #include "libarchive-util.h"
 #include "libaudit-util.h"
 #include "libcrypt-util.h"
@@ -58,6 +59,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_gcrypt, HAVE_GCRYPT);
         ASSERT_DLOPEN(dlopen_gnutls, HAVE_GNUTLS);
         ASSERT_DLOPEN(dlopen_idn, HAVE_LIBIDN2);
+        ASSERT_DLOPEN(dlopen_io_uring, HAVE_LIBURING);
         ASSERT_DLOPEN(dlopen_libacl, HAVE_ACL);
         ASSERT_DLOPEN(dlopen_libapparmor, HAVE_APPARMOR);
         ASSERT_DLOPEN(dlopen_libarchive, HAVE_LIBARCHIVE);
