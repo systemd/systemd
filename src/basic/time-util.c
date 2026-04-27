@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/time_types.h>
 #include <stdlib.h>
 #include <sys/timerfd.h>
 #include <threads.h>
@@ -288,6 +289,15 @@ struct timespec *timespec_store_nsec(struct timespec *ts, nsec_t n) {
 
         ts->tv_sec = (time_t) (n / NSEC_PER_SEC);
         ts->tv_nsec = (long) (n % NSEC_PER_SEC);
+
+        return ts;
+}
+
+struct __kernel_timespec *kernel_timespec_store(struct __kernel_timespec *ts, usec_t u) {
+        assert(ts);
+
+        ts->tv_sec  = u / USEC_PER_SEC;
+        ts->tv_nsec = (u % USEC_PER_SEC) * NSEC_PER_USEC;
 
         return ts;
 }
