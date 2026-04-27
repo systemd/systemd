@@ -93,6 +93,7 @@
 #include "umask-util.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "varlink-unit.h"
 #include "varlink.h"
 #include "virt.h"
 #include "watchdog.h"
@@ -2636,6 +2637,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                 assert(u->in_dbus_queue);
 
                 bus_unit_send_change_signal(u);
+                varlink_unit_send_change_signal(u);
                 n++;
 
                 if (budget != UINT_MAX)
@@ -2646,6 +2648,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                 assert(j->in_dbus_queue);
 
                 bus_job_send_change_signal(j);
+                varlink_job_send_change_signal(j);
                 n++;
 
                 if (budget != UINT_MAX)

@@ -2,6 +2,7 @@
 
 #include "sd-bus.h"
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -24,6 +25,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit.h"
+#include "varlink-unit.h"
 #include "virt.h"
 
 Job* job_new_raw(Unit *unit) {
@@ -124,6 +126,7 @@ Job* job_free(Job *j) {
         job_unlink(j);
 
         sd_bus_track_unref(j->bus_track);
+        sd_varlink_unref(j->varlink);
         strv_free(j->deserialized_clients);
 
         activation_details_unref(j->activation_details);
@@ -165,7 +168,7 @@ void job_uninstall(Job *j) {
         assert(j);
         assert(j->installed);
 
-        job_set_state(j, JOB_WAITING);
+        job_set_state(j, JOB_FINISHED);
 
         pj = j->type == JOB_NOP ? &j->unit->nop_job : &j->unit->job;
         assert(*pj == j);
@@ -173,8 +176,10 @@ void job_uninstall(Job *j) {
         /* Detach from next 'bigger' objects */
 
         /* daemon-reload should be transparent to job observers */
-        if (!MANAGER_IS_RELOADING(j->manager))
+        if (!MANAGER_IS_RELOADING(j->manager)) {
                 bus_job_send_removed_signal(j);
+                varlink_job_send_removed_signal(j);
+        }
 
         *pj = NULL;
 
