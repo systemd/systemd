@@ -9648,7 +9648,8 @@ static int help(void) {
                 "El Torito boot catalog",
         };
 
-        _cleanup_(table_unref_many) Table *option_tables[ELEMENTSOF(option_groups) + 1] = {};
+        Table *option_tables[ELEMENTSOF(option_groups)] = {};
+        CLEANUP_ELEMENTS(option_tables, table_unref_array_clear);
 
         for (size_t i = 0; i < ELEMENTSOF(option_groups); i++) {
                 r = option_parser_get_help_table_group(option_groups[i], &option_tables[i]);
