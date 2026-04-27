@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mount.h>
@@ -182,51 +181,27 @@ static int help(void) {
 }
 
 static int help_sudo_mode(void) {
-        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *opts_table = NULL;
         int r;
-
-        r = terminal_urlify_man("run0", "1", &link);
-        if (r < 0)
-                return log_oom();
 
         /* NB: Let's not go overboard with short options: we try to keep a modicum of compatibility with
          * sudo's short switches, hence please do not introduce new short switches unless they have a roughly
          * equivalent purpose on sudo. Use long options for everything private to run0. */
 
-        printf("%s [OPTIONS...] COMMAND [ARGUMENTS...]\n"
-               "\n%sElevate privileges interactively.%s\n\n"
-               "  -h --help                       Show this help\n"
-               "  -V --version                    Show package version\n"
-               "     --no-ask-password            Do not prompt for password\n"
-               "     --machine=CONTAINER          Operate on local container\n"
-               "     --unit=UNIT                  Run under the specified unit name\n"
-               "     --property=NAME=VALUE        Set service or scope unit property\n"
-               "     --description=TEXT           Description for unit\n"
-               "     --slice=SLICE                Run in the specified slice\n"
-               "     --slice-inherit              Inherit the slice\n"
-               "  -u --user=USER                  Run as system user\n"
-               "  -g --group=GROUP                Run as system group\n"
-               "     --nice=NICE                  Nice level\n"
-               "  -D --chdir=PATH                 Set working directory\n"
-               "     --via-shell                  Invoke command via target user's login shell\n"
-               "  -i                              Shortcut for --via-shell --chdir='~'\n"
-               "     --setenv=NAME[=VALUE]        Set environment variable\n"
-               "     --background=COLOR           Set ANSI color for background\n"
-               "     --pty                        Request allocation of a pseudo TTY for stdio\n"
-               "     --pty-late                   Just like --pty, but leave TTY access to agents\n"
-               "                                  until unit is started up\n"
-               "     --pipe                       Request direct pipe for stdio\n"
-               "     --shell-prompt-prefix=PREFIX Set $SHELL_PROMPT_PREFIX\n"
-               "     --lightweight=BOOLEAN        Control whether to register a session with service manager\n"
-               "                                  or without\n"
-               "     --area=AREA                  Home area to log into\n"
-               "     --empower                    Give privileges to selected or current user\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               link);
+        r = option_parser_get_help_table_full("run0", /* group= */ NULL, &opts_table);
+        if (r < 0)
+                return r;
 
+        help_cmdline("[OPTIONS...] COMMAND [ARGUMENTS...]");
+        help_abstract("Elevate privileges interactively.");
+
+        help_section("Options:");
+
+        r = table_print_or_warn(opts_table);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("run0", "1");
         return 0;
 }
 
@@ -795,149 +770,96 @@ static Glyph pty_window_glyph(void) {
 }
 
 static int parse_argv_sudo_mode(int argc, char *argv[]) {
-
-        enum {
-                ARG_NO_ASK_PASSWORD = 0x100,
-                ARG_MACHINE,
-                ARG_UNIT,
-                ARG_PROPERTY,
-                ARG_DESCRIPTION,
-                ARG_SLICE,
-                ARG_SLICE_INHERIT,
-                ARG_NICE,
-                ARG_SETENV,
-                ARG_BACKGROUND,
-                ARG_PTY,
-                ARG_PTY_LATE,
-                ARG_PIPE,
-                ARG_SHELL_PROMPT_PREFIX,
-                ARG_LIGHTWEIGHT,
-                ARG_AREA,
-                ARG_VIA_SHELL,
-                ARG_EMPOWER,
-                ARG_SAME_ROOT_DIR,
-        };
+        int r;
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
          * though (but limit the extension to long options). */
 
-        static const struct option options[] = {
-                { "help",                no_argument,       NULL, 'h'                     },
-                { "version",             no_argument,       NULL, 'V'                     },
-                { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
-                { "machine",             required_argument, NULL, ARG_MACHINE             },
-                { "unit",                required_argument, NULL, ARG_UNIT                },
-                { "property",            required_argument, NULL, ARG_PROPERTY            },
-                { "description",         required_argument, NULL, ARG_DESCRIPTION         },
-                { "slice",               required_argument, NULL, ARG_SLICE               },
-                { "slice-inherit",       no_argument,       NULL, ARG_SLICE_INHERIT       },
-                { "user",                required_argument, NULL, 'u'                     },
-                { "group",               required_argument, NULL, 'g'                     },
-                { "nice",                required_argument, NULL, ARG_NICE                },
-                { "chdir",               required_argument, NULL, 'D'                     },
-                { "via-shell",           no_argument,       NULL, ARG_VIA_SHELL           },
-                { "login",               no_argument,       NULL, 'i'                     }, /* compat with sudo, --via-shell + --chdir='~' */
-                { "setenv",              required_argument, NULL, ARG_SETENV              },
-                { "background",          required_argument, NULL, ARG_BACKGROUND          },
-                { "pty",                 no_argument,       NULL, ARG_PTY                 },
-                { "pty-late",            no_argument,       NULL, ARG_PTY_LATE            },
-                { "pipe",                no_argument,       NULL, ARG_PIPE                },
-                { "shell-prompt-prefix", required_argument, NULL, ARG_SHELL_PROMPT_PREFIX },
-                { "lightweight",         required_argument, NULL, ARG_LIGHTWEIGHT         },
-                { "area",                required_argument, NULL, ARG_AREA                },
-                { "empower",             no_argument,       NULL, ARG_EMPOWER             },
-                { "same-root-dir",       no_argument,       NULL, ARG_SAME_ROOT_DIR       },
-                {},
-        };
-
-        int r, c;
-
         assert(argc >= 0);
         assert(argv);
 
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
-        optind = 0;
-        while ((c = getopt_long(argc, argv, "+hVu:g:D:i", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION, "run0" };
 
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_NAMESPACE("run0"): {}
+
+                OPTION_COMMON_HELP:
                         return help_sudo_mode();
 
-                case 'V':
+                OPTION('V', "version", NULL, "Show package version"):
                         return version();
 
-                case ARG_NO_ASK_PASSWORD:
+                OPTION_COMMON_NO_ASK_PASSWORD:
                         arg_ask_password = false;
                         break;
 
-                case ARG_MACHINE:
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                OPTION_LONG("machine", "CONTAINER", "Operate on local container"):
+                        r = parse_machine_argument(opts.arg, &arg_host, &arg_transport);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_UNIT:
-                        arg_unit = optarg;
+                OPTION_LONG("unit", "UNIT", "Run under the specified unit name"):
+                        arg_unit = opts.arg;
                         break;
 
-                case ARG_PROPERTY:
-                        if (strv_extend(&arg_property, optarg) < 0)
+                OPTION_LONG("property", "NAME=VALUE", "Set service or scope unit property"):
+                        if (strv_extend(&arg_property, opts.arg) < 0)
                                 return log_oom();
-
                         break;
 
-                case ARG_DESCRIPTION:
-                        r = free_and_strdup_warn(&arg_description, optarg);
+                OPTION_LONG("description", "TEXT", "Description for unit"):
+                        r = free_and_strdup_warn(&arg_description, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SLICE:
-                        r = free_and_strdup_warn(&arg_slice, optarg);
+                OPTION_LONG("slice", "SLICE", "Run in the specified slice"):
+                        r = free_and_strdup_warn(&arg_slice, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SLICE_INHERIT:
+                OPTION_LONG("slice-inherit", NULL, "Inherit the slice"):
                         arg_slice_inherit = true;
                         break;
 
-                case 'u':
-                        r = free_and_strdup_warn(&arg_exec_user, optarg);
+                OPTION('u', "user", "USER", "Run as system user"):
+                        r = free_and_strdup_warn(&arg_exec_user, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'g':
-                        arg_exec_group = optarg;
+                OPTION('g', "group", "GROUP", "Run as system group"):
+                        arg_exec_group = opts.arg;
                         break;
 
-                case ARG_NICE:
-                        r = parse_nice(optarg, &arg_nice);
+                OPTION_LONG("nice", "NICE", "Nice level"):
+                        r = parse_nice(opts.arg, &arg_nice);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse nice value: %s", optarg);
+                                return log_error_errno(r, "Failed to parse nice value: %s", opts.arg);
 
                         arg_nice_set = true;
                         break;
 
-                case 'D':
-                        if (streq(optarg, "~"))
-                                r = free_and_strdup_warn(&arg_working_directory, optarg);
+                OPTION('D', "chdir", "PATH", "Set working directory"):
+                        if (streq(opts.arg, "~"))
+                                r = free_and_strdup_warn(&arg_working_directory, opts.arg);
                         else
                                 /* Root will be manually suppressed later. */
-                                r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_working_directory);
+                                r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_working_directory);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_VIA_SHELL:
+                OPTION_LONG("via-shell", NULL, "Invoke command via target user's login shell"):
                         arg_via_shell = true;
                         break;
 
-                case 'i':
+                OPTION_LONG("login", NULL, NULL): {} /* hidden compat alias for -i */
+                OPTION_SHORT('i', NULL, "Shortcut for --via-shell --chdir='~'"):
                         r = free_and_strdup_warn(&arg_working_directory, "~");
                         if (r < 0)
                                 return r;
@@ -945,69 +867,61 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         arg_via_shell = true;
                         break;
 
-                case ARG_SETENV:
-                        r = strv_env_replace_strdup_passthrough(&arg_environment, optarg);
+                OPTION_LONG("setenv", "NAME[=VALUE]", "Set environment variable"):
+                        r = strv_env_replace_strdup_passthrough(&arg_environment, opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
-
+                                return log_error_errno(r, "Cannot assign environment variable %s: %m", opts.arg);
                         break;
 
-                case ARG_BACKGROUND:
-                        r = parse_background_argument(optarg, &arg_background);
+                OPTION_LONG("background", "COLOR", "Set ANSI color for background"):
+                        r = parse_background_argument(opts.arg, &arg_background);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_PTY:
-                case ARG_PTY_LATE:
+                OPTION_LONG("pty", NULL, "Request allocation of a pseudo TTY for stdio"): {}
+                OPTION_LONG("pty-late", NULL,
+                            "Just like --pty, but leave TTY access to agents until unit is started up"):
                         arg_stdio |= ARG_STDIO_PTY;
-                        arg_pty_late = c == ARG_PTY_LATE;
+                        arg_pty_late = streq(opts.opt->long_code, "pty-late");
                         break;
 
-                case ARG_PIPE:
+                OPTION_LONG("pipe", NULL, "Request direct pipe for stdio"):
                         arg_stdio |= ARG_STDIO_DIRECT;
                         break;
 
-                case ARG_SHELL_PROMPT_PREFIX:
-                        r = free_and_strdup_warn(&arg_shell_prompt_prefix, optarg);
+                OPTION_LONG("shell-prompt-prefix", "PREFIX", "Set $SHELL_PROMPT_PREFIX"):
+                        r = free_and_strdup_warn(&arg_shell_prompt_prefix, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_LIGHTWEIGHT:
-                        r = parse_tristate_argument_with_auto("--lightweight=", optarg, &arg_lightweight);
+                OPTION_LONG("lightweight", "BOOLEAN",
+                            "Control whether to register a session with service manager or without"):
+                        r = parse_tristate_argument_with_auto("--lightweight=", opts.arg, &arg_lightweight);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_AREA:
+                OPTION_LONG("area", "AREA", "Home area to log into"):
                         /* We allow an empty --area= specification to allow logging into the primary home directory */
-                        if (!isempty(optarg) && !filename_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid area name, refusing: %s", optarg);
+                        if (!isempty(opts.arg) && !filename_is_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid area name, refusing: %s", opts.arg);
 
-                        r = free_and_strdup_warn(&arg_area, optarg);
+                        r = free_and_strdup_warn(&arg_area, opts.arg);
                         if (r < 0)
                                 return r;
-
                         break;
 
-                case ARG_EMPOWER:
+                OPTION_LONG("empower", NULL, "Give privileges to selected or current user"):
                         arg_empower = true;
                         break;
 
-                case ARG_SAME_ROOT_DIR:
+                OPTION_LONG("same-root-dir", NULL, NULL): /* hidden */
                         r = free_and_strdup_warn(&arg_root_directory, "/");
                         if (r < 0)
                                 return r;
-
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (!arg_working_directory) {
@@ -1055,8 +969,9 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         arg_send_sighup = true;
 
         _cleanup_strv_free_ char **l = NULL;
-        if (argc > optind) {
-                l = strv_copy(argv + optind);
+        char **args = option_parser_get_args(&opts);
+        if (!strv_isempty(args)) {
+                l = strv_copy(args);
                 if (!l)
                         return log_oom();
         } else if (!arg_via_shell) {
