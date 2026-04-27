@@ -178,6 +178,17 @@ void dns_cache_flush(DnsCache *c) {
         c->by_expiry = prioq_free(c->by_expiry);
 }
 
+void dns_cache_force_stale(DnsCache *c) {
+        DnsCacheItem *item;
+
+        assert(c);
+        
+        /* Force all entries to be stale; they will be cleaned out properly as appropriate*/
+        HASHMAP_FOREACH(item, c->by_key) {
+                item->until_valid=1;
+        }
+}
+
 static void dns_cache_make_space(DnsCache *c, unsigned add) {
         assert(c);
 
