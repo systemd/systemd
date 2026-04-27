@@ -107,7 +107,7 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 *offset += 3 + optlen;
 
                 break;
-        case SD_DHCP_OPTION_VENDOR_SPECIFIC: {
+        case SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION: {
                 /* When called with raw data (optlen > 0), e.g. from SendOption=, append as a plain TLV.
                  * The structured handling below expects optval to be an OrderedSet*. */
                 if (optlen > 0)
