@@ -166,7 +166,7 @@ DEFINE_CONFIG_PARSE_PTR(config_parse_bpf_delegate_commands, bpf_delegate_command
 DEFINE_CONFIG_PARSE_PTR(config_parse_bpf_delegate_maps, bpf_delegate_maps_from_string, uint64_t);
 DEFINE_CONFIG_PARSE_PTR(config_parse_bpf_delegate_programs, bpf_delegate_programs_from_string, uint64_t);
 DEFINE_CONFIG_PARSE_PTR(config_parse_bpf_delegate_attachments, bpf_delegate_attachments_from_string, uint64_t);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_memory_thp, memory_thp, MemoryTHP);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_memory_thp, exec_memory_thp, ExecMemoryTHP);
 
 bool contains_instance_specifier_superset(const char *s) {
         const char *p, *q;
@@ -4532,7 +4532,7 @@ int config_parse_exec_quota(
                 void *data,
                 void *userdata) {
 
-        QuotaLimit *quota_limit = ASSERT_PTR(data);
+        ExecQuotaLimit *quota_limit = ASSERT_PTR(data);
         uint64_t quota_absolute = UINT64_MAX;
         uint32_t quota_scale = UINT32_MAX;
         int r;

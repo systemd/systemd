@@ -352,7 +352,7 @@ static int ioprio_class_build_json(sd_json_variant **ret, const char *name, void
 static int exec_dir_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         ExecDirectory *exec_dir = ASSERT_PTR(userdata);
-        const QuotaLimit *quota = &exec_dir->exec_quota;
+        const ExecQuotaLimit *quota = &exec_dir->exec_quota;
         int r;
 
         assert(ret);
@@ -881,7 +881,7 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         SD_JSON_BUILD_PAIR_INTEGER("IOSchedulingPriority", ioprio_prio_data(exec_context_get_effective_ioprio(c))),
 
                         JSON_BUILD_PAIR_TRISTATE_NON_NULL("MemoryKSM", c->memory_ksm),
-                        JSON_BUILD_PAIR_ENUM("MemoryTHP", memory_thp_to_string(c->memory_thp)),
+                        JSON_BUILD_PAIR_ENUM("MemoryTHP", exec_memory_thp_to_string(c->memory_thp)),
 
                         /* Sandboxing */
                         JSON_BUILD_PAIR_ENUM("ProtectSystem", protect_system_to_string(c->protect_system)),
