@@ -331,7 +331,7 @@ static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, enum 
                 } else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Option %s not supported in the config file.",
-                                               strnull(option_get_synopsis("", opts.opt, "/", /* show_metavar=*/ false)));
+                                               strnull(option_get_synopsis(opts.opt, "/", /* show_metavar=*/ false)));
 
         return 0;
 }
