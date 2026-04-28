@@ -5578,6 +5578,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 &srk,
                                 &pcrlock_policy.nv_handle,
                                 flags,
+                                /* argon2id_memcost= */ 0,
+                                /* argon2id_iterations= */ 0,
+                                /* argon2id_lanes= */ 0,
                                 &v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");
