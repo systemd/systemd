@@ -41,3 +41,21 @@ ResolveAddressReply* resolve_address_reply_free(ResolveAddressReply *reply);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ResolveAddressReply*, resolve_address_reply_free);
 
 int dispatch_resolve_address_reply(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+
+typedef struct ResolvedRecord {
+        int ifindex;
+        char *raw;
+} ResolvedRecord;
+
+ResolvedRecord* resolved_record_free(ResolvedRecord *record);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ResolvedRecord*, resolved_record_free);
+
+typedef struct ResolveRecordReply {
+        uint64_t flags;
+        OrderedSet *records;
+} ResolveRecordReply;
+
+ResolveRecordReply* resolve_record_reply_free(ResolveRecordReply *reply);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ResolveRecordReply*, resolve_record_reply_free);
+
+int dispatch_resolve_record_reply(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
