@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "crypto-util.h"
 #include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
 #include "env-util.h"
@@ -87,15 +88,16 @@ int acquire_tpm2_key(
                 usec_t until,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
-                struct iovec *ret_decrypted_key) {
+                struct iovec *ret_decrypted_key,
+                uint64_t argon2id_memcost,
+                uint32_t argon2id_iterations,
+                uint32_t argon2id_lanes) {
 
 #if HAVE_LIBCRYPTSETUP && HAVE_TPM2
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
         _cleanup_(iovec_done) struct iovec loaded_blob = {};
         _cleanup_free_ char *auto_device = NULL;
         int r;
-
-        assert(iovec_is_valid(salt));
 
         if (!device) {
                 r = tpm2_find_device_auto(&auto_device);
@@ -181,40 +183,71 @@ int acquire_tpm2_key(
                 return r;
         }
 
+        bool argon2id = FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID);
+
         for (int i = 5;; i--) {
-                _cleanup_(erase_and_freep) char *pin_str = NULL, *b64_salted_pin = NULL;
+                _cleanup_(erase_and_freep) char *input_str = NULL;
+                _cleanup_(erase_and_freep) void *key1 = NULL;
+                const char *pin_used;
 
                 if (i <= 0)
                         return -EACCES;
 
-                r = get_pin(until, askpw_credential, askpw_flags, &pin_str);
+                r = get_pin(until, askpw_credential, askpw_flags, &input_str);
                 if (r < 0)
                         return r;
 
                 askpw_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
 
-                if (iovec_is_set(salt)) {
-                        uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
-                        CLEANUP_ERASE(salted_pin);
+                if (argon2id) {
+                        assert(iovec_is_set(salt));
 
-                        r = tpm2_util_pbkdf2_hmac_sha256(pin_str, strlen(pin_str), salt->iov_base, salt->iov_len, salted_pin);
+                        _cleanup_(erase_and_freep) void *derived = NULL;
+                        r = kdf_argon2id_derive(
+                                        input_str, strlen(input_str),
+                                        salt->iov_base, salt->iov_len,
+                                        argon2id_memcost, argon2id_iterations, argon2id_lanes,
+                                        64, &derived);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to perform PBKDF2: %m");
+                                return log_error_errno(r, "Failed to perform Argon2id: %m");
 
-                        r = base64mem(salted_pin, sizeof(salted_pin), &b64_salted_pin);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to base64 encode salted pin: %m");
-                } else
-                        /* no salting needed, backwards compat with non-salted pins */
-                        b64_salted_pin = TAKE_PTR(pin_str);
+                        uint8_t *derived_bytes = derived;
+                        key1 = memdup(derived_bytes, 32);
+                        if (!key1)
+                                return log_oom();
 
+                        _cleanup_free_ char *b64_key2 = NULL;
+                        ssize_t b64_size = base64mem(derived_bytes + 32, 32, &b64_key2);
+                        if (b64_size < 0)
+                                return log_oom();
+
+                        pin_used = b64_key2;
+                } else {
+                        if (iovec_is_set(salt)) {
+                                uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
+                                CLEANUP_ERASE(salted_pin);
+
+                                r = tpm2_util_pbkdf2_hmac_sha256(input_str, strlen(input_str), salt->iov_base, salt->iov_len, salted_pin);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to perform PBKDF2: %m");
+
+                                r = base64mem(salted_pin, sizeof(salted_pin), &input_str);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to base64 encode salted pin: %m");
+                        }
+                        /* else: no salting needed, backwards compat with non-salted pins */
+
+                        pin_used = input_str;
+                }
+
+                _cleanup_(iovec_done_erase) struct iovec unsealed = {};
                 r = tpm2_unseal(tpm2_context,
                                 hash_pcr_mask,
                                 pcr_bank,
                                 pubkey,
                                 pubkey_pcr_mask,
                                 signature_json,
-                                b64_salted_pin,
+                                pin_used,
                                 FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK) ? &pcrlock_policy : NULL,
                                 primary_alg,
                                 blobs,
@@ -222,7 +255,7 @@ int acquire_tpm2_key(
                                 policy_hash,
                                 n_policy_hash,
                                 srk,
-                                ret_decrypted_key);
+                                argon2id ? &unsealed : ret_decrypted_key);
                 if (r == -EREMOTE)
                         return log_error_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
@@ -230,13 +263,27 @@ int acquire_tpm2_key(
                 if (r == -ENOLCK)
                         return log_error_errno(r, "TPM is in dictionary attack lock-out mode.");
                 if (r == -EILSEQ) {
-                        log_warning_errno(r, "Bad PIN.");
+                        log_warning_errno(r, "Bad %s.", argon2id ? "password" : "PIN");
                         continue;
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
-                return r;
+                if (argon2id) {
+                        _cleanup_(erase_and_freep) void *volume_key = NULL;
+                        r = kdf_hkdf_sha256(
+                                        key1, 32,
+                                        unsealed.iov_base, unsealed.iov_len,
+                                        "systemd-tpm2-argon2id-lock", strlen("systemd-tpm2-argon2id-lock"),
+                                        32, &volume_key);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to derive volume key via HKDF: %m");
+
+                        ret_decrypted_key->iov_base = TAKE_PTR(volume_key);
+                        ret_decrypted_key->iov_len = 32;
+                }
+
+                return 0;
         }
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support not available.");
@@ -261,7 +308,10 @@ int find_tpm2_auto_data(
                 struct iovec *ret_pcrlock_nv,
                 TPM2Flags *ret_flags,
                 int *ret_keyslot,
-                int *ret_token) {
+                int *ret_token,
+                uint64_t *ret_argon2id_memcost,
+                uint32_t *ret_argon2id_iterations,
+                uint32_t *ret_argon2id_lanes) {
 
 #if HAVE_LIBCRYPTSETUP && HAVE_TPM2
         int r, token;
@@ -290,6 +340,8 @@ int find_tpm2_auto_data(
                 size_t n_blobs = 0, n_policy_hash = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                 uint16_t pcr_bank, primary_alg;
+                uint64_t argon2id_memcost = 0;
+                uint32_t argon2id_iterations = 0, argon2id_lanes = 0;
                 TPM2Flags flags;
                 int keyslot;
 
@@ -317,7 +369,10 @@ int find_tpm2_auto_data(
                                 &salt,
                                 &srk,
                                 &pcrlock_nv,
-                                &flags);
+                                &flags,
+                                &argon2id_memcost,
+                                &argon2id_iterations,
+                                &argon2id_lanes);
                 if (r == -EUCLEAN) /* Gracefully handle issues in JSON fields not owned by us */
                         continue;
                 if (r < 0)
@@ -344,6 +399,12 @@ int find_tpm2_auto_data(
                         *ret_srk = TAKE_STRUCT(srk);
                         *ret_pcrlock_nv = TAKE_STRUCT(pcrlock_nv);
                         *ret_flags = flags;
+                        if (ret_argon2id_memcost)
+                                *ret_argon2id_memcost = argon2id_memcost;
+                        if (ret_argon2id_iterations)
+                                *ret_argon2id_iterations = argon2id_iterations;
+                        if (ret_argon2id_lanes)
+                                *ret_argon2id_lanes = argon2id_lanes;
                         return 0;
                 }
 
