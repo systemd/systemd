@@ -510,14 +510,27 @@ static int loop_device_make_internal(
                 if (sector_size == 0)
                         sector_size = device_ssz;
 
-                if (offset == 0 && IN_SET(size, 0, UINT64_MAX) && sector_size == device_ssz)
+                if (offset == 0 && IN_SET(size, 0, UINT64_MAX) && sector_size == device_ssz) {
                         /* If this is already a block device and we are supposed to cover the whole of it
                          * then store an fd to the original open device node — and do not actually create
                          * an unnecessary loopback device for it. If an explicit sector size was requested
                          * that differs from the device sector size, or if the probed GPT sector size
                          * differs (e.g. CD-ROMs with 2048-byte blocks but a 512-byte sector GPT), create
-                         * a real loop device to change the sector size. */
-                        return loop_device_open_from_fd(fd, open_flags, lock_op, ret);
+                         * a real loop device to change the sector size. Likewise, if the input is a
+                         * partition and partscan was requested, we must create a real loop device, since
+                         * partition block devices never have partition scanning enabled. */
+                        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                        r = block_device_new_from_fd(fd, 0, &dev);
+                        if (r < 0)
+                                return r;
+
+                        r = block_device_is_whole_disk(dev);
+                        if (r < 0)
+                                return r;
+
+                        if (r > 0 || !FLAGS_SET(loop_flags, LO_FLAGS_PARTSCAN))
+                                return loop_device_open_from_fd(fd, open_flags, lock_op, ret);
+                }
         } else {
                 r = stat_verify_regular(&st);
                 if (r < 0)
