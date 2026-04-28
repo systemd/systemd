@@ -14,33 +14,26 @@
 #include "verbs.h"
 
 static int help(void) {
-        static const char *const short_descriptions[][2] = {
-                { "info",         "Query sysfs or the udev database"  },
-                { "trigger",      "Request events from the kernel"    },
-                { "settle",       "Wait for pending udev events"      },
-                { "control",      "Control the udev daemon"           },
-                { "monitor",      "Listen to kernel and udev events"  },
-                { "test",         "Test an event run"                 },
-                { "test-builtin", "Test a built-in command"           },
-                { "verify",       "Verify udev rules files"           },
-                { "cat",          "Show udev rules files"             },
-                { "wait",         "Wait for device or device symlink" },
-                { "lock",         "Lock a block device"               },
-        };
-
-        _cleanup_(table_unrefp) Table *options = NULL;
+        _cleanup_(table_unrefp) Table *verbs = NULL, *options = NULL;
         int r;
+
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
 
         r = option_parser_get_help_table_ns("udevadm", &options);
         if (r < 0)
                 return r;
 
+        (void) table_sync_column_widths(0, verbs, options);
+
         help_cmdline("[OPTIONS…] COMMAND [COMMAND OPTIONS…]");
         help_abstract("Send control commands or test the device manager.");
 
         help_section("Commands:");
-        FOREACH_ELEMENT(desc, short_descriptions)
-                printf("  %-12s  %s\n", (*desc)[0], (*desc)[1]);
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
 
         help_section("Options:");
         r = table_print_or_warn(options);
@@ -49,6 +42,26 @@ static int help(void) {
 
         help_man_page_reference("udevadm", "8");
         return 0;
+}
+
+VERB_COMMON_HELP(help);
+
+VERB_SCOPE(, verb_info_main,    "info",         "[DEVPATH|FILE]",       VERB_ANY, VERB_ANY, 0, "Query sysfs or the udev database");
+VERB_SCOPE(, verb_trigger_main, "trigger",      "DEVPATH",              VERB_ANY, VERB_ANY, 0, "Request events from the kernel");
+VERB_SCOPE(, verb_settle_main,  "settle",       NULL,                   VERB_ANY, VERB_ANY, 0, "Wait for pending udev events");
+VERB_SCOPE(, verb_control_main, "control",      "OPTION",               VERB_ANY, VERB_ANY, 0, "Control the udev daemon");
+VERB_SCOPE(, verb_monitor_main, "monitor",      NULL,                   VERB_ANY, VERB_ANY, 0, "Listen to kernel and udev events");
+VERB_SCOPE(, verb_test_main,    "test",         "DEVPATH",              VERB_ANY, VERB_ANY, 0, "Test an event run");
+VERB_SCOPE(, verb_builtin_main, "test-builtin", "COMMAND DEVPATH",      VERB_ANY, VERB_ANY, 0, "Test a built-in command");
+VERB_SCOPE(, verb_verify_main,  "verify",       "[FILE...]",            VERB_ANY, VERB_ANY, 0, "Verify udev rules files");
+VERB_SCOPE(, verb_cat_main,     "cat",          "[FILE...]",            VERB_ANY, VERB_ANY, 0, "Show udev rules files");
+VERB_SCOPE(, verb_wait_main,    "wait",         "DEVICE [DEVICE…]",     VERB_ANY, VERB_ANY, 0, "Wait for device or device symlink");
+VERB_SCOPE(, verb_lock_main,    "lock",         "[OPTIONS...] COMMAND", VERB_ANY, VERB_ANY, 0, "Lock a block device");
+VERB_SCOPE(, verb_hwdb_main,    "hwdb",         NULL,                   VERB_ANY, VERB_ANY, 0, /* help= */ NULL); /* deprecated */
+
+VERB_NOARG(verb_version_main, "version", /* help= */ NULL);
+static int verb_version_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return print_version();
 }
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
@@ -84,36 +97,6 @@ int print_version(void) {
         return 0;
 }
 
-static int verb_version_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return print_version();
-}
-
-static int verb_help_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
-
-static int udevadm_main(char **args) {
-        static const Verb verbs[] = {
-                { "cat",          VERB_ANY, VERB_ANY, 0, verb_cat_main     },
-                { "info",         VERB_ANY, VERB_ANY, 0, verb_info_main    },
-                { "trigger",      VERB_ANY, VERB_ANY, 0, verb_trigger_main },
-                { "settle",       VERB_ANY, VERB_ANY, 0, verb_settle_main  },
-                { "control",      VERB_ANY, VERB_ANY, 0, verb_control_main },
-                { "monitor",      VERB_ANY, VERB_ANY, 0, verb_monitor_main },
-                { "hwdb",         VERB_ANY, VERB_ANY, 0, verb_hwdb_main    },
-                { "test",         VERB_ANY, VERB_ANY, 0, verb_test_main    },
-                { "test-builtin", VERB_ANY, VERB_ANY, 0, verb_builtin_main },
-                { "wait",         VERB_ANY, VERB_ANY, 0, verb_wait_main    },
-                { "lock",         VERB_ANY, VERB_ANY, 0, verb_lock_main    },
-                { "verify",       VERB_ANY, VERB_ANY, 0, verb_verify_main  },
-                { "version",      VERB_ANY, VERB_ANY, 0, verb_version_main },
-                { "help",         VERB_ANY, VERB_ANY, 0, verb_help_main    },
-                {}
-        };
-
-        return _dispatch_verb_with_args(args, verbs, verbs + ELEMENTSOF(verbs) - 1, NULL);
-}
-
 static int run(int argc, char *argv[]) {
         char **args = NULL;
         int r;
@@ -132,7 +115,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        return udevadm_main(args);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
