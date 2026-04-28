@@ -567,16 +567,115 @@ static int resolve_host(const char *name) {
         return 0;
 }
 
-static int resolve_address(sd_bus *bus, int family, const union in_addr_union *address, int ifindex) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *pretty = NULL;
-        uint64_t flags;
-        unsigned c = 0;
-        usec_t ts;
+typedef struct ResolvedName {
+        int ifindex;
+        char *name;
+} ResolvedName;
+
+static ResolvedName* resolved_name_free(ResolvedName *name) {
+        if (!name)
+                return NULL;
+
+        free(name->name);
+
+        return mfree(name);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(ResolvedName*, resolved_name_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        resolved_name_hash_ops,
+        void,
+        trivial_hash_func,
+        trivial_compare_func,
+        ResolvedName,
+        resolved_name_free);
+
+static int dispatch_resolved_name(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field resolved_name_dispatch_table[] = {
+                { "ifindex", SD_JSON_VARIANT_UNSIGNED, json_dispatch_ifindex,   offsetof(ResolvedName, ifindex), SD_JSON_RELAX     },
+                { "name",    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(ResolvedName, name),    SD_JSON_MANDATORY },
+        };
+        ResolvedName **ret = ASSERT_PTR(userdata);
         int r;
 
-        assert(bus);
+        _cleanup_(resolved_name_freep) ResolvedName *resolved_name = new0(ResolvedName, 1);
+        if (!resolved_name)
+                return log_oom();
+
+        r = sd_json_dispatch(variant, resolved_name_dispatch_table, SD_JSON_LOG, resolved_name);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(resolved_name);
+
+        return 0;
+}
+
+static int dispatch_resolved_name_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        OrderedSet **ret = ASSERT_PTR(userdata);
+        _cleanup_ordered_set_free_ OrderedSet *resolved_names = NULL;
+        sd_json_variant *v;
+        int r;
+
+        JSON_VARIANT_ARRAY_FOREACH(v, variant) {
+                _cleanup_(resolved_name_freep) ResolvedName *resolved_name = NULL;
+
+                r = dispatch_resolved_name(name, v, SD_JSON_LOG, &resolved_name);
+                if (r < 0)
+                        return json_log(v, flags, r, "JSON array element is not a valid ResolvedName.");
+
+                r = ordered_set_ensure_put(&resolved_names, &resolved_name_hash_ops, resolved_name);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(resolved_name);
+        }
+
+        free_and_replace_full(*ret, resolved_names, ordered_set_free);
+
+        return 0;
+}
+
+typedef struct ResolveAddressReply {
+        uint64_t flags;
+        OrderedSet *names;
+} ResolveAddressReply;
+
+static ResolveAddressReply* resolve_address_reply_free(ResolveAddressReply *reply) {
+        if (!reply)
+                return NULL;
+
+        ordered_set_free(reply->names);
+
+        return mfree(reply);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(ResolveAddressReply*, resolve_address_reply_free);
+
+static int dispatch_resolve_address_reply(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field resolve_address_reply_dispatch_table[] = {
+                { "flags", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64,      offsetof(ResolveAddressReply, flags), 0 },
+                { "names", SD_JSON_VARIANT_ARRAY,    dispatch_resolved_name_array, offsetof(ResolveAddressReply, names), 0 },
+        };
+        ResolveAddressReply **ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(resolve_address_reply_freep) ResolveAddressReply *reply = new0(ResolveAddressReply, 1);
+        if (!reply)
+                return log_oom();
+
+        r = sd_json_dispatch(variant, resolve_address_reply_dispatch_table, SD_JSON_LOG, reply);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(reply);
+
+        return 0;
+}
+
+static int resolve_address(int family, const union in_addr_union *address, int ifindex) {
+        int r;
+
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(address);
 
@@ -586,80 +685,69 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         if (ifindex <= 0)
                 ifindex = arg_ifindex;
 
+        _cleanup_free_ char *pretty = NULL;
         r = in_addr_ifindex_to_string(family, address, ifindex, &pretty);
         if (r < 0)
                 return log_oom();
 
         log_debug("Resolving %s.", pretty);
 
-        r = bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveAddress");
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve");
         if (r < 0)
-                return bus_log_create_error(r);
+                return log_error_errno(r, "Failed to connect to service /run/systemd/resolve/io.systemd.Resolve: %m");
 
-        r = sd_bus_message_append(req, "ii", ifindex, family);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        SD_JSON_BUILD_PAIR_BYTE_ARRAY("address", &address->bytes, FAMILY_ADDRESS_SIZE_SAFE(family)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("family", family),
+                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(arg_ifindex > 0, "ifindex", arg_ifindex),
+                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(arg_flags != 0, "flags", arg_flags));
         if (r < 0)
-                return bus_log_create_error(r);
+                return log_error_errno(r, "Failed to build varlink request: %m");
 
-        r = sd_bus_message_append_array(req, 'y', address, FAMILY_ADDRESS_SIZE(family));
+        usec_t ts = now(CLOCK_MONOTONIC);
+
+        const char *error_id = NULL;
+        sd_json_variant *v = NULL;
+        r = sd_varlink_call(vl, "io.systemd.Resolve.ResolveAddress", parameters, &v, &error_id);
         if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append(req, "t", arg_flags);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        ts = now(CLOCK_MONOTONIC);
-
-        r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
-        if (r < 0)
-                return log_error_errno(r, "%s: resolve call failed: %s", pretty, bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to issue varlink call: %m");
 
         ts = now(CLOCK_MONOTONIC) - ts;
 
-        r = sd_bus_message_enter_container(reply, 'a', "(is)");
+        _cleanup_free_ char *errstr = NULL;
+        r = varlink_resolve_check_error(pretty, error_id, v, &errstr);
         if (r < 0)
-                return bus_log_create_error(r);
+                return log_error_errno(r, "%s: resolve call failed: %s", pretty, errstr);
 
-        while ((r = sd_bus_message_enter_container(reply, 'r', "is")) > 0) {
-                const char *n;
-                int k;
+        _cleanup_(resolve_address_reply_freep) ResolveAddressReply *reply = NULL;
+        r = dispatch_resolve_address_reply(NULL, v, SD_JSON_LOG, &reply);
+        if (r < 0)
+                return r;
 
-                assert_cc(sizeof(int) == sizeof(int32_t));
+        bool first = true;
+        ResolvedName *name;
+        ORDERED_SET_FOREACH(name, reply->names) {
+                int k = printf("%*s%s %s%s%s",
+                               (int) strlen(pretty),
+                               first ? pretty : "",
+                               first ? ":" : " ",
+                               ansi_highlight(),
+                               name->name,
+                               ansi_normal());
 
-                r = sd_bus_message_read(reply, "is", &ifindex, &n);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return r;
-
-                k = printf("%*s%s %s%s%s",
-                           (int) strlen(pretty), c == 0 ? pretty : "",
-                           c == 0 ? ":" : " ",
-                           ansi_highlight(), n, ansi_normal());
-
-                print_ifindex_comment(k, ifindex);
+                print_ifindex_comment(k, name->ifindex);
                 fputc('\n', stdout);
 
-                c++;
+                first = false;
         }
-        if (r < 0)
-                return bus_log_parse_error(r);
 
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
+        if (ordered_set_isempty(reply->names))
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "%s: no names found", pretty);
 
-        r = sd_bus_message_read(reply, "t", &flags);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        if (c == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
-                                       "%s: no names found", pretty);
-
-        print_source(flags, ts);
+        print_source(reply->flags, ts);
 
         return 0;
 }
@@ -1006,7 +1094,7 @@ static int verb_query(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
                                 r = in_addr_ifindex_from_string_auto(*p, &family, &a, &ifindex);
                                 if (r >= 0)
-                                        RET_GATHER(ret, resolve_address(bus, family, &a, ifindex));
+                                        RET_GATHER(ret, resolve_address(family, &a, ifindex));
                                 else
                                         RET_GATHER(ret, resolve_host(*p));
                         }
