@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <getopt.h>
 #include <stdlib.h>
 
 #include "conf-parser.h"
@@ -8,10 +7,12 @@
 #include "daemon-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "hashmap.h"
+#include "help-util.h"
 #include "limits-util.h"
+#include "options.h"
 #include "parse-util.h"
-#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "serialize.h"
 #include "signal-util.h"
@@ -149,110 +150,91 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-udevd.service", "8", &link);
+        r = option_parser_get_help_table_ns("udevd", &options);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        printf("%s [OPTIONS...]\n\n"
-               "Rule-based manager for device events and files.\n\n"
-               "  -h --help                   Print this message\n"
-               "  -V --version                Print version of the program\n"
-               "  -d --daemon                 Detach and run in the background\n"
-               "  -D --debug                  Enable debug output\n"
-               "  -c --children-max=INT       Set maximum number of workers\n"
-               "  -e --exec-delay=SECONDS     Seconds to wait before executing RUN=\n"
-               "  -t --event-timeout=SECONDS  Seconds to wait before terminating an event\n"
-               "  -N --resolve-names=early|late|never\n"
-               "                              When to resolve users and groups\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               link);
+        help_cmdline("[OPTIONS...]");
+        help_abstract("Rule-based manager for device events and files.");
 
+        help_section("Options:");
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("systemd-udevd.service", "8");
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[], UdevConfig *config) {
-        enum {
-                ARG_TIMEOUT_SIGNAL,
-        };
-
-        static const struct option options[] = {
-                { "daemon",             no_argument,            NULL, 'd'                 },
-                { "debug",              no_argument,            NULL, 'D'                 },
-                { "children-max",       required_argument,      NULL, 'c'                 },
-                { "exec-delay",         required_argument,      NULL, 'e'                 },
-                { "event-timeout",      required_argument,      NULL, 't'                 },
-                { "resolve-names",      required_argument,      NULL, 'N'                 },
-                { "help",               no_argument,            NULL, 'h'                 },
-                { "version",            no_argument,            NULL, 'V'                 },
-                { "timeout-signal",     required_argument,      NULL,  ARG_TIMEOUT_SIGNAL },
-                {}
-        };
-
-        int c, r;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
         assert(config);
 
-        while ((c = getopt_long(argc, argv, "c:de:Dt:N:hV", options, NULL)) >= 0) {
+        OptionParser opts = { argc, argv, OPTION_PARSER_NORMAL, "udevd" };
+
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
-                case 'd':
+                OPTION_NAMESPACE("udevd"): {}
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION('V', "version", NULL, "Show package version"):
+                        printf("%s\n", GIT_VERSION);
+                        return 0;
+
+                OPTION('d', "daemon", NULL, "Detach and run in the background"):
                         arg_daemonize = true;
                         break;
-                case 'c':
-                        r = safe_atou(optarg, &config->children_max);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to parse --children-max= value '%s', ignoring: %m", optarg);
-                        break;
-                case 'e':
-                        r = parse_sec(optarg, &config->exec_delay_usec);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to parse --exec-delay= value '%s', ignoring: %m", optarg);
-                        break;
-                case ARG_TIMEOUT_SIGNAL:
-                        r = signal_from_string(optarg);
-                        if (r <= 0)
-                                log_warning_errno(r, "Failed to parse --timeout-signal= value '%s', ignoring: %m", optarg);
-                        else
-                                config->timeout_signal = r;
 
-                        break;
-                case 't':
-                        r = parse_sec(optarg, &config->timeout_usec);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to parse --event-timeout= value '%s', ignoring: %m", optarg);
-                        break;
-                case 'D':
+                OPTION('D', "debug", NULL, "Enable debug output"):
                         arg_debug = true;
                         config->log_level = LOG_DEBUG;
                         break;
-                case 'N': {
-                        ResolveNameTiming t;
 
-                        t = resolve_name_timing_from_string(optarg);
+                OPTION('c', "children-max", "INT", "Set maximum number of workers"):
+                        r = safe_atou(opts.arg, &config->children_max);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse --children-max= value '%s', ignoring: %m", opts.arg);
+                        break;
+
+                OPTION('e', "exec-delay", "SECONDS", "Seconds to wait before executing RUN="):
+                        r = parse_sec(opts.arg, &config->exec_delay_usec);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse --exec-delay= value '%s', ignoring: %m", opts.arg);
+                        break;
+
+                OPTION('t', "event-timeout", "SECONDS", "Seconds to wait before terminating an event"):
+                        r = parse_sec(opts.arg, &config->timeout_usec);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse --event-timeout= value '%s', ignoring: %m", opts.arg);
+                        break;
+
+                OPTION_COMMON_RESOLVE_NAMES: {
+                        ResolveNameTiming t = resolve_name_timing_from_string(opts.arg);
                         if (t < 0)
-                                log_warning("Invalid --resolve-names= value '%s', ignoring.", optarg);
+                                log_warning("Invalid --resolve-names= value '%s', ignoring.", opts.arg);
                         else
                                 config->resolve_name_timing = t;
                         break;
                 }
-                case 'h':
-                        return help();
-                case 'V':
-                        printf("%s\n", GIT_VERSION);
-                        return 0;
-                case '?':
-                        return -EINVAL;
-                default:
-                        assert_not_reached();
 
+                OPTION_LONG("timeout-signal", "SIGNAL", "Signal used when terminating an event"):
+                        r = signal_from_string(opts.arg);
+                        if (r <= 0)
+                                log_warning_errno(r, "Failed to parse --timeout-signal= value '%s', ignoring: %m", opts.arg);
+                        else
+                                config->timeout_signal = r;
+                        break;
                 }
-        }
 
         return 1;
 }
