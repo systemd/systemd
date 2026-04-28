@@ -10,7 +10,14 @@
  * and in a single (unnamed) group. OPTION_NAMESPACE() marks the beginning of a named namespace.
  * OPTION_GROUP() marks the beginning of a named group.
  *
- * Note: if multiple namespaces are used, they should all be named.
+ * Note: if multiple namespaces are used, they should all be named, i.e. each separate parse_argv
+ * instance should have OPTION_NAMESPACE first, and then its set of OPTION()s. (This is because
+ * clang reorders OPTIONs coming from different functions. So an unnamed group could end up being
+ * merged with one of the earlier groups. It seems that reordering within a single function does
+ * not happen.)
+ *
+ * When groups are used, the first group may be named (with OPTION_GROUP appearing before any
+ * options), or it may be unnamed. Both variants should work fine.
  */
 
 typedef enum OptionFlags {

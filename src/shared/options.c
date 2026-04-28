@@ -101,6 +101,12 @@ int option_parse(
                         state->namespace_start = options;
 
                 const Option *opt;
+
+                /* Verify that the option array didn't get mangled within a namespace. */
+                for (opt = options; opt < options_end; opt++)
+                        if (opt + 1 < options_end && !FLAGS_SET((opt + 1)->flags, OPTION_NAMESPACE_MARKER))
+                                assert_se(opt->id < (opt + 1)->id);
+
                 for (opt = options; opt < options_end; opt++) {
                         bool ns_marker = FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER);
                         if (!in_ns) {

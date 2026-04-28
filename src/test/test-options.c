@@ -631,12 +631,12 @@ TEST(option_stops_parsing) {
 
 TEST(option_group_marker) {
         static const Option options[] = {
-                { 1, .short_code = 'h', .long_code = "help" },
-                { 2, .long_code = "version" },
-                { 0, .long_code = "AdvancedGroup", .flags = OPTION_GROUP_MARKER },
-                { 3, .long_code = "debug" },
-                { 4, .long_code = "Advance" },  /* prefix match with the group */
-                { 5, .long_code = "defilbrilate" },
+                { __COUNTER__, .short_code = 'h', .long_code = "help" },
+                { __COUNTER__, .long_code = "version" },
+                { __COUNTER__, .long_code = "AdvancedGroup", .flags = OPTION_GROUP_MARKER },
+                { __COUNTER__, .long_code = "debug" },
+                { __COUNTER__, .long_code = "Advance" },  /* prefix match with the group */
+                { __COUNTER__, .long_code = "defilbrilate" },
                 {}
         };
 
@@ -1297,9 +1297,9 @@ TEST(option_macros) {
  * peeks at the next arg to handle legacy "space-separated" form. */
 TEST(option_optional_arg_consume) {
         static const Option options[] = {
-                { 1, .short_code = 'h', .long_code = "help" },
-                { 2, .long_code = "user", .metavar = "NAME", .flags = OPTION_OPTIONAL_ARG },
-                { 3, .short_code = 'u', .long_code = "uid", .metavar = "USER" },
+                { __COUNTER__, .short_code = 'h', .long_code = "help" },
+                { __COUNTER__, .long_code = "user", .metavar = "NAME", .flags = OPTION_OPTIONAL_ARG },
+                { __COUNTER__, .short_code = 'u', .long_code = "uid", .metavar = "USER" },
                 {}
         };
 
