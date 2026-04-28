@@ -21,7 +21,8 @@ static bool option_arg_required(const Option *opt) {
 
 static bool option_is_metadata(const Option *opt) {
         /* A metadata entry that is not a real option, like the group marker */
-        return ASSERT_PTR(opt)->flags & (OPTION_GROUP_MARKER |
+        return ASSERT_PTR(opt)->flags & (OPTION_NAMESPACE_MARKER |
+                                         OPTION_GROUP_MARKER |
                                          OPTION_POSITIONAL_ENTRY |
                                          OPTION_HELP_ENTRY |
                                          OPTION_HELP_ENTRY_VERBATIM);
@@ -72,21 +73,77 @@ int option_parse(
                 const Option options_end[],
                 OptionParser *state) {
 
+        /* We define this one early, since we use goto below, and need to guarantee its initialization */
+        _cleanup_free_ char *_optname = NULL;  /* allocated option name */
+        int r;
+
+        assert(state);
+
         /* Check and initialize */
-        if (state->optind == 0) {
+        switch (state->state) {
+
+        case OPTION_PARSER_INIT: {
                 assert(state->mode >= 0 && state->mode < _OPTION_PARSER_MODE_MAX);
 
-                if (state->argc < 1 || strv_isempty(state->argv))
-                        return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "argv cannot be empty");
+                if (state->argc < 1) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "argv cannot be empty");
+                        goto fail;
+                }
+
+                assert_se((size_t) state->argc == strv_length(state->argv)); /* Make sure argc/argv are consistent */
+
+                /* Figure out the right range of options */
+                bool in_ns = state->namespace == NULL;  /* Are we currently in the section of the array that
+                                                         * forms namespace <namespace>? The first part is the
+                                                         * default unnamed namespace, so if the namespace was
+                                                         * not specified, we are in it. */
+                if (in_ns)
+                        state->namespace_start = options;
+
+                const Option *opt;
+
+                /* Verify that the option array didn't get mangled within a namespace. */
+                for (opt = options; opt < options_end; opt++)
+                        if (opt + 1 < options_end && !FLAGS_SET((opt + 1)->flags, OPTION_NAMESPACE_MARKER))
+                                assert_se(opt->id < (opt + 1)->id);
+
+                for (opt = options; opt < options_end; opt++) {
+                        bool ns_marker = FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER);
+                        if (!in_ns) {
+                                in_ns = ns_marker && streq(state->namespace, opt->long_code);
+                                if (in_ns)
+                                        state->namespace_start = opt + 1;
+                                continue;
+                        }
+                        if (ns_marker)
+                                break;  /* End of namespace */
+                }
+                assert(state->namespace_start);
+                state->namespace_end = opt;
 
                 state->optind = state->positional_offset = 1;
+                state->state = OPTION_PARSER_RUNNING;
+                break;
+        }
+
+        case OPTION_PARSER_RUNNING:
+        case OPTION_PARSER_STOPPING:
+                break;
+
+        case OPTION_PARSER_DONE:
+                goto done;
+
+        case OPTION_PARSER_FAILED:
+                return log_error_errno(SYNTHETIC_ERRNO(ESTALE), "Option parser failed before, refusing.");
+
+        default:
+                assert_not_reached();
         }
 
         /* Look for the next option */
 
         const Option *option = NULL;  /* initialization to appease gcc 13 */
         const char *optname = NULL, *optval = NULL;
-        _cleanup_free_ char *_optname = NULL;  /* allocated option name */
         bool separate_optval = false;
         bool handling_positional_arg = false;
 
@@ -94,27 +151,27 @@ int option_parse(
                 /* Handle non-option parameters */
                 for (;;) {
                         if (state->optind == state->argc)
-                                goto finished;
+                                goto done;
 
                         if (streq(state->argv[state->optind], "--")) {
                                 /* No more options. Move "--" before positional args so that
                                  * the list of positional args is clean. */
                                 shift_arg(state->argv, state->positional_offset++, state->optind++);
-                                state->parsing_stopped = true;
+                                goto done;
                         }
 
-                        if (state->parsing_stopped)
-                                goto finished;
+                        /* If we are in OPTION_PARSER_STOPPING state we only wanted to read one more "--" if
+                         * there is one, nothing else, hence it's time to say goodbye now. */
+                        if (state->state == OPTION_PARSER_STOPPING)
+                                goto done;
 
                         if (state->argv[state->optind][0] == '-' &&
                             state->argv[state->optind][1] != '\0')
                                 /* Looks like we found an option parameter */
                                 break;
 
-                        if (state->mode == OPTION_PARSER_STOP_AT_FIRST_NONOPTION) {
-                                state->parsing_stopped = true;
-                                goto finished;
-                        }
+                        if (state->mode == OPTION_PARSER_STOP_AT_FIRST_NONOPTION)
+                                goto done;
 
                         if (state->mode == OPTION_PARSER_RETURN_POSITIONAL_ARGS) {
                                 handling_positional_arg = true;
@@ -131,10 +188,10 @@ int option_parse(
 
                 if (handling_positional_arg)
                         /* We are supposed to return the positional arg to be handled. */
-                        for (option = options;; option++) {
+                        for (option = state->namespace_start;; option++) {
                                 /* If OPTION_PARSER_RETURN_POSITIONAL_ARGS is specified,
                                  * OPTION_POSITIONAL must be used. */
-                                assert(option < options_end);
+                                assert(option < state->namespace_end);
 
                                 if (FLAGS_SET(option->flags, OPTION_POSITIONAL_ENTRY))
                                         break;
@@ -145,8 +202,10 @@ int option_parse(
                         char *eq = strchr(state->argv[state->optind], '=');
                         if (eq) {
                                 optname = _optname = strndup(state->argv[state->optind], eq - state->argv[state->optind]);
-                                if (!_optname)
-                                        return log_oom();
+                                if (!_optname) {
+                                        r = log_oom();
+                                        goto fail;
+                                }
 
                                 /* joined argument */
                                 optval = eq + 1;
@@ -157,14 +216,22 @@ int option_parse(
                         const Option *last_partial = NULL;
                         unsigned n_partial_matches = 0;  /* The commandline option matches a defined prefix. */
 
-                        for (option = options;; option++) {
-                                if (option >= options_end) {
-                                        if (n_partial_matches == 0)
-                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                                       "%s: unrecognized option '%s'",
-                                                                       program_invocation_short_name, optname);
-                                        if (n_partial_matches > 1)
-                                                return partial_match_error(options, options_end, optname, n_partial_matches);
+                        for (option = state->namespace_start;; option++) {
+                                if (option >= state->namespace_end) {
+                                        if (n_partial_matches == 0) {
+                                                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                                    "%s: unrecognized option '%s'",
+                                                                    program_invocation_short_name, optname);
+                                                goto fail;
+                                        }
+                                        if (n_partial_matches > 1) {
+                                                r = partial_match_error(
+                                                                state->namespace_start,
+                                                                state->namespace_end,
+                                                                optname,
+                                                                n_partial_matches);
+                                                goto fail;
+                                        }
 
                                         /* just one partial — good */
                                         option = last_partial;
@@ -193,15 +260,19 @@ int option_parse(
         if (state->short_option_offset > 0) {
                 char optchar = state->argv[state->optind][state->short_option_offset];
 
-                if (asprintf(&_optname, "-%c", optchar) < 0)
-                        return log_oom();
+                if (asprintf(&_optname, "-%c", optchar) < 0) {
+                        r = log_oom();
+                        goto fail;
+                }
                 optname = _optname;
 
-                for (option = options;; option++) {
-                        if (option >= options_end)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "%s: unrecognized option '%s'",
-                                                       program_invocation_short_name, optname);
+                for (option = state->namespace_start;; option++) {
+                        if (option >= state->namespace_end) {
+                                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                    "%s: unrecognized option '%s'",
+                                                    program_invocation_short_name, optname);
+                                goto fail;
+                        }
 
                         if (option_is_metadata(option) || optchar != option->short_code)
                                 continue;
@@ -223,15 +294,19 @@ int option_parse(
 
         assert(option);
 
-        if (!handling_positional_arg && optval && !option_takes_arg(option))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s: option '%s' doesn't allow an argument",
-                                       program_invocation_short_name, optname);
+        if (!handling_positional_arg && optval && !option_takes_arg(option)) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                    "%s: option '%s' doesn't allow an argument",
+                                    program_invocation_short_name, optname);
+                goto fail;
+        }
         if (!handling_positional_arg && !optval && option_arg_required(option)) {
-                if (!state->argv[state->optind + 1])
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "%s: option '%s' requires an argument",
-                                               program_invocation_short_name, optname);
+                if (!state->argv[state->optind + 1]) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                            "%s: option '%s' requires an argument",
+                                            program_invocation_short_name, optname);
+                        goto fail;
+                }
                 optval = state->argv[state->optind + 1];
                 separate_optval = true;
         }
@@ -250,16 +325,23 @@ int option_parse(
         }
 
         if (FLAGS_SET(option->flags, OPTION_STOPS_PARSING))
-                state->parsing_stopped = true;
+                state->state = OPTION_PARSER_STOPPING;
 
         state->opt = option;
         state->arg = optval;
         return option->id;
 
- finished:
+ done:
+        state->state = OPTION_PARSER_DONE;
         state->opt = NULL;
         state->arg = NULL;
         return 0;
+
+ fail:
+        /* Invalidate the object for good on the first error */
+        assert(r < 0);
+        state->state = OPTION_PARSER_FAILED;
+        return r;
 }
 
 char* option_parser_next_arg(const OptionParser *state) {
@@ -292,7 +374,7 @@ char** option_parser_get_args(const OptionParser *state) {
          * original argv array, so it must not be freed or modified. */
 
         assert(state->optind > 0);
-        assert(state->optind == state->argc || state->parsing_stopped);
+        assert(state->state == OPTION_PARSER_DONE);
         assert(state->positional_offset <= state->argc);
 
         return state->argv + state->positional_offset;
@@ -300,7 +382,7 @@ char** option_parser_get_args(const OptionParser *state) {
 
 size_t option_parser_get_n_args(const OptionParser *state) {
         assert(state->optind > 0);
-        assert(state->optind == state->argc || state->parsing_stopped);
+        assert(state->state == OPTION_PARSER_DONE);
         assert(state->positional_offset <= state->argc);
 
         return state->argc - state->positional_offset;
@@ -308,7 +390,8 @@ size_t option_parser_get_n_args(const OptionParser *state) {
 
 char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metavar) {
         assert(opt);
-        assert(!FLAGS_SET(opt->flags, OPTION_GROUP_MARKER));  /* A group marker should not be displayed */
+        assert(!(opt->flags & (OPTION_NAMESPACE_MARKER |
+                               OPTION_GROUP_MARKER)));  /* The markers should not be displayed */
 
         if (opt->flags & (OPTION_HELP_ENTRY_VERBATIM | OPTION_POSITIONAL_ENTRY))
                 return strdup(ASSERT_PTR(opt->long_code));
@@ -354,9 +437,10 @@ char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metav
                        option_arg_optional(opt) ? "]" : "");
 }
 
-int _option_parser_get_help_table(
+int _option_parser_get_help_table_full(
                 const Option options[],
                 const Option options_end[],
+                const char *namespace,
                 const char *group,
                 Table **ret) {
         int r;
@@ -367,11 +451,23 @@ int _option_parser_get_help_table(
         if (!table)
                 return log_oom();
 
-        bool in_group = group == NULL;  /* Are we currently in the section on the array that forms
-                                         * group <group>? The first part is the default group, so
-                                         * if the group was not specified, we are in. */
+        bool in_ns = namespace == NULL;  /* Are we currently in the section of the array that forms namespace
+                                          * <namespace>? The first part is the default unnamed namespace, so
+                                          * if the namespace was not specified, we are in it. */
+
+        bool in_group = group == NULL;  /* Are we currently in the section of the array that forms group
+                                         * <group>? The first part is the default group, so if the group was
+                                         * not specified, we are in it. */
 
         for (const Option *opt = options; opt < options_end; opt++) {
+                bool ns_marker = FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER);
+                if (!in_ns) {
+                        in_ns = ns_marker && streq(namespace, opt->long_code);
+                        continue;
+                }
+                if (ns_marker)
+                        break;  /* End of namespace */
+
                 bool group_marker = FLAGS_SET(opt->flags, OPTION_GROUP_MARKER);
                 if (!in_group) {
                         in_group = group_marker && streq(group, opt->long_code);
@@ -408,6 +504,8 @@ int _option_parser_get_help_table(
                 if (r < 0)
                         return table_log_add_error(r);
         }
+
+        assert(!table_isempty(table));  /* The namespace or group were not found. Something is off. */
 
         table_set_header(table, false);
         *ret = TAKE_PTR(table);
