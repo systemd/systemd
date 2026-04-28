@@ -9,13 +9,17 @@ if [[ ! -f "$BUILDROOT/$LIBSYSTEMD" ]]; then
     exit 0
 fi
 
-# ASAN and syscall filters aren't compatible with each other.
-find "$BUILDROOT"/usr "$BUILDROOT"/etc -name '*.service' -type f | while read -r unit; do
-    if grep -q -e MemoryDeny -e SystemCall "$unit" ; then
+# ASAN and syscall filters aren't compatible with each other. Also, drop any memory limits
+# as these are quite unpredictable when running under sanitizers.
+find "$BUILDROOT"/{etc,usr/lib}/systemd/system/ -name '*.service' -type f | while read -r unit; do
+    if grep -q -e MemoryDeny -e MemoryMax -e MemoryHigh -e MemorySwapMax -e SystemCall "$unit" ; then
         mkdir -p "$unit.d"
         cat > "$unit.d/sanitizer-compat.conf" <<EOF
 [Service]
 MemoryDenyWriteExecute=no
+MemoryMax=
+MemoryHigh=
+MemorySwapMax=
 SystemCallFilter=
 EOF
     fi
@@ -56,6 +60,7 @@ wrap=(
     dbus-broker-launch
     dbus-daemon
     delv
+    dfuzzer
     dhcpd
     dig
     dnf
@@ -70,6 +75,7 @@ wrap=(
     groups
     id
     integritysetup
+    iscsiadm
     iscsid
     keymgr
     knotc
@@ -79,12 +85,15 @@ wrap=(
     login
     ls
     lsblk
+    lsns
     lsof
     lvm
     mdadm
     mkfs.btrfs
+    mkfs.ext4
     mksquashfs
     mount
+    mountpoint
     multipath
     multipathd
     nvme
@@ -98,8 +107,12 @@ wrap=(
     stat
     stress-ng
     su
+    swapoff
+    swapon
     tar
     tgtd
+    # The tpm2 tools (tpm2_readpublic, tpm2_pcrextend, ...) all are symlinks to tpm2
+    tpm2
     umount
     unix_chkpwd
     useradd
@@ -127,8 +140,11 @@ for bin in "${wrap[@]}"; do
 # Preload the ASan runtime DSO, otherwise ASan will complain
 export LD_PRELOAD="$ASAN_RT_PATH"
 # Disable LSan to speed things up, since we don't care about leak reports
-# from 'external' binaries
-export ASAN_OPTIONS=detect_leaks=$enable_lsan
+# from 'external' binaries. In addition, disable quarantine (for use-after-free
+# detection) and malloc stack frame collection as we don't care about these in
+# 'external' binaries either, and they just unnecessarily hog up memory & cpu
+# cycles.
+export ASAN_OPTIONS=detect_leaks=$enable_lsan:quarantine_size_mb=0:malloc_context_size=0
 # Set argv[0] to the original binary name without the ".orig" suffix
 exec -a "\$0" -- "${target}.orig" "\$@"
 EOF
