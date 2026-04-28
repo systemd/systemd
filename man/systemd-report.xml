@@ -1,6 +1,9 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-report"
@@ -101,6 +104,73 @@
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
+
+      <varlistentry>
+        <term><option>--url=<replaceable>URL</replaceable></option></term>
+
+        <listitem><para>Upload the collected report to the specified address instead of writing it to
+        standard output. <replaceable>URL</replaceable> must point to a server accepting POST requests with
+        a JSON-formatted report body.</para>
+
+        <para>Note: both <literal>http://</literal> and <literal>https://</literal> URLs are supported, but
+        <emphasis>connections over plain HTTP are made without encryption</emphasis>. Thus, this mode should
+        only be used in specific situations where integrity and confidentiality of the report is not required
+        or is ensured through some other means. Using <literal>https://</literal> is recommended.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--key=<replaceable>FILENAME</replaceable></option></term>
+
+        <listitem><para>Takes a path to a SSL key file in PEM format, used for client certificate
+        authentication when uploading. Defaults to
+        <filename>&CERTIFICATE_ROOT;/private/systemd-report.pem</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cert=<replaceable>FILENAME</replaceable></option></term>
+
+        <listitem><para>Takes a path to a SSL certificate file in PEM format, used for client certificate
+        authentication when uploading. Defaults to
+        <filename>&CERTIFICATE_ROOT;/certs/systemd-report.pem</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--trust=<replaceable>FILENAME</replaceable>|<constant>all</constant></option></term>
+
+        <listitem><para>Takes a path to a SSL CA certificate file in PEM format used to verify the server
+        certificate, or the literal string <constant>all</constant> to disable certificate checking
+        entirely. Defaults to <filename>&CERTIFICATE_ROOT;/ca/trusted.pem</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-timeout=<replaceable>SEC</replaceable></option></term>
+
+        <listitem><para>Timeout for the network upload operation. Takes a value in seconds (or in other
+        time units if suffixed with <literal>ms</literal>, <literal>min</literal>, <literal>h</literal>,
+        etc.); see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details. Defaults to 30 seconds.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--extra-header=<replaceable>NAME</replaceable>: <replaceable>VALUE</replaceable></option></term>
+
+        <listitem><para>Inject an additional HTTP header into the upload request. May be specified multiple
+        times to add several headers. Passing an empty string clears any headers added by previous
+        <option>--extra-header=</option> uses.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>
