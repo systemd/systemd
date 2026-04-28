@@ -1611,7 +1611,7 @@ int transfer_process_partial_and_pending_instance(Transfer *t, Instance *i) {
         /* Does this instance already exist in the target but isn’t pending? */
         existing = resource_find_instance(&t->target, i->metadata.version);
         if (existing && !existing->is_pending) {
-                log_info("Resource '%s' instance is already in the target but is not pending.", i->path);
+                log_debug("Instance '%s' already present in target and not pending, skipping.", i->path);
                 return 0;
         }
 
