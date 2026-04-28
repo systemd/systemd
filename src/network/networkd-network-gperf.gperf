@@ -332,6 +332,7 @@ DHCPv6.RapidCommit,                              config_parse_bool,             
 DHCPv6.NetLabel,                                 config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, dhcp6_netlabel)
 DHCPv6.SendRelease,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp6_send_release)
 DHCPv6.NFTSet,                                   config_parse_nft_set,                           NFT_SET_PARSE_NETWORK,                  offsetof(Network, dhcp6_nft_set_context)
+DHCPv6.RouteTable,                               config_parse_dhcp_or_ra_route_table,            AF_UNSPEC,                              0
 IPv6AcceptRA.UseRedirect,                        config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_redirect)
 IPv6AcceptRA.UseGateway,                         config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_gateway)
 IPv6AcceptRA.UseRoutePrefix,                     config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_route_prefix)

@@ -3074,6 +3074,23 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
           <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>RouteTable=<replaceable>num</replaceable></varname></term>
+        <listitem>
+          <para>The table identifier for routes installed by the DHCPv6 client, e.g. unreachable
+          routes for delegated prefixes. Takes one of the predefined names <literal>default</literal>,
+          <literal>main</literal>, and <literal>local</literal>, names defined in
+          <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          or a number between 1…4294967295.</para>
+
+          <para>When used in combination with <varname>VRF=</varname>, the VRF's routing table is
+          used when this parameter is not specified.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
