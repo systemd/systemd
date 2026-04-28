@@ -48,3 +48,18 @@ typedef struct ResolveAddressReply {
 void resolve_address_reply_done(ResolveAddressReply *reply);
 
 int dispatch_resolve_address_reply(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+
+typedef struct ResolvedRecord {
+        int ifindex;
+        char *raw;
+} ResolvedRecord;
+
+typedef struct ResolveRecordReply {
+        uint64_t flags;
+        ResolvedRecord *records;
+        size_t n_records;
+} ResolveRecordReply;
+
+void resolve_record_reply_done(ResolveRecordReply *reply);
+
+int dispatch_resolve_record_reply(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
