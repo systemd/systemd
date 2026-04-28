@@ -130,6 +130,8 @@ static int systemctl_help(void) {
                "  show [PATTERN...|JOB...]            Show properties of one or more\n"
                "                                      units/jobs or the manager\n"
                "  cat PATTERN...                      Show files and drop-ins of specified units\n"
+               "  limits PATTERN...                   Show cgroup resource limits for one or\n"
+               "                                      more units\n"
                "  help PATTERN...|PID...              Show manual for one or more units\n"
                "  list-dependencies [UNIT...]         Recursively show units which are required\n"
                "                                      or wanted by the units or by which those\n"

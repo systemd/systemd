@@ -23,6 +23,7 @@
 #include "systemctl-is-enabled.h"
 #include "systemctl-is-system-running.h"
 #include "systemctl-kill.h"
+#include "systemctl-limits.h"
 #include "systemctl-list-dependencies.h"
 #include "systemctl-list-jobs.h"
 #include "systemctl-list-machines.h"
@@ -82,6 +83,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "is-failed",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_is_failed               },
                 { "show",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_show                    },
                 { "cat",                   2,        VERB_ANY, VERB_ONLINE_ONLY, verb_cat                     },
+                { "limits",                2,        VERB_ANY, VERB_ONLINE_ONLY, verb_limits                  },
                 { "status",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_show                    },
                 { "help",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_show                    },
                 { "daemon-reload",         1,        1,        VERB_ONLINE_ONLY, verb_daemon_reload           },
