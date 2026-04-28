@@ -20,7 +20,7 @@ TEST(unit_enums_idl) {
         TEST_IDL_ENUM(ExecUtmpMode, exec_utmp_mode, vl_type_ExecUtmpMode);
         TEST_IDL_ENUM(ExecPreserveMode, exec_preserve_mode, vl_type_ExecPreserveMode);
         TEST_IDL_ENUM(ExecKeyringMode, exec_keyring_mode, vl_type_ExecKeyringMode);
-        TEST_IDL_ENUM(MemoryTHP, memory_thp, vl_type_MemoryTHP);
+        TEST_IDL_ENUM(ExecMemoryTHP, exec_memory_thp, vl_type_MemoryTHP);
         TEST_IDL_ENUM(ProtectProc, protect_proc, vl_type_ProtectProc);
         TEST_IDL_ENUM(ProcSubset, proc_subset, vl_type_ProcSubset);
         TEST_IDL_ENUM(ProtectSystem, protect_system, vl_type_ProtectSystem);
