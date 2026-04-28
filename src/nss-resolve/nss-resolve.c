@@ -78,23 +78,6 @@ static uint32_t ifindex_to_scopeid(int family, const void *a, int ifindex) {
         return in6_addr_is_link_local(&in6) ? ifindex : 0;
 }
 
-static int json_dispatch_family(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        int *family = ASSERT_PTR(userdata);
-        int64_t t;
-
-        assert(variant);
-
-        if (!sd_json_variant_is_integer(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
-
-        t = sd_json_variant_integer(variant);
-        if (t < 0 || t > INT_MAX)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid family.", strna(name));
-
-        *family = (int) t;
-        return 0;
-}
-
 typedef struct ResolveHostnameReply {
         sd_json_variant *addresses;
         char *name;
@@ -159,9 +142,9 @@ static int json_dispatch_address(const char *name, sd_json_variant *variant, sd_
 }
 
 static const sd_json_dispatch_field address_parameters_dispatch_table[] = {
-        { "ifindex", SD_JSON_VARIANT_INTEGER, json_dispatch_ifindex, offsetof(AddressParameters, ifindex), 0                 },
-        { "family",  SD_JSON_VARIANT_INTEGER, json_dispatch_family,  offsetof(AddressParameters, family),  SD_JSON_MANDATORY },
-        { "address", SD_JSON_VARIANT_ARRAY,   json_dispatch_address, 0,                                    SD_JSON_MANDATORY },
+        { "ifindex", SD_JSON_VARIANT_INTEGER, json_dispatch_ifindex,        offsetof(AddressParameters, ifindex), 0                               },
+        { "family",  SD_JSON_VARIANT_INTEGER, json_dispatch_address_family, offsetof(AddressParameters, family),  SD_JSON_MANDATORY|SD_JSON_RELAX },
+        { "address", SD_JSON_VARIANT_ARRAY,   json_dispatch_address,        0,                                    SD_JSON_MANDATORY               },
         {}
 };
 
