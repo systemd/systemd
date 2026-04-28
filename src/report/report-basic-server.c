@@ -68,7 +68,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
                 }
 
-        if (opts.optind < argc)
+        if (option_parser_get_n_args(&opts) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This program takes no arguments.");
 
