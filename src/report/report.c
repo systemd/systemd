@@ -20,7 +20,6 @@
 #include "runtime-scope.h"
 #include "set.h"
 #include "sort-util.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -35,7 +34,7 @@
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
 static char **arg_matches = NULL;
 char *arg_url = NULL;
 char *arg_key = NULL;
@@ -83,13 +82,6 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 link_info_hash_ops,
                 void, trivial_hash_func, trivial_compare_func,
                 LinkInfo, link_info_free);
-
-static const char* const action_method_table[] = {
-        [ACTION_LIST_METRICS]     = "io.systemd.Metrics.List",
-        [ACTION_DESCRIBE_METRICS] = "io.systemd.Metrics.Describe",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(action_method, Action);
 
 static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) {
         const char *name_a, *name_b, *object_a, *object_b;
@@ -300,7 +292,9 @@ static int call_collect(Context *context, const char *name, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind reply callback: %m");
 
-        const char *method = ASSERT_PTR(action_method_to_string(context->action));
+        const char *method = context->action == ACTION_DESCRIBE_METRICS ?
+                "io.systemd.Metrics.Describe" :
+                "io.systemd.Metrics.List"; /* This is the method for all other actions. */
 
         r = sd_varlink_observe(vl, method, /* parameters= */ NULL);
         if (r < 0)
@@ -591,16 +585,22 @@ VERB_FULL(verb_metrics, "metrics", "[MATCH…]", VERB_ANY, VERB_ANY, 0, ACTION_L
           "Acquire list of metrics and their values");
 VERB_FULL(verb_metrics, "describe", "[MATCH…]", VERB_ANY, VERB_ANY, 0, ACTION_DESCRIBE_METRICS,
           "Describe available metrics");
+VERB_FULL(verb_metrics, "generate", "[MATCH…]", VERB_ANY, VERB_ANY, 0, ACTION_GENERATE,
+          "Build a report with metrics");
+VERB_FULL(verb_metrics, "upload", "[MATCH…]", VERB_ANY, VERB_ANY, 0, ACTION_UPLOAD,
+          "Upload a report with metrics");
 static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) {
         Action action = data;
         int r;
 
         assert(argc >= 1);
         assert(argv);
-        assert(IN_SET(action, ACTION_LIST_METRICS, ACTION_DESCRIBE_METRICS));
+        assert(IN_SET(action, ACTION_LIST_METRICS, ACTION_DESCRIBE_METRICS, ACTION_GENERATE, ACTION_UPLOAD));
 
-        /* Enable JSON-SEQ mode here, since we'll dump a large series of JSON objects */
-        arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
+        if (IN_SET(action, ACTION_LIST_METRICS, ACTION_DESCRIBE_METRICS))
+                /* Enable JSON-SEQ mode for the first two verbs, since we'll dump a large series of JSON
+                 * objects. In the report format, we return a single JSON object, so don't do this. */
+                arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
 
         r = parse_metrics_matches(argv + 1);
         if (r < 0)
@@ -651,8 +651,8 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                if (arg_url)
-                        r = upload_collected(&context);
+                if (IN_SET(action, ACTION_GENERATE, ACTION_UPLOAD))
+                        r = report_collected(&context);
                 else
                         r = output_collected(&context);
                 if (r < 0)
