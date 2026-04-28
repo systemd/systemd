@@ -28,6 +28,7 @@ Conflicts=initrd-switch-root.target
 Before=initrd-switch-root.target
 Wants=modprobe@loop.service modprobe@dm_mod.service
 After=modprobe@loop.service modprobe@dm_mod.service
+After=systemd-sysext-initrd.service
 
 [Service]
 Type=oneshot
