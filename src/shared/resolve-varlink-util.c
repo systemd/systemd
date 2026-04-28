@@ -213,3 +213,98 @@ int dispatch_resolve_address_reply(const char *name, sd_json_variant *variant, s
 
         return 0;
 }
+
+ResolvedRecord* resolved_record_free(ResolvedRecord *record) {
+        if (!record)
+                return NULL;
+
+        free(record->raw);
+
+        return mfree(record);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        resolved_record_hash_ops,
+        void,
+        trivial_hash_func,
+        trivial_compare_func,
+        ResolvedRecord,
+        resolved_record_free);
+
+static int dispatch_resolved_record(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field resolved_record_dispatch_table[] = {
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,   offsetof(ResolvedRecord, ifindex), SD_JSON_RELAX     },
+                { "raw",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(ResolvedRecord, raw),     SD_JSON_MANDATORY },
+                { "rr",      _SD_JSON_VARIANT_TYPE_INVALID, NULL,                    0,                                 0                 },
+                {},
+        };
+        ResolvedRecord **ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(resolved_record_freep) ResolvedRecord *record = new0(ResolvedRecord, 1);
+        if (!record)
+                return log_oom();
+
+        r = sd_json_dispatch(variant, resolved_record_dispatch_table, flags & ~SD_JSON_MANDATORY, record);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(record);
+
+        return 0;
+}
+
+static int dispatch_resolved_record_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        OrderedSet **ret = ASSERT_PTR(userdata);
+        _cleanup_ordered_set_free_ OrderedSet *records = NULL;
+        sd_json_variant *v;
+        int r;
+
+        JSON_VARIANT_ARRAY_FOREACH(v, variant) {
+                _cleanup_(resolved_record_freep) ResolvedRecord *record = NULL;
+
+                r = dispatch_resolved_record(name, v, flags, &record);
+                if (r < 0)
+                        return json_log(v, flags, r, "JSON array element is not a valid ResolvedRecord.");
+
+                r = ordered_set_ensure_put(&records, &resolved_record_hash_ops, record);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(record);
+        }
+
+        free_and_replace_full(*ret, records, ordered_set_free);
+
+        return 0;
+}
+
+ResolveRecordReply* resolve_record_reply_free(ResolveRecordReply *reply) {
+        if (!reply)
+                return NULL;
+
+        ordered_set_free(reply->records);
+
+        return mfree(reply);
+}
+
+int dispatch_resolve_record_reply(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field resolve_record_reply_dispatch_table[] = {
+                { "flags", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(ResolveRecordReply, flags),   SD_JSON_MANDATORY },
+                { "rrs",   SD_JSON_VARIANT_ARRAY,         dispatch_resolved_record_array, offsetof(ResolveRecordReply, records), SD_JSON_MANDATORY },
+                {},
+        };
+        ResolveRecordReply **ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(resolve_record_reply_freep) ResolveRecordReply *reply = new0(ResolveRecordReply, 1);
+        if (!reply)
+                return log_oom();
+
+        r = sd_json_dispatch(variant, resolve_record_reply_dispatch_table, flags, reply);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(reply);
+
+        return 0;
+}
