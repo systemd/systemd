@@ -3,8 +3,11 @@
 
 #include "sd-dhcp-client.h"
 
-#include "sd-forward.h"
+#include "dhcp-client-id-internal.h"
+#include "ether-addr-util.h"
 #include "network-common.h"
+#include "sd-forward.h"
+#include "socket-util.h"
 
 typedef enum DHCPState {
         DHCP_STATE_STOPPED,
@@ -22,13 +25,81 @@ typedef enum DHCPState {
 
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_state, DHCPState);
 
-typedef struct sd_dhcp_client sd_dhcp_client;
+struct sd_dhcp_client {
+        unsigned n_ref;
+
+        DHCPState state;
+        sd_event *event;
+        int event_priority;
+        sd_event_source *timeout_resend;
+
+        int ifindex;
+        char *ifname;
+
+        sd_device *dev;
+
+        uint16_t port;
+        uint16_t server_port;
+        union sockaddr_union link;
+        sd_event_source *receive_message;
+        bool request_broadcast;
+        Set *req_opts;
+        bool anonymize;
+        bool rapid_commit;
+        be32_t last_addr;
+        struct hw_addr_data hw_addr;
+        struct hw_addr_data bcast_addr;
+        uint16_t arp_type;
+        sd_dhcp_client_id client_id;
+        char *hostname;
+        char *vendor_class_identifier;
+        char *mudurl;
+        char **user_class;
+        uint32_t mtu;
+        usec_t fallback_lease_lifetime;
+        uint32_t xid;
+        usec_t start_time;
+        usec_t t1_time;
+        usec_t t2_time;
+        usec_t expire_time;
+        uint64_t discover_attempt;
+        uint64_t request_attempt;
+        uint64_t max_discover_attempts;
+        OrderedHashmap *extra_options;
+        OrderedHashmap *vendor_options;
+        sd_event_source *timeout_t1;
+        sd_event_source *timeout_t2;
+        sd_event_source *timeout_expire;
+        sd_dhcp_client_callback_t callback;
+        void *userdata;
+        sd_dhcp_client_callback_t state_callback;
+        void *state_userdata;
+        sd_dhcp_lease *lease;
+        usec_t start_delay;
+        int ip_service_type;
+        int socket_priority;
+        bool socket_priority_set;
+        bool ipv6_acquired;
+        bool bootp;
+        bool send_release;
+};
 
 int dhcp_client_set_state_callback(
                 sd_dhcp_client *client,
                 sd_dhcp_client_callback_t cb,
                 void *userdata);
 int dhcp_client_get_state(sd_dhcp_client *client);
+
+int client_receive_message_raw(
+                sd_event_source *s,
+                int fd,
+                uint32_t revents,
+                void *userdata);
+int client_receive_message_udp(
+                sd_event_source *s,
+                int fd,
+                uint32_t revents,
+                void *userdata);
 
 /* If we are invoking callbacks of a dhcp-client, ensure unreffing the
  * client from the callback doesn't destroy the object we are working

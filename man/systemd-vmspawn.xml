@@ -669,6 +669,21 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--forward-journal-max-use=<replaceable>BYTES</replaceable></option></term>
+          <term><option>--forward-journal-keep-free=<replaceable>BYTES</replaceable></option></term>
+          <term><option>--forward-journal-max-file-size=<replaceable>BYTES</replaceable></option></term>
+          <term><option>--forward-journal-max-files=<replaceable>N</replaceable></option></term>
+
+          <listitem><para>These options configure the corresponding settings of
+          <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          when forwarding journal entries from the VM. See
+          <citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for the descriptions of these settings.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--pass-ssh-key=<replaceable>BOOL</replaceable></option></term>
 
           <listitem><para>By default, an SSH key is generated to allow <command>systemd-vmspawn</command> to open

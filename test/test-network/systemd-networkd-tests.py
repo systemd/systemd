@@ -931,6 +931,13 @@ def get_dbus_link_path(link):
     out = out.decode()
     return out[:-1].split('"')[1]
 
+def get_dhcp_server_property(link, prop):
+    link_path = get_dbus_link_path(link)
+
+    out = subprocess.check_output(['busctl', 'get-property', 'org.freedesktop.network1',
+                                   link_path, 'org.freedesktop.network1.DHCPServer', prop])
+    return out.strip().decode()
+
 def get_dhcp_client_state(link, family):
     link_path = get_dbus_link_path(link)
 
@@ -4996,6 +5003,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp', '1')
         self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp_pvlan', '1')
         self.check_ipv4_sysctl_attr('dummy98', 'accept_local', '1')
+        self.check_ipv4_sysctl_attr('dummy98', 'src_valid_mark', '1')
         self.check_ipv4_sysctl_attr('dummy98', 'rp_filter', '0')
         self.check_ipv4_sysctl_attr('dummy98', 'force_igmp_version', '1')
 
@@ -7292,6 +7300,9 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         output = networkctl_status('veth-peer')
         print(output)
         self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
+
+        self.assertEqual(get_dhcp_server_property('veth-peer', 'PoolSize'), 'u 50')
+        self.assertEqual(get_dhcp_server_property('veth-peer', 'PoolOffset'), 'u 10')
 
         if persist_leases == 'yes':
             path = '/var/lib/systemd/network/dhcp-server-lease/veth-peer'

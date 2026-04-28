@@ -565,7 +565,7 @@ static int unmerge(
         bool need_to_reload;
         int r;
 
-        (void) dlopen_libmount();
+        (void) dlopen_libmount(LOG_DEBUG);
 
         r = need_reload(image_class, hierarchies, no_reload);
         if (r < 0)
@@ -1056,7 +1056,7 @@ static int resolve_mutable_directory(
                 /* This also creates, e.g., /var/lib/extensions.mutable/usr if needed and all parent
                  * directories plus it also works when the last part is a symlink to the real /usr but we
                  * can't use chase_and_open here because it does not behave the same. */
-                r = chase(path, root, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT, /* ret_path */ NULL, &path_fd);
+                r = chase(path, root, CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT, /* ret_path */ NULL, &path_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to chase/create base directory '%s/%s': %m", strempty(root), skip_leading_slash(path));
 
@@ -2373,9 +2373,9 @@ static int merge(ImageClass image_class,
 
         int r;
 
-        (void) dlopen_cryptsetup();
-        (void) dlopen_libblkid();
-        (void) dlopen_libmount();
+        (void) dlopen_cryptsetup(LOG_DEBUG);
+        (void) dlopen_libblkid(LOG_DEBUG);
+        (void) dlopen_libmount(LOG_DEBUG);
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(sd-merge)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, &pidref);

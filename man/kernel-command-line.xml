@@ -711,8 +711,8 @@
         <term><varname>systemd.allow_userspace_verity=</varname></term>
 
         <listitem><para>Takes a boolean argument. Controls whether disk images that are Verity protected may
-        be authenticated in userspace signature checks via <filename>/etc/verity.d/</filename> (and related
-        directories) public key drop-ins, or whether in-kernel signature checking only. Defaults to
+        be authenticated in userspace signature checks via <filename>/etc/verity.d/*.crt</filename> (and
+        related directories) public key drop-ins, or whether in-kernel signature checking only. Defaults to
         on.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>

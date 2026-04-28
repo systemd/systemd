@@ -1247,7 +1247,7 @@ static int parse_acl_cond_exec(
         assert(cond_exec);
         assert(ret);
 
-        r = dlopen_libacl();
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1366,7 +1366,7 @@ static int path_set_acl(
 
         assert(c);
 
-        r = dlopen_libacl();
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -4187,10 +4187,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_LONG("create", NULL, "Create and adjust files and directories"):
@@ -4225,8 +4224,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_VERSION:
                         return version();
 
-                OPTION_GROUP("Options"):
-                        break;
+                OPTION_GROUP("Options"): {}
 
                 OPTION_LONG("user", NULL, "Execute user configuration"):
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
@@ -4241,12 +4239,12 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("prefix", "PATH", "Only apply rules with the specified prefix"):
-                        if (strv_extend(&arg_include_prefixes, arg) < 0)
+                        if (strv_extend(&arg_include_prefixes, opts.arg) < 0)
                                 return log_oom();
                         break;
 
                 OPTION_LONG("exclude-prefix", "PATH", "Ignore rules with the specified prefix"):
-                        if (strv_extend(&arg_exclude_prefixes, arg) < 0)
+                        if (strv_extend(&arg_exclude_prefixes, opts.arg) < 0)
                                 return log_oom();
                         break;
 
@@ -4257,13 +4255,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_root);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_image);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
 
@@ -4274,20 +4272,20 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
-                        r = parse_image_policy_argument(arg, &arg_image_policy);
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("replace", "PATH", "Treat arguments as replacement for PATH"):
-                        if (!path_is_absolute(arg))
+                        if (!path_is_absolute(opts.arg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "The argument to --replace= must be an absolute path.");
-                        if (!endswith(arg, ".conf"))
+                        if (!endswith(opts.arg, ".conf"))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "The argument to --replace= must have the extension '.conf'.");
 
-                        arg_replace = arg;
+                        arg_replace = opts.arg;
                         break;
 
                 OPTION_LONG("dry-run", NULL, "Just print what would be done"):
@@ -4303,8 +4301,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
                 }
 
-        char **args = option_parser_get_args(&state);
-        size_t n_args = option_parser_get_n_args(&state);
+        char **args = option_parser_get_args(&opts);
+        size_t n_args = option_parser_get_n_args(&opts);
 
         if (arg_operation == 0 && arg_cat_flags == CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

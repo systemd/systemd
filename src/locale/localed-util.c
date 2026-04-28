@@ -319,7 +319,7 @@ int vconsole_write_data(Context *c) {
                 return 0;
         }
 
-        r = write_vconsole_conf(AT_FDCWD, "/etc/vconsole.conf", l);
+        r = write_vconsole_conf(AT_FDCWD, etc_vconsole_conf(), l);
         if (r < 0)
                 return r;
 

@@ -16,7 +16,7 @@
 
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
-#include "bpf/restrict-ifaces/restrict-ifaces-skel.h"
+#include "restrict-ifaces-skel.h"
 
 static struct restrict_ifaces_bpf *restrict_ifaces_bpf_free(struct restrict_ifaces_bpf *obj) {
         restrict_ifaces_bpf__destroy(obj);
@@ -86,7 +86,7 @@ int bpf_restrict_ifaces_supported(void) {
         if (supported >= 0)
                 return supported;
 
-        if (dlopen_bpf_full(LOG_WARNING) < 0)
+        if (dlopen_bpf(LOG_WARNING) < 0)
                 return (supported = false);
 
         r = prepare_restrict_ifaces_bpf(NULL, true, NULL, &obj);

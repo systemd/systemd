@@ -15,7 +15,7 @@ typedef enum UnifiedSection {
         UNIFIED_SECTION_DTB,
         UNIFIED_SECTION_UNAME,
         UNIFIED_SECTION_SBAT,
-        UNIFIED_SECTION_PCRSIG,
+        UNIFIED_SECTION_PCRSIG,   /* This is is not measured actually */
         UNIFIED_SECTION_PCRPKEY,
         UNIFIED_SECTION_PROFILE,
         UNIFIED_SECTION_DTBAUTO,

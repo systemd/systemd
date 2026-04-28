@@ -511,11 +511,9 @@ static int archive_entry_read_acl(
         assert(c > 0);
 
 #if HAVE_ACL
-        r = dlopen_libacl();
-        if (r < 0) {
-                log_debug_errno(r, "Not restoring ACL data on inode as libacl is not available: %m");
+        r = dlopen_libacl(LOG_DEBUG);
+        if (r < 0)
                 return 0;
-        }
 
         _cleanup_(acl_freep) acl_t a = NULL;
         a = sym_acl_init(c);
@@ -922,8 +920,8 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                                                 "Invalid hardlink path name '%s' in entry, refusing.", target);
 
                                         _cleanup_close_ int target_fd = -EBADF;
-                                        r = chaseat(tree_fd, target,
-                                                    CHASE_PROHIBIT_SYMLINKS|CHASE_AT_RESOLVE_IN_ROOT|CHASE_NOFOLLOW,
+                                        r = chaseat(tree_fd, tree_fd, target,
+                                                    CHASE_PROHIBIT_SYMLINKS|CHASE_NOFOLLOW,
                                                     /* ret_path= */ NULL, &target_fd);
                                         if (r < 0)
                                                 return log_error_errno(
@@ -953,8 +951,8 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
 
                                                 _cleanup_close_ int target_parent_fd = -EBADF;
                                                 _cleanup_free_ char *target_filename = NULL;
-                                                r = chaseat(tree_fd, target,
-                                                            CHASE_PROHIBIT_SYMLINKS|CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_EXTRACT_FILENAME|CHASE_NOFOLLOW,
+                                                r = chaseat(tree_fd, tree_fd, target,
+                                                            CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_EXTRACT_FILENAME|CHASE_NOFOLLOW,
                                                             &target_filename, &target_parent_fd);
                                                 if (r < 0)
                                                         return log_error_errno(r, "Failed to find inode '%s' which shall be hardlinked as '%s': %m",
@@ -1480,10 +1478,8 @@ static int archive_item(
 #if HAVE_ACL
         if (inode_type_can_acl(sx->stx_mode)) {
 
-                r = dlopen_libacl();
-                if (r < 0)
-                        log_debug_errno(r, "No trying to read ACL off inode, as libacl support is not available: %m");
-                else {
+                r = dlopen_libacl(LOG_DEBUG);
+                if (r >= 0) {
                         r = sym_acl_extended_file(FORMAT_PROC_FD_PATH(inode_fd));
                         if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(errno))
                                 return log_error_errno(errno, "Failed check if '%s' has ACLs: %m", path);

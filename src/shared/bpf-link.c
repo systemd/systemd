@@ -9,7 +9,7 @@ bool bpf_can_link_program(struct bpf_program *prog) {
 
         assert(prog);
 
-        if (dlopen_bpf() < 0)
+        if (dlopen_bpf(LOG_DEBUG) < 0)
                 return false;
 
         /* Pass invalid cgroup fd intentionally. */

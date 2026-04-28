@@ -70,9 +70,7 @@ static int partial_match_error(
 int option_parse(
                 const Option options[],
                 const Option options_end[],
-                OptionParser *state,
-                const Option **ret_option,
-                const char **ret_arg) {
+                OptionParser *state) {
 
         /* Check and initialize */
         if (state->optind == 0) {
@@ -96,7 +94,7 @@ int option_parse(
                 /* Handle non-option parameters */
                 for (;;) {
                         if (state->optind == state->argc)
-                                return 0;
+                                goto finished;
 
                         if (streq(state->argv[state->optind], "--")) {
                                 /* No more options. Move "--" before positional args so that
@@ -106,7 +104,7 @@ int option_parse(
                         }
 
                         if (state->parsing_stopped)
-                                return 0;
+                                goto finished;
 
                         if (state->argv[state->optind][0] == '-' &&
                             state->argv[state->optind][1] != '\0')
@@ -115,7 +113,7 @@ int option_parse(
 
                         if (state->mode == OPTION_PARSER_STOP_AT_FIRST_NONOPTION) {
                                 state->parsing_stopped = true;
-                                return 0;
+                                goto finished;
                         }
 
                         if (state->mode == OPTION_PARSER_RETURN_POSITIONAL_ARGS) {
@@ -254,17 +252,14 @@ int option_parse(
         if (FLAGS_SET(option->flags, OPTION_STOPS_PARSING))
                 state->parsing_stopped = true;
 
-        if (ret_option)
-                /* Return the matched Option structure to allow the caller to "know" what was matched */
-                *ret_option = option;
-
-        if (ret_arg)
-                *ret_arg = optval;
-        else
-                /* It's fine to omit ret_arg, but only if no options return a value. */
-                assert(!optval);
-
+        state->opt = option;
+        state->arg = optval;
         return option->id;
+
+ finished:
+        state->opt = NULL;
+        state->arg = NULL;
+        return 0;
 }
 
 char* option_parser_next_arg(const OptionParser *state) {
@@ -311,6 +306,59 @@ size_t option_parser_get_n_args(const OptionParser *state) {
         return state->argc - state->positional_offset;
 }
 
+char* option_get_synopsis(const char *prefix, const Option *opt, const char *joiner, bool show_metavar) {
+        assert(opt);
+        assert(!FLAGS_SET(opt->flags, OPTION_GROUP_MARKER));  /* A group marker should not be displayed */
+
+        if (!prefix)
+                prefix = "";
+
+        if (opt->flags & (OPTION_HELP_ENTRY_VERBATIM | OPTION_POSITIONAL_ENTRY))
+                return strjoin(prefix, ASSERT_PTR(opt->long_code));
+
+        /* The option formatted appropriately for --help strings, error messages, and similar:
+         *   <prefix>-<short><joiner>--<long>=[<metavar>]
+         * "=" is shown only when a long form is defined: -l --long=ARG, --long=ARG, -s ARG.
+         * The joiner arg is used between the short and long forms.
+         * As a special case, if the option has no long form and show_metavar is true,
+         * a space is used ('-a ARG' or '-a [ARG]').
+         */
+        assert(opt->short_code != 0 || opt->long_code);
+
+        char sc[3] = "";
+        if (opt->short_code != 0)
+                xsprintf(sc, "-%c", opt->short_code);
+
+        if (show_metavar && opt->metavar && !opt->long_code)
+                joiner = " ";  /* Return '-x ARG', no matter what joiner was specified. */
+        else if (opt->short_code == 0 || !opt->long_code)
+                joiner = "";
+        else if (!joiner)
+                joiner = " ";
+
+        bool need_eq = option_takes_arg(opt) && opt->long_code;
+        if (!show_metavar)
+                return strjoin(prefix,
+                               sc,
+                               joiner,
+                               opt->long_code ? "--" : "",
+                               strempty(opt->long_code),
+                               need_eq ? "=" : "");
+
+        bool need_quote = opt->metavar && strchr(opt->metavar, ' ');
+        return strjoin(prefix,
+                       sc,
+                       joiner,
+                       opt->long_code ? "--" : "",
+                       strempty(opt->long_code),
+                       option_arg_optional(opt) ? "[" : "",
+                       need_eq ? "=" : "",
+                       need_quote ? "'" : "",
+                       strempty(opt->metavar),
+                       need_quote ? "'" : "",
+                       option_arg_optional(opt) ? "]" : "");
+}
+
 int _option_parser_get_help_table(
                 const Option options[],
                 const Option options_end[],
@@ -341,38 +389,10 @@ int _option_parser_get_help_table(
                         /* No help string — we do not show the option */
                         continue;
 
-                _cleanup_free_ char *s = NULL;
-
-                if (FLAGS_SET(opt->flags, OPTION_HELP_ENTRY_VERBATIM)) {
-                        assert(opt->long_code);
-
-                        s = strjoin("  ",
-                                    opt->long_code);
-                } else {
-                        char sc[3] = "  ";
-                        if (opt->short_code != 0)
-                                xsprintf(sc, "-%c", opt->short_code);
-
-                        /* We indent the option string by two spaces. We could set the minimum cell width and
-                         * right-align for a similar result, but that'd be more work. This is only used for
-                         * display.
-                         *
-                         * "=" is shown only when a long option is defined: -l --long=ARG, --long=ARG, -s ARG.
-                         */
-                        bool need_eq = option_takes_arg(opt) && opt->long_code;
-                        bool need_quote = opt->metavar && strchr(opt->metavar, ' ');
-                        s = strjoin("  ",
-                                    sc,
-                                    " ",
-                                    opt->long_code ? "--" : "",
-                                    strempty(opt->long_code),
-                                    option_arg_optional(opt) ? "[" : "",
-                                    need_eq ? "=" : "",
-                                    need_quote ? "'" : "",
-                                    strempty(opt->metavar),
-                                    need_quote ? "'" : "",
-                                    option_arg_optional(opt) ? "]" : "");
-                }
+                /* We indent the option string by two spaces. We could set the minimum cell width and
+                 * right-align for a similar result, but that'd be more work. This is only used for
+                 * display. */
+                _cleanup_free_ char *s = option_get_synopsis("  ", opt, " ", /* show_metavar= */ true);
                 if (!s)
                         return log_oom();
 

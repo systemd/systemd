@@ -242,7 +242,7 @@ static int verify_trusted_image_fd_by_path(int fd) {
                         if (!filename_is_valid(e))
                                 continue;
 
-                        r = chaseat(dir_fd, e, CHASE_SAFE|CHASE_TRIGGER_AUTOFS, NULL, &inode_fd);
+                        r = chaseat(XAT_FDROOT, dir_fd, e, CHASE_SAFE|CHASE_TRIGGER_AUTOFS, NULL, &inode_fd);
                         if (r < 0)
                                 return log_error_errno(r, "Couldn't verify that specified image '%s' is in search path '%s': %m", p, s);
 

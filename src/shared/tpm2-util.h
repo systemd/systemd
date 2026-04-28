@@ -2,8 +2,9 @@
 #pragma once
 
 #include "bitfield.h"
-#include "openssl-util.h"
+#include "iovec-util.h"
 #include "shared-forward.h"
+#include "sha256-fundamental.h"
 
 typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN     = 1 << 0,
@@ -39,7 +40,7 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 
 #define TPM2_N_HASH_ALGORITHMS 4U
 
-int dlopen_tpm2(void);
+int dlopen_tpm2(int log_level);
 
 #if HAVE_TPM2
 

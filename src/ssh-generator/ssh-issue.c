@@ -159,12 +159,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argv);
         assert(ret_args);
 
-        OptionParser state = { argc, argv };
-        const Option *opt;
-        const char *arg, *verb = NULL;
+        OptionParser opts = { argc, argv };
+        const char *verb = NULL;
         int r;
 
-        FOREACH_OPTION_FULL(&state, c, &opt, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -175,18 +174,18 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("make-vsock", NULL, /* help= */ NULL): {}
                 OPTION_LONG("rm-vsock", NULL, /* help= */ NULL):
-                        verb = opt->long_code;
+                        verb = opts.opt->long_code;
                         break;
 
                 OPTION_LONG("issue-path", "PATH",
                             "Change path to /run/issue.d/50-ssh-vsock.issue"):
-                        if (empty_or_dash(arg)) {
+                        if (empty_or_dash(opts.arg)) {
                                 arg_issue_path = mfree(arg_issue_path);
                                 arg_issue_stdout = true;
                                 break;
                         }
 
-                        r = parse_path_argument(arg, /* suppress_root= */ false, &arg_issue_path);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_issue_path);
                         if (r < 0)
                                 return r;
 
@@ -202,12 +201,12 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         char **args;
         if (verb) {
-                if (option_parser_get_n_args(&state) > 0)
+                if (option_parser_get_n_args(&opts) > 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid use of compat option --make-vsock/--rm-vsock.");
                 log_warning("Options --make-vsock/--rm-vsock have been replaced by make-vsock/rm-vsock verbs.");
                 args = strv_new(verb);
         } else
-                args = strv_copy(option_parser_get_args(&state));
+                args = strv_copy(option_parser_get_args(&opts));
         if (!args)
                 return log_oom();
 

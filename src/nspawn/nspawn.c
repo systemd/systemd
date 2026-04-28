@@ -49,6 +49,7 @@
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
+#include "fork-notify.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -95,6 +96,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "polkit-agent.h"
@@ -133,6 +135,7 @@
 /* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
 #define NSPAWN_NOTIFY_SOCKET_PATH "/run/host/notify"
 #define NSPAWN_MOUNT_TUNNEL "/run/host/incoming"
+#define NSPAWN_JOURNAL_SOCKET_PATH "/run/host/journal/socket"
 
 #define EXIT_FORCE_RESTART 133
 
@@ -262,6 +265,11 @@ static char *arg_background = NULL;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 static bool arg_cleanup = false;
 static bool arg_ask_password = true;
+static char *arg_forward_journal = NULL;
+static uint64_t arg_forward_journal_max_use = UINT64_MAX;
+static uint64_t arg_forward_journal_keep_free = UINT64_MAX;
+static uint64_t arg_forward_journal_max_file_size = UINT64_MAX;
+static uint64_t arg_forward_journal_max_files = UINT64_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_template, freep);
@@ -303,6 +311,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_restrict_address_families, set_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_forward_journal, freep);
 
 static int parse_private_users(
                 const char *s,
@@ -593,11 +602,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
-        const Option *opt;
-        const char *arg;
+        OptionParser opts = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
 
-        FOREACH_OPTION_FULL(&state, c, &opt, &arg, /* on_error= */ return c) {
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -621,19 +628,19 @@ static int parse_argv(int argc, char *argv[]) {
                          * trusted          → read files, do not override cmdline, trust all
                          */
 
-                        r = parse_boolean(arg);
+                        r = parse_boolean(opts.arg);
                         if (r < 0) {
-                                if (streq(arg, "trusted")) {
+                                if (streq(opts.arg, "trusted")) {
                                         mask_all_settings = false;
                                         mask_no_settings = false;
                                         arg_settings_trusted = true;
 
-                                } else if (streq(arg, "override")) {
+                                } else if (streq(opts.arg, "override")) {
                                         mask_all_settings = false;
                                         mask_no_settings = true;
                                         arg_settings_trusted = -1;
                                 } else
-                                        return log_error_errno(r, "Failed to parse --settings= argument: %s", arg);
+                                        return log_error_errno(r, "Failed to parse --settings= argument: %s", opts.arg);
                         } else if (r > 0) {
                                 /* yes */
                                 mask_all_settings = false;
@@ -659,7 +666,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Image"): {}
 
                 OPTION('D', "directory", "PATH", "Root directory for the container"):
-                        r = parse_path_argument(arg, false, &arg_directory);
+                        r = parse_path_argument(opts.arg, false, &arg_directory);
                         if (r < 0)
                                 return r;
                         arg_settings_mask |= SETTING_DIRECTORY;
@@ -667,7 +674,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("template", "PATH",
                             "Initialize root directory from template directory, if missing"):
-                        r = parse_path_argument(arg, false, &arg_template);
+                        r = parse_path_argument(opts.arg, false, &arg_template);
                         if (r < 0)
                                 return r;
                         arg_settings_mask |= SETTING_DIRECTORY;
@@ -681,27 +688,27 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION('i', "image", "PATH",
                        "Root file system disk image (or device node) for the container"):
-                        r = parse_path_argument(arg, false, &arg_image);
+                        r = parse_path_argument(opts.arg, false, &arg_image);
                         if (r < 0)
                                 return r;
                         arg_settings_mask |= SETTING_DIRECTORY;
                         break;
 
                 OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
-                        r = parse_image_policy_argument(arg, &arg_image_policy);
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("mstack", "PATH", /* help= */ NULL):
-                        r = parse_path_argument(arg, false, &arg_mstack);
+                        r = parse_path_argument(opts.arg, false, &arg_mstack);
                         if (r < 0)
                                 return r;
                         arg_settings_mask |= SETTING_DIRECTORY;
                         break;
 
                 OPTION_LONG("oci-bundle", "PATH", "OCI bundle directory"):
-                        r = parse_path_argument(arg, false, &arg_oci_bundle);
+                        r = parse_path_argument(opts.arg, false, &arg_oci_bundle);
                         if (r < 0)
                                 return r;
                         break;
@@ -712,17 +719,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "volatile", "MODE", "Run the system in volatile mode"):
-                        if (!arg)
+                        if (!opts.arg)
                                 arg_volatile_mode = VOLATILE_YES;
-                        else if (streq(arg, "help"))
+                        else if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(volatile_mode, VolatileMode, _VOLATILE_MODE_MAX);
                         else {
                                 VolatileMode m;
 
-                                m = volatile_mode_from_string(arg);
+                                m = volatile_mode_from_string(opts.arg);
                                 if (m < 0)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse --volatile= argument: %s", arg);
+                                                               "Failed to parse --volatile= argument: %s", opts.arg);
                                 else
                                         arg_volatile_mode = m;
                         }
@@ -732,11 +739,11 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("root-hash", "HASH", "Specify verity root hash for root disk image"): {
                         _cleanup_(iovec_done) struct iovec k = {};
 
-                        r = unhexmem(arg, &k.iov_base, &k.iov_len);
+                        r = unhexmem(opts.arg, &k.iov_base, &k.iov_len);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse root hash: %s", arg);
+                                return log_error_errno(r, "Failed to parse root hash: %s", opts.arg);
                         if (k.iov_len < sizeof(sd_id128_t))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash must be at least 128-bit long: %s", arg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash must be at least 128-bit long: %s", opts.arg);
 
                         iovec_done(&arg_verity_settings.root_hash);
                         arg_verity_settings.root_hash = TAKE_STRUCT(k);
@@ -748,15 +755,15 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_(iovec_done) struct iovec p = {};
                         const char *value;
 
-                        if ((value = startswith(arg, "base64:"))) {
+                        if ((value = startswith(opts.arg, "base64:"))) {
                                 r = unbase64mem(value, &p.iov_base, &p.iov_len);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse root hash signature '%s': %m", arg);
+                                        return log_error_errno(r, "Failed to parse root hash signature '%s': %m", opts.arg);
 
                         } else {
-                                r = read_full_file(arg, (char**) &p.iov_base, &p.iov_len);
+                                r = read_full_file(opts.arg, (char**) &p.iov_base, &p.iov_len);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse root hash signature file '%s': %m", arg);
+                                        return log_error_errno(r, "Failed to parse root hash signature file '%s': %m", opts.arg);
                         }
 
                         iovec_done(&arg_verity_settings.root_hash_sig);
@@ -765,16 +772,16 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 OPTION_LONG("verity-data", "PATH", "Specify hash device for verity"):
-                        r = parse_path_argument(arg, false, &arg_verity_settings.data_path);
+                        r = parse_path_argument(opts.arg, false, &arg_verity_settings.data_path);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("pivot-root", "PATH[:PATH]",
                             "Pivot root to given directory in the container"):
-                        r = pivot_root_parse(&arg_pivot_root_new, &arg_pivot_root_old, arg);
+                        r = pivot_root_parse(&arg_pivot_root_new, &arg_pivot_root_old, opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --pivot-root= argument %s: %m", arg);
+                                return log_error_errno(r, "Failed to parse --pivot-root= argument %s: %m", opts.arg);
                         arg_settings_mask |= SETTING_PIVOT_ROOT;
                         break;
 
@@ -799,13 +806,13 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("chdir", "PATH", "Set working directory in the container"): {
                         _cleanup_free_ char *wd = NULL;
 
-                        if (!path_is_absolute(arg))
+                        if (!path_is_absolute(opts.arg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Working directory %s is not an absolute path.", arg);
+                                                       "Working directory %s is not an absolute path.", opts.arg);
 
-                        r = path_simplify_alloc(arg, &wd);
+                        r = path_simplify_alloc(opts.arg, &wd);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to simplify path %s: %m", arg);
+                                return log_error_errno(r, "Failed to simplify path %s: %m", opts.arg);
 
                         if (!path_is_normalized(wd))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Working directory path is not normalized: %s", wd);
@@ -819,38 +826,38 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 OPTION('E', "setenv", "NAME[=VALUE]", "Pass an environment variable to PID 1"):
-                        r = strv_env_replace_strdup_passthrough(&arg_setenv, arg);
+                        r = strv_env_replace_strdup_passthrough(&arg_setenv, opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Cannot assign environment variable %s: %m", arg);
+                                return log_error_errno(r, "Cannot assign environment variable %s: %m", opts.arg);
                         arg_settings_mask |= SETTING_ENVIRONMENT;
                         break;
 
                 OPTION('u', "uid", "USER", "Run the command under specified user or UID"):
-                        r = free_and_strdup(&arg_user, arg);
+                        r = free_and_strdup(&arg_user, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         arg_settings_mask |= SETTING_USER;
                         break;
 
                 OPTION_LONG("kill-signal", "SIGNAL", "Select signal to use for shutting down PID 1"):
-                        if (streq(arg, "help"))
+                        if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(signal, int, _NSIG);
 
-                        arg_kill_signal = signal_from_string(arg);
+                        arg_kill_signal = signal_from_string(opts.arg);
                         if (arg_kill_signal < 0)
-                                return log_error_errno(arg_kill_signal, "Cannot parse signal: %s", arg);
+                                return log_error_errno(arg_kill_signal, "Cannot parse signal: %s", opts.arg);
                         arg_settings_mask |= SETTING_KILL_SIGNAL;
                         break;
 
                 OPTION_LONG("notify-ready", "BOOLEAN", "Receive notifications from the child init process"):
-                        r = parse_boolean_argument("--notify-ready=", arg, &arg_notify_ready);
+                        r = parse_boolean_argument("--notify-ready=", opts.arg, &arg_notify_ready);
                         if (r < 0)
                                 return r;
                         arg_settings_mask |= SETTING_NOTIFY_READY;
                         break;
 
                 OPTION_LONG("suppress-sync", "BOOLEAN", "Suppress any form of disk data synchronization"):
-                        r = parse_boolean_argument("--suppress-sync=", arg, &arg_suppress_sync);
+                        r = parse_boolean_argument("--suppress-sync=", opts.arg, &arg_suppress_sync);
                         if (r < 0)
                                 return r;
                         arg_settings_mask |= SETTING_SUPPRESS_SYNC;
@@ -859,31 +866,31 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("System Identity"): {}
 
                 OPTION('M', "machine", "NAME", "Set the machine name for the container"):
-                        if (!isempty(arg) && !hostname_is_valid(arg, /* flags= */ 0))
+                        if (!isempty(opts.arg) && !hostname_is_valid(opts.arg, /* flags= */ 0))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid machine name: %s", arg);
-                        r = free_and_strdup_warn(&arg_machine, arg);
+                                                       "Invalid machine name: %s", opts.arg);
+                        r = free_and_strdup_warn(&arg_machine, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("hostname", "NAME", "Override the hostname for the container"):
-                        if (!isempty(arg) && !hostname_is_valid(arg, /* flags= */ 0))
+                        if (!isempty(opts.arg) && !hostname_is_valid(opts.arg, /* flags= */ 0))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid hostname: %s", arg);
-                        r = free_and_strdup_warn(&arg_hostname, arg);
+                                                       "Invalid hostname: %s", opts.arg);
+                        r = free_and_strdup_warn(&arg_hostname, opts.arg);
                         if (r < 0)
                                 return r;
                         arg_settings_mask |= SETTING_HOSTNAME;
                         break;
 
                 OPTION_LONG("uuid", "UUID", "Set a specific machine UUID for the container"):
-                        r = id128_from_string_nonzero(arg, &arg_uuid);
+                        r = id128_from_string_nonzero(opts.arg, &arg_uuid);
                         if (r == -ENXIO)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Machine UUID may not be all zeroes.");
                         if (r < 0)
-                                return log_error_errno(r, "Invalid UUID: %s", arg);
+                                return log_error_errno(r, "Invalid UUID: %s", opts.arg);
                         arg_settings_mask |= SETTING_MACHINE_ID;
                         break;
 
@@ -892,7 +899,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION('S', "slice", "SLICE", "Place the container in the specified slice"): {
                         _cleanup_free_ char *mangled = NULL;
 
-                        r = unit_name_mangle_with_suffix(arg, NULL, UNIT_NAME_MANGLE_WARN, ".slice", &mangled);
+                        r = unit_name_mangle_with_suffix(opts.arg, NULL, UNIT_NAME_MANGLE_WARN, ".slice", &mangled);
                         if (r < 0)
                                 return log_oom();
 
@@ -902,12 +909,12 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 OPTION_LONG("property", "NAME=VALUE", "Set scope unit property"):
-                        if (strv_extend(&arg_property, arg) < 0)
+                        if (strv_extend(&arg_property, opts.arg) < 0)
                                 return log_oom();
                         break;
 
                 OPTION_LONG("register", "BOOLEAN", "Register container as machine"):
-                        r = parse_tristate_argument_with_auto("--register=", arg, &arg_register);
+                        r = parse_tristate_argument_with_auto("--register=", opts.arg, &arg_register);
                         if (r < 0)
                                 return r;
                         break;
@@ -921,7 +928,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "private-users", "MODE",
                                   "Run within user namespace, configure UID/GID range"):
-                        r = parse_private_users(arg, &arg_userns_mode, &arg_uid_shift, &arg_uid_range);
+                        r = parse_private_users(opts.arg, &arg_userns_mode, &arg_uid_shift, &arg_uid_range);
                         if (r < 0)
                                 return r;
                         arg_settings_mask |= SETTING_USERNS;
@@ -929,12 +936,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("private-users-ownership", "MODE",
                             "Adjust ('chown') or map ('map') OS tree ownership to private UID/GID range"):
-                        if (streq(arg, "help"))
+                        if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(user_namespace_ownership, UserNamespaceOwnership, _USER_NAMESPACE_OWNERSHIP_MAX);
 
-                        arg_userns_ownership = user_namespace_ownership_from_string(arg);
+                        arg_userns_ownership = user_namespace_ownership_from_string(opts.arg);
                         if (arg_userns_ownership < 0)
-                                return log_error_errno(arg_userns_ownership, "Cannot parse --private-users-ownership= value: %s", arg);
+                                return log_error_errno(arg_userns_ownership, "Cannot parse --private-users-ownership= value: %s", opts.arg);
                         arg_settings_mask |= SETTING_USERNS;
                         break;
 
@@ -945,9 +952,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("private-users-delegate", "N",
                             "Delegate N additional 64K UID/GID ranges for use by nested containers"):
-                        r = safe_atou(arg, &arg_delegate_container_ranges);
+                        r = safe_atou(opts.arg, &arg_delegate_container_ranges);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --private-users-delegate= parameter: %s", arg);
+                                return log_error_errno(r, "Failed to parse --private-users-delegate= parameter: %s", opts.arg);
                         arg_settings_mask |= SETTING_USERNS;
                         break;
 
@@ -970,7 +977,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("network-interface", "HOSTIF[:CONTAINERIF]",
                             "Assign an existing network interface to the container"):
-                        r = interface_pair_parse(&arg_network_interfaces, arg);
+                        r = interface_pair_parse(&arg_network_interfaces, opts.arg);
                         if (r < 0)
                                 return r;
                         arg_private_network = true;
@@ -979,7 +986,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("network-macvlan", "HOSTIF[:CONTAINERIF]",
                             "Create a macvlan network interface based on an existing network interface to the container"):
-                        r = macvlan_pair_parse(&arg_network_macvlan, arg);
+                        r = macvlan_pair_parse(&arg_network_macvlan, opts.arg);
                         if (r < 0)
                                 return r;
                         arg_private_network = true;
@@ -988,7 +995,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("network-ipvlan", "HOSTIF[:CONTAINERIF]",
                             "Create an ipvlan network interface based on an existing network interface to the container"):
-                        r = ipvlan_pair_parse(&arg_network_ipvlan, arg);
+                        r = ipvlan_pair_parse(&arg_network_ipvlan, opts.arg);
                         if (r < 0)
                                 return r;
                         arg_private_network = true;
@@ -1004,19 +1011,19 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("network-veth-extra", "HOSTIF[:CONTAINERIF]",
                             "Add an additional virtual Ethernet link between host and container"):
-                        r = veth_extra_parse(&arg_network_veth_extra, arg);
+                        r = veth_extra_parse(&arg_network_veth_extra, opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --network-veth-extra= parameter: %s", arg);
+                                return log_error_errno(r, "Failed to parse --network-veth-extra= parameter: %s", opts.arg);
                         arg_private_network = true;
                         arg_settings_mask |= SETTING_NETWORK;
                         break;
 
                 OPTION_LONG("network-bridge", "INTERFACE",
                             "Add a virtual Ethernet connection to the container and attach it to an existing bridge on the host"):
-                        if (!ifname_valid(arg))
+                        if (!ifname_valid(opts.arg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Bridge interface name not valid: %s", arg);
-                        r = free_and_strdup(&arg_network_bridge, arg);
+                                                       "Bridge interface name not valid: %s", opts.arg);
+                        r = free_and_strdup(&arg_network_bridge, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         arg_network_veth = true;
@@ -1028,7 +1035,7 @@ static int parse_argv(int argc, char *argv[]) {
                             "Similar, but attach the new interface to an automatically managed bridge interface"): {
                         _cleanup_free_ char *j = NULL;
 
-                        j = strjoin("vz-", arg);
+                        j = strjoin("vz-", opts.arg);
                         if (!j)
                                 return log_oom();
 
@@ -1045,7 +1052,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("network-namespace-path", "PATH",
                             "Set network namespace to the one represented by the specified kernel namespace file node"):
-                        r = parse_path_argument(arg, false, &arg_network_namespace_path);
+                        r = parse_path_argument(opts.arg, false, &arg_network_namespace_path);
                         if (r < 0)
                                 return r;
                         arg_settings_mask |= SETTING_NETWORK;
@@ -1053,11 +1060,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION('p', "port", "[PROTOCOL:]HOSTPORT[:CONTAINERPORT]",
                        "Expose a container IP port on the host"):
-                        r = expose_port_parse(&arg_expose_ports, arg);
+                        r = expose_port_parse(&arg_expose_ports, opts.arg);
                         if (r == -EEXIST)
-                                return log_error_errno(r, "Duplicate port specification: %s", arg);
+                                return log_error_errno(r, "Duplicate port specification: %s", opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse host port %s: %m", arg);
+                                return log_error_errno(r, "Failed to parse host port %s: %m", opts.arg);
                         arg_settings_mask |= SETTING_EXPOSE_PORTS;
                         break;
 
@@ -1068,11 +1075,11 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("drop-capability", "CAP",
                             "Drop the specified capability from the default set"): {
                         uint64_t m;
-                        r = parse_capability_spec(arg, &m);
+                        r = parse_capability_spec(opts.arg, &m);
                         if (r <= 0)
                                 return r;
 
-                        if (streq(opt->long_code, "capability"))
+                        if (streq(opts.opt->long_code, "capability"))
                                 plus |= m;
                         else
                                 minus |= m;
@@ -1083,7 +1090,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("ambient-capability", "CAP",
                             "Sets the specified capability for the started process"): {
                         uint64_t m;
-                        r = parse_capability_spec(arg, &m);
+                        r = parse_capability_spec(opts.arg, &m);
                         if (r <= 0)
                                 return r;
                         arg_caps_ambient |= m;
@@ -1093,7 +1100,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("no-new-privileges", "BOOL",
                             "Set PR_SET_NO_NEW_PRIVS flag for container payload"):
-                        r = parse_boolean_argument("--no-new-privileges=", arg, &arg_no_new_privileges);
+                        r = parse_boolean_argument("--no-new-privileges=", opts.arg, &arg_no_new_privileges);
                         if (r < 0)
                                 return r;
                         arg_settings_mask |= SETTING_NO_NEW_PRIVILEGES;
@@ -1104,8 +1111,8 @@ static int parse_argv(int argc, char *argv[]) {
                         bool negative;
                         const char *items;
 
-                        negative = arg[0] == '~';
-                        items = negative ? arg + 1 : arg;
+                        negative = opts.arg[0] == '~';
+                        items = negative ? opts.arg + 1 : opts.arg;
 
                         for (;;) {
                                 _cleanup_free_ char *word = NULL;
@@ -1130,21 +1137,21 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 OPTION_LONG("restrict-address-families", "LIST", "Restrict socket address families to the given allowlist"):
-                        r = parse_address_families(optarg, &arg_restrict_address_families, &arg_restrict_address_families_is_allowlist);
+                        r = parse_address_families(opts.arg, &arg_restrict_address_families, &arg_restrict_address_families_is_allowlist);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --restrict-address-families= argument: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --restrict-address-families= argument: %s", opts.arg);
 
                         arg_settings_mask |= SETTING_RESTRICT_ADDRESS_FAMILIES;
                         break;
 
                 OPTION('Z', "selinux-context", "SECLABEL",
                        "Set the SELinux security context to be used by processes in the container"):
-                        arg_selinux_context = arg;
+                        arg_selinux_context = opts.arg;
                         break;
 
                 OPTION('L', "selinux-apifs-context", "SECLABEL",
                        "Set the SELinux security context to be used by API/tmpfs file systems in the container"):
-                        arg_selinux_apifs_context = arg;
+                        arg_selinux_apifs_context = opts.arg;
                         break;
 
                 OPTION_GROUP("Resources"): {}
@@ -1154,15 +1161,15 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_free_ char *name = NULL;
                         int rl;
 
-                        if (streq(arg, "help"))
+                        if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(rlimit, int, _RLIMIT_MAX);
 
-                        eq = strchr(arg, '=');
+                        eq = strchr(opts.arg, '=');
                         if (!eq)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--rlimit= expects an '=' assignment.");
 
-                        name = strndup(arg, eq - arg);
+                        name = strndup(opts.arg, eq - opts.arg);
                         if (!name)
                                 return log_oom();
 
@@ -1185,9 +1192,9 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 OPTION_LONG("oom-score-adjust", "VALUE", "Adjust the OOM score value for the payload"):
-                        r = parse_oom_score_adjust(arg, &arg_oom_score_adjust);
+                        r = parse_oom_score_adjust(opts.arg, &arg_oom_score_adjust);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --oom-score-adjust= parameter: %s", arg);
+                                return log_error_errno(r, "Failed to parse --oom-score-adjust= parameter: %s", opts.arg);
                         arg_oom_score_adjust_set = true;
                         arg_settings_mask |= SETTING_OOM_SCORE_ADJUST;
                         break;
@@ -1195,9 +1202,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("cpu-affinity", "CPUS", "Adjust the CPU affinity of the container"): {
                         CPUSet cpuset;
 
-                        r = parse_cpu_set(arg, &cpuset);
+                        r = parse_cpu_set(opts.arg, &cpuset);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse CPU affinity mask %s: %m", arg);
+                                return log_error_errno(r, "Failed to parse CPU affinity mask %s: %m", opts.arg);
 
                         cpu_set_done_and_replace(arg_cpu_set, cpuset);
                         arg_settings_mask |= SETTING_CPU_AFFINITY;
@@ -1205,42 +1212,42 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 OPTION_LONG("personality", "ARCH", "Pick personality for this container"):
-                        arg_personality = personality_from_string(arg);
+                        arg_personality = personality_from_string(opts.arg);
                         if (arg_personality == PERSONALITY_INVALID)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown or unsupported personality '%s'.", arg);
+                                                       "Unknown or unsupported personality '%s'.", opts.arg);
                         arg_settings_mask |= SETTING_PERSONALITY;
                         break;
 
                 OPTION_GROUP("Integration"): {}
 
                 OPTION_LONG("resolv-conf", "MODE", "Select mode of /etc/resolv.conf initialization"):
-                        if (streq(arg, "help"))
+                        if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(resolv_conf_mode, ResolvConfMode, _RESOLV_CONF_MODE_MAX);
 
-                        arg_resolv_conf = resolv_conf_mode_from_string(arg);
+                        arg_resolv_conf = resolv_conf_mode_from_string(opts.arg);
                         if (arg_resolv_conf < 0)
                                 return log_error_errno(arg_resolv_conf,
-                                                       "Failed to parse /etc/resolv.conf mode: %s", arg);
+                                                       "Failed to parse /etc/resolv.conf mode: %s", opts.arg);
                         arg_settings_mask |= SETTING_RESOLV_CONF;
                         break;
 
                 OPTION_LONG("timezone", "MODE", "Select mode of /etc/localtime initialization"):
-                        if (streq(arg, "help"))
+                        if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(timezone_mode, TimezoneMode, _TIMEZONE_MODE_MAX);
 
-                        arg_timezone = timezone_mode_from_string(arg);
+                        arg_timezone = timezone_mode_from_string(opts.arg);
                         if (arg_timezone < 0)
                                 return log_error_errno(arg_timezone,
-                                                       "Failed to parse /etc/localtime mode: %s", arg);
+                                                       "Failed to parse /etc/localtime mode: %s", opts.arg);
                         arg_settings_mask |= SETTING_TIMEZONE;
                         break;
 
                 OPTION_LONG("link-journal", "MODE",
                             "Link up guest journal, one of no, auto, guest, host, try-guest, try-host"):
-                        r = parse_link_journal(arg, &arg_link_journal, &arg_link_journal_try);
+                        r = parse_link_journal(opts.arg, &arg_link_journal, &arg_link_journal_try);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse link journal mode %s", arg);
+                                return log_error_errno(r, "Failed to parse link journal mode %s", opts.arg);
                         arg_settings_mask |= SETTING_LINK_JOURNAL;
                         break;
 
@@ -1250,32 +1257,62 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_LINK_JOURNAL;
                         break;
 
+                OPTION_LONG("forward-journal", "FILE|DIR", "Forward the container's journal to the host"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_forward_journal);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("forward-journal-max-use", "BYTES", "Maximum disk space for forwarded journal"):
+                        r = parse_size(opts.arg, 1024, &arg_forward_journal_max_use);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-use= value: %s", opts.arg);
+                        break;
+
+                OPTION_LONG("forward-journal-keep-free", "BYTES", "Minimum disk space to keep free"):
+                        r = parse_size(opts.arg, 1024, &arg_forward_journal_keep_free);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-keep-free= value: %s", opts.arg);
+                        break;
+
+                OPTION_LONG("forward-journal-max-file-size", "BYTES", "Maximum size of individual journal files"):
+                        r = parse_size(opts.arg, 1024, &arg_forward_journal_max_file_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-file-size= value: %s", opts.arg);
+                        break;
+
+                OPTION_LONG("forward-journal-max-files", "N", "Maximum number of journal files to keep"):
+                        r = safe_atou64(opts.arg, &arg_forward_journal_max_files);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-files= value: %s", opts.arg);
+                        break;
+
                 OPTION_GROUP("Mounts"): {}
 
                 OPTION_LONG("bind", "PATH[:PATH[:OPTIONS]]",
                             "Bind mount a file or directory from the host into the container"): {}
                 OPTION_LONG("bind-ro", "PATH[:PATH[:OPTIONS]]",
                             "Similar, but creates a read-only bind mount"):
-                        r = bind_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, arg,
-                                             streq(opt->long_code, "bind-ro"));
+                        r = bind_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, opts.arg,
+                                             streq(opts.opt->long_code, "bind-ro"));
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --bind(-ro)= argument %s: %m", arg);
+                                return log_error_errno(r, "Failed to parse --bind(-ro)= argument %s: %m", opts.arg);
                         arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
                         break;
 
                 OPTION_LONG("inaccessible", "PATH",
                             "Over-mount file node with inaccessible node to mask it"):
-                        r = inaccessible_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, arg);
+                        r = inaccessible_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --inaccessible= argument %s: %m", arg);
+                                return log_error_errno(r, "Failed to parse --inaccessible= argument %s: %m", opts.arg);
                         arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
                         break;
 
                 OPTION_LONG("tmpfs", "PATH:[OPTIONS]",
                             "Mount an empty tmpfs to the specified directory"):
-                        r = tmpfs_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, arg);
+                        r = tmpfs_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --tmpfs= argument %s: %m", arg);
+                                return log_error_errno(r, "Failed to parse --tmpfs= argument %s: %m", opts.arg);
                         arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
                         break;
 
@@ -1283,19 +1320,19 @@ static int parse_argv(int argc, char *argv[]) {
                             "Create an overlay mount from the host to the container"): {}
                 OPTION_LONG("overlay-ro", "PATH[:PATH...]:PATH",
                             "Similar, but creates a read-only overlay mount"):
-                        r = overlay_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, arg,
-                                                streq(opt->long_code, "overlay-ro"));
+                        r = overlay_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, opts.arg,
+                                                streq(opts.opt->long_code, "overlay-ro"));
                         if (r == -EADDRNOTAVAIL)
                                 return log_error_errno(r, "--overlay(-ro)= needs at least two colon-separated directories specified.");
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --overlay(-ro)= argument %s: %m", arg);
+                                return log_error_errno(r, "Failed to parse --overlay(-ro)= argument %s: %m", opts.arg);
                         arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
                         break;
 
                 OPTION_LONG("bind-user", "NAME", "Bind user from host to container"):
-                        if (!valid_user_group_name(arg, 0))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid user name to bind: %s", arg);
-                        if (strv_extend(&arg_bind_user, arg) < 0)
+                        if (!valid_user_group_name(opts.arg, 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid user name to bind: %s", opts.arg);
+                        if (strv_extend(&arg_bind_user, opts.arg) < 0)
                                 return log_oom();
                         arg_settings_mask |= SETTING_BIND_USER;
                         break;
@@ -1304,11 +1341,11 @@ static int parse_argv(int argc, char *argv[]) {
                             "Configure the shell to use for --bind-user= users"): {
                         bool copy = false;
                         char *sh = NULL;
-                        r = parse_user_shell(arg, &sh, &copy);
+                        r = parse_user_shell(opts.arg, &sh, &copy);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
-                                return log_error_errno(r, "Invalid user shell to bind: %s", arg);
+                                return log_error_errno(r, "Invalid user shell to bind: %s", opts.arg);
 
                         free_and_replace(arg_bind_user_shell, sh);
                         arg_bind_user_shell_copy = copy;
@@ -1318,9 +1355,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("bind-user-group", "GROUP",
                             "Add an auxiliary group to --bind-user= users"):
-                        if (!valid_user_group_name(arg, /* flags= */ 0))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid bind user auxiliary group name: %s", arg);
-                        if (strv_extend(&arg_bind_user_groups, arg) < 0)
+                        if (!valid_user_group_name(opts.arg, /* flags= */ 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid bind user auxiliary group name: %s", opts.arg);
+                        if (strv_extend(&arg_bind_user_groups, opts.arg) < 0)
                                 return log_oom();
                         break;
 
@@ -1328,12 +1365,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("console", "MODE",
                             "Select how stdin/stdout/stderr and /dev/console are set up for the container"):
-                        if (streq(arg, "help"))
+                        if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(console_mode, ConsoleMode, _CONSOLE_MODE_MAX);
 
-                        arg_console_mode = console_mode_from_string(arg);
+                        arg_console_mode = console_mode_from_string(opts.arg);
                         if (arg_console_mode < 0)
-                                return log_error_errno(arg_console_mode, "Unknown console mode: %s", arg);
+                                return log_error_errno(arg_console_mode, "Unknown console mode: %s", opts.arg);
                         arg_settings_mask |= SETTING_CONSOLE_MODE;
                         break;
 
@@ -1343,7 +1380,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("background", "COLOR", "Set ANSI color for background"):
-                        r = parse_background_argument(arg, &arg_background);
+                        r = parse_background_argument(opts.arg, &arg_background);
                         if (r < 0)
                                 return r;
                         break;
@@ -1352,7 +1389,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("set-credential", "ID:VALUE",
                             "Pass a credential with literal value to container"):
-                        r = machine_credential_set(&arg_credentials, arg);
+                        r = machine_credential_set(&arg_credentials, opts.arg);
                         if (r < 0)
                                 return r;
                         arg_settings_mask |= SETTING_CREDENTIALS;
@@ -1360,7 +1397,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("load-credential", "ID:PATH",
                             "Load credential to pass to container from file or AF_UNIX stream socket"):
-                        r = machine_credential_load(&arg_credentials, arg);
+                        r = machine_credential_load(&arg_credentials, opts.arg);
                         if (r < 0)
                                 return r;
                         arg_settings_mask |= SETTING_CREDENTIALS;
@@ -1374,24 +1411,24 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "user", "NAME", "Run in the user service manager scope"):
-                        if (arg)
+                        if (opts.arg)
                                 /* --user=NAME is a deprecated alias for --uid=NAME */
                                 log_warning("--user=NAME is deprecated, use --uid=NAME instead.");
                         else {
                                 /* --user= used to require an argument (the container user to run as). It has
                                  * been repurposed to optionally set the runtime scope, with --uid= replacing
                                  * the old container user functionality. To maintain backwards compatibility
-                                 * with the space-separated form (--user NAME), if the next arg does not look
+                                 * with the space-separated form (--user NAME), if the next opts.arg does not look
                                  * like an option, interpret it as a user name. */
-                                const char *t = option_parser_next_arg(&state);
+                                const char *t = option_parser_next_arg(&opts);
                                 if (t && t[0] != '-') {
-                                        arg = option_parser_consume_next_arg(&state);
+                                        opts.arg = option_parser_consume_next_arg(&opts);
                                         log_warning("--user NAME is deprecated, use --uid=NAME instead.");
                                 }
                         }
 
-                        if (arg) {
-                                r = free_and_strdup(&arg_user, arg);
+                        if (opts.arg) {
+                                r = free_and_strdup(&arg_user, opts.arg);
                                 if (r < 0)
                                         return log_oom();
                                 arg_settings_mask |= SETTING_USER;
@@ -1405,7 +1442,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        char **args = option_parser_get_args(&state);
+        char **args = option_parser_get_args(&opts);
         if (!strv_isempty(args)) {
                 strv_free(arg_parameters);
                 arg_parameters = strv_copy(args);
@@ -1445,6 +1482,12 @@ static int parse_argv(int argc, char *argv[]) {
         arg_caps_retain |= plus;
         arg_caps_retain |= arg_private_network ? UINT64_C(1) << CAP_NET_ADMIN : 0;
         arg_caps_retain &= ~minus;
+
+        if ((arg_forward_journal_max_use != UINT64_MAX ||
+             arg_forward_journal_keep_free != UINT64_MAX ||
+             arg_forward_journal_max_file_size != UINT64_MAX ||
+             arg_forward_journal_max_files != UINT64_MAX) && !arg_forward_journal)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--forward-journal-max-use=/--forward-journal-keep-free=/--forward-journal-max-file-size=/--forward-journal-max-files= require --forward-journal=.");
 
         /* Make sure to parse environment before we reset the settings mask below */
         r = parse_environment();
@@ -3708,9 +3751,10 @@ static int setup_notify_child(const void *directory) {
         return TAKE_FD(fd);
 }
 
-static int setup_unix_export_dir_outside(char **ret) {
+static int setup_unix_export_dir_outside(const char *runtime_dir, char **ret) {
         int r;
 
+        assert(runtime_dir);
         assert(ret);
 
         if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
@@ -3719,7 +3763,7 @@ static int setup_unix_export_dir_outside(char **ret) {
         }
 
         _cleanup_free_ char *p = NULL;
-        p = path_join("/run/systemd/nspawn/unix-export", arg_machine);
+        p = path_join(runtime_dir, "unix-export");
         if (!p)
                 return log_oom();
 
@@ -5103,6 +5147,7 @@ static int load_oci_bundle(void) {
 }
 
 static int run_container(
+                const char *runtime_dir,
                 const char *directory,
                 int mount_fd,
                 DissectedImage *dissected_image,
@@ -5141,7 +5186,7 @@ static int run_container(
         assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
 
         /* Set up the unix export host directory on the host first */
-        r = setup_unix_export_dir_outside(&unix_export_host_dir);
+        r = setup_unix_export_dir_outside(runtime_dir, &unix_export_host_dir);
         if (r < 0)
                 return r;
 
@@ -5907,18 +5952,22 @@ static int cant_be_in_netns(void) {
         return 0;
 }
 
-static void cleanup_propagation_and_export_directories(void) {
-        const char *p;
+static void cleanup_propagation_and_export_directories(const char *runtime_dir) {
+        _cleanup_free_ char *p = NULL;
 
-        if (!arg_machine || arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
+        if (!runtime_dir || arg_userns_mode == USER_NAMESPACE_MANAGED)
                 return;
 
-        p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
-        (void) rm_rf(p, REMOVE_ROOT);
+        p = path_join("/run/systemd/nspawn/propagate", arg_machine);
+        if (p)
+                (void) rm_rf(p, REMOVE_ROOT);
 
-        p = strjoina("/run/systemd/nspawn/unix-export/", arg_machine);
-        (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
-        (void) rmdir(p);
+        free(p);
+        p = path_join(runtime_dir, "unix-export");
+        if (p) {
+                (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
+                (void) rmdir(p);
+        }
 }
 
 static int do_cleanup(void) {
@@ -5931,7 +5980,16 @@ static int do_cleanup(void) {
         if (r < 0)
                 return r;
 
-        cleanup_propagation_and_export_directories();
+        _cleanup_free_ char *subdir = path_join("systemd/nspawn", arg_machine);
+        if (!subdir)
+                return log_oom();
+
+        _cleanup_free_ char *runtime_dir = NULL;
+        r = runtime_directory(arg_runtime_scope, subdir, &runtime_dir);
+        if (r < 0)
+                return r;
+
+        cleanup_propagation_and_export_directories(runtime_dir);
         return 0;
 }
 
@@ -5951,6 +6009,9 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL, *mountfsd_link = NULL;
+        _cleanup_free_ char *runtime_dir = NULL, *subdir = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
+        _cleanup_(fork_notify_terminate) PidRef journal_remote_pidref = PIDREF_NULL;
 
         log_setup();
 
@@ -5961,9 +6022,9 @@ static int run(int argc, char *argv[]) {
         if (arg_cleanup)
                 return do_cleanup();
 
-        (void) dlopen_libmount();
-        (void) dlopen_libseccomp();
-        (void) dlopen_libselinux();
+        (void) dlopen_libmount(LOG_DEBUG);
+        (void) dlopen_libseccomp(LOG_DEBUG);
+        (void) dlopen_libselinux(LOG_DEBUG);
 
         r = cg_has_legacy();
         if (r < 0)
@@ -6440,6 +6501,22 @@ static int run(int argc, char *argv[]) {
         } else
                 assert_not_reached();
 
+        subdir = path_join("systemd/nspawn", arg_machine);
+        if (!subdir) {
+                r = log_oom();
+                goto finish;
+        }
+
+        r = runtime_directory_make(
+                        arg_runtime_scope,
+                        subdir,
+                        &runtime_dir,
+                        &runtime_dir_destroy);
+        if (r < 0) {
+                log_error_errno(r, "Failed to create runtime directory: %m");
+                goto finish;
+        }
+
         /* Create a temporary place to mount stuff. */
         r = mkdtemp_malloc("/tmp/nspawn-root-XXXXXX", &rootdir);
         if (r < 0) {
@@ -6486,8 +6563,61 @@ static int run(int argc, char *argv[]) {
                 expose_args.nfnl = nfnl;
         }
 
+        if (arg_forward_journal) {
+                _cleanup_free_ char *socket_path = path_join(runtime_dir, "journal-remote-socket");
+                if (!socket_path) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                union sockaddr_union sa;
+                r = sockaddr_un_set_path(&sa.un, socket_path);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set AF_UNIX path to '%s': %m", socket_path);
+                        goto finish;
+                }
+
+                (void) sockaddr_un_unlink(&sa.un);
+
+                r = fork_journal_remote(
+                                socket_path,
+                                arg_forward_journal,
+                                arg_forward_journal_max_use,
+                                arg_forward_journal_keep_free,
+                                arg_forward_journal_max_file_size,
+                                arg_forward_journal_max_files,
+                                &journal_remote_pidref);
+                if (r < 0)
+                        goto finish;
+
+                CustomMount *cm = custom_mount_add(&arg_custom_mounts, &arg_n_custom_mounts, CUSTOM_MOUNT_BIND);
+                if (!cm) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                cm->source = TAKE_PTR(socket_path);
+                cm->read_only = true;
+                cm->destination = strdup(NSPAWN_JOURNAL_SOCKET_PATH);
+                if (!cm->destination) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                r = machine_credential_add(&arg_credentials, "journal.forward_to_socket", NSPAWN_JOURNAL_SOCKET_PATH, SIZE_MAX);
+                if (r == -EEXIST) {
+                        log_error_errno(r, "Credential 'journal.forward_to_socket' already set via --set-credential=, refusing --forward-journal=.");
+                        goto finish;
+                }
+                if (r < 0) {
+                        log_error_errno(r, "Failed to add 'journal.forward_to_socket' credential: %m");
+                        goto finish;
+                }
+        }
+
         for (;;) {
                 r = run_container(
+                                runtime_dir,
                                 rootdir,
                                 mount_fd,
                                 dissected_image,
@@ -6528,18 +6658,7 @@ finish:
                         log_warning_errno(errno, "Can't remove image file '%s', ignoring: %m", arg_image);
         }
 
-        if (arg_machine && arg_userns_mode != USER_NAMESPACE_MANAGED) {
-                const char *p;
-
-                p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
-                (void) rm_rf(p, REMOVE_ROOT);
-
-                p = strjoina("/run/systemd/nspawn/unix-export/", arg_machine);
-                (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
-                (void) rmdir(p);
-        }
-
-        cleanup_propagation_and_export_directories();
+        cleanup_propagation_and_export_directories(runtime_dir);
 
         expose_port_flush(nfnl, arg_expose_ports, AF_INET,  &expose_args.address4);
         expose_port_flush(nfnl, arg_expose_ports, AF_INET6, &expose_args.address6);

@@ -8,4 +8,4 @@ int suggest_passwords(void);
 int check_password_quality(const char *password, const char *old, const char *username, char **ret_error);
 #endif
 
-int dlopen_passwdqc(void);
+int dlopen_passwdqc(int log_level);

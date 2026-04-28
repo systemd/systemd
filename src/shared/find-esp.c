@@ -31,6 +31,7 @@ typedef enum VerifyESPFlags {
         VERIFY_ESP_UNPRIVILEGED_MODE = 1 << 1, /* Call into udev rather than blkid */
         VERIFY_ESP_SKIP_FSTYPE_CHECK = 1 << 2, /* Skip filesystem check */
         VERIFY_ESP_SKIP_DEVICE_CHECK = 1 << 3, /* Skip device node check  */
+        VERIFY_ESP_SKIP_FSROOT_CHECK = 1 << 4, /* Skip fsroot check  */
 } VerifyESPFlags;
 
 static VerifyESPFlags verify_esp_flags_init(int unprivileged_mode, const char *env_name_for_relaxing) {
@@ -48,7 +49,7 @@ static VerifyESPFlags verify_esp_flags_init(int unprivileged_mode, const char *e
         if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $%s environment variable, assuming false.", env_name_for_relaxing);
         else if (r > 0)
-                flags |= VERIFY_ESP_SKIP_FSTYPE_CHECK | VERIFY_ESP_SKIP_DEVICE_CHECK;
+                flags |= VERIFY_ESP_SKIP_FSTYPE_CHECK | VERIFY_ESP_SKIP_DEVICE_CHECK | VERIFY_ESP_SKIP_FSROOT_CHECK;
 
         if (detect_container() > 0)
                 flags |= VERIFY_ESP_SKIP_DEVICE_CHECK;
@@ -75,9 +76,9 @@ static int verify_esp_blkid(
         const char *v;
         int r;
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_DEBUG);
         if (r < 0)
-                return log_debug_errno(r, "No libblkid support: %m");
+                return r;
 
         r = devname_from_devnum(S_IFBLK, devid, &node);
         if (r < 0)
@@ -337,7 +338,7 @@ static int verify_esp(
 
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -EBADF;
-        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &p, &fd);
+        r = chaseat(rfd, rfd, path, CHASE_TRIGGER_AUTOFS, &p, &fd);
         if (r < 0)
                 return log_full_errno((searching && r == -ENOENT) ||
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR,
@@ -356,9 +357,11 @@ static int verify_esp(
         }
 
         dev_t devid = 0;
-        r = verify_fsroot_dir(p, fd, flags, FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK) ? NULL : &devid);
-        if (r < 0)
-                return r;
+        if (!FLAGS_SET(flags, VERIFY_ESP_SKIP_FSROOT_CHECK)) {
+                r = verify_fsroot_dir(p, fd, flags, FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK) ? NULL : &devid);
+                if (r < 0)
+                        return r;
+        }
 
         /* In a container we don't have access to block devices, skip this part of the verification, we trust
          * the container manager set everything up correctly on its own. */
@@ -441,7 +444,7 @@ int find_esp_and_warn_at_full(
                                                "$SYSTEMD_ESP_PATH does not refer to an absolute path, refusing to use it: \"%s\"",
                                                path);
 
-                r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &p, &fd);
+                r = chaseat(rfd, rfd, path, CHASE_TRIGGER_AUTOFS, &p, &fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve path \"%s\": %m", path);
 
@@ -572,9 +575,9 @@ static int verify_xbootldr_blkid(
         const char *type, *v;
         int r;
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_DEBUG);
         if (r < 0)
-                return log_debug_errno(r, "No libblkid support: %m");
+                return r;
 
         r = devname_from_devnum(S_IFBLK, devid, &node);
         if (r < 0)
@@ -735,16 +738,18 @@ static int verify_xbootldr(
 
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -EBADF;
-        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &p, &fd);
+        r = chaseat(rfd, rfd, path, CHASE_TRIGGER_AUTOFS, &p, &fd);
         if (r < 0)
                 return log_full_errno((searching && r == -ENOENT) ||
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR,
                                       r, "Failed to open directory \"%s\": %m", path);
 
         dev_t devid = 0;
-        r = verify_fsroot_dir(p, fd, flags, FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK) ? NULL : &devid);
-        if (r < 0)
-                return r;
+        if (!FLAGS_SET(flags, VERIFY_ESP_SKIP_FSROOT_CHECK)) {
+                r = verify_fsroot_dir(p, fd, flags, FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK) ? NULL : &devid);
+                if (r < 0)
+                        return r;
+        }
 
         if (FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK)) {
                 if (ret_uuid)
@@ -809,7 +814,7 @@ int find_xbootldr_and_warn_at_full(
                                                "$SYSTEMD_XBOOTLDR_PATH does not refer to an absolute path, refusing to use it: \"%s\"",
                                                path);
 
-                r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &p, &fd);
+                r = chaseat(rfd, rfd, path, CHASE_TRIGGER_AUTOFS, &p, &fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve path \"%s\": %m", p);
 

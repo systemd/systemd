@@ -31,7 +31,7 @@ executables += [
                         'pull-tar.c',
                 ),
                 'objects' : ['systemd-importd'],
-                'dependencies' : libopenssl,
+                'dependencies' : libopenssl_cflags,
         },
         libexec_template + {
                 'name' : 'systemd-import',

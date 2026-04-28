@@ -54,7 +54,7 @@ int load_volume_key_fido2(
         if (passphrase_size < 0)
                 return log_oom();
 
-        r = crypt_volume_key_get(
+        r = sym_crypt_volume_key_get(
                         cd,
                         CRYPT_ANY_SLOT,
                         ret_vk,
@@ -95,9 +95,9 @@ int enroll_fido2(
         assert_se(iovec_is_set(volume_key));
         assert_se(device);
 
-        assert_se(node = crypt_get_device_name(cd));
+        assert_se(node = sym_crypt_get_device_name(cd));
 
-        un = strempty(crypt_get_uuid(cd));
+        un = strempty(sym_crypt_get_uuid(cd));
 
         if (salt_file)
                 r = fido2_read_salt_file(
@@ -140,7 +140,7 @@ int enroll_fido2(
         if (r < 0)
                 return log_error_errno(r, "Failed to set minimal PBKDF: %m");
 
-        keyslot = crypt_keyslot_add_by_volume_key(
+        keyslot = sym_crypt_keyslot_add_by_volume_key(
                         cd,
                         CRYPT_ANY_SLOT,
                         volume_key->iov_base,

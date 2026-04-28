@@ -17,13 +17,13 @@
 #include "fdset.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "notify-recv.h"
 #include "options.h"
 #include "parse-util.h"
 #include "pidref.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -57,31 +57,24 @@ STATIC_DESTRUCTOR_REGISTER(arg_fds, fdset_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fdname, freep);
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-notify", "1", &link);
-        if (r < 0)
-                return log_oom();
-
+        _cleanup_(table_unrefp) Table *options = NULL;
         r = option_parser_get_help_table(&options);
         if (r < 0)
                 return r;
 
-        printf("%1$s [OPTIONS...] [VARIABLE=VALUE...]\n"
-               "%1$s [OPTIONS...] --exec [VARIABLE=VALUE...] ; -- CMDLINE...\n"
-               "%1$s [OPTIONS...] --fork -- CMDLINE...\n"
-               "\n%2$sNotify the init system about service status updates.%3$s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] [VARIABLE=VALUE...]");
+        help_cmdline("[OPTIONS...] --exec [VARIABLE=VALUE...] ; -- CMDLINE...");
+        help_cmdline("[OPTIONS...] --fork -- CMDLINE...");
+        help_abstract("Notify the service manager about service status updates.");
 
+        help_section("Options:");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-notify", "1");
         return 0;
 }
 
@@ -160,10 +153,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -191,28 +183,28 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Set main PID of daemon"):
                         pidref_done(&arg_pid);
 
-                        if (isempty(arg) || streq(arg, "auto"))
+                        if (isempty(opts.arg) || streq(opts.arg, "auto"))
                                 r = pidref_parent_if_applicable(&arg_pid);
-                        else if (streq(arg, "parent"))
+                        else if (streq(opts.arg, "parent"))
                                 r = pidref_set_parent(&arg_pid);
-                        else if (streq(arg, "self"))
+                        else if (streq(opts.arg, "self"))
                                 r = pidref_set_self(&arg_pid);
                         else
-                                r = pidref_set_pidstr(&arg_pid, arg);
+                                r = pidref_set_pidstr(&arg_pid, opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to refer to --pid='%s': %m", arg);
+                                return log_error_errno(r, "Failed to refer to --pid='%s': %m", opts.arg);
                         break;
 
                 OPTION_LONG("uid", "USER", "Set user to send from"):
-                        r = get_user_creds(&arg, &arg_uid, &arg_gid, NULL, NULL, 0);
+                        r = get_user_creds(&opts.arg, &arg_uid, &arg_gid, NULL, NULL, 0);
                         if (r == -ESRCH) /* If the user doesn't exist, then accept it anyway as numeric */
-                                r = parse_uid(arg, &arg_uid);
+                                r = parse_uid(opts.arg, &arg_uid);
                         if (r < 0)
-                                return log_error_errno(r, "Can't resolve user %s: %m", arg);
+                                return log_error_errno(r, "Can't resolve user %s: %m", opts.arg);
                         break;
 
                 OPTION_LONG("status", "TEXT", "Set status text"):
-                        arg_status = arg;
+                        arg_status = opts.arg;
                         break;
 
                 OPTION_LONG("booted", NULL, "Check if the system was booted up with systemd"):
@@ -230,9 +222,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("fd", "FD", "Pass specified file descriptor along with the message"): {
                         _cleanup_close_ int owned_fd = -EBADF;
 
-                        int fdnr = parse_fd(arg);
+                        int fdnr = parse_fd(opts.arg);
                         if (fdnr < 0)
-                                return log_error_errno(fdnr, "Failed to parse file descriptor: %s", arg);
+                                return log_error_errno(fdnr, "Failed to parse file descriptor: %s", opts.arg);
 
                         if (!passed) {
                                 /* Take possession of all passed fds */
@@ -266,10 +258,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 }
 
                 OPTION_LONG("fdname", "NAME", "Name to assign to passed file descriptors"):
-                        if (!fdname_is_valid(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File descriptor name invalid: %s", arg);
+                        if (!fdname_is_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File descriptor name invalid: %s", opts.arg);
 
-                        if (free_and_strdup(&arg_fdname, arg) < 0)
+                        if (free_and_strdup(&arg_fdname, opts.arg) < 0)
                                 return log_oom();
 
                         break;
@@ -285,7 +277,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || pidref_is_set(&arg_pid) || !fdset_isempty(arg_fds);
 
-        char **args = option_parser_get_args(&state);
+        char **args = option_parser_get_args(&opts);
 
         switch (arg_action) {
 
@@ -651,7 +643,7 @@ static int run(int argc, char* argv[]) {
         if (r == -E2BIG)
                 return log_error_errno(r, "Too many file descriptors passed.");
         if (r < 0)
-                return log_error_errno(r, "Failed to notify init system: %m");
+                return log_error_errno(r, "Failed to notify service manager: %m");
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "No status data could be sent: $NOTIFY_SOCKET was not set");

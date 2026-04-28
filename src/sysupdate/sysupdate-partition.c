@@ -161,7 +161,7 @@ int find_suitable_partition(
         POINTER_MAY_BE_NULL(partition_type);
         assert(ret);
 
-        r = dlopen_fdisk();
+        r = dlopen_fdisk(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -230,7 +230,7 @@ int patch_partition(
         if (change == 0) /* Nothing to do */
                 return 0;
 
-        r = dlopen_fdisk();
+        r = dlopen_fdisk(LOG_DEBUG);
         if (r < 0)
                 return r;
 

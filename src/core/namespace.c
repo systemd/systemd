@@ -1049,7 +1049,7 @@ static bool verity_has_later_duplicates(MountList *ml, const MountEntry *needle)
         for (const MountEntry *m = needle + 1; m < ml->mounts + ml->n_mounts; m++) {
                 if (m->mode != MOUNT_EXTENSION_IMAGE)
                         continue;
-                if (iovec_memcmp(&m->verity.root_hash, &needle->verity.root_hash) == 0)
+                if (iovec_equal(&m->verity.root_hash, &needle->verity.root_hash))
                         return true;
         }
 
@@ -3984,7 +3984,7 @@ int refresh_extensions_in_namespace(
         if (r > 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Target namespace is not separate, cannot reload extensions");
 
-        (void) dlopen_cryptsetup();
+        (void) dlopen_cryptsetup(LOG_DEBUG);
 
         extension_dir = path_join(p->private_namespace_dir, "unit-extensions");
         if (!extension_dir)

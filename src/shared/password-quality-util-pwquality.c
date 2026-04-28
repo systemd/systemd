@@ -2,6 +2,9 @@
 
 #include "password-quality-util-pwquality.h"
 
+#include "errno-util.h"
+#include "log.h"
+
 #if HAVE_PWQUALITY
 
 #include <pwquality.h>
@@ -12,8 +15,6 @@
 
 #include "alloc-util.h"
 #include "dlfcn-util.h"
-#include "errno-util.h"
-#include "log.h"
 #include "password-quality-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -72,7 +73,7 @@ static int pwq_allocate_context(pwquality_settings_t **ret) {
 
         assert(ret);
 
-        r = dlopen_pwquality();
+        r = dlopen_pwquality(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -153,7 +154,7 @@ int check_password_quality(const char *password, const char *old, const char *us
 
 #endif
 
-int dlopen_pwquality(void) {
+int dlopen_pwquality(int log_level) {
 #if HAVE_PWQUALITY
         SD_ELF_NOTE_DLOPEN(
                         "pwquality",
@@ -162,7 +163,7 @@ int dlopen_pwquality(void) {
                         "libpwquality.so.1");
 
         return dlopen_many_sym_or_warn(
-                        &pwquality_dl, "libpwquality.so.1", LOG_DEBUG,
+                        &pwquality_dl, "libpwquality.so.1", log_level,
                         DLSYM_ARG(pwquality_check),
                         DLSYM_ARG(pwquality_default_settings),
                         DLSYM_ARG(pwquality_free_settings),
@@ -172,6 +173,7 @@ int dlopen_pwquality(void) {
                         DLSYM_ARG(pwquality_set_int_value),
                         DLSYM_ARG(pwquality_strerror));
 #else
-        return -EOPNOTSUPP;
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libpwquality support is not compiled in.");
 #endif
 }

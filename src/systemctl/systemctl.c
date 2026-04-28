@@ -10,6 +10,7 @@
 #include "bus-util.h"
 #include "capsule-util.h"
 #include "extract-word.h"
+#include "help-util.h"
 #include "image-policy.h"
 #include "install.h"
 #include "output-mode.h"
@@ -17,7 +18,6 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "static-destruct.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -108,19 +108,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kill_subgroup, freep);
 
 static int systemctl_help(void) {
-        _cleanup_free_ char *link = NULL;
-        int r;
-
         pager_open(arg_pager_flags);
 
-        r = terminal_urlify_man("systemctl", "1", &link);
-        if (r < 0)
-                return log_oom();
+        help_cmdline("[OPTIONS...] COMMAND ...");
+        help_abstract("Query or send control commands to the system manager.");
 
-        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
-               "%5$sQuery or send control commands to the system manager.%6$s\n"
-               "\n%3$sUnit Commands:%4$s\n"
-               "  list-units [PATTERN...]             List units currently in memory\n"
+        help_section("Unit Commands:");
+        printf("  list-units [PATTERN...]             List units currently in memory\n"
                "  list-automounts [PATTERN...]        List automount units currently in memory,\n"
                "                                      ordered by path\n"
                "  list-paths [PATTERN...]             List path units currently in memory,\n"
@@ -166,9 +160,10 @@ static int systemctl_help(void) {
                "  reset-failed [PATTERN...]           Reset failed state for all, one, or more\n"
                "                                      units\n"
                "  whoami [PID...]                     Return unit caller or specified PIDs are\n"
-               "                                      part of\n"
-               "\n%3$sUnit File Commands:%4$s\n"
-               "  list-unit-files [PATTERN...]        List installed unit files\n"
+               "                                      part of\n");
+
+        help_section("Unit File Commands:");
+        printf("  list-unit-files [PATTERN...]        List installed unit files\n"
                "  enable [UNIT...|PATH...]            Enable one or more unit files\n"
                "  disable UNIT...                     Disable one or more unit files\n"
                "  reenable UNIT...                    Reenable one or more unit files\n"
@@ -189,25 +184,30 @@ static int systemctl_help(void) {
                "                                      on specified one or more units\n"
                "  edit UNIT...                        Edit one or more unit files\n"
                "  get-default                         Get the name of the default target\n"
-               "  set-default TARGET                  Set the default target\n"
-               "\n%3$sMachine Commands:%4$s\n"
-               "  list-machines [PATTERN...]          List local containers and host\n"
-               "\n%3$sJob Commands:%4$s\n"
-               "  list-jobs [PATTERN...]              List jobs\n"
-               "  cancel [JOB...]                     Cancel all, one, or more jobs\n"
-               "\n%3$sEnvironment Commands:%4$s\n"
-               "  show-environment                    Dump environment\n"
+               "  set-default TARGET                  Set the default target\n");
+
+        help_section("Machine Commands:");
+        printf("  list-machines [PATTERN...]          List local containers and host\n");
+
+        help_section("Job Commands:");
+        printf("  list-jobs [PATTERN...]              List jobs\n"
+               "  cancel [JOB...]                     Cancel all, one, or more jobs\n");
+
+        help_section("Environment Commands:");
+        printf("  show-environment                    Dump environment\n"
                "  set-environment VARIABLE=VALUE...   Set one or more environment variables\n"
                "  unset-environment VARIABLE...       Unset one or more environment variables\n"
-               "  import-environment VARIABLE...      Import all or some environment variables\n"
-               "\n%3$sManager State Commands:%4$s\n"
-               "  daemon-reload                       Reload systemd manager configuration\n"
+               "  import-environment VARIABLE...      Import all or some environment variables\n");
+
+        help_section("Manager State Commands:");
+        printf("  daemon-reload                       Reload systemd manager configuration\n"
                "  daemon-reexec                       Reexecute systemd manager\n"
                "  log-level [LEVEL]                   Get/set logging threshold for manager\n"
                "  log-target [TARGET]                 Get/set logging target for manager\n"
-               "  service-watchdogs [BOOL]            Get/set service watchdog state\n"
-               "\n%3$sSystem Commands:%4$s\n"
-               "  is-system-running                   Check whether system is fully running\n"
+               "  service-watchdogs [BOOL]            Get/set service watchdog state\n");
+
+        help_section("System Commands:");
+        printf("  is-system-running                   Check whether system is fully running\n"
                "  default                             Enter system default mode\n"
                "  rescue                              Enter system rescue mode\n"
                "  emergency                           Enter system emergency mode\n"
@@ -224,9 +224,10 @@ static int systemctl_help(void) {
                "  hibernate                           Hibernate the system\n"
                "  hybrid-sleep                        Hibernate and suspend the system\n"
                "  suspend-then-hibernate              Suspend the system, wake after a period of\n"
-               "                                      time, and hibernate"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help              Show this help\n"
+               "                                      time, and hibernate\n");
+
+        help_section("Options:");
+        printf("  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "     --system            Connect to system manager\n"
                "     --user              Connect to user service manager\n"
@@ -319,14 +320,9 @@ static int systemctl_help(void) {
                "     --drop-in=NAME      Edit unit files using the specified drop-in file name\n"
                "     --when=TIME         Schedule halt/power-off/reboot/kexec action after\n"
                "                         a certain timestamp\n"
-               "     --stdin             Read new contents of edited file from stdin\n"
-               "\nSee the %2$s for details.\n",
-               program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
-               ansi_highlight(),
-               ansi_normal());
+               "     --stdin             Read new contents of edited file from stdin\n");
+
+        help_man_page_reference("systemctl", "1");
 
         return 0;
 }

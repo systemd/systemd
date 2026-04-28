@@ -1113,10 +1113,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -1139,11 +1138,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_COMMON_HOST:
                         arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = arg;
+                        arg_host = opts.arg;
                         break;
 
                 OPTION_COMMON_MACHINE:
-                        r = parse_machine_argument(arg, &arg_host, &arg_transport);
+                        r = parse_machine_argument(opts.arg, &arg_host, &arg_transport);
                         if (r < 0)
                                 return r;
                         break;
@@ -1166,7 +1165,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_JSON:
-                        r = parse_json_argument(arg, &arg_json_format_flags);
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         arg_legend = false;
@@ -1179,21 +1178,21 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("verify", "MODE",
                             "Verification mode for downloaded images (no, checksum, signature)"):
-                        if (streq(arg, "help"))
+                        if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
 
-                        r = import_verify_from_string(arg);
+                        r = import_verify_from_string(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --verify= setting: %s", arg);
+                                return log_error_errno(r, "Failed to parse --verify= setting: %s", opts.arg);
                         arg_verify = r;
                         break;
 
                 OPTION_LONG("format", "FORMAT",
                             "Desired output format for export (zstd, xz, gzip, bzip2)"):
-                        if (!STR_IN_SET(arg, "uncompressed", "xz", "gzip", "bzip2", "zstd"))
+                        if (!STR_IN_SET(opts.arg, "uncompressed", "xz", "gzip", "bzip2", "zstd"))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown format: %s", arg);
-                        arg_format = arg;
+                                                       "Unknown format: %s", opts.arg);
+                        arg_format = opts.arg;
                         break;
 
                 OPTION_LONG("force", NULL, "Install image even if already exists"):
@@ -1202,9 +1201,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("class", "TYPE", "Install as the specified TYPE"):
-                        arg_image_class = image_class_from_string(arg);
+                        arg_image_class = image_class_from_string(opts.arg);
                         if (arg_image_class < 0)
-                                return log_error_errno(arg_image_class, "Failed to parse --class= parameter: %s", arg);
+                                return log_error_errno(arg_image_class, "Failed to parse --class= parameter: %s", opts.arg);
                         break;
 
                 OPTION_SHORT('m', NULL, "Install as --class=machine, machine image"):
@@ -1225,9 +1224,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("keep-download", "BOOL",
                             "Control whether to keep pristine copy of download"):
-                        r = parse_boolean(arg);
+                        r = parse_boolean(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --keep-download= value: %s", arg);
+                                return log_error_errno(r, "Failed to parse --keep-download= value: %s", opts.arg);
 
                         SET_FLAG(arg_import_flags, IMPORT_PULL_KEEP_DOWNLOAD, r);
                         arg_import_flags_mask |= IMPORT_PULL_KEEP_DOWNLOAD;
@@ -1239,7 +1238,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
                 }
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 
