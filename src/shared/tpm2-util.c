@@ -8734,6 +8734,9 @@ int tpm2_make_luks2_json(
                 const struct iovec *srk,
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
+                uint64_t argon2id_memcost,
+                uint32_t argon2id_iterations,
+                uint32_t argon2id_lanes,
                 sd_json_variant **ret) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *hmj = NULL, *pkmj = NULL;
@@ -8786,7 +8789,10 @@ int tpm2_make_luks2_json(
                         SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pubkey), "tpm2_pubkey", JSON_BUILD_IOVEC_BASE64(pubkey)),
                         SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(salt), "tpm2_salt", JSON_BUILD_IOVEC_BASE64(salt)),
                         SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(srk), "tpm2_srk", JSON_BUILD_IOVEC_BASE64(srk)),
-                        SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv)));
+                        SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID), "tpm2_argon2id_memcost", SD_JSON_BUILD_UNSIGNED(argon2id_memcost)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID), "tpm2_argon2id_iterations", SD_JSON_BUILD_UNSIGNED(argon2id_iterations)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID), "tpm2_argon2id_lanes", SD_JSON_BUILD_UNSIGNED(argon2id_lanes)));
         if (r < 0)
                 return r;
 
@@ -8868,7 +8874,12 @@ int tpm2_parse_luks2_json(
                 struct iovec *ret_salt,
                 struct iovec *ret_srk,
                 struct iovec *ret_pcrlock_nv,
-                TPM2Flags *ret_flags) {
+                TPM2Flags *ret_flags,
+                uint64_t *ret_argon2id_memcost,
+
+                uint32_t *ret_argon2id_iterations,
+
+                uint32_t *ret_argon2id_lanes) {
 
         _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
         uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
@@ -9007,6 +9018,30 @@ int tpm2_parse_luks2_json(
                         return log_debug_errno(r, "Invalid base64 data in 'tpm2_pcrlock_nv' field.");
         }
 
+        uint64_t argon2id_memcost = 0;
+        uint32_t argon2id_iterations = 0, argon2id_lanes = 0;
+        w = sd_json_variant_by_key(v, "tpm2_argon2id_memcost");
+        if (w) {
+                if (!sd_json_variant_is_unsigned(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "tpm2_argon2id_memcost is not an unsigned integer.");
+                argon2id_memcost = sd_json_variant_unsigned(w);
+                SET_FLAG(flags, TPM2_FLAGS_USE_ARGON2ID, true);
+        }
+
+        w = sd_json_variant_by_key(v, "tpm2_argon2id_iterations");
+        if (w) {
+                if (!sd_json_variant_is_unsigned(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "tpm2_argon2id_iterations is not an unsigned integer.");
+                argon2id_iterations = (uint32_t) sd_json_variant_unsigned(w);
+        }
+
+        w = sd_json_variant_by_key(v, "tpm2_argon2id_lanes");
+        if (w) {
+                if (!sd_json_variant_is_unsigned(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "tpm2_argon2id_lanes is not an unsigned integer.");
+                argon2id_lanes = (uint32_t) sd_json_variant_unsigned(w);
+        }
+
         if (ret_keyslot)
                 *ret_keyslot = keyslot;
         if (ret_hash_pcr_mask)
@@ -9035,6 +9070,12 @@ int tpm2_parse_luks2_json(
                 *ret_pcrlock_nv = TAKE_STRUCT(pcrlock_nv);
         if (ret_flags)
                 *ret_flags = flags;
+        if (ret_argon2id_memcost)
+                *ret_argon2id_memcost = argon2id_memcost;
+        if (ret_argon2id_iterations)
+                *ret_argon2id_iterations = argon2id_iterations;
+        if (ret_argon2id_lanes)
+                *ret_argon2id_lanes = argon2id_lanes;
         return 0;
 }
 

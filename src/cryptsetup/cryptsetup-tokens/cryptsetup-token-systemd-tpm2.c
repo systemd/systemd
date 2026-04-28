@@ -81,6 +81,9 @@ _public_ int cryptsetup_token_open_pin(
         CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
         CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
 
+        uint64_t argon2id_memcost = 0;
+        uint32_t argon2id_iterations = 0, argon2id_lanes = 0;
+
         r = tpm2_parse_luks2_json(
                         v,
                         /* ret_keyslot= */ NULL,
@@ -96,7 +99,10 @@ _public_ int cryptsetup_token_open_pin(
                         &salt,
                         &srk,
                         &pcrlock_nv,
-                        &flags);
+                        &flags,
+                        &argon2id_memcost,
+                        &argon2id_iterations,
+                        &argon2id_lanes);
         if (r < 0)
                 return log_debug_open_error(cd, r);
 
@@ -121,7 +127,10 @@ _public_ int cryptsetup_token_open_pin(
                         &srk,
                         &pcrlock_nv,
                         flags,
-                        &decrypted_key);
+                        &decrypted_key,
+                        argon2id_memcost,
+                        argon2id_iterations,
+                        argon2id_lanes);
         if (r < 0)
                 return log_debug_open_error(cd, r);
 
@@ -210,7 +219,10 @@ _public_ void cryptsetup_token_dump(
                         &salt,
                         &srk,
                         &pcrlock_nv,
-                        &flags);
+                        &flags,
+                        NULL,
+                        NULL,
+                        NULL);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " JSON fields: %m");
 
@@ -234,6 +246,7 @@ _public_ void cryptsetup_token_dump(
                 crypt_log(cd, "\ttpm2-primary-alg: %s\n", strna(tpm2_asym_alg_to_string(primary_alg)));
         crypt_log(cd, "\ttpm2-pin:         %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
         crypt_log(cd, "\ttpm2-pcrlock:     %s\n", true_false(flags & TPM2_FLAGS_USE_PCRLOCK));
+        crypt_log(cd, "\ttpm2-argon2id:    %s\n", true_false(flags & TPM2_FLAGS_USE_ARGON2ID));
         crypt_log(cd, "\ttpm2-salt:        %s\n", true_false(iovec_is_set(&salt)));
         crypt_log(cd, "\ttpm2-srk:         %s\n", true_false(iovec_is_set(&srk)));
         crypt_log(cd, "\ttpm2-pcrlock-nv:  %s\n", true_false(iovec_is_set(&pcrlock_nv)));
