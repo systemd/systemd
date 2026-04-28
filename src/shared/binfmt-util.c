@@ -16,7 +16,7 @@ int binfmt_mounted_and_writable(void) {
         int r;
 
         fd = RET_NERRNO(open("/proc/sys/fs/binfmt_misc", O_CLOEXEC | O_DIRECTORY | O_PATH));
-        if (fd == -ENOENT)
+        if (IN_SET(fd, -ENOENT, -ELOOP, -EACCES))
                 return false;
         if (fd < 0)
                 return fd;
