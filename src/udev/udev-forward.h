@@ -5,7 +5,6 @@
 
 #include "shared-forward.h" /* IWYU pragma: export */
 
-typedef struct UdevCtrl UdevCtrl;
 typedef struct UdevEvent UdevEvent;
 typedef struct Manager Manager;
 typedef struct Event Event;
