@@ -771,6 +771,7 @@ static Network *network_free(Network *network) {
         free(network->dhcp_server_uplink_name);
         for (sd_dhcp_lease_server_type_t t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
                 free(network->dhcp_server_emit[t].addresses);
+        free(network->dhcp_server_classless_static_routes);
         ordered_hashmap_free(network->dhcp_server_send_options);
         ordered_hashmap_free(network->dhcp_server_send_vendor_options);
         free(network->dhcp_server_local_lease_domain);

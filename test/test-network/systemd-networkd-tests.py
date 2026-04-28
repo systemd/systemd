@@ -7333,6 +7333,16 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         else:
             self.fail()
 
+    def test_dhcp_server_classless_static_route(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-classless-static-route.network')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = check_output('ip -4 route show dev veth99')
+        print(output)
+        self.assertRegex(output, r'10.0.0.0/8 via 192.168.5.1 proto dhcp src 192.168.5.[0-9]* metric 1024')
+        self.assertRegex(output, r'192.168.100.0/24 via 192.168.5.1 proto dhcp src 192.168.5.[0-9]* metric 1024')
+
     def test_dhcp_server_persist_leases_no(self):
         copy_networkd_conf_dropin('persist-leases-no.conf')
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server.network')

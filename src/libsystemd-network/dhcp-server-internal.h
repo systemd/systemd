@@ -9,6 +9,7 @@
 #include "sd-dhcp-server.h"
 
 #include "dhcp-client-id-internal.h"
+#include "dhcp-lease-internal.h"
 #include "dhcp-option.h"
 #include "sd-forward.h"
 #include "network-common.h"
@@ -58,6 +59,9 @@ typedef struct sd_dhcp_server {
 
         bool emit_router;
         struct in_addr router_address;
+
+        struct sd_dhcp_route *classless_static_routes;
+        size_t n_classless_static_routes;
 
         Hashmap *bound_leases_by_client_id;
         Hashmap *bound_leases_by_address;

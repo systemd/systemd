@@ -133,6 +133,8 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         for (sd_dhcp_lease_server_type_t i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
                 free(server->servers[i].addr);
 
+        free(server->classless_static_routes);
+
         server->bound_leases_by_address = hashmap_free(server->bound_leases_by_address);
         server->bound_leases_by_client_id = hashmap_free(server->bound_leases_by_client_id);
         server->static_leases_by_address = hashmap_free(server->static_leases_by_address);
@@ -681,6 +683,45 @@ static int server_send_offer_or_ack(
                                 option_map[k],
                                 sizeof(struct in_addr) * server->servers[k].size,
                                 server->servers[k].addr);
+                if (r < 0)
+                        return r;
+        }
+
+        if (server->n_classless_static_routes > 0) {
+                _cleanup_free_ uint8_t *buf = NULL;
+                size_t buf_size = 0;
+
+                /* RFC 3442: each route is encoded as:
+                 *   1 byte prefix length
+                 *   variable number of significant octets of the subnet number (0-4)
+                 *   4 bytes gateway address */
+                for (size_t i = 0; i < server->n_classless_static_routes; i++)
+                        buf_size += 1 + DIV_ROUND_UP(server->classless_static_routes[i].dst_prefixlen, 8) + 4;
+
+                assert(buf_size <= UINT8_MAX);
+
+                buf = new(uint8_t, buf_size);
+                if (!buf)
+                        return -ENOMEM;
+
+                size_t pos = 0;
+                for (size_t i = 0; i < server->n_classless_static_routes; i++) {
+                        uint8_t prefixlen = server->classless_static_routes[i].dst_prefixlen;
+                        uint8_t dst_octets = DIV_ROUND_UP(prefixlen, 8);
+                        struct in_addr dst = server->classless_static_routes[i].dst_addr;
+
+                        /* RFC 3442: mask non-significant bits in the last destination octet */
+                        (void) in4_addr_mask(&dst, prefixlen);
+
+                        buf[pos++] = prefixlen;
+                        memcpy(buf + pos, &dst, dst_octets);
+                        pos += dst_octets;
+                        memcpy(buf + pos, &server->classless_static_routes[i].gw_addr, 4);
+                        pos += 4;
+                }
+
+                r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
+                                       SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE, buf_size, buf);
                 if (r < 0)
                         return r;
         }
@@ -1607,6 +1648,36 @@ int sd_dhcp_server_set_router(sd_dhcp_server *server, const struct in_addr *rout
         server->emit_router = router;
         if (router)
                 server->router_address = *router;
+
+        return 0;
+}
+
+int sd_dhcp_server_set_classless_static_routes(sd_dhcp_server *server, const sd_dhcp_route *routes, size_t n_routes) {
+        assert_return(server, -EINVAL);
+        assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
+        assert_return(routes || n_routes == 0, -EINVAL);
+
+        size_t buf_size = 0;
+        for (size_t i = 0; i < n_routes; i++) {
+                if (routes[i].dst_prefixlen > 32)
+                        return -EINVAL;
+                buf_size += 1 + DIV_ROUND_UP(routes[i].dst_prefixlen, 8) + 4;
+        }
+
+        if (buf_size > UINT8_MAX)
+                return -E2BIG;
+
+        struct sd_dhcp_route *c = NULL;
+
+        if (n_routes > 0) {
+                c = newdup(struct sd_dhcp_route, routes, n_routes);
+                if (!c)
+                        return -ENOMEM;
+        }
+
+        free(server->classless_static_routes);
+        server->classless_static_routes = c;
+        server->n_classless_static_routes = n_routes;
 
         return 0;
 }

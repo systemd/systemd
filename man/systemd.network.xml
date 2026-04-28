@@ -4114,6 +4114,24 @@ ServerAddress=192.168.0.1/24</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ClasslessStaticRoute=</varname></term>
+        <listitem>
+          <para>Configures classless static routes to send via DHCPv4 option 121, as defined in
+          <ulink url="https://tools.ietf.org/html/rfc3442">RFC 3442</ulink>. Takes a list of
+          space-separated destination/prefix and gateway pairs. Each pair consists of a destination
+          prefix in CIDR notation (e.g. <literal>192.168.1.0/24</literal>) followed by the gateway
+          IPv4 address (e.g. <literal>10.0.0.1</literal>). Multiple route pairs may be specified
+          separated by spaces. Note that per RFC 3442 Section 7, DHCP clients implementing
+          classless static routes will ignore the Router option (option 3) when option 121 is
+          present. If an empty string is specified, any previously configured routes are cleared.
+          Defaults to unset.</para>
+          <para>Example: <literal>ClasslessStaticRoute=192.168.1.0/24 10.0.0.1 10.10.0.0/16 10.0.0.2</literal></para>
+
+          <xi:include href="version-info.xml" xpointer="v264"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SendOption=</varname></term>
         <listitem>
           <para>Send a raw option with value via DHCPv4 server. Takes a DHCP option number, data type

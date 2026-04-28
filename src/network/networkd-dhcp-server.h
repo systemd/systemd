@@ -20,6 +20,7 @@ void manager_toggle_dhcp4_server_state(Manager *manager, bool start);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_relay_agent_suboption);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_emit);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_classless_static_route);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_ipv6_only_preferred);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_persist_leases);

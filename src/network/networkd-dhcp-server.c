@@ -6,6 +6,7 @@
 #include "sd-dhcp-server.h"
 
 #include "conf-parser.h"
+#include "dhcp-lease-internal.h"
 #include "dhcp-protocol.h"
 #include "dhcp-server-lease-internal.h"
 #include "dns-domain.h"
@@ -721,6 +722,15 @@ static int dhcp4_server_configure(Link *link) {
         else if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set domain name for DHCP server: %m");
 
+        if (link->network->dhcp_server_n_classless_static_routes > 0) {
+                r = sd_dhcp_server_set_classless_static_routes(
+                                link->dhcp_server,
+                                link->network->dhcp_server_classless_static_routes,
+                                link->network->dhcp_server_n_classless_static_routes);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to set classless static routes for DHCP server: %m");
+        }
+
         ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_options) {
                 r = sd_dhcp_server_add_option(link->dhcp_server, p);
                 if (r == -EEXIST)
@@ -914,6 +924,92 @@ int config_parse_dhcp_server_emit(
                         return log_oom();
 
                 emit->addresses[emit->n_addresses++] = a.in;
+        }
+}
+
+int config_parse_dhcp_server_classless_static_route(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = ASSERT_PTR(userdata);
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->dhcp_server_classless_static_routes = mfree(network->dhcp_server_classless_static_routes);
+                network->dhcp_server_n_classless_static_routes = 0;
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *w = NULL;
+                union in_addr_union dst, gw;
+                unsigned char prefixlen;
+                int r;
+
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to extract word, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = in_addr_prefix_from_string(w, AF_INET, &dst, &prefixlen);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse destination prefix in %s=, ignoring: %s", lvalue, w);
+                        /* Skip the corresponding gateway word to keep pairs aligned */
+                        w = mfree(w);
+                        r = extract_first_word(&p, &w, NULL, 0);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        continue;
+                }
+
+                w = mfree(w);
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to extract gateway word, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Missing gateway address for route in %s=, ignoring.", lvalue);
+                        return 0;
+                }
+
+                r = in_addr_from_string(AF_INET, w, &gw);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse gateway address in %s=, ignoring: %s", lvalue, w);
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(network->dhcp_server_classless_static_routes,
+                                    network->dhcp_server_n_classless_static_routes + 1))
+                        return log_oom();
+
+                network->dhcp_server_classless_static_routes[network->dhcp_server_n_classless_static_routes++] =
+                        (struct sd_dhcp_route) {
+                                .dst_addr = dst.in,
+                                .gw_addr = gw.in,
+                                .dst_prefixlen = prefixlen,
+                        };
         }
 }
 
