@@ -9,6 +9,8 @@
  * By default, options defined in a single program are all placed in a single (unnamed) namespace
  * and in a single (unnamed) group. OPTION_NAMESPACE() marks the beginning of a named namespace.
  * OPTION_GROUP() marks the beginning of a named group.
+ *
+ * Note: if multiple namespaces are used, they should all be named.
  */
 
 typedef enum OptionFlags {
