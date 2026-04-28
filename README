@@ -80,6 +80,7 @@ REQUIREMENTS:
                      ≥ 6.13 for PIDFD_GET_INFO, {set,remove}xattrat(), and
                                 FSCONFIG_SET_FD support for overlayfs layers
                      ≥ 6.16 for coredump pattern '%F' (pidfd) specifier and SO_PASSRIGHTS
+                     ≥ 6.19 for PIDFD_INFO_SUPPORTED_MASK and PIDFD_INFO_COREDUMP_SIGNAL
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
            when unavailable.
