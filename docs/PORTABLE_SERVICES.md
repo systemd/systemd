@@ -45,7 +45,7 @@ One particularly nice tool for creating suitable images is
 but many other existing tools will do too.
 
 Portable services may also be constructed from layers, similarly to container environments.
-See [Extension Images](#extension-images) below.
+See [Extension Images](https://systemd.io/PORTABLE_SERVICES#extension-images) below.
 
 If you so will, "Portable Services" are a nicer way to manage `chroot()`
 environments, with better security, tooling and behavior.
