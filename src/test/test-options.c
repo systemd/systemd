@@ -1306,47 +1306,47 @@ static void test_option_get_synopsis_one(
                 bool show_metavar,
                 const char *expected) {
         log_debug("%s", expected);
-        _cleanup_free_ char *s = option_get_synopsis(". ", opt, joiner, show_metavar);
+        _cleanup_free_ char *s = option_get_synopsis(opt, joiner, show_metavar);
         ASSERT_STREQ(s, expected);
 }
 
 TEST(option_get_synopsis) {
-        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "X" }, "/",  true,  ". -x/--xxx=X");
-        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "X" }, NULL, true,  ". -x --xxx=X");
-        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "X" }, "/",  false, ". -x/--xxx=" );
-        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "X" }, " ",  true,  ". -x --xxx=X");
-        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "X" }, " ",  false, ". -x --xxx=" );
-        test_option_get_synopsis_one(&(const Option) { 0, 0,   0, "xxx", "X" }, "+",  true,  ". --xxx=X"   );
-        test_option_get_synopsis_one(&(const Option) { 0, 0,   0, "xxx", "X" }, "+",  false, ". --xxx="    );
-        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', NULL,  "X" }, " ",  true,  ". -x X"      );
-        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', NULL,  "X" }, "/",  false, ". -x"        );
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "X" }, "/",  true,  "-x/--xxx=X");
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "X" }, NULL, true,  "-x --xxx=X");
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "X" }, "/",  false, "-x/--xxx=" );
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "X" }, " ",  true,  "-x --xxx=X");
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "X" }, " ",  false, "-x --xxx=" );
+        test_option_get_synopsis_one(&(const Option) { 0, 0,   0, "xxx", "X" }, "+",  true,  "--xxx=X"   );
+        test_option_get_synopsis_one(&(const Option) { 0, 0,   0, "xxx", "X" }, "+",  false, "--xxx="    );
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', NULL,  "X" }, " ",  true,  "-x X"      );
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', NULL,  "X" }, "/",  false, "-x"        );
 
-        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "A B" }, "/", true,  ". -x/--xxx='A B'");
-        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "A B" }, " ", true,  ". -x --xxx='A B'");
-        test_option_get_synopsis_one(&(const Option) { 0, 0,   0, "xxx", "A B" }, "+", true,  ". --xxx='A B'"   );
-        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', NULL,  "A B" }, " ", true,  ". -x 'A B'"      );
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "A B" }, "/", true,  "-x/--xxx='A B'");
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', "xxx", "A B" }, " ", true,  "-x --xxx='A B'");
+        test_option_get_synopsis_one(&(const Option) { 0, 0,   0, "xxx", "A B" }, "+", true,  "--xxx='A B'"   );
+        test_option_get_synopsis_one(&(const Option) { 0, 0, 'x', NULL,  "A B" }, " ", true,  "-x 'A B'"      );
 
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', "xxx", "X" }, "/",  true,  ". -x/--xxx[=X]");
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', "xxx", "X" }, NULL, true,  ". -x --xxx[=X]");
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', "xxx", "X" }, "/",  true,  "-x/--xxx[=X]");
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', "xxx", "X" }, NULL, true,  "-x --xxx[=X]");
         /* Note: --xxx[=] would be silly, so we show --xxx=. It's a corner case. Maybe this should change. */
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', "xxx", "X" }, "/",  false, ". -x/--xxx="   );
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', "xxx", "X" }, " ",  true,  ". -x --xxx[=X]");
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', "xxx", "X" }, " ",  false, ". -x --xxx="   );
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG,   0, "xxx", "X" }, "+",  true,  ". --xxx[=X]"   );
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG,   0, "xxx", "X" }, "+",  false, ". --xxx="      );
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', NULL,  "X" }, " ",  true,  ". -x [X]"      );
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', NULL,  "X" }, "/",  false, ". -x"          );
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', "xxx", "X" }, "/",  false, "-x/--xxx="   );
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', "xxx", "X" }, " ",  true,  "-x --xxx[=X]");
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', "xxx", "X" }, " ",  false, "-x --xxx="   );
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG,   0, "xxx", "X" }, "+",  true,  "--xxx[=X]"   );
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG,   0, "xxx", "X" }, "+",  false, "--xxx="      );
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', NULL,  "X" }, " ",  true,  "-x [X]"      );
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', NULL,  "X" }, "/",  false, "-x"          );
 
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', "xxx", "A B" }, "/", true,  ". -x/--xxx[='A B']");
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', "xxx", "A B" }, " ", true,  ". -x --xxx[='A B']");
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG,   0, "xxx", "A B" }, "+", true,  ". --xxx[='A B']"   );
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', NULL,  "A B" }, " ", true,  ". -x ['A B']"      );
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', "xxx", "A B" }, "/", true,  "-x/--xxx[='A B']");
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', "xxx", "A B" }, " ", true,  "-x --xxx[='A B']");
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG,   0, "xxx", "A B" }, "+", true,  "--xxx[='A B']"   );
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG, 'x', NULL,  "A B" }, " ", true,  "-x ['A B']"      );
 
         test_option_get_synopsis_one(&(const Option) { 0, OPTION_OPTIONAL_ARG | OPTION_HELP_ENTRY | OPTION_STOPS_PARSING,
-                                                       'x', "xxx", "A B" }, "/", true,  ". -x/--xxx[='A B']");
+                                                       'x', "xxx", "A B" }, "/", true,  "-x/--xxx[='A B']");
 
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_HELP_ENTRY_VERBATIM, 'u', "special special",  "unused" }, "/",  true, ". special special");
-        test_option_get_synopsis_one(&(const Option) { 0, OPTION_POSITIONAL_ENTRY, 'u', "(fixed)", "unused" }, "/",  true, ". (fixed)");
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_HELP_ENTRY_VERBATIM, 'u', "special special",  "unused" }, "/",  true, "special special");
+        test_option_get_synopsis_one(&(const Option) { 0, OPTION_POSITIONAL_ENTRY, 'u', "(fixed)", "unused" }, "/",  true, "(fixed)");
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
