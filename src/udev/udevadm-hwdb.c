@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
 
+#include "format-table.h"
+#include "help-util.h"
 #include "hwdb-util.h"
 #include "log.h"
+#include "options.h"
 #include "udevadm.h"
 
 static const char *arg_test = NULL;
@@ -14,65 +16,64 @@ static bool arg_update = false;
 static bool arg_strict = false;
 
 static int help(void) {
-        printf("%s hwdb [OPTIONS]\n\n"
-               "  -h --help            Print this message\n"
-               "  -V --version         Print version of the program\n"
-               "  -u --update          Update the hardware database\n"
-               "  -s --strict          When updating, return non-zero exit value on any parsing error\n"
-               "     --usr             Generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
-               "  -t --test=MODALIAS   Query database and print result\n"
-               "  -r --root=PATH       Alternative root path in the filesystem\n\n"
-               "NOTE:\n"
-               "The sub-command 'hwdb' is deprecated, and is left for backwards compatibility.\n"
-               "Please use systemd-hwdb instead.\n",
-               program_invocation_short_name);
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
 
+        r = option_parser_get_help_table_ns("udevadm-hwdb", &options);
+        if (r < 0)
+                return r;
+
+        help_cmdline("hwdb [OPTIONS]");
+        help_abstract("Update or query the hardware database.");
+        help_section("Options:");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nNOTE:\n"
+               "The sub-command 'hwdb' is deprecated, and is left for backwards compatibility.\n"
+               "Please use systemd-hwdb instead.\n");
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_USR = 0x100,
-        };
+        assert(argc >= 0);
+        assert(argv);
 
-        static const struct option options[] = {
-                { "update",  no_argument,       NULL, 'u'     },
-                { "usr",     no_argument,       NULL, ARG_USR },
-                { "strict",  no_argument,       NULL, 's'     },
-                { "test",    required_argument, NULL, 't'     },
-                { "root",    required_argument, NULL, 'r'     },
-                { "version", no_argument,       NULL, 'V'     },
-                { "help",    no_argument,       NULL, 'h'     },
-                {}
-        };
+        OptionParser opts = { argc, argv, .namespace = "udevadm-hwdb" };
 
-        int c;
-
-        while ((c = getopt_long(argc, argv, "ust:r:Vh", options, NULL)) >= 0)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
-                case 'u':
+
+                OPTION_NAMESPACE("udevadm-hwdb"): {}
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION('V', "version", NULL, "Show package version"):
+                        return print_version();
+
+                OPTION('u', "update", NULL, "Update the hardware database"):
                         arg_update = true;
                         break;
-                case ARG_USR:
-                        arg_hwdb_bin_dir = UDEVLIBEXECDIR;
-                        break;
-                case 's':
+
+                OPTION('s', "strict", NULL,
+                       "When updating, return non-zero exit value on any parsing error"):
                         arg_strict = true;
                         break;
-                case 't':
-                        arg_test = optarg;
+
+                OPTION_LONG("usr", NULL,
+                            "Generate in " UDEVLIBEXECDIR " instead of /etc/udev"):
+                        arg_hwdb_bin_dir = UDEVLIBEXECDIR;
                         break;
-                case 'r':
-                        arg_root = optarg;
+
+                OPTION('t', "test", "MODALIAS", "Query database and print result"):
+                        arg_test = opts.arg;
                         break;
-                case 'V':
-                        return print_version();
-                case 'h':
-                        return help();
-                case '?':
-                        return -EINVAL;
-                default:
-                        assert_not_reached();
+
+                OPTION('r', "root", "PATH", "Alternative root path in the filesystem"):
+                        arg_root = opts.arg;
+                        break;
                 }
 
         return 1;
