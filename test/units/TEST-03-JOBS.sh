@@ -218,4 +218,50 @@ assert_eq "$(systemctl show "$UNIT_NAME" -P NRestarts)" "1"
 
 rm /run/systemd/system/"$UNIT_NAME"
 
+# Test that dependent units are retroactively started when a required unit
+# auto-restarts after failure (issue #18856).
+ISSUE18856_FLAG="/tmp/test-03-issue18856-fail-once"
+
+cat >/run/systemd/system/issue18856-dep.service <<EOF
+[Service]
+Type=oneshot
+ExecStartPre=sh -c 'if [ ! -f $ISSUE18856_FLAG ]; then touch $ISSUE18856_FLAG; exit 1; fi'
+ExecStart=true
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=100ms
+EOF
+
+cat >/run/systemd/system/issue18856-dependent.service <<EOF
+[Unit]
+After=issue18856-dep.service
+Requires=issue18856-dep.service
+
+[Service]
+Type=oneshot
+ExecStart=true
+RemainAfterExit=yes
+EOF
+
+rm -f "$ISSUE18856_FLAG"
+systemctl daemon-reload
+
+# Start the dependent, which pulls in the dependency via Requires=.
+# The dependency fails on first start (ExecStartPre fails), causing the
+# dependent to fail with JOB_DEPENDENCY.
+# The dependency then auto-restarts (Restart=on-failure) and succeeds.
+# The dependent should be retroactively started as well.
+(! systemctl start issue18856-dependent.service)
+
+# Wait for the dependency to auto-restart and succeed
+timeout 10 bash -c 'while ! systemctl --quiet is-active issue18856-dep.service; do sleep .5; done'
+
+# The dependent should now also be active (retroactively started)
+timeout 10 bash -c 'while ! systemctl --quiet is-active issue18856-dependent.service; do sleep .5; done'
+
+systemctl stop issue18856-dep.service issue18856-dependent.service 2>/dev/null || :
+rm -f /run/systemd/system/issue18856-dep.service /run/systemd/system/issue18856-dependent.service
+rm -f "$ISSUE18856_FLAG"
+systemctl daemon-reload
+
 touch /testok

@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "async.h"
+#include "bus-error.h"
 #include "cgroup.h"
 #include "condition.h"
 #include "dbus.h"
@@ -989,6 +990,34 @@ int job_run_and_invalidate(Job *j) {
         return r;
 }
 
+static void job_start_blocked_dependents(Unit *u) {
+        Unit *other;
+
+        assert(u);
+
+        /* When a unit's start job succeeds, check if any reverse dependencies (units that Requires=,
+         * Requisite=, or BindsTo= us) had their start blocked because we previously failed. If so,
+         * retroactively start them now. */
+
+        UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_PROPAGATE_START_FAILURE) {
+                if (!other->start_blocked_by_dependency)
+                        continue;
+                if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other)))
+                        continue;
+
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                int r;
+
+                log_unit_info(other, "Starting unit that was blocked by dependency on %s.", u->id);
+
+                r = manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, &error, /* ret= */ NULL);
+                if (r < 0)
+                        log_unit_warning_errno(other, r,
+                                               "Failed to enqueue start job for dependency-blocked unit, ignoring: %s",
+                                               bus_error_message(&error, r));
+        }
+}
+
 static void job_fail_dependencies(Unit *u, UnitDependencyAtom match_atom) {
         Unit *other;
 
@@ -1054,6 +1083,17 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
                 else if (t == JOB_STOP)
                         job_fail_dependencies(u, UNIT_ATOM_PROPAGATE_STOP_FAILURE);
         }
+
+        /* Track units whose start was blocked by a dependency failure, so that when the dependency becomes
+         * active again, we can retroactively start them. */
+        if (IN_SET(t, JOB_START, JOB_VERIFY_ACTIVE))
+                u->start_blocked_by_dependency = (result == JOB_DEPENDENCY);
+        else if (t == JOB_STOP)
+                u->start_blocked_by_dependency = false;
+
+        /* When a start job succeeds, retroactively start any dependents that were blocked by our failure */
+        if (result == JOB_DONE && t == JOB_START)
+                job_start_blocked_dependents(u);
 
         /* A special check to make sure we take down anything RequisiteOf= if we aren't active. This is when
          * the verify-active job merges with a satisfying job type, and then loses its invalidation effect,
