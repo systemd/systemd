@@ -200,6 +200,7 @@ DLSYM_PROTOTYPE(OSSL_EC_curve_nid2name) = NULL;
 static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_new) = NULL;
 static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_free) = NULL;
 static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_octet_string) = NULL;
+static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_uint) = NULL;
 static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_push_utf8_string) = NULL;
 static DLSYM_PROTOTYPE(OSSL_PARAM_BLD_to_param) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_construct_BN) = NULL;
@@ -538,6 +539,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(OSSL_PARAM_BLD_free),
                         DLSYM_ARG(OSSL_PARAM_BLD_new),
                         DLSYM_ARG(OSSL_PARAM_BLD_push_octet_string),
+                        DLSYM_ARG(OSSL_PARAM_BLD_push_uint),
                         DLSYM_ARG(OSSL_PARAM_BLD_push_utf8_string),
                         DLSYM_ARG(OSSL_PARAM_BLD_to_param),
                         DLSYM_ARG(OSSL_PARAM_construct_BN),
@@ -1119,6 +1121,190 @@ int kdf_kb_hmac_derive(
         return 0;
 }
 
+/* Perform Argon2id KDF, producing derive_size bytes of output.
+ *
+ * For more details see: https://docs.openssl.org/master/man7/EVP_KDF-ARGON2/ */
+int kdf_argon2id_derive(
+                const void *pass,
+                size_t passlen,
+                const void *salt,
+                size_t saltlen,
+                uint64_t memcost,
+                uint32_t iterations,
+                uint32_t lanes,
+                size_t derive_size,
+                void **ret) {
+
+        int r;
+
+        assert(pass || passlen == 0);
+        assert(salt || saltlen == 0);
+        assert(derive_size > 0);
+        assert(ret);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(NULL, "ARGON2ID", NULL);
+        if (!kdf)
+                return log_openssl_errors("Failed to create new EVP_KDF for ARGON2ID");
+
+        _cleanup_(EVP_KDF_CTX_freep) EVP_KDF_CTX *ctx = sym_EVP_KDF_CTX_new(kdf);
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_KDF_CTX");
+
+        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = sym_OSSL_PARAM_BLD_new();
+        if (!bld)
+                return log_openssl_errors("Failed to create new OSSL_PARAM_BLD");
+
+        _cleanup_free_ void *buf = malloc(derive_size);
+        if (!buf)
+                return log_oom_debug();
+
+        if (pass)
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "pass", (char*) pass, passlen))
+                        return log_openssl_errors("Failed to add ARGON2ID pass");
+
+        if (salt)
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "salt", (char*) salt, saltlen))
+                        return log_openssl_errors("Failed to add ARGON2ID salt");
+
+        if (!sym_OSSL_PARAM_BLD_push_uint(bld, "memcost", (unsigned) memcost))
+                return log_openssl_errors("Failed to add ARGON2ID memcost");
+
+        if (!sym_OSSL_PARAM_BLD_push_uint(bld, "iter", iterations))
+                return log_openssl_errors("Failed to add ARGON2ID iter");
+
+        if (!sym_OSSL_PARAM_BLD_push_uint(bld, "lanes", lanes))
+                return log_openssl_errors("Failed to add ARGON2ID lanes");
+
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = sym_OSSL_PARAM_BLD_to_param(bld);
+        if (!params)
+                return log_openssl_errors("Failed to build ARGON2ID OSSL_PARAM");
+
+        if (sym_EVP_KDF_derive(ctx, buf, derive_size, params) <= 0)
+                return log_openssl_errors("OpenSSL ARGON2ID derive failed");
+
+        *ret = TAKE_PTR(buf);
+
+        return 0;
+}
+
+/* Perform HKDF-SHA256 derivation, producing derive_size bytes of output.
+ *
+ * For more details see: https://docs.openssl.org/master/man7/EVP_KDF-HKDF.html */
+int kdf_hkdf_sha256(
+                const void *key,
+                size_t key_size,
+                const void *salt,
+                size_t salt_size,
+                const void *info,
+                size_t info_size,
+                size_t derive_size,
+                void **ret) {
+
+        int r;
+
+        assert(key || key_size == 0);
+        assert(salt || salt_size == 0);
+        assert(info || info_size == 0);
+        assert(derive_size > 0);
+        assert(ret);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(NULL, "HKDF", NULL);
+        if (!kdf)
+                return log_openssl_errors("Failed to create new EVP_KDF for HKDF");
+
+        _cleanup_(EVP_KDF_CTX_freep) EVP_KDF_CTX *ctx = sym_EVP_KDF_CTX_new(kdf);
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_KDF_CTX");
+
+        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = sym_OSSL_PARAM_BLD_new();
+        if (!bld)
+                return log_openssl_errors("Failed to create new OSSL_PARAM_BLD");
+
+        _cleanup_free_ void *buf = malloc(derive_size);
+        if (!buf)
+                return log_oom_debug();
+
+        if (!sym_OSSL_PARAM_BLD_push_utf8_string(bld, "digest", (char*) "SHA256", 0))
+                return log_openssl_errors("Failed to add HKDF digest");
+
+        if (key)
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "key", (char*) key, key_size))
+                        return log_openssl_errors("Failed to add HKDF key");
+
+        if (salt)
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "salt", (char*) salt, salt_size))
+                        return log_openssl_errors("Failed to add HKDF salt");
+
+        if (info)
+                if (!sym_OSSL_PARAM_BLD_push_octet_string(bld, "info", (char*) info, info_size))
+                        return log_openssl_errors("Failed to add HKDF info");
+
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = sym_OSSL_PARAM_BLD_to_param(bld);
+        if (!params)
+                return log_openssl_errors("Failed to build HKDF OSSL_PARAM");
+
+        if (sym_EVP_KDF_derive(ctx, buf, derive_size, params) <= 0)
+                return log_openssl_errors("OpenSSL HKDF derive failed");
+
+        *ret = TAKE_PTR(buf);
+
+        return 0;
+}
+
+int rsa_encrypt_bytes(
+                EVP_PKEY *pkey,
+                const void *decrypted_key,
+                size_t decrypted_key_size,
+                void **ret_encrypt_key,
+                size_t *ret_encrypt_key_size) {
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
+        _cleanup_free_ void *b = NULL;
+        size_t l;
+        int r;
+
+        assert(ret_encrypt_key);
+        assert(ret_encrypt_key_size);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        ctx = sym_EVP_PKEY_CTX_new(pkey, NULL);
+        if (!ctx)
+                return log_openssl_errors("Failed to allocate public key context");
+
+        if (sym_EVP_PKEY_encrypt_init(ctx) <= 0)
+                return log_openssl_errors("Failed to initialize public key context");
+
+        if (sym_EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0)
+                return log_openssl_errors("Failed to configure PKCS#1 padding");
+
+        if (sym_EVP_PKEY_encrypt(ctx, NULL, &l, decrypted_key, decrypted_key_size) <= 0)
+                return log_openssl_errors("Failed to determine encrypted key size");
+
+        b = malloc(l);
+        if (!b)
+                return -ENOMEM;
+
+        if (sym_EVP_PKEY_encrypt(ctx, b, &l, decrypted_key, decrypted_key_size) <= 0)
+                return log_openssl_errors("Failed to determine encrypted key size");
+
+        *ret_encrypt_key = TAKE_PTR(b);
+        *ret_encrypt_key_size = l;
+        return 0;
+}
+
+/* Encrypt the key data using RSA-OAEP with the provided label and specified digest algorithm. Returns 0 on
+ * success, -EOPNOTSUPP if the digest algorithm is not supported, or < 0 for any other error. */
 int rsa_oaep_encrypt_bytes(
                 const EVP_PKEY *pkey,
                 const char *digest_alg,
