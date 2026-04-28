@@ -863,6 +863,11 @@ units = [
           'install_tag' : 'udev',
         },
         {
+          'file' : 'systemd-bus-slot-trigger.service',
+          'symlinks' : ['sysinit.target.wants/'],
+          'install_tag' : 'udev',
+        },
+        {
           'file' : 'systemd-udevd-control.socket',
           'symlinks' : ['sockets.target.wants/'],
           'install_tag' : 'udev',
