@@ -1101,6 +1101,12 @@ static const NLAPolicy rtnl_tca_option_data_fq_policies[] = {
         [TCA_FQ_LOW_RATE_THRESHOLD] = BUILD_POLICY(U32),
         [TCA_FQ_CE_THRESHOLD]       = BUILD_POLICY(U32),
         [TCA_FQ_ORPHAN_MASK]        = BUILD_POLICY(U32),
+        [TCA_FQ_TIMER_SLACK]        = BUILD_POLICY(U32),
+        [TCA_FQ_HORIZON]            = BUILD_POLICY(U32),
+        [TCA_FQ_HORIZON_DROP]       = BUILD_POLICY(U8),
+        [TCA_FQ_PRIOMAP]            = BUILD_POLICY(BINARY),
+        [TCA_FQ_WEIGHTS]            = BUILD_POLICY(BINARY),
+        [TCA_FQ_OFFLOAD_HORIZON]    = BUILD_POLICY(U32),
 };
 
 static const NLAPolicy rtnl_tca_option_data_fq_codel_policies[] = {
