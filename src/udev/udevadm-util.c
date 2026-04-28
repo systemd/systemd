@@ -144,7 +144,7 @@ int parse_resolve_name_timing(const char *str, ResolveNameTiming *ret) {
         if (streq(str, "help"))
                 return DUMP_STRING_TABLE(resolve_name_timing, ResolveNameTiming, _RESOLVE_NAME_TIMING_MAX);
 
-        ResolveNameTiming v = resolve_name_timing_from_string(optarg);
+        ResolveNameTiming v = resolve_name_timing_from_string(str);
         if (v < 0)
                 return log_error_errno(v, "--resolve-names= must be 'early', 'late', or 'never'.");
 
