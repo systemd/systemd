@@ -58,7 +58,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_private_bpf, private_bpf, Priva
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_home, protect_home, ProtectHome);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_system, protect_system, ProtectSystem);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_personality, personality, unsigned long);
-static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_memory_thp, memory_thp, MemoryTHP);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_memory_thp, exec_memory_thp, ExecMemoryTHP);
 static BUS_DEFINE_PROPERTY_GET(property_get_ioprio, "i", ExecContext, exec_context_get_effective_ioprio);
 static BUS_DEFINE_PROPERTY_GET(property_get_mount_apivfs, "b", ExecContext, exec_context_get_effective_mount_apivfs);
 static BUS_DEFINE_PROPERTY_GET(property_get_bind_log_sockets, "b", ExecContext, exec_context_get_effective_bind_log_sockets);
@@ -1002,7 +1002,7 @@ static int property_get_exec_quota(sd_bus *bus,
                 void *userdata,
                 sd_bus_error *reterr_error) {
 
-        QuotaLimit *q = ASSERT_PTR(userdata);
+        ExecQuotaLimit *q = ASSERT_PTR(userdata);
 
         assert(bus);
         assert(reply);
@@ -1399,7 +1399,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("BPFDelegatePrograms", "s", property_get_bpf_delegate_programs, offsetof(ExecContext, bpf_delegate_programs), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BPFDelegateAttachments", "s", property_get_bpf_delegate_attachments, offsetof(ExecContext, bpf_delegate_attachments), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MemoryKSM", "b", bus_property_get_tristate, offsetof(ExecContext, memory_ksm), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("MemoryTHP", "s", property_get_memory_thp, offsetof(ExecContext, memory_thp), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MemoryTHP", "s", property_get_exec_memory_thp, offsetof(ExecContext, memory_thp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UserNamespacePath", "s", NULL, offsetof(ExecContext, user_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NetworkNamespacePath", "s", NULL, offsetof(ExecContext, network_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IPCNamespacePath", "s", NULL, offsetof(ExecContext, ipc_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1444,7 +1444,7 @@ static int property_get_quota_usage(
         else
                 assert_not_reached();
 
-        const QuotaLimit *q;
+        const ExecQuotaLimit *q;
         q = &c->directories[dt].exec_quota;
 
         if (q->quota_enforce || q->quota_accounting) {
@@ -1842,7 +1842,7 @@ static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_commands, uint64_t, bpf_d
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_maps, uint64_t, bpf_delegate_maps_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_programs, uint64_t, bpf_delegate_programs_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_attachments, uint64_t, bpf_delegate_attachments_from_string);
-static BUS_DEFINE_SET_TRANSIENT_PARSE(memory_thp, MemoryTHP, memory_thp_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(exec_memory_thp, ExecMemoryTHP, exec_memory_thp_from_string);
 BUS_DEFINE_SET_TRANSIENT_PARSE(exec_preserve_mode, ExecPreserveMode, exec_preserve_mode_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(personality, unsigned long, parse_personality);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(secure_bits, "i", int32_t, int, "%" PRIi32, secure_bits_to_string_alloc_with_check);
@@ -2341,7 +2341,7 @@ int bus_exec_context_set_transient_property(
                 return bus_set_transient_tristate(u, name, &c->memory_ksm, message, flags, reterr_error);
 
         if (streq(name, "MemoryTHP"))
-                return bus_set_transient_memory_thp(u, name, &c->memory_thp, message, flags, reterr_error);
+                return bus_set_transient_exec_memory_thp(u, name, &c->memory_thp, message, flags, reterr_error);
 
         if (streq(name, "UtmpIdentifier"))
                 return bus_set_transient_string(u, name, &c->utmp_id, message, flags, reterr_error);
