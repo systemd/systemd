@@ -298,8 +298,10 @@ static int help(void) {
                 "Options",
         };
 
-        _cleanup_(table_unref_many) Table *verb_tables[ELEMENTSOF(verb_groups) + 1] = {};
-        _cleanup_(table_unref_many) Table *option_tables[ELEMENTSOF(option_groups) + 1] = {};
+        Table *verb_tables[ELEMENTSOF(verb_groups)] = {};
+        CLEANUP_ELEMENTS(verb_tables, table_unref_array_clear);
+        Table *option_tables[ELEMENTSOF(option_groups)] = {};
+        CLEANUP_ELEMENTS(option_tables, table_unref_array_clear);
 
         for (size_t i = 0; i < ELEMENTSOF(verb_groups); i++) {
                 r = verbs_get_help_table_group(verb_groups[i], &verb_tables[i]);
