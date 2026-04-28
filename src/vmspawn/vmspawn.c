@@ -1564,7 +1564,7 @@ static int start_tpm(
         if (r < 0)
                 return log_oom();
 
-        r = fork_notify(argv, ret_pidref);
+        r = fork_notify(argv, /* child_handler= */ NULL, /* child_userdata= */ NULL, ret_pidref);
         if (r < 0)
                 return r;
 

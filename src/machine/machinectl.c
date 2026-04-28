@@ -1242,7 +1242,7 @@ static int verb_machine_control_one(const char *machine_name, const char *method
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to machine control socket: %m");
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        sd_json_variant *reply = NULL;
         const char *error_id = NULL;
         r = sd_varlink_call(vl, method, /* parameters= */ NULL, &reply, &error_id);
         if (r < 0)

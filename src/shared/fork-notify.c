@@ -92,9 +92,10 @@ static int on_child_notify(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
-int fork_notify(char * const *argv, PidRef *ret_pidref) {
+int fork_notify(char * const *argv, fork_notify_handler_t child_handler, void *child_userdata, PidRef *ret_pidref) {
         int r;
 
+        assert(argv);
         assert(ret_pidref);
 
         if (!is_main_thread())
@@ -123,7 +124,7 @@ int fork_notify(char * const *argv, PidRef *ret_pidref) {
         if (r < 0)
                 return r;
 
-        if (DEBUG_LOGGING && argv) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *l = quote_command_line(argv, SHELL_ESCAPE_EMPTY);
                 log_debug("Invoking '%s' as child.", strnull(l));
         }
@@ -145,10 +146,11 @@ int fork_notify(char * const *argv, PidRef *ret_pidref) {
                         _exit(EXIT_MEMORY);
                 }
 
-                if (!argv) {
-                        *ret_pidref = TAKE_PIDREF(child);
-                        return 0; /* Let the caller run custom code in the child */
-                }
+                /* After fork and before exec one can execute custom code in this function
+                 * but since all open FDs were closed only limited actions are safe (e.g., setenv),
+                 * akin to how in a signal handler only certain things are safe. */
+                if (child_handler)
+                        child_handler(child_userdata);
 
                 r = invoke_callout_binary(argv[0], argv);
                 log_debug_errno(r, "Failed to invoke %s: %m", argv[0]);
@@ -173,7 +175,7 @@ int fork_notify(char * const *argv, PidRef *ret_pidref) {
 
         *ret_pidref = TAKE_PIDREF(child);
 
-        return 1; /* In the parent */
+        return 0;
 }
 
 static void fork_notify_terminate_internal(PidRef *pidref) {
@@ -241,7 +243,14 @@ int journal_fork(RuntimeScope scope, char * const* units, OutputMode output, Pid
                 if (strv_extendf(&argv, "--output=%s", output_mode_to_string(output)) < 0)
                         return log_oom_debug();
 
-        return fork_notify(argv, ret_pidref);
+        return fork_notify(argv, /* child_handler= */ NULL, /* child_userdata= */ NULL, ret_pidref);
+}
+
+static void set_journal_remote_config(void *userdata) {
+        if (setenv("SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE", "/dev/null", /* overwrite= */ true) < 0) {
+                log_debug_errno(errno, "Failed to set $SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE: %m");
+                _exit(EXIT_MEMORY);
+        }
 }
 
 int fork_journal_remote(
@@ -313,22 +322,5 @@ int fork_journal_remote(
             strv_extendf(&argv, "--max-files=%" PRIu64, max_files) < 0)
                 return log_oom();
 
-        r = fork_notify(/* argv= */ NULL, ret_pidref);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                /* In the child */
-                if (setenv("SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE",
-                            "/dev/null",
-                            /* overwrite= */ true) < 0) {
-                        log_debug_errno(errno, "Failed to set $SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE: %m");
-                        _exit(EXIT_MEMORY);
-                }
-
-                r = invoke_callout_binary(argv[0], argv);
-                log_debug_errno(r, "Failed to invoke %s: %m", argv[0]);
-                _exit(EXIT_EXEC);
-        }
-
-        return 0;
+        return fork_notify(argv, set_journal_remote_config, /* child_userdata= */ NULL, ret_pidref);
 }
