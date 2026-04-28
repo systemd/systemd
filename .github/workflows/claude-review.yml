@@ -309,14 +309,20 @@ jobs:
           Then:
           1. Collect all issues. Merge duplicates across agents (same file, same
              problem, lines within 3 of each other).
-          2. Drop issues that already have a review comment on the same file about
+          2. Drop any issue whose suggestion is to add a code comment, docstring,
+             or documentation (e.g. "add a comment explaining…", "missing
+             docstring", "document this function", "would benefit from a
+             comment"). Project style is to write no comments unless the WHY is
+             non-obvious, so these are noise — drop them from `comments` and from
+             the `summary`.
+          3. Drop issues that already have a review comment on the same file about
              the same problem, or where the PR author replied disagreeing.
-          3. Populate the `resolve` array with the `id` of your own review comment
+          4. Populate the `resolve` array with the `id` of your own review comment
              threads (user.login == "github-actions[bot]", body starts with
              "Claude: ") that should be resolved — either because the issue was
              fixed or because the author dismissed it. Use the first comment `id`
              in each thread. Do not resolve threads from human reviewers.
-          4. Write a `summary` field in markdown for a top-level tracking comment.
+          5. Write a `summary` field in markdown for a top-level tracking comment.
 
               **If no existing tracking comment was found (first run):**
               Use this format:
