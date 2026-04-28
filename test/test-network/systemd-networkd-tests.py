@@ -7443,6 +7443,8 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         output = networkctl_status('veth99')
         print(output)
         self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
+        self.assertIn('DHCPv4 Client State: bound', output)
+        self.assertRegex(output, r'DHCPv4 Lease Timestamp: .+')
         self.assertIn('DHCPv4 Client ID: 12:34:56:78:9a:bc', output)
 
     def test_dhcp_server_static_lease_mac_by_global(self):
@@ -7721,6 +7723,12 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(f"DHCPv6 client state = {state}")
         self.assertEqual(state, 'bound')
 
+        # Also verify DHCP client state is written to the link state file
+        output = read_link_state_file('veth99')
+        print(output)
+        self.assertIn('DHCP6_CLIENT_STATE=bound', output)
+        self.assertRegex(output, r'DHCP6_LEASE_TIMESTAMP=\d+')
+
         # DHCPv4 client will stop after an DHCPOFFER message received, so we need to wait for a while.
         for _ in range(100):
             state = get_dhcp4_client_state('veth99')
@@ -7851,6 +7859,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('DNS=192.168.5.6 192.168.5.7', output)
         self.assertIn('SIP=192.168.5.21 192.168.5.22', output)
         self.assertIn('DOMAINS=example.com', output)
+        self.assertIn('DHCP_CLIENT_STATE=bound', output)
 
         print('## json')
         j = json.loads(networkctl_json('veth99'))
@@ -7958,6 +7967,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('DNS=192.168.5.1 192.168.5.7 192.168.5.8', output)
         self.assertIn('SIP=192.168.5.23 192.168.5.24', output)
         self.assertIn('DOMAINS=foo.example.com', output)
+        self.assertIn('DHCP_CLIENT_STATE=bound', output)
 
         print('## json')
         j = json.loads(networkctl_json('veth99'))
