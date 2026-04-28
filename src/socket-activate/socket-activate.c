@@ -437,7 +437,7 @@ static int parse_argv(int argc, char *argv[]) {
                                         log_warning("File descriptor name \"%s\" is not valid.", esc);
                                 }
 
-                        /* Empty optargs means one empty name */
+                        /* Empty argument means one empty name */
                         r = strv_extend_strv(&arg_fdnames,
                                              strv_isempty(names) ? STRV_MAKE("") : names,
                                              false);
