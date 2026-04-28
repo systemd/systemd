@@ -12,12 +12,13 @@
 # Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024, 2025.
 # Anselm Schueler <mail@anselmschueler.com>, 2024.
 # Marcel Leismann <tiixrigjekfv@use.startmail.com>, 2025, 2026.
+# Dark Cronyx <darkcronyx@protonmail.com>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-03-06 03:46+0900\n"
-"PO-Revision-Date: 2026-03-10 15:58+0000\n"
-"Last-Translator: Marcel Leismann <tiixrigjekfv@use.startmail.com>\n"
+"PO-Revision-Date: 2026-04-28 08:59+0000\n"
+"Last-Translator: Dark Cronyx <darkcronyx@protonmail.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "main/de/>\n"
 "Language: de\n"
@@ -25,7 +26,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.16.2\n"
+"X-Generator: Weblate 5.17\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1146,7 +1147,7 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:198
 msgid "Manage network links"
-msgstr ""
+msgstr "Netzwerkverbindungen verwalten"
 
 #: src/network/org.freedesktop.network1.policy:199
 msgid "Authentication is required to manage network links."
