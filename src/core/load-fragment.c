@@ -4089,6 +4089,63 @@ int config_parse_managed_oom_mem_pressure_duration_sec(
         return 0;
 }
 
+int config_parse_managed_oom_rules(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***sv = ASSERT_PTR(data);
+        UnitType t;
+        int r;
+
+        assert(rvalue);
+
+        t = unit_name_to_type(unit);
+        assert(t != _UNIT_TYPE_INVALID);
+
+        if (!unit_vtable[t]->can_set_managed_oom)
+                return log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= is not supported for this unit type, ignoring.", lvalue);
+
+        if (isempty(rvalue)) {
+                *sv = strv_free(*sv);
+                return 1;
+        }
+
+        /* Tokenize once: validate each rule name as a valid filename component (rulesets
+         * are loaded from .oomrule files) and accumulate into a local strv. On any failure
+         * the ruleset line is ignored and the existing strv is untouched. */
+        _cleanup_strv_free_ char **strv = NULL;
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                if (r == 0)
+                        break;
+                if (r < 0)
+                        return log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
+
+                if (!filename_is_valid(word))
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid rule name in %s=, ignoring: %s", lvalue, word);
+
+                r = strv_consume(&strv, TAKE_PTR(word));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        r = strv_extend_strv_consume(sv, TAKE_PTR(strv), /* filter_duplicates= */ ltype);
+        if (r < 0)
+                return log_oom();
+
+        return 1;
+}
+
 int config_parse_device_allow(
                 const char *unit,
                 const char *filename,
