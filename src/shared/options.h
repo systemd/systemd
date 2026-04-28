@@ -4,13 +4,30 @@
 #include "memory-util.h"
 #include "shared-forward.h"
 
+/* Option namespace/group explanation:
+ * the list of options is split into namespaces, and a namespace is split into groups.
+ * By default, options defined in a single program are all placed in a single (unnamed) namespace
+ * and in a single (unnamed) group. OPTION_NAMESPACE() marks the beginning of a named namespace.
+ * OPTION_GROUP() marks the beginning of a named group.
+ *
+ * Note: if multiple namespaces are used, they should all be named, i.e. each separate parse_argv
+ * instance should have OPTION_NAMESPACE first, and then its set of OPTION()s. (This is because
+ * clang reorders OPTIONs coming from different functions. So an unnamed group could end up being
+ * merged with one of the earlier groups. It seems that reordering within a single function does
+ * not happen.)
+ *
+ * When groups are used, the first group may be named (with OPTION_GROUP appearing before any
+ * options), or it may be unnamed. Both variants should work fine.
+ */
+
 typedef enum OptionFlags {
         OPTION_OPTIONAL_ARG        = 1U << 0,  /* Same as optional_argument in getopt */
         OPTION_POSITIONAL_ENTRY    = 1U << 1,  /* The "option" to handle positional arguments */
         OPTION_STOPS_PARSING       = 1U << 2,  /* This option acts like "--" */
-        OPTION_GROUP_MARKER        = 1U << 3,  /* Fake option entry to separate groups */
-        OPTION_HELP_ENTRY          = 1U << 4,  /* Fake option entry to insert an additional help line */
-        OPTION_HELP_ENTRY_VERBATIM = 1U << 5,  /* Same, but use the long_code in the first column as written */
+        OPTION_NAMESPACE_MARKER    = 1U << 3,  /* Fake option entry to separate namespaces */
+        OPTION_GROUP_MARKER        = 1U << 4,  /* Fake option entry to separate groups */
+        OPTION_HELP_ENTRY          = 1U << 5,  /* Fake option entry to insert an additional help line */
+        OPTION_HELP_ENTRY_VERBATIM = 1U << 6,  /* Same, but use the long_code in the first column as written */
 } OptionFlags;
 
 typedef struct Option {
@@ -41,9 +58,13 @@ typedef struct Option {
         };                                                              \
         case (0x100 + counter)
 
+/* Magic entry in the table (which will not be returned) that designates the start of the namespace <ns>.
+ * The define is structured as 'case' so that it can be followed by ':' and indented appropriately. */
+#define OPTION_NAMESPACE(ns)                                            \
+        _OPTION(__COUNTER__, OPTION_NAMESPACE_MARKER, /* sc= */ 0, /* lc= */ ns, /* mv= */ NULL, /* d= */ 0u, /* h= */ NULL)
+
 /* Magic entry in the table (which will not be returned) that designates the start of the group <gr>.
- * The define is structured as 'case' so that it can be followed by ':' and indented appropriately.
- */
+ * The define is structured as 'case' so that it can be followed by ':' and indented appropriately. */
 #define OPTION_GROUP(gr)                                                \
         _OPTION(__COUNTER__, OPTION_GROUP_MARKER, /* sc= */ 0, /* lc= */ gr, /* mv= */ NULL, /* d= */ 0u, /* h= */ NULL)
 
@@ -140,7 +161,7 @@ extern const Option __stop_SYSTEMD_OPTIONS[];
 
 typedef enum OptionParserMode {
         /* The default mode. This is the implicit default and doesn't have to be specified. */
-        OPTION_PARSER_NORMAL = 0,
+        OPTION_PARSER_NORMAL,
 
         /* Same as "+…" for getopt_long — only parse options before the first positional argument. */
         OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
@@ -152,14 +173,28 @@ typedef enum OptionParserMode {
         _OPTION_PARSER_MODE_MAX,
 } OptionParserMode;
 
+typedef enum OptionParserState {
+        OPTION_PARSER_INIT,
+        OPTION_PARSER_RUNNING,
+        OPTION_PARSER_STOPPING, /* We processed an option with OPTION_STOPS_PARSING, and will eat up one
+                                 * more "--", but nothing else. */
+        OPTION_PARSER_DONE,     /* Option parsing completed (could be because we reached the end, or because
+                                 * "--" was fully processed, or because we hit a terminating option). */
+        OPTION_PARSER_FAILED,   /* We encountered a parse error, and terminated option parsing. */
+        _OPTION_PARSER_MAX,
+} OptionParserState;
+
 typedef struct OptionParser {
-        /* Those three should stay first so that it's possible to initialize the struct as { argc, argv }
-         * or { argc, argv, mode }. */
+        /* Those four should stay first so that it's possible to initialize the struct as { argc, argv }
+         * or { argc, argv, mode } or { argc, argv, mode, namespace }. */
         int argc;                     /* The original argc. */
         char **argv;                  /* The argv array, possibly reordered. */
         OptionParserMode mode;
+        const char *namespace;        /* The namespace, may be NULL. */
 
-        bool parsing_stopped;         /* We processed "--" or an option that terminates option parsing. */
+        const Option *namespace_start, *namespace_end; /* The range of options that are part of our namespace. */
+
+        OptionParserState state;
         int optind;                   /* Position of the parameter being handled.
                                        * 0 → option parsing hasn't been started yet. */
         int short_option_offset;      /* Set when we're parsing an argument with one or more short options.
@@ -193,12 +228,15 @@ char** option_parser_get_args(const OptionParser *state);
 size_t option_parser_get_n_args(const OptionParser *state);
 char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metavar);
 
-int _option_parser_get_help_table(
+int _option_parser_get_help_table_full(
                 const Option options[],
                 const Option options_end[],
+                const char *namespace,
                 const char *group,
                 Table **ret);
+#define option_parser_get_help_table_full(namespace, group, ret)        \
+        _option_parser_get_help_table_full(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, namespace, group, ret)
 #define option_parser_get_help_table_group(group, ret)                  \
-        _option_parser_get_help_table(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, group, ret)
+        option_parser_get_help_table_full(/* namespace= */ NULL, group, ret)
 #define option_parser_get_help_table(ret)                               \
         option_parser_get_help_table_group(/* group= */ NULL, ret)
