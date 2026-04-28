@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
+#include <linux/pkt_sched.h>
 #include <mqueue.h>
 #include <net/if.h>
 #include <netdb.h>
@@ -1871,5 +1872,31 @@ void cmsg_close_all(struct msghdr *mh) {
                         assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
                         safe_close(*CMSG_TYPED_DATA(cmsg, int));
                 }
+        }
+}
+
+uint32_t tos_to_priority(uint8_t tos) {
+        /* Map the IP Precedence (top 3 bits of the TOS field, as per RFC 791 and RFC 2474)
+         * to Linux internal packet priorities (TC_PRIO_*). This mapping aligns with the
+         * standard IEEE 802.1p Class of Service (CoS) guidelines. */
+        switch (IPTOS_PREC(tos)) {
+        case IPTOS_PREC_INTERNETCONTROL: /* 0xe0 (CS7) - Internetwork Control. Used for infrastructure control (e.g., STP, keepalives). */
+        case IPTOS_PREC_NETCONTROL:      /* 0xc0 (CS6) - Network Control. Used for routing protocols (e.g., OSPF, BGP) and DHCP. */
+                return TC_PRIO_CONTROL;
+
+        case IPTOS_PREC_CRITIC_ECP:      /* 0xa0 (CS5) - Critical. Used for delay-sensitive traffic like Voice over IP (VoIP). */
+        case IPTOS_PREC_FLASHOVERRIDE:   /* 0x80 (CS4) - Flash Override. Used for interactive video and multimedia. */
+                return TC_PRIO_INTERACTIVE;
+
+        case IPTOS_PREC_FLASH:           /* 0x60 (CS3) - Flash. Used for broadcast video and call signaling (e.g., SIP). */
+        case IPTOS_PREC_IMMEDIATE:       /* 0x40 (CS2) - Immediate. Used for OAM (Operations, Administration, and Management) and transactional data. */
+                return TC_PRIO_INTERACTIVE_BULK;
+
+        case IPTOS_PREC_PRIORITY:        /* 0x20 (CS1) - Priority. Used for background traffic and bulk data transfers. */
+                return TC_PRIO_BULK;
+
+        case IPTOS_PREC_ROUTINE:         /* 0x00 (CS0) - Routine. Best effort traffic. */
+        default:
+                return TC_PRIO_BESTEFFORT;
         }
 }

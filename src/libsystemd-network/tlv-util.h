@@ -77,6 +77,7 @@ int tlv_get_alloc(const TLV *tlv, uint32_t tag, struct iovec *ret);
 
 void tlv_remove(TLV *tlv, uint32_t tag);
 int tlv_append(TLV *tlv, uint32_t tag, size_t length, const void *data);
+int tlv_append_iov(TLV *tlv, uint32_t tag, const struct iovec *iov);
 int tlv_append_tlv(TLV *tlv, const TLV *source);
 
 int tlv_parse(TLV *tlv, const struct iovec *iov);

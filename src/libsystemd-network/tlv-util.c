@@ -239,6 +239,13 @@ int tlv_append(TLV *tlv, uint32_t tag, size_t length, const void *data) {
         return tlv_append_impl(tlv, tag, length, data);
 }
 
+int tlv_append_iov(TLV *tlv, uint32_t tag, const struct iovec *iov) {
+        assert(tlv);
+        assert(iovec_is_valid(iov));
+
+        return tlv_append(tlv, tag, iov ? iov->iov_len : 0, iov ? iov->iov_base : NULL);
+}
+
 int tlv_append_tlv(TLV *tlv, const TLV *source) {
         int r;
 

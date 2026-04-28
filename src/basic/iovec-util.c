@@ -129,6 +129,21 @@ struct iovec* iovec_memdup(const struct iovec *source, struct iovec *ret) {
         return ret;
 }
 
+int iovec_done_and_memdup(struct iovec *iovec, const struct iovec *source) {
+        assert(iovec);
+
+        if (iovec_equal(iovec, source))
+                return 0;
+
+        struct iovec copy;
+        if (!iovec_memdup(source, &copy))
+                return -ENOMEM;
+
+        iovec_done(iovec);
+        *iovec = copy;
+        return 1;
+}
+
 struct iovec* iovec_append(struct iovec *iovec, const struct iovec *append) {
         assert(iovec_is_valid(iovec));
 
