@@ -306,18 +306,15 @@ size_t option_parser_get_n_args(const OptionParser *state) {
         return state->argc - state->positional_offset;
 }
 
-char* option_get_synopsis(const char *prefix, const Option *opt, const char *joiner, bool show_metavar) {
+char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metavar) {
         assert(opt);
         assert(!FLAGS_SET(opt->flags, OPTION_GROUP_MARKER));  /* A group marker should not be displayed */
 
-        if (!prefix)
-                prefix = "";
-
         if (opt->flags & (OPTION_HELP_ENTRY_VERBATIM | OPTION_POSITIONAL_ENTRY))
-                return strjoin(prefix, ASSERT_PTR(opt->long_code));
+                return strdup(ASSERT_PTR(opt->long_code));
 
         /* The option formatted appropriately for --help strings, error messages, and similar:
-         *   <prefix>-<short><joiner>--<long>=[<metavar>]
+         *   -<short><joiner>--<long>=[<metavar>]
          * "=" is shown only when a long form is defined: -l --long=ARG, --long=ARG, -s ARG.
          * The joiner arg is used between the short and long forms.
          * As a special case, if the option has no long form and show_metavar is true,
@@ -338,16 +335,14 @@ char* option_get_synopsis(const char *prefix, const Option *opt, const char *joi
 
         bool need_eq = option_takes_arg(opt) && opt->long_code;
         if (!show_metavar)
-                return strjoin(prefix,
-                               sc,
+                return strjoin(sc,
                                joiner,
                                opt->long_code ? "--" : "",
                                strempty(opt->long_code),
                                need_eq ? "=" : "");
 
         bool need_quote = opt->metavar && strchr(opt->metavar, ' ');
-        return strjoin(prefix,
-                       sc,
+        return strjoin(sc,
                        joiner,
                        opt->long_code ? "--" : "",
                        strempty(opt->long_code),
@@ -389,22 +384,27 @@ int _option_parser_get_help_table(
                         /* No help string — we do not show the option */
                         continue;
 
-                /* We indent the option string by two spaces. We could set the minimum cell width and
-                 * right-align for a similar result, but that'd be more work. This is only used for
-                 * display. */
-                _cleanup_free_ char *s = option_get_synopsis("  ", opt, " ", /* show_metavar= */ true);
+                _cleanup_free_ char *s = option_get_synopsis(opt, " ", /* show_metavar= */ true);
                 if (!s)
                         return log_oom();
 
-                r = table_add_many(table, TABLE_STRING, s);
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                _cleanup_strv_free_ char **t = strv_split(opt->help, /* separators= */ NULL);
+                /* We indent the option string by two spaces. We could set the minimum cell width and
+                 * right-align for a similar result, but that'd be more work. This is only used for
+                 * display. */
+                const char *prefix = opt->short_code != 0 ? "  " : "     ";
+                _cleanup_free_ char *t = strjoin(prefix, s);
                 if (!t)
                         return log_oom();
 
-                r = table_add_many(table, TABLE_STRV_WRAPPED, t);
+                r = table_add_many(table, TABLE_STRING, t);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                _cleanup_strv_free_ char **split = strv_split(opt->help, /* separators= */ NULL);
+                if (!split)
+                        return log_oom();
+
+                r = table_add_many(table, TABLE_STRV_WRAPPED, split);
                 if (r < 0)
                         return table_log_add_error(r);
         }
