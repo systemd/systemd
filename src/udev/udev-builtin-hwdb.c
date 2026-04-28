@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
-#include <getopt.h>
 #include <stdio.h>
 
 #include "sd-hwdb.h"
@@ -9,6 +8,7 @@
 #include "alloc-util.h"
 #include "device-util.h"
 #include "hwdb-util.h"
+#include "options.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "udev-builtin.h"
@@ -128,13 +128,6 @@ next:
 }
 
 static int builtin_hwdb(UdevEvent *event, int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "filter", required_argument, NULL, 'f' },
-                { "device", required_argument, NULL, 'd' },
-                { "subsystem", required_argument, NULL, 's' },
-                { "lookup-prefix", required_argument, NULL, 'p' },
-                {}
-        };
         const char *filter = NULL, *device = NULL, *subsystem = NULL, *prefix = NULL;
         _cleanup_(sd_device_unrefp) sd_device *srcdev = NULL;
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
@@ -143,35 +136,34 @@ static int builtin_hwdb(UdevEvent *event, int argc, char *argv[]) {
         if (!hwdb)
                 return -EINVAL;
 
-        for (;;) {
-                int option;
+        OptionParser opts = { argc, argv, .namespace = "udev-builtin-hwdb" };
 
-                option = getopt_long(argc, argv, "f:d:s:p:", options, NULL);
-                if (option == -1)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
+                switch (c) {
+
+                OPTION_NAMESPACE("udev-builtin-hwdb"): {}
+
+                OPTION('f', "filter", "FILTER", NULL):
+                        filter = opts.arg;
                         break;
 
-                switch (option) {
-                case 'f':
-                        filter = optarg;
+                OPTION('d', "device", "DEVICE", NULL):
+                        device = opts.arg;
                         break;
 
-                case 'd':
-                        device = optarg;
+                OPTION('s', "subsystem", "SUBSYSTEM", NULL):
+                        subsystem = opts.arg;
                         break;
 
-                case 's':
-                        subsystem = optarg;
-                        break;
-
-                case 'p':
-                        prefix = optarg;
+                OPTION('p', "lookup-prefix", "PREFIX", NULL):
+                        prefix = opts.arg;
                         break;
                 }
-        }
 
         /* query a specific key given as argument */
-        if (argv[optind]) {
-                r = udev_builtin_hwdb_lookup(event, prefix, argv[optind], filter);
+        char *modalias = option_parser_get_arg(&opts, 0);
+        if (modalias) {
+                r = udev_builtin_hwdb_lookup(event, prefix, modalias, filter);
                 if (r < 0)
                         return log_device_debug_errno(dev, r, "Failed to look up hwdb: %m");
                 if (r == 0)
