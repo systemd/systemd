@@ -538,4 +538,37 @@ TEST(sector_size_mismatch) {
         loop = loop_device_unref(loop);
 }
 
+TEST(partscan_required) {
+        _cleanup_(loop_device_unrefp) LoopDevice *block_loop = NULL, *loop = NULL;
+        _cleanup_close_ int fd = -EBADF;
+
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                log_tests_skipped("not running privileged");
+                return;
+        }
+
+        if (detect_container() != 0 || running_in_chroot() != 0) {
+                log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
+                return;
+        }
+
+        ASSERT_OK(make_test_image(&fd));
+
+        /* Set up a backing loop device without LO_FLAGS_PARTSCAN. */
+        ASSERT_OK(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &block_loop));
+        ASSERT_TRUE(block_loop->created);
+        ASSERT_OK(loop_device_flock(block_loop, LOCK_SH));
+
+        /* Without LO_FLAGS_PARTSCAN: shortcut should be taken (reuse existing loop). */
+        ASSERT_OK(loop_device_make(block_loop->fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_SH, &loop));
+        ASSERT_FALSE(loop->created);
+        loop = loop_device_unref(loop);
+
+        /* With LO_FLAGS_PARTSCAN: backing loop has partscan disabled, so a new loop device with
+         * partscan must be created. */
+        ASSERT_OK(loop_device_make(block_loop->fd, O_RDWR, 0, UINT64_MAX, 0, LO_FLAGS_PARTSCAN, LOCK_SH, &loop));
+        ASSERT_TRUE(loop->created);
+        loop = loop_device_unref(loop);
+}
+
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
