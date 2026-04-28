@@ -154,7 +154,7 @@ static int help(void) {
         _cleanup_(table_unref_many) Table *tables[ELEMENTSOF(groups) + 1] = {};
 
         for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                r = option_parser_get_help_table_group(groups[i], &tables[i]);
+                r = option_parser_get_help_table_full("systemd-run", groups[i], &tables[i]);
                 if (r < 0)
                         return r;
         }
@@ -252,10 +252,12 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser opts = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
+        OptionParser opts = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION, "systemd-run" };
 
         FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
+
+                OPTION_NAMESPACE("systemd-run"): {}
 
                 OPTION_COMMON_HELP:
                         return help();
