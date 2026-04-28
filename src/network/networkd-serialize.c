@@ -103,28 +103,6 @@ int manager_set_serialization_fd(Manager *manager, int fd, const char *name) {
 
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_network_config_source, NetworkConfigSource, network_config_source_from_string);
 
-static int json_dispatch_address_family(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        int r, *i = ASSERT_PTR(userdata);
-        int64_t i64;
-
-        assert_return(variant, -EINVAL);
-
-        if (FLAGS_SET(flags, SD_JSON_RELAX) && sd_json_variant_is_null(variant)) {
-                *i = AF_UNSPEC;
-                return 0;
-        }
-
-        r = sd_json_dispatch_int64(name, variant, flags, &i64);
-        if (r < 0)
-                return r;
-
-        if (!IN_SET(i64, AF_INET, AF_INET6) && !(FLAGS_SET(flags, SD_JSON_RELAX) && i64 == AF_UNSPEC))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' out of bounds for an address family.", strna(name));
-
-        *i = (int) i64;
-        return 0;
-}
-
 typedef struct AddressParam {
         int family;
         struct iovec address;
