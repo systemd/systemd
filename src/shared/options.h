@@ -191,7 +191,7 @@ char* option_parser_consume_next_arg(OptionParser *state);
 
 char** option_parser_get_args(const OptionParser *state);
 size_t option_parser_get_n_args(const OptionParser *state);
-char* option_get_synopsis(const char *prefix, const Option *opt, const char *joiner, bool show_metavar);
+char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metavar);
 
 int _option_parser_get_help_table(
                 const Option options[],
