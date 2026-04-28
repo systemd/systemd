@@ -188,7 +188,7 @@ static int help_sudo_mode(void) {
          * sudo's short switches, hence please do not introduce new short switches unless they have a roughly
          * equivalent purpose on sudo. Use long options for everything private to run0. */
 
-        r = option_parser_get_help_table_full("run0", /* group= */ NULL, &opts_table);
+        r = option_parser_get_help_table_ns("run0", &opts_table);
         if (r < 0)
                 return r;
 

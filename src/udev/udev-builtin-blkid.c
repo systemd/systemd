@@ -10,7 +10,6 @@
 #endif
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <linux/loop.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -26,6 +25,7 @@
 #include "fd-util.h"
 #include "initrd-util.h"
 #include "gpt.h"
+#include "options.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -506,13 +506,6 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         int64_t offset = 0;
         int r;
 
-        static const struct option options[] = {
-                { "offset", required_argument, NULL, 'o' },
-                { "hint",   required_argument, NULL, 'H' },
-                { "noraid", no_argument,       NULL, 'R' },
-                {}
-        };
-
         r = dlopen_libblkid(LOG_DEBUG);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "blkid not available: %m");
@@ -522,32 +515,32 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         if (!pr)
                 return log_device_debug_errno(dev, errno_or_else(ENOMEM), "Failed to create blkid prober: %m");
 
-        for (;;) {
-                int option;
+        OptionParser opts = { argc, argv, .namespace = "udev-builtin-blkid" };
 
-                option = getopt_long(argc, argv, "o:H:R", options, NULL);
-                if (option == -1)
-                        break;
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
+                switch (c) {
 
-                switch (option) {
-                case 'H':
+                OPTION_NAMESPACE("udev-builtin-blkid"): {}
+
+                OPTION('H', "hint", "HINT", NULL):
                         errno = 0;
-                        r = sym_blkid_probe_set_hint(pr, optarg, 0);
+                        r = sym_blkid_probe_set_hint(pr, opts.arg, 0);
                         if (r < 0)
-                                return log_device_error_errno(dev, errno_or_else(ENOMEM), "Failed to use '%s' probing hint: %m", optarg);
+                                return log_device_error_errno(dev, errno_or_else(ENOMEM), "Failed to use '%s' probing hint: %m", opts.arg);
                         break;
-                case 'o':
-                        r = safe_atoi64(optarg, &offset);
+
+                OPTION('o', "offset", "OFFSET", NULL):
+                        r = safe_atoi64(opts.arg, &offset);
                         if (r < 0)
-                                return log_device_error_errno(dev, r, "Failed to parse '%s' as an integer: %m", optarg);
+                                return log_device_error_errno(dev, r, "Failed to parse '%s' as an integer: %m", opts.arg);
                         if (offset < 0)
                                 return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid offset %"PRIi64".", offset);
                         break;
-                case 'R':
+
+                OPTION('R', "noraid", NULL, NULL):
                         noraid = true;
                         break;
                 }
-        }
 
         r = sd_device_get_devname(dev, &devnode);
         if (r < 0)
