@@ -48,6 +48,7 @@
 #include "resolvectl.h"
 #include "resolved-def.h"
 #include "resolved-util.h"
+#include "resolve-varlink-util.h"
 #include "set.h"
 #include "socket-netlink.h"
 #include "string-table.h"
@@ -278,20 +279,88 @@ static void print_ifindex_comment(int printed_so_far, int ifindex) {
                ansi_grey(), ifname, ansi_normal());
 }
 
-static int resolve_host_error(const char *name, int r, const sd_bus_error *error) {
-        if (sd_bus_error_has_name(error, BUS_ERROR_DNS_NXDOMAIN))
-                return log_error_errno(r, "%s: %s", name, bus_error_message(error, r));
+static int varlink_log_resolve_error(const char *name, const char *error_id, sd_json_variant *reply) {
+        int r;
 
-        return log_error_errno(r, "%s: resolve call failed: %s", name, bus_error_message(error, r));
+        assert(name);
+        assert(!isempty(error_id));
+
+        int ret = sd_varlink_error_to_errno(error_id, reply);
+        static const struct {
+                const char *error_id;
+                const char *msg;
+        } error_message_table[] = {
+                { "io.systemd.Resolve.NoNameServers",                 "No appropriate name servers or networks for name found"  },
+                { "io.systemd.Resolve.QueryTimedOut",                 "Query timed out"                                         },
+                { "io.systemd.Resolve.MaxAttemptsReached",            "All attempts to contact name servers or networks failed" },
+                { "io.systemd.Resolve.InvalidReply",                  "Received invalid reply"                                  },
+                { "io.systemd.Resolve.QueryAborted",                  "Query aborted"                                           },
+                { "io.systemd.Resolve.QueryRefused",                  "DNS query type refused"                                  },
+                { "io.systemd.Resolve.NoTrustAnchor",                 "No suitable trust anchor known"                          },
+                { "io.systemd.Resolve.ResourceRecordTypeUnsupported", "Server does not support requested resource record type"  },
+                { "io.systemd.Resolve.NetworkDown",                   "Network is down"                                         },
+                { "io.systemd.Resolve.NoSource",                      "All suitable resolution sources turned off"              },
+                { "io.systemd.Resolve.StubLoop",                      "Configured DNS server loops back to us"                  },
+        };
+        FOREACH_ELEMENT(em, error_message_table)
+                if (streq(em->error_id, error_id))
+                        return log_error_errno(ret, "%s: resolve call failed: %s", name, em->msg);
+
+        if (streq(error_id, "io.systemd.Resolve.NoSuchResourceRecord"))
+                return log_error_errno(ret, "%s: resolve call failed: '%s' does not have any RR of the requested type", name, name);
+
+        _cleanup_(resolve_error_done) ResolveError error = {
+                .rcode = _DNS_RCODE_INVALID,
+                .ede_rcode = _DNS_EDE_RCODE_INVALID,
+        };
+        r = dispatch_resolve_error(/* name = */ NULL, reply, SD_JSON_LOG, &error);
+        if (r < 0)
+                log_debug_errno(r, "Failed to dispatch error JSON, ignoring: %m");
+
+        _cleanup_free_ char *msg_extended = NULL;
+        if (error.ede_rcode >= 0) {
+                msg_extended = strjoin(" (",
+                                       FORMAT_DNS_EDE_RCODE(error.ede_rcode),
+                                       !isempty(error.ede_msg) ? ": " : "",
+                                       strempty(error.ede_msg),
+                                       ")");
+                if (!msg_extended)
+                        return log_oom();
+        }
+
+        if (streq(error_id, "io.systemd.Resolve.DNSSECValidationFailed")) {
+                const char *result = sd_json_variant_string(sd_json_variant_by_key(reply, "result"));
+                return log_error_errno(ret, "%s: resolve call failed: DNSSEC validation failed: %s%s", name, result, strempty(msg_extended));
+
+        } else if (error.rcode != _DNS_RCODE_INVALID) {
+                if (error.rcode == DNS_RCODE_NXDOMAIN)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "%s: resolve call failed: Name '%s' not found%s%s",
+                                               name, name, error.ede_rcode >= 0 ? ": " : "", strempty(msg_extended));
+
+                return log_error_errno(ret, "%s: resolve call failed: Could not resolve '%s', server or network returned error: %s%s",
+                                       name, name, FORMAT_DNS_RCODE(error.rcode), strempty(msg_extended));
+        }
+
+        return log_error_errno(ret, "%s: resolve call failed: %s", name, error_id);
 }
 
-static int resolve_host(sd_bus *bus, const char *name) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        const char *canonical = NULL;
-        unsigned c = 0;
-        uint64_t flags;
-        usec_t ts;
+static int varlink_connect_with_query_timeout(sd_varlink **vl) {
+        int r;
+
+        assert(vl);
+
+        r = sd_varlink_connect_address(vl, "/run/systemd/resolve/io.systemd.Resolve");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to service /run/systemd/resolve/io.systemd.Resolve: %m");
+
+        r = sd_varlink_set_relative_timeout(*vl, SD_RESOLVED_QUERY_TIMEOUT_USEC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set query timeout: %m");
+
+        return 0;
+}
+
+static int resolve_host(const char *name) {
         int r;
 
         assert(name);
@@ -301,85 +370,69 @@ static int resolve_host(sd_bus *bus, const char *name) {
 
         log_debug("Resolving %s (family %s, interface %s).", name, af_to_name(arg_family) ?: "*", isempty(arg_ifname) ? "*" : arg_ifname);
 
-        r = bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveHostname");
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = varlink_connect_with_query_timeout(&vl);
         if (r < 0)
-                return bus_log_create_error(r);
+                return r;
 
-        r = sd_bus_message_append(req, "isit", arg_ifindex, name, arg_family, arg_flags);
+        usec_t ts = now(CLOCK_MONOTONIC);
+
+        const char *error_id = NULL;
+        sd_json_variant *v = NULL;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.Resolve.ResolveHostname",
+                        &v,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_STRING("name", name),
+                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(arg_ifindex > 0, "ifindex", arg_ifindex),
+                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(arg_family != AF_UNSPEC, "family", arg_family),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("flags", arg_flags));
         if (r < 0)
-                return bus_log_create_error(r);
-
-        ts = now(CLOCK_MONOTONIC);
-
-        r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
-        if (r < 0)
-                return resolve_host_error(name, r, &error);
+                return log_error_errno(r, "Failed to issue varlink call: %m");
 
         ts = now(CLOCK_MONOTONIC) - ts;
 
-        r = sd_bus_message_enter_container(reply, 'a', "(iiay)");
+        if (!isempty(error_id))
+                return varlink_log_resolve_error(name, error_id, v);
+
+        _cleanup_(resolve_hostname_reply_done) ResolveHostnameReply reply = {};
+        r = dispatch_resolve_hostname_reply(/* name = */ NULL, v, SD_JSON_LOG, &reply);
         if (r < 0)
-                return bus_log_parse_error(r);
+                return r;
 
-        while ((r = sd_bus_message_enter_container(reply, 'r', "iiay")) > 0) {
+        bool first = true;
+        FOREACH_ARRAY(address, reply.addresses, reply.n_addresses) {
                 _cleanup_free_ char *pretty = NULL;
-                int ifindex, family, k;
-                union in_addr_union a;
-
-                assert_cc(sizeof(int) == sizeof(int32_t));
-
-                r = sd_bus_message_read(reply, "i", &ifindex);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                sd_bus_error_free(&error);
-                r = bus_message_read_in_addr_auto(reply, &error, &family, &a);
-                if (r < 0 && !sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS))
-                        return log_error_errno(r, "%s: systemd-resolved returned invalid result: %s", name, bus_error_message(&error, r));
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS)) {
-                        log_debug_errno(r, "%s: systemd-resolved returned invalid result, ignoring: %s", name, bus_error_message(&error, r));
-                        continue;
-                }
-
-                r = in_addr_ifindex_to_string(family, &a, ifindex, &pretty);
+                r = in_addr_ifindex_to_string(address->family, &address->in_addr, address->ifindex, &pretty);
                 if (r < 0)
                         return log_error_errno(r, "Failed to print address for %s: %m", name);
 
-                k = printf("%*s%s %s%s%s",
-                           (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ",
-                           ansi_highlight(), pretty, ansi_normal());
+                int k = printf("%*s%s %s%s%s",
+                               (int) strlen(name),
+                               first ? name : "",
+                               first ? ":" : " ",
+                               ansi_highlight(),
+                               pretty,
+                               ansi_normal());
 
-                print_ifindex_comment(k, ifindex);
+                print_ifindex_comment(k, address->ifindex);
                 fputc('\n', stdout);
 
-                c++;
+                first = false;
         }
-        if (r < 0)
-                return bus_log_parse_error(r);
 
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_read(reply, "st", &canonical, &flags);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        if (!streq(name, canonical))
+        if (!streq(name, reply.name))
                 printf("%*s%s (%s)\n",
-                       (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ",
-                       canonical);
+                       (int) strlen(name),
+                       reply.n_addresses == 0 ? name : "",
+                       reply.n_addresses == 0 ? ":" : " ",
+                       reply.name);
 
-        if (c == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
-                                       "%s: no addresses found", name);
+        if (reply.n_addresses == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "%s: no addresses found", name);
 
-        print_source(flags, ts);
+        print_source(reply.flags, ts);
 
         return 0;
 }
@@ -827,7 +880,7 @@ static int verb_query(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                 if (r >= 0)
                                         RET_GATHER(ret, resolve_address(bus, family, &a, ifindex));
                                 else
-                                        RET_GATHER(ret, resolve_host(bus, *p));
+                                        RET_GATHER(ret, resolve_host(*p));
                         }
                 }
 
