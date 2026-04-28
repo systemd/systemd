@@ -1,16 +1,17 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "conf-files.h"
 #include "errno-util.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "log.h"
+#include "options.h"
 #include "parse-argument.h"
-#include "pretty-print.h"
 #include "static-destruct.h"
-#include "strv.h"
 #include "udev-rules.h"
 #include "udevadm.h"
 #include "udevadm-util.h"
@@ -23,81 +24,66 @@ static bool arg_style = true;
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
-        r = terminal_urlify_man("udevadm", "8", &link);
+        r = option_parser_get_help_table_ns("udevadm-verify", &options);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        printf("%s verify [OPTIONS] [FILE...]\n"
-               "\n%sVerify udev rules files.%s\n\n"
-               "  -h --help                            Show this help\n"
-               "  -V --version                         Show package version\n"
-               "  -N --resolve-names=early|late|never  When to resolve names\n"
-               "     --root=PATH                       Operate on an alternate filesystem root\n"
-               "     --no-summary                      Do not show summary\n"
-               "     --no-style                        Ignore style issues\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               link);
+        help_cmdline("verify [OPTIONS] [FILE...]");
+        help_abstract("Verify udev rules files.");
+        help_section("Options:");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
 
+        help_man_page_reference("udevadm", "8");
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_ROOT = 0x100,
-                ARG_NO_SUMMARY,
-                ARG_NO_STYLE,
-        };
-        static const struct option options[] = {
-                { "help",          no_argument,       NULL, 'h'             },
-                { "version",       no_argument,       NULL, 'V'             },
-                { "resolve-names", required_argument, NULL, 'N'             },
-                { "root",          required_argument, NULL, ARG_ROOT        },
-                { "no-summary",    no_argument,       NULL, ARG_NO_SUMMARY  },
-                { "no-style",      no_argument,       NULL, ARG_NO_STYLE    },
-                {}
-        };
-
-        int r, c;
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
+        assert(remaining_args);
 
-        while ((c = getopt_long(argc, argv, "hVN:", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv, .namespace = "udevadm-verify" };
+
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
-                case 'h':
+
+                OPTION_NAMESPACE("udevadm-verify"): {}
+
+                OPTION_COMMON_HELP:
                         return help();
-                case 'V':
+
+                OPTION('V', "version", NULL, "Show package version"):
                         return print_version();
-                case 'N':
-                        r = parse_resolve_name_timing(optarg, &arg_resolve_name_timing);
+
+                OPTION_COMMON_RESOLVE_NAMES:
+                        r = parse_resolve_name_timing(opts.arg, &arg_resolve_name_timing);
                         if (r <= 0)
                                 return r;
                         break;
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
+
+                OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
-                case ARG_NO_SUMMARY:
+
+                OPTION_LONG("no-summary", NULL, "Do not show summary"):
                         arg_summary = false;
                         break;
 
-                case ARG_NO_STYLE:
+                OPTION_LONG("no-style", NULL, "Ignore style issues"):
                         arg_style = false;
                         break;
-
-                case '?':
-                        return -EINVAL;
-                default:
-                        assert_not_reached();
                 }
 
+        *remaining_args = option_parser_get_args(&opts);
         return 1;
 }
 
@@ -158,9 +144,10 @@ static int verify_rules(UdevRules *rules, ConfFile * const *files, size_t n_file
 
 int verb_verify_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
+        char **args = NULL;
         int r;
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -173,7 +160,7 @@ int verb_verify_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
-        r = search_rules_files(strv_skip(argv, optind), arg_root, &files, &n_files);
+        r = search_rules_files(args, arg_root, &files, &n_files);
         if (r < 0)
                 return r;
 

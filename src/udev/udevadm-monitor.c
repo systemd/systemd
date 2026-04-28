@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <getopt.h>
-
 #include "sd-device.h"
 #include "sd-event.h"
 
@@ -9,8 +7,11 @@
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "hashmap.h"
+#include "help-util.h"
+#include "options.h"
 #include "set.h"
 #include "static-destruct.h"
 #include "string-util.h"
@@ -99,60 +100,70 @@ static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_
 }
 
 static int help(void) {
-        printf("%s monitor [OPTIONS]\n\n"
-               "Listen to kernel and udev events.\n\n"
-               "  -h --help                                Show this help\n"
-               "  -V --version                             Show package version\n"
-               "  -p --property                            Print the event properties\n"
-               "  -k --kernel                              Print kernel uevents\n"
-               "  -u --udev                                Print udev events\n"
-               "  -s --subsystem-match=SUBSYSTEM[/DEVTYPE] Filter events by subsystem\n"
-               "  -t --tag-match=TAG                       Filter events by tag\n",
-               program_invocation_short_name);
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
 
+        r = option_parser_get_help_table_ns("udevadm-monitor", &options);
+        if (r < 0)
+                return r;
+
+        help_cmdline("monitor [OPTIONS]");
+        help_abstract("Listen to kernel and udev events.");
+        help_section("Options:");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("udevadm", "8");
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "property",        no_argument,       NULL, 'p' },
-                { "environment",     no_argument,       NULL, 'e' }, /* alias for -p */
-                { "kernel",          no_argument,       NULL, 'k' },
-                { "udev",            no_argument,       NULL, 'u' },
-                { "subsystem-match", required_argument, NULL, 's' },
-                { "tag-match",       required_argument, NULL, 't' },
-                { "version",         no_argument,       NULL, 'V' },
-                { "help",            no_argument,       NULL, 'h' },
-                {}
-        };
+        int r;
 
-        int r, c;
+        assert(argc >= 0);
+        assert(argv);
 
-        while ((c = getopt_long(argc, argv, "pekus:t:Vh", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv, .namespace = "udevadm-monitor" };
+
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
-                case 'p':
-                case 'e':
+
+                OPTION_NAMESPACE("udevadm-monitor"): {}
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION('V', "version", NULL, "Show package version"):
+                        return print_version();
+
+                OPTION_LONG("environment", NULL, NULL): {} /* hidden alias for -p */
+                OPTION('p', "property", NULL, "Print the event properties"):
                         arg_show_property = true;
                         break;
-                case 'k':
+
+                OPTION('k', "kernel", NULL, "Print kernel uevents"):
                         arg_print_kernel = true;
                         break;
-                case 'u':
+
+                OPTION('u', "udev", NULL, "Print udev events"):
                         arg_print_udev = true;
                         break;
-                case 's': {
+
+                OPTION('s', "subsystem-match", "SUBSYSTEM[/DEVTYPE]",
+                       "Filter events by subsystem"): {
                         _cleanup_free_ char *subsystem = NULL, *devtype = NULL;
                         const char *slash;
 
-                        slash = strchr(optarg, '/');
+                        slash = strchr(opts.arg, '/');
                         if (slash) {
                                 devtype = strdup(slash + 1);
                                 if (!devtype)
                                         return log_oom();
 
-                                subsystem = strndup(optarg, slash - optarg);
+                                subsystem = strndup(opts.arg, slash - opts.arg);
                         } else
-                                subsystem = strdup(optarg);
+                                subsystem = strdup(opts.arg);
 
                         if (!subsystem)
                                 return log_oom();
@@ -165,20 +176,12 @@ static int parse_argv(int argc, char *argv[]) {
                         TAKE_PTR(devtype);
                         break;
                 }
-                case 't':
-                        r = set_put_strdup(&arg_tag_filter, optarg);
+
+                OPTION('t', "tag-match", "TAG", "Filter events by tag"):
+                        r = set_put_strdup(&arg_tag_filter, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
-
-                case 'V':
-                        return print_version();
-                case 'h':
-                        return help();
-                case '?':
-                        return -EINVAL;
-                default:
-                        assert_not_reached();
                 }
 
         if (!arg_print_kernel && !arg_print_udev) {
