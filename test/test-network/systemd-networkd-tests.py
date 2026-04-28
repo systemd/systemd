@@ -5817,6 +5817,18 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('qdisc mq 2: root', output)
 
+    @expectedFailureIfModuleIsNotAvailable('sch_mqprio')
+    def test_qdisc_mqprio(self):
+        copy_network_unit('25-qdisc-mqprio.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertIn('qdisc mqprio 3a: root', output)
+        self.assertIn('tc 3 map 0 0 1 2 0 0 0 0 0 0 0 0 0 0 0 0', output)
+        self.assertIn('queues:(0:1) (2:2) (3:3)', output)
+
     @expectedFailureIfModuleIsNotAvailable('sch_multiq')
     def test_qdisc_multiq(self):
         copy_network_unit('25-tun.netdev', '25-tap.netdev', '25-qdisc-multiq.network')

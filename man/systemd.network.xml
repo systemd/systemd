@@ -6333,6 +6333,60 @@ ServerAddress=192.168.0.1/24</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>[MultiQueuePriorityQDisc] Section Options</title>
+    <para>The [MultiQueuePriorityQDisc] section manages the queueing discipline (qdisc) of Multi Queue Priority
+    (mqprio). This qdisc allows mapping traffic flows to hardware queue ranges and traffic classes, and can be
+    used to configure hardware QoS on supported NICs.</para>
+
+    <variablelist class='network-directives'>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
+
+      <varlistentry>
+        <term><varname>NumberOfTrafficClasses=</varname></term>
+        <listitem>
+          <para>Specifies the number of traffic classes to use. Takes an unsigned integer in the range 1…16.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PriorityMap=</varname></term>
+        <listitem>
+          <para>Specifies the mapping of priorities to traffic classes. Takes a whitespace-separated list of up
+          to 16 unsigned integers. Each value maps the corresponding priority to a traffic class. The values must
+          be less than the number specified in <varname>NumberOfTrafficClasses=</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Queues=</varname></term>
+        <listitem>
+          <para>Specifies the queue ranges for each traffic class. Takes a whitespace-separated list of queue
+          specifications in <literal>count@offset</literal> format. For example, <literal>2@0 1@2 1@3</literal>
+          assigns queues 0-1 to the first traffic class, queue 2 to the second, and queue 3 to the third.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>HardwareOffload=</varname></term>
+        <listitem>
+          <para>Specifies the hardware offload mode. Takes an unsigned integer. When set to 0, no hardware
+          offload is requested. When set to 1, traffic class to hardware queue offloading is requested. Defaults
+          to 0.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[BandMultiQueueing] Section Options</title>
     <para>The [BandMultiQueueing] section manages the queueing discipline (qdisc) of Band Multi Queueing (multiq).</para>
 

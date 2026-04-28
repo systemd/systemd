@@ -55,6 +55,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "gred.h"
 #include "hhf.h"
 #include "htb.h"
+#include "mqprio.h"
 #include "pie.h"
 #include "qfq.h"
 #include "netem.h"
@@ -605,6 +606,12 @@ HierarchyTokenBucketClass.BufferBytes,           config_parse_htb_class_size,   
 HierarchyTokenBucketClass.CeilBufferBytes,       config_parse_htb_class_size,                    TCLASS_KIND_HTB,                        0
 ClassfulMultiQueueing.Parent,                    config_parse_qdisc_parent,                      QDISC_KIND_MQ,                          0
 ClassfulMultiQueueing.Handle,                    config_parse_qdisc_handle,                      QDISC_KIND_MQ,                          0
+MultiQueuePriorityQDisc.Parent,                  config_parse_qdisc_parent,                      QDISC_KIND_MQPRIO,                      0
+MultiQueuePriorityQDisc.Handle,                  config_parse_qdisc_handle,                      QDISC_KIND_MQPRIO,                      0
+MultiQueuePriorityQDisc.NumberOfTrafficClasses,  config_parse_mqprio_num_tc,                     QDISC_KIND_MQPRIO,                      0
+MultiQueuePriorityQDisc.PriorityMap,             config_parse_mqprio_priority_map,                QDISC_KIND_MQPRIO,                      0
+MultiQueuePriorityQDisc.Queues,                  config_parse_mqprio_queues,                     QDISC_KIND_MQPRIO,                      0
+MultiQueuePriorityQDisc.HardwareOffload,         config_parse_mqprio_hw,                         QDISC_KIND_MQPRIO,                      0
 BandMultiQueueing.Parent,                        config_parse_qdisc_parent,                      QDISC_KIND_MULTIQ,                      0
 BandMultiQueueing.Handle,                        config_parse_qdisc_handle,                      QDISC_KIND_MULTIQ,                      0
 NetworkEmulator.Parent,                          config_parse_qdisc_parent,                      QDISC_KIND_NETEM,                       0
