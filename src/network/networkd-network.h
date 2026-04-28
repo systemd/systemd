@@ -204,6 +204,8 @@ typedef struct Network {
         char *dhcp6_netlabel;
         bool dhcp6_send_release;
         NFTSetContext dhcp6_nft_set_context;
+        uint32_t dhcp6_route_table;
+        bool dhcp6_route_table_set;
 
         /* DHCP Server Support */
         bool dhcp_server;
