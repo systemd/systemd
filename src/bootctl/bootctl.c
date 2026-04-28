@@ -684,7 +684,9 @@ static int vl_server(void) {
 
         r = varlink_server_new(
                         &varlink_server,
-                        SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT,
+                        SD_VARLINK_SERVER_ROOT_ONLY |
+                        SD_VARLINK_SERVER_MYSELF_ONLY |
+                        SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT,
                         /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
