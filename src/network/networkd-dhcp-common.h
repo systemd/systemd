@@ -41,6 +41,7 @@ typedef struct DUID {
 
 uint32_t link_get_dhcp4_route_table(Link *link);
 uint32_t link_get_ndisc_route_table(Link *link);
+uint32_t link_get_dhcp6_route_table(Link *link);
 
 bool link_dhcp_enabled(Link *link, int family);
 static inline bool link_dhcp4_enabled(Link *link) {
