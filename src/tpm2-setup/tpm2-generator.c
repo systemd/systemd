@@ -91,7 +91,7 @@ static int generate_swtpm_symlink(Tpm2Support support) {
 
         r = find_executable("swtpm", /* ret_filename= */ NULL);
         if (r == -ENOENT) {
-                log_warning("TPM software fallback requested but swtpm not available, not pulling in software TPM unit.");
+                log_warning_errno(r, "TPM software fallback requested but swtpm not available, not pulling in software TPM unit.");
                 return 0;
         }
         if (r < 0)

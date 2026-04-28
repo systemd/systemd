@@ -59,7 +59,7 @@ static int smbios_get_modalias(char **ret) {
         assert(ret);
 
         _cleanup_free_ char *modalias = NULL;
-        r = read_virtual_file("/sys/devices/virtual/dmi/id/modalias", SIZE_MAX, &modalias, /* ret_size= */ NULL);
+        r = read_full_virtual_file("/sys/devices/virtual/dmi/id/modalias", &modalias, /* ret_size= */ NULL);
         if (r < 0)
                 return r;
 
@@ -75,7 +75,7 @@ static int smbios_get_modalias(char **ret) {
         else {
                 truncate_nl(cat);
 
-                if (!string_has_cc(cat, /* ok= */ NULL) && !isempty(cat) && !strextend(&modalias, "cat", cat, ":"))
+                if (!isempty(cat) && !string_has_cc(cat, /* ok= */ NULL) && !strextend(&modalias, "cat", cat, ":"))
                         return -ENOMEM;
         }
 
@@ -94,7 +94,7 @@ static int smbios_query(void) {
         _cleanup_free_ char *modalias = NULL;
         r = smbios_get_modalias(&modalias);
         if (r == -ENOENT) {
-                log_debug("No DMI device found, assuming IMDS is not available.");
+                log_debug_errno(r, "No DMI device found, assuming IMDS is not available.");
                 return false;
         }
         if (r < 0)
@@ -135,7 +135,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (arg_enabled < 0) {
                 Virtualization v = detect_container();
                 if (v < 0)
-                        log_debug_errno(v, "Container detection failed, ignoring: %m");
+                        return log_error_errno(v, "Container detection failed: %m");
                 if (v > 0) {
                         log_debug("Running in a container, disabling IMDS logic.");
                         arg_enabled = false;
@@ -147,6 +147,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 }
         }
 
+        assert(arg_enabled >= 0);
         if (!arg_enabled) {
                 log_debug("IMDS not enabled, skipping generator.");
                 return 0;
