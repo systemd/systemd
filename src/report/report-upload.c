@@ -59,18 +59,10 @@ static int build_json_report(Context *context, sd_json_variant **ret) {
         usec_t ts = now(CLOCK_REALTIME);
         int r;
 
-        const char *ident;
-        if (IN_SET(context->action, ACTION_LIST_METRICS, ACTION_DESCRIBE_METRICS))
-                ident = "metrics";
-        else if (IN_SET(context->action, ACTION_LIST_FACTS, ACTION_DESCRIBE_FACTS))
-                ident = "facts";
-        else
-                assert_not_reached();
-
         r = sd_json_buildo(ret,
                            SD_JSON_BUILD_PAIR("timestamp",
                                               SD_JSON_BUILD_STRING(FORMAT_TIMESTAMP_STYLE(ts, TIMESTAMP_UTC))),
-                           SD_JSON_BUILD_PAIR(ident,
+                           SD_JSON_BUILD_PAIR("metrics",
                                               SD_JSON_BUILD_VARIANT_ARRAY(context->metrics, context->n_metrics)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON data: %m");
