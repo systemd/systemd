@@ -26,6 +26,7 @@ libsystemd_network_sources = files(
         'sd-dhcp-server.c',
         'sd-dhcp6-client.c',
         'sd-dhcp6-lease.c',
+        'sd-dhcp6-relay.c',
         'sd-dns-resolver.c',
         'sd-ipv4acd.c',
         'sd-ipv4ll.c',

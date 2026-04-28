@@ -13,6 +13,7 @@
 #include "sd-dhcp-server.h"
 #include "sd-dhcp6-client.h"
 #include "sd-dhcp6-lease.h"
+#include "sd-dhcp6-relay.h"
 #include "sd-ipv4ll.h"
 #include "sd-lldp-rx.h"
 #include "sd-ndisc.h"
@@ -43,6 +44,7 @@
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
+#include "networkd-dhcp6-relay.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
@@ -241,6 +243,7 @@ static void link_free_engines(Link *link) {
                 return;
 
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
+        link->dhcp6_relay = sd_dhcp6_relay_unref(link->dhcp6_relay);
 
         link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
@@ -428,6 +431,10 @@ int link_stop_engines(Link *link, bool may_keep_dynamic) {
         r = sd_dhcp_server_stop(link->dhcp_server);
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv4 server: %m"));
+
+        r = sd_dhcp6_relay_stop(link->dhcp6_relay);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 relay agent: %m"));
 
         r = sd_lldp_rx_stop(link->lldp_rx);
         if (r < 0)
@@ -708,6 +715,12 @@ static int link_acquire_dynamic_ipv6_conf(Link *link) {
         r = dhcp6_start(link);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to start DHCPv6 client: %m");
+
+        if (in6_addr_is_set(&link->network->dhcp6_relay_target)) {
+                r = dhcp6_relay_configure(link);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -1158,6 +1171,7 @@ static int link_drop_dynamic_config(Link *link, Network *network) {
         RET_GATHER(r, link_drop_dhcp6_config(link, network));
         RET_GATHER(r, link_drop_dhcp_pd_config(link, network));
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
+        link->dhcp6_relay = sd_dhcp6_relay_unref(link->dhcp6_relay);
         link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx); /* TODO: keep the received neighbors. */
         link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
 
@@ -2608,6 +2622,12 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
                 r = sd_ndisc_set_ifname(link->ndisc, link->ifname);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Failed to update interface name in NDisc: %m");
+        }
+
+        if (link->dhcp6_relay) {
+                r = sd_dhcp6_relay_set_ifname(link->dhcp6_relay, link->ifname);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to update interface name in DHCPv6 relay agent: %m");
         }
 
         if (link->dhcp_server) {

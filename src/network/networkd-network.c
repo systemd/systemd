@@ -541,6 +541,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "DHCPv6\0"
                         "DHCPv6PrefixDelegation\0" /* compat */
                         "DHCPPrefixDelegation\0"
+                        "DHCPv6Relay\0"
                         "DHCPServer\0"
                         "DHCPServerStaticLease\0"
                         "IPv6AcceptRA\0"
@@ -760,6 +761,9 @@ static Network *network_free(Network *network) {
         ordered_set_free(network->search_domains);
         ordered_set_free(network->route_domains);
         set_free(network->dnssec_negative_trust_anchors);
+
+        /* DHCPv6 relay */
+        free(network->dhcp6_relay_interface_id);
 
         /* DHCP server */
         free(network->dhcp_server_relay_agent_circuit_id);
