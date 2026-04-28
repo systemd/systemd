@@ -60,7 +60,11 @@ trap at_exit EXIT
 systemd-run -p Type=notify --unit=fake-report-server "$FAKE_SERVER"
 systemctl status fake-report-server
 
-"$REPORT" metrics --url=http://localhost:8089/
+"$REPORT" build-report io.systemd.Manager.UnitsTotal
+
+"$REPORT" build-report io.systemd.Manager.UnitsTotal | jq .
+
+"$REPORT" upload-report --url=http://localhost:8089/
 
 # Test HTTPS upload with generated TLS certificates
 openssl req -x509 -newkey rsa:2048 -keyout "$CERTDIR/server.key" -out "$CERTDIR/server.crt" \
@@ -70,5 +74,5 @@ systemd-run -p Type=notify --unit=fake-report-server-tls \
     "$FAKE_SERVER" --cert="$CERTDIR/server.crt" --key="$CERTDIR/server.key" --port=8090
 systemctl status fake-report-server-tls
 
-"$REPORT" metrics --url=https://localhost:8090/ --key=- --trust="$CERTDIR/server.crt" \
+"$REPORT" upload-report --url=https://localhost:8090/ --key=- --trust="$CERTDIR/server.crt" \
           --extra-header='Authorization: Bearer magic string'
