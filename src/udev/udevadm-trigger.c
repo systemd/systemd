@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
 
 #include "sd-device.h"
@@ -10,7 +9,10 @@
 #include "device-enumerator-private.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "id128-util.h"
+#include "options.h"
 #include "set.h"
 #include "static-destruct.h"
 #include "string-table.h"
@@ -320,214 +322,168 @@ static int setup_matches(sd_device_enumerator *e) {
 }
 
 static int help(void) {
-        printf("%s trigger [OPTIONS] DEVPATH\n\n"
-               "Request events from the kernel.\n\n"
-               "  -h --help                         Show this help\n"
-               "  -V --version                      Show package version\n"
-               "  -v --verbose                      Print the list of devices while running\n"
-               "  -n --dry-run                      Do not actually trigger the events\n"
-               "  -q --quiet                        Suppress error logging in triggering events\n"
-               "  -t --type=                        Type of events to trigger\n"
-               "          devices                     sysfs devices (default)\n"
-               "          subsystems                  sysfs subsystems and drivers\n"
-               "          all                         sysfs devices, subsystems, and drivers\n"
-               "  -c --action=ACTION|help           Event action value, default is \"change\"\n"
-               "  -s --subsystem-match=SUBSYSTEM    Trigger devices from a matching subsystem\n"
-               "  -S --subsystem-nomatch=SUBSYSTEM  Exclude devices from a matching subsystem\n"
-               "  -a --attr-match=FILE[=VALUE]      Trigger devices with a matching attribute\n"
-               "  -A --attr-nomatch=FILE[=VALUE]    Exclude devices with a matching attribute\n"
-               "  -p --property-match=KEY=VALUE     Trigger devices with a matching property\n"
-               "  -g --tag-match=TAG                Trigger devices with a matching tag\n"
-               "  -y --sysname-match=NAME           Trigger devices with this /sys path\n"
-               "     --name-match=NAME              Trigger devices with this /dev name\n"
-               "  -b --parent-match=NAME            Trigger devices with that parent device\n"
-               "     --include-parents              Trigger parent devices of found devices\n"
-               "     --initialized-match            Trigger devices that are already initialized\n"
-               "     --initialized-nomatch          Trigger devices that are not initialized yet\n"
-               "  -w --settle                       Wait for the triggered events to complete\n"
-               "     --wait-daemon[=SECONDS]        Wait for udevd daemon to be initialized\n"
-               "                                    before triggering uevents\n"
-               "     --uuid                         Print synthetic uevent UUID\n"
-               "     --prioritized-subsystem=SUBSYSTEM[,SUBSYSTEM…]\n"
-               "                                    Trigger devices from a matching subsystem first\n",
-               program_invocation_short_name);
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
 
+        r = option_parser_get_help_table_ns("udevadm-trigger", &options);
+        if (r < 0)
+                return r;
+
+        help_cmdline("trigger [OPTIONS] DEVPATH");
+        help_abstract("Request events from the kernel.");
+        help_section("Options:");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("udevadm", "8");
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_NAME = 0x100,
-                ARG_PING,
-                ARG_UUID,
-                ARG_PRIORITIZED_SUBSYSTEM,
-                ARG_INITIALIZED_MATCH,
-                ARG_INITIALIZED_NOMATCH,
-                ARG_INCLUDE_PARENTS,
-        };
-
-        static const struct option options[] = {
-                { "verbose",               no_argument,       NULL, 'v'                       },
-                { "dry-run",               no_argument,       NULL, 'n'                       },
-                { "quiet",                 no_argument,       NULL, 'q'                       },
-                { "type",                  required_argument, NULL, 't'                       },
-                { "action",                required_argument, NULL, 'c'                       },
-                { "subsystem-match",       required_argument, NULL, 's'                       },
-                { "subsystem-nomatch",     required_argument, NULL, 'S'                       },
-                { "attr-match",            required_argument, NULL, 'a'                       },
-                { "attr-nomatch",          required_argument, NULL, 'A'                       },
-                { "property-match",        required_argument, NULL, 'p'                       },
-                { "tag-match",             required_argument, NULL, 'g'                       },
-                { "sysname-match",         required_argument, NULL, 'y'                       },
-                { "name-match",            required_argument, NULL, ARG_NAME                  },
-                { "parent-match",          required_argument, NULL, 'b'                       },
-                { "include-parents",       no_argument,       NULL, ARG_INCLUDE_PARENTS       },
-                { "initialized-match",     no_argument,       NULL, ARG_INITIALIZED_MATCH     },
-                { "initialized-nomatch",   no_argument,       NULL, ARG_INITIALIZED_NOMATCH   },
-                { "settle",                no_argument,       NULL, 'w'                       },
-                { "wait-daemon",           optional_argument, NULL, ARG_PING                  },
-                { "version",               no_argument,       NULL, 'V'                       },
-                { "help",                  no_argument,       NULL, 'h'                       },
-                { "uuid",                  no_argument,       NULL, ARG_UUID                  },
-                { "prioritized-subsystem", required_argument, NULL, ARG_PRIORITIZED_SUBSYSTEM },
-                {}
-        };
-
-        int c, r;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "vnqt:c:s:S:a:A:p:g:y:b:wVh", options, NULL)) >= 0) {
+        OptionParser opts = { argc, argv, .namespace = "udevadm-trigger" };
+
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
-                case 'v':
+
+                OPTION_NAMESPACE("udevadm-trigger"): {}
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION('V', "version", NULL, "Show package version"):
+                        return print_version();
+
+                OPTION('v', "verbose", NULL, "Print the list of devices while running"):
                         arg_verbose = true;
                         break;
 
-                case 'n':
+                OPTION('n', "dry-run", NULL, "Do not actually trigger the events"):
                         arg_dry_run = true;
                         break;
 
-                case 'q':
+                OPTION('q', "quiet", NULL, "Suppress error logging in triggering events"):
                         arg_quiet = true;
                         break;
 
-                case 't':
-                        arg_scan_type = scan_type_from_string(optarg);
+                OPTION('t', "type", "TYPE",
+                       "Type of events to trigger (devices, subsystems, all; default is devices)"):
+                        arg_scan_type = scan_type_from_string(opts.arg);
                         if (arg_scan_type < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown type --type=%s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown type --type=%s", opts.arg);
                         break;
 
-                case 'c':
-                        r = parse_device_action(optarg, &arg_action);
+                OPTION('c', "action", "ACTION|help", "Event action value, default is \"change\""):
+                        r = parse_device_action(opts.arg, &arg_action);
                         if (r <= 0)
                                 return r;
                         break;
 
-                case 's':
-                        r = strv_extend(&arg_subsystem_match, optarg);
+                OPTION('s', "subsystem-match", "SUBSYSTEM",
+                       "Trigger devices from a matching subsystem"):
+                        r = strv_extend(&arg_subsystem_match, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case 'S':
-                        r = strv_extend(&arg_subsystem_nomatch, optarg);
+                OPTION('S', "subsystem-nomatch", "SUBSYSTEM",
+                       "Exclude devices from a matching subsystem"):
+                        r = strv_extend(&arg_subsystem_nomatch, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case 'a':
-                        r = strv_extend(&arg_attr_match, optarg);
+                OPTION('a', "attr-match", "FILE[=VALUE]",
+                       "Trigger devices with a matching attribute"):
+                        r = strv_extend(&arg_attr_match, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case 'A':
-                        r = strv_extend(&arg_attr_nomatch, optarg);
+                OPTION('A', "attr-nomatch", "FILE[=VALUE]",
+                       "Exclude devices with a matching attribute"):
+                        r = strv_extend(&arg_attr_nomatch, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case 'p':
-                        r = strv_extend(&arg_property_match, optarg);
+                OPTION('p', "property-match", "KEY=VALUE",
+                       "Trigger devices with a matching property"):
+                        r = strv_extend(&arg_property_match, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case 'g':
-                        r = strv_extend(&arg_tag_match, optarg);
+                OPTION('g', "tag-match", "TAG", "Trigger devices with a matching tag"):
+                        r = strv_extend(&arg_tag_match, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case 'y':
-                        r = strv_extend(&arg_sysname_match, optarg);
+                OPTION('y', "sysname-match", "NAME", "Trigger devices with this /sys path"):
+                        r = strv_extend(&arg_sysname_match, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case 'b':
-                        r = strv_extend(&arg_parent_match, optarg);
+                OPTION_LONG("name-match", "NAME", "Trigger devices with this /dev name"):
+                        r = strv_extend(&arg_name_match, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case ARG_INCLUDE_PARENTS:
+                OPTION('b', "parent-match", "NAME", "Trigger devices with that parent device"):
+                        r = strv_extend(&arg_parent_match, opts.arg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
+                OPTION_LONG("include-parents", NULL, "Trigger parent devices of found devices"):
                         arg_include_parents = true;
                         break;
 
-                case 'w':
-                        arg_settle = true;
-                        break;
-
-                case ARG_NAME:
-                        r = strv_extend(&arg_name_match, optarg);
-                        if (r < 0)
-                                return log_oom();
-                        break;
-
-                case ARG_PING:
-                        arg_ping = true;
-                        if (optarg) {
-                                r = parse_sec(optarg, &arg_ping_timeout_usec);
-                                if (r < 0)
-                                        log_error_errno(r, "Failed to parse timeout value '%s', ignoring: %m", optarg);
-                        }
-                        break;
-
-                case ARG_UUID:
-                        arg_uuid = true;
-                        break;
-
-                case ARG_PRIORITIZED_SUBSYSTEM:
-                        r = strv_split_and_extend(&arg_prioritized_subsystems, optarg, ",", /* filter_duplicates= */ false);
-                        if (r < 0)
-                                return log_oom();
-                        break;
-
-                case ARG_INITIALIZED_MATCH:
+                OPTION_LONG("initialized-match", NULL,
+                            "Trigger devices that are already initialized"):
                         arg_initialized_match = MATCH_INITIALIZED_YES;
                         break;
 
-                case ARG_INITIALIZED_NOMATCH:
+                OPTION_LONG("initialized-nomatch", NULL,
+                            "Trigger devices that are not initialized yet"):
                         arg_initialized_match = MATCH_INITIALIZED_NO;
                         break;
 
-                case 'V':
-                        return print_version();
+                OPTION('w', "settle", NULL, "Wait for the triggered events to complete"):
+                        arg_settle = true;
+                        break;
 
-                case 'h':
-                        return help();
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "wait-daemon", "SECONDS",
+                                  "Wait for udevd daemon to be initialized before triggering uevents"):
+                        arg_ping = true;
+                        if (opts.arg) {
+                                r = parse_sec(opts.arg, &arg_ping_timeout_usec);
+                                if (r < 0)
+                                        log_error_errno(r, "Failed to parse timeout value '%s', ignoring: %m", opts.arg);
+                        }
+                        break;
 
-                case '?':
-                        return -EINVAL;
+                OPTION_LONG("uuid", NULL, "Print synthetic uevent UUID"):
+                        arg_uuid = true;
+                        break;
 
-                default:
-                        assert_not_reached();
+                OPTION_LONG("prioritized-subsystem", "SUBSYSTEM[,SUBSYSTEM…]",
+                            "Trigger devices from a matching subsystem first"):
+                        r = strv_split_and_extend(&arg_prioritized_subsystems, opts.arg, ",", /* filter_duplicates= */ false);
+                        if (r < 0)
+                                return log_oom();
+                        break;
                 }
-        }
 
-        r = strv_extend_strv(&arg_devices, argv + optind, /* filter_duplicates= */ false);
+        r = strv_extend_strv(&arg_devices, option_parser_get_args(&opts), /* filter_duplicates= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to build argument list: %m");
 
