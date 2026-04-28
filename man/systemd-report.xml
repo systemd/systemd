@@ -72,6 +72,31 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>generate</command> <arg choice="opt" rep="repeat">MATCH</arg></term>
+
+        <listitem><para>Acquire a list of metrics and build a JSON report.</para>
+
+        <para>Match expressions supported by <command>metrics</command> are supported here too.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>upload</command> <arg choice="opt" rep="repeat">MATCH</arg></term>
+
+        <listitem><para>This command can be used to send the report built by <command>generate</command>
+        to an external server. Two upload mechanisms are supported. If an <literal>http://</literal> or
+        <literal>https://</literal> URL is specified with <option>--url=</option>, an HTTP upload will be
+        performed to the specified location. Otherwise, any sockets under
+        <filename>/run/systemd/metrics-upload/</filename> will be used to call
+        <function>io.systemd.Report.Upload()</function>.</para>
+
+        <para>Match expressions supported by <command>metrics</command> are supported here too.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>list-sources</command></term>
 
         <listitem><para>Show list of known metrics sources.</para>
