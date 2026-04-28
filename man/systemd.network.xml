@@ -6458,6 +6458,24 @@ ServerAddress=192.168.0.1/24</programlisting>
           <xi:include href="version-info.xml" xpointer="v231"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>TunnelId=</varname></term>
+        <listitem>
+          <para>Specifies VLAN-to-tunnel ID mappings for VXLAN devices. Takes a format of
+          <replaceable>VID</replaceable>=<replaceable>TUNNELID</replaceable> or
+          <replaceable>VID_RANGE</replaceable>=<replaceable>TUNNELID_RANGE</replaceable> (e.g.
+          <literal>100=10100</literal> or <literal>10-20=10010-10020</literal>). The VLAN ID range and
+          tunnel ID range must have the same size. The tunnel ID must be in the range 1…16777215. This
+          setting requires <varname>VLANTunnel=</varname> to be enabled in the
+          <literal>[Bridge]</literal> section of the underlying bridge. This setting can be specified
+          multiple times. If an empty string is assigned, then all previous assignments are
+          cleared.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

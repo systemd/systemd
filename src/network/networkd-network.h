@@ -302,6 +302,8 @@ typedef struct Network {
         uint16_t bridge_vlan_pvid;
         uint32_t bridge_vlan_bitmap[BRIDGE_VLAN_BITMAP_LEN];
         uint32_t bridge_vlan_untagged_bitmap[BRIDGE_VLAN_BITMAP_LEN];
+        uint32_t bridge_vlan_tunnel_bitmap[BRIDGE_VLAN_BITMAP_LEN];
+        uint32_t bridge_vlan_tunnel_id[BRIDGE_VLAN_BITMAP_MAX];
 
         /* CAN support */
         uint32_t can_bitrate;
