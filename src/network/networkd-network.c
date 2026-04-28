@@ -15,6 +15,7 @@
 #include "networkd-address-label.h"
 #include "networkd-bridge-fdb.h"
 #include "networkd-bridge-mdb.h"
+#include "networkd-bridge-vlan-tunnel.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-server-static-lease.h"
 #include "networkd-ipv6-proxy-ndp.h"
@@ -305,6 +306,7 @@ int network_verify(Network *network) {
                 return r;
         network_drop_invalid_bridge_fdb_entries(network);
         network_drop_invalid_bridge_mdb_entries(network);
+        network_drop_invalid_bridge_vlan_tunnel_entries(network);
         r = network_drop_invalid_neighbors(network);
         if (r < 0)
                 return r;
@@ -549,6 +551,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "BridgeFDB\0"
                         "BridgeMDB\0"
                         "BridgeVLAN\0"
+                        "BridgeVLANTunnel\0"
                         "IPv6SendRA\0"
                         "IPv6PrefixDelegation\0"
                         "IPv6Prefix\0"
@@ -843,6 +846,7 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->nexthops_by_section);
         hashmap_free(network->bridge_fdb_entries_by_section);
         hashmap_free(network->bridge_mdb_entries_by_section);
+        hashmap_free(network->bridge_vlan_tunnel_entries_by_section);
         ordered_hashmap_free(network->neighbors_by_section);
         hashmap_free(network->address_labels_by_section);
         hashmap_free(network->prefixes_by_section);

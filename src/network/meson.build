@@ -39,6 +39,7 @@ systemd_networkd_extract_sources = files(
         'networkd-bridge-fdb.c',
         'networkd-bridge-mdb.c',
         'networkd-bridge-vlan.c',
+        'networkd-bridge-vlan-tunnel.c',
         'networkd-can.c',
         'networkd-conf.c',
         'networkd-dhcp-common.c',

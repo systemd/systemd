@@ -392,6 +392,7 @@ typedef struct Network {
         OrderedHashmap *nexthops_by_section;
         Hashmap *bridge_fdb_entries_by_section;
         Hashmap *bridge_mdb_entries_by_section;
+        Hashmap *bridge_vlan_tunnel_entries_by_section;
         OrderedHashmap *neighbors_by_section;
         Hashmap *address_labels_by_section;
         Hashmap *prefixes_by_section;

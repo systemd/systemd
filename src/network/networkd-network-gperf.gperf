@@ -20,6 +20,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
 #include "networkd-bridge-mdb.h"
+#include "networkd-bridge-vlan-tunnel.h"
 #include "networkd-can.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-prefix-delegation.h"
@@ -428,6 +429,8 @@ BridgeMDB.VLANId,                                config_parse_mdb_vlan_id,      
 BridgeVLAN.PVID,                                 config_parse_bridge_vlan_id,                    0,                                      offsetof(Network, bridge_vlan_pvid)
 BridgeVLAN.VLAN,                                 config_parse_bridge_vlan_id_range,              0,                                      offsetof(Network, bridge_vlan_bitmap)
 BridgeVLAN.EgressUntagged,                       config_parse_bridge_vlan_id_range,              0,                                      offsetof(Network, bridge_vlan_untagged_bitmap)
+BridgeVLANTunnel.VLAN,                           config_parse_bridge_vlan_tunnel_vlan,           0,                                      0
+BridgeVLANTunnel.TunnelID,                       config_parse_bridge_vlan_tunnel_id,             0,                                      0
 DHCPPrefixDelegation.UplinkInterface,            config_parse_uplink,                            0,                                      0
 DHCPPrefixDelegation.SubnetId,                   config_parse_dhcp_pd_subnet_id,                 0,                                      offsetof(Network, dhcp_pd_subnet_id)
 DHCPPrefixDelegation.Announce,                   config_parse_bool,                              0,                                      offsetof(Network, dhcp_pd_announce)
