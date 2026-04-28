@@ -18,7 +18,7 @@
 
   <refnamediv>
     <refname>systemd-report</refname>
-    <refpurpose>Generate report of system facts and metrics</refpurpose>
+    <refpurpose>Generate report of system metrics</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -33,7 +33,7 @@
     <para><emphasis>Note: this command is experimental for now. While it is likely to become a regular
     component of systemd, it might still change in behaviour and interface.</emphasis></para>
 
-    <para><command>systemd-report</command> requests facts and metrics from the system and writes them to
+    <para><command>systemd-report</command> requests metrics from the system and writes them to
     standard output.</para>
   </refsect1>
 
@@ -56,14 +56,14 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>describe-metrics</command> <arg choice="opt" rep="repeat">MATCH</arg></term>
+        <term><command>describe</command> <arg choice="opt" rep="repeat">MATCH</arg></term>
 
         <listitem><para>Acquire a list of metric families from all local services providing them, and write
         them to standard output. This returns primarily static information about metrics, their data types
         and human readable description, without values.</para>
 
-        <para>Match expressions similar to those supported by <command>metrics</command> are supported for
-        <command>describe-metrics</command>, too.</para>
+        <para>Match expressions supported by <command>metrics</command> are supported by
+        <command>describe</command> too.</para>
 
         <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>

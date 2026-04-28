@@ -16,19 +16,16 @@ extern usec_t arg_network_timeout_usec;
 typedef enum Action {
         ACTION_LIST_METRICS,
         ACTION_DESCRIBE_METRICS,
-        ACTION_LIST_FACTS,
-        ACTION_DESCRIBE_FACTS,
         _ACTION_MAX,
         _ACTION_INVALID = -EINVAL,
 } Action;
 
-/* The structure for collected "metrics" or "facts". The fields
- * are prefixed with just "metrics" for brevity. */
+/* The structure for collected "metrics". */
 typedef struct Context {
         Action action;
         sd_event *event;
         Set *link_infos;
-        sd_json_variant **metrics;  /* Collected metrics or facts for sorting */
+        sd_json_variant **metrics;  /* Collected metrics for sorting */
         size_t n_metrics, n_skipped_metrics, n_invalid_metrics;
         struct iovec_wrapper upload_answer;
 } Context;
