@@ -183,6 +183,7 @@ shared_sources = files(
         'resize-fs.c',
         'resolve-hook-util.c',
         'resolve-util.c',
+        'resolve-varlink-util.c',
         'rm-rf.c',
         'seccomp-util.c',
         'securebits-util.c',
