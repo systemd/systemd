@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <getopt.h>
-#include <stdio.h>
 #include <string.h>
 
 #include "creds-util.h"
 #include "errno-util.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "log.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "static-destruct.h"
@@ -47,151 +48,121 @@ static bool arg_has_control_commands(void) {
 }
 
 static int help(void) {
-        printf("%s control OPTION\n\n"
-               "Control the udev daemon.\n\n"
-               "  -h --help                Show this help\n"
-               "  -V --version             Show package version\n"
-               "  -e --exit                Instruct the daemon to cleanup and exit\n"
-               "  -l --log-level=LEVEL     Set the udev log level for the daemon\n"
-               "  -s --stop-exec-queue     Do not execute events, queue only\n"
-               "  -S --start-exec-queue    Execute events, flush queue\n"
-               "  -R --reload              Reload rules and databases\n"
-               "  -p --property=KEY=VALUE  Set a global property for all events\n"
-               "  -m --children-max=N      Maximum number of children\n"
-               "     --ping                Wait for udev to respond to a ping message\n"
-               "     --trace=BOOL          Enable/disable trace logging\n"
-               "     --revert              Revert previously set configurations\n"
-               "  -t --timeout=SECONDS     Maximum time to block for a reply\n"
-               "     --load-credentials    Load udev rules from credentials\n",
-               program_invocation_short_name);
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
 
+        r = option_parser_get_help_table_ns("udevadm-control", &options);
+        if (r < 0)
+                return r;
+
+        help_cmdline("control OPTION");
+        help_abstract("Control the udev daemon.");
+        help_section("Options:");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("udevadm", "8");
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_PING = 0x100,
-                ARG_TRACE,
-                ARG_REVERT,
-                ARG_LOAD_CREDENTIALS,
-        };
-
-        static const struct option options[] = {
-                { "exit",             no_argument,       NULL, 'e'                  },
-                { "log-level",        required_argument, NULL, 'l'                  },
-                { "log-priority",     required_argument, NULL, 'l'                  }, /* for backward compatibility */
-                { "stop-exec-queue",  no_argument,       NULL, 's'                  },
-                { "start-exec-queue", no_argument,       NULL, 'S'                  },
-                { "reload",           no_argument,       NULL, 'R'                  },
-                { "reload-rules",     no_argument,       NULL, 'R'                  }, /* alias for -R */
-                { "property",         required_argument, NULL, 'p'                  },
-                { "env",              required_argument, NULL, 'p'                  }, /* alias for -p */
-                { "children-max",     required_argument, NULL, 'm'                  },
-                { "ping",             no_argument,       NULL, ARG_PING             },
-                { "trace",            required_argument, NULL, ARG_TRACE            },
-                { "revert",           no_argument,       NULL, ARG_REVERT           },
-                { "timeout",          required_argument, NULL, 't'                  },
-                { "load-credentials", no_argument,       NULL, ARG_LOAD_CREDENTIALS },
-                { "version",          no_argument,       NULL, 'V'                  },
-                { "help",             no_argument,       NULL, 'h'                  },
-                {}
-        };
-
-        int c, r;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv, .namespace = "udevadm-control" };
+
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
-                case 'e':
+                OPTION_NAMESPACE("udevadm-control"): {}
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION('V', "version", NULL, "Show package version"):
+                        return print_version();
+
+                OPTION('e', "exit", NULL, "Instruct the daemon to cleanup and exit"):
                         arg_exit = true;
                         break;
 
-                case 'l':
-                        arg_log_level = log_level_from_string(optarg);
+                OPTION_LONG("log-priority", "LEVEL", NULL): {} /* backward compat alias for --log-level */
+                OPTION('l', "log-level", "LEVEL", "Set the udev log level for the daemon"):
+                        arg_log_level = log_level_from_string(opts.arg);
                         if (arg_log_level < 0)
-                                return log_error_errno(arg_log_level, "Failed to parse log level '%s': %m", optarg);
+                                return log_error_errno(arg_log_level, "Failed to parse log level '%s': %m", opts.arg);
                         break;
 
-                case 's':
+                OPTION('s', "stop-exec-queue", NULL, "Do not execute events, queue only"):
                         arg_start_exec_queue = false;
                         break;
 
-                case 'S':
+                OPTION('S', "start-exec-queue", NULL, "Execute events, flush queue"):
                         arg_start_exec_queue = true;
                         break;
 
-                case 'R':
+                OPTION_LONG("reload-rules", NULL, NULL): {} /* hidden alias for -R */
+                OPTION('R', "reload", NULL, "Reload rules and databases"):
                         arg_reload = true;
                         break;
 
-                case 'p':
-                        if (!strchr(optarg, '='))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "expect <KEY>=<value> instead of '%s'", optarg);
+                OPTION_LONG("env", "KEY=VALUE", NULL): {} /* hidden alias for -p */
+                OPTION('p', "property", "KEY=VALUE", "Set a global property for all events"):
+                        if (!strchr(opts.arg, '='))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "expect <KEY>=<value> instead of '%s'", opts.arg);
 
-                        r = strv_extend(&arg_env, optarg);
+                        r = strv_extend(&arg_env, opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extend environment: %m");
 
                         break;
 
-                case 'm': {
+                OPTION('m', "children-max", "N", "Maximum number of children"): {
                         unsigned i;
-                        r = safe_atou(optarg, &i);
+                        r = safe_atou(opts.arg, &i);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse maximum number of children '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to parse maximum number of children '%s': %m", opts.arg);
                         arg_max_children = i;
                         break;
                 }
 
-                case ARG_PING:
+                OPTION_LONG("ping", NULL, "Wait for udev to respond to a ping message"):
                         arg_ping = true;
                         break;
 
-                case ARG_TRACE:
-                        r = parse_boolean_argument("--trace=", optarg, NULL);
+                OPTION_LONG("trace", "BOOL", "Enable/disable trace logging"):
+                        r = parse_boolean_argument("--trace=", opts.arg, NULL);
                         if (r < 0)
                                 return r;
 
                         arg_trace = r;
                         break;
 
-                case ARG_REVERT:
+                OPTION_LONG("revert", NULL, "Revert previously set configurations"):
                         arg_revert = true;
                         break;
 
-                case 't':
-                        r = parse_sec(optarg, &arg_timeout);
+                OPTION('t', "timeout", "SECONDS", "Maximum time to block for a reply"):
+                        r = parse_sec(opts.arg, &arg_timeout);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to parse timeout value '%s': %m", opts.arg);
                         break;
 
-                case ARG_LOAD_CREDENTIALS:
+                OPTION_LONG("load-credentials", NULL, "Load udev rules from credentials"):
                         arg_load_credentials = true;
                         break;
-
-                case 'V':
-                        return print_version();
-
-                case 'h':
-                        return help();
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (!arg_has_control_commands() && !arg_load_credentials)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "No control command option is specified.");
 
-        if (optind < argc)
+        if (option_parser_get_n_args(&opts) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Extraneous argument: %s", argv[optind]);
+                                       "This subprogram takes no positional arguments.");
 
         return 1;
 }
