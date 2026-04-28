@@ -13,8 +13,6 @@
 
 #include "dlfcn-util.h"
 
-int dlopen_libselinux(void);
-
 extern DLSYM_PROTOTYPE(avc_open);
 extern DLSYM_PROTOTYPE(context_free);
 extern DLSYM_PROTOTYPE(context_new);
@@ -54,14 +52,13 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(char*, sym_freecon, freeconp, NULL);
 
 #else
 
-static inline int dlopen_libselinux(void) {
-        return -EOPNOTSUPP;
-}
 
 static inline void freeconp(char **p) {
         assert(*p == NULL);
 }
 #endif
+
+int dlopen_libselinux(int log_level);
 
 #define _cleanup_freecon_ _cleanup_(freeconp)
 

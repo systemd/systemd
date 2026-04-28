@@ -513,7 +513,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
                 {}
         };
 
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_DEBUG);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "blkid not available: %m");
 

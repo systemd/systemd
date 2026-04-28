@@ -249,7 +249,7 @@ Bridge.MulticastIGMPVersion,              config_parse_bridge_igmp_version,     
 Bridge.FDBMaxLearned,                     config_parse_bridge_fdb_max_learned,            0,                             offsetof(Bridge, fdb_max_learned)
 Bridge.LinkLocalLearning,                 config_parse_tristate,                          0,                             offsetof(Bridge, linklocal_learn)
 VRF.TableId,                              config_parse_uint32,                            0,                             offsetof(Vrf, table) /* deprecated */
-VRF.Table,                                config_parse_uint32,                            0,                             offsetof(Vrf, table)
+VRF.Table,                                config_parse_vrf_table,                         0,                             offsetof(Vrf, table)
 BareUDP.DestinationPort,                  config_parse_ip_port,                           0,                             offsetof(BareUDP, dest_port)
 BareUDP.MinSourcePort,                    config_parse_ip_port,                           0,                             offsetof(BareUDP, min_port)
 BareUDP.EtherType,                        config_parse_bare_udp_iftype,                   0,                             offsetof(BareUDP, iftype)

@@ -79,16 +79,13 @@ extern DLSYM_PROTOTYPE(archive_write_open_fd);
 extern DLSYM_PROTOTYPE(archive_write_set_format_filter_by_ext);
 extern DLSYM_PROTOTYPE(archive_write_set_format_pax);
 
-int dlopen_libarchive(void);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct archive_entry*, sym_archive_entry_free, archive_entry_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct archive*, sym_archive_write_free, archive_write_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct archive*, sym_archive_read_free, archive_read_freep, NULL);
 
 #else
 
-static inline int dlopen_libarchive(void) {
-        return -EOPNOTSUPP;
-}
 
 #endif
+
+int dlopen_libarchive(int log_level);

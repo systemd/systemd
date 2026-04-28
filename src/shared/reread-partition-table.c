@@ -287,7 +287,7 @@ static int reread_partition_table_full(sd_device *dev, int fd, RereadPartitionTa
         }
 
 #if HAVE_BLKID
-        r = dlopen_libblkid();
+        r = dlopen_libblkid(LOG_DEBUG);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
                 log_device_debug(dev, "We don't have libblkid, falling back to BLKRRPART on '%s'.", p);
                 return fallback_ioctl(dev, fd, flags);

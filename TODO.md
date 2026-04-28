@@ -135,6 +135,16 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   retriggers the fs is was invoked for, which causes the udev rules to rerun
   that assemble the btrfs raid, but this time force degraded assembly.
 
+- add a report backend that simply exposes a bunch of static files that are
+  symlinked to some dir {/run,/etc/,/var/lib/}systemd/report-files/ or so as
+  facts. Use that for exposing SSH keys and suchlike.
+
+- report generators for:
+  - ip addresses
+  - imds address
+  - tpm event log
+  - open IP ports
+
 - a way for container managers to turn off getty starting via $container_headless= or so...
 
 - add "conditions" for bls type 1 and type 2 profiles that allow suppressing
@@ -166,6 +176,20 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   what it was signed.
 
 - add --vacuum-xyz options to coredumpctl, matching those journalctl already has.
+
+- sysupdate: in .transfer files have a 2nd url that is used if we
+  auto-rollbacked the OS before.
+
+- sysupdate: optionally enrich URL with countme=1 once a week
+
+- sysupdate: have an explicit concept of update policies: i.e. a choice of at least
+  - download list + report updates in motd – but do not auto update
+  - download list + download new version – but do not apply it
+  - download list + download new version + apply it – but do not reboot
+  - download list + donwload new version + apply it + reboot
+  Other things the policy shoudl contain is when to place the reboot.
+  This would all decouple the updating of the package list from the application
+  of it. Which is great for "countme" style stuff.
 
 - Add a "systemctl list-units --by-slice" mode or so, which rearranges the
   output of "systemctl list-units" slightly by showing the tree structure of
@@ -2411,10 +2435,12 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - **systemd-measure tool:**
   - pre-calculate PCR 12 (command line) + PCR 13 (sysext) the same way we can precalculate PCR 11
-
-- systemd-measure: add --pcrpkey-auto as an alternative to --pcrpkey=, where it
-  would just use the same public key specified with --public-key= (or the one
-  automatically derived from --private-key=).
+  - add --pcrpkey-auto as an alternative to --pcrpkey=, where it would just use
+    the same public key specified with --public-key= (or the one automatically
+    derived from --private-key=).
+  - allow multiple --initrd=, --efifw=, --dtbauto=, etc., params and pad and
+    concatenate the contents in the same way that ukify does, so we end up with
+    the expected measurement.
 
 - systemd-mount should only consider modern file systems when mounting, similar
   to systemd-dissect

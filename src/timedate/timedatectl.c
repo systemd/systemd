@@ -947,11 +947,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const Option *current;
-        const char *arg;
+        OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION_FULL(&state, c, &current, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -969,11 +967,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_COMMON_HOST:
                         arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = arg;
+                        arg_host = opts.arg;
                         break;
 
                 OPTION_COMMON_MACHINE:
-                        r = parse_machine_argument(arg, &arg_host, &arg_transport);
+                        r = parse_machine_argument(opts.arg, &arg_host, &arg_transport);
                         if (r < 0)
                                 return r;
                         break;
@@ -988,14 +986,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION('p', "property", "NAME", "Show only properties by this name"): {}
                 OPTION_SHORT('P', "NAME", "Equivalent to --value --property=NAME"):
-                        r = strv_extend(&arg_property, arg);
+                        r = strv_extend(&arg_property, opts.arg);
                         if (r < 0)
                                 return log_oom();
 
                         /* If the user asked for a particular property, show it to them, even if empty. */
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
 
-                        if (current->short_code == 'P')
+                        if (opts.opt->short_code == 'P')
                                 SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
@@ -1008,7 +1006,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
                 }
 
-        *ret_args = option_parser_get_args(&state);
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 

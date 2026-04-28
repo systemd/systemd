@@ -80,7 +80,7 @@ static void fido_log_propagate_handler(const char *s) {
 
 #endif
 
-int dlopen_libfido2(void) {
+int dlopen_libfido2(int log_level) {
 #if HAVE_LIBFIDO2
         int r;
 
@@ -91,7 +91,7 @@ int dlopen_libfido2(void) {
                         "libfido2.so.1");
 
         r = dlopen_many_sym_or_warn(
-                        &libfido2_dl, "libfido2.so.1", LOG_DEBUG,
+                        &libfido2_dl, "libfido2.so.1", log_level,
                         DLSYM_ARG(fido_assert_allow_cred),
                         DLSYM_ARG(fido_assert_free),
                         DLSYM_ARG(fido_assert_hmac_secret_len),
@@ -148,7 +148,8 @@ int dlopen_libfido2(void) {
 
         return 0;
 #else
-        return -EOPNOTSUPP;
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libfido2 support is not compiled in.");
 #endif
 }
 
@@ -658,9 +659,9 @@ int fido2_use_hmac_hash(
         fido_dev_info_t *di = NULL;
         int r;
 
-        r = dlopen_libfido2();
+        r = dlopen_libfido2(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "FIDO2 support is not installed.");
+                return r;
 
         if (device) {
                 r = fido2_is_cred_in_specific_token(device, rp_id, cid, cid_size, required);
@@ -784,9 +785,9 @@ int fido2_generate_hmac_hash(
         assert((lock_with & ~(FIDO2ENROLL_PIN|FIDO2ENROLL_UP|FIDO2ENROLL_UV)) == 0);
         assert(iovec_is_set(salt));
 
-        r = dlopen_libfido2();
+        r = dlopen_libfido2(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "FIDO2 token support is not installed.");
+                return r;
 
         d = sym_fido_dev_new();
         if (!d)
@@ -1188,9 +1189,9 @@ int fido2_list_devices(void) {
         fido_dev_info_t *di = NULL;
         int r;
 
-        r = dlopen_libfido2();
+        r = dlopen_libfido2(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "FIDO2 token support is not installed.");
+                return r;
 
         di = sym_fido_dev_info_new(allocated);
         if (!di)
@@ -1282,9 +1283,9 @@ int fido2_find_device_auto(char **ret) {
         const char *path;
         int r;
 
-        r = dlopen_libfido2();
+        r = dlopen_libfido2(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "FIDO2 token support is not installed.");
+                return r;
 
         di = sym_fido_dev_info_new(di_size);
         if (!di)
@@ -1359,9 +1360,9 @@ int fido2_have_device(const char *device) {
 
         /* Return == 0 if not devices are found, > 0 if at least one is found */
 
-        r = dlopen_libfido2();
+        r = dlopen_libfido2(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "FIDO2 support is not installed.");
+                return r;
 
         if (device) {
                 if (access(device, F_OK) < 0) {

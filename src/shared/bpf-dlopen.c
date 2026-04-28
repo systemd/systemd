@@ -76,7 +76,7 @@ static int bpf_print_func(enum libbpf_print_level level, const char *fmt, va_lis
         return log_internalv(LOG_DEBUG, errno, NULL, 0, NULL, fmt, ap);
 }
 
-int dlopen_bpf_full(int log_level) {
+int dlopen_bpf(int log_level) {
         static int cached = 0;
         int r;
 
@@ -210,7 +210,7 @@ int bpf_get_error_translated(const void *ptr) {
 
 #else
 
-int dlopen_bpf_full(int log_level) {
+int dlopen_bpf(int log_level) {
         return log_once_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "libbpf support is not compiled in, cgroup BPF features disabled.");
 }

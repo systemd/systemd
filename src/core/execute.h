@@ -73,23 +73,23 @@ typedef enum ExecKeyringMode {
         _EXEC_KEYRING_MODE_INVALID = -EINVAL,
 } ExecKeyringMode;
 
-typedef enum MemoryTHP {
+typedef enum ExecMemoryTHP {
         /*
          * Inherit default from process that starts systemd, i.e. do not make
          * any PR_SET_THP_DISABLE call.
          */
-        MEMORY_THP_INHERIT,
-        MEMORY_THP_DISABLE, /* Disable THPs completely for the process */
-        MEMORY_THP_MADVISE, /* Disable THPs for the process except when madvised */
+        EXEC_MEMORY_THP_INHERIT,
+        EXEC_MEMORY_THP_DISABLE, /* Disable THPs completely for the process */
+        EXEC_MEMORY_THP_MADVISE, /* Disable THPs for the process except when madvised */
         /*
          * Use system default THP setting. this can be used when the process that
          * starts systemd has already disabled THPs via PR_SET_THP_DISABLE, and we
          * want to restore the system default THP setting at process invocation time.
          */
-        MEMORY_THP_SYSTEM,
-        _MEMORY_THP_MAX,
-        _MEMORY_THP_INVALID = -EINVAL,
-} MemoryTHP;
+        EXEC_MEMORY_THP_SYSTEM,
+        _EXEC_MEMORY_THP_MAX,
+        _EXEC_MEMORY_THP_INVALID = -EINVAL,
+} ExecMemoryTHP;
 
 /* Contains start and exit information about an executed command.  */
 typedef struct ExecStatus {
@@ -154,12 +154,12 @@ static inline bool EXEC_DIRECTORY_TYPE_SHALL_CHOWN(ExecDirectoryType t) {
         return t >= 0 && t < _EXEC_DIRECTORY_TYPE_MAX && t != EXEC_DIRECTORY_CONFIGURATION;
 }
 
-typedef struct QuotaLimit {
+typedef struct ExecQuotaLimit {
         uint64_t quota_absolute; /* absolute quota in bytes; if UINT64_MAX relative quota configured, see below */
         uint32_t quota_scale;    /* relative quota to backend size, scaled to 0…UINT32_MAX */
         bool quota_enforce;
         bool quota_accounting;
-} QuotaLimit;
+} ExecQuotaLimit;
 
 typedef struct ExecDirectoryItem {
         char *path;
@@ -172,7 +172,7 @@ typedef struct ExecDirectory {
         mode_t mode;
         size_t n_items;
         ExecDirectoryItem *items;
-        QuotaLimit exec_quota;
+        ExecQuotaLimit exec_quota;
 } ExecDirectory;
 
 typedef enum ExecCleanMask {
@@ -332,7 +332,7 @@ typedef struct ExecContext {
         int mount_apivfs;
         int bind_log_sockets;
         int memory_ksm;
-        MemoryTHP memory_thp;
+        ExecMemoryTHP memory_thp;
         PrivateTmp private_tmp;     /* Those are not independent parameters, but are calculated from */
         PrivateTmp private_var_tmp; /* other parameters in unit_patch_contexts(). */
 
@@ -636,7 +636,7 @@ DECLARE_STRING_TABLE_LOOKUP(exec_directory_type_mode, ExecDirectoryType);
 
 DECLARE_STRING_TABLE_LOOKUP(exec_resource_type, ExecDirectoryType);
 
-DECLARE_STRING_TABLE_LOOKUP(memory_thp, MemoryTHP);
+DECLARE_STRING_TABLE_LOOKUP(exec_memory_thp, ExecMemoryTHP);
 
 bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params);
 bool exec_needs_network_namespace(const ExecContext *context);

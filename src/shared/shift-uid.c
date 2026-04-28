@@ -165,7 +165,7 @@ static int patch_acls(int fd, const char *name, const struct stat *st, uid_t shi
         if (!inode_type_can_acl(st->st_mode))
                 return 0;
 
-        r = dlopen_libacl();
+        r = dlopen_libacl(LOG_DEBUG);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return 0;
         if (r < 0)

@@ -4,13 +4,30 @@
 #include "memory-util.h"
 #include "shared-forward.h"
 
+/* Option namespace/group explanation:
+ * the list of options is split into namespaces, and a namespace is split into groups.
+ * By default, options defined in a single program are all placed in a single (unnamed) namespace
+ * and in a single (unnamed) group. OPTION_NAMESPACE() marks the beginning of a named namespace.
+ * OPTION_GROUP() marks the beginning of a named group.
+ *
+ * Note: if multiple namespaces are used, they should all be named, i.e. each separate parse_argv
+ * instance should have OPTION_NAMESPACE first, and then its set of OPTION()s. (This is because
+ * clang reorders OPTIONs coming from different functions. So an unnamed group could end up being
+ * merged with one of the earlier groups. It seems that reordering within a single function does
+ * not happen.)
+ *
+ * When groups are used, the first group may be named (with OPTION_GROUP appearing before any
+ * options), or it may be unnamed. Both variants should work fine.
+ */
+
 typedef enum OptionFlags {
         OPTION_OPTIONAL_ARG        = 1U << 0,  /* Same as optional_argument in getopt */
         OPTION_POSITIONAL_ENTRY    = 1U << 1,  /* The "option" to handle positional arguments */
         OPTION_STOPS_PARSING       = 1U << 2,  /* This option acts like "--" */
-        OPTION_GROUP_MARKER        = 1U << 3,  /* Fake option entry to separate groups */
-        OPTION_HELP_ENTRY          = 1U << 4,  /* Fake option entry to insert an additional help line */
-        OPTION_HELP_ENTRY_VERBATIM = 1U << 5,  /* Same, but use the long_code in the first column as written */
+        OPTION_NAMESPACE_MARKER    = 1U << 3,  /* Fake option entry to separate namespaces */
+        OPTION_GROUP_MARKER        = 1U << 4,  /* Fake option entry to separate groups */
+        OPTION_HELP_ENTRY          = 1U << 5,  /* Fake option entry to insert an additional help line */
+        OPTION_HELP_ENTRY_VERBATIM = 1U << 6,  /* Same, but use the long_code in the first column as written */
 } OptionFlags;
 
 typedef struct Option {
@@ -19,10 +36,11 @@ typedef struct Option {
         char short_code;
         const char *long_code;
         const char *metavar;
+        uintptr_t data;
         const char *help;
 } Option;
 
-#define _OPTION(counter, fl, sc, lc, mv, h)                             \
+#define _OPTION(counter, fl, sc, lc, mv, d, h)                          \
         _section_("SYSTEMD_OPTIONS")                                    \
         _alignptr_                                                      \
         _used_                                                          \
@@ -35,60 +53,107 @@ typedef struct Option {
                 .short_code = sc,                                       \
                 .long_code = lc,                                        \
                 .metavar = mv,                                          \
+                .data = d,                                              \
                 .help = h,                                              \
         };                                                              \
         case (0x100 + counter)
 
-/* Magic entry in the table (which will not be returned) that designates the start of the group <gr>.
- * The define is structured as 'case' so that it can be followed by ':' and indented appropriately.
- */
-#define OPTION_GROUP(gr)                                                \
-        _OPTION(__COUNTER__, OPTION_GROUP_MARKER, /* sc= */ 0, /* lc= */ gr, /* mv= */ NULL, /* h= */ NULL)
+/* Magic entry in the table (which will not be returned) that designates the start of the namespace <ns>.
+ * The define is structured as 'case' so that it can be followed by ':' and indented appropriately. */
+#define OPTION_NAMESPACE(ns)                                            \
+        _OPTION(__COUNTER__, OPTION_NAMESPACE_MARKER, /* sc= */ 0, /* lc= */ ns, /* mv= */ NULL, /* d= */ 0u, /* h= */ NULL)
 
-#define OPTION_FULL(fl, sc, lc, mv, h) _OPTION(__COUNTER__, fl, sc, lc, mv, h)
+/* Magic entry in the table (which will not be returned) that designates the start of the group <gr>.
+ * The define is structured as 'case' so that it can be followed by ':' and indented appropriately. */
+#define OPTION_GROUP(gr)                                                \
+        _OPTION(__COUNTER__, OPTION_GROUP_MARKER, /* sc= */ 0, /* lc= */ gr, /* mv= */ NULL, /* d= */ 0u, /* h= */ NULL)
+
+#define OPTION_FULL_DATA(fl, sc, lc, mv, d, h) _OPTION(__COUNTER__, fl, sc, lc, mv, d, h)
+#define OPTION_FULL(fl, sc, lc, mv, h) OPTION_FULL_DATA(fl, sc, lc, mv, /* d= */ 0u, h)
 #define OPTION(sc, lc, mv, h) OPTION_FULL(/* fl= */ 0, sc, lc, mv, h)
 #define OPTION_LONG(lc, mv, h) OPTION(/* sc= */ 0, lc, mv, h)
 #define OPTION_LONG_FLAGS(fl, lc, mv, h) OPTION_FULL(fl, /* sc= */ 0, lc, mv, h)
+#define OPTION_LONG_DATA(lc, mv, d, h) OPTION_FULL_DATA(/* fl= */ 0, /* sc= */ 0, lc, mv, d, h)
 #define OPTION_SHORT(sc, mv, h) OPTION(sc, /* lc= */ NULL, mv, h)
 #define OPTION_SHORT_FLAGS(fl, sc, mv, h) OPTION_FULL(fl, sc, /* lc= */ NULL, mv, h)
+#define OPTION_SHORT_DATA(sc, mv, d, h) OPTION_FULL_DATA(/* fl= */ 0, sc, /* lc= */ NULL, mv, d, h)
 #define OPTION_POSITIONAL OPTION_FULL(OPTION_POSITIONAL_ENTRY, /* sc= */ 0, "(positional)", /* mv= */ NULL, /* h= */ NULL)
 #define OPTION_HELP_VERBATIM(lc, h) OPTION_FULL(OPTION_HELP_ENTRY_VERBATIM, /* sc= */ 0, lc, /* mv= */ NULL, h)
 
-#define OPTION_COMMON_HELP \
+#define OPTION_COMMON_HELP                                              \
         OPTION('h', "help", NULL, "Show this help")
-#define OPTION_COMMON_VERSION \
+
+#define OPTION_COMMON_VERSION                                           \
         OPTION_LONG("version", NULL, "Show package version")
-#define OPTION_COMMON_NO_PAGER \
+
+#define OPTION_COMMON_NO_PAGER                                          \
         OPTION_LONG("no-pager", NULL, "Do not start a pager")
-#define OPTION_COMMON_NO_LEGEND \
+
+#define OPTION_COMMON_NO_LEGEND                                         \
         OPTION_LONG("no-legend", NULL, "Do not show headers and footers")
-#define OPTION_COMMON_LOG_LEVEL \
-        OPTION_LONG("log-level", "LEVEL", \
+
+#define OPTION_COMMON_LOG_LEVEL                                         \
+        OPTION_LONG("log-level", "LEVEL",                               \
                     "Set log level (debug, info, notice, warning, err, crit, alert, emerg)")
-#define OPTION_COMMON_LOG_TARGET \
-        OPTION_LONG("log-target", "TARGET", \
+
+#define OPTION_COMMON_LOG_TARGET                                        \
+        OPTION_LONG("log-target", "TARGET",                             \
                     "Set log target (console, journal, journal-or-kmsg, kmsg, null)")
-#define OPTION_COMMON_LOG_COLOR \
+
+#define OPTION_COMMON_LOG_COLOR                                         \
         OPTION_LONG("log-color", "BOOL", "Highlight important messages")
-#define OPTION_COMMON_LOG_LOCATION \
+
+#define OPTION_COMMON_LOG_LOCATION                                      \
         OPTION_LONG("log-location", "BOOL", "Include code location in messages")
-#define OPTION_COMMON_LOG_TIME \
+
+#define OPTION_COMMON_LOG_TIME                                          \
         OPTION_LONG("log-time", "BOOL", "Prefix messages with current time")
-#define OPTION_COMMON_CAT_CONFIG \
+
+#define OPTION_COMMON_CAT_CONFIG                                        \
         OPTION_LONG("cat-config", NULL, "Show configuration files")
-#define OPTION_COMMON_TLDR \
+
+#define OPTION_COMMON_TLDR                                              \
         OPTION_LONG("tldr", NULL, "Show non-comment parts of configuration")
-#define OPTION_COMMON_NO_ASK_PASSWORD \
+
+#define OPTION_COMMON_NO_ASK_PASSWORD                                   \
         OPTION_LONG("no-ask-password", NULL, "Do not prompt for password")
-#define OPTION_COMMON_HOST \
+
+#define OPTION_COMMON_HOST                                              \
         OPTION('H', "host", "[USER@]HOST", "Operate on remote host")
-#define OPTION_COMMON_MACHINE \
+
+#define OPTION_COMMON_MACHINE                                           \
         OPTION('M', "machine", "CONTAINER", "Operate on local container")
-#define OPTION_COMMON_JSON \
+
+#define OPTION_COMMON_JSON                                              \
         OPTION_LONG("json", "FORMAT", "Generate JSON output (pretty, short, or off)")
-#define OPTION_COMMON_LOWERCASE_J \
-        OPTION_SHORT('j', NULL, \
+
+#define OPTION_COMMON_LOWERCASE_J                                       \
+        OPTION_SHORT('j', NULL,                                         \
                      "Equivalent to --json=pretty (on TTY) or --json=short (otherwise)")
+
+#define OPTION_COMMON_PRIVATE_KEY(purpose)                              \
+        OPTION_LONG("private-key", "PATH|URI", purpose)
+
+#define OPTION_COMMON_PRIVATE_KEY_SOURCE                                \
+        OPTION_LONG("private-key-source", "SOURCE",                     \
+                    "Specify how to use the private key "               \
+                    "(file, provider:PROVIDER, engine:ENGINE)")
+
+#define OPTION_COMMON_CERTIFICATE(purpose)                              \
+        OPTION_LONG("certificate", "PATH|URI", purpose                  \
+                    ", or a provider-specific designation if --certificate-source= is used")
+
+#define OPTION_COMMON_CERTIFICATE_SOURCE                                \
+        OPTION_LONG("certificate-source", "SOURCE",                     \
+                    "Specify how to interpret the certificate from --certificate=. " \
+                    "Allows the certificate to be loaded from an OpenSSL provider " \
+                    "(file, provider:PROVIDER)")
+
+/* A form used in udev code for compatibility. -V is accepted but not documented. */
+#define OPTION_COMMON_VERSION_WITH_HIDDEN_V                                      \
+        OPTION_COMMON_VERSION: {}                                                \
+        OPTION_SHORT('V', NULL, /* help= */ NULL)
+
 
 /* This is magically mapped to the beginning and end of the section */
 extern const Option __start_SYSTEMD_OPTIONS[];
@@ -96,7 +161,7 @@ extern const Option __stop_SYSTEMD_OPTIONS[];
 
 typedef enum OptionParserMode {
         /* The default mode. This is the implicit default and doesn't have to be specified. */
-        OPTION_PARSER_NORMAL = 0,
+        OPTION_PARSER_NORMAL,
 
         /* Same as "+…" for getopt_long — only parse options before the first positional argument. */
         OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
@@ -108,52 +173,70 @@ typedef enum OptionParserMode {
         _OPTION_PARSER_MODE_MAX,
 } OptionParserMode;
 
+typedef enum OptionParserState {
+        OPTION_PARSER_INIT,
+        OPTION_PARSER_RUNNING,
+        OPTION_PARSER_STOPPING, /* We processed an option with OPTION_STOPS_PARSING, and will eat up one
+                                 * more "--", but nothing else. */
+        OPTION_PARSER_DONE,     /* Option parsing completed (could be because we reached the end, or because
+                                 * "--" was fully processed, or because we hit a terminating option). */
+        OPTION_PARSER_FAILED,   /* We encountered a parse error, and terminated option parsing. */
+        _OPTION_PARSER_MAX,
+} OptionParserState;
+
 typedef struct OptionParser {
-        /* Those three should stay first so that it's possible to initialize the struct as { argc, argv }
-         * or { argc, argv, mode }. */
+        /* Those four should stay first so that it's possible to initialize the struct as { argc, argv }
+         * or { argc, argv, mode } or { argc, argv, mode, namespace }. */
         int argc;                     /* The original argc. */
         char **argv;                  /* The argv array, possibly reordered. */
         OptionParserMode mode;
+        const char *namespace;        /* The namespace, may be NULL. */
 
-        bool parsing_stopped;         /* We processed "--" or an option that terminates option parsing. */
+        const Option *namespace_start, *namespace_end; /* The range of options that are part of our namespace. */
+
+        OptionParserState state;
         int optind;                   /* Position of the parameter being handled.
                                        * 0 → option parsing hasn't been started yet. */
         int short_option_offset;      /* Set when we're parsing an argument with one or more short options.
                                        * 0 → we're not parsing short options. */
         int positional_offset;        /* Offset to where positional parameters are. After processing has been
                                        * finished, all options and their args are to the left of this offset. */
+
+        /* The two variables below encompass the state of the last option_parse() call.
+         * Before parsing has commenced, and after it has finished, they will be NULL. */
+        const Option *opt;            /* … the matched option or NULL */
+        const char *arg;              /* … the argument or NULL */
 } OptionParser;
 
 int option_parse(
                 const Option options[],
                 const Option options_end[],
-                OptionParser *state,
-                const Option **ret_option,
-                const char **ret_arg);
+                OptionParser *state);
 
 /* Iterate over options. */
-#define FOREACH_OPTION_FULL(parser, opt, ret_o, ret_a, on_error) \
-        for (int opt; (opt = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, parser, ret_o, ret_a)) != 0; ) \
-                if (opt < 0) {                                                  \
-                        on_error;                                               \
-                        break;                                                  \
+#define FOREACH_OPTION(c, state, on_error)                              \
+        for (int c; (c = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, state)) != 0; ) \
+                if (c < 0) {                                            \
+                        on_error;                                       \
+                        break;                                          \
                 } else
-
-#define FOREACH_OPTION(parser, opt, ret_a, on_error) \
-        FOREACH_OPTION_FULL(parser, opt, /* ret_o= */ NULL, ret_a, on_error)
 
 char* option_parser_next_arg(const OptionParser *state);
 char* option_parser_consume_next_arg(OptionParser *state);
 
 char** option_parser_get_args(const OptionParser *state);
 size_t option_parser_get_n_args(const OptionParser *state);
+char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metavar);
 
-int _option_parser_get_help_table(
+int _option_parser_get_help_table_full(
                 const Option options[],
                 const Option options_end[],
+                const char *namespace,
                 const char *group,
                 Table **ret);
+#define option_parser_get_help_table_full(namespace, group, ret)        \
+        _option_parser_get_help_table_full(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, namespace, group, ret)
 #define option_parser_get_help_table_group(group, ret)                  \
-        _option_parser_get_help_table(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, group, ret)
+        option_parser_get_help_table_full(/* namespace= */ NULL, group, ret)
 #define option_parser_get_help_table(ret)                               \
         option_parser_get_help_table_group(/* group= */ NULL, ret)

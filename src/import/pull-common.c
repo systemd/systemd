@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "os-util.h"

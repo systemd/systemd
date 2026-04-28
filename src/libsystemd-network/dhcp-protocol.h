@@ -8,7 +8,7 @@
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 
-#include "sd-dhcp-protocol.h"
+#include "sd-dhcp-protocol.h"  /* IWYU pragma: export */
 
 #include "sd-forward.h"
 #include "sparse-endian.h"
@@ -35,12 +35,19 @@
         uint8_t file[128];             \
         be32_t magic;
 
+struct DHCPMessageHeader {
+        DHCP_MESSAGE_HEADER_DEFINITION;
+} _packed_;
+
+typedef struct DHCPMessageHeader DHCPMessageHeader;
+
 struct DHCPMessage {
         DHCP_MESSAGE_HEADER_DEFINITION;
         uint8_t options[];
 } _packed_;
 
 typedef struct DHCPMessage DHCPMessage;
+assert_cc(sizeof(DHCPMessageHeader) == offsetof(DHCPMessage, options));
 
 struct DHCPPacket {
         struct iphdr ip;
@@ -58,17 +65,25 @@ typedef struct DHCPPacket DHCPPacket;
 #define DHCP_MIN_PACKET_SIZE    (DHCP_MIN_MESSAGE_SIZE + DHCP_IP_UDP_SIZE)
 #define DHCP_MAGIC_COOKIE       (uint32_t)(0x63825363)
 
+/* The size of BOOTP message. The BOOTP message does not have the magic field, but has the 64-byte
+ * vendor-specific area. */
+#define BOOTP_MESSAGE_SIZE (offsetof(DHCPMessageHeader, magic) + 64)
+
 enum {
         DHCP_PORT_SERVER                        = 67,
         DHCP_PORT_CLIENT                        = 68,
 };
 
-enum {
+typedef enum {
         BOOTREQUEST                             = 1,
         BOOTREPLY                               = 2,
-};
+        _BOOTP_MESSAGE_TYPE_MAX,
+        _BOOTP_MESSAGE_TYPE_INVALID             = -EINVAL,
+} BOOTPMessageType;
 
-enum {
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(bootp_message_type, BOOTPMessageType);
+
+typedef enum {
         DHCP_DISCOVER                           = 1,  /* [RFC2132] */
         DHCP_OFFER                              = 2,  /* [RFC2132] */
         DHCP_REQUEST                            = 3,  /* [RFC2132] */
@@ -78,21 +93,27 @@ enum {
         DHCP_RELEASE                            = 7,  /* [RFC2132] */
         DHCP_INFORM                             = 8,  /* [RFC2132] */
         DHCP_FORCERENEW                         = 9,  /* [RFC3203] */
-        DHCPLEASEQUERY                          = 10, /* [RFC4388] */
-        DHCPLEASEUNASSIGNED                     = 11, /* [RFC4388] */
-        DHCPLEASEUNKNOWN                        = 12, /* [RFC4388] */
-        DHCPLEASEACTIVE                         = 13, /* [RFC4388] */
-        DHCPBULKLEASEQUERY                      = 14, /* [RFC6926] */
-        DHCPLEASEQUERYDONE                      = 15, /* [RFC6926] */
-        DHCPACTIVELEASEQUERY                    = 16, /* [RFC7724] */
-        DHCPLEASEQUERYSTATUS                    = 17, /* [RFC7724] */
-        DHCPTLS                                 = 18, /* [RFC7724] */
-};
+        DHCP_LEASEQUERY                         = 10, /* [RFC4388] */
+        DHCP_LEASEUNASSIGNED                    = 11, /* [RFC4388] */
+        DHCP_LEASEUNKNOWN                       = 12, /* [RFC4388] */
+        DHCP_LEASEACTIVE                        = 13, /* [RFC4388] */
+        DHCP_BULKLEASEQUERY                     = 14, /* [RFC6926] */
+        DHCP_LEASEQUERYDONE                     = 15, /* [RFC6926] */
+        DHCP_ACTIVELEASEQUERY                   = 16, /* [RFC7724] */
+        DHCP_LEASEQUERYSTATUS                   = 17, /* [RFC7724] */
+        DHCP_TLS                                = 18, /* [RFC7724] */
+        _DHCP_MESSAGE_TYPE_MAX,
+        _DHCP_MESSAGE_TYPE_INVALID              = -EINVAL,
+} DHCPMessageType;
 
-enum {
-        DHCP_OVERLOAD_FILE                      = 1,
-        DHCP_OVERLOAD_SNAME                     = 2,
-};
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_message_type, DHCPMessageType);
+
+typedef enum {
+        DHCP_OVERLOAD_NONE                      = 0,
+        DHCP_OVERLOAD_FILE                      = 1 << 0,
+        DHCP_OVERLOAD_SNAME                     = 1 << 1,
+        _DHCP_OVERLOAD_ALL                      = DHCP_OVERLOAD_FILE | DHCP_OVERLOAD_SNAME,
+} DHCPOptionOverload;
 
 #define DHCP_MAX_FQDN_LENGTH 255
 
@@ -102,3 +123,5 @@ enum {
         DHCP_FQDN_FLAG_E = (1 << 2),
         DHCP_FQDN_FLAG_N = (1 << 3),
 };
+
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_option_code, int);

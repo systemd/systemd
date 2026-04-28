@@ -445,6 +445,42 @@ static int probe_sector_size_harder(int fd, uint32_t *ret) {
         return probe_sector_size(probe_fd, ret);
 }
 
+static int loop_device_can_shortcut(
+                int fd,
+                uint64_t offset,
+                uint64_t size,
+                uint32_t sector_size,
+                uint32_t device_ssz,
+                uint32_t loop_flags) {
+
+        int r;
+
+        /* Returns whether we can hand back the original block device fd instead of allocating a real
+         * loopback device for it: it must cover the whole device, the requested sector size must match the
+         * device's sector size, and if partscan was requested it must already be enabled on the device
+         * (otherwise e.g. partition block devices or loop devices created without LO_FLAGS_PARTSCAN would
+         * be reused even though they cannot expose nested partitions). */
+
+        assert(fd >= 0);
+
+        if (offset != 0)
+                return false;
+        if (!IN_SET(size, 0, UINT64_MAX))
+                return false;
+        if (sector_size != device_ssz)
+                return false;
+
+        if (FLAGS_SET(loop_flags, LO_FLAGS_PARTSCAN)) {
+                r = blockdev_partscan_enabled_fd(fd);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return false;
+        }
+
+        return true;
+}
+
 static int loop_device_make_internal(
                 const char *path,
                 int fd,
@@ -510,13 +546,10 @@ static int loop_device_make_internal(
                 if (sector_size == 0)
                         sector_size = device_ssz;
 
-                if (offset == 0 && IN_SET(size, 0, UINT64_MAX) && sector_size == device_ssz)
-                        /* If this is already a block device and we are supposed to cover the whole of it
-                         * then store an fd to the original open device node — and do not actually create
-                         * an unnecessary loopback device for it. If an explicit sector size was requested
-                         * that differs from the device sector size, or if the probed GPT sector size
-                         * differs (e.g. CD-ROMs with 2048-byte blocks but a 512-byte sector GPT), create
-                         * a real loop device to change the sector size. */
+                r = loop_device_can_shortcut(fd, offset, size, sector_size, device_ssz, loop_flags);
+                if (r < 0)
+                        return r;
+                if (r > 0)
                         return loop_device_open_from_fd(fd, open_flags, lock_op, ret);
         } else {
                 r = stat_verify_regular(&st);

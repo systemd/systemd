@@ -339,8 +339,8 @@ static int process_locale(int rfd, sd_varlink **mute_console_link) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, etc_locale_conf(),
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
+        pfd = chase_and_open_parent_at(rfd, rfd, etc_locale_conf(),
+                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/locale.conf: %m");
@@ -474,8 +474,8 @@ static int process_keymap(int rfd, sd_varlink **mute_console_link) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, etc_vconsole_conf(),
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
+        pfd = chase_and_open_parent_at(rfd, rfd, etc_vconsole_conf(),
+                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/vconsole.conf: %m");
@@ -590,8 +590,8 @@ static int process_timezone(int rfd, sd_varlink **mute_console_link) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, etc_localtime(),
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
+        pfd = chase_and_open_parent_at(rfd, rfd, etc_localtime(),
+                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/localtime: %m");
@@ -703,9 +703,7 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, etc_hostname(),
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN,
-                                       &f);
+        pfd = chase_and_open_parent_at(rfd, rfd, etc_hostname(), CHASE_MKDIR_0755|CHASE_WARN, &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/hostname: %m");
 
@@ -738,8 +736,8 @@ static int process_machine_id(int rfd) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, "/etc/machine-id",
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
+        pfd = chase_and_open_parent_at(rfd, rfd, "/etc/machine-id",
+                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/machine-id: %m");
@@ -848,7 +846,7 @@ static int find_shell(int rfd, const char *path) {
         if (!valid_shell(path))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid shell", path);
 
-        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT, NULL, NULL);
+        r = chaseat(rfd, rfd, path, /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve shell %s: %m", path);
 
@@ -1052,8 +1050,8 @@ static int process_root_account(int rfd, sd_varlink **mute_console_link) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, "/etc/passwd",
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
+        pfd = chase_and_open_parent_at(rfd, rfd, "/etc/passwd",
+                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        NULL);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/passwd: %m");
@@ -1169,8 +1167,8 @@ static int process_kernel_cmdline(int rfd) {
 
         assert(rfd >= 0);
 
-        pfd = chase_and_open_parent_at(rfd, "/etc/kernel/cmdline",
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
+        pfd = chase_and_open_parent_at(rfd, rfd, "/etc/kernel/cmdline",
+                                       CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/kernel/cmdline: %m");
@@ -1202,7 +1200,7 @@ static int reset_one(int rfd, const char *path) {
         assert(rfd >= 0);
         assert(path);
 
-        pfd = chase_and_open_parent_at(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_WARN|CHASE_NOFOLLOW, &f);
+        pfd = chase_and_open_parent_at(rfd, rfd, path, CHASE_WARN|CHASE_NOFOLLOW, &f);
         if (pfd == -ENOENT)
                 return 0;
         if (pfd < 0)
@@ -1269,11 +1267,10 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = { argc, argv };
-        const char *arg;
+        OptionParser opts = { argc, argv };
         int r;
 
-        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -1283,61 +1280,61 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
-                        r = parse_path_argument(arg, true, &arg_root);
+                        r = parse_path_argument(opts.arg, true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
-                        r = parse_path_argument(arg, false, &arg_image);
+                        r = parse_path_argument(opts.arg, false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
-                        r = parse_image_policy_argument(arg, &arg_image_policy);
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("locale", "LOCALE", "Set primary locale (LANG=)"):
-                        r = free_and_strdup_warn(&arg_locale, arg);
+                        r = free_and_strdup_warn(&arg_locale, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("locale-messages", "LOCALE", "Set message locale (LC_MESSAGES=)"):
-                        r = free_and_strdup_warn(&arg_locale_messages, arg);
+                        r = free_and_strdup_warn(&arg_locale_messages, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("keymap", "KEYMAP", "Set keymap"):
-                        if (!keymap_is_valid(arg))
+                        if (!keymap_is_valid(opts.arg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Keymap %s is not valid.", arg);
+                                                       "Keymap %s is not valid.", opts.arg);
 
-                        r = free_and_strdup_warn(&arg_keymap, arg);
+                        r = free_and_strdup_warn(&arg_keymap, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("timezone", "TIMEZONE", "Set timezone"):
-                        if (!timezone_is_valid(arg, LOG_ERR))
+                        if (!timezone_is_valid(opts.arg, LOG_ERR))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Timezone %s is not valid.", arg);
+                                                       "Timezone %s is not valid.", opts.arg);
 
-                        r = free_and_strdup_warn(&arg_timezone, arg);
+                        r = free_and_strdup_warn(&arg_timezone, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("hostname", "NAME", "Set hostname"):
-                        if (!hostname_is_valid(arg, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK))
+                        if (!hostname_is_valid(opts.arg, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Host name %s is not valid.", arg);
+                                                       "Host name %s is not valid.", opts.arg);
 
-                        r = free_and_strdup_warn(&arg_hostname, arg);
+                        r = free_and_strdup_warn(&arg_hostname, opts.arg);
                         if (r < 0)
                                 return r;
 
@@ -1351,13 +1348,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("machine-id", "ID", "Set specified machine ID"):
-                        r = sd_id128_from_string(arg, &arg_machine_id);
+                        r = sd_id128_from_string(opts.arg, &arg_machine_id);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse machine id %s.", arg);
+                                return log_error_errno(r, "Failed to parse machine id %s.", opts.arg);
                         break;
 
                 OPTION_LONG("root-password", "PASSWORD", "Set root password from plaintext password"):
-                        r = free_and_strdup_warn(&arg_root_password, arg);
+                        r = free_and_strdup_warn(&arg_root_password, opts.arg);
                         if (r < 0)
                                 return r;
 
@@ -1367,15 +1364,15 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("root-password-file", "FILE", "Set root password from file"):
                         arg_root_password = mfree(arg_root_password);
 
-                        r = read_one_line_file(arg, &arg_root_password);
+                        r = read_one_line_file(opts.arg, &arg_root_password);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to read %s: %m", arg);
+                                return log_error_errno(r, "Failed to read %s: %m", opts.arg);
 
                         arg_root_password_is_hashed = false;
                         break;
 
                 OPTION_LONG("root-password-hashed", "HASH", "Set root password from hashed password"):
-                        r = free_and_strdup_warn(&arg_root_password, arg);
+                        r = free_and_strdup_warn(&arg_root_password, opts.arg);
                         if (r < 0)
                                 return r;
 
@@ -1383,13 +1380,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("root-shell", "SHELL", "Set root shell"):
-                        r = free_and_strdup_warn(&arg_root_shell, arg);
+                        r = free_and_strdup_warn(&arg_root_shell, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("kernel-command-line", "CMDLINE", "Set kernel command line"):
-                        r = free_and_strdup_warn(&arg_kernel_cmdline, arg);
+                        r = free_and_strdup_warn(&arg_kernel_cmdline, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
@@ -1464,21 +1461,21 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("welcome", "BOOL", "Whether to show the welcome text"):
-                        r = parse_boolean_argument("--welcome=", arg, &arg_welcome);
+                        r = parse_boolean_argument("--welcome=", opts.arg, &arg_welcome);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("chrome", "BOOL",
                             "Whether to show a color bar at top and bottom of terminal"):
-                        r = parse_boolean_argument("--chrome=", arg, &arg_chrome);
+                        r = parse_boolean_argument("--chrome=", opts.arg, &arg_chrome);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("mute-console", "BOOL",
                             "Whether to disallow kernel/PID 1 writes to the console while running"):
-                        r = parse_boolean_argument("--mute-console=", arg, &arg_mute_console);
+                        r = parse_boolean_argument("--mute-console=", opts.arg, &arg_mute_console);
                         if (r < 0)
                                 return r;
                         break;

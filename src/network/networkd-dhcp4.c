@@ -1733,6 +1733,8 @@ int dhcp4_update_mac(Link *link) {
 }
 
 int dhcp4_update_ipv6_connectivity(Link *link) {
+        int r;
+
         assert(link);
 
         if (!link->network)
@@ -1744,16 +1746,20 @@ int dhcp4_update_ipv6_connectivity(Link *link) {
         if (!link->dhcp_client)
                 return 0;
 
-        /* If the client is running, set the current connectivity. */
-        if (sd_dhcp_client_is_running(link->dhcp_client))
-                return sd_dhcp_client_set_ipv6_connectivity(link->dhcp_client, link_has_ipv6_connectivity(link));
+        bool have = link_has_ipv6_connectivity(link);
+        r = sd_dhcp_client_set_ipv6_connectivity(link->dhcp_client, have);
+        if (r < 0)
+                return r;
 
-        /* If the client has been already stopped or not started yet, let's check the current connectivity
-         * and start the client if necessary. */
-        if (link_has_ipv6_connectivity(link))
-                return 0;
+        /* If we do not have IPv6 connectivity, and the client has been already stopped or not started yet,
+         * let's start the client if possible. */
+        if (!have && !sd_dhcp_client_is_running(link->dhcp_client)) {
+                r = dhcp4_start_full(link, /* set_ipv6_connectivity= */ false);
+                if (r < 0)
+                        return r;
+        }
 
-        return dhcp4_start_full(link, /* set_ipv6_connectivity= */ false);
+        return 0;
 }
 
 int dhcp4_start_full(Link *link, bool set_ipv6_connectivity) {
@@ -1805,8 +1811,10 @@ int dhcp4_renew(Link *link) {
                 return dhcp4_start(link);
 
         /* The client may be waiting for IPv6 connectivity. Let's restart the client in that case. */
-        if (dhcp_client_get_state(link->dhcp_client) != DHCP_STATE_BOUND)
-                return sd_dhcp_client_interrupt_ipv6_only_mode(link->dhcp_client);
+        if (sd_dhcp_client_is_waiting_for_ipv6_connectivity(link->dhcp_client)) {
+                sd_dhcp_client_stop(link->dhcp_client);
+                return dhcp4_start(link);
+        }
 
         /* Otherwise, send a RENEW command. */
         return sd_dhcp_client_send_renew(link->dhcp_client);

@@ -322,6 +322,7 @@ static int dhcp_server_send_unicast_raw(
                 .ll.sll_ifindex = server->ifindex,
                 .ll.sll_halen = hlen,
         };
+        int r;
 
         assert(server);
         assert(server->ifindex > 0);
@@ -336,9 +337,16 @@ static int dhcp_server_send_unicast_raw(
         if (len > UINT16_MAX)
                 return -EOVERFLOW;
 
-        dhcp_packet_append_ip_headers(packet, server->address, DHCP_PORT_SERVER,
-                                      packet->dhcp.yiaddr,
-                                      DHCP_PORT_CLIENT, len, -1);
+        r = dhcp_packet_append_ip_headers(
+                        packet,
+                        server->address,
+                        DHCP_PORT_SERVER,
+                        packet->dhcp.yiaddr,
+                        DHCP_PORT_CLIENT,
+                        len,
+                        /* ip_service_type= */ -1);
+        if (r < 0)
+                return r;
 
         return dhcp_network_send_raw_socket(server->fd_raw, &link, packet, len);
 }

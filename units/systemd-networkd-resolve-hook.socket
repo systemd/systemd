@@ -12,6 +12,7 @@ Description=Network Management Resolve Hook Socket
 Documentation=man:systemd-networkd.service(8)
 ConditionCapability=CAP_NET_ADMIN
 DefaultDependencies=no
+After=network-pre.target
 Before=sockets.target shutdown.target
 Conflicts=shutdown.target
 

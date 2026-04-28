@@ -21,7 +21,9 @@ static void *cryptsetup_dl = NULL;
 
 DLSYM_PROTOTYPE(crypt_activate_by_passphrase) = NULL;
 DLSYM_PROTOTYPE(crypt_activate_by_signed_key) = NULL;
+DLSYM_PROTOTYPE(crypt_activate_by_token_pin) = NULL;
 DLSYM_PROTOTYPE(crypt_activate_by_volume_key) = NULL;
+DLSYM_PROTOTYPE(crypt_deactivate) = NULL;
 DLSYM_PROTOTYPE(crypt_deactivate_by_name) = NULL;
 DLSYM_PROTOTYPE(crypt_format) = NULL;
 DLSYM_PROTOTYPE(crypt_free) = NULL;
@@ -37,9 +39,11 @@ DLSYM_PROTOTYPE(crypt_get_volume_key_size) = NULL;
 DLSYM_PROTOTYPE(crypt_header_restore) = NULL;
 DLSYM_PROTOTYPE(crypt_init) = NULL;
 DLSYM_PROTOTYPE(crypt_init_by_name) = NULL;
+DLSYM_PROTOTYPE(crypt_init_data_device) = NULL;
 DLSYM_PROTOTYPE(crypt_keyslot_add_by_volume_key) = NULL;
 DLSYM_PROTOTYPE(crypt_keyslot_destroy) = NULL;
 DLSYM_PROTOTYPE(crypt_keyslot_max) = NULL;
+DLSYM_PROTOTYPE(crypt_keyslot_status) = NULL;
 DLSYM_PROTOTYPE(crypt_load) = NULL;
 DLSYM_PROTOTYPE(crypt_metadata_locking) = NULL;
 DLSYM_PROTOTYPE(crypt_persistent_flags_get) = NULL;
@@ -51,10 +55,15 @@ DLSYM_PROTOTYPE(crypt_resume_by_volume_key) = NULL;
 DLSYM_PROTOTYPE(crypt_set_data_device) = NULL;
 DLSYM_PROTOTYPE(crypt_set_data_offset) = NULL;
 DLSYM_PROTOTYPE(crypt_set_debug_level) = NULL;
+#if HAVE_CRYPT_SET_KEYRING_TO_LINK
+DLSYM_PROTOTYPE(crypt_set_keyring_to_link) = NULL;
+#endif
 DLSYM_PROTOTYPE(crypt_set_log_callback) = NULL;
 DLSYM_PROTOTYPE(crypt_set_metadata_size) = NULL;
 DLSYM_PROTOTYPE(crypt_set_pbkdf_type) = NULL;
+DLSYM_PROTOTYPE(crypt_status) = NULL;
 DLSYM_PROTOTYPE(crypt_suspend) = NULL;
+DLSYM_PROTOTYPE(crypt_token_external_path) = NULL;
 DLSYM_PROTOTYPE(crypt_token_json_get) = NULL;
 DLSYM_PROTOTYPE(crypt_token_json_set) = NULL;
 DLSYM_PROTOTYPE(crypt_token_max) = NULL;
@@ -98,7 +107,7 @@ void cryptsetup_enable_logging(struct crypt_device *cd) {
          * endless loop, but isn't because we break it via the check for 'cryptsetup_dl' early in
          * dlopen_cryptsetup(). */
 
-        if (dlopen_cryptsetup() < 0)
+        if (dlopen_cryptsetup(LOG_DEBUG) < 0)
                 return; /* If this fails, let's gracefully ignore the issue, this is just debug logging after
                          * all, and if this failed we already generated a debug log message that should help
                          * to track things down. */
@@ -123,10 +132,6 @@ int cryptsetup_set_minimal_pbkdf(struct crypt_device *cd) {
         int r;
 
         /* Sets a minimal PKBDF in case we already have a high entropy key. */
-
-        r = dlopen_cryptsetup();
-        if (r < 0)
-                return r;
 
         r = sym_crypt_set_pbkdf_type(cd, &minimal_pbkdf);
         if (r < 0)
@@ -154,10 +159,6 @@ int cryptsetup_get_token_as_json(
          *      -ENOENT → token doesn't exist
          * -EMEDIUMTYPE → "verify_type" specified and doesn't match token's type
          */
-
-        r = dlopen_cryptsetup();
-        if (r < 0)
-                return r;
 
         r = sym_crypt_token_json_get(cd, idx, &text);
         if (r < 0)
@@ -187,10 +188,6 @@ int cryptsetup_get_token_as_json(
 int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v) {
         _cleanup_free_ char *text = NULL;
         int r;
-
-        r = dlopen_cryptsetup();
-        if (r < 0)
-                return r;
 
         r = sd_json_variant_format(v, 0, &text);
         if (r < 0)
@@ -268,7 +265,7 @@ int cryptsetup_get_volume_key_id(
 }
 #endif
 
-int dlopen_cryptsetup(void) {
+int dlopen_cryptsetup(int log_level) {
 #if HAVE_LIBCRYPTSETUP
         int r;
 
@@ -284,10 +281,12 @@ int dlopen_cryptsetup(void) {
                         "libcryptsetup.so.12");
 
         r = dlopen_many_sym_or_warn(
-                        &cryptsetup_dl, "libcryptsetup.so.12", LOG_DEBUG,
+                        &cryptsetup_dl, "libcryptsetup.so.12", log_level,
                         DLSYM_ARG(crypt_activate_by_passphrase),
                         DLSYM_ARG(crypt_activate_by_signed_key),
+                        DLSYM_ARG(crypt_activate_by_token_pin),
                         DLSYM_ARG(crypt_activate_by_volume_key),
+                        DLSYM_ARG(crypt_deactivate),
                         DLSYM_ARG(crypt_deactivate_by_name),
                         DLSYM_ARG(crypt_format),
                         DLSYM_ARG(crypt_free),
@@ -303,9 +302,11 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_header_restore),
                         DLSYM_ARG(crypt_init),
                         DLSYM_ARG(crypt_init_by_name),
+                        DLSYM_ARG(crypt_init_data_device),
                         DLSYM_ARG(crypt_keyslot_add_by_volume_key),
                         DLSYM_ARG(crypt_keyslot_destroy),
                         DLSYM_ARG(crypt_keyslot_max),
+                        DLSYM_ARG(crypt_keyslot_status),
                         DLSYM_ARG(crypt_load),
                         DLSYM_ARG(crypt_metadata_locking),
                         DLSYM_ARG(crypt_persistent_flags_get),
@@ -317,10 +318,15 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_set_data_device),
                         DLSYM_ARG(crypt_set_data_offset),
                         DLSYM_ARG(crypt_set_debug_level),
+#if HAVE_CRYPT_SET_KEYRING_TO_LINK
+                        DLSYM_ARG(crypt_set_keyring_to_link),
+#endif
                         DLSYM_ARG(crypt_set_log_callback),
                         DLSYM_ARG(crypt_set_metadata_size),
                         DLSYM_ARG(crypt_set_pbkdf_type),
+                        DLSYM_ARG(crypt_status),
                         DLSYM_ARG(crypt_suspend),
+                        DLSYM_ARG(crypt_token_external_path),
                         DLSYM_ARG(crypt_token_json_get),
                         DLSYM_ARG(crypt_token_json_set),
                         DLSYM_ARG(crypt_token_max),
@@ -355,7 +361,8 @@ int dlopen_cryptsetup(void) {
 
         return 1;
 #else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "cryptsetup support is not compiled in.");
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libcryptsetup support is not compiled in.");
 #endif
 }
 

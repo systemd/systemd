@@ -3,14 +3,19 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "build-path.h"
+#include "chase.h"
+#include "chattr-util.h"
 #include "escape.h"
 #include "event-util.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "fork-notify.h"
 #include "log.h"
 #include "notify-recv.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "runtime-scope.h"
@@ -87,10 +92,10 @@ static int on_child_notify(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
-int fork_notify(char * const *argv, PidRef *ret_pidref) {
+int fork_notify(char * const *argv, fork_notify_handler_t child_handler, void *child_userdata, PidRef *ret_pidref) {
         int r;
 
-        assert(!strv_isempty(argv));
+        assert(argv);
         assert(ret_pidref);
 
         if (!is_main_thread())
@@ -140,6 +145,12 @@ int fork_notify(char * const *argv, PidRef *ret_pidref) {
                         log_debug_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
                         _exit(EXIT_MEMORY);
                 }
+
+                /* After fork and before exec one can execute custom code in this function
+                 * but since all open FDs were closed only limited actions are safe (e.g., setenv),
+                 * akin to how in a signal handler only certain things are safe. */
+                if (child_handler)
+                        child_handler(child_userdata);
 
                 r = invoke_callout_binary(argv[0], argv);
                 log_debug_errno(r, "Failed to invoke %s: %m", argv[0]);
@@ -232,5 +243,84 @@ int journal_fork(RuntimeScope scope, char * const* units, OutputMode output, Pid
                 if (strv_extendf(&argv, "--output=%s", output_mode_to_string(output)) < 0)
                         return log_oom_debug();
 
-        return fork_notify(argv, ret_pidref);
+        return fork_notify(argv, /* child_handler= */ NULL, /* child_userdata= */ NULL, ret_pidref);
+}
+
+static void set_journal_remote_config(void *userdata) {
+        if (setenv("SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE", "/dev/null", /* overwrite= */ true) < 0) {
+                log_debug_errno(errno, "Failed to set $SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE: %m");
+                _exit(EXIT_MEMORY);
+        }
+}
+
+int fork_journal_remote(
+                const char *listen_address,
+                const char *output,
+                uint64_t max_use,
+                uint64_t keep_free,
+                uint64_t max_file_size,
+                uint64_t max_files,
+                PidRef *ret_pidref) {
+
+        int r;
+
+        assert(listen_address);
+        assert(output);
+        assert(ret_pidref);
+
+        ChaseFlags chase_flags = CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY;
+        if (endswith(output, ".journal"))
+                chase_flags |= CHASE_PARENT;
+
+        _cleanup_close_ int fd = -EBADF;
+        r = chase(output, /* root= */ NULL, chase_flags, /* ret_path= */ NULL, &fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create journal directory for '%s': %m", output);
+
+        r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to set NOCOW flag on journal directory for '%s', ignoring: %m", output);
+
+        _cleanup_free_ char *sd_socket_activate = NULL;
+        r = find_executable("systemd-socket-activate", &sd_socket_activate);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find systemd-socket-activate binary: %m");
+
+        _cleanup_free_ char *sd_journal_remote = NULL;
+        r = find_executable_full(
+                        "systemd-journal-remote",
+                        /* root= */ NULL,
+                        STRV_MAKE(LIBEXECDIR),
+                        /* use_path_envvar= */ true,
+                        &sd_journal_remote,
+                        /* ret_fd= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
+
+        _cleanup_strv_free_ char **argv = strv_new(
+                        sd_socket_activate,
+                        "--listen", listen_address,
+                        sd_journal_remote,
+                        "--output", output,
+                        "--split-mode", endswith(output, ".journal") ? "none" : "host");
+        if (!argv)
+                return log_oom();
+
+        if (max_use != UINT64_MAX &&
+            strv_extendf(&argv, "--max-use=%" PRIu64, max_use) < 0)
+                return log_oom();
+
+        if (keep_free != UINT64_MAX &&
+            strv_extendf(&argv, "--keep-free=%" PRIu64, keep_free) < 0)
+                return log_oom();
+
+        if (max_file_size != UINT64_MAX &&
+            strv_extendf(&argv, "--max-file-size=%" PRIu64, max_file_size) < 0)
+                return log_oom();
+
+        if (max_files != UINT64_MAX &&
+            strv_extendf(&argv, "--max-files=%" PRIu64, max_files) < 0)
+                return log_oom();
+
+        return fork_notify(argv, set_journal_remote_config, /* child_userdata= */ NULL, ret_pidref);
 }

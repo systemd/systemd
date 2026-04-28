@@ -1359,9 +1359,9 @@ static int setup_pam(
          * parent process will exec() the actual daemon. We do things this way to ensure that the main PID of
          * the daemon is the one we initially fork()ed. */
 
-        r = dlopen_libpam();
+        r = dlopen_libpam(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "PAM support not available: %m");
+                return r;
 
         r = barrier_create(&barrier);
         if (r < 0)
@@ -1625,7 +1625,7 @@ static bool seccomp_allows_drop_privileges(const ExecContext *c) {
         assert(c);
 
         /* No libseccomp, all is fine */
-        if (dlopen_libseccomp() < 0)
+        if (dlopen_libseccomp(LOG_DEBUG) < 0)
                 return true;
 
         /* No syscall filter, we are allowed to drop privileges */
@@ -1927,7 +1927,7 @@ static int apply_restrict_filesystems(const ExecContext *c, const ExecParameters
         }
 
         /* We are in a new binary, so dl-open again */
-        r = dlopen_bpf();
+        r = dlopen_bpf(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -2762,7 +2762,7 @@ static int create_many_symlinks(const char *root, const char *source, char **sym
         return 0;
 }
 
-static int set_exec_storage_quota(int fd, uint32_t proj_id, const QuotaLimit *ql) {
+static int set_exec_storage_quota(int fd, uint32_t proj_id, const ExecQuotaLimit *ql) {
         int r;
         uint64_t block_limit = 0, inode_limit = 0;
 
@@ -2852,7 +2852,7 @@ static int apply_exec_quotas(
                 const char *target_dir,
                 const char *cgroup_path,
                 ExecDirectoryType type,
-                const QuotaLimit *ql,
+                const ExecQuotaLimit *ql,
                 uint32_t *exec_dt_proj_id, /* in/out */
                 bool *already_enforced) {  /* in/out */
 
@@ -4152,7 +4152,7 @@ static int apply_working_directory(
 
                 r = chase(wd,
                           runtime->ephemeral_copy ?: context->root_directory,
-                          CHASE_PREFIX_ROOT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS,
+                          CHASE_PREFIX_ROOT|CHASE_TRIGGER_AUTOFS,
                           /* ret_path= */ NULL,
                           &dfd);
                 if (r >= 0)
@@ -4872,23 +4872,23 @@ static int setup_delegated_namespaces(
         return 0;
 }
 
-static int set_memory_thp(MemoryTHP thp) {
+static int set_memory_thp(ExecMemoryTHP thp) {
         int r;
 
         switch (thp) {
 
-        case MEMORY_THP_INHERIT:
+        case EXEC_MEMORY_THP_INHERIT:
                 return 0;
 
-        case MEMORY_THP_DISABLE:
+        case EXEC_MEMORY_THP_DISABLE:
                 r = RET_NERRNO(prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0));
                 break;
 
-        case MEMORY_THP_MADVISE:
+        case EXEC_MEMORY_THP_MADVISE:
                 r = RET_NERRNO(prctl(PR_SET_THP_DISABLE, 1, PR_THP_DISABLE_EXCEPT_ADVISED, 0, 0));
                 break;
 
-        case MEMORY_THP_SYSTEM:
+        case EXEC_MEMORY_THP_SYSTEM:
                 r = RET_NERRNO(prctl(PR_SET_THP_DISABLE, 0, 0, 0, 0));
                 break;
 
@@ -5711,11 +5711,11 @@ int exec_invoke(
         r = set_memory_thp(context->memory_thp);
         if (r == -EOPNOTSUPP)
                 log_debug_errno(r, "Setting MemoryTHP=%s is not supported, ignoring.",
-                                memory_thp_to_string(context->memory_thp));
+                                exec_memory_thp_to_string(context->memory_thp));
         else if (r < 0) {
                 *exit_status = EXIT_MEMORY_THP;
                 return log_error_errno(r, "Failed to set MemoryTHP=%s: %m",
-                                       memory_thp_to_string(context->memory_thp));
+                                       exec_memory_thp_to_string(context->memory_thp));
         }
 
 #if ENABLE_UTMP
@@ -6026,10 +6026,10 @@ int exec_invoke(
         }
 
         /* Load a bunch of libraries we'll possibly need later, before we turn off dlopen() */
-        (void) dlopen_bpf();
-        (void) dlopen_cryptsetup();
-        (void) dlopen_libmount();
-        (void) dlopen_libseccomp();
+        (void) dlopen_bpf(LOG_DEBUG);
+        (void) dlopen_cryptsetup(LOG_DEBUG);
+        (void) dlopen_libmount(LOG_DEBUG);
+        (void) dlopen_libseccomp(LOG_DEBUG);
 
         /* Let's now disable further dlopen()ing of libraries, since we are about to do namespace
          * shenanigans, and do not want to mix resources from host and namespace */

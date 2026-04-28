@@ -87,6 +87,7 @@ typedef struct TableData {
         union {
                 uint8_t data[0];    /* data is generic array */
                 bool boolean;
+                int tristate;
                 usec_t timestamp;
                 usec_t timespan;
                 uint64_t size;
@@ -342,6 +343,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_PERCENT:
         case TABLE_IFINDEX:
         case TABLE_SIGNAL:
+        case TABLE_TRISTATE:
                 return sizeof(int);
 
         case TABLE_IN_ADDR:
@@ -935,6 +937,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         uint64_t uint64;
                         int percent;
                         int ifindex;
+                        int tristate;
                         bool b;
                         union in_addr_union address;
                         sd_id128_t id128;
@@ -970,6 +973,11 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_BOOLEAN:
                         buffer.b = va_arg(ap, int);
                         data = &buffer.b;
+                        break;
+
+                case TABLE_TRISTATE:
+                        buffer.tristate = va_arg(ap, int);
+                        data = &buffer.tristate;
                         break;
 
                 case TABLE_TIMESTAMP:
@@ -1073,12 +1081,12 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         break;
 
                 case TABLE_IN_ADDR:
-                        buffer.address = *va_arg(ap, union in_addr_union *);
+                        buffer.address.in = *va_arg(ap, struct in_addr *);
                         data = &buffer.address.in;
                         break;
 
                 case TABLE_IN6_ADDR:
-                        buffer.address = *va_arg(ap, union in_addr_union *);
+                        buffer.address.in6 = *va_arg(ap, struct in6_addr *);
                         data = &buffer.address.in6;
                         break;
 
@@ -1434,9 +1442,22 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                         return strv_compare(a->strv, b->strv);
 
                 case TABLE_BOOLEAN:
+                case TABLE_BOOLEAN_CHECKMARK:
                         if (!a->boolean && b->boolean)
                                 return -1;
                         if (a->boolean && !b->boolean)
+                                return 1;
+                        return 0;
+
+                case TABLE_TRISTATE:
+                        /* NB: we do not use CMP() here, since we want to collapse all negative and all
+                         * positive into one bucket each. */
+                        if ((a->tristate < 0 && b->tristate >= 0) ||
+                            (a->tristate == 0 && b->tristate > 0))
+                                return -1;
+
+                        if ((b->tristate < 0 && a->tristate >= 0) ||
+                            (b->tristate == 0 && a->tristate > 0))
                                 return 1;
                         return 0;
 
@@ -1690,6 +1711,12 @@ static const char* table_data_format(
 
         case TABLE_BOOLEAN_CHECKMARK:
                 return glyph(d->boolean ? GLYPH_CHECK_MARK : GLYPH_CROSS_MARK);
+
+        case TABLE_TRISTATE:
+                if (d->tristate < 0)
+                        return table_ersatz_string(t);
+
+                return yes_no(d->tristate);
 
         case TABLE_TIMESTAMP:
         case TABLE_TIMESTAMP_UTC:
@@ -2775,6 +2802,12 @@ static int table_data_to_json(TableData *d, sd_json_variant **ret) {
         case TABLE_BOOLEAN_CHECKMARK:
         case TABLE_BOOLEAN:
                 return sd_json_variant_new_boolean(ret, d->boolean);
+
+        case TABLE_TRISTATE:
+                if (d->tristate < 0)
+                        return sd_json_variant_new_null(ret);
+
+                return sd_json_variant_new_boolean(ret, d->tristate);
 
         case TABLE_TIMESTAMP:
         case TABLE_TIMESTAMP_UTC:

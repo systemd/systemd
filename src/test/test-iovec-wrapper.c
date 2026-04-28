@@ -97,9 +97,9 @@ TEST(iovw_put_iov) {
         ASSERT_OK(iovw_put_iov(&iovw, &IOVEC_MAKE_STRING("bbb")));
         ASSERT_OK(iovw_put_iov(&iovw, &IOVEC_MAKE_STRING("ccc")));
         ASSERT_EQ(iovw.count, 3U);
-        ASSERT_EQ(iovec_memcmp(&iovw.iovec[0], &IOVEC_MAKE_STRING("aaa")), 0);
-        ASSERT_EQ(iovec_memcmp(&iovw.iovec[1], &IOVEC_MAKE_STRING("bbb")), 0);
-        ASSERT_EQ(iovec_memcmp(&iovw.iovec[2], &IOVEC_MAKE_STRING("ccc")), 0);
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[0], &IOVEC_MAKE_STRING("aaa")));
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[1], &IOVEC_MAKE_STRING("bbb")));
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[2], &IOVEC_MAKE_STRING("ccc")));
 }
 
 TEST(iovw_put_iovw) {
@@ -123,12 +123,12 @@ TEST(iovw_put_iovw) {
 
         ASSERT_OK(iovw_put_iovw(&target, &source));
         ASSERT_EQ(target.count, 6U);
-        ASSERT_EQ(iovec_memcmp(&target.iovec[0], &IOVEC_MAKE_STRING("xxx")), 0);
-        ASSERT_EQ(iovec_memcmp(&target.iovec[1], &IOVEC_MAKE_STRING("yyy")), 0);
-        ASSERT_EQ(iovec_memcmp(&target.iovec[2], &IOVEC_MAKE_STRING("zzz")), 0);
-        ASSERT_EQ(iovec_memcmp(&target.iovec[3], &IOVEC_MAKE_STRING("aaa")), 0);
-        ASSERT_EQ(iovec_memcmp(&target.iovec[4], &IOVEC_MAKE_STRING("bbb")), 0);
-        ASSERT_EQ(iovec_memcmp(&target.iovec[5], &IOVEC_MAKE_STRING("ccc")), 0);
+        ASSERT_TRUE(iovec_equal(&target.iovec[0], &IOVEC_MAKE_STRING("xxx")));
+        ASSERT_TRUE(iovec_equal(&target.iovec[1], &IOVEC_MAKE_STRING("yyy")));
+        ASSERT_TRUE(iovec_equal(&target.iovec[2], &IOVEC_MAKE_STRING("zzz")));
+        ASSERT_TRUE(iovec_equal(&target.iovec[3], &IOVEC_MAKE_STRING("aaa")));
+        ASSERT_TRUE(iovec_equal(&target.iovec[4], &IOVEC_MAKE_STRING("bbb")));
+        ASSERT_TRUE(iovec_equal(&target.iovec[5], &IOVEC_MAKE_STRING("ccc")));
 
         /* iovw_put_iovw() does not copy data, hence the pointers must be equal */
         ASSERT_PTR_EQ(target.iovec[3].iov_base, source.iovec[0].iov_base);
@@ -137,9 +137,9 @@ TEST(iovw_put_iovw) {
 
         /* Source is unchanged */
         ASSERT_EQ(source.count, 3U);
-        ASSERT_EQ(iovec_memcmp(&source.iovec[0], &IOVEC_MAKE_STRING("aaa")), 0);
-        ASSERT_EQ(iovec_memcmp(&source.iovec[1], &IOVEC_MAKE_STRING("bbb")), 0);
-        ASSERT_EQ(iovec_memcmp(&source.iovec[2], &IOVEC_MAKE_STRING("ccc")), 0);
+        ASSERT_TRUE(iovec_equal(&source.iovec[0], &IOVEC_MAKE_STRING("aaa")));
+        ASSERT_TRUE(iovec_equal(&source.iovec[1], &IOVEC_MAKE_STRING("bbb")));
+        ASSERT_TRUE(iovec_equal(&source.iovec[2], &IOVEC_MAKE_STRING("ccc")));
 
         /* Cannot pass the same objects */
         ASSERT_ERROR(iovw_put_iovw(&target, &target), EINVAL);
@@ -183,9 +183,9 @@ TEST(iovw_extend_iov) {
         ASSERT_OK(iovw_extend_iov(&iovw, &IOVEC_MAKE_STRING("bbb")));
         ASSERT_OK(iovw_extend_iov(&iovw, &IOVEC_MAKE_STRING("ccc")));
         ASSERT_EQ(iovw.count, 3U);
-        ASSERT_EQ(iovec_memcmp(&iovw.iovec[0], &IOVEC_MAKE_STRING("aaa")), 0);
-        ASSERT_EQ(iovec_memcmp(&iovw.iovec[1], &IOVEC_MAKE_STRING("bbb")), 0);
-        ASSERT_EQ(iovec_memcmp(&iovw.iovec[2], &IOVEC_MAKE_STRING("ccc")), 0);
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[0], &IOVEC_MAKE_STRING("aaa")));
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[1], &IOVEC_MAKE_STRING("bbb")));
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[2], &IOVEC_MAKE_STRING("ccc")));
 }
 
 TEST(iovw_extend_iovw) {
@@ -410,7 +410,7 @@ TEST(iovw_concat) {
         ASSERT_OK(iovw_put(&iovw, (char*) "bar", 4));
 
         ASSERT_OK(iovw_concat(&iovw, &iov));
-        ASSERT_EQ(iovec_memcmp(&iov, &IOVEC_MAKE("foo\0bar\0", 8)), 0);
+        ASSERT_TRUE(iovec_equal(&iov, &IOVEC_MAKE("foo\0bar\0", 8)));
 }
 
 TEST(iovw_to_cstring) {

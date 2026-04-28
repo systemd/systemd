@@ -41,6 +41,8 @@ Job* job_new_raw(Unit *unit) {
                 .manager = unit->manager,
                 .unit = unit,
                 .type = _JOB_TYPE_INVALID,
+                .state = JOB_WAITING,
+                .result = _JOB_RESULT_INVALID,
         };
 
         return j;
@@ -138,17 +140,18 @@ static void job_set_state(Job *j, JobState state) {
         if (j->state == state)
                 return;
 
+        JobState old_state = j->state;
         j->state = state;
 
         if (!j->installed)
                 return;
 
         if (j->state == JOB_RUNNING)
+                /* This job changed into running, count up */
                 j->manager->n_running_jobs++;
-        else {
-                assert(j->state == JOB_WAITING);
+        else if (old_state == JOB_RUNNING) {
+                /* This job changed away from running into another state, count down. */
                 assert(j->manager->n_running_jobs > 0);
-
                 j->manager->n_running_jobs--;
 
                 if (j->manager->n_running_jobs <= 0)
@@ -1016,6 +1019,8 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
 
         j->result = result;
 
+        job_set_state(j, JOB_FINISHED);
+
         log_unit_debug(u, "Job %" PRIu32 " %s/%s finished, result=%s",
                        j->id, u->id, job_type_to_string(t), job_result_to_string(result));
 
@@ -1644,8 +1649,9 @@ int job_get_after(Job *j, Job*** ret) {
 }
 
 static const char* const job_state_table[_JOB_STATE_MAX] = {
-        [JOB_WAITING] = "waiting",
-        [JOB_RUNNING] = "running",
+        [JOB_WAITING]  = "waiting",
+        [JOB_RUNNING]  = "running",
+        [JOB_FINISHED] = "finished",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_state, JobState);

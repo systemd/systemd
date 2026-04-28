@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "iovec-util.h"
+#include "iovec-wrapper.h"
 #include "memory-util.h"
 #include "tests.h"
 
@@ -36,6 +37,59 @@ TEST(iovec_inc) {
         struct iovec empty = {};
         ASSERT_FALSE(iovec_is_set(iovec_inc(&empty, 0)));
         ASSERT_FALSE(iovec_is_set(iovec_inc(&empty, 1)));
+}
+
+TEST(iovec_inc_many) {
+        ASSERT_TRUE(iovec_inc_many(NULL, 0, 0));
+        ASSERT_TRUE(iovec_inc_many(&(struct iovec) {}, 0, 0));
+        ASSERT_TRUE(iovec_inc_many(&(struct iovec) {}, 1, 0));
+
+        _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
+        ASSERT_OK(iovw_put_iov(&iovw, &IOVEC_MAKE_STRING("aaa")));
+        ASSERT_OK(iovw_put_iov(&iovw, &IOVEC_MAKE_STRING("bbb")));
+        ASSERT_OK(iovw_put_iov(&iovw, &IOVEC_MAKE_STRING("ccc")));
+
+        ASSERT_FALSE(iovec_inc_many(iovw.iovec, iovw.count, 0));
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[0], &IOVEC_MAKE_STRING("aaa")));
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[1], &IOVEC_MAKE_STRING("bbb")));
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[2], &IOVEC_MAKE_STRING("ccc")));
+
+        ASSERT_FALSE(iovec_inc_many(iovw.iovec, iovw.count, 1));
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[0], &IOVEC_MAKE_STRING("aa")));
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[1], &IOVEC_MAKE_STRING("bbb")));
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[2], &IOVEC_MAKE_STRING("ccc")));
+
+        ASSERT_FALSE(iovec_inc_many(iovw.iovec, iovw.count, 3));
+        ASSERT_FALSE(iovec_is_set(&iovw.iovec[0]));
+        ASSERT_NULL(iovw.iovec[0].iov_base);
+        ASSERT_EQ(iovw.iovec[0].iov_len, 0u);
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[1], &IOVEC_MAKE_STRING("bb")));
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[2], &IOVEC_MAKE_STRING("ccc")));
+
+        ASSERT_FALSE(iovec_inc_many(iovw.iovec, iovw.count, 4));
+        ASSERT_NULL(iovw.iovec[0].iov_base);
+        ASSERT_EQ(iovw.iovec[0].iov_len, 0u);
+        ASSERT_NULL(iovw.iovec[1].iov_base);
+        ASSERT_EQ(iovw.iovec[1].iov_len, 0u);
+        ASSERT_TRUE(iovec_equal(&iovw.iovec[2], &IOVEC_MAKE_STRING("c")));
+
+        ASSERT_TRUE(iovec_inc_many(iovw.iovec, iovw.count, 1));
+        ASSERT_NULL(iovw.iovec[0].iov_base);
+        ASSERT_EQ(iovw.iovec[0].iov_len, 0u);
+        ASSERT_NULL(iovw.iovec[1].iov_base);
+        ASSERT_EQ(iovw.iovec[1].iov_len, 0u);
+        ASSERT_NULL(iovw.iovec[2].iov_base);
+        ASSERT_EQ(iovw.iovec[2].iov_len, 0u);
+
+        ASSERT_TRUE(iovec_inc_many(iovw.iovec, iovw.count, 0));
+        ASSERT_NULL(iovw.iovec[0].iov_base);
+        ASSERT_EQ(iovw.iovec[0].iov_len, 0u);
+        ASSERT_NULL(iovw.iovec[1].iov_base);
+        ASSERT_EQ(iovw.iovec[1].iov_len, 0u);
+        ASSERT_NULL(iovw.iovec[2].iov_base);
+        ASSERT_EQ(iovw.iovec[2].iov_len, 0u);
+
+        ASSERT_SIGNAL(iovec_inc_many(iovw.iovec, iovw.count, 1), SIGABRT);
 }
 
 TEST(iovec_memcmp) {

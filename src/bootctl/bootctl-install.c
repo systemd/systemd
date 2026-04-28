@@ -7,6 +7,7 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "blockdev-util.h"
 #include "boot-entry.h"
 #include "bootctl.h"
@@ -15,6 +16,7 @@
 #include "bootctl-util.h"
 #include "chase.h"
 #include "copy.h"
+#include "crypto-util.h"
 #include "dirent-util.h"
 #include "efi-api.h"
 #include "efi-fundamental.h"
@@ -31,7 +33,6 @@
 #include "json-util.h"
 #include "kernel-config.h"
 #include "log.h"
-#include "openssl-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pe-binary.h"
@@ -117,11 +118,11 @@ static void install_context_done(InstallContext *c) {
         c->xbootldr_fd = safe_close(c->xbootldr_fd);
 #if HAVE_OPENSSL
         if (c->secure_boot_private_key) {
-                EVP_PKEY_free(c->secure_boot_private_key);
+                sym_EVP_PKEY_free(c->secure_boot_private_key);
                 c->secure_boot_private_key = NULL;
         }
         if (c->secure_boot_certificate) {
-                X509_free(c->secure_boot_certificate);
+                sym_X509_free(c->secure_boot_certificate);
                 c->secure_boot_certificate = NULL;
         }
 #endif
@@ -277,8 +278,9 @@ static int load_etc_machine_info(InstallContext *c) {
         _cleanup_close_ int fd =
                 chase_and_openat(
                                 c->root_fd,
+                                c->root_fd,
                                 "/etc/machine-info",
-                                CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR,
+                                CHASE_MUST_BE_REGULAR,
                                 O_RDONLY|O_CLOEXEC,
                                 /* ret_path= */ NULL);
         if (fd == -ENOENT)
@@ -392,8 +394,9 @@ static int settle_make_entry_directory(InstallContext *c) {
 
                                 _cleanup_close_ int fd = -EBADF;
                                 r = chaseat(c->root_fd,
+                                            c->root_fd,
                                             "/etc/machine-id",
-                                            CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR,
+                                            CHASE_MUST_BE_REGULAR,
                                             /* ret_path= */ NULL,
                                             &fd);
                                 if (r < 0)
@@ -546,8 +549,9 @@ static int mkdir_one(const char *root, int root_fd, const char *path) {
                 return log_oom();
 
         r = chaseat(root_fd,
+                    root_fd,
                     path,
-                    CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
+                    CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
                     /* ret_path= */ NULL,
                     /* ret_fd= */ NULL);
         if (r < 0)
@@ -612,8 +616,9 @@ static int update_efi_boot_binaries(
         _cleanup_closedir_ DIR *d = NULL;
         r = chase_and_opendirat(
                         c->esp_fd,
+                        c->esp_fd,
                         "/EFI/BOOT",
-                        CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_DIRECTORY,
+                        CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_DIRECTORY,
                         /* ret_path= */ NULL,
                         &d);
         if (r == -ENOENT)
@@ -680,8 +685,9 @@ static int copy_one_file(
         if (IN_SET(c->install_source, INSTALL_SOURCE_AUTO, INSTALL_SOURCE_IMAGE)) {
                 source_fd = chase_and_openat(
                                 c->root_fd,
+                                c->root_fd,
                                 sp,
-                                CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR,
+                                CHASE_MUST_BE_REGULAR,
                                 O_RDONLY|O_CLOEXEC,
                                 &source_path);
                 if (source_fd < 0 && (source_fd != -ENOENT || c->install_source != INSTALL_SOURCE_AUTO))
@@ -709,8 +715,9 @@ static int copy_one_file(
 
         _cleanup_close_ int dest_parent_fd = -EBADF;
         r = chaseat(c->esp_fd,
+                    c->esp_fd,
                     "/EFI/systemd",
-                    CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
+                    CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
                     /* ret_path= */ NULL,
                     &dest_parent_fd);
         if (r < 0)
@@ -740,8 +747,9 @@ static int copy_one_file(
 
                 _cleanup_close_ int default_dest_parent_fd = -EBADF;
                 r = chaseat(c->esp_fd,
+                            c->esp_fd,
                             "/EFI/BOOT",
-                            CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
+                            CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
                             /* ret_path= */ NULL,
                             &default_dest_parent_fd);
                 if (r < 0)
@@ -779,8 +787,9 @@ static int install_binaries(
         if (IN_SET(c->install_source, INSTALL_SOURCE_AUTO, INSTALL_SOURCE_IMAGE)) {
                 r = chase_and_opendirat(
                                 c->root_fd,
+                                c->root_fd,
                                 BOOTLIBDIR,
-                                CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_DIRECTORY,
+                                CHASE_MUST_BE_DIRECTORY,
                                 &source_path,
                                 &d);
                 if (r < 0 && (r != -ENOENT || c->install_source != INSTALL_SOURCE_AUTO))
@@ -845,8 +854,9 @@ static int install_loader_config(InstallContext *c) {
 
         _cleanup_close_ int loader_dir_fd = -EBADF;
         r = chaseat(c->esp_fd,
+                    c->esp_fd,
                     "loader",
-                    CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
+                    CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
                     /* ret_path= */ NULL,
                     &loader_dir_fd);
         if (r < 0)
@@ -899,8 +909,9 @@ static int install_loader_specification(InstallContext *c) {
 
         _cleanup_close_ int loader_dir_fd = -EBADF;
         r = chaseat(dollar_boot_fd,
+                    dollar_boot_fd,
                     "loader",
-                    CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
+                    CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
                     /* ret_path= */ NULL,
                     &loader_dir_fd);
         if (r < 0)
@@ -973,8 +984,9 @@ static int install_entry_token(InstallContext *c) {
 
         _cleanup_close_ int dfd = -EBADF;
         r = chaseat(c->root_fd,
+                    c->root_fd,
                     confdir,
-                    CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
+                    CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
                     /* ret_path= */ NULL,
                     &dfd);
         if (r < 0)
@@ -1024,12 +1036,16 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
         if (!c->secure_boot_certificate || !c->secure_boot_private_key)
                 return 0;
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         _cleanup_free_ uint8_t *dercert = NULL;
         int dercertsz;
-        dercertsz = i2d_X509(c->secure_boot_certificate, &dercert);
+        dercertsz = sym_i2d_X509(c->secure_boot_certificate, &dercert);
         if (dercertsz < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert X.509 certificate to DER: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
+                                       sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
         if (c->esp_fd < 0)
                 return c->esp_fd;
@@ -1040,8 +1056,9 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
 
         _cleanup_close_ int keys_fd = -EBADF;
         r = chaseat(c->esp_fd,
+                    c->esp_fd,
                     "loader/keys/auto",
-                    CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
+                    CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
                     /* ret_path= */ NULL,
                     &keys_fd);
         if (r < 0)
@@ -1075,7 +1092,7 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
         FOREACH_STRING(db, "PK", "KEK", "db") {
                 _cleanup_(BIO_freep) BIO *bio = NULL;
 
-                bio = BIO_new(BIO_s_mem());
+                bio = sym_BIO_new(sym_BIO_s_mem());
                 if (!bio)
                         return log_oom();
 
@@ -1084,34 +1101,34 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
                         return log_oom();
 
                 /* Don't count the trailing NUL terminator. */
-                if (BIO_write(bio, db16, char16_strsize(db16) - sizeof(char16_t)) < 0)
+                if (sym_BIO_write(bio, db16, char16_strsize(db16) - sizeof(char16_t)) < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable name to bio");
 
                 EFI_GUID *guid = STR_IN_SET(db, "PK", "KEK") ? &(EFI_GUID) EFI_GLOBAL_VARIABLE : &(EFI_GUID) EFI_IMAGE_SECURITY_DATABASE_GUID;
 
-                if (BIO_write(bio, guid, sizeof(*guid)) < 0)
+                if (sym_BIO_write(bio, guid, sizeof(*guid)) < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable GUID to bio");
 
-                if (BIO_write(bio, &attrs, sizeof(attrs)) < 0)
+                if (sym_BIO_write(bio, &attrs, sizeof(attrs)) < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable attributes to bio");
 
-                if (BIO_write(bio, &timestamp, sizeof(timestamp)) < 0)
+                if (sym_BIO_write(bio, &timestamp, sizeof(timestamp)) < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write timestamp to bio");
 
-                if (BIO_write(bio, siglist, siglistsz) < 0)
+                if (sym_BIO_write(bio, siglist, siglistsz) < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write signature list to bio");
 
                 _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
-                p7 = PKCS7_sign(c->secure_boot_certificate, c->secure_boot_private_key, /* certs= */ NULL, bio, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY|PKCS7_NOSMIMECAP);
+                p7 = sym_PKCS7_sign(c->secure_boot_certificate, c->secure_boot_private_key, /* certs= */ NULL, bio, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY|PKCS7_NOSMIMECAP);
                 if (!p7)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
-                                               ERR_error_string(ERR_get_error(), NULL));
+                                               sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
                 _cleanup_free_ uint8_t *sig = NULL;
-                int sigsz = i2d_PKCS7(p7, &sig);
+                int sigsz = sym_i2d_PKCS7(p7, &sig);
                 if (sigsz < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
-                                               ERR_error_string(ERR_get_error(), NULL));
+                                               sym_ERR_error_string(sym_ERR_get_error(), NULL));
 
                 size_t authsz = offsetof(EFI_VARIABLE_AUTHENTICATION_2, AuthInfo.CertData) + sigsz;
                 _cleanup_free_ EFI_VARIABLE_AUTHENTICATION_2 *auth = malloc(authsz);
@@ -1353,8 +1370,9 @@ static int install_variables(
 
         r = chase_and_accessat(
                         c->esp_fd,
+                        c->esp_fd,
                         path,
-                        CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_REGULAR,
+                        CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_REGULAR,
                         F_OK,
                         /* ret_path= */ NULL);
         if (r == -ENOENT)
@@ -1437,8 +1455,9 @@ static int are_we_installed(InstallContext *c) {
 
         _cleanup_close_ int fd = chase_and_openat(
                         c->esp_fd,
+                        c->esp_fd,
                         "/EFI/systemd",
-                        CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_DIRECTORY,
+                        CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_DIRECTORY,
                         O_RDONLY|O_CLOEXEC|O_DIRECTORY,
                         /* ret_path= */ NULL);
         if (fd == -ENOENT)
@@ -1656,8 +1675,9 @@ static int remove_boot_efi(InstallContext *c) {
         _cleanup_free_ char *p = NULL;
         r = chase_and_opendirat(
                         c->esp_fd,
+                        c->esp_fd,
                         "/EFI/BOOT",
-                        CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_DIRECTORY,
+                        CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_DIRECTORY,
                         &p,
                         &d);
         if (r == -ENOENT)
@@ -1726,8 +1746,9 @@ static int unlink_inode(const char *root, int root_fd, const char *path, mode_t 
 
         r = chase_and_unlinkat(
                         root_fd,
+                        root_fd,
                         path,
-                        CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS,
+                        CHASE_PROHIBIT_SYMLINKS,
                         S_ISDIR(type) ? AT_REMOVEDIR : 0,
                         /* ret_path= */ NULL);
         if (r < 0) {
@@ -1773,8 +1794,9 @@ static int remove_binaries(InstallContext *c) {
 
         _cleanup_close_ int efi_fd = -EBADF;
         r = chaseat(c->esp_fd,
+                    c->esp_fd,
                     "EFI",
-                    CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_DIRECTORY,
+                    CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_DIRECTORY,
                     /* ret_path= */ NULL,
                     &efi_fd);
         if (r < 0) {

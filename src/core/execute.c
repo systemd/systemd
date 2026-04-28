@@ -1143,7 +1143,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, protect_hostname_to_string(c->protect_hostname), c->private_hostname ? ":" : "", strempty(c->private_hostname),
                 prefix, protect_proc_to_string(c->protect_proc),
                 prefix, proc_subset_to_string(c->proc_subset),
-                prefix, memory_thp_to_string(c->memory_thp),
+                prefix, exec_memory_thp_to_string(c->memory_thp),
                 prefix, private_bpf_to_string(c->private_bpf));
 
         if (c->private_bpf == PRIVATE_BPF_YES) {
@@ -1491,7 +1491,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         fputc('~', f);
 
 #if HAVE_SECCOMP
-                if (dlopen_libseccomp() >= 0) {
+                if (dlopen_libseccomp(LOG_DEBUG) >= 0) {
                         void *id, *val;
                         bool first = true;
                         HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
@@ -1910,7 +1910,7 @@ char** exec_context_get_syscall_filter(const ExecContext *c) {
         assert(c);
 
 #if HAVE_SECCOMP
-        if (dlopen_libseccomp() < 0)
+        if (dlopen_libseccomp(LOG_DEBUG) < 0)
                 return strv_new(NULL);
 
         void *id, *val;
@@ -1979,7 +1979,7 @@ char** exec_context_get_syscall_log(const ExecContext *c) {
         assert(c);
 
 #if HAVE_SECCOMP
-        if (dlopen_libseccomp() < 0)
+        if (dlopen_libseccomp(LOG_DEBUG) < 0)
                 return strv_new(NULL);
 
         void *id, *val;
@@ -3146,11 +3146,11 @@ static const char* const exec_keyring_mode_table[_EXEC_KEYRING_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(exec_keyring_mode, ExecKeyringMode);
 
-static const char* const memory_thp_table[_MEMORY_THP_MAX] = {
-        [MEMORY_THP_INHERIT] = "inherit",
-        [MEMORY_THP_DISABLE] = "disable",
-        [MEMORY_THP_MADVISE] = "madvise",
-        [MEMORY_THP_SYSTEM]  = "system",
+static const char* const exec_memory_thp_table[_EXEC_MEMORY_THP_MAX] = {
+        [EXEC_MEMORY_THP_INHERIT] = "inherit",
+        [EXEC_MEMORY_THP_DISABLE] = "disable",
+        [EXEC_MEMORY_THP_MADVISE] = "madvise",
+        [EXEC_MEMORY_THP_SYSTEM]  = "system",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(memory_thp, MemoryTHP);
+DEFINE_STRING_TABLE_LOOKUP(exec_memory_thp, ExecMemoryTHP);
