@@ -897,3 +897,23 @@ int json_variant_compare(sd_json_variant *a, sd_json_variant *b) {
 
         return CMP(sd_json_variant_type(a), sd_json_variant_type(b));
 }
+
+int json_dispatch_address_family(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int *family = ASSERT_PTR(userdata), r;
+
+        assert(variant);
+
+        int64_t i64 = AF_UNSPEC;
+        if (!sd_json_variant_is_null(variant)) {
+                r = sd_json_dispatch_int64(name, variant, flags, &i64);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!IN_SET(i64, AF_INET, AF_INET6) && !(FLAGS_SET(flags, SD_JSON_RELAX) && i64 == AF_UNSPEC))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
+                                "JSON field '%s' out of range for an address family.", strna(name));
+
+        *family = (int) i64;
+        return 0;
+}
