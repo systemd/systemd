@@ -291,6 +291,14 @@
     by <command>systemd-creds encrypt -T</command> (see
     <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
     details); in case of the system extension images by using signed Verity images.</para>
+
+    <para>Note that earlier components of the boot process might register additional initrds, and thus
+    additional "companion" resources such as system extensions, configuration extensions and credentials for
+    consumption by the kernel and OS eventually booted. For example,
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> does
+    this for resources configured in UAPI.1 Type #1 <literal>extra</literal>
+    lines. <filename>systemd-stub</filename> will combine any resources provided that way with the companion
+    file resources it acquires itself.</para>
   </refsect1>
 
   <refsect1>
