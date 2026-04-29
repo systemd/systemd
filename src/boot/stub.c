@@ -819,7 +819,6 @@ static void generate_sidecar_initrds(
                       u".cred",
                       /* exclude_suffix= */ NULL,
                       &cpio_target_credentials,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Credentials initrd",
                       initrds + INITRD_CREDENTIAL,
                       &m) == EFI_SUCCESS)
@@ -830,7 +829,6 @@ static void generate_sidecar_initrds(
                       u".cred",
                       /* exclude_suffix= */ NULL,
                       &cpio_target_global_credentials,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Global credentials initrd",
                       initrds + INITRD_GLOBAL_CREDENTIAL,
                       &m) == EFI_SUCCESS)
@@ -841,7 +839,6 @@ static void generate_sidecar_initrds(
                       u".raw",         /* ideally we'd pick up only *.sysext.raw here, but for compat we pick up *.raw instead … */
                       u".confext.raw", /* … but then exclude *.confext.raw again */
                       &cpio_target_sysext,
-                      /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
                       u"System extension initrd",
                       initrds + INITRD_SYSEXT,
                       &m) == EFI_SUCCESS)
@@ -852,7 +849,6 @@ static void generate_sidecar_initrds(
                       u".raw", /* as above */
                       u".confext.raw",
                       &cpio_target_global_sysext,
-                      /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
                       u"Global system extension initrd",
                       initrds + INITRD_GLOBAL_SYSEXT,
                       &m) == EFI_SUCCESS)
@@ -863,7 +859,6 @@ static void generate_sidecar_initrds(
                       u".confext.raw",
                       /* exclude_suffix= */ NULL,
                       &cpio_target_confext,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Configuration extension initrd",
                       initrds + INITRD_CONFEXT,
                       &m) == EFI_SUCCESS)
@@ -874,7 +869,6 @@ static void generate_sidecar_initrds(
                       u".confext.raw",
                       /* exclude_suffix= */ NULL,
                       &cpio_target_global_confext,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Global configuration extension initrd",
                       initrds + INITRD_GLOBAL_CONFEXT,
                       &m) == EFI_SUCCESS)
@@ -926,7 +920,6 @@ static void generate_embedded_initrds(
                                 sections[t->section].memory_size,
                                 &cpio_target_meta,
                                 t->filename,
-                                /* tpm_pcr= */ UINT32_MAX,
                                 /* tpm_description= */ NULL,
                                 initrds + t->initrd_index,
                                 /* ret_measured= */ NULL);
@@ -948,7 +941,6 @@ static void generate_boot_secret_initrd(
                         BOOT_SECRET_SIZE,
                         &cpio_target_meta_secret,
                         u"boot-secret",
-                        /* tpm_pcr= */ UINT32_MAX,
                         /* tpm_description= */ NULL,
                         initrds + INITRD_BOOT_SECRET,
                         /* ret_measured= */ NULL);
