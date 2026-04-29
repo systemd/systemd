@@ -74,9 +74,8 @@ typedef enum VarlinkState {
 typedef struct sd_varlink {
         unsigned n_ref;
 
-        sd_varlink_server *server;
-
         VarlinkState state;
+        sd_varlink_server *server;
 
         /* Transport layer: input/output buffers, fd passing, output queue, read/write/parse
          * step functions, sd-event integration (input/output/time event sources, idle
@@ -86,6 +85,13 @@ typedef struct sd_varlink {
         JsonStream stream;
 
         unsigned n_pending;
+
+        /* Per-call protocol-upgrade marker: set when the *current* method call carries the
+         * SD_VARLINK_METHOD_UPGRADE flag. Validated by sd_varlink_reply_and_upgrade() to
+         * ensure the caller's contract is honored. The transport-layer "stop reading at the
+         * next message boundary" behavior is governed independently by the JsonStream's
+         * bounded_reads flag. */
+        bool protocol_upgrade;
 
         sd_varlink_reply_t reply_callback;
 
@@ -101,13 +107,6 @@ typedef struct sd_varlink {
         int *previous_fds;
         size_t n_previous_fds;
         char *sentinel;
-
-        /* Per-call protocol-upgrade marker: set when the *current* method call carries the
-         * SD_VARLINK_METHOD_UPGRADE flag. Validated by sd_varlink_reply_and_upgrade() to
-         * ensure the caller's contract is honored. The transport-layer "stop reading at the
-         * next message boundary" behavior is governed independently by the JsonStream's
-         * bounded_reads flag. */
-        bool protocol_upgrade:1;
 
         void *userdata;
 
@@ -145,8 +144,12 @@ typedef struct sd_varlink_server {
         sd_event *event;
         int64_t event_priority;
 
-        unsigned n_connections;
         Hashmap *by_uid;               /* UID_TO_PTR(uid) → UINT_TO_PTR(n_connections) */
+        unsigned n_connections;
+        unsigned connections_max;
+        unsigned connections_per_uid_max;
+
+        bool exit_on_idle;
 
         void *userdata;
 
@@ -155,11 +158,6 @@ typedef struct sd_varlink_server {
         char *product;
         char *version;
         char *url;
-
-        unsigned connections_max;
-        unsigned connections_per_uid_max;
-
-        bool exit_on_idle;
 } sd_varlink_server;
 
 #define varlink_log_errno(v, error, fmt, ...)                           \
