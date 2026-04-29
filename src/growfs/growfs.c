@@ -181,8 +181,7 @@ static int parse_argv(int argc, char *argv[]) {
                                        "%s expects exactly one argument (the mount point).",
                                        program_invocation_short_name);
 
-        arg_target = option_parser_get_args(&opts)[0];
-
+        arg_target = option_parser_get_arg(&opts, 0);
         return 1;
 }
 

@@ -2,7 +2,6 @@
 
 #include <ctype.h>
 #include <fcntl.h>
-#include <getopt.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
@@ -20,7 +19,10 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "glyph-util.h"
+#include "help-util.h"
+#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "sort-util.h"
@@ -800,51 +802,21 @@ static int query_device(QueryType query, sd_device* device) {
 }
 
 static int help(void) {
-        printf("%s info [OPTIONS] [DEVPATH|FILE]\n\n"
-               "Query sysfs or the udev database.\n\n"
-               "  -h --help                   Print this message\n"
-               "  -V --version                Print version of the program\n"
-               "  -q --query=TYPE             Query device information:\n"
-               "       name                     Name of device node\n"
-               "       symlink                  Pointing to node\n"
-               "       path                     sysfs device path\n"
-               "       property                 The device properties\n"
-               "       all                      All values\n"
-               "     --property=NAME          Show only properties by this name\n"
-               "     --value                  When showing properties, print only their values\n"
-               "  -p --path=SYSPATH           sysfs device path used for query or attribute walk\n"
-               "  -n --name=NAME              Node or symlink name used for query or attribute walk\n"
-               "  -r --root                   Prepend dev directory to path names\n"
-               "  -a --attribute-walk         Print all key matches walking along the chain\n"
-               "                              of parent devices\n"
-               "  -t --tree                   Show tree of devices\n"
-               "  -d --device-id-of-file=FILE Print major:minor of device containing this file\n"
-               "  -x --export                 Export key/value pairs\n"
-               "  -P --export-prefix          Export the key name with a prefix\n"
-               "  -e --export-db              Export the content of the udev database\n"
-               "  -c --cleanup-db             Clean up the udev database\n"
-               "  -w --wait-for-initialization[=SECONDS]\n"
-               "                              Wait for device to be initialized\n"
-               "     --no-pager               Do not pipe output into a pager\n"
-               "     --json=pretty|short|off  Generate JSON output\n"
-               "     --subsystem-match=SUBSYSTEM\n"
-               "                              Query devices matching a subsystem\n"
-               "     --subsystem-nomatch=SUBSYSTEM\n"
-               "                              Query devices not matching a subsystem\n"
-               "     --attr-match=FILE[=VALUE]\n"
-               "                              Query devices that match an attribute\n"
-               "     --attr-nomatch=FILE[=VALUE]\n"
-               "                              Query devices that do not match an attribute\n"
-               "     --property-match=KEY=VALUE\n"
-               "                              Query devices with matching properties\n"
-               "     --tag-match=TAG          Query devices with a matching tag\n"
-               "     --sysname-match=NAME     Query devices with this /sys path\n"
-               "     --name-match=NAME        Query devices with this /dev name\n"
-               "     --parent-match=NAME      Query devices with this parent device\n"
-               "     --initialized-match      Query devices that are already initialized\n"
-               "     --initialized-nomatch    Query devices that are not initialized yet\n",
-               program_invocation_short_name);
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
 
+        r = option_parser_get_help_table_ns("udevadm-info", &options);
+        if (r < 0)
+                return r;
+
+        help_cmdline("info [OPTIONS] [DEVPATH|FILE]");
+        help_abstract("Query sysfs or the udev database.");
+        help_section("Options:");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("udevadm", "8");
         return 0;
 }
 
@@ -1006,90 +978,64 @@ static int print_tree(sd_device* below) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_PROPERTY = 0x100,
-                ARG_VALUE,
-                ARG_NO_PAGER,
-                ARG_JSON,
-                ARG_SUBSYSTEM_MATCH,
-                ARG_SUBSYSTEM_NOMATCH,
-                ARG_ATTR_MATCH,
-                ARG_ATTR_NOMATCH,
-                ARG_PROPERTY_MATCH,
-                ARG_TAG_MATCH,
-                ARG_SYSNAME_MATCH,
-                ARG_NAME_MATCH,
-                ARG_PARENT_MATCH,
-                ARG_INITIALIZED_MATCH,
-                ARG_INITIALIZED_NOMATCH,
-        };
-
-        static const struct option options[] = {
-                { "attribute-walk",          no_argument,       NULL, 'a'                     },
-                { "tree",                    no_argument,       NULL, 't'                     },
-                { "cleanup-db",              no_argument,       NULL, 'c'                     },
-                { "device-id-of-file",       required_argument, NULL, 'd'                     },
-                { "export",                  no_argument,       NULL, 'x'                     },
-                { "export-db",               no_argument,       NULL, 'e'                     },
-                { "export-prefix",           required_argument, NULL, 'P'                     },
-                { "help",                    no_argument,       NULL, 'h'                     },
-                { "name",                    required_argument, NULL, 'n'                     },
-                { "path",                    required_argument, NULL, 'p'                     },
-                { "property",                required_argument, NULL, ARG_PROPERTY            },
-                { "query",                   required_argument, NULL, 'q'                     },
-                { "root",                    no_argument,       NULL, 'r'                     },
-                { "value",                   no_argument,       NULL, ARG_VALUE               },
-                { "version",                 no_argument,       NULL, 'V'                     },
-                { "wait-for-initialization", optional_argument, NULL, 'w'                     },
-                { "no-pager",                no_argument,       NULL, ARG_NO_PAGER            },
-                { "json",                    required_argument, NULL, ARG_JSON                },
-                { "subsystem-match",         required_argument, NULL, ARG_SUBSYSTEM_MATCH     },
-                { "subsystem-nomatch",       required_argument, NULL, ARG_SUBSYSTEM_NOMATCH   },
-                { "attr-match",              required_argument, NULL, ARG_ATTR_MATCH          },
-                { "attr-nomatch",            required_argument, NULL, ARG_ATTR_NOMATCH        },
-                { "property-match",          required_argument, NULL, ARG_PROPERTY_MATCH      },
-                { "tag-match",               required_argument, NULL, ARG_TAG_MATCH           },
-                { "sysname-match",           required_argument, NULL, ARG_SYSNAME_MATCH       },
-                { "name-match",              required_argument, NULL, ARG_NAME_MATCH          },
-                { "parent-match",            required_argument, NULL, ARG_PARENT_MATCH        },
-                { "initialized-match",       no_argument,       NULL, ARG_INITIALIZED_MATCH   },
-                { "initialized-nomatch",     no_argument,       NULL, ARG_INITIALIZED_NOMATCH },
-                {}
-        };
-
-        int c, r;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "atced:n:p:q:rxP:w::Vh", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv, .namespace = "udevadm-info" };
+
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
-                case ARG_PROPERTY:
+                OPTION_NAMESPACE("udevadm-info"): {}
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION('V', "version", NULL, "Show package version"):
+                        return print_version();
+
+                OPTION('q', "query", "TYPE", "Query device information:"): {}
+                OPTION_HELP_VERBATIM("        name",     "- name of device node"): {}
+                OPTION_HELP_VERBATIM("        symlink",  "- pointing to node"): {}
+                OPTION_HELP_VERBATIM("        path",     "- sysfs device path"): {}
+                OPTION_HELP_VERBATIM("        property", "- the device properties"): {}
+                OPTION_HELP_VERBATIM("        all",      "- all values"):
+                        arg_query = query_type_from_string(opts.arg);
+                        if (arg_query < 0) {
+                                if (streq(opts.arg, "env")) /* deprecated */
+                                        arg_query = QUERY_PROPERTY;
+                                else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown query type '%s'", opts.arg);
+                        }
+                        break;
+
+                OPTION_LONG("property", "NAME", "Show only properties by this name"):
                         /* Make sure that if the empty property list was specified, we won't show any
                            properties. */
-                        if (isempty(optarg) && !arg_properties) {
+                        if (isempty(opts.arg) && !arg_properties) {
                                 arg_properties = new0(char*, 1);
                                 if (!arg_properties)
                                         return log_oom();
                         } else {
-                                r = strv_split_and_extend(&arg_properties, optarg, ",", true);
+                                r = strv_split_and_extend(&arg_properties, opts.arg, ",", true);
                                 if (r < 0)
                                         return log_oom();
                         }
                         break;
 
-                case ARG_VALUE:
+                OPTION_LONG("value", NULL,
+                            "When showing properties, print only their values"):
                         arg_value = true;
                         break;
 
-                case 'n':
-                case 'p': {
-                        const char *prefix = c == 'n' ? "/dev/" : "/sys/";
+                OPTION('p', "path", "SYSPATH", "sysfs device path used for query or attribute walk"): {} /* fall through */
+                OPTION('n', "name", "NAME", "Node or symlink name used for query or attribute walk"): {
+                        const char *prefix = opts.opt->short_code == 'n' ? "/dev/" : "/sys/";
                         char *path;
 
-                        path = path_join(path_startswith(optarg, prefix) ? NULL : prefix, optarg);
+                        path = path_join(path_startswith(opts.arg, prefix) ? NULL : prefix, opts.arg);
                         if (!path)
                                 return log_oom();
 
@@ -1099,159 +1045,147 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case 'q':
-                        arg_query = query_type_from_string(optarg);
-                        if (arg_query < 0) {
-                                if (streq(optarg, "env")) /* deprecated */
-                                        arg_query = QUERY_PROPERTY;
-                                else
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown query type '%s'", optarg);
-                        }
-                        break;
-
-                case 'r':
+                OPTION('r', "root", NULL, "Prepend dev directory to path names"):
                         arg_root = true;
                         break;
 
-                case 'd':
+                OPTION('a', "attribute-walk", NULL,
+                       "Print all key matches walking along the chain of parent devices"):
+                        arg_action_type = ACTION_ATTRIBUTE_WALK;
+                        break;
+
+                OPTION('t', "tree", NULL, "Show tree of devices"):
+                        arg_action_type = ACTION_TREE;
+                        break;
+
+                OPTION('d', "device-id-of-file", "FILE",
+                       "Print major:minor of device containing this file"):
                         arg_action_type = ACTION_DEVICE_ID_FILE;
-                        r = free_and_strdup(&arg_name, optarg);
+                        r = free_and_strdup(&arg_name, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case 'a':
-                        arg_action_type = ACTION_ATTRIBUTE_WALK;
+                OPTION('x', "export", NULL, "Export key/value pairs"):
+                        arg_export = true;
                         break;
 
-                case 't':
-                        arg_action_type = ACTION_TREE;
+                OPTION('P', "export-prefix", "NAME", "Export the key name with a prefix"):
+                        arg_export = true;
+                        arg_export_prefix = opts.arg;
                         break;
 
-                case 'e':
+                OPTION('e', "export-db", NULL, "Export the content of the udev database"):
                         arg_action_type = ACTION_EXPORT;
                         break;
 
-                case 'c':
+                OPTION('c', "cleanup-db", NULL, "Clean up the udev database"):
                         arg_action_type = ACTION_CLEANUP_DB;
                         break;
 
-                case 'x':
-                        arg_export = true;
-                        break;
-
-                case 'P':
-                        arg_export = true;
-                        arg_export_prefix = optarg;
-                        break;
-
-                case 'w':
-                        if (optarg) {
-                                r = parse_sec(optarg, &arg_wait_for_initialization_timeout);
+                OPTION_FULL(OPTION_OPTIONAL_ARG, 'w', "wait-for-initialization", "SECS",
+                            "Wait for device to be initialized"):
+                        if (opts.arg) {
+                                r = parse_sec(opts.arg, &arg_wait_for_initialization_timeout);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse timeout value: %m");
                         } else
                                 arg_wait_for_initialization_timeout = USEC_INFINITY;
                         break;
 
-                case 'V':
-                        return print_version();
-
-                case 'h':
-                        return help();
-
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
 
-                case ARG_SUBSYSTEM_MATCH:
-                        r = strv_extend(&arg_subsystem_match, optarg);
+                OPTION_LONG("subsystem-match", "SUBSYSTEM",
+                            "Query devices matching a subsystem"):
+                        r = strv_extend(&arg_subsystem_match, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case ARG_SUBSYSTEM_NOMATCH:
-                        r = strv_extend(&arg_subsystem_nomatch, optarg);
+                OPTION_LONG("subsystem-nomatch", "SUBSYSTEM",
+                            "Query devices not matching a subsystem"):
+                        r = strv_extend(&arg_subsystem_nomatch, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case ARG_ATTR_MATCH:
-                        if (!strchr(optarg, '='))
+                OPTION_LONG("attr-match", "FILE[=VALUE]",
+                            "Query devices that match an attribute"):
+                        if (!strchr(opts.arg, '='))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                "Expected <ATTR>=<value> instead of '%s'", optarg);
+                                                "Expected <ATTR>=<value> instead of '%s'", opts.arg);
 
-                        r = strv_extend(&arg_attr_match, optarg);
+                        r = strv_extend(&arg_attr_match, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case ARG_ATTR_NOMATCH:
-                        if (!strchr(optarg, '='))
+                OPTION_LONG("attr-nomatch", "FILE[=VALUE]",
+                            "Query devices that do not match an attribute"):
+                        if (!strchr(opts.arg, '='))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                "Expected <ATTR>=<value> instead of '%s'", optarg);
+                                                "Expected <ATTR>=<value> instead of '%s'", opts.arg);
 
-                        r = strv_extend(&arg_attr_nomatch, optarg);
+                        r = strv_extend(&arg_attr_nomatch, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case ARG_PROPERTY_MATCH:
-                        if (!strchr(optarg, '='))
+                OPTION_LONG("property-match", "KEY=VALUE",
+                            "Query devices with matching properties"):
+                        if (!strchr(opts.arg, '='))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                "Expected <PROPERTY>=<value> instead of '%s'", optarg);
+                                                "Expected <PROPERTY>=<value> instead of '%s'", opts.arg);
 
-                        r = strv_extend(&arg_property_match, optarg);
+                        r = strv_extend(&arg_property_match, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case ARG_TAG_MATCH:
-                        r = strv_extend(&arg_tag_match, optarg);
+                OPTION_LONG("tag-match", "TAG", "Query devices with a matching tag"):
+                        r = strv_extend(&arg_tag_match, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case ARG_SYSNAME_MATCH:
-                        r = strv_extend(&arg_sysname_match, optarg);
+                OPTION_LONG("sysname-match", "NAME", "Query devices with this /sys path"):
+                        r = strv_extend(&arg_sysname_match, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case ARG_NAME_MATCH:
-                        r = strv_extend(&arg_name_match, optarg);
+                OPTION_LONG("name-match", "NAME", "Query devices with this /dev name"):
+                        r = strv_extend(&arg_name_match, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case ARG_PARENT_MATCH:
-                        r = strv_extend(&arg_parent_match, optarg);
+                OPTION_LONG("parent-match", "NAME", "Query devices with this parent device"):
+                        r = strv_extend(&arg_parent_match, opts.arg);
                         if (r < 0)
                                 return log_oom();
                         break;
 
-                case ARG_INITIALIZED_MATCH:
+                OPTION_LONG("initialized-match", NULL,
+                            "Query devices that are already initialized"):
                         arg_initialized_match = MATCH_INITIALIZED_YES;
                         break;
 
-                case ARG_INITIALIZED_NOMATCH:
+                OPTION_LONG("initialized-nomatch", NULL,
+                            "Query devices that are not initialized yet"):
                         arg_initialized_match = MATCH_INITIALIZED_NO;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        r = strv_extend_strv(&arg_devices, argv + optind, /* filter_duplicates= */ false);
+        r = strv_extend_strv(&arg_devices, option_parser_get_args(&opts), /* filter_duplicates= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to build argument list: %m");
 

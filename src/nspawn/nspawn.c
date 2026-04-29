@@ -1420,7 +1420,7 @@ static int parse_argv(int argc, char *argv[]) {
                                  * the old container user functionality. To maintain backwards compatibility
                                  * with the space-separated form (--user NAME), if the next opts.arg does not look
                                  * like an option, interpret it as a user name. */
-                                const char *t = option_parser_next_arg(&opts);
+                                const char *t = option_parser_peek_next_arg(&opts);
                                 if (t && t[0] != '-') {
                                         opts.arg = option_parser_consume_next_arg(&opts);
                                         log_warning("--user NAME is deprecated, use --uid=NAME instead.");

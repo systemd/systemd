@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <getopt.h>
-#include <stdio.h>
 #include <sys/inotify.h>
 #include <unistd.h>
 
@@ -10,7 +8,10 @@
 #include "device-monitor-private.h"
 #include "device-util.h"
 #include "event-util.h"
+#include "format-table.h"
 #include "fs-util.h"
+#include "help-util.h"
+#include "options.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "static-destruct.h"
@@ -297,79 +298,72 @@ static int setup_periodic_timer(sd_event *event) {
 }
 
 static int help(void) {
-        printf("%s wait [OPTIONS] DEVICE [DEVICE…]\n\n"
-               "Wait for devices or device symlinks being created.\n\n"
-               "  -h --help             Print this message\n"
-               "  -V --version          Print version of the program\n"
-               "  -t --timeout=SEC      Maximum time to wait for the device\n"
-               "     --initialized=BOOL Wait for devices being initialized by systemd-udevd\n"
-               "     --removed          Wait for devices being removed\n"
-               "     --settle           Also wait for all queued events being processed\n",
-               program_invocation_short_name);
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
 
+        r = option_parser_get_help_table_ns("udevadm-wait", &options);
+        if (r < 0)
+                return r;
+
+        help_cmdline("wait [OPTIONS] DEVICE [DEVICE…]");
+        help_abstract("Wait for devices or device symlinks being created.");
+        help_section("Options:");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("udevadm", "8");
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_INITIALIZED = 0x100,
-                ARG_REMOVED,
-                ARG_SETTLE,
-        };
+        int r;
 
-        static const struct option options[] = {
-                { "timeout",     required_argument, NULL, 't'             },
-                { "initialized", required_argument, NULL, ARG_INITIALIZED },
-                { "removed",     no_argument,       NULL, ARG_REMOVED     },
-                { "settle",      no_argument,       NULL, ARG_SETTLE      },
-                { "help",        no_argument,       NULL, 'h'             },
-                { "version",     no_argument,       NULL, 'V'             },
-                {}
-        };
+        assert(argc >= 0);
+        assert(argv);
 
-        int c, r;
+        OptionParser opts = { argc, argv, .namespace = "udevadm-wait" };
 
-        while ((c = getopt_long(argc, argv, "t:hV", options, NULL)) >= 0)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
-                case 't':
-                        r = parse_sec(optarg, &arg_timeout_usec);
+
+                OPTION_NAMESPACE("udevadm-wait"): {}
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION('V', "version", NULL, "Show package version"):
+                        return print_version();
+
+                OPTION('t', "timeout", "SEC", "Maximum time to wait for the device"):
+                        r = parse_sec(opts.arg, &arg_timeout_usec);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse -t/--timeout= parameter: %s", optarg);
+                                return log_error_errno(r, "Failed to parse -t/--timeout= parameter: %s", opts.arg);
                         break;
 
-                case ARG_INITIALIZED:
-                        r = parse_boolean(optarg);
+                OPTION_LONG("initialized", "BOOL",
+                            "Wait for devices being initialized by systemd-udevd"):
+                        r = parse_boolean(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --initialized= parameter: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --initialized= parameter: %s", opts.arg);
                         arg_wait_until = r ? WAIT_UNTIL_INITIALIZED : WAIT_UNTIL_ADDED;
                         break;
 
-                case ARG_REMOVED:
+                OPTION_LONG("removed", NULL, "Wait for devices being removed"):
                         arg_wait_until = WAIT_UNTIL_REMOVED;
                         break;
 
-                case ARG_SETTLE:
+                OPTION_LONG("settle", NULL, "Also wait for all queued events being processed"):
                         arg_settle = true;
                         break;
-
-                case 'V':
-                        return print_version();
-
-                case 'h':
-                        return help();
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        if (optind >= argc)
+        char **args = option_parser_get_args(&opts);
+        if (strv_isempty(args))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Too few arguments, expected at least one device path or device symlink.");
 
-        arg_devices = strv_copy(argv + optind);
+        arg_devices = strv_copy(args);
         if (!arg_devices)
                 return log_oom();
 
