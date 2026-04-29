@@ -33,6 +33,7 @@ foreach item : [
         ['_sd_machines',              'ENABLE_MACHINED'],
         ['_sd_outputmodes',           ''],
         ['_sd_unit_files',            ''],
+        ['_storagectl',               ''],
         ['_systemd',                  ''],
         ['_systemd-analyze',          ''],
         ['_systemd-delta',            ''],
