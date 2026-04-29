@@ -132,6 +132,16 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - hook-up in systemd-nspawn
   - hook-up in systemd-vmspawn
   - hook-up in service manager (BindVolume=)
+  - introduce a locking concept: right now all access to volumes is fully
+    shared. Let's add a basic locking concept: supporting backends can take an
+    additional locking flag (which has to be combined with Varlink's "more"),
+    in which case access would only be handed out to one client at a time, with
+    the lock's lifetime synced up with the Varlink connection lifetime.
+  - introduce a volume lifecycle concept: optionally support volumes whose
+    whole lifecycle is associated with the varlink connections they are tied
+    to: when the last varlink connection that acquired them goes away, the
+    volume is auto-destroyed. Would be exposed via a new flag on the Acquire
+    call, similar to the locking logic above.
 
 - a small tool that can do basic btrfs raid policy mgmt. i.e. gets started as
   part of the initial transaction for some btrfs raid fs, waits for some time,
