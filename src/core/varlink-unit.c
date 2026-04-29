@@ -700,7 +700,14 @@ typedef struct TransientExecContextParameters {
         bool present;
         bool working_directory_set;
         TransientWorkingDirectory working_directory;
+        bool environment_set;
+        char **environment;
 } TransientExecContextParameters;
+
+static void transient_exec_context_parameters_done(TransientExecContextParameters *p) {
+        assert(p);
+        strv_free(p->environment);
+}
 
 typedef struct TransientServiceParameters {
         bool present;
@@ -760,6 +767,7 @@ typedef struct StartTransientContextParameters {
 
 static void start_transient_context_parameters_done(StartTransientContextParameters *p) {
         assert(p);
+        transient_exec_context_parameters_done(&p->exec);
         transient_service_parameters_done(&p->service);
 }
 
@@ -801,10 +809,17 @@ static int dispatch_transient_working_directory(const char *name, sd_json_varian
         return sd_json_dispatch(variant, dispatch, flags, &p->working_directory);
 }
 
+static int dispatch_transient_environment(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+        p->environment_set = true;
+        return sd_json_dispatch_strv(name, variant, flags, &p->environment);
+}
+
 static int dispatch_transient_exec_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         /* Key names compatible with D-Bus property names */
         static const sd_json_dispatch_field exec_dispatch[] = {
-                { "WorkingDirectory", SD_JSON_VARIANT_OBJECT, dispatch_transient_working_directory, 0, 0 },
+                { "WorkingDirectory", SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory, 0, 0 },
+                { "Environment",      _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_environment,       0, 0 },
                 {}
         };
 
@@ -911,6 +926,16 @@ static int transient_exec_context_apply_properties(Unit *u, ExecContext *c, Tran
                                     "WorkingDirectory=%s%s",
                                     c->working_directory_missing_ok ? "-" : "",
                                     c->working_directory_home ? "~" : strempty(c->working_directory));
+        }
+
+        if (p->environment_set) {
+                r = exec_context_apply_environment(u, c, p->environment, UNIT_RUNTIME|UNIT_PRIVATE);
+                if (r == -E2BIG)
+                        return log_debug_errno(r, "Too many environment assignments.");
+                if (r == -EINVAL)
+                        return log_debug_errno(r, "Invalid Environment list.");
+                if (r < 0)
+                        return r;
         }
 
         return 0;
