@@ -658,6 +658,9 @@ int json_dispatch_strv_environment(const char *name, sd_json_variant *variant, s
         JSON_VARIANT_ARRAY_FOREACH(i, variant) {
                 const char *e;
 
+                if (s >= ENVIRONMENT_ASSIGNMENTS_MAX)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(E2BIG), "Too many environment variable assignments.");
+
                 if (!sd_json_variant_is_string(i))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
 
