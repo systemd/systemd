@@ -2764,12 +2764,11 @@ static EFI_STATUS load_extras(
                 }
 
                 const struct ExtraResourceInfo *x = NULL;
-                FOREACH_ELEMENT(j, table) {
+                FOREACH_ELEMENT(j, table)
                         if (endswith_no_case(info->FileName, j->suffix)) {
                                 x = j;
                                 break;
                         }
-                }
                 if (!x) {
                         log_warning("Unrecognized type of extra file '%ls', ignoring.", info->FileName);
                         continue;
@@ -3034,7 +3033,7 @@ static EFI_STATUS call_image_start(
                 case LOADER_UKI:
                 case LOADER_UKI_URL:
                         /* For modern UKIs we'll not bother with 'initrd', but we'll instead support 'extra'
-                         * for loading credentials, sysext and confext. */
+                         * for loading credentials, sysexts, and confexts. */
 
                         err = load_extras(image_root, entry, &initrd_pages, &initrd_size);
                         if (err != EFI_SUCCESS)
