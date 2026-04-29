@@ -371,7 +371,7 @@ char** strv_env_unset_many_internal(char **l, ...) {
         return l;
 }
 
-int strv_env_replace_consume(char ***l, char *p) {
+int strv_env_replace_consume_with_size(char ***l, size_t *n, char *p) {
         const char *t, *name;
         int r;
 
@@ -399,14 +399,14 @@ int strv_env_replace_consume(char ***l, char *p) {
                 }
 
         /* We didn't find a match, we need to append p or create a new strv */
-        r = strv_consume(l, p);
+        r = strv_consume_with_size(l, n, p);
         if (r < 0)
                 return r;
 
         return 1;
 }
 
-int strv_env_replace_strdup(char ***l, const char *assignment) {
+int strv_env_replace_strdup_with_size(char ***l, size_t *n, const char *assignment) {
         /* Like strv_env_replace_consume(), but copies the argument. */
 
         assert(l);
@@ -416,7 +416,7 @@ int strv_env_replace_strdup(char ***l, const char *assignment) {
         if (!p)
                 return -ENOMEM;
 
-        return strv_env_replace_consume(l, p);
+        return strv_env_replace_consume_with_size(l, n, p);
 }
 
 int strv_env_replace_strdup_passthrough(char ***l, const char *assignment) {

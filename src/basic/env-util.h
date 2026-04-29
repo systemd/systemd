@@ -36,8 +36,17 @@ char** strv_env_delete(char **x, size_t n_lists, ...); /* New copy */
 char** strv_env_unset(char **l, const char *p); /* In place ... */
 char** strv_env_unset_many_internal(char **l, ...) _sentinel_;
 #define strv_env_unset_many(l, ...) strv_env_unset_many_internal(l, __VA_ARGS__, NULL)
-int strv_env_replace_consume(char ***l, char *p); /* In place ... */
-int strv_env_replace_strdup(char ***l, const char *assignment);
+
+int strv_env_replace_consume_with_size(char ***l, size_t *n, char *p); /* In place ... */
+static inline int strv_env_replace_consume(char ***l, char *p) {
+        return strv_env_replace_consume_with_size(l, NULL, p);
+}
+
+int strv_env_replace_strdup_with_size(char ***l, size_t *n, const char *assignment);
+static inline int strv_env_replace_strdup(char ***l, const char *assignment) {
+        return strv_env_replace_strdup_with_size(l, NULL, assignment);
+}
+
 int strv_env_replace_strdup_passthrough(char ***l, const char *assignment);
 int strv_env_assign(char ***l, const char *key, const char *value);
 int strv_env_assignf(char ***l, const char *key, const char *valuef, ...) _printf_(3, 4);
