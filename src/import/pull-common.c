@@ -455,6 +455,8 @@ static int verify_gpg(
                         "--no-auto-check-trustdb",
                         "--batch",
                         "--trust-model=always",
+                        "--auto-key-import",
+                        "--import-options=merge-only,import-clean",
                         NULL, /* --homedir= */
                         NULL, /* --keyring= */
                         NULL, /* --verify */
