@@ -971,6 +971,10 @@ static int method_list_units_by_names(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
+        if (strv_length(units) > hashmap_size(m->units))
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many unit names requested.");
+
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
                 return r;
