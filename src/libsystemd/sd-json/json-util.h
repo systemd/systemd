@@ -9,6 +9,8 @@
 #include "sd-forward.h"
 #include "string-util.h"        /* IWYU pragma: keep */
 
+#define ENVIRONMENT_ASSIGNMENTS_MAX 1024U
+
 #define JSON_VARIANT_REPLACE(v, q)        \
         do {                              \
                 typeof(v)* _v = &(v);     \
