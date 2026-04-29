@@ -5,6 +5,7 @@
 #include "iovec-util-fundamental.h"
 #include "measure.h"
 #include "string-util-fundamental.h"
+#include "tpm2-pcr.h"
 #include "util.h"
 
 static char *write_cpio_word(char *p, uint32_t v) {
@@ -306,7 +307,6 @@ EFI_STATUS pack_cpio(
                 const char16_t *match_suffix,
                 const char16_t *exclude_suffix,
                 const CpioTarget *target,
-                uint32_t tpm_pcr,
                 const char16_t *tpm_description,
                 struct iovec *ret_buffer,
                 bool *ret_measured) {
@@ -406,7 +406,7 @@ EFI_STATUS pack_cpio(
 
                 err = file_read(extra_dir, items[i], 0, 0, &content, &contentsize);
                 if (err != EFI_SUCCESS) {
-                        log_error_status(err, "Failed to read %ls, ignoring: %m", items[i]);
+                        log_warning_status(err, "Failed to read %ls, ignoring: %m", items[i]);
                         continue;
                 }
 
@@ -425,12 +425,16 @@ EFI_STATUS pack_cpio(
                 return log_error_status(err, "Failed to pack cpio trailer: %m");
 
         err = tpm_log_ipl_event(
-                        tpm_pcr, POINTER_TO_PHYSICAL_ADDRESS(buffer), buffer_size, tpm_description, ret_measured);
+                        target->tpm_pcr,
+                        POINTER_TO_PHYSICAL_ADDRESS(buffer),
+                        buffer_size,
+                        tpm_description,
+                        ret_measured);
         if (err != EFI_SUCCESS)
                 return log_error_status(
                                 err,
-                                "Unable to add cpio TPM measurement for PCR %u (%ls), ignoring: %m",
-                                tpm_pcr,
+                                "Unable to add cpio TPM measurement for PCR %u (%ls): %m",
+                                target->tpm_pcr,
                                 tpm_description);
 
         *ret_buffer = IOVEC_MAKE(TAKE_PTR(buffer), buffer_size);
@@ -450,7 +454,6 @@ EFI_STATUS pack_cpio_literal(
                 size_t data_size,
                 const CpioTarget *target,
                 const char16_t *target_filename,
-                uint32_t tpm_pcr,
                 const char16_t *tpm_description,
                 struct iovec *ret_buffer,
                 bool *ret_measured) {
@@ -486,12 +489,16 @@ EFI_STATUS pack_cpio_literal(
                 return log_error_status(err, "Failed to pack cpio trailer: %m");
 
         err = tpm_log_ipl_event(
-                        tpm_pcr, POINTER_TO_PHYSICAL_ADDRESS(buffer), buffer_size, tpm_description, ret_measured);
+                        target->tpm_pcr,
+                        POINTER_TO_PHYSICAL_ADDRESS(buffer),
+                        buffer_size,
+                        tpm_description,
+                        ret_measured);
         if (err != EFI_SUCCESS)
                 return log_error_status(
                                 err,
-                                "Unable to add cpio TPM measurement for PCR %u (%ls), ignoring: %m",
-                                tpm_pcr,
+                                "Unable to add cpio TPM measurement for PCR %u (%ls): %m",
+                                target->tpm_pcr,
                                 tpm_description);
 
         *ret_buffer = IOVEC_MAKE(TAKE_PTR(buffer), buffer_size);
@@ -506,46 +513,54 @@ const CpioTarget cpio_target_credentials = {
         .directory = ".extra/credentials",
         .dir_mode = 0500,
         .access_mode = 0400,
+        .tpm_pcr = TPM2_PCR_KERNEL_CONFIG,
 };
 
 const CpioTarget cpio_target_global_credentials = {
         .directory = ".extra/global_credentials",
         .dir_mode = 0500,
         .access_mode = 0400,
+        .tpm_pcr = TPM2_PCR_KERNEL_CONFIG,
 };
 
 const CpioTarget cpio_target_sysext = {
         .directory = ".extra/sysext",
         .dir_mode = 0555,
         .access_mode = 0444,
+        .tpm_pcr = TPM2_PCR_SYSEXTS,
 };
 
 const CpioTarget cpio_target_global_sysext = {
         .directory = ".extra/global_sysext",
         .dir_mode = 0555,
         .access_mode = 0444,
+        .tpm_pcr = TPM2_PCR_SYSEXTS,
 };
 
 const CpioTarget cpio_target_confext = {
         .directory = ".extra/confext",
         .dir_mode = 0555,
         .access_mode = 0444,
+        .tpm_pcr = TPM2_PCR_KERNEL_CONFIG,
 };
 
 const CpioTarget cpio_target_global_confext = {
         .directory = ".extra/global_confext",
         .dir_mode = 0555,
         .access_mode = 0444,
+        .tpm_pcr = TPM2_PCR_KERNEL_CONFIG,
 };
 
 const CpioTarget cpio_target_meta = {
         .directory = ".extra",
         .dir_mode = 0555,
         .access_mode = 0444,
+        .tpm_pcr = UINT32_MAX,
 };
 
 const CpioTarget cpio_target_meta_secret = {
         .directory = ".extra",
         .dir_mode = 0555,
         .access_mode = 0400,
+        .tpm_pcr = UINT32_MAX,
 };
