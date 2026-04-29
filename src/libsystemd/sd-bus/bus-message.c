@@ -4331,6 +4331,7 @@ int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
 _public_ int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
         char type;
         const char *contents, *s;
+        size_t n = 0;
         int r;
 
         assert(m);
@@ -4349,7 +4350,7 @@ _public_ int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
 
         /* sd_bus_message_read_basic() does content validation for us. */
         while ((r = sd_bus_message_read_basic(m, *contents, &s)) > 0) {
-                r = strv_extend(l, s);
+                r = strv_extend_with_size(l, &n, s);
                 if (r < 0)
                         return r;
         }
