@@ -73,7 +73,9 @@
       <filename>/etc/cryptsetup-keys.d/</filename> and <filename>/run/cryptsetup-keys.d/</filename>
       directories, if present. Otherwise, the password has to be manually entered during system boot. For
       swap encryption, <filename>/dev/urandom</filename> may be used as key file, resulting in a randomized
-      key.</para>
+      key. Note that if a random device (<filename>/dev/urandom</filename>, <filename>/dev/random</filename>,
+      <filename>/dev/hw_random</filename>, or <filename>/dev/hwrng</filename>) is specified as key file, the
+      <option>wipe</option> option is automatically implied.</para>
 
       <para>If the specified key file path refers to an <constant>AF_UNIX</constant> stream socket in the
       file system, the key is acquired by connecting to the socket and reading it from the connection. This
@@ -1036,6 +1038,26 @@
         <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>wipe</option></term>
+        <listitem>
+          <para>
+            If specified, systemd-cryptsetup will attempt to wipe any detected filesystem or superblock signatures
+            from the unlocked device right after it is activated (e.g., before formatting as swap). This is useful for
+            ephemeral encrypted swap, swap pre-filled by <filename>/dev/urandom</filename> or similar use cases, where random data may
+            otherwise be misdetected as a filesystem signature and as a result block device activation.
+            This option is automatically implied if the key file refers to a random device (i.e.
+            <filename>/dev/urandom</filename>, <filename>/dev/random</filename>, <filename>/dev/hw_random</filename>,
+            or <filename>/dev/hwrng</filename>).
+
+            <warning>
+              The wipe is performed only if the device is not already active.
+            </warning>
+          </para>
+          <xi:include href="version-info.xml" xpointer="v262"/>
         </listitem>
       </varlistentry>
 
