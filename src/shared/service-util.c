@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
 
 #include "alloc-util.h"
 #include "build.h"
 #include "bus-object.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "log.h"
-#include "pretty-print.h"
+#include "options.h"
 #include "runtime-scope.h"
 #include "service-util.h"
 
@@ -19,35 +20,40 @@ typedef enum HelpFlags {
 static int help(const char *program_path,
                 const char *service,
                 const char *description,
-                HelpFlags flags) {
+                bool with_bus_introspect,
+                bool with_runtime_scope) {
 
-        _cleanup_free_ char *link = NULL;
+        static const char* const groups[] = {
+                NULL,
+                "Bus introspection",
+                "Runtime scope",
+        };
+
+        _cleanup_(table_unref_many) Table* tables[ELEMENTSOF(groups) + 1] = {};
+        bool conds[] = { true, with_bus_introspect, with_runtime_scope };
         int r;
 
-        r = terminal_urlify_man(service, "8", &link);
-        if (r < 0)
-                return log_oom();
+        for (size_t i = 0; i < ELEMENTSOF(groups); i++)
+                if (conds[i]) {
+                        r = option_parser_get_help_table_group(groups[i], &tables[i]);
+                        if (r < 0)
+                                return r;
+                }
 
-        printf("%1$s [OPTIONS...]\n"
-               "\n%5$s%7$s%6$s\n"
-               "\nThis program takes no positional arguments.\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "%8$s"
-               "%9$s"
-               "\nSee the %2$s for details.\n",
-               program_path,
-               link,
-               ansi_underline(),
-               ansi_normal(),
-               ansi_highlight(),
-               ansi_normal(),
-               description,
-               FLAGS_SET(flags, HELP_WITH_BUS_INTROSPECT) ? "     --bus-introspect=PATH  Write D-Bus XML introspection data\n" : "",
-               FLAGS_SET(flags, HELP_WITH_RUNTIME_SCOPE)  ? "     --system               Start service in system mode\n"
-                                                            "     --user                 Start service in user mode\n" : "");
+        (void) table_sync_column_widths(0, tables[0], tables[1] ?: tables[2], tables[1] ? tables[2] : NULL);
 
+        help_cmdline("[OPTIONS...]");
+        help_abstract("Report whether we are connected to an external power source.");
+
+        help_section("Options:");
+        for (size_t i = 0; i < ELEMENTSOF(groups); i++)
+                if (conds[i]) {
+                        r = table_print_or_warn(tables[i]);
+                        if (r < 0)
+                                return r;
+                }
+
+        help_man_page_reference(service, "8");
         return 0; /* No further action */
 }
 
@@ -58,64 +64,51 @@ int service_parse_argv(
                 RuntimeScope *runtime_scope,
                 int argc, char *argv[]) {
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_BUS_INTROSPECT,
-                ARG_SYSTEM,
-                ARG_USER,
-        };
-
-        static const struct option options[] = {
-                { "help",           no_argument,       NULL, 'h'                },
-                { "version",        no_argument,       NULL, ARG_VERSION        },
-                { "bus-introspect", required_argument, NULL, ARG_BUS_INTROSPECT },
-                { "system",         no_argument,       NULL, ARG_SYSTEM         },
-                { "user",           no_argument,       NULL, ARG_USER           },
-                {}
-        };
-
-        int c;
-
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help(argv[0],
                                     service,
                                     description,
-                                    (bus_objects ? HELP_WITH_BUS_INTROSPECT : 0) |
-                                    (runtime_scope ? HELP_WITH_RUNTIME_SCOPE : 0));
+                                    /* with_bus_introspect= */ bus_objects,
+                                    /* with_runtime_scope= */ runtime_scope);
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_BUS_INTROSPECT:
-                        return bus_introspect_implementations(
-                                        stdout,
-                                        optarg,
-                                        bus_objects);
+                OPTION_GROUP("Bus introspection"): {}
 
-                case ARG_SYSTEM:
-                case ARG_USER:
+                OPTION_LONG("bus-introspect", "PATH", "Write D-Bus XML introspection data"):
+                        /* The option is defined in the shared option table, but it's not supported in this binary,
+                         * so we pretend it doesn't exist. */
+                        if (!bus_objects)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "This service does not support the --bus-introspect= option.");
+
+                        return bus_introspect_implementations(stdout, opts.arg, bus_objects);
+
+                OPTION_GROUP("Runtime scope"): {}
+
+                OPTION_LONG_DATA("system", NULL, /* data= */ RUNTIME_SCOPE_SYSTEM,
+                                 "Start service in system mode"): {}
+                OPTION_LONG_DATA("user", NULL, /* data= */ RUNTIME_SCOPE_USER,
+                                 "Start service in user mode"):
                         if (!runtime_scope)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This service cannot be run in --system or --user mode, refusing.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "This service does not support the --system/--user options.");
 
-                        *runtime_scope = c == ARG_SYSTEM ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
+                        *runtime_scope = opts.opt->data;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        if (optind < argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes no arguments.");
+        if (option_parser_get_n_args(&opts) > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         return 1; /* Further action */
 }
