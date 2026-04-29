@@ -344,7 +344,7 @@ int option_parse(
         return r;
 }
 
-char* option_parser_next_arg(const OptionParser *state) {
+char* option_parser_peek_next_arg(const OptionParser *state) {
         /* Peek at the next argument, whatever it is (option or position arg).
          * May return NULL. */
 
@@ -360,7 +360,7 @@ char* option_parser_consume_next_arg(OptionParser *state) {
          * so we won't try to interpret it as an option.
          * May return NULL. */
 
-        char *t = option_parser_next_arg(state);
+        char *t = option_parser_peek_next_arg(state);
         if (t)
                 shift_arg(state->argv, state->positional_offset++, state->optind++);
         return t;
@@ -386,6 +386,14 @@ size_t option_parser_get_n_args(const OptionParser *state) {
         assert(state->positional_offset <= state->argc);
 
         return state->argc - state->positional_offset;
+}
+
+char* option_parser_get_arg(const OptionParser *state, size_t i) {
+        assert(state->optind > 0);
+        assert(state->state == OPTION_PARSER_DONE);
+        assert(state->positional_offset <= state->argc);
+
+        return (size_t) (state->argc - state->positional_offset) > i ? state->argv[state->positional_offset + i] : NULL;
 }
 
 char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metavar) {
