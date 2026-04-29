@@ -324,7 +324,12 @@ int fopen_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **
         if (fd < 0)
                 return fd;
 
-        f = take_fdopen(&fd, "w");
+        const char *options = "w";
+
+        if (flags & O_RDWR)
+                options = "r+";
+
+        f = take_fdopen(&fd, options);
         if (!f)
                 return -ENOMEM;
 
