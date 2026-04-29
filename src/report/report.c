@@ -280,6 +280,10 @@ static int call_collect(Context *context, const char *name, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Unable to connect to %s: %m", path);
 
+        r = sd_varlink_set_description(vl, name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set varlink description: %m");
+
         r = sd_varlink_set_relative_timeout(vl, TIMEOUT_USEC);
         if (r < 0)
                 return log_error_errno(r, "Failed to set varlink timeout: %m");
