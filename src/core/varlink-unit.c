@@ -795,11 +795,37 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
         return r;
 }
 
+static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p) {
+        int r;
+
+        assert(u);
+        assert(p);
+
+        /* Nothing to apply? */
+        if (!p->description)
+                return 0;
+
+        r = unit_set_description(u, p->description);
+        if (r < 0)
+                return r;
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS, "Description", "Description=%s", p->description);
+
+        return 0;
+}
+
 static int transient_service_apply_properties(Unit *u, TransientServiceParameters *sp) {
         int r;
 
-        Service *s = ASSERT_PTR(SERVICE(u));
+        assert(u);
         assert(sp);
+
+        /* Nothing to apply? */
+        if (sp->type < 0 && sp->remain_after_exit < 0 && sp->n_exec_start == 0)
+                return 0;
+
+        Service *s = SERVICE(u);
+        if (!s)
+                return -ENOTSUP;
 
         if (sp->type >= 0) {
                 s->type = sp->type;
@@ -944,22 +970,16 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 return varlink_reply_bus_error(link, r, &bus_error);
 
         /* Apply unit-level properties from context */
-        if (p.context.description) {
-                r = unit_set_description(u, p.context.description);
-                if (r < 0)
-                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS, "Description", "Description=%s", p.context.description);
-        }
+        r = transient_unit_apply_properties(u, &p.context);
+        if (r < 0)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
 
         /* Apply service-specific properties from context.Service */
-        if (p.context.service.type >= 0 || p.context.service.n_exec_start > 0 || p.context.service.remain_after_exit >= 0) {
-                if (t != UNIT_SERVICE)
-                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
-
-                r = transient_service_apply_properties(u, &p.context.service);
-                if (r < 0)
-                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
-        }
+        r = transient_service_apply_properties(u, &p.context.service);
+        if (r == -ENOTSUP)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
+        if (r < 0)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
 
         unit_add_to_load_queue(u);
         manager_dispatch_load_queue(manager);
