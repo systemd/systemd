@@ -691,6 +691,7 @@ static JSON_DISPATCH_ENUM_DEFINE(dispatch_service_type, ServiceType, service_typ
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_mode, JobMode, job_mode_from_string);
 
 typedef struct TransientServiceParameters {
+        bool present;
         ServiceType type;
         TransientExecCommandItem *exec_start;
         size_t n_exec_start;
@@ -770,6 +771,7 @@ static int dispatch_transient_service(const char *name, sd_json_variant *variant
         };
 
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
+        p->service.present = true;
         return sd_json_dispatch(variant, service_dispatch, /* flags= */ 0, &p->service);
 }
 
@@ -795,10 +797,26 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
         return r;
 }
 
-static int transient_service_apply_properties(Unit *u, TransientServiceParameters *sp) {
+static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p) {
         int r;
 
-        Service *s = ASSERT_PTR(SERVICE(u));
+        assert(u);
+        assert(p);
+
+        if (p->description) {
+                r = unit_set_description(u, p->description);
+                if (r < 0)
+                        return r;
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS, "Description", "Description=%s", p->description);
+        }
+
+        return 0;
+}
+
+static int transient_service_apply_properties(Service *s, TransientServiceParameters *sp) {
+        Unit *u = UNIT(ASSERT_PTR(s));
+        int r;
+
         assert(sp);
 
         if (sp->type >= 0) {
@@ -944,22 +962,18 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 return varlink_reply_bus_error(link, r, &bus_error);
 
         /* Apply unit-level properties from context */
-        if (p.context.description) {
-                r = unit_set_description(u, p.context.description);
-                if (r < 0)
-                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
-                unit_write_settingf(u, UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS, "Description", "Description=%s", p.context.description);
-        }
+        r = transient_unit_apply_properties(u, &p.context);
+        if (r < 0)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
 
         /* Apply service-specific properties from context.Service */
-        if (p.context.service.type >= 0 || p.context.service.n_exec_start > 0 || p.context.service.remain_after_exit >= 0) {
-                if (t != UNIT_SERVICE)
-                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
-
-                r = transient_service_apply_properties(u, &p.context.service);
+        Service *s = SERVICE(u);
+        if (s) {
+                r = transient_service_apply_properties(s, &p.context.service);
                 if (r < 0)
                         return sd_varlink_error(link, VARLINK_ERROR_UNIT_BAD_SETTING, NULL);
-        }
+        } else if (p.context.service.present)
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
         unit_add_to_load_queue(u);
         manager_dispatch_load_queue(manager);
