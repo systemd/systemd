@@ -311,6 +311,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--keyring=</option></term>
+
+        <listitem><para>Takes a path to an OpenPGP keyring file. When specified, this keyring
+        is used to verify the signature on the <filename>SHA256SUMS</filename> manifest, instead of the
+        default <filename>/etc/systemd/import-pubring.pgp</filename> and
+        <filename>/usr/lib/systemd/import-pubring.pgp</filename> keyrings. This only has effect when
+        verification is enabled with <varname>Verify=</varname>/<option>--verify=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--reboot</option></term>
 
         <listitem><para>When used in combination with the <command>update</command> commands and a new version is

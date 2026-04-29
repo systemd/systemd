@@ -47,6 +47,7 @@ typedef struct TarPull {
         ImportFlags flags;
         ImportVerify verify;
         char *image_root;
+        char *keyring_override;
 
         PullJob *tar_job;
         PullJob *checksum_job;
@@ -96,6 +97,7 @@ TarPull* tar_pull_unref(TarPull *p) {
         free(p->final_path);
         free(p->settings_path);
         free(p->image_root);
+        free(p->keyring_override);
         free(p->local);
 
         safe_close(p->tree_fd);
@@ -496,6 +498,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 clear_progress_bar(/* prefix= */ NULL);
                 r = pull_verify(p->verify,
+                                p->keyring_override,
                                 p->tar_job,
                                 p->checksum_job,
                                 p->signature_job,
@@ -728,6 +731,7 @@ int tar_pull_start(
                 const char *local,
                 ImportFlags flags,
                 ImportVerify verify,
+                const char *keyring_override,
                 const struct iovec *checksum) {
 
         int r;
@@ -750,6 +754,10 @@ int tar_pull_start(
                 return -EBUSY;
 
         r = free_and_strdup(&p->local, local);
+        if (r < 0)
+                return r;
+
+        r = free_and_strdup(&p->keyring_override, keyring_override);
         if (r < 0)
                 return r;
 

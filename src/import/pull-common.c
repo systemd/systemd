@@ -401,9 +401,42 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
         return 1;
 }
 
+/* --auto-key-import requires a newer gpg. We probe support at runtime by
+ * passing the flag before --version so that gpg will parse it and report failure
+ * if not supported, otherwise it will continue with --version and exit with 0. */
+static bool gpg_supports_auto_key_import(void) {
+        static int cached = -1;
+        int r;
+
+        if (cached >= 0)
+                return cached;
+
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork_full(
+                        "(gpg-probe)",
+                        /* stdio_fds= */ NULL,
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_RLIMIT_NOFILE_SAFE,
+                        &pidref);
+        if (r < 0) {
+                cached = false;
+                return cached;
+        }
+        if (r == 0) {
+                execlp("gpg2", "gpg2", "--auto-key-import", "--version", (char*) NULL);
+                execlp("gpg", "gpg", "--auto-key-import", "--version", (char*) NULL);
+                _exit(EXIT_FAILURE);
+        }
+
+        r = pidref_wait_for_terminate_and_check("gpg-probe", &pidref, /* flags= */ 0);
+        cached = (r == EXIT_SUCCESS);
+        return cached;
+}
+
 static int verify_gpg(
                 const struct iovec *payload,
-                const struct iovec *signature) {
+                const struct iovec *signature,
+                const char *keyring_override) {
 
         _cleanup_close_pair_ int gpg_pipe[2] = EBADF_PAIR;
         _cleanup_(rm_rf_physical_and_freep) char *gpg_home = NULL;
@@ -455,6 +488,8 @@ static int verify_gpg(
                         "--no-auto-check-trustdb",
                         "--batch",
                         "--trust-model=always",
+                        NULL, /* --auto-key-import (newer gpg only) */
+                        NULL, /* --import-options=... (paired with --auto-key-import) */
                         NULL, /* --homedir= */
                         NULL, /* --keyring= */
                         NULL, /* --verify */
@@ -462,15 +497,22 @@ static int verify_gpg(
                         NULL, /* dash */
                         NULL  /* trailing NULL */
                 };
-                size_t k = ELEMENTSOF(cmd) - 6;
+                size_t k = ELEMENTSOF(cmd) - 8;
+
+                if (gpg_supports_auto_key_import()) {
+                        cmd[k++] = "--auto-key-import";
+                        cmd[k++] = "--import-options=merge-only,import-clean";
+                }
 
                 /* Child */
 
                 cmd[k++] = strjoina("--homedir=", gpg_home);
 
+                if (keyring_override)
+                        cmd[k++] = strjoina("--keyring=", keyring_override);
                 /* We add the user keyring only to the command line arguments, if it's around since gpg fails
                  * otherwise. */
-                if (access(USER_KEYRING_PATH, F_OK) >= 0)
+                else if (access(USER_KEYRING_PATH, F_OK) >= 0)
                         cmd[k++] = "--keyring=" USER_KEYRING_PATH;
                 else if (access(USER_KEYRING_PATH_LEGACY, F_OK) >= 0)
                         cmd[k++] = "--keyring=" USER_KEYRING_PATH_LEGACY;
@@ -522,6 +564,7 @@ finish:
 }
 
 int pull_verify(ImportVerify verify,
+                const char *keyring_override,
                 PullJob *main_job,
                 PullJob *checksum_job,
                 PullJob *signature_job,
@@ -591,7 +634,7 @@ int pull_verify(ImportVerify verify,
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Signature is empty, cannot verify.");
 
-        return verify_gpg(&verify_job->payload, &signature_job->payload);
+        return verify_gpg(&verify_job->payload, &signature_job->payload, keyring_override);
 }
 
 int verification_style_from_url(const char *url, VerificationStyle *ret) {

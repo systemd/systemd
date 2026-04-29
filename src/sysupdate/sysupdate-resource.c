@@ -323,6 +323,7 @@ static int resource_load_from_blockdev(Resource *rr) {
 static int download_manifest(
                 const char *url,
                 bool verify_signature,
+                const char *keyring_override, /* may be NULL */
                 char **ret_buffer,
                 size_t *ret_size) {
 
@@ -365,6 +366,7 @@ static int download_manifest(
                         "raw",
                         "--direct",                        /* just download the specified URL, don't download anything else */
                         "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
+                        strjoina("--keyring=", keyring_override ?: ""), /* empty value means using the default keyring */
                         suffixed_url,
                         "-",                               /* write to stdout */
                         NULL
@@ -471,6 +473,7 @@ static int process_magic_file(
 static int resource_load_from_web(
                 Resource *rr,
                 bool verify,
+                const char *keyring_override, /* may be NULL */
                 Hashmap **web_cache) {
 
         size_t manifest_size = 0, left = 0;
@@ -492,7 +495,7 @@ static int resource_load_from_web(
         } else {
                 log_debug("Manifest web cache miss for %s.", rr->path);
 
-                r = download_manifest(rr->path, verify, &buf, &manifest_size);
+                r = download_manifest(rr->path, verify, keyring_override, &buf, &manifest_size);
                 if (r < 0)
                         return r;
 
@@ -625,7 +628,7 @@ static int instance_cmp(Instance *const*a, Instance *const*b) {
         return path_compare((*a)->path, (*b)->path);
 }
 
-int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
+int resource_load_instances(Resource *rr, bool verify, const char *keyring_override, Hashmap **web_cache) {
         int r;
 
         assert(rr);
@@ -648,7 +651,7 @@ int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
 
         case RESOURCE_URL_FILE:
         case RESOURCE_URL_TAR:
-                r = resource_load_from_web(rr, verify, web_cache);
+                r = resource_load_from_web(rr, verify, keyring_override, web_cache);
                 break;
 
         default:
