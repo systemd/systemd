@@ -120,7 +120,6 @@ simple_tests += files(
         'test-hmac.c',
         'test-hostname-setup.c',
         'test-hostname-util.c',
-        'test-id128.c',
         'test-image-filter.c',
         'test-image-policy.c',
         'test-import-util.c',
@@ -180,8 +179,6 @@ simple_tests += files(
         'test-replace-var.c',
         'test-rlimit-util.c',
         'test-rm-rf.c',
-        'test-sd-hwdb.c',
-        'test-sd-path.c',
         'test-secure-bits.c',
         'test-serialize.c',
         'test-set.c',
@@ -347,10 +344,6 @@ executables += [
                 'type' : 'unsafe',
         },
         test_template + {
-                'sources' : files('test-json.c'),
-                'dependencies' : libm,
-        },
-        test_template + {
                 'sources' : files('test-kexec.c'),
                 'link_with' : [libshared],
         },
@@ -495,14 +488,6 @@ executables += [
         test_template + {
                 'sources' : files('test-utmp.c'),
                 'conditions' : ['ENABLE_UTMP'],
-        },
-        test_template + {
-                'sources' : files('test-varlink.c'),
-                'dependencies' : threads,
-        },
-        test_template + {
-                'sources' : files('test-varlink-idl.c'),
-                'dependencies' : threads,
         },
         core_test_template + {
                 'sources' : files('test-varlink-idl-unit.c'),
