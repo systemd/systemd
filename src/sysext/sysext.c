@@ -403,9 +403,12 @@ static int move_submounts(const char *src, const char *dst) {
                 if (child_fd < 0)
                         return log_error_errno(errno, "Failed to pin mountpoint %s: %m", t);
 
-                r = mount_follow_verbose(LOG_ERR, m->path, FORMAT_PROC_FD_PATH(child_fd), /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
+                /* Instead of a bind mount we attach the detached clone produced by open_tree() from
+                 * get_sub_mounts() because that has no propagation relationship with the original anymore
+                 * and the MNT_DETACH below won't propagate for nested mounts. */
+                r = RET_NERRNO(move_mount(m->mount_fd, "", child_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH));
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to move mount %s to %s: %m", m->path, t);
 
                 (void) umount_verbose(LOG_WARNING, m->path, MNT_DETACH);
         }
