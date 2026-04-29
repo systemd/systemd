@@ -188,6 +188,20 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                         }
                 }
 
+                int ro = -1;
+                if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_READ_ONLY) || FLAGS_SET(flags, BLOCKDEV_LIST_METADATA)) {
+                        r = device_get_sysattr_bool(dev, "ro");
+                        if (r < 0)
+                                log_device_debug_errno(dev, r, "Failed to acquire read-only flag of device '%s', ignoring: %m", node);
+                        else
+                                ro = r;
+
+                        if (ro > 0 && FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_READ_ONLY)) {
+                                log_device_debug(dev, "Device '%s' is read-only, skipping.", node);
+                                continue;
+                        }
+                }
+
                 _cleanup_strv_free_ char **list = NULL;
                 if (FLAGS_SET(flags, BLOCKDEV_LIST_SHOW_SYMLINKS)) {
                         FOREACH_DEVICE_DEVLINK(dev, sl)
@@ -198,17 +212,10 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                 }
 
                 _cleanup_free_ char *model = NULL, *vendor = NULL, *subsystem = NULL;
-                int ro = -1;
                 if (FLAGS_SET(flags, BLOCKDEV_LIST_METADATA)) {
                         (void) blockdev_get_prop(dev, "ID_MODEL_FROM_DATABASE", "ID_MODEL", &model);
                         (void) blockdev_get_prop(dev, "ID_VENDOR_FROM_DATABASE", "ID_VENDOR", &vendor);
                         (void) blockdev_get_subsystem(dev, &subsystem);
-
-                        r = device_get_sysattr_bool(dev, "ro");
-                        if (r < 0)
-                                log_device_debug_errno(dev, r, "Failed to acquire read-only flag of device '%s', ignoring: %m", node);
-                        else
-                                ro = r;
                 }
 
                 if (ret_devices) {
