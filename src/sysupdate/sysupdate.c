@@ -50,6 +50,7 @@ static int arg_verify = -1;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_offline = false;
 char *arg_transfer_source = NULL;
+static char *arg_keyring_override = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -57,6 +58,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_keyring_override, freep);
 
 const Specifier specifier_table[] = {
         COMMON_SYSTEM_SPECIFIERS,
@@ -270,6 +272,7 @@ static int context_load_installed_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->target,
                                 arg_verify >= 0 ? arg_verify : t->verify,
+                                arg_keyring_override,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -281,6 +284,7 @@ static int context_load_installed_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->target,
                                 arg_verify >= 0 ? arg_verify : t->verify,
+                                arg_keyring_override,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -302,6 +306,7 @@ static int context_load_available_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->source,
                                 arg_verify >= 0 ? arg_verify : t->verify,
+                                arg_keyring_override,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -1958,6 +1963,13 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         arg_verify = b;
                         break;
                 }
+
+                OPTION_LONG("keyring", "PATH",
+                            "Use the specified keyring for signature verification"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_keyring_override);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 OPTION_LONG("reboot", NULL,
                             "Reboot after updating to newer version"):

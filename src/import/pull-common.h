@@ -46,6 +46,7 @@ int pull_make_verification_jobs(
 
 int pull_verify(
                 ImportVerify verify,
+                const char *keyring_override, /* may be NULL */
                 PullJob *main_job,
                 PullJob *checksum_job,
                 PullJob *signature_job,
