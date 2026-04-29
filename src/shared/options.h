@@ -224,11 +224,17 @@ int option_parse(
                         break;                                          \
                 } else
 
-char* option_parser_next_arg(const OptionParser *state);
+/* Those helpers are used *during* option parsing and allow looking at or taking the next item in
+ * the argv array, either an option or a positional parameter. */
+char* option_parser_peek_next_arg(const OptionParser *state);
 char* option_parser_consume_next_arg(OptionParser *state);
 
+/* Those helpers are used *after* option parsing and return the positional arguments (and unparsed
+ * options in case option parsing was stopped early, e.g. via "--"). */
 char** option_parser_get_args(const OptionParser *state);
 size_t option_parser_get_n_args(const OptionParser *state);
+char* option_parser_get_arg(const OptionParser *state, size_t i);
+
 char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metavar);
 
 int _option_parser_get_help_table_full(

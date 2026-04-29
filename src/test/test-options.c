@@ -58,7 +58,12 @@ static void test_option_parse_one(
         ASSERT_TRUE(strv_equal(args, remaining));
         ASSERT_STREQ(argv[0], saved_argv0);
 
-        ASSERT_EQ(option_parser_get_n_args(&opts), strv_length(remaining));
+        size_t l = strv_length(remaining);
+        ASSERT_EQ(option_parser_get_n_args(&opts), l);
+        ASSERT_STREQ(option_parser_get_arg(&opts, 0), l > 0 ? remaining[0] : NULL);
+        ASSERT_STREQ(option_parser_get_arg(&opts, 1), l > 1 ? remaining[1] : NULL);
+        ASSERT_STREQ(option_parser_get_arg(&opts, 2), l > 2 ? remaining[2] : NULL);
+        ASSERT_STREQ(option_parser_get_arg(&opts, 3), l > 3 ? remaining[3] : NULL);
 }
 
 static void test_option_invalid_one(
@@ -1331,7 +1336,7 @@ TEST(option_optional_arg_consume) {
 
         /* --user without arg: next arg is positional (doesn't start with -).
          * The option parser returns NULL for the arg. The caller would then
-         * use option_parser_next_arg/consume_next_arg to grab it. */
+         * use option_parser_peek_next_arg/consume_next_arg to grab it. */
         {
                 char **argv = STRV_MAKE("arg0", "--user", "someuser", "pos1");
                 int argc = strv_length(argv);
@@ -1341,7 +1346,7 @@ TEST(option_optional_arg_consume) {
                 ASSERT_OK_POSITIVE(option_parse(options, options + 3, &opts));
                 ASSERT_STREQ(opts.opt->long_code, "user");
                 ASSERT_NULL(opts.arg);
-                ASSERT_STREQ(option_parser_next_arg(&opts), "someuser");
+                ASSERT_STREQ(option_parser_peek_next_arg(&opts), "someuser");
                 ASSERT_STREQ(option_parser_consume_next_arg(&opts), "someuser");
 
                 ASSERT_EQ(option_parse(options, options + 3, &opts), 0);
@@ -1361,7 +1366,7 @@ TEST(option_optional_arg_consume) {
                 ASSERT_OK_POSITIVE(option_parse(options, options + 3, &opts));
                 ASSERT_STREQ(opts.opt->long_code, "user");
                 ASSERT_NULL(opts.arg);
-                ASSERT_NULL(option_parser_next_arg(&opts));
+                ASSERT_NULL(option_parser_peek_next_arg(&opts));
                 ASSERT_NULL(option_parser_consume_next_arg(&opts));
 
                 ASSERT_EQ(option_parse(options, options + 3, &opts), 0);
@@ -1381,12 +1386,12 @@ TEST(option_optional_arg_consume) {
                 ASSERT_OK_POSITIVE(option_parse(options, options + 3, &opts));
                 ASSERT_STREQ(opts.opt->long_code, "user");
                 ASSERT_NULL(opts.arg);
-                ASSERT_STREQ(option_parser_next_arg(&opts), "-u");
+                ASSERT_STREQ(option_parser_peek_next_arg(&opts), "-u");
 
                 ASSERT_OK_POSITIVE(option_parse(options, options + 3, &opts));
                 ASSERT_STREQ(opts.opt->long_code, "uid");
                 ASSERT_STREQ(opts.arg, "nobody");
-                ASSERT_NULL(option_parser_next_arg(&opts));
+                ASSERT_NULL(option_parser_peek_next_arg(&opts));
                 ASSERT_NULL(option_parser_consume_next_arg(&opts));
 
                 ASSERT_EQ(option_parse(options, options + 3, &opts), 0);
@@ -1413,7 +1418,7 @@ TEST(option_optional_arg_consume) {
                                 const char *arg = opts.arg;
 
                                 if (!arg) {
-                                        const char *t = option_parser_next_arg(&opts);
+                                        const char *t = option_parser_peek_next_arg(&opts);
                                         if (t && t[0] != '-')
                                                 arg = option_parser_consume_next_arg(&opts);
                                 }
