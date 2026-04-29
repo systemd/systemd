@@ -5294,10 +5294,8 @@ _public_ int sd_json_dispatch_full(
                                         done++;
 
                         } else {
-                                if (flags & SD_JSON_ALLOW_EXTENSIONS) {
-                                        json_log(value, flags|SD_JSON_DEBUG, 0, "Unrecognized object field '%s', assuming extension.", sd_json_variant_string(key));
+                                if (flags & SD_JSON_ALLOW_EXTENSIONS)
                                         continue;
-                                }
 
                                 json_log(value, flags, 0, "Unexpected object field '%s'.", sd_json_variant_string(key));
                                 if (flags & SD_JSON_PERMISSIVE)
