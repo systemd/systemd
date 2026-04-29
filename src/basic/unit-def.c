@@ -272,6 +272,7 @@ static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_START_PRE]        = "start-pre",
         [SOCKET_START_OPEN]       = "start-open",
         [SOCKET_START_CHOWN]      = "start-chown",
+        [SOCKET_START_CONNECT]    = "start-connect",
         [SOCKET_START_POST]       = "start-post",
         [SOCKET_LISTENING]        = "listening",
         [SOCKET_DEFERRED]         = "deferred",

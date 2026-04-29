@@ -631,13 +631,17 @@ int config_parse_socket_listen(
                         return 0;
                 }
 
-                PathSimplifyWarnFlags flags = PATH_CHECK_ABSOLUTE;
-                if (ltype != SOCKET_SPECIAL)
-                        flags |= PATH_CHECK_NON_API_VFS;
+                if (ltype == SOCKET_DBUS_CLIENT && STR_IN_SET(k, "system", "user"))
+                        ; /* dbus-client: aliases for system and user bus */
+                else {
+                        PathSimplifyWarnFlags flags = PATH_CHECK_ABSOLUTE;
+                        if (ltype != SOCKET_SPECIAL)
+                                flags |= PATH_CHECK_NON_API_VFS;
 
-                r = path_simplify_and_warn(k, flags, unit, filename, line, lvalue);
-                if (r < 0)
-                        return 0;
+                        r = path_simplify_and_warn(k, flags, unit, filename, line, lvalue);
+                        if (r < 0)
+                                return 0;
+                }
 
                 if (ltype == SOCKET_FIFO) {
                         r = patch_var_run(unit, filename, line, lvalue, &k);

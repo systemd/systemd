@@ -933,7 +933,8 @@ TEST(socket_properties) {
                         "ListenMessageQueue=/system/queue",
                         "ListenFIFO=/var/lib/myservice/fifo",
                         "ListenFIFO=/tmp/myfifo",
-                        "ListenUSBFunction=/dev/usb-ffs/myfunction"
+                        "ListenUSBFunction=/dev/usb-ffs/myfunction",
+                        "ListenDBusClient=/run/dbus/system_bus_socket"
         );
         test_transient_settings_one(UNIT_SOCKET, lines);
 }
