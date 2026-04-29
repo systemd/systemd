@@ -406,7 +406,7 @@ EFI_STATUS pack_cpio(
 
                 err = file_read(extra_dir, items[i], 0, 0, &content, &contentsize);
                 if (err != EFI_SUCCESS) {
-                        log_error_status(err, "Failed to read %ls, ignoring: %m", items[i]);
+                        log_warning_status(err, "Failed to read %ls, ignoring: %m", items[i]);
                         continue;
                 }
 
