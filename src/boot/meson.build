@@ -309,6 +309,7 @@ endif
 libefi_sources = files(
         'chid.c',
         'console.c',
+        'cpio.c',
         'device-path-util.c',
         'devicetree.c',
         'drivers.c',
@@ -341,7 +342,6 @@ systemd_boot_sources = files(
 
 stub_sources = files(
         'boot-secret.c',
-        'cpio.c',
         'linux.c',
         'splash.c',
         'stub.c',
