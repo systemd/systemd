@@ -18,6 +18,7 @@ executables += [
                 'public' : true,
                 'sources' : systemd_cryptsetup_sources,
                 'dependencies' : [
+                        libblkid_cflags,
                         libcryptsetup_cflags,
                         libfido2_cflags,
                         libmount_cflags,
