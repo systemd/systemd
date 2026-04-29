@@ -1675,6 +1675,58 @@ run_systemd_sysext "$fake_root" unmerge
 extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
 )
 
+
+( init_trap
+: "Nested tmpfs submounts under the hierarchy survive merge/refresh/unmerge round-trip"
+fake_root=${roots_dir:+"$roots_dir/nested-submounts"}
+hierarchy=/opt
+
+# Don't run the test if the inner mount won't be preserved due to an old kernel
+if ! systemd-analyze compare-versions "$(uname -r)" ge 5.12; then
+    echo >&2 "Kernel too old for mount_setattr (need >= 5.12), skipping nested submount test"
+    exit 0
+fi
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+prepare_hierarchy "$fake_root" "$hierarchy"
+
+# Two tmpfs mounts, one nested in the hierarchy under the other. Reproduces the nested mount layout from
+# https://github.com/flatcar/Flatcar/issues/2111 and verifies that we preserve nested mounts across merge,
+# refresh, and unmerge.
+outer_mp="$fake_root$hierarchy/outer"
+inner_mp="$outer_mp/inner"
+mkdir -p "$outer_mp"
+mount -t tmpfs tmpfs "$outer_mp"
+prepend_trap "umount -l ${outer_mp@Q} 2>/dev/null || true"
+mkdir -p "$inner_mp"
+mount -t tmpfs tmpfs "$inner_mp"
+prepend_trap "umount -l ${inner_mp@Q} 2>/dev/null || true"
+touch "$outer_mp/outer-marker"
+touch "$inner_mp/inner-marker"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+mountpoint "$outer_mp"
+mountpoint "$inner_mp"
+test -f "$outer_mp/outer-marker"
+test -f "$inner_mp/inner-marker"
+
+run_systemd_sysext "$fake_root" refresh --always-refresh=yes
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+mountpoint "$outer_mp"
+mountpoint "$inner_mp"
+test -f "$outer_mp/outer-marker"
+test -f "$inner_mp/inner-marker"
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+mountpoint "$outer_mp"
+mountpoint "$inner_mp"
+test -f "$outer_mp/outer-marker"
+test -f "$inner_mp/inner-marker"
+)
+
 } # End of run_sysext_tests
 
 
