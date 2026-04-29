@@ -128,6 +128,11 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- StorageProvider interface + storagectl
+  - hook-up in systemd-nspawn
+  - hook-up in systemd-vmspawn
+  - hook-up in service manager (BindVolume=)
+
 - a small tool that can do basic btrfs raid policy mgmt. i.e. gets started as
   part of the initial transaction for some btrfs raid fs, waits for some time,
   then puts message on screen (plymouth, console) that some devices apparently
@@ -2545,8 +2550,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - systemd-tpm2-support: add a some logic that detects if system is in DA
   lockout mode, and queries the user for TPM recovery PIN then.
 
-- systemd: add storage API via varlink, where everyone can drop a socket in a
-  dir, similar, do the same thing for networking
+- add a networking provider API, inspired by the StorageProvider. Make networkd
+  a provider that exposes interfacing to add tap, tun, veth via the api, base
+  this on .netdev logic somehow.
 
 - $SYSTEMD_EXECPID that the service manager sets should
   be augmented with $SYSTEMD_EXECPIDFD (and similar for

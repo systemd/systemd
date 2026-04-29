@@ -805,6 +805,20 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
+          'file' : 'systemd-storage-block.socket',
+          'symlinks' : ['sockets.target.wants/']
+        },
+        {
+          'file' : 'systemd-storage-block@.service.in',
+        },
+        {
+          'file' : 'systemd-storage-fs.socket',
+          'symlinks' : ['sockets.target.wants/']
+        },
+        {
+          'file' : 'systemd-storage-fs@.service.in',
+        },
+        {
           'file' : 'systemd-storagetm.service.in',
           'conditions' : ['ENABLE_STORAGETM'],
         },
