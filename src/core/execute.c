@@ -753,6 +753,82 @@ void exec_context_done(ExecContext *c) {
         c->private_hostname = mfree(c->private_hostname);
 }
 
+int exec_context_parse_working_directory(
+                const char *s,
+                char **ret_simplified,
+                bool *ret_is_home,
+                const char **reterr_message) {
+
+        _cleanup_free_ char *simplified = NULL;
+        bool is_home = false;
+        int r;
+
+        assert(ret_simplified);
+        assert(ret_is_home);
+
+        if (!isempty(s)) {
+                if (streq(s, "~"))
+                        is_home = true;
+                else {
+                        if (!path_is_absolute(s)) {
+                                if (reterr_message)
+                                        *reterr_message = "expects an absolute path or '~'";
+                                return -EINVAL;
+                        }
+
+                        r = path_simplify_alloc(s, &simplified);
+                        if (r < 0)
+                                return r;
+
+                        if (!path_is_normalized(simplified)) {
+                                if (reterr_message)
+                                        *reterr_message = "expects a normalized path or '~'";
+                                return -EINVAL;
+                        }
+                }
+        }
+
+        *ret_simplified = TAKE_PTR(simplified);
+        *ret_is_home = is_home;
+        return 0;
+}
+
+int exec_context_apply_environment(
+                Unit *u,
+                ExecContext *c,
+                char **env,
+                UnitWriteFlags flags) {
+
+        assert(u);
+        assert(c);
+
+        if (!strv_env_is_valid(env))
+                return -EINVAL;
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                if (strv_isempty(env)) {
+                        c->environment = strv_free(c->environment);
+                        unit_write_setting(u, flags, "Environment", "Environment=");
+                } else {
+                        _cleanup_free_ char *joined = NULL;
+                        char **e;
+
+                        joined = unit_concat_strv(env, UNIT_ESCAPE_SPECIFIERS|UNIT_ESCAPE_C);
+                        if (!joined)
+                                return -ENOMEM;
+
+                        e = strv_env_merge(c->environment, env);
+                        if (!e)
+                                return -ENOMEM;
+
+                        strv_free_and_replace(c->environment, e);
+                        unit_write_settingf(u, flags, "Environment", "Environment=%s", joined);
+                }
+        }
+
+        return 0;
+}
+
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
         assert(c);
 
