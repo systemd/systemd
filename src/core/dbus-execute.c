@@ -3456,32 +3456,14 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (strv_length(l) > ENVIRONMENT_ASSIGNMENTS_MAX)
+                r = exec_context_apply_environment(u, c, l, flags);
+                if (r == -E2BIG)
                         return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
                                                 "Too many environment assignments.");
-                if (!strv_env_is_valid(l))
+                if (r == -EINVAL)
                         return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment block.");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (strv_isempty(l)) {
-                                c->environment = strv_free(c->environment);
-                                unit_write_setting(u, flags, name, "Environment=");
-                        } else {
-                                _cleanup_free_ char *joined = NULL;
-                                char **e;
-
-                                joined = unit_concat_strv(l, UNIT_ESCAPE_SPECIFIERS|UNIT_ESCAPE_C);
-                                if (!joined)
-                                        return -ENOMEM;
-
-                                e = strv_env_merge(c->environment, l);
-                                if (!e)
-                                        return -ENOMEM;
-
-                                strv_free_and_replace(c->environment, e);
-                                unit_write_settingf(u, flags, name, "Environment=%s", joined);
-                        }
-                }
+                if (r < 0)
+                        return r;
 
                 return 1;
 
