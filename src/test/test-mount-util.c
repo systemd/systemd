@@ -490,6 +490,55 @@ TEST(bind_mount_submounts) {
         }
 }
 
+TEST(get_sub_mounts) {
+        _cleanup_(rm_rf_physical_and_freep) char *a = NULL;
+        int r;
+
+        CHECK_PRIV;
+
+        ASSERT_OK(mkdtemp_malloc(NULL, &a));
+
+        r = ASSERT_OK(pidref_safe_fork("(get-sub-mounts)", FORK_COMMON_FLAGS, NULL));
+        if (r == 0) {
+                SubMount *mounts = NULL;
+                size_t n = 0;
+
+                CLEANUP_ARRAY(mounts, n, sub_mount_array_free);
+
+                /* Reproduces the layout that triggered the assertion crash in systemd-sysext on
+                 * Flatcar (https://github.com/flatcar/Flatcar/issues/2111): a mount nested inside
+                 * another mount under a sysext hierarchy. The dedup pass must keep only the outer
+                 * entry (the inner is covered by the outer's recursive open_tree() clone) and
+                 * compact the array — leaving NULL entries behind would crash the consumer. */
+
+                _cleanup_free_ char *outer = ASSERT_NOT_NULL(path_join(a, "outer"));
+                ASSERT_OK_ERRNO(mkdir(outer, 0755));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", outer, "tmpfs", 0, NULL));
+
+                _cleanup_free_ char *inner = ASSERT_NOT_NULL(path_join(outer, "inner"));
+                ASSERT_OK_ERRNO(mkdir(inner, 0755));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", inner, "tmpfs", 0, NULL));
+
+                r = get_sub_mounts(a, &mounts, &n);
+                if (r == -EOPNOTSUPP) {
+                        log_tests_skipped("libmount support not compiled in");
+                        _exit(EXIT_SUCCESS);
+                }
+                ASSERT_OK(r);
+
+                /* Only the outer entry should survive dedup; the inner is implied by the outer's
+                 * recursive clone. */
+                ASSERT_EQ(n, 1u);
+                ASSERT_NOT_NULL(mounts[0].path);
+                ASSERT_STREQ(mounts[0].path, outer);
+                ASSERT_OK(mounts[0].mount_fd);
+
+                ASSERT_OK(umount_recursive(a, 0));
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
 TEST(path_is_network_fs_harder) {
         _cleanup_close_ int dir_fd = -EBADF;
         int r;
