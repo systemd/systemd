@@ -643,6 +643,7 @@ int json_dispatch_devnum(const char *name, sd_json_variant *variant, sd_json_dis
 int json_dispatch_strv_environment(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char ***l = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **n = NULL;
+        size_t s = 0;
         int r;
 
         if (sd_json_variant_is_null(variant)) {
@@ -665,7 +666,7 @@ int json_dispatch_strv_environment(const char *name, sd_json_variant *variant, s
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "JSON field '%s' contains invalid environment variable assignment.", strna(name));
 
-                r = strv_env_replace_strdup(&n, e);
+                r = strv_env_replace_strdup_with_size(&n, &s, e);
                 if (r < 0)
                         return json_log_oom(variant, flags);
         }
