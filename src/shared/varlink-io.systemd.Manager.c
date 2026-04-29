@@ -194,7 +194,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Exit code of the manager"),
                 SD_VARLINK_DEFINE_FIELD(ExitCode, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Encodes how many soft-reboots were successfully completed"),
-                SD_VARLINK_DEFINE_FIELD(SoftRebootsCount, SD_VARLINK_INT, 0));
+                SD_VARLINK_DEFINE_FIELD(SoftRebootsCount, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Number of successfully completed configuration reloads"),
+                SD_VARLINK_DEFINE_FIELD(ReloadCount, SD_VARLINK_INT, 0));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,
