@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <linux/loop.h>
 #include <stdlib.h>
 #include <sys/file.h>
@@ -11,6 +10,7 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "ansi-color.h"
 #include "argv-util.h"
 #include "blkid-util.h"
 #include "blockdev-util.h"
@@ -34,6 +34,7 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "help-util.h"
 #include "image-policy.h"
 #include "initrd-util.h"
 #include "label-util.h"                 /* IWYU pragma: keep */
@@ -44,13 +45,13 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "options.h"
 #include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
-#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "rm-rf.h"
@@ -2304,6 +2305,7 @@ static int merge(ImageClass image_class,
         return 1;
 }
 
+VERB(verb_status, "status", NULL, VERB_ANY, 1, VERB_DEFAULT, "Show current merge status (default)");
 static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
         int r, ret = 0;
@@ -2440,6 +2442,7 @@ static int look_for_merged_hierarchies(
         return 0;
 }
 
+VERB_NOARG(verb_merge, "merge", "Merge extensions into relevant hierarchies");
 static int verb_merge(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         const char *which;
@@ -2560,6 +2563,7 @@ static int vl_method_merge(sd_varlink *link, sd_json_variant *parameters, sd_var
         return sd_varlink_reply(link, NULL);
 }
 
+VERB_NOARG(verb_unmerge, "unmerge", "Unmerge extensions from relevant hierarchies");
 static int verb_unmerge(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -2669,6 +2673,7 @@ static int refresh(
         return r;
 }
 
+VERB_NOARG(verb_refresh, "refresh", "Unmerge/merge extensions again");
 static int verb_refresh(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -2735,6 +2740,7 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
         return sd_varlink_reply(link, NULL);
 }
 
+VERB_NOARG(verb_list, "list", "List installed extensions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -2827,125 +2833,91 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *verbs = NULL, *commands = NULL, *options = NULL;
         int r;
 
-        r = terminal_urlify_man(image_class_info[arg_image_class].full_identifier, "8", &link);
+        r = verbs_get_help_table(&verbs);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        printf("%1$s [OPTIONS...] COMMAND\n"
-               "\n%5$s%7$s%6$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "  status                  Show current merge status (default)\n"
-               "  merge                   Merge extensions into relevant hierarchies\n"
-               "  unmerge                 Unmerge extensions from relevant hierarchies\n"
-               "  refresh                 Unmerge/merge extensions again\n"
-               "  list                    List installed extensions\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "\n%3$sOptions:%4$s\n"
-               "     --root=PATH          Operate relative to root path\n"
-               "     --mutable=yes|no|auto|import|ephemeral|ephemeral-import|help\n"
-               "                          Specify a mutability mode of the merged hierarchy\n"
-               "     --image-policy=POLICY\n"
-               "                          Specify disk image dissection policy\n"
-               "     --noexec=BOOL        Whether to mount extension overlay with noexec\n"
-               "     --force              Ignore version incompatibilities\n"
-               "     --no-reload          Do not reload the service manager\n"
-               "     --always-refresh=yes|no\n"
-               "                          Do not skip refresh when no changes were found\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "     --json=pretty|short|off\n"
-               "                          Generate JSON output\n"
-               "\nSee the %2$s for details.\n",
-               program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
-               ansi_highlight(),
-               ansi_normal(),
-               image_class_info[arg_image_class].blurb);
+        r = option_parser_get_help_table(&commands);
+        if (r < 0)
+                return r;
 
+        r = option_parser_get_help_table_group("Options", &options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, commands, options);
+
+        help_cmdline("[OPTIONS...] COMMAND");
+        help_abstract(image_class_info[arg_image_class].blurb);
+
+        help_section("Commands");
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+        r = table_print_or_warn(commands);
+        if (r < 0)
+                return r;
+
+        help_section("Options");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference(image_class_info[arg_image_class].full_identifier, "8");
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP_HIDDEN(help);
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_ROOT,
-                ARG_JSON,
-                ARG_FORCE,
-                ARG_IMAGE_POLICY,
-                ARG_NOEXEC,
-                ARG_NO_RELOAD,
-                ARG_ALWAYS_REFRESH,
-                ARG_MUTABLE,
-        };
-
-        static const struct option options[] = {
-                { "help",           no_argument,       NULL, 'h'                },
-                { "version",        no_argument,       NULL, ARG_VERSION        },
-                { "no-pager",       no_argument,       NULL, ARG_NO_PAGER       },
-                { "no-legend",      no_argument,       NULL, ARG_NO_LEGEND      },
-                { "root",           required_argument, NULL, ARG_ROOT           },
-                { "json",           required_argument, NULL, ARG_JSON           },
-                { "force",          no_argument,       NULL, ARG_FORCE          },
-                { "image-policy",   required_argument, NULL, ARG_IMAGE_POLICY   },
-                { "noexec",         required_argument, NULL, ARG_NOEXEC         },
-                { "no-reload",      no_argument,       NULL, ARG_NO_RELOAD      },
-                { "always-refresh", required_argument, NULL, ARG_ALWAYS_REFRESH },
-                { "mutable",        required_argument, NULL, ARG_MUTABLE        },
-                {}
-        };
-
-        int c, r;
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv };
 
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, false, &arg_root);
+                OPTION_GROUP("Options"): {}
+
+                OPTION_LONG("root", "PATH", "Operate relative to root PATH"):
+                        r = parse_path_argument(opts.arg, false, &arg_root);
                         if (r < 0)
                                 return r;
                         /* If --root= is provided, do not reload the service manager */
                         arg_no_reload = true;
                         break;
 
-                case ARG_MUTABLE:
-                        if (streq(optarg, "help")) {
+                OPTION_LONG("mutable", "MODE",
+                            "Specify a mutability mode (yes, no, auto, import, ephemeral, ephemeral-import, help)"):
+                        if (streq(opts.arg, "help")) {
                                 if (arg_legend)
                                         puts("Known mutability modes:");
 
                                 return DUMP_STRING_TABLE(mutable_mode, MutableMode, _MUTABLE_MAX);
                         }
 
-                        r = parse_mutable_mode(optarg);
+                        r = parse_mutable_mode(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse argument to --mutable=: %s", optarg);
+                                return log_error_errno(r, "Failed to parse argument to --mutable=: %s", opts.arg);
                         arg_mutable = r;
                         arg_mutable_set = true;
                         break;
 
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         /* When the CLI flag is given we initialize even if NULL
@@ -2953,48 +2925,41 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_image_policy_set = true;
                         break;
 
-                case ARG_NOEXEC:
-                        r = parse_boolean_argument("--noexec", optarg, NULL);
+                OPTION_LONG("noexec", "BOOL", "Whether to mount extension overlay with noexec"):
+                        r = parse_boolean_argument("--noexec", opts.arg, NULL);
                         if (r < 0)
                                 return r;
 
                         arg_noexec = r;
                         break;
 
-                case ARG_FORCE:
+                OPTION_LONG("force", NULL, "Ignore version incompatibilities"):
                         arg_force = true;
                         break;
 
-                case ARG_NO_RELOAD:
+                OPTION_LONG("no-reload", NULL, "Do not reload the service manager"):
                         arg_no_reload = true;
                         break;
 
-                case ARG_ALWAYS_REFRESH:
-                        r = parse_boolean_argument("--always-refresh", optarg, &arg_always_refresh);
+                OPTION_LONG("always-refresh", "BOOL", "Whether to refresh when no changes were found"):
+                        r = parse_boolean_argument("--always-refresh", opts.arg, &arg_always_refresh);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_NO_LEGEND:
+                OPTION_COMMON_NO_LEGEND:
                         arg_legend = false;
                         break;
 
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
-
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
@@ -3003,25 +2968,12 @@ static int parse_argv(int argc, char *argv[]) {
         if (r > 0)
                 arg_varlink = true;
 
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 
-static int sysext_main(int argc, char *argv[]) {
-
-        static const Verb verbs[] = {
-                { "status",   VERB_ANY, 1, VERB_DEFAULT, verb_status  },
-                { "merge",    VERB_ANY, 1, 0,            verb_merge   },
-                { "unmerge",  VERB_ANY, 1, 0,            verb_unmerge },
-                { "refresh",  VERB_ANY, 1, 0,            verb_refresh },
-                { "list",     VERB_ANY, 1, 0,            verb_list    },
-                { "help",     VERB_ANY, 1, 0,            verb_help    },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
-}
-
 static int run(int argc, char *argv[]) {
+        char **args = NULL;
         int r;
 
         log_setup();
@@ -3034,7 +2986,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         /* Parse command line */
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -3096,7 +3048,7 @@ static int run(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        return sysext_main(argc, argv);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);
