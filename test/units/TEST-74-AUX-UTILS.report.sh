@@ -37,6 +37,13 @@ varlinkctl list-methods /run/systemd/report/io.systemd.CGroup
 varlinkctl --more call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.Describe {}
 
+# CpuUsage emits one row per (cgroup, type) where type is total, user, or system.
+# Confirm all three are present.
+cgroup_metrics=$(varlinkctl --more --json=short call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.List {})
+echo "$cgroup_metrics" | grep '"name":"io.systemd.CGroup.CpuUsage"' | grep '"type":"total"' >/dev/null
+echo "$cgroup_metrics" | grep '"name":"io.systemd.CGroup.CpuUsage"' | grep '"type":"user"' >/dev/null
+echo "$cgroup_metrics" | grep '"name":"io.systemd.CGroup.CpuUsage"' | grep '"type":"system"' >/dev/null
+
 # test io.systemd.Network Metrics
 varlinkctl info /run/systemd/report/io.systemd.Network
 varlinkctl list-methods /run/systemd/report/io.systemd.Network
