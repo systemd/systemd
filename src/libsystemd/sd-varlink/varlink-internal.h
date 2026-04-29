@@ -107,7 +107,7 @@ typedef struct sd_varlink {
          * ensure the caller's contract is honored. The transport-layer "stop reading at the
          * next message boundary" behavior is governed independently by the JsonStream's
          * bounded_reads flag. */
-        bool protocol_upgrade:1;
+        bool protocol_upgrade;
 
         void *userdata;
 
