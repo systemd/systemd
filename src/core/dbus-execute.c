@@ -3262,28 +3262,18 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!isempty(s)) {
-                        if (s[0] == '-') {
-                                missing_ok = true;
-                                s++;
-                        }
-
-                        if (streq(s, "~"))
-                                is_home = true;
-                        else {
-                                if (!path_is_absolute(s))
-                                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
-                                                                "WorkingDirectory= expects an absolute path or '~'");
-
-                                r = path_simplify_alloc(s, &simplified);
-                                if (r < 0)
-                                        return r;
-
-                                if (!path_is_normalized(simplified))
-                                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
-                                                                "WorkingDirectory= expects a normalized path or '~'");
-                        }
+                if (!isempty(s) && s[0] == '-') {
+                        missing_ok = true;
+                        s++;
                 }
+
+                const char *err;
+                r = exec_context_parse_working_directory(s, &simplified, &is_home, &err);
+                if (r == -EINVAL)
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "WorkingDirectory= %s", err);
+                if (r < 0)
+                        return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         free_and_replace(c->working_directory, simplified);
@@ -3456,29 +3446,11 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!strv_env_is_valid(l))
+                r = exec_context_apply_environment(u, c, l, flags);
+                if (r == -EINVAL)
                         return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment block.");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (strv_isempty(l)) {
-                                c->environment = strv_free(c->environment);
-                                unit_write_setting(u, flags, name, "Environment=");
-                        } else {
-                                _cleanup_free_ char *joined = NULL;
-                                char **e;
-
-                                joined = unit_concat_strv(l, UNIT_ESCAPE_SPECIFIERS|UNIT_ESCAPE_C);
-                                if (!joined)
-                                        return -ENOMEM;
-
-                                e = strv_env_merge(c->environment, l);
-                                if (!e)
-                                        return -ENOMEM;
-
-                                strv_free_and_replace(c->environment, e);
-                                unit_write_settingf(u, flags, name, "Environment=%s", joined);
-                        }
-                }
+                if (r < 0)
+                        return r;
 
                 return 1;
 
