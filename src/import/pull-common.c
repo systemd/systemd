@@ -401,6 +401,39 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
         return 1;
 }
 
+/* --auto-key-import requires a newer gpg. We probe support at runtime by
+ * passing the flag before --version so that gpg will parse it and report failure
+ * if not supported, otherwise it will continue with --version and exit with 0. */
+static bool gpg_supports_auto_key_import(void) {
+        static int cached = -1;
+        int r;
+
+        if (cached >= 0)
+                return (bool) cached;
+
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork_full(
+                        "(gpg-probe)",
+                        /* stdio_fds= */ NULL,
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_RLIMIT_NOFILE_SAFE,
+                        &pidref);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to fork gpg probe process, continuing assuming --auto-key-import is not supported: %m");
+                cached = (int) false;
+                return (bool) cached;
+        }
+        if (r == 0) {
+                execlp("gpg2", "gpg2", "--auto-key-import", "--no-options", "--version", (char*) NULL);
+                execlp("gpg", "gpg", "--auto-key-import", "--no-options", "--version", (char*) NULL);
+                _exit(EXIT_FAILURE);
+        }
+
+        r = pidref_wait_for_terminate_and_check("gpg-probe", &pidref, /* flags= */ 0);
+        cached = (int) (r == EXIT_SUCCESS);
+        return (bool) cached;
+}
+
 static int verify_gpg(
                 const struct iovec *payload,
                 const struct iovec *signature) {
@@ -455,6 +488,8 @@ static int verify_gpg(
                         "--no-auto-check-trustdb",
                         "--batch",
                         "--trust-model=always",
+                        NULL, /* --auto-key-import (newer gpg only) */
+                        NULL, /* --import-options=... (paired with --auto-key-import) */
                         NULL, /* --homedir= */
                         NULL, /* --keyring= */
                         NULL, /* --verify */
@@ -462,7 +497,12 @@ static int verify_gpg(
                         NULL, /* dash */
                         NULL  /* trailing NULL */
                 };
-                size_t k = ELEMENTSOF(cmd) - 6;
+                size_t k = ELEMENTSOF(cmd) - 8;
+
+                if (gpg_supports_auto_key_import()) {
+                        cmd[k++] = "--auto-key-import";
+                        cmd[k++] = "--import-options=merge-only,import-clean";
+                }
 
                 /* Child */
 
