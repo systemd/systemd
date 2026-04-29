@@ -407,6 +407,68 @@
   </refsect1>
 
   <refsect1>
+    <title>Companion Files</title>
+
+    <para>For Type #1 boot loader entries (as defined in the <ulink
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader
+    Specification</ulink>) <command>systemd-boot</command> will collect additional companion resources
+    declared via the <literal>extra</literal> key in the entry, dynamically generate
+    <command>cpio</command> initrd archives from them, and register those archives via the Linux initrd
+    protocol so that they are passed to the kernel together with the entry's own initrd. This is supported
+    both for traditional entries pairing the <literal>linux</literal> and <literal>initrd</literal> keys and
+    for entries referencing a Unified Kernel Image (UKI) via the <literal>uki</literal> or
+    <literal>uki-url</literal> keys. Each <literal>extra</literal> key references a single regular file
+    (relative to the root of the file system containing the entry snippet) and the key may be specified
+    multiple times. Companion resources are recognized by file name suffix:</para>
+
+    <itemizedlist>
+      <listitem><para>Files with the <filename>.cred</filename> suffix are packed into a
+      <command>cpio</command> archive placed in the <filename>/.extra/credentials/</filename> directory of
+      the initrd file hierarchy. This is intended to convey auxiliary, encrypted, authenticated credentials
+      for use with <varname>LoadCredentialEncrypted=</varname>. See
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+      <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+      details on encrypted credentials. The generated <command>cpio</command> archive is measured into TPM
+      PCR 12 (if a TPM is present).</para></listitem>
+
+      <listitem><para>Files with the <filename>.sysext.raw</filename> suffix are packed into a
+      <command>cpio</command> archive placed in the <filename>/.extra/sysext/</filename> directory of the
+      initrd file hierarchy. This is intended to pass additional entry-specific system extension images to
+      the initrd. See
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+      details on system extension images. The generated <command>cpio</command> archive is measured into TPM
+      PCR 13 (if a TPM is present).</para></listitem>
+
+      <listitem><para>Files with the <filename>.confext.raw</filename> suffix are packed into a
+      <command>cpio</command> archive placed in the <filename>/.extra/confext/</filename> directory of the
+      initrd file hierarchy. This is intended to pass additional entry-specific configuration extension
+      images to the initrd. See
+      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      for details on configuration extension images. The generated <command>cpio</command> archive is
+      measured into TPM PCR 12 (if a TPM is present).</para></listitem>
+    </itemizedlist>
+
+    <para>When the booted kernel is a UKI, the <command>systemd-stub</command> UEFI stub embedded in it will
+    combine the companion resources injected here with any companion files it itself collects from the UKI's
+    <filename>.extra.d/</filename> drop-in directory and from <filename>/loader/credentials/</filename> and
+    <filename>/loader/extensions/</filename>, so that all sources are merged uniformly into
+    <filename>/.extra/</filename> in the initrd. See
+    <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details.</para>
+
+    <para>Example Type #1 entry making use of the <literal>extra</literal> key:</para>
+
+    <programlisting>title       My OS
+version     1.2.3
+machine-id  6a9857a393724b7a981ebb5b8495b9ea
+linux       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/linux
+initrd      /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/initrd
+extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/foo.cred
+extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/bar.sysext.raw
+extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/baz.confext.raw</programlisting>
+  </refsect1>
+
+  <refsect1>
     <title>EFI Variables</title>
 
     <para>The following EFI variables are defined, and may be set or read by <command>systemd-boot</command>
