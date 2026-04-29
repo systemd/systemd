@@ -5,6 +5,8 @@
 
 #include "shared-forward.h"
 
+#define DNS_QUESTION_ITEMS_MAX 128U
+
 /* A simple array of resource keys */
 
 typedef enum DnsQuestionFlags {
