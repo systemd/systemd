@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "blkid-util.h"
 #include "build.h"
 #include "crypto-util.h"
 #include "cryptsetup-fido2.h"
@@ -25,6 +26,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "fs-util.h"
@@ -43,6 +45,7 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -128,6 +131,7 @@ static char *arg_link_keyring = NULL;
 static char *arg_link_key_type = NULL;
 static char *arg_link_key_description = NULL;
 static char *arg_fixate_volume_key = NULL;
+static bool arg_wipe = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -661,7 +665,9 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         return log_oom();
 
-        } else if (!streq(option, "x-initrd.attach"))
+        } else if (streq(option, "wipe"))
+                arg_wipe = true;
+        else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
         return 0;
@@ -2598,6 +2604,67 @@ static int discover_key(const char *key_file, const char *volume, TokenType toke
         return r;
 }
 
+static int wipe_fs_superblock(const char *device) {
+#if HAVE_BLKID
+        _cleanup_(blkid_free_probep) blkid_probe probe = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(device);
+
+        r = dlopen_libblkid(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        fd = open(device, O_RDWR|O_CLOEXEC|O_NONBLOCK);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open device %s: %m", device);
+
+        r = fd_verify_block(fd);
+        if (r < 0)
+                return log_error_errno(r, "Verification that '%s' is actually a block device failed: %m", device);
+
+        probe = sym_blkid_new_probe();
+        if (!probe)
+                return log_oom();
+
+        errno = 0;
+        r = sym_blkid_probe_set_device(probe, fd, /* off= */0, /* size= */0);
+        if (r < 0)
+                return log_error_errno(errno_or_else(EIO), "Failed to allocate device probe for wiping.");
+
+        errno = 0;
+        if (sym_blkid_probe_enable_superblocks(probe, true) < 0 ||
+            sym_blkid_probe_set_superblocks_flags(probe, BLKID_SUBLKS_MAGIC|BLKID_SUBLKS_BADCSUM) < 0 ||
+            sym_blkid_probe_enable_partitions(probe, true) < 0 ||
+            sym_blkid_probe_set_partitions_flags(probe, BLKID_PARTS_MAGIC) < 0)
+                return log_error_errno(errno_or_else(EIO), "Failed to enable superblock and partition probing.");
+
+        /* We have a counter here for robustness not allowing blkid stuck */
+        for (unsigned n = 0;; n++) {
+                if (n >= 5)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to fully wipe file system signatures after %u attempts, giving up.", n);
+
+                errno = 0;
+                r = sym_blkid_do_probe(probe);
+                if (r < 0)
+                        return log_error_errno(errno_or_else(EIO), "Failed to probe for file systems.");
+                if (r > 0)
+                        break;
+
+                errno = 0;
+                if (sym_blkid_do_wipe(probe, false) < 0)
+                        return log_error_errno(errno_or_else(EIO), "Failed to wipe file system signature.");
+        }
+
+        log_info("Successfully wiped file system and partition signatures from %s.", device);
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Cannot wipe fs and partition signatures, libblkid support is not compiled in.");
+#endif
+}
+
 VERB(verb_attach, "attach", "VOLUME SOURCE-DEVICE [KEY-FILE] [CONFIG]", 3, 5, 0,
      "Attach an encrypted block device");
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -2631,6 +2698,11 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 r = parse_crypt_config(config);
                 if (r < 0)
                         return r;
+        }
+
+        if (key_file && random_is_rng_device(key_file) && !arg_wipe) {
+                arg_wipe = true;
+                log_info("RNG device is used as key file. Enabling wipe mode.");
         }
 
         log_debug("%s %s ← %s type=%s cipher=%s", __func__,
@@ -2718,7 +2790,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                                         "cryptsetup.luks2-pin");
                         if (r >= 0) {
                                 log_debug("Volume %s activated with a LUKS token.", volume);
-                                return 0;
+                                goto activated;
                         }
 
                         log_debug_errno(r, "Token activation unsuccessful for device %s: %m", sym_crypt_get_device_name(cd));
@@ -2731,116 +2803,129 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         return log_error_errno(r, "Failed to load Bitlocker superblock on device %s: %m", sym_crypt_get_device_name(cd));
         }
 
-        bool use_cached_passphrase = true, try_discover_key = !key_file;
-        const char *discovered_key_fn = strjoina(volume, ".key");
-        _cleanup_strv_free_erase_ char **passwords = NULL;
-        for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
-                _cleanup_(iovec_done_erase) struct iovec discovered_key_data = {};
-                const struct iovec *key_data = NULL;
-                TokenType token_type = determine_token_type();
+        {
+                bool use_cached_passphrase = true, try_discover_key = !key_file;
+                const char *discovered_key_fn = strjoina(volume, ".key");
+                _cleanup_strv_free_erase_ char **passwords = NULL;
+                for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
+                        _cleanup_(iovec_done_erase) struct iovec discovered_key_data = {};
+                        const struct iovec *key_data = NULL;
+                        TokenType token_type = determine_token_type();
 
-                log_debug("Beginning attempt %u to unlock.", tries);
+                        log_debug("Beginning attempt %u to unlock.", tries);
 
-                /* When we were able to acquire multiple keys, let's always process them in this order:
-                 *
-                 *    1. A key acquired via PKCS#11 or FIDO2 token, or TPM2 chip
-                 *    2. The configured or discovered key, of which both are exclusive and optional
-                 *    3. The empty password, in case arg_try_empty_password is set
-                 *    4. We enquire the user for a password
-                 */
+                        /* When we were able to acquire multiple keys, let's always process them in this order:
+                        *
+                        *    1. A key acquired via PKCS#11 or FIDO2 token, or TPM2 chip
+                        *    2. The configured or discovered key, of which both are exclusive and optional
+                        *    3. The empty password, in case arg_try_empty_password is set
+                        *    4. We enquire the user for a password
+                        */
 
-                if (try_discover_key) {
-                        r = discover_key(discovered_key_fn, volume, token_type, &discovered_key_data);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
-                                key_data = &discovered_key_data;
-                        else
-                                try_discover_key = false;
-                }
-
-                if (token_type < 0 && !key_file && !key_data && !passwords) {
-
-                        /* If we have nothing to try anymore, then acquire a new password */
-
-                        if (arg_try_empty_password) {
-                                /* Hmm, let's try an empty password now, but only once */
-                                arg_try_empty_password = false;
-                                key_data = &iovec_empty;
-                        } else {
-                                /* Ask the user for a passphrase or recovery key only as last resort, if we
-                                 * have nothing else to check for */
-                                if (passphrase_type == PASSPHRASE_NONE) {
-                                        passphrase_type = check_registered_passwords(cd);
-                                        if (passphrase_type == PASSPHRASE_NONE)
-                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No passphrase or recovery key registered.");
-                                }
-
-                                r = get_password(
-                                                volume,
-                                                source,
-                                                until,
-                                                /* ignore_cached= */ !use_cached_passphrase || arg_verify,
-                                                passphrase_type,
-                                                &passwords);
-                                use_cached_passphrase = false;
-                                if (r == -EAGAIN)
-                                        continue;
+                        if (try_discover_key) {
+                                r = discover_key(discovered_key_fn, volume, token_type, &discovered_key_data);
                                 if (r < 0)
                                         return r;
+                                if (r > 0)
+                                        key_data = &discovered_key_data;
+                                else
+                                        try_discover_key = false;
                         }
+
+                        if (token_type < 0 && !key_file && !key_data && !passwords) {
+
+                                /* If we have nothing to try anymore, then acquire a new password */
+
+                                if (arg_try_empty_password) {
+                                        /* Hmm, let's try an empty password now, but only once */
+                                        arg_try_empty_password = false;
+                                        key_data = &iovec_empty;
+                                } else {
+                                        /* Ask the user for a passphrase or recovery key only as last resort, if we
+                                        * have nothing else to check for */
+                                        if (passphrase_type == PASSPHRASE_NONE) {
+                                                passphrase_type = check_registered_passwords(cd);
+                                                if (passphrase_type == PASSPHRASE_NONE)
+                                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No passphrase or recovery key registered.");
+                                        }
+
+                                        r = get_password(
+                                                        volume,
+                                                        source,
+                                                        until,
+                                                        /* ignore_cached= */ !use_cached_passphrase || arg_verify,
+                                                        passphrase_type,
+                                                        &passwords);
+                                        use_cached_passphrase = false;
+                                        if (r == -EAGAIN)
+                                                continue;
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+
+                        if (streq_ptr(arg_type, CRYPT_TCRYPT))
+                                r = attach_tcrypt(cd, volume, token_type, key_file, key_data, passwords, flags);
+                        else
+                                r = attach_luks_or_plain_or_bitlk(cd, volume, token_type, key_file, key_data, passwords, flags, until);
+                        if (r >= 0)
+                                break;
+                        if (r != -EAGAIN)
+                                return r;
+
+                        /* Key not correct? Let's try again, but let's invalidate one of the passed fields, so that
+                        * we fall back to the next best thing. */
+
+                        if (token_type == TOKEN_TPM2) {
+                                arg_tpm2_device = mfree(arg_tpm2_device);
+                                arg_tpm2_device_auto = false;
+                                continue;
+                        }
+
+                        if (token_type == TOKEN_FIDO2) {
+                                arg_fido2_device = mfree(arg_fido2_device);
+                                arg_fido2_device_auto = false;
+                                continue;
+                        }
+
+                        if (token_type == TOKEN_PKCS11) {
+                                arg_pkcs11_uri = mfree(arg_pkcs11_uri);
+                                arg_pkcs11_uri_auto = false;
+                                continue;
+                        }
+
+                        if (try_discover_key) {
+                                try_discover_key = false;
+                                continue;
+                        }
+
+                        if (key_file) {
+                                key_file = NULL;
+                                continue;
+                        }
+
+                        if (passwords) {
+                                passwords = strv_free_erase(passwords);
+                                continue;
+                        }
+
+                        log_debug("Prepared for next attempt to unlock.");
                 }
 
-                if (streq_ptr(arg_type, CRYPT_TCRYPT))
-                        r = attach_tcrypt(cd, volume, token_type, key_file, key_data, passwords, flags);
-                else
-                        r = attach_luks_or_plain_or_bitlk(cd, volume, token_type, key_file, key_data, passwords, flags, until);
-                if (r >= 0)
-                        break;
-                if (r != -EAGAIN)
-                        return r;
-
-                /* Key not correct? Let's try again, but let's invalidate one of the passed fields, so that
-                 * we fall back to the next best thing. */
-
-                if (token_type == TOKEN_TPM2) {
-                        arg_tpm2_device = mfree(arg_tpm2_device);
-                        arg_tpm2_device_auto = false;
-                        continue;
-                }
-
-                if (token_type == TOKEN_FIDO2) {
-                        arg_fido2_device = mfree(arg_fido2_device);
-                        arg_fido2_device_auto = false;
-                        continue;
-                }
-
-                if (token_type == TOKEN_PKCS11) {
-                        arg_pkcs11_uri = mfree(arg_pkcs11_uri);
-                        arg_pkcs11_uri_auto = false;
-                        continue;
-                }
-
-                if (try_discover_key) {
-                        try_discover_key = false;
-                        continue;
-                }
-
-                if (key_file) {
-                        key_file = NULL;
-                        continue;
-                }
-
-                if (passwords) {
-                        passwords = strv_free_erase(passwords);
-                        continue;
-                }
-
-                log_debug("Prepared for next attempt to unlock.");
+                if (arg_tries != 0 && tries >= arg_tries)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Too many attempts to activate; giving up.");
         }
 
-        if (arg_tries != 0 && tries >= arg_tries)
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Too many attempts to activate; giving up.");
+activated:
+        if (arg_wipe) {
+                _cleanup_free_ char *device = path_join("/dev/mapper/", volume);
+                if (!device)
+                        return log_oom();
+
+                r = wipe_fs_superblock(device);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
