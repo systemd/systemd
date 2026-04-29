@@ -14,6 +14,7 @@
 #include "path-util.h"
 #include "report-cgroup.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 
 typedef struct CGroupInfo {
@@ -22,6 +23,10 @@ typedef struct CGroupInfo {
         uint64_t io_rbytes;
         uint64_t io_rios;
         int io_stat_cached; /* 0 = not attempted, > 0 = cached, < 0 = -errno */
+        uint64_t cpu_total_nsec;
+        uint64_t cpu_user_nsec;
+        uint64_t cpu_system_nsec;
+        int cpu_stat_cached; /* 0 = not attempted, > 0 = cached, < 0 = -errno */
 } CGroupInfo;
 
 static CGroupInfo *cgroup_info_free(CGroupInfo *info) {
@@ -154,6 +159,89 @@ static int walk_cgroups(CGroupContext *ctx, CGroupInfo ***ret, size_t *ret_n) {
         return 0;
 }
 
+/* Parse cpu.stat for a cgroup once, extracting usage_usec, user_usec and system_usec
+ * in a single read so each scrape only opens the file once per cgroup. */
+static int cpu_stat_parse(
+                const char *cgroup_path,
+                uint64_t *ret_total_nsec,
+                uint64_t *ret_user_nsec,
+                uint64_t *ret_system_nsec) {
+
+        char *values[3];
+        uint64_t total_us, user_us, system_us;
+        int r;
+
+        assert(cgroup_path);
+        assert(ret_total_nsec);
+        assert(ret_user_nsec);
+        assert(ret_system_nsec);
+
+        r = cg_get_keyed_attribute(
+                        cgroup_path,
+                        "cpu.stat",
+                        STRV_MAKE("usage_usec", "user_usec", "system_usec"),
+                        values);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get keyed attribute of cpu.stat");
+
+        r = safe_atou64(values[0], &total_us);
+        if (r >= 0)
+                r = safe_atou64(values[1], &user_us);
+        if (r >= 0)
+                r = safe_atou64(values[2], &system_us);
+
+        free_many_charp(values, ELEMENTSOF(values));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse cpu.stat values");
+
+        *ret_total_nsec = total_us * NSEC_PER_USEC;
+        *ret_user_nsec = user_us * NSEC_PER_USEC;
+        *ret_system_nsec = system_us * NSEC_PER_USEC;
+        return 0;
+}
+
+static int ensure_cpu_stat_cached(CGroupInfo *info) {
+        int r;
+
+        assert(info);
+
+        if (info->cpu_stat_cached > 0)
+                return 0;
+        if (info->cpu_stat_cached < 0)
+                return info->cpu_stat_cached;
+
+        r = cpu_stat_parse(info->path, &info->cpu_total_nsec, &info->cpu_user_nsec, &info->cpu_system_nsec);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Failed to parse cpu.stat for '%s': %m", info->path);
+                info->cpu_stat_cached = r;
+                return r;
+        }
+
+        info->cpu_stat_cached = 1;
+        return 0;
+}
+
+static int cpu_usage_send_one(
+                MetricFamilyContext *context,
+                const char *unit,
+                uint64_t value_nsec,
+                const char *type) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+        int r;
+
+        assert(context);
+        assert(unit);
+        assert(type);
+
+        r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("type", type));
+        if (r < 0)
+                return r;
+
+        return metric_build_send_unsigned(context, unit, value_nsec, fields);
+}
+
 static int cpu_usage_build_json(MetricFamilyContext *context, void *userdata) {
         CGroupContext *ctx = ASSERT_PTR(userdata);
         CGroupInfo **cgroups;
@@ -167,17 +255,18 @@ static int cpu_usage_build_json(MetricFamilyContext *context, void *userdata) {
                 return 0; /* Skip metric on failure */
 
         FOREACH_ARRAY(c, cgroups, n_cgroups) {
-                uint64_t us;
-
-                r = cg_get_keyed_attribute_uint64((*c)->path, "cpu.stat", "usage_usec", &us);
-                if (r < 0)
+                if (ensure_cpu_stat_cached(*c) < 0)
                         continue;
 
-                r = metric_build_send_unsigned(
-                                context,
-                                (*c)->unit,
-                                us * NSEC_PER_USEC,
-                                /* fields= */ NULL);
+                r = cpu_usage_send_one(context, (*c)->unit, (*c)->cpu_total_nsec, "total");
+                if (r < 0)
+                        return r;
+
+                r = cpu_usage_send_one(context, (*c)->unit, (*c)->cpu_user_nsec, "user");
+                if (r < 0)
+                        return r;
+
+                r = cpu_usage_send_one(context, (*c)->unit, (*c)->cpu_system_nsec, "system");
                 if (r < 0)
                         return r;
         }
@@ -451,7 +540,7 @@ static const MetricFamily cgroup_metric_family_table[] = {
         /* Keep metrics ordered alphabetically */
         {
                 .name = METRIC_IO_SYSTEMD_CGROUP_PREFIX "CpuUsage",
-                .description = "Per unit metric: CPU usage in nanoseconds",
+                .description = "Per unit metric: CPU usage in nanoseconds (type=total|user|system)",
                 .type = METRIC_FAMILY_TYPE_COUNTER,
                 .generate = cpu_usage_build_json,
         },
