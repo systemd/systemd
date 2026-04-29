@@ -793,6 +793,42 @@ int exec_context_parse_working_directory(
         return 0;
 }
 
+int exec_context_apply_environment(
+                Unit *u,
+                ExecContext *c,
+                char **env,
+                UnitWriteFlags flags) {
+
+        assert(u);
+        assert(c);
+
+        if (!strv_env_is_valid(env))
+                return -EINVAL;
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                if (strv_isempty(env)) {
+                        c->environment = strv_free(c->environment);
+                        unit_write_setting(u, flags, "Environment", "Environment=");
+                } else {
+                        _cleanup_free_ char *joined = NULL;
+                        char **e;
+
+                        joined = unit_concat_strv(env, UNIT_ESCAPE_SPECIFIERS|UNIT_ESCAPE_C);
+                        if (!joined)
+                                return -ENOMEM;
+
+                        e = strv_env_merge(c->environment, env);
+                        if (!e)
+                                return -ENOMEM;
+
+                        strv_free_and_replace(c->environment, e);
+                        unit_write_settingf(u, flags, "Environment", "Environment=%s", joined);
+                }
+        }
+
+        return 0;
+}
+
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
         assert(c);
 
