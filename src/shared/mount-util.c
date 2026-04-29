@@ -1760,15 +1760,35 @@ static int sub_mount_compare(const SubMount *a, const SubMount *b) {
         return path_compare(a->path, b->path);
 }
 
-static void sub_mount_drop(SubMount *s, size_t n) {
-        assert(s || n == 0);
+static void sub_mount_drop(SubMount *s, size_t *n) {
+        assert(n);
+        assert(s || *n == 0);
 
-        for (size_t m = 0, i = 1; i < n; i++) {
-                if (path_startswith(s[i].path, s[m].path))
+        /* Works on a sorted array and drops mounts that are covered by the preceding entry's recursive
+         * open_tree() clone. It fills the holes from the dropping by moving the remaining entries forward. */
+
+        if (*n == 0)
+                return;
+
+        size_t kept = 1;
+        for (size_t i = 1; i < *n; i++) {
+                if (path_startswith(s[i].path, s[kept - 1].path))
+                        /* Create a hole by dropping */
                         sub_mount_clear(s + i);
-                else
-                        m = i;
+                else {
+                        /* To keep this entry we move it to the first hole if there is one. */
+                        if (kept != i) {
+                                s[kept] = s[i];
+                                /* Also clear the old slot, not strictly required because we either
+                                 * overwrite the hole in this loop or it is after the reduced new length
+                                 * which we set n to before we return. */
+                                s[i] = (SubMount) { .mount_fd = -EBADF };
+                        }
+                        kept++;
+                }
         }
+
+        *n = kept;
 }
 #endif
 
@@ -1843,7 +1863,7 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
         }
 
         typesafe_qsort(mounts, n, sub_mount_compare);
-        sub_mount_drop(mounts, n);
+        sub_mount_drop(mounts, &n);
 
         *ret_mounts = TAKE_PTR(mounts);
         *ret_n_mounts = n;
