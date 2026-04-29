@@ -431,7 +431,8 @@ static bool gpg_supports_auto_key_import(void) {
 
 static int verify_gpg(
                 const struct iovec *payload,
-                const struct iovec *signature) {
+                const struct iovec *signature,
+                const char *keyring_override) {
 
         _cleanup_close_pair_ int gpg_pipe[2] = EBADF_PAIR;
         _cleanup_(rm_rf_physical_and_freep) char *gpg_home = NULL;
@@ -503,9 +504,11 @@ static int verify_gpg(
 
                 cmd[k++] = strjoina("--homedir=", gpg_home);
 
+                if (keyring_override)
+                        cmd[k++] = strjoina("--keyring=", keyring_override);
                 /* We add the user keyring only to the command line arguments, if it's around since gpg fails
                  * otherwise. */
-                if (access(USER_KEYRING_PATH, F_OK) >= 0)
+                else if (access(USER_KEYRING_PATH, F_OK) >= 0)
                         cmd[k++] = "--keyring=" USER_KEYRING_PATH;
                 else if (access(USER_KEYRING_PATH_LEGACY, F_OK) >= 0)
                         cmd[k++] = "--keyring=" USER_KEYRING_PATH_LEGACY;
@@ -557,6 +560,7 @@ finish:
 }
 
 int pull_verify(ImportVerify verify,
+                const char *keyring_override,
                 PullJob *main_job,
                 PullJob *checksum_job,
                 PullJob *signature_job,
@@ -626,7 +630,7 @@ int pull_verify(ImportVerify verify,
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Signature is empty, cannot verify.");
 
-        return verify_gpg(&verify_job->payload, &signature_job->payload);
+        return verify_gpg(&verify_job->payload, &signature_job->payload, keyring_override);
 }
 
 int verification_style_from_url(const char *url, VerificationStyle *ret) {

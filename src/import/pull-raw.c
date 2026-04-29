@@ -39,6 +39,7 @@ typedef struct RawPull {
         ImportFlags flags;
         ImportVerify verify;
         char *image_root;
+        char *keyring_override;
 
         uint64_t offset;
 
@@ -99,6 +100,7 @@ RawPull* raw_pull_unref(RawPull *p) {
         free(p->roothash_signature_path);
         free(p->verity_path);
         free(p->image_root);
+        free(p->keyring_override);
         free(p->local);
 
         return mfree(p);
@@ -582,6 +584,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
                 raw_pull_report_progress(p, RAW_VERIFYING);
 
                 r = pull_verify(p->verify,
+                                p->keyring_override,
                                 p->raw_job,
                                 p->checksum_job,
                                 p->signature_job,
@@ -823,6 +826,7 @@ int raw_pull_start(
                 uint64_t size_max,
                 ImportFlags flags,
                 ImportVerify verify,
+                const char *keyring_override,
                 const struct iovec *checksum) {
 
         int r;
@@ -847,6 +851,10 @@ int raw_pull_start(
                 return -EBUSY;
 
         r = free_and_strdup(&p->local, local);
+        if (r < 0)
+                return r;
+
+        r = free_and_strdup(&p->keyring_override, keyring_override);
         if (r < 0)
                 return r;
 
