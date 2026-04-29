@@ -1,0 +1,281 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="storagectl"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>storagectl</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>storagectl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>storagectl</refname>
+    <refname>mount.storage</refname>
+    <refpurpose>Enumerate and mount storage volumes provided by storage providers</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>storagectl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
+      <arg choice="opt" rep="repeat">NAME</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>mount</command>
+      <arg choice="plain">-t</arg>
+      <arg choice="plain">storage</arg>
+      <arg choice="plain"><replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable></arg>
+      <arg choice="plain"><replaceable>DIRECTORY</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>mount</command>
+      <arg choice="plain">-t</arg>
+      <arg choice="plain">storage.<replaceable>FSTYPE</replaceable></arg>
+      <arg choice="plain"><replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable></arg>
+      <arg choice="plain"><replaceable>DIRECTORY</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>storagectl</command> may be used to inspect storage providers and the storage
+    volumes they expose. A storage provider is a service implementing the
+    <constant>io.systemd.StorageProvider</constant> <ulink url="https://varlink.org/">Varlink</ulink>
+    interface, registered as an AF_UNIX socket below the well-known socket directory
+    <filename>/run/systemd/io.systemd.StorageProvider/</filename> (in system mode) or
+    <varname>$XDG_RUNTIME_DIR</varname><filename>/systemd/io.systemd.StorageProvider/</filename> (in user mode). The two
+    storage providers shipped with systemd are
+    <citerefentry><refentrytitle>systemd-storage-block@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    which exposes the system's block devices, and
+    <citerefentry><refentrytitle>systemd-storage-fs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    which exposes regular files and directories from a backing file system.</para>
+
+    <para>The tool also provides a <citerefentry
+    project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> helper
+    for the file system type <literal>storage</literal>, which permits mounting storage volumes to arbitrary
+    places. See "Use as a mount helper" below for details.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><command>volumes</command> <optional><replaceable>GLOB</replaceable></optional></term>
+
+        <listitem><para>List storage volumes provided by all storage providers running on the
+        system (or, with <option>--user</option>, in the user runtime). The optional
+        <replaceable>GLOB</replaceable> argument is a shell-style pattern (see
+        <citerefentry project='man-pages'><refentrytitle>fnmatch</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
+        that filters the result by volume name. The output is a table containing the providing
+        service, the volume name, its type (<literal>blk</literal>, <literal>reg</literal> or
+        <literal>dir</literal>), whether it is read-only, and — if known — its size and the number
+        of bytes used.</para>
+
+        <para>This is the default command if none is specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>templates</command> <optional><replaceable>GLOB</replaceable></optional></term>
+
+        <listitem><para>List volume templates supported by the running storage providers. Templates
+        encapsulate a configuration to use when creating volumes on-the-fly, when they are acquired. Template
+        support is an optional feature for providers, and only applies to providers that allow creation
+        of volumes on-the-fly. See the respective provider documentation for details, for example
+        <citerefentry><refentrytitle>systemd-storage-fs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. The
+        optional <replaceable>GLOB</replaceable> argument filters by template name. Storage providers that do
+        not implement template-based volume creation (such as the block-device provider) do not contribute to
+        this output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>providers</command></term>
+
+        <listitem><para>List the storage providers known to the system. This is determined by scanning the
+        well-known socket directory for <constant>AF_UNIX</constant> sockets that look like
+        <constant>io.systemd.StorageProvider</constant> endpoints. For each provider it is also reported
+        whether the socket can currently be connected to.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--system</option></term>
+
+        <listitem><para>Operate on system-wide storage providers. Sockets are looked for in
+        <filename>/run/systemd/io.systemd.StorageProvider/</filename>. This is the default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--user</option></term>
+
+        <listitem><para>Operate on per-user storage providers. Sockets are looked for in
+        <filename>$XDG_RUNTIME_DIR/systemd/io.systemd.StorageProvider/</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="json" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Use as a mount helper</title>
+
+    <para>The tool provides the <command>/sbin/mount.storage</command> alias, implementing the
+    <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    "external helper" interface, allowing storage volumes to be mounted with the regular
+    <command>mount</command> command. The volume to mount is encoded as the source of the mount,
+    in the form
+    <literal><replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable></literal>, where
+    <replaceable>PROVIDER</replaceable> is the name of a storage provider (as listed by
+    <command>storagectl providers</command>) and <replaceable>VOLUME</replaceable> is the volume
+    name. Two file system type spellings are recognized:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>storage</literal></term>
+
+        <listitem><para>Acquires a directory volume and bind-mounts its directory tree onto the
+        target.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>storage.<replaceable>FSTYPE</replaceable></literal></term>
+
+        <listitem><para>Acquires a regular file or block device volume and mounts it as a file system of type
+        <replaceable>FSTYPE</replaceable> (for example <literal>storage.ext4</literal>,
+        <literal>storage.btrfs</literal>, …).</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The standard <option>-o</option> mount options are forwarded to
+    <command>mount</command>. In addition, the following <literal>storage.</literal>-prefixed
+    options are interpreted by <command>mount.storage</command> itself and stripped from the
+    forwarded list:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>storage.create=</option><replaceable>MODE</replaceable></term>
+
+        <listitem><para>Takes one of <literal>any</literal> (open if it exists, otherwise create — the
+        default), <literal>open</literal> (fail if the volume does not yet exist) or <literal>new</literal>
+        (fail if the volume already exists).</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>storage.template=</option><replaceable>NAME</replaceable></term>
+
+        <listitem><para>The template to use when creating a new volume, if it is missing and the provider
+        supports on-the-fly creation of volumes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>storage.create-size=</option><replaceable>BYTES</replaceable></term>
+
+        <listitem><para>When creating a new volume on-the-fly, the size in bytes to allocate. Accepts the
+        usual <literal>K</literal>/<literal>M</literal>/<literal>G</literal>/<literal>T</literal> suffixes
+        (base 1024). Required when creating a regular file volume.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Enumerate available storage providers, volumes and templates</title>
+
+      <programlisting>$ storagectl providers
+$ storagectl volumes
+$ storagectl volumes '*foo*'
+$ storagectl templates</programlisting>
+    </example>
+
+    <example>
+      <title>Mount a directory volume from the file system provider</title>
+
+      <programlisting># mount -t storage fs:myvol /mnt/myvol</programlisting>
+
+      <para>If the volume <literal>myvol</literal> does not yet exist, it will be created using
+      the default <literal>subvolume</literal> template.</para>
+    </example>
+
+    <example>
+      <title>Create and mount an ext4 file system from a regular file.</title>
+
+      <programlisting># mount -t storage.ext4 fs:scratch /mnt/scratch -o loop</programlisting>
+    </example>
+
+    <example>
+      <title>Mount a block device volume read-only</title>
+
+      <programlisting># mount -t storage.ext4 -o ro block:/dev/disk/by-id/usb-foo /mnt/foo</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <xi:include href="common-variables.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-storage-block@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-storage-fs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
