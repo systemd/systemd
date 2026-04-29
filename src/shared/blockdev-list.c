@@ -27,7 +27,7 @@ void block_device_done(BlockDevice *d) {
 void block_device_array_free(BlockDevice *d, size_t n_devices) {
 
         FOREACH_ARRAY(i, d, n_devices)
-                block_device_done(d);
+                block_device_done(i);
 
         free(d);
 }
