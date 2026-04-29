@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
+#include "sd-varlink.h"
 
 #include "bus-common-errors.h"
 #include "cpu-set-util.h"
@@ -18,6 +19,8 @@ const char* varlink_error_id_from_bus_error(const sd_bus_error *e) {
                 { BUS_ERROR_NO_SUCH_UNIT,       VARLINK_ERROR_UNIT_NO_SUCH_UNIT       },
                 { BUS_ERROR_ONLY_BY_DEPENDENCY, VARLINK_ERROR_UNIT_ONLY_BY_DEPENDENCY },
                 { BUS_ERROR_SHUTTING_DOWN,      VARLINK_ERROR_UNIT_DBUS_SHUTTING_DOWN },
+                { BUS_ERROR_UNIT_EXISTS,        VARLINK_ERROR_UNIT_UNIT_EXISTS        },
+                { BUS_ERROR_BAD_UNIT_SETTING,   VARLINK_ERROR_UNIT_BAD_SETTING        },
         };
 
         if (!sd_bus_error_is_set(e))
@@ -28,6 +31,13 @@ const char* varlink_error_id_from_bus_error(const sd_bus_error *e) {
                         return i->varlink_error;
 
         return NULL;
+}
+
+int varlink_reply_bus_error(sd_varlink *link, int r, const sd_bus_error *e) {
+        const char *error_id = varlink_error_id_from_bus_error(e);
+        if (error_id)
+                return sd_varlink_error(link, error_id, NULL);
+        return sd_varlink_error_errno(link, r);
 }
 
 int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata) {
