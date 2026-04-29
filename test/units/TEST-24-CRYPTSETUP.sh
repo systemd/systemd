@@ -34,16 +34,34 @@ trap at_exit EXIT
 cryptsetup_start_and_check() {
     local expect_fail=0
     local umount_header_and_key=0
+    local check_fs_header=0
+    local expect_no_fs_header=0
     local ec volume unit
 
-    if [[ "${1:?}" == "-f" ]]; then
-        expect_fail=1
-        shift
-    fi
+    while (($# > 0)); do
+        case "$1" in
+            -f)
+                expect_fail=1
+                shift
+                ;;
+            -u)
+                umount_header_and_key=1
+                shift
+                ;;
+            -h)
+                check_fs_header=1
+                shift
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
 
-    if [[ "${1:?}" == "-u" ]]; then
-        umount_header_and_key=1
-        shift
+    if [[ "$expect_fail" -ne 0 && "$check_fs_header" -ne 0 ]]; then
+        # If we expect a failure and we are checking for a fs header - we expect no fs header
+        expect_no_fs_header=1
+        expect_fail=0
     fi
 
     for volume in "$@"; do
@@ -74,13 +92,31 @@ cryptsetup_start_and_check() {
             udevadm settle --timeout=60
         fi
 
+        ec=0
+        if [[ "$check_fs_header" -ne 0 ]]; then
+            blkid "/dev/mapper/$volume" || {
+                if [[ "$expect_no_fs_header" -ne 0 ]]; then
+                    echo "[INFO] blkid failed for /dev/mapper/$volume as expected"
+                    ec=0
+                else
+                    echo >&2 "blkid failed for /dev/mapper/$volume"
+                    ec=1
+                fi
+            }
+        fi
+
         systemctl status "$unit"
         test -e "/dev/mapper/$volume"
         systemctl stop "$unit"
         test ! -e "/dev/mapper/$volume"
+
+        if [[ "$ec" -ne 0 ]]; then
+            echo >&2 "Test failed for $unit"
+            break
+        fi
     done
 
-    return 0
+    return $ec
 }
 
 # Note: some stuff (especially TPM-related) is already tested by TEST-70-TPM2,
@@ -136,6 +172,15 @@ cryptsetup luksAddKey --batch-mode \
                       --keyfile-size 16 \
                       --key-slot 8 \
                       "$IMAGE_DETACHED" "$IMAGE_DETACHED_KEYFILE2"
+
+# Add an fs signature to the detached mapping.
+cryptsetup open "$IMAGE_DETACHED" detached_fs_init \
+    --header "$IMAGE_DETACHED_HEADER" \
+    --key-file "$IMAGE_DETACHED_KEYFILE" \
+    --keyfile-offset 32 \
+    --keyfile-size 16
+mkfs.ext4 -F /dev/mapper/detached_fs_init
+cryptsetup close detached_fs_init
 
 # Prepare a couple of dummy devices we'll store a copy of the detached header
 # and one of the keys on to test if systemd-cryptsetup correctly mounts them
@@ -198,6 +243,7 @@ detached_slot0       $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE2        headless=1,
 detached_slot1       $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE2        headless=1,header=$IMAGE_DETACHED_HEADER,key-slot=8
 detached_slot_fail   $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE2        headless=1,header=$IMAGE_DETACHED_HEADER,key-slot=0
 detached_nofail      $IMAGE_DETACHED $TMPFS_DETACHED_KEYFILE/keyfile headless=1,header=$TMPFS_DETACHED_HEADER/header,keyfile-offset=32,keyfile-size=16,nofail
+detached_wipe        $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE         headless=1,header=$IMAGE_DETACHED_HEADER,keyfile-offset=32,keyfile-size=16,wipe
 EOF
 
 # Temporarily drop luks.name=/luks.uuid= from the kernel command line, as it makes
@@ -269,6 +315,8 @@ cryptsetup_start_and_check -f detached_fail{0..4}
 cryptsetup_start_and_check detached_slot{0..1}
 cryptsetup_start_and_check -f detached_slot_fail
 cryptsetup_start_and_check -u detached_nofail
+cryptsetup_start_and_check -h detached
+cryptsetup_start_and_check -h -f detached_wipe
 
 systemd-cryptenroll --list-devices
 
