@@ -421,10 +421,12 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 /* ExecContext */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 WorkingDirectory,
-                SD_VARLINK_FIELD_COMMENT("The path to the working directory"),
-                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The path to the working directory. Mutually exclusive with 'home'"),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, use the configured user's home directory as the working directory. Mutually exclusive with 'path'"),
+                SD_VARLINK_DEFINE_FIELD(home, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether the path to the working directory is allowed to not exist"),
-                SD_VARLINK_DEFINE_FIELD(missingOK, SD_VARLINK_BOOL, 0));
+                SD_VARLINK_DEFINE_FIELD(missingOK, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 PartitionMountOptions,
@@ -1010,8 +1012,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 /* UnitContext is used both as input to StartTransient (subset settable at creation time: ID,
- * Description, Service) and as output from List/StartTransient (full unit configuration). Fields that
- * are not settable at creation time are rejected with PropertyNotSupported when supplied as input. */
+ * Description, Service, and the Exec subset {WorkingDirectory}) and as output from
+ * List/StartTransient (full unit configuration). Fields that are not settable at creation time are
+ * rejected with PropertyNotSupported when supplied as input. */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitContext,
                 SD_VARLINK_FIELD_COMMENT("The unit type"),
