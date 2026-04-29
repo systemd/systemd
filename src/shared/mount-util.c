@@ -1843,9 +1843,24 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                         continue;
                 }
 
-                mount_fd = RET_NERRNO(open_tree(AT_FDCWD, path, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE));
+                /* If possible on a newer kernel, use MS_PRIVATE to decouple it from the original
+                 * mount. Otherwise MNT_DETACH of the source path could propagate through and
+                 * unmount the just-moved nested children at the destination (relevant for
+                 * preserving nested mounts under sysext hierarchies). */
+                mount_fd = open_tree_attr_with_fallback(
+                                AT_FDCWD, path,
+                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE,
+                                &(struct mount_attr) { .propagation = MS_PRIVATE });
                 if (mount_fd == -ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
                         continue;
+                if (mount_fd < 0 && ERRNO_IS_NEG_NOT_SUPPORTED(mount_fd)) {
+                        /* On a kernel older than 5.12 without mount_setattr() we do the regular clone.
+                         * This means nested mounts under sysext and similar cases may get lost. */
+                        log_debug_errno(mount_fd, "open_tree_attr() not supported, retrying open_tree() without setting MS_PRIVATE: %m");
+                        mount_fd = RET_NERRNO(open_tree(AT_FDCWD, path, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE));
+                        if (mount_fd == -ENOENT)
+                                continue;
+                }
                 if (mount_fd < 0)
                         return log_debug_errno(mount_fd, "Failed to open subtree of mounted filesystem '%s': %m", path);
 
