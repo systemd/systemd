@@ -621,13 +621,17 @@ result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
 echo "$result" | jq -e '.context.Service.ExecStart[0].arguments == ["/bin/true"]'
 timeout 30 bash -c 'until systemctl is-active varlink-transient-noargs.service; do sleep 0.5; done'
 
-# Exec.WorkingDirectory
+# Exec.WorkingDirectory and Exec.Environment
 defer_transient_cleanup varlink-transient-exec.service
 result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-exec.service","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+    '{"context":{"ID":"varlink-transient-exec.service","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false},"Environment":["FOO=bar","BAZ=qux"]},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
 echo "$result" | jq -e '.context.Exec.WorkingDirectory.path == "/tmp"'
+echo "$result" | jq -e '.context.Exec.Environment | index("FOO=bar") != null'
+echo "$result" | jq -e '.context.Exec.Environment | index("BAZ=qux") != null'
 timeout 30 bash -c 'until systemctl is-active varlink-transient-exec.service; do sleep 0.5; done'
 systemctl show -P WorkingDirectory varlink-transient-exec.service | grep '^/tmp$' >/dev/null
+systemctl show -P Environment varlink-transient-exec.service | grep 'FOO=bar' >/dev/null
+systemctl show -P Environment varlink-transient-exec.service | grep 'BAZ=qux' >/dev/null
 
 # WorkingDirectory with missingOK=true (path does not exist but unit still starts)
 defer_transient_cleanup varlink-transient-wd-missing.service
@@ -659,6 +663,10 @@ varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
 defer_transient_cleanup varlink-transient-bad-wd.service
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-bad-wd.service","Exec":{"WorkingDirectory":{"path":"relative/path","missingOK":false}},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
+# Malformed environment entry (not KEY=VALUE)
+defer_transient_cleanup varlink-transient-bad-env.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-bad-env.service","Exec":{"Environment":["not_an_env_var"]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
 # Exec on a unit type without an exec context (.target) is rejected
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-exec.target","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false}}}}' |& grep "io.systemd.Unit.UnitTypeNotSupported"
