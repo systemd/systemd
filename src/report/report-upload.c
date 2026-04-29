@@ -218,7 +218,11 @@ static int execute_dir_reply(
         if (error_id) {
                 r = sd_varlink_error_to_errno(error_id, reply);
                 RET_GATHER(context->upload_result, r);
-                return log_error_errno(r, "Upload via Varlink failed: %s", error_id);
+                log_error_errno(r, "Upload via Varlink failed: %s", error_id);
+                if (reply)
+                        (void) sd_json_variant_dump(reply, arg_json_format_flags,
+                                                    /* f= */ NULL, /* prefix= */ NULL);
+                return r;
         }
 
         printf("Upload via Varlink was successful; reply: ");
