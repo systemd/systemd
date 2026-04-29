@@ -409,10 +409,18 @@ static int verify_gpg(
         _cleanup_(rm_rf_physical_and_freep) char *gpg_home = NULL;
         char sig_file_path[] = "/tmp/sigXXXXXX";
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        const char *keyring_override;
         int r;
 
         assert(iovec_is_valid(payload));
         assert(iovec_is_valid(signature));
+
+        /* Support using a custom keyring, see docs/ENVIRONMENT.md. */
+        keyring_override = empty_to_null(secure_getenv("SYSTEMD_OPENPGP_KEYRING"));
+        if (keyring_override && !(path_is_absolute(keyring_override) && path_is_normalized(keyring_override)))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "$SYSTEMD_OPENPGP_KEYRING must be an absolute, normalized path, got '%s'.",
+                                       keyring_override);
 
         r = pipe2(gpg_pipe, O_CLOEXEC);
         if (r < 0)
@@ -468,9 +476,11 @@ static int verify_gpg(
 
                 cmd[k++] = strjoina("--homedir=", gpg_home);
 
-                /* We add the user keyring only to the command line arguments, if it's around since gpg fails
-                 * otherwise. */
-                if (access(USER_KEYRING_PATH, F_OK) >= 0)
+                if (keyring_override)
+                        cmd[k++] = strjoina("--keyring=", keyring_override);
+                else if (access(USER_KEYRING_PATH, F_OK) >= 0) /* We add the user keyring only to the
+                                                                * command line arguments, if it's around
+                                                                * since gpg fails otherwise. */
                         cmd[k++] = "--keyring=" USER_KEYRING_PATH;
                 else if (access(USER_KEYRING_PATH_LEGACY, F_OK) >= 0)
                         cmd[k++] = "--keyring=" USER_KEYRING_PATH_LEGACY;
