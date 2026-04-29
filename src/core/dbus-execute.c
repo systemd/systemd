@@ -3262,28 +3262,18 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!isempty(s)) {
-                        if (s[0] == '-') {
-                                missing_ok = true;
-                                s++;
-                        }
-
-                        if (streq(s, "~"))
-                                is_home = true;
-                        else {
-                                if (!path_is_absolute(s))
-                                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
-                                                                "WorkingDirectory= expects an absolute path or '~'");
-
-                                r = path_simplify_alloc(s, &simplified);
-                                if (r < 0)
-                                        return r;
-
-                                if (!path_is_normalized(simplified))
-                                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
-                                                                "WorkingDirectory= expects a normalized path or '~'");
-                        }
+                if (!isempty(s) && s[0] == '-') {
+                        missing_ok = true;
+                        s++;
                 }
+
+                const char *err = NULL;
+                r = exec_context_parse_working_directory(s, &simplified, &is_home, &err);
+                if (r == -EINVAL)
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "WorkingDirectory= %s", err);
+                if (r < 0)
+                        return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         free_and_replace(c->working_directory, simplified);
