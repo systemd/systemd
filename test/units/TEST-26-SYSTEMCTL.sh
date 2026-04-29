@@ -621,6 +621,27 @@ result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
 echo "$result" | jq -e '.context.Service.ExecStart[0].arguments == ["/bin/true"]'
 timeout 30 bash -c 'until systemctl is-active varlink-transient-noargs.service; do sleep 0.5; done'
 
+# Exec.WorkingDirectory
+defer_transient_cleanup varlink-transient-exec.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-exec.service","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.Exec.WorkingDirectory.path == "/tmp"'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-exec.service; do sleep 0.5; done'
+systemctl show -P WorkingDirectory varlink-transient-exec.service | grep '^/tmp$' >/dev/null
+
+# WorkingDirectory with missingOK=true (path does not exist but unit still starts)
+defer_transient_cleanup varlink-transient-wd-missing.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-wd-missing.service","Exec":{"WorkingDirectory":{"path":"/nonexistent/path","missingOK":true}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-wd-missing.service; do sleep 0.5; done'
+
+# WorkingDirectory with "~" (home), missingOK omitted (defaults to false)
+defer_transient_cleanup varlink-transient-wd-home.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-wd-home.service","Exec":{"WorkingDirectory":{"path":"~"}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-wd-home.service; do sleep 0.5; done'
+systemctl show -P WorkingDirectory varlink-transient-wd-home.service | grep '^~$' >/dev/null
+
 # Error cases: verify specific varlink error types
 set +o pipefail
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
@@ -634,6 +655,17 @@ varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
 defer_transient_cleanup varlink-transient-badpath.service
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-badpath.service","Service":{"Type":"simple","ExecStart":[{"path":""}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
+# Relative WorkingDirectory path is rejected
+defer_transient_cleanup varlink-transient-bad-wd.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-bad-wd.service","Exec":{"WorkingDirectory":{"path":"relative/path","missingOK":false}},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
+# Exec on a unit type without an exec context (.target) is rejected
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-exec.target","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false}}}}' |& grep "io.systemd.Unit.UnitTypeNotSupported"
+# Unknown field in Exec is rejected as PropertyNotSupported
+defer_transient_cleanup varlink-transient-unknown-exec.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-unknown-exec.service","Exec":{"RootDirectory":"/tmp"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.PropertyNotSupported"
 set -o pipefail
 
 transient_cleanup
