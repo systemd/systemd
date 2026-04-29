@@ -56,6 +56,9 @@ EOF
 
 systemctl daemon-reload
 
+SIGTEST_GPGHOME=
+SIGTEST_OTHERHOME=
+
 at_exit() {
     set +e
 
@@ -66,6 +69,13 @@ at_exit() {
     losetup -n --output NAME --associated "$BACKING_FILE" | while read -r loop_dev; do
         losetup --detach "$loop_dev"
     done
+
+    if [ "$SIGTEST_GPGHOME" != "" ]; then
+        gpgconf --homedir "$SIGTEST_GPGHOME" --kill all 2>/dev/null
+    fi
+    if [ "$SIGTEST_OTHERHOME" != "" ]; then
+        gpgconf --homedir "$SIGTEST_OTHERHOME" --kill all 2>/dev/null
+    fi
 
     rm -rf "$WORKDIR"
 }
@@ -1080,5 +1090,106 @@ systemctl daemon-reload
 rm -rf "$CONFIGDIR" "$WORKDIR/blobs"
 rm -f "$WORKDIR/source/notifytest-v1.bin" "$WORKDIR/source/SHA256SUMS" \
       "$WORKDIR/notify-recorder.py" "$NOTIFY_LOG"
+
+test_signature_verification() {
+    if ! command -v gpg >/dev/null; then
+        echo "gpg not available, skipping signature verification test"
+        return 0
+    fi
+
+    # Checking for --auto-key-import is not enough because the merge-only/import-clean guarantee we rely on
+    # only works correctly with gpg 2.4
+    local gpg_version gpg_rest
+    gpg_version="$(gpg --version | sed -n '1p' | awk '{print $NF}')"
+    gpg_rest="${gpg_version#*.}"
+    if [ "${gpg_version%%.*}" -lt 2 ] || { [ "${gpg_version%%.*}" -eq 2 ] && [ "${gpg_rest%%.*}" -lt 4 ]; }; then
+        echo "gpg $gpg_version too old (need >= 2.4), skipping signature verification test"
+        return 0
+    fi
+
+    local sigdir="$WORKDIR/sigtest-source"
+    local defdir="$WORKDIR/sigtest-defs"
+    local gpghome="$WORKDIR/sigtest-gpghome"
+    local other_home="$WORKDIR/sigtest-otherhome"
+    local target="$WORKDIR/sigtest-target"
+    local keyring="$WORKDIR/sigtest-keyring"
+    local top_fpr keys
+
+    SIGTEST_GPGHOME="$gpghome"
+    SIGTEST_OTHERHOME="$other_home"
+
+    mkdir -p "$sigdir" "$defdir" "$gpghome" "$other_home" "$target"
+    chmod 700 "$gpghome" "$other_home"
+
+    GNUPGHOME="$gpghome" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --quick-gen-key 'Test Key <test@example.com>' rsa2048 cert,sign never
+    # Capture gpg output first, then grep from a here-string to avoid grep -m1 causing a SIGPIPE
+    keys="$(GNUPGHOME="$gpghome" gpg --list-keys --with-colons)"
+    top_fpr="$(grep -m1 '^fpr:' <<< "$keys" | cut -d: -f10)"
+    test "$top_fpr" != ""
+
+    GNUPGHOME="$gpghome" gpg --export --output "$keyring"
+
+    dd if=/dev/urandom of="$sigdir/payload-v1.raw" bs=1024 count=8 status=none
+    (cd "$sigdir" && sha256sum payload-v1.raw > SHA256SUMS)
+    GNUPGHOME="$gpghome" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --detach-sign --include-key-block --yes \
+        --output "$sigdir/SHA256SUMS.gpg" "$sigdir/SHA256SUMS"
+
+    cat >"$defdir/01-sigtest.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$sigdir
+MatchPattern=payload-@v.raw
+
+[Target]
+Type=regular-file
+Path=$target
+MatchPattern=payload-@v.raw
+InstancesMax=3
+EOF
+
+    SYSTEMD_OPENPGP_KEYRING="$keyring" "$SYSUPDATE" --definitions="$defdir" check-new
+    SYSTEMD_OPENPGP_KEYRING="$keyring" "$SYSUPDATE" --definitions="$defdir" update
+    cmp "$sigdir/payload-v1.raw" "$target/payload-v1.raw"
+
+    # Negative test: Sign with a key not in the keyring
+    GNUPGHOME="$other_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --quick-gen-key 'Other Key <other@example.com>' rsa2048 cert,sign never
+    dd if=/dev/urandom of="$sigdir/payload-v2.raw" bs=1024 count=8 status=none
+    (cd "$sigdir" && sha256sum payload-v1.raw payload-v2.raw > SHA256SUMS)
+    GNUPGHOME="$other_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --detach-sign --include-key-block --yes \
+        --output "$sigdir/SHA256SUMS.gpg" "$sigdir/SHA256SUMS"
+    if SYSTEMD_OPENPGP_KEYRING="$keyring" "$SYSUPDATE" --definitions="$defdir" update; then
+        echo "ERROR: accepted an update signed by a key not in the keyring" >&2
+        exit 1
+    fi
+    if [ -f "$target/payload-v2.raw" ]; then
+        echo "ERROR: payload-v2 should not have been installed" >&2
+        exit 1
+    fi
+
+    # Sub key test: Add a sub key the client does not have and rely on gpg
+    # --auto-key-import to get it from the signature.
+    GNUPGHOME="$gpghome" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --quick-add-key "$top_fpr" rsa2048 sign 1y
+    # Make it so that only the sub key is available for signing to avoid having
+    # to select it by fingerprint.
+    GNUPGHOME="$gpghome" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --output "$WORKDIR/sigtest-subkey-secret.gpg" \
+        --export-secret-subkeys
+    GNUPGHOME="$gpghome" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --yes --delete-secret-keys "$top_fpr"
+    GNUPGHOME="$gpghome" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --import "$WORKDIR/sigtest-subkey-secret.gpg"
+    GNUPGHOME="$gpghome" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --detach-sign --include-key-block --yes \
+        --output "$sigdir/SHA256SUMS.gpg" "$sigdir/SHA256SUMS"
+    SYSTEMD_OPENPGP_KEYRING="$keyring" "$SYSUPDATE" --definitions="$defdir" update
+    cmp "$sigdir/payload-v2.raw" "$target/payload-v2.raw"
+}
+
+test_signature_verification
 
 touch /testok
