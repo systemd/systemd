@@ -495,6 +495,7 @@ static int json_dispatch_locales(const char *name, sd_json_variant *variant, sd_
         char ***l = userdata;
         const char *locale;
         sd_json_variant *e;
+        size_t s = 0;
         int r;
 
         if (sd_json_variant_is_null(variant)) {
@@ -513,7 +514,7 @@ static int json_dispatch_locales(const char *name, sd_json_variant *variant, sd_
                 if (!locale_is_valid(locale))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of valid locales.", strna(name));
 
-                r = strv_extend(&n, locale);
+                r = strv_extend_with_size(&n, &s, locale);
                 if (r < 0)
                         return json_log_oom(variant, flags);
         }
@@ -570,6 +571,7 @@ static int json_dispatch_weight(const char *name, sd_json_variant *variant, sd_j
 int json_dispatch_user_group_list(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char ***list = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
+        size_t s = 0;
         int r;
 
         if (!sd_json_variant_is_array(variant))
@@ -583,7 +585,7 @@ int json_dispatch_user_group_list(const char *name, sd_json_variant *variant, sd
                 if (!valid_user_group_name(sd_json_variant_string(e), FLAGS_SET(flags, SD_JSON_RELAX) ? VALID_USER_RELAX : 0))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a valid user/group name: %s", sd_json_variant_string(e));
 
-                r = strv_extend(&l, sd_json_variant_string(e));
+                r = strv_extend_with_size(&l, &s, sd_json_variant_string(e));
                 if (r < 0)
                         return json_log(e, flags, r, "Failed to append array element: %m");
         }
