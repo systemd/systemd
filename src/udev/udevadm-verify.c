@@ -51,7 +51,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
         OptionParser opts = { argc, argv, .namespace = "udevadm-verify" };
 
-        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_NAMESPACE("udevadm-verify"): {}

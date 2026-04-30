@@ -179,7 +179,7 @@ static int parse_argv(int argc, char *argv[], UdevConfig *config) {
 
         OptionParser opts = { argc, argv, OPTION_PARSER_NORMAL, "udevd" };
 
-        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_NAMESPACE("udevd"): {}

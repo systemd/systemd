@@ -430,7 +430,7 @@ static int parse_args(int argc, char *argv[], const char **syspath, const char *
 
         OptionParser opts = { argc, argv };
 
-        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
