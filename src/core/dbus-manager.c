@@ -1240,6 +1240,14 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
 
         /* Anyone can call this method */
 
+        if (strv_length(states) > MANAGER_MAX_STATES_PER_CALL)
+                return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many states in a single query.");
+
+        if (strv_length(patterns) > MANAGER_MAX_PATTERNS_PER_CALL)
+                return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many patterns in a single query.");
+
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
                 return r;
@@ -1422,6 +1430,10 @@ static int dump_impl(
         int r;
 
         assert(message);
+
+        if (strv_length(patterns) > MANAGER_MAX_PATTERNS_PER_CALL)
+                return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many patterns in a single query.");
 
         /* 'status' access is the bare minimum always needed for this, as the policy might straight out
          * forbid a client from querying any information from systemd, regardless of any rate limiting. */
@@ -2160,6 +2172,14 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         assert(message);
 
         /* Anyone can call this method */
+
+        if (strv_length(states) > MANAGER_MAX_STATES_PER_CALL)
+                return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many states in a single query.");
+
+        if (strv_length(patterns) > MANAGER_MAX_PATTERNS_PER_CALL)
+                return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many patterns in a single query.");
 
         r = mac_selinux_access_check(message, "status", error);
         if (r < 0)
