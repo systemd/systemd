@@ -842,7 +842,10 @@ static void test_macros_parse_one(
 
         OptionParser opts = { argc, argv, mode, namespace };
 
-        FOREACH_OPTION(c, &opts, assert_not_reached()) {
+        FOREACH_OPTION(c, &opts) {
+
+                assert(c >= 0);
+
                 log_debug("%c %s: %s=%s",
                           opts.opt->short_code != 0 ? opts.opt->short_code : ' ',
                           opts.opt->long_code ?: "",
