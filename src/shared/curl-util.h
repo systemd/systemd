@@ -18,14 +18,6 @@ extern DLSYM_PROTOTYPE(curl_easy_strerror);
 extern DLSYM_PROTOTYPE(curl_easy_header);
 #endif
 extern DLSYM_PROTOTYPE(curl_getdate);
-extern DLSYM_PROTOTYPE(curl_multi_add_handle);
-extern DLSYM_PROTOTYPE(curl_multi_assign);
-extern DLSYM_PROTOTYPE(curl_multi_cleanup);
-extern DLSYM_PROTOTYPE(curl_multi_info_read);
-extern DLSYM_PROTOTYPE(curl_multi_init);
-extern DLSYM_PROTOTYPE(curl_multi_remove_handle);
-extern DLSYM_PROTOTYPE(curl_multi_setopt);
-extern DLSYM_PROTOTYPE(curl_multi_socket_action);
 extern DLSYM_PROTOTYPE(curl_slist_append);
 extern DLSYM_PROTOTYPE(curl_slist_free_all);
 
@@ -66,7 +58,6 @@ int curl_parse_http_time(const char *t, usec_t *ret);
 int curl_append_to_header(struct curl_slist **list, char **headers);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(CURL*, sym_curl_easy_cleanup, curl_easy_cleanupp, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(CURLM*, sym_curl_multi_cleanup, curl_multi_cleanupp, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct curl_slist*, sym_curl_slist_free_all, curl_slist_free_allp, NULL);
 
 #endif

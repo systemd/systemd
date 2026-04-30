@@ -29,16 +29,18 @@ DLSYM_PROTOTYPE(curl_easy_strerror) = NULL;
 DLSYM_PROTOTYPE(curl_easy_header) = NULL;
 #endif
 DLSYM_PROTOTYPE(curl_getdate) = NULL;
-DLSYM_PROTOTYPE(curl_multi_add_handle) = NULL;
-DLSYM_PROTOTYPE(curl_multi_assign) = NULL;
-DLSYM_PROTOTYPE(curl_multi_cleanup) = NULL;
-DLSYM_PROTOTYPE(curl_multi_info_read) = NULL;
-DLSYM_PROTOTYPE(curl_multi_init) = NULL;
-DLSYM_PROTOTYPE(curl_multi_remove_handle) = NULL;
-DLSYM_PROTOTYPE(curl_multi_setopt) = NULL;
-DLSYM_PROTOTYPE(curl_multi_socket_action) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_add_handle) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_assign) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_cleanup) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_info_read) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_init) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_remove_handle) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_setopt) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_socket_action) = NULL;
 DLSYM_PROTOTYPE(curl_slist_append) = NULL;
 DLSYM_PROTOTYPE(curl_slist_free_all) = NULL;
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(CURLM*, sym_curl_multi_cleanup, curl_multi_cleanupp, NULL);
 
 static void curl_glue_check_finished(CurlGlue *g) {
         int r;
