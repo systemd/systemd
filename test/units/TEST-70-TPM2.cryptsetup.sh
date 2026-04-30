@@ -224,4 +224,10 @@ EOF
     rmdir /tmp/dditest
 fi
 
-rm -f "$IMAGE" "$PRIMARY"
+# Key file can contain a TPM blob but in case it doesn't fallback should also work.
+PASSWORD_FILE="$(mktemp /tmp/systemd-cryptsetup-XXX.PASSWORD)"
+echo -n passphrase > "$PASSWORD_FILE"
+systemd-cryptsetup attach test-volume "$IMAGE" "$PASSWORD_FILE" tpm2-device=auto,headless=1
+systemd-cryptsetup detach test-volume
+
+rm -f "$IMAGE" "$PRIMARY" "$PASSWORD_FILE"
