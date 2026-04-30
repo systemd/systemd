@@ -1402,6 +1402,8 @@ static int install_boot_option(
                 InstallContext *c,
                 const char *path,
                 const char *description,
+                bool require_existing,
+                uint16_t after_slot,
                 uint16_t *ret_slot) {
 
         uint16_t slot;
@@ -1425,9 +1427,9 @@ static int install_boot_option(
                         CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_REGULAR,
                         F_OK,
                         /* ret_path= */ NULL);
-        if (r == -ENOENT)
+        if (r == -ENOENT && require_existing)
                 return 0;
-        if (r < 0)
+        if (r < 0 && r != -ENOENT)
                 return log_error_errno(r, "Cannot access \"%s/%s\": %m", j, skip_leading_slash(path));
 
         r = find_slot(c->esp_uuid, path, &slot);
@@ -1468,7 +1470,7 @@ static int install_boot_option(
                          description);
         }
 
-        r = insert_into_order(c, slot, /* after_slot= */ UINT16_MAX);
+        r = insert_into_order(c, slot, after_slot);
         if (r < 0)
                 return r;
 
@@ -1586,6 +1588,38 @@ static int load_secure_boot_auto_enroll(
 }
 #endif
 
+static int install_variables(InstallContext *c, const char *arch) {
+        int r;
+
+        assert(c);
+
+        char *path = strjoina("/EFI/systemd/systemd-boot", arch, ".efi");
+
+        _cleanup_free_ char *description = NULL;
+        r = pick_efi_boot_option_description(c->esp_fd, &description);
+        if (r < 0)
+                return r;
+
+        uint16_t primary_slot = UINT16_MAX;
+        r = install_boot_option(c, path, description, /* require_existing= */ true, /* after_slot= */ UINT16_MAX, &primary_slot);
+        if (r < 0)
+                return r;
+        /* If primary registration was skipped (e.g. binary not on ESP), skip the fallback too
+         * or else it would land at position 0 in BootOrder with no primary ahead of it. */
+        if (primary_slot == UINT16_MAX)
+                return 0;
+
+        char *fallback_path = strjoina("/EFI/systemd/systemd-boot-fallback", arch, ".efi");
+
+        _cleanup_free_ char *fallback_description = NULL;
+        if (!strextend(&fallback_description, "Fallback ", description))
+                return log_oom();
+
+        strshorten(fallback_description, EFI_BOOT_OPTION_DESCRIPTION_MAX);
+
+        return install_boot_option(c, fallback_path, fallback_description, /* require_existing= */ false, /* after_slot= */ primary_slot, /* ret_slot= */ NULL);
+}
+
 static int run_install(InstallContext *c) {
         int r;
 
@@ -1682,14 +1716,7 @@ static int run_install(InstallContext *c) {
                 return 0;
         }
 
-        char *path = strjoina("/EFI/systemd/systemd-boot", arch, ".efi");
-
-        _cleanup_free_ char *description = NULL;
-        r = pick_efi_boot_option_description(c->esp_fd, &description);
-        if (r < 0)
-                return r;
-
-        return install_boot_option(c, path, description, /* ret_slot= */ NULL);
+        return install_variables(c, arch);
 }
 
 int verb_install(int argc, char *argv[], uintptr_t _data, void *userdata) {
