@@ -991,6 +991,38 @@ int mstack_make_mounts(
         return 0;
 }
 
+/* Extracted to make it reusable later. */
+int mstack_apply_bind_mounts(
+                MStack *mstack,
+                int root_fd,
+                const char *where) {
+        int r;
+
+        assert(mstack);
+        assert(root_fd >= 0);
+        assert(where);
+
+        FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts) {
+                if (!IN_SET(m->mount_type, MSTACK_BIND, MSTACK_ROBIND) ||
+                    m == mstack->root_mount)
+                        continue;
+
+                assert(m->mount_fd >= 0);
+
+                _cleanup_close_ int subdir_fd = -EBADF;
+                r = chaseat(root_fd, root_fd, m->where, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to open mount point inode '%s': %m", m->where);
+
+                if (move_mount(m->mount_fd, "", subdir_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH) < 0)
+                        return log_debug_errno(errno, "Failed to attach bind mount to '%s' subdir: %m", m->where);
+
+                log_debug("Attached mstack '%s/' mount to '%s/%s/'.", m->where, where, m->where);
+        }
+
+        return 0;
+}
+
 int mstack_bind_mounts(
                 MStack *mstack,
                 const char *where,
@@ -1042,23 +1074,11 @@ int mstack_bind_mounts(
                 log_debug("Attached mstack '/usr/' mount to '%s/usr/'.", where);
         }
 
-        FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts) {
-
-                if (!IN_SET(m->mount_type, MSTACK_BIND, MSTACK_ROBIND) ||
-                    m == mstack->root_mount)
-                        continue;
-
-                assert(m->mount_fd >= 0);
-
-                _cleanup_close_ int subdir_fd = -EBADF;
-                r = chaseat(root_fd, root_fd, m->where, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
+        /* Skip if we're setting volatile later. */
+        if (!FLAGS_SET(flags, MSTACK_DEFER_BINDS)) {
+                r = mstack_apply_bind_mounts(mstack, root_fd, where);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to open mount point inode '%s': %m", m->where);
-
-                if (move_mount(m->mount_fd, "", subdir_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH) < 0)
-                        return log_debug_errno(errno, "Failed to attach bind mount to '%s' subdir: %m", m->where);
-
-                log_debug("Attached mstack '%s/' mount to '%s/%s/'.", m->where, where, m->where);
+                        return r;
         }
 
         /* If we have a tmpfs root, the above might have created mount point inodes. Hence we left the tmpfs

@@ -3973,6 +3973,13 @@ static int outer_child(
 
                 MStackFlags mstack_flags = arg_read_only ? MSTACK_RDONLY : 0;
 
+                /* Defer binds only if using an mstack image AND volatile overlay is enabled */
+                if (arg_volatile_mode == VOLATILE_OVERLAY) {
+                        mstack_flags |= MSTACK_DEFER_BINDS;
+
+                        log_debug("Combination of mstack and volatile flags detected, deferring .mstack bind mounts.");
+                }
+
                 /* This creates the needed overlayfs or tmpfs, owned by our target userns. Note that we pass
                  * the target mount dir as temporary mount dir here. We after all just need some dir here
                  * that definitely exists, and the temporary mounts on it are not going to be visible
@@ -3984,7 +3991,9 @@ static int outer_child(
                 if (r < 0)
                         return log_error_errno(r, "Failed to make .mstack/ mounts: %m");
 
-                /* And then attaches all mounts to the directory */
+                /* And then attaches all mounts to the directory
+                 * If volatile is set, we're skipping bind mounts
+                 * to mount them after tmpfs overlay */
                 r = mstack_bind_mounts(
                                 mstack,
                                 directory,
@@ -4119,6 +4128,23 @@ static int outer_child(
                                 .destination_uid = bind_user->payload_user->uid,
                         };
                 }
+
+        /* Applying skipped mstack bind mounts. */
+        if (mstack && (arg_volatile_mode == VOLATILE_OVERLAY)) {
+                _cleanup_close_ int root_fd = open(directory, O_CLOEXEC|O_PATH|O_DIRECTORY);
+                if (root_fd < 0)
+                        return log_error_errno(errno, "Failed to open container root for deferred mstack mount: %m");
+
+                /* Apply deferred binds on top of the volatile overlay
+                * to avoid them being masked.
+                * We use "/" as the path because root_fd is already anchored to the
+                * container root, allowing chaseat() to resolve paths correctly. */
+                r = mstack_apply_bind_mounts(mstack, root_fd, "/");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to apply deferred .mstack bind mounts: %m");
+
+                log_debug("Applied deferred .mstack bind mounts.");
+        }
 
         r = mount_custom(
                         directory,
