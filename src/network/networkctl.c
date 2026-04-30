@@ -147,9 +147,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION('n', "lines", "INTEGER", "Number of journal entries to show"):
-                        if (safe_atou(opts.arg, &arg_lines) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse lines '%s'", opts.arg);
+                        r = safe_atou(opts.arg, &arg_lines);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --lines value '%s': %m", opts.arg);
                         break;
 
                 OPTION_COMMON_JSON:
