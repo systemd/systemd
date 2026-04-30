@@ -158,6 +158,9 @@ typedef struct Option {
         OPTION('N', "resolve-names", "MODE",                            \
                "When to resolve users and groups (early, late, or never)")
 
+#define OPTION_ERROR                                                    \
+        case INT_MIN ... -1
+
 /* This is magically mapped to the beginning and end of the section */
 extern const Option __start_SYSTEMD_OPTIONS[];
 extern const Option __stop_SYSTEMD_OPTIONS[];
@@ -216,13 +219,15 @@ int option_parse(
                 const Option options_end[],
                 OptionParser *state);
 
-/* Iterate over options. */
-#define FOREACH_OPTION(c, state, on_error)                              \
+/* Iterate over options. Dont' forget to handle OPTION_ERROR! */
+#define FOREACH_OPTION(c, state)                                        \
+        for (int c; (c = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, state)) != 0; )
+
+#define FOREACH_OPTION_OR_RETURN(c, state)                              \
         for (int c; (c = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, state)) != 0; ) \
-                if (c < 0) {                                            \
-                        on_error;                                       \
-                        break;                                          \
-                } else
+                if (c < 0)                                              \
+                        return c;                                       \
+                else
 
 /* Those helpers are used *during* option parsing and allow looking at or taking the next item in
  * the argv array, either an option or a positional parameter. */
