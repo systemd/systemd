@@ -2060,7 +2060,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         /* pcrlock_path= */ NULL,
                                         /* primary_alg= */ 0,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
-                                        key_data, /* n_blobs= */ 1,
+                                        key_data, /* n_blobs= */ iovec_is_set(key_data) ? 1 : 0,
                                         /* policy_hash= */ NULL, /* we don't know the policy hash */
                                         /* n_policy_hash= */ 0,
                                         /* salt= */ NULL,
