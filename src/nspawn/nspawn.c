@@ -3973,6 +3973,14 @@ static int outer_child(
 
                 MStackFlags mstack_flags = arg_read_only ? MSTACK_RDONLY : 0;
 
+                /* Defer binds only if using an mstack image
+                 * AND any of volatile mode is enabled. */
+                if (IN_SET(arg_volatile_mode, VOLATILE_YES, VOLATILE_OVERLAY, VOLATILE_STATE)) {
+                        mstack_flags |= MSTACK_DEFER_BINDS;
+
+                        log_debug("Combination of mstack and volatile flags detected, deferring .mstack bind mounts.");
+                }
+
                 /* This creates the needed overlayfs or tmpfs, owned by our target userns. Note that we pass
                  * the target mount dir as temporary mount dir here. We after all just need some dir here
                  * that definitely exists, and the temporary mounts on it are not going to be visible
@@ -3984,7 +3992,9 @@ static int outer_child(
                 if (r < 0)
                         return log_error_errno(r, "Failed to make .mstack/ mounts: %m");
 
-                /* And then attaches all mounts to the directory */
+                /* And then attaches all mounts to the directory
+                 * If volatile is set, we're skipping bind mounts
+                 * to mount them after tmpfs overlay */
                 r = mstack_bind_mounts(
                                 mstack,
                                 directory,
@@ -4215,6 +4225,26 @@ static int outer_child(
                         arg_selinux_apifs_context);
         if (r < 0)
                 return r;
+
+        /* Applying skipped mstack bind mounts. */
+        if (mstack && (IN_SET(arg_volatile_mode, VOLATILE_YES, VOLATILE_OVERLAY, VOLATILE_STATE))) {
+                /* Open an O_PATH fd anchored to the staged container root so that
+                 * mstack_apply_bind_mounts() can use chaseat() to safely resolve bind
+                 * target paths relative to it, without symlink escape risk. */
+                _cleanup_close_ int root_fd = open(directory, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
+                if (root_fd < 0)
+                        return log_error_errno(errno, "Failed to open container root for deferred mstack mount: %m");
+
+                /* Apply .mstack bind mounts that were deferred to avoid being masked by the
+                 * volatile overlay. We pass directory as the mount root so
+                 * bind targets are constructed against the staged container root rather than
+                 * the host filesystem. */
+                r = mstack_apply_bind_mounts(mstack, root_fd, directory);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to apply deferred .mstack bind mounts: %m");
+
+                log_debug("Applied deferred .mstack bind mounts.");
+        }
 
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
