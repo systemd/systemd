@@ -1859,7 +1859,6 @@ static int remove_loader_variables(void) {
 }
 
 int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        sd_id128_t uuid = SD_ID128_NULL;
         int r;
 
         _cleanup_(install_context_done) InstallContext c = INSTALL_CONTEXT_NULL;
@@ -1927,7 +1926,7 @@ int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 
         char *path = strjoina("/EFI/systemd/systemd-boot", get_efi_arch(), ".efi");
-        RET_GATHER(r, remove_variables(uuid, path, /* in_order= */ true));
+        RET_GATHER(r, remove_variables(c.esp_uuid, path, /* in_order= */ true));
         return RET_GATHER(r, remove_loader_variables());
 }
 
