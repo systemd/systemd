@@ -731,11 +731,35 @@ static int copy_one_file(
         if (dest_fd < 0 && dest_fd != -ENOENT)
                 return log_error_errno(dest_fd, "Failed to open '%s' under '%s/EFI/systemd' directory: %m", dest_name, j);
 
-        /* Note that if this fails we do the second copy anyway, but return this error code,
-         * so we stash it away in a separate variable. */
-        ret = copy_file_with_version_check(source_path, source_fd, dest_path, dest_parent_fd, dest_name, dest_fd, force);
-
         const char *e = startswith(dest_name, "systemd-boot");
+
+        /* If a primary sd-boot binary already exists and the source is a newer version, preserve the
+         * existing primary at systemd-boot-fallback{arch}.efi before installing the new one. This gives
+         * firmware a fallback Boot#### entry pointing to the previous binary in case the new one fails
+         * to load. Only one generation of fallback is kept, so subsequent updates overwrite it. */
+        if (e && dest_fd >= 0 && !force) {
+                r = version_check(source_fd, source_path, dest_fd, dest_path);
+                if (r < 0)
+                        /* Stash the error and fall through; the BOOT{arch}.EFI updates below still run. */
+                        ret = r;
+                else {
+                        _cleanup_free_ char *fallback_name = strjoin("systemd-boot-fallback", e);
+                        if (!fallback_name)
+                                return log_oom();
+
+                        _cleanup_free_ char *fallback_path = path_join(j, "/EFI/systemd", fallback_name);
+                        if (!fallback_path)
+                                return log_oom();
+
+                        ret = copy_file_with_version_check(dest_path, dest_fd, fallback_path, dest_parent_fd, fallback_name, /* dest_fd= */ -EBADF, /* force= */ true);
+                        if (ret >= 0)
+                                ret = copy_file_with_version_check(source_path, source_fd, dest_path, dest_parent_fd, dest_name, dest_fd, /* force= */ true);
+                }
+        } else
+                /* Note that if this fails we do the second copy anyway, but return this error code,
+                 * so we stash it away in a separate variable. */
+                ret = copy_file_with_version_check(source_path, source_fd, dest_path, dest_parent_fd, dest_name, dest_fd, force);
+
         if (e) {
 
                 /* Create the EFI default boot loader name (specified for removable devices) */
@@ -1233,7 +1257,7 @@ static int find_slot(sd_id128_t uuid, const char *path, uint16_t *id) {
         return 0;
 }
 
-static int insert_into_order(InstallContext *c, uint16_t slot) {
+static int insert_into_order(InstallContext *c, uint16_t slot, uint16_t after_slot) {
         _cleanup_free_ uint16_t *order = NULL;
         uint16_t *t;
         int n;
@@ -1255,13 +1279,35 @@ static int insert_into_order(InstallContext *c, uint16_t slot) {
                         continue;
 
                 /* we do not require to be the first one, all is fine */
-                if (c->operation != INSTALL_NEW)
+                /* if after_slot is set, leave existing position alone to preserve user reordering. */
+                if (i == 0 || c->operation != INSTALL_NEW || after_slot != UINT16_MAX)
                         return 0;
 
                 /* move us to the first slot */
                 memmove(order + 1, order, i * sizeof(uint16_t));
                 order[0] = slot;
                 return efi_set_boot_order(order, n);
+        }
+
+        /* slot is not yet in the order, so insert after a specific slot if requested */
+        if (after_slot != UINT16_MAX) {
+                t = reallocarray(order, n + 1, sizeof(uint16_t));
+                if (!t)
+                        return -ENOMEM;
+                order = t;
+
+                for (int i = 0; i < n; i++) {
+                        if (order[i] != after_slot)
+                                continue;
+
+                        memmove(order + i + 2, order + i + 1, (n - i - 1) * sizeof(uint16_t));
+                        order[i + 1] = slot;
+                        return efi_set_boot_order(order, n + 1);
+                }
+
+                log_warning("after_slot %u not found in BootOrder, appending instead.", after_slot);
+                order[n] = slot;
+                return efi_set_boot_order(order, n + 1);
         }
 
         /* extend array */
@@ -1354,12 +1400,18 @@ fallback:
 
 static int install_variables(
                 InstallContext *c,
-                const char *path) {
+                const char *path,
+                const char *description,
+                bool require_existing,
+                uint16_t after_slot,
+                uint16_t *ret_slot) {
 
         uint16_t slot;
         int r;
 
         assert(c);
+        assert(path);
+        assert(description);
 
         if (c->esp_fd < 0)
                 return c->esp_fd;
@@ -1375,9 +1427,9 @@ static int install_variables(
                         CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_REGULAR,
                         F_OK,
                         /* ret_path= */ NULL);
-        if (r == -ENOENT)
+        if (r == -ENOENT && require_existing)
                 return 0;
-        if (r < 0)
+        if (r < 0 && r != -ENOENT)
                 return log_error_errno(r, "Cannot access \"%s/%s\": %m", j, skip_leading_slash(path));
 
         r = find_slot(c->esp_uuid, path, &slot);
@@ -1396,12 +1448,6 @@ static int install_variables(
         bool existing = r > 0;
 
         if (c->operation == INSTALL_NEW || !existing) {
-                _cleanup_free_ char *description = NULL;
-
-                r = pick_efi_boot_option_description(c->esp_fd, &description);
-                if (r < 0)
-                        return r;
-
                 r = efi_add_boot_option(
                                 slot,
                                 description,
@@ -1424,7 +1470,14 @@ static int install_variables(
                          description);
         }
 
-        return insert_into_order(c, slot);
+        r = insert_into_order(c, slot, after_slot);
+        if (r < 0)
+                return r;
+
+        if (ret_slot)
+                *ret_slot = slot;
+
+        return 0;
 }
 
 static int are_we_installed(InstallContext *c) {
@@ -1632,7 +1685,30 @@ static int run_install(InstallContext *c) {
         }
 
         char *path = strjoina("/EFI/systemd/systemd-boot", arch, ".efi");
-        return install_variables(c, path);
+
+        _cleanup_free_ char *description = NULL;
+        r = pick_efi_boot_option_description(c->esp_fd, &description);
+        if (r < 0)
+                return r;
+
+        uint16_t primary_slot = UINT16_MAX;
+        r = install_variables(c, path, description, /* require_existing= */ true, /* after_slot= */ UINT16_MAX, &primary_slot);
+        if (r < 0)
+                return r;
+        /* If primary registration was skipped (e.g. binary not on ESP), skip the fallback too
+         * or else it would land at position 0 in BootOrder with no primary ahead of it. */
+        if (primary_slot == UINT16_MAX)
+                return 0;
+
+        char *fallback_path = strjoina("/EFI/systemd/systemd-boot-fallback", arch, ".efi");
+
+        _cleanup_free_ char *fallback_description = NULL;
+        if (!strextend(&fallback_description, description, " (fallback)"))
+                return log_oom();
+
+        strshorten(fallback_description, EFI_BOOT_OPTION_DESCRIPTION_MAX);
+
+        return install_variables(c, fallback_path, fallback_description, /* require_existing= */ false, /* after_slot= */ primary_slot, /* ret_slot= */ NULL);
 }
 
 int verb_install(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -1859,7 +1935,6 @@ static int remove_loader_variables(void) {
 }
 
 int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        sd_id128_t uuid = SD_ID128_NULL;
         int r;
 
         _cleanup_(install_context_done) InstallContext c = INSTALL_CONTEXT_NULL;
@@ -1927,7 +2002,11 @@ int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 
         char *path = strjoina("/EFI/systemd/systemd-boot", get_efi_arch(), ".efi");
-        RET_GATHER(r, remove_variables(uuid, path, /* in_order= */ true));
+        RET_GATHER(r, remove_variables(c.esp_uuid, path, /* in_order= */ true));
+
+        char *fallback_path = strjoina("/EFI/systemd/systemd-boot-fallback", get_efi_arch(), ".efi");
+        RET_GATHER(r, remove_variables(c.esp_uuid, fallback_path, /* in_order= */ true));
+
         return RET_GATHER(r, remove_loader_variables());
 }
 
