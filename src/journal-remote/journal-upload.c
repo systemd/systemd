@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -17,10 +16,12 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "hashmap.h"
+#include "help-util.h"
 #include "journal-header-util.h"
 #include "journal-upload.h"
 #include "journal-util.h"
@@ -28,9 +29,9 @@
 #include "logs-show.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "parse-helpers.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -683,194 +684,145 @@ static int parse_config(void) {
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-journal-upload.service", "8", &link);
+        r = option_parser_get_help_table(&options);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        printf("%s -u URL {FILE|-}...\n\n"
-               "Upload journal events to a remote server.\n\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "  -u --url=URL              Upload to this address (default port "
-                                            STRINGIFY(DEFAULT_PORT) ")\n"
-               "     --key=FILENAME         Specify key in PEM format (default:\n"
-               "                            \"" PRIV_KEY_FILE "\")\n"
-               "     --cert=FILENAME        Specify certificate in PEM format (default:\n"
-               "                            \"" CERT_FILE "\")\n"
-               "     --trust=FILENAME|all   Specify CA certificate or disable checking (default:\n"
-               "                            \"" TRUST_FILE "\")\n"
-               "     --system               Use the system journal\n"
-               "     --user                 Use the user journal for the current user\n"
-               "  -m --merge                Use  all available journals\n"
-               "  -M --machine=CONTAINER    Operate on local container\n"
-               "     --namespace=NAMESPACE  Use journal files from namespace\n"
-               "  -D --directory=PATH       Use journal files from directory\n"
-               "     --file=PATH            Use this journal file\n"
-               "     --cursor=CURSOR        Start at the specified cursor\n"
-               "     --after-cursor=CURSOR  Start after the specified cursor\n"
-               "     --follow[=BOOL]        Do [not] wait for input\n"
-               "     --save-state[=FILE]    Save uploaded cursors (default \n"
-               "                            " STATE_FILE ")\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               link);
+        help_cmdline("-u URL {FILE|-}...");
+        help_abstract("Upload journal events to a remote server.");
 
+        help_section("Options:");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("systemd-journal-upload.service", "8");
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_KEY,
-                ARG_CERT,
-                ARG_TRUST,
-                ARG_USER,
-                ARG_SYSTEM,
-                ARG_FILE,
-                ARG_CURSOR,
-                ARG_AFTER_CURSOR,
-                ARG_FOLLOW,
-                ARG_SAVE_STATE,
-                ARG_NAMESPACE,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'                },
-                { "version",      no_argument,       NULL, ARG_VERSION        },
-                { "url",          required_argument, NULL, 'u'                },
-                { "key",          required_argument, NULL, ARG_KEY            },
-                { "cert",         required_argument, NULL, ARG_CERT           },
-                { "trust",        required_argument, NULL, ARG_TRUST          },
-                { "system",       no_argument,       NULL, ARG_SYSTEM         },
-                { "user",         no_argument,       NULL, ARG_USER           },
-                { "merge",        no_argument,       NULL, 'm'                },
-                { "machine",      required_argument, NULL, 'M'                },
-                { "namespace",    required_argument, NULL, ARG_NAMESPACE      },
-                { "directory",    required_argument, NULL, 'D'                },
-                { "file",         required_argument, NULL, ARG_FILE           },
-                { "cursor",       required_argument, NULL, ARG_CURSOR         },
-                { "after-cursor", required_argument, NULL, ARG_AFTER_CURSOR   },
-                { "follow",       optional_argument, NULL, ARG_FOLLOW         },
-                { "save-state",   optional_argument, NULL, ARG_SAVE_STATE     },
-                {}
-        };
-
-        int c, r;
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
-        while ((c = getopt_long(argc, argv, "hu:mM:D:", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
-                case 'h':
+
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case 'u':
-                        r = free_and_strdup_warn(&arg_url, optarg);
+                OPTION('u', "url", "URL",
+                       "Upload to this address (default port " STRINGIFY(DEFAULT_PORT) ")"):
+                        r = free_and_strdup_warn(&arg_url, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_KEY:
-                        r = free_and_strdup_warn(&arg_key, optarg);
+                OPTION_LONG("key", "FILENAME",
+                            "Specify key in PEM format (default: \"" PRIV_KEY_FILE "\")"):
+                        r = free_and_strdup_warn(&arg_key, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CERT:
-                        r = free_and_strdup_warn(&arg_cert, optarg);
+                OPTION_LONG("cert", "FILENAME",
+                            "Specify certificate in PEM format (default: \"" CERT_FILE "\")"):
+                        r = free_and_strdup_warn(&arg_cert, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_TRUST:
-                        r = free_and_strdup_warn(&arg_trust, optarg);
+                OPTION_LONG("trust", "FILENAME|all",
+                            "Specify CA certificate or disable checking (default: \"" TRUST_FILE "\")"):
+                        r = free_and_strdup_warn(&arg_trust, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, "Use the system journal"):
                         arg_journal_type |= SD_JOURNAL_SYSTEM;
                         break;
 
-                case ARG_USER:
+                OPTION_LONG("user", NULL, "Use the user journal for the current user"):
                         arg_journal_type |= SD_JOURNAL_CURRENT_USER;
                         break;
 
-                case 'm':
+                OPTION('m', "merge", NULL, "Use all available journals"):
                         arg_merge = true;
                         break;
 
-                case 'M':
-                        r = free_and_strdup_warn(&arg_machine, optarg);
+                OPTION_COMMON_MACHINE:
+                        r = free_and_strdup_warn(&arg_machine, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NAMESPACE:
-                        if (streq(optarg, "*")) {
+                OPTION_LONG("namespace", "NAMESPACE", "Use journal files from namespace"):
+                        if (streq(opts.arg, "*")) {
                                 arg_namespace_flags = SD_JOURNAL_ALL_NAMESPACES;
                                 arg_namespace = mfree(arg_namespace);
                                 r = 0;
-                        } else if (startswith(optarg, "+")) {
+                        } else if (startswith(opts.arg, "+")) {
                                 arg_namespace_flags = SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE;
-                                r = free_and_strdup_warn(&arg_namespace, optarg + 1);
-                        } else if (isempty(optarg)) {
+                                r = free_and_strdup_warn(&arg_namespace, opts.arg + 1);
+                        } else if (isempty(opts.arg)) {
                                 arg_namespace_flags = 0;
                                 arg_namespace = mfree(arg_namespace);
                                 r = 0;
                         } else {
                                 arg_namespace_flags = 0;
-                                r = free_and_strdup_warn(&arg_namespace, optarg);
+                                r = free_and_strdup_warn(&arg_namespace, opts.arg);
                         }
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'D':
-                        r = free_and_strdup_warn(&arg_directory, optarg);
+                OPTION('D', "directory", "PATH", "Use journal files from this directory"):
+                        r = free_and_strdup_warn(&arg_directory, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_FILE:
-                        r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
+                OPTION_LONG("file", "PATH", "Use this journal file"):
+                        r = glob_extend(&arg_file, opts.arg, GLOB_NOCHECK);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add paths: %m");
                         break;
 
-                case ARG_CURSOR:
-                case ARG_AFTER_CURSOR:
-                        r = free_and_strdup_warn(&arg_cursor, optarg);
+                OPTION_LONG_DATA("after-cursor", "CURSOR", /* data= */ true,
+                                 "Start after the specified cursor"): {}
+                OPTION_LONG_DATA("cursor", "CURSOR", /* data= */ false,
+                                 "Start at the specified cursor"):
+                        r = free_and_strdup_warn(&arg_cursor, opts.arg);
                         if (r < 0)
                                 return r;
-                        arg_after_cursor = c == ARG_AFTER_CURSOR;
+                        arg_after_cursor = opts.opt->data;
                         break;
 
-                case ARG_FOLLOW:
-                        r = parse_boolean_argument("--follow", optarg, NULL);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "follow", "BOOL",
+                                  "Whether to wait for input"):
+                        r = parse_boolean_argument("--follow", opts.arg, NULL);
                         if (r < 0)
                                 return r;
                         arg_follow = r;
                         break;
 
-                case ARG_SAVE_STATE:
-                        r = free_and_strdup_warn(&arg_save_state, optarg ?: STATE_FILE);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "save-state", "FILE",
+                                  "Save uploaded cursors (default " STATE_FILE ")"):
+                        r = free_and_strdup_warn(&arg_save_state, opts.arg ?: STATE_FILE);
                         if (r < 0)
                                 return r;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (!arg_url)
@@ -881,10 +833,12 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Options --key= and --cert= must be used together.");
 
-        if (optind < argc && (arg_directory || arg_file || arg_machine || arg_journal_type))
+        char **args = option_parser_get_args(&opts);
+        if (!strv_isempty(args) && (arg_directory || arg_file || arg_machine || arg_journal_type))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Input arguments make no sense with journal input.");
 
+        *ret_args = args;
         return 1;
 }
 
@@ -911,6 +865,7 @@ static int open_journal(sd_journal **j) {
 static int run(int argc, char **argv) {
         _cleanup_(destroy_uploader) Uploader u = {};
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
+        char **args = NULL;
         bool use_journal;
         int r;
 
@@ -920,7 +875,7 @@ static int run(int argc, char **argv) {
         if (r < 0)
                 return r;
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -947,7 +902,7 @@ static int run(int argc, char **argv) {
         log_debug("%s running as pid "PID_FMT,
                   program_invocation_short_name, getpid_cached());
 
-        use_journal = optind >= argc;
+        use_journal = strv_isempty(args);
         if (use_journal) {
                 sd_journal *j;
                 r = open_journal(&j);
@@ -965,7 +920,7 @@ static int run(int argc, char **argv) {
                                       "STATUS=Processing input...",
                                       NOTIFY_STOPPING_MESSAGE);
 
-        for (;;) {
+        for (size_t i = 0;;) {
                 r = sd_event_get_state(u.event);
                 if (r < 0)
                         return r;
@@ -978,11 +933,11 @@ static int run(int argc, char **argv) {
 
                         r = check_journal_input(&u);
                 } else if (u.input < 0 && !use_journal) {
-                        if (optind >= argc)
+                        if (!args[i])
                                 return 0;
 
-                        log_debug("Using %s as input.", argv[optind]);
-                        r = open_file_for_upload(&u, argv[optind++]);
+                        log_debug("Using %s as input.", args[i]);
+                        r = open_file_for_upload(&u, args[i++]);
                 }
                 if (r < 0)
                         return r;

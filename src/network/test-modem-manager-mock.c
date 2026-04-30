@@ -10,16 +10,17 @@
  * - Simple.Connect on /org/freedesktop/ModemManager1/Modem/0
  */
 
-#include <getopt.h>
-
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
 #include "build.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "parse-util.h"
 #include "string-util.h"
 
@@ -363,82 +364,74 @@ static int filter_handler(sd_bus_message *m, void *userdata, sd_bus_error *error
         return 0;
 }
 
+static int help(void) {
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        help_cmdline("[OPTIONS...]");
+        help_abstract("Mock ModemManager D-Bus service for testing.");
+
+        help_section("Options:");
+        return table_print_or_warn(options);
+}
+
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_IFNAME = 0x100,
-                ARG_IPV4_ADDRESS,
-                ARG_IPV4_GATEWAY,
-                ARG_IPV4_PREFIX,
-                ARG_IPV6_ADDRESS,
-                ARG_IPV6_GATEWAY,
-                ARG_IPV6_PREFIX,
-        };
+        int r;
 
-        static const struct option options[] = {
-                { "ifname",       required_argument, NULL, ARG_IFNAME       },
-                { "ipv4-address", required_argument, NULL, ARG_IPV4_ADDRESS },
-                { "ipv4-gateway", required_argument, NULL, ARG_IPV4_GATEWAY },
-                { "ipv4-prefix",  required_argument, NULL, ARG_IPV4_PREFIX  },
-                { "ipv6-address", required_argument, NULL, ARG_IPV6_ADDRESS },
-                { "ipv6-gateway", required_argument, NULL, ARG_IPV6_GATEWAY },
-                { "ipv6-prefix",  required_argument, NULL, ARG_IPV6_PREFIX  },
-                { "version",      no_argument,       NULL, 'v'              },
-                { "help",         no_argument,       NULL, 'h'              },
-                {}
-        };
+        assert(argc >= 0);
+        assert(argv);
 
-        int c, r;
+        OptionParser opts = { argc, argv };
 
-        while ((c = getopt_long(argc, argv, "vh", options, NULL)) >= 0)
+        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
                 switch (c) {
-                case ARG_IFNAME:
-                        if (free_and_strdup(&arg_ifname, optarg) < 0)
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_LONG("ifname", "NAME", "Interface name"):
+                        if (free_and_strdup(&arg_ifname, opts.arg) < 0)
                                 return log_oom();
                         break;
-                case ARG_IPV4_ADDRESS:
-                        if (free_and_strdup(&arg_ipv4_address, optarg) < 0)
+
+                OPTION_LONG("ipv4-address", "ADDR", "IPv4 address"):
+                        if (free_and_strdup(&arg_ipv4_address, opts.arg) < 0)
                                 return log_oom();
                         break;
-                case ARG_IPV4_GATEWAY:
-                        if (free_and_strdup(&arg_ipv4_gateway, optarg) < 0)
+
+                OPTION_LONG("ipv4-gateway", "ADDR", "IPv4 gateway"):
+                        if (free_and_strdup(&arg_ipv4_gateway, opts.arg) < 0)
                                 return log_oom();
                         break;
-                case ARG_IPV4_PREFIX:
-                        r = safe_atou32(optarg, &arg_ipv4_prefix);
+
+                OPTION_LONG("ipv4-prefix", "LEN", "IPv4 prefix length"):
+                        r = safe_atou32(opts.arg, &arg_ipv4_prefix);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse IPv4 prefix length: %m");
                         break;
-                case ARG_IPV6_ADDRESS:
-                        if (free_and_strdup(&arg_ipv6_address, optarg) < 0)
+
+                OPTION_LONG("ipv6-address", "ADDR", "IPv6 address"):
+                        if (free_and_strdup(&arg_ipv6_address, opts.arg) < 0)
                                 return log_oom();
                         break;
-                case ARG_IPV6_GATEWAY:
-                        if (free_and_strdup(&arg_ipv6_gateway, optarg) < 0)
+
+                OPTION_LONG("ipv6-gateway", "ADDR", "IPv6 gateway"):
+                        if (free_and_strdup(&arg_ipv6_gateway, opts.arg) < 0)
                                 return log_oom();
                         break;
-                case ARG_IPV6_PREFIX:
-                        r = safe_atou32(optarg, &arg_ipv6_prefix);
+
+                OPTION_LONG("ipv6-prefix", "LEN", "IPv6 prefix length"):
+                        r = safe_atou32(opts.arg, &arg_ipv6_prefix);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse IPv6 prefix length: %m");
                         break;
-                case 'v':
-                        return version();
-                case 'h':
-                        printf("Usage: %s [OPTIONS...]\n\n"
-                               "Mock ModemManager D-Bus service for testing.\n\n"
-                               "  --ifname=NAME          Interface name\n"
-                               "  --ipv4-address=ADDR    IPv4 address\n"
-                               "  --ipv4-gateway=ADDR    IPv4 gateway\n"
-                               "  --ipv4-prefix=LEN      IPv4 prefix length\n"
-                               "  --ipv6-address=ADDR    IPv6 address\n"
-                               "  --ipv6-gateway=ADDR    IPv6 gateway\n"
-                               "  --ipv6-prefix=LEN      IPv6 prefix length\n"
-                               "  -h, --help             Show this help\n"
-                               "  -v, --version          Show version\n",
-                               program_invocation_short_name);
-                        return 0;
-                default:
-                        return -EINVAL;
                 }
 
         if (!arg_ifname)
