@@ -1354,12 +1354,16 @@ fallback:
 
 static int install_variables(
                 InstallContext *c,
-                const char *path) {
+                const char *path,
+                const char *description,
+                uint16_t *ret_slot) {
 
         uint16_t slot;
         int r;
 
         assert(c);
+        assert(path);
+        assert(description);
 
         if (c->esp_fd < 0)
                 return c->esp_fd;
@@ -1396,12 +1400,6 @@ static int install_variables(
         bool existing = r > 0;
 
         if (c->operation == INSTALL_NEW || !existing) {
-                _cleanup_free_ char *description = NULL;
-
-                r = pick_efi_boot_option_description(c->esp_fd, &description);
-                if (r < 0)
-                        return r;
-
                 r = efi_add_boot_option(
                                 slot,
                                 description,
@@ -1424,7 +1422,14 @@ static int install_variables(
                          description);
         }
 
-        return insert_into_order(c, slot);
+        r = insert_into_order(c, slot);
+        if (r < 0)
+                return r;
+
+        if (ret_slot)
+                *ret_slot = slot;
+
+        return 0;
 }
 
 static int are_we_installed(InstallContext *c) {
@@ -1632,7 +1637,13 @@ static int run_install(InstallContext *c) {
         }
 
         char *path = strjoina("/EFI/systemd/systemd-boot", arch, ".efi");
-        return install_variables(c, path);
+
+        _cleanup_free_ char *description = NULL;
+        r = pick_efi_boot_option_description(c->esp_fd, &description);
+        if (r < 0)
+                return r;
+
+        return install_variables(c, path, description, /* ret_slot= */ NULL);
 }
 
 int verb_install(int argc, char *argv[], uintptr_t _data, void *userdata) {
