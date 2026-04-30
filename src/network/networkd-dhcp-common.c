@@ -59,6 +59,15 @@ uint32_t link_get_ndisc_route_table(Link *link) {
         return link_get_vrf_table(link);
 }
 
+uint32_t link_get_dhcp6_route_table(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        if (link->network->dhcp6_route_table_set)
+                return link->network->dhcp6_route_table;
+        return link_get_vrf_table(link);
+}
+
 bool link_dhcp_enabled(Link *link, int family) {
         assert(link);
         assert(IN_SET(family, AF_INET, AF_INET6));
@@ -562,6 +571,7 @@ int config_parse_dhcp_or_ra_route_table(
         int r;
 
         assert(filename);
+        assert(section);
         assert(lvalue);
         assert(IN_SET(ltype, AF_INET, AF_INET6));
         assert(rvalue);
@@ -579,8 +589,13 @@ int config_parse_dhcp_or_ra_route_table(
                 network->dhcp_route_table_set = true;
                 break;
         case AF_INET6:
-                network->ndisc_route_table = rt;
-                network->ndisc_route_table_set = true;
+                if (streq(section, "DHCPv6")) {
+                        network->dhcp6_route_table = rt;
+                        network->dhcp6_route_table_set = true;
+                } else {
+                        network->ndisc_route_table = rt;
+                        network->ndisc_route_table_set = true;
+                }
                 break;
         default:
                 assert_not_reached();
