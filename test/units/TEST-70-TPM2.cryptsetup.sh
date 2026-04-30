@@ -57,8 +57,9 @@ IMAGE="$(mktemp /tmp/systemd-cryptsetup-XXX.IMAGE)"
 
 truncate -s 20M "$IMAGE"
 echo -n passphrase >/tmp/passphrase
+echo -n wrong_passphrase >/tmp/wrong_passphrase
 # Change file mode to avoid "/tmp/passphrase has 0644 mode that is too permissive" messages
-chmod 0600 /tmp/passphrase
+chmod 0600 /tmp/passphrase /tmp/wrong_passphrase
 cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "$IMAGE" /tmp/passphrase
 
 # Unlocking via keyfile
@@ -237,4 +238,11 @@ EOF
     rmdir /tmp/dditest
 fi
 
-rm -f "$IMAGE" "$PRIMARY"
+# Key file can contain a TPM blob but in case it doesn't fallback should also work.
+systemd-cryptsetup attach test-volume "$IMAGE" /tmp/passphrase tpm2-device=auto,headless=1
+systemd-cryptsetup detach test-volume
+
+# Negative test: invalid passphrase should not work.
+(! systemd-cryptsetup attach test-volume "$IMAGE" /tmp/wrong_passphrase tpm2-device=auto,headless=1)
+
+rm -f "$IMAGE" "$PRIMARY" /tmp/passphrase /tmp/wrong_passphrase
