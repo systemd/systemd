@@ -3,6 +3,8 @@
 
 #include "basic-forward.h"
 
+#define ENVIRONMENT_ASSIGNMENTS_MAX 16384U
+
 size_t sc_arg_max(void);
 
 bool env_name_is_valid(const char *e);
