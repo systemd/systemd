@@ -671,6 +671,10 @@ varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
 defer_transient_cleanup varlink-transient-unknown-exec.service
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-unknown-exec.service","Exec":{"RootDirectory":"/tmp"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.PropertyNotSupported"
+# Unknown field in Service is rejected as PropertyNotSupported
+defer_transient_cleanup varlink-transient-unknown-service.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-unknown-service.service","Service":{"Type":"oneshot","BogusField":1,"ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.PropertyNotSupported"
 set -o pipefail
 
 transient_cleanup
