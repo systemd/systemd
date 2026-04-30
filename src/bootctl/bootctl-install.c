@@ -1233,7 +1233,7 @@ static int find_slot(sd_id128_t uuid, const char *path, uint16_t *id) {
         return 0;
 }
 
-static int insert_into_order(InstallContext *c, uint16_t slot) {
+static int insert_into_order(InstallContext *c, uint16_t slot, uint16_t after_slot) {
         _cleanup_free_ uint16_t *order = NULL;
         uint16_t *t;
         int n;
@@ -1255,13 +1255,35 @@ static int insert_into_order(InstallContext *c, uint16_t slot) {
                         continue;
 
                 /* we do not require to be the first one, all is fine */
-                if (c->operation != INSTALL_NEW)
+                /* if after_slot is set, leave existing position alone to preserve user reordering. */
+                if (i == 0 || c->operation != INSTALL_NEW || after_slot != UINT16_MAX)
                         return 0;
 
                 /* move us to the first slot */
                 memmove(order + 1, order, i * sizeof(uint16_t));
                 order[0] = slot;
                 return efi_set_boot_order(order, n);
+        }
+
+        /* slot is not yet in the order, so insert after a specific slot if requested */
+        if (after_slot != UINT16_MAX) {
+                t = reallocarray(order, n + 1, sizeof(uint16_t));
+                if (!t)
+                        return -ENOMEM;
+                order = t;
+
+                for (int i = 0; i < n; i++) {
+                        if (order[i] != after_slot)
+                                continue;
+
+                        memmove(order + i + 2, order + i + 1, (n - i - 1) * sizeof(uint16_t));
+                        order[i + 1] = slot;
+                        return efi_set_boot_order(order, n + 1);
+                }
+
+                log_warning("after_slot %u not found in BootOrder, appending instead.", after_slot);
+                order[n] = slot;
+                return efi_set_boot_order(order, n + 1);
         }
 
         /* extend array */
@@ -1422,7 +1444,7 @@ static int install_variables(
                          description);
         }
 
-        r = insert_into_order(c, slot);
+        r = insert_into_order(c, slot, /* after_slot= */ UINT16_MAX);
         if (r < 0)
                 return r;
 
