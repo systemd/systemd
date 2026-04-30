@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "blkid-util.h"
 #include "build.h"
 #include "crypto-util.h"
 #include "cryptsetup-fido2.h"
@@ -25,6 +26,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "fs-util.h"
@@ -128,6 +130,7 @@ static char *arg_link_keyring = NULL;
 static char *arg_link_key_type = NULL;
 static char *arg_link_key_description = NULL;
 static char *arg_fixate_volume_key = NULL;
+static bool arg_wipe = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -665,7 +668,9 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         return log_oom();
 
-        } else if (!streq(option, "x-initrd.attach"))
+        } else if (STR_IN_SET(option, "wipe"))
+                arg_wipe = true;
+        else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
         return 0;
@@ -2600,6 +2605,56 @@ static int discover_key(const char *key_file, const char *volume, TokenType toke
         return r;
 }
 
+static int wipe_fs_superblock(const char *device) {
+#if HAVE_BLKID
+        _cleanup_(blkid_free_probep) blkid_probe probe = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(device);
+
+        r = dlopen_libblkid(LOG_DEBUG);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load libblkid: %m");
+
+        fd = open(device, O_RDWR|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open device %s: %m", device);
+
+        probe = sym_blkid_new_probe();
+        if (!probe)
+                return log_oom();
+
+        errno = 0;
+        r = sym_blkid_probe_set_device(probe, fd, 0, 0);
+        if (r < 0)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to allocate device probe for wiping.");
+
+        errno = 0;
+        if (sym_blkid_probe_enable_superblocks(probe, true) < 0 ||
+            sym_blkid_probe_set_superblocks_flags(probe, BLKID_SUBLKS_MAGIC|BLKID_SUBLKS_BADCSUM) < 0)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to enable superblock probing.");
+
+        for (;;) {
+                errno = 0;
+                r = sym_blkid_do_probe(probe);
+                if (r < 0)
+                        return log_error_errno(errno_or_else(EIO), "Failed to probe for file systems.");
+                if (r > 0)
+                        break;
+
+                errno = 0;
+                if (sym_blkid_do_wipe(probe, false) < 0)
+                        return log_error_errno(errno_or_else(EIO), "Failed to wipe file system signature.");
+        }
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Cannot wipe fs signatures, libblkid support is not compiled in.");
+#endif
+}
+
 VERB(verb_attach, "attach", "VOLUME SOURCE-DEVICE [KEY-FILE] [CONFIG]", 3, 5, 0,
      "Attach an encrypted block device");
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -2838,6 +2893,19 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
         if (arg_tries != 0 && tries >= arg_tries)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Too many attempts to activate; giving up.");
+
+        if (arg_wipe) {
+                _cleanup_free_ char *device = NULL;
+                device = strjoin("/dev/mapper/", volume);
+                if (!device)
+                        return log_oom();
+
+                r = wipe_fs_superblock(device);
+                if (r < 0)
+                        return r;
+
+                log_info("Successfully wiped file system signatures from %s.", device);
+        }
 
         return 0;
 }
