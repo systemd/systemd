@@ -1963,6 +1963,18 @@ static int remove_loader_variables(void) {
         return r;
 }
 
+static int remove_variables(sd_id128_t uuid) {
+        int r = 0;
+
+        const char *path = strjoina("/EFI/systemd/systemd-boot", get_efi_arch(), ".efi");
+        RET_GATHER(r, remove_boot_option(uuid, path, /* in_order= */ true));
+
+        const char *fallback_path = strjoina("/EFI/systemd/systemd-boot-fallback", get_efi_arch(), ".efi");
+        RET_GATHER(r, remove_boot_option(uuid, fallback_path, /* in_order= */ true));
+
+        return RET_GATHER(r, remove_loader_variables());
+}
+
 int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -2030,9 +2042,7 @@ int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return r;
         }
 
-        char *path = strjoina("/EFI/systemd/systemd-boot", get_efi_arch(), ".efi");
-        RET_GATHER(r, remove_boot_option(c.esp_uuid, path, /* in_order= */ true));
-        return RET_GATHER(r, remove_loader_variables());
+        return remove_variables(c.esp_uuid);
 }
 
 int verb_is_installed(int argc, char *argv[], uintptr_t _data, void *userdata) {
