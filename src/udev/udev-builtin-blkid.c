@@ -517,7 +517,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
 
         OptionParser opts = { argc, argv, .namespace = "udev-builtin-blkid" };
 
-        FOREACH_OPTION(c, &opts, /* on_error= */ return c)
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_NAMESPACE("udev-builtin-blkid"): {}
