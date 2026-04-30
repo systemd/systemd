@@ -554,7 +554,7 @@ EOF
     GNUPGHOME="$gpghome" gpg --batch --pinentry-mode loopback --passphrase '' \
         --output "$WORKDIR/sigtest-subkey-secret.gpg" \
         --export-secret-subkeys
-    GNUPGHOME="$gpghome" gpg --batch --yes --delete-secret-keys "$top_fpr"
+    GNUPGHOME="$gpghome" gpg --batch --pinentry-mode loopback --passphrase '' --yes --delete-secret-keys "$top_fpr"
     GNUPGHOME="$gpghome" gpg --batch --pinentry-mode loopback --passphrase '' \
         --import "$WORKDIR/sigtest-subkey-secret.gpg"
     GNUPGHOME="$gpghome" gpg --batch --pinentry-mode loopback --passphrase '' \
