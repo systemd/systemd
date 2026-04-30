@@ -393,7 +393,9 @@ static int bus_socket_set_transient_property(
                                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Unknown Socket type: %s", t);
 
                         if (p->type != SOCKET_SOCKET) {
-                                if (!path_is_absolute(a) || !path_is_valid(a))
+                                if (p->type == SOCKET_DBUS_CLIENT && STR_IN_SET(a, "system", "user"))
+                                        ; /* dbus-client: aliases for system and user bus */
+                                else if (!path_is_absolute(a) || !path_is_valid(a))
                                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid socket path: %s", a);
 
                                 r = path_simplify_alloc(a, &p->path);
