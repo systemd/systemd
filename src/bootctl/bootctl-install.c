@@ -731,11 +731,57 @@ static int copy_one_file(
         if (dest_fd < 0 && dest_fd != -ENOENT)
                 return log_error_errno(dest_fd, "Failed to open '%s' under '%s/EFI/systemd' directory: %m", dest_name, j);
 
-        /* Note that if this fails we do the second copy anyway, but return this error code,
-         * so we stash it away in a separate variable. */
-        ret = copy_file_with_version_check(source_path, source_fd, dest_path, dest_parent_fd, dest_name, dest_fd, force);
-
         const char *e = startswith(dest_name, "systemd-boot");
+
+        /* If a primary sd-boot binary already exists and the source is a newer version, copy
+         * the existing primary to systemd-boot-fallback{arch}.efi before installing the new
+         * one, so firmware has a fallback to the previous binary. The fallback is left alone
+         * when its product and version match the currently booted bootloader (from LoaderInfo),
+         * so a known good binary stays as the fallback. In all other cases, like no fallback yet,
+         * LoaderInfo is unavailable, or product/version differs from what booted, it is
+         * overwritten with the current primary. */
+        if (e && dest_fd >= 0 && !force) {
+                r = version_check(source_fd, source_path, dest_fd, dest_path);
+                if (r < 0)
+                        /* Stash the error and fall through; the BOOT{arch}.EFI updates below still run. */
+                        ret = r;
+                else {
+                        _cleanup_free_ char *fallback_name = strjoin("systemd-boot-fallback", e);
+                        if (!fallback_name)
+                                return log_oom();
+
+                        _cleanup_free_ char *fallback_path = path_join(j, "/EFI/systemd", fallback_name);
+                        if (!fallback_path)
+                                return log_oom();
+
+                        /* Leave the fallback alone if it already holds the currently booted product
+                         * and version, so a known good binary stays as the fallback. If there is no
+                         * fallback yet, LoaderInfo is unavailable, or there is a mismatch, then
+                         * overwrite it with the current primary. */
+                        bool should_rotate = true;
+                        _cleanup_close_ int fallback_fd = xopenat_full(dest_parent_fd, fallback_name, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                        if (fallback_fd >= 0) {
+                                _cleanup_free_ char *loader_info = NULL, *fallback_version = NULL;
+
+                                if (efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderInfo"), &loader_info) >= 0 &&
+                                    get_file_version(fallback_fd, &fallback_version) >= 0)
+                                        should_rotate = compare_product(loader_info, fallback_version) != 0 ||
+                                                        compare_version(loader_info, fallback_version) != 0;
+                        }
+
+                        if (should_rotate) {
+                                r = copy_file_with_version_check(dest_path, dest_fd, fallback_path, dest_parent_fd, fallback_name, /* dest_fd= */ -EBADF, /* force= */ true);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to back up sd-boot binary to fallback path, continuing: %m");
+                        }
+
+                        ret = copy_file_with_version_check(source_path, source_fd, dest_path, dest_parent_fd, dest_name, dest_fd, /* force= */ true);
+                }
+        } else
+                /* Note that if this fails we do the second copy anyway, but return this error code,
+                 * so we stash it away in a separate variable. */
+                ret = copy_file_with_version_check(source_path, source_fd, dest_path, dest_parent_fd, dest_name, dest_fd, force);
+
         if (e) {
 
                 /* Create the EFI default boot loader name (specified for removable devices) */
