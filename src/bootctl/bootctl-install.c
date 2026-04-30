@@ -731,11 +731,52 @@ static int copy_one_file(
         if (dest_fd < 0 && dest_fd != -ENOENT)
                 return log_error_errno(dest_fd, "Failed to open '%s' under '%s/EFI/systemd' directory: %m", dest_name, j);
 
-        /* Note that if this fails we do the second copy anyway, but return this error code,
-         * so we stash it away in a separate variable. */
-        ret = copy_file_with_version_check(source_path, source_fd, dest_path, dest_parent_fd, dest_name, dest_fd, force);
-
         const char *e = startswith(dest_name, "systemd-boot");
+
+        /* If a primary sd-boot binary already exists and the source is a newer version, preserve the
+         * existing primary at systemd-boot-fallback{arch}.efi before installing the new one, but only
+         * if it matches what actually booted (from LoaderInfo). This ensures the fallback always points
+         * to a known good binary. If the primary was already updated since last boot, the fallback is
+         * left alone. If no fallback exists yet or LoaderInfo is unavailable, always rotate. */
+        if (e && dest_fd >= 0 && !force) {
+                r = version_check(source_fd, source_path, dest_fd, dest_path);
+                if (r < 0)
+                        /* Stash the error and fall through; the BOOT{arch}.EFI updates below still run. */
+                        ret = r;
+                else {
+                        _cleanup_free_ char *fallback_name = strjoin("systemd-boot-fallback", e);
+                        if (!fallback_name)
+                                return log_oom();
+
+                        _cleanup_free_ char *fallback_path = path_join(j, "/EFI/systemd", fallback_name);
+                        if (!fallback_path)
+                                return log_oom();
+
+                        /* Only rotate if the current primary is the one we booted with, so that
+                         * the fallback always holds a known-good binary. If LoaderInfo is unavailable or
+                         * there is no fallback yet, default to always rotating. */
+                        bool should_rotate = true;
+                        _cleanup_close_ int fallback_fd = xopenat_full(dest_parent_fd, fallback_name, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                        if (fallback_fd >= 0) {
+                                _cleanup_free_ char *loader_info = NULL, *dest_version = NULL;
+
+                                if (efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderInfo"), &loader_info) >= 0 &&
+                                    get_file_version(fallback_fd, &dest_version) >= 0)
+                                        should_rotate = !streq(loader_info, dest_version);
+
+                        if (should_rotate) {
+                                r = copy_file_with_version_check(dest_path, dest_fd, fallback_path, dest_parent_fd, fallback_name, /* dest_fd= */ -EBADF, /* force= */ true);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to back up sd-boot binary to fallback path, continuing: %m");
+                        }
+
+                        ret = copy_file_with_version_check(source_path, source_fd, dest_path, dest_parent_fd, dest_name, dest_fd, /* force= */ true);
+                }
+        } else
+                /* Note that if this fails we do the second copy anyway, but return this error code,
+                 * so we stash it away in a separate variable. */
+                ret = copy_file_with_version_check(source_path, source_fd, dest_path, dest_parent_fd, dest_name, dest_fd, force);
+
         if (e) {
 
                 /* Create the EFI default boot loader name (specified for removable devices) */
