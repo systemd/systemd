@@ -753,7 +753,8 @@ typedef struct StartTransientContextParameters {
         const char *description;
         TransientExecContextParameters exec;
         TransientServiceParameters service;
-        const char *bad_exec_field; /* Set by inner Exec dispatcher to the unknown sub-property name */
+        const char *bad_exec_field;    /* Set by inner Exec dispatcher to the unknown sub-property name */
+        const char *bad_service_field;
 } StartTransientContextParameters;
 
 static void start_transient_context_parameters_done(StartTransientContextParameters *p) {
@@ -885,7 +886,7 @@ static int dispatch_transient_service(const char *name, sd_json_variant *variant
 
         StartTransientContextParameters *p = ASSERT_PTR(userdata);
         p->service.present = true;
-        return sd_json_dispatch(variant, service_dispatch, /* flags= */ 0, &p->service);
+        return sd_json_dispatch_full(variant, service_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->service, &p->bad_service_field);
 }
 
 static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -911,6 +912,8 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
                  * actual sub-property. */
                 if (streq(bad_field, "Exec") && !isempty(p->context.bad_exec_field))
                         p->unsupported_property = strjoin("Exec.", p->context.bad_exec_field);
+                else if (streq(bad_field, "Service") && !isempty(p->context.bad_service_field))
+                        p->unsupported_property = strjoin("Service.", p->context.bad_service_field);
                 else
                         p->unsupported_property = strdup(bad_field);
                 if (!p->unsupported_property)

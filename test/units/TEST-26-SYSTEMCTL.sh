@@ -690,8 +690,17 @@ varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-exec.slice","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false}}}}' |& grep "io.systemd.Unit.UnitTypeNotSupported"
 # Unknown field in Exec is rejected as PropertyNotSupported
 defer_transient_cleanup varlink-transient-unknown-exec.service
-varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-unknown-exec.service","Exec":{"RootDirectory":"/tmp"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.PropertyNotSupported"
+unsupported_exec=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-unknown-exec.service","Exec":{"RootDirectory":"/tmp"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
+echo "$unsupported_exec" | grep "io.systemd.Unit.PropertyNotSupported"
+echo "$unsupported_exec" | grep "Exec.RootDirectory"
+# Service field declared in the IDL but not yet settable at creation is rejected as PropertyNotSupported,
+# and the offending sub-property is identified
+defer_transient_cleanup varlink-transient-unknown-service.service
+unsupported_service=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-unknown-service.service","Service":{"Type":"oneshot","Restart":"always","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
+echo "$unsupported_service" | grep "io.systemd.Unit.PropertyNotSupported"
+echo "$unsupported_service" | grep "Service.Restart"
 set -o pipefail
 
 transient_cleanup
