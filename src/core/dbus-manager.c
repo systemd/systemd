@@ -1892,6 +1892,9 @@ static int method_set_environment(sd_bus_message *message, void *userdata, sd_bu
         r = sd_bus_message_read_strv(message, &plus);
         if (r < 0)
                 return r;
+        if (strv_length(plus) > ENVIRONMENT_ASSIGNMENTS_MAX)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many environment assignments in a single query.");
         if (!strv_env_is_valid(plus))
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
 
@@ -1922,7 +1925,9 @@ static int method_unset_environment(sd_bus_message *message, void *userdata, sd_
         r = sd_bus_message_read_strv(message, &minus);
         if (r < 0)
                 return r;
-
+        if (strv_length(minus) > ENVIRONMENT_ASSIGNMENTS_MAX)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many environment assignments in a single query.");
         if (!strv_env_name_or_assignment_is_valid(minus))
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                         "Invalid environment variable names or assignments");
@@ -1958,7 +1963,9 @@ static int method_unset_and_set_environment(sd_bus_message *message, void *userd
         r = sd_bus_message_read_strv(message, &plus);
         if (r < 0)
                 return r;
-
+        if (strv_length(plus) > ENVIRONMENT_ASSIGNMENTS_MAX || strv_length(minus) > ENVIRONMENT_ASSIGNMENTS_MAX)
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many environment assignments in a single query.");
         if (!strv_env_name_or_assignment_is_valid(minus))
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                         "Invalid environment variable names or assignments");
