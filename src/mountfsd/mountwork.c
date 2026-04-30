@@ -1362,7 +1362,7 @@ static int vl_method_make_directory(
 
         struct stat parent_stat;
         if (fstat(parent_fd, &parent_stat) < 0)
-                return r;
+                return log_debug_errno(errno, "Failed to fstat parent directory fd: %m");
 
         r = stat_verify_directory(&parent_stat);
         if (r < 0)
