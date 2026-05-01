@@ -88,6 +88,7 @@
 #include "user-record.h"
 #include "user-util.h"
 #include "utf8.h"
+#include "vmspawn-bind-volume.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-qemu-config.h"
 #include "vmspawn-qmp.h"
@@ -163,6 +164,7 @@ static bool arg_keep_unit = false;
 static sd_id128_t arg_uuid = {};
 static char **arg_kernel_cmdline_extra = NULL;
 static ExtraDriveContext arg_extra_drives = {};
+static BindVolumes arg_bind_volumes = {};
 static char *arg_background = NULL;
 static bool arg_pass_ssh_key = true;
 static char *arg_ssh_key_type = NULL;
@@ -200,6 +202,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_runtime_mounts, runtime_mount_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_forward_journal, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_extra_drives, extra_drive_context_done);
+STATIC_DESTRUCTOR_REGISTER(arg_bind_volumes, bind_volumes_done);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_ssh_key_type, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_smbios11, strv_freep);
@@ -763,6 +766,25 @@ static int parse_argv(int argc, char *argv[]) {
                                 .format = format,
                                 .disk_type = extra_disk_type,
                         };
+                        break;
+                }
+
+                OPTION_LONG("bind-volume", "PROVIDER:VOLUME[:CONFIG][:KEY=VALUE,...]",
+                            "Acquire a storage volume from a StorageProvider and attach it to the VM"): {
+                        _cleanup_(bind_volume_freep) BindVolume *bv = NULL;
+
+                        r = bind_volume_parse(opts.arg, &bv);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --bind-volume= argument '%s': %m", opts.arg);
+
+                        if (disk_type_from_bind_volume_config(bv->config) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown device type '%s' for --bind-volume=. Valid values: virtio-blk, virtio-scsi, nvme, scsi-cd.",
+                                                       bv->config);
+
+                        if (!GREEDY_REALLOC(arg_bind_volumes.items, arg_bind_volumes.n_items + 1))
+                                return log_oom();
+                        arg_bind_volumes.items[arg_bind_volumes.n_items++] = TAKE_PTR(bv);
                         break;
                 }
 
@@ -2475,7 +2497,7 @@ static int prepare_device_info(const char *runtime_dir, MachineConfig *c) {
 
         /* Build drive info for QMP-based setup. vmspawn opens all image files and
          * passes fds to QEMU via add-fd — QEMU never needs filesystem access. */
-        drives->drives = new0(DriveInfo*, 1 + arg_extra_drives.n_drives);
+        drives->drives = new0(DriveInfo*, 1 + arg_extra_drives.n_drives + arg_bind_volumes.n_items);
         if (!drives->drives)
                 return log_oom();
 
@@ -2484,6 +2506,10 @@ static int prepare_device_info(const char *runtime_dir, MachineConfig *c) {
                 return r;
 
         r = prepare_extra_drives(drives);
+        if (r < 0)
+                return r;
+
+        r = vmspawn_bind_volume_prepare_boot(arg_runtime_scope, &arg_bind_volumes, drives);
         if (r < 0)
                 return r;
 
