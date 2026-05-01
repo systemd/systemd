@@ -67,7 +67,7 @@ jobs:
 
       - name: Fetch PR context and create tracking comment
         id: context
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
             const owner = context.repo.owner;
@@ -179,7 +179,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y bubblewrap socat
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7
+        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_NAME }}
           role-session-name: GitHubActions-Claude-${{ github.run_id }}
@@ -417,7 +417,7 @@ jobs:
           name: review-result.json
 
       - name: Post review comments
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           REVIEW_RESULT: ${{ needs.review.result }}
           PR_NUMBER: ${{ needs.setup.outputs.pr_number }}
