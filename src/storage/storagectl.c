@@ -723,25 +723,25 @@ static int run_as_mount_helper(int argc, char *argv[]) {
                 if (!uid_is_valid(p.base_uid) || !gid_is_valid(p.base_gid))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Provider did not report base UID/GID, cannot mount.");
 
-                if (p.base_uid > UINT32_MAX - 0x10000U ||
-                    p.base_gid > UINT32_MAX - 0x10000U)
+                if (p.base_uid > UINT32_MAX - USERNS_RANGE_SIZE ||
+                    p.base_gid > UINT32_MAX - USERNS_RANGE_SIZE)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Returned base UID/GID out of range.");
 
                 r = stat_verify_directory(&st);
                 if (r < 0)
                         return log_error_errno(r, "File descriptor for directory volume is not a directory inode: %m");
 
-                if (st.st_uid < p.base_uid || st.st_uid >= p.base_uid + 0x10000 ||
-                    st.st_gid < p.base_gid || st.st_gid >= p.base_gid + 0x10000)
+                if (st.st_uid < p.base_uid || st.st_uid >= p.base_uid + USERNS_RANGE_SIZE ||
+                    st.st_gid < p.base_gid || st.st_gid >= p.base_gid + USERNS_RANGE_SIZE)
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "File descriptor for directory volume is not owned by base UID/GID range, refusing.");
 
                 /* Now move the mount into our own UID/GID range */
                 _cleanup_free_ char *uid_line = asprintf_safe(
                                 UID_FMT " " UID_FMT " " UID_FMT "\n",
-                                p.base_uid, (uid_t) 0, (uid_t) 0x10000);
+                                p.base_uid, (uid_t) 0, USERNS_RANGE_SIZE);
                 _cleanup_free_ char *gid_line = asprintf_safe(
                                 GID_FMT " " GID_FMT " " GID_FMT "\n",
-                                p.base_gid, (gid_t) 0, (gid_t) 0x10000);
+                                p.base_gid, (gid_t) 0, USERNS_RANGE_SIZE);
                 if (!uid_line || !gid_line)
                         return log_oom();
 
