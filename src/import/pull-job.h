@@ -7,7 +7,6 @@
 
 #include "shared-forward.h"
 
-typedef struct CurlGlue CurlGlue;
 typedef struct PullJob PullJob;
 
 typedef void (*PullJobFinished)(PullJob *job);
@@ -46,7 +45,7 @@ typedef struct PullJob {
         PullJobNotFound on_not_found;
 
         CurlGlue *glue;
-        CURL *curl;
+        CurlSlot *slot;
         struct curl_slist *request_header;
 
         char *etag;
@@ -94,8 +93,6 @@ int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata)
 PullJob* pull_job_unref(PullJob *job);
 
 int pull_job_begin(PullJob *j);
-
-void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result);
 
 void pull_job_close_disk_fd(PullJob *j);
 
