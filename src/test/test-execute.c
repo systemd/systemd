@@ -1435,7 +1435,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         ASSERT_OK(r);
 
         m->defaults.std_output = EXEC_OUTPUT_INHERIT; /* don't rely on host journald */
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
 
         /* Uncomment below if you want to make debugging logs stored to journal. */
         //manager_override_log_target(m, LOG_TARGET_AUTO);
