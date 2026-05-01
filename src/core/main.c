@@ -16,6 +16,7 @@
 
 #include "sd-bus.h"
 #include "sd-daemon.h"
+#include "sd-json.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -44,11 +45,14 @@
 #include "emergency-action.h"
 #include "env-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "getopt-defs.h"
+#include "hash-funcs.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "id128-util.h"
@@ -57,6 +61,7 @@
 #include "initrd-util.h"
 #include "io-util.h"
 #include "ipe-setup.h"
+#include "json-util.h"
 #include "killall.h"
 #include "kmod-setup.h"
 #include "label-util.h"
@@ -79,6 +84,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
@@ -89,6 +95,7 @@
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "serialize.h"
+#include "service.h"
 #include "set.h"
 #include "signal-util.h"
 #include "smack-setup.h"
@@ -3075,10 +3082,258 @@ static int initialize_security(
         return 0;
 }
 
-static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
+static int parse_listen_fds_env(unsigned *ret_n_fds, char ***ret_names) {
+        _cleanup_strv_free_ char **names = NULL;
+        const char *e;
+        unsigned n_fds;
+        int r;
+
+        assert(ret_n_fds);
+        assert(ret_names);
+
+        /* Parse and validate the LISTEN_PID=/LISTEN_PIDFDID=/LISTEN_FDS=/LISTEN_FDNAMES= environment
+         * variables. Returns 0 (with *ret_n_fds = 0) if the protocol is not in use or does not target
+         * us, > 0 with parsed values otherwise. */
+
+        *ret_n_fds = 0;
+        *ret_names = NULL;
+
+        e = secure_getenv("LISTEN_PID");
+        if (!e)
+                return 0;
+
+        pid_t pid;
+        r = parse_pid(e, &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse LISTEN_PID=%s: %m", e);
+        if (pid != getpid_cached()) {
+                log_debug("LISTEN_PID=%s does not match our own PID " PID_FMT ", ignoring.", e, getpid_cached());
+                return 0;
+        }
+
+        e = secure_getenv("LISTEN_PIDFDID");
+        if (e) {
+                uint64_t own_pidfdid, pidfdid;
+
+                r = safe_atou64(e, &pidfdid);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse LISTEN_PIDFDID=%s: %m", e);
+
+                if (pidfd_get_inode_id_self_cached(&own_pidfdid) >= 0 && pidfdid != own_pidfdid) {
+                        log_debug("LISTEN_PIDFDID=%s does not match our own pidfdid %" PRIu64 ", ignoring.", e, own_pidfdid);
+                        return 0;
+                }
+        }
+
+        e = secure_getenv("LISTEN_FDS");
+        if (!e)
+                return 0;
+
+        r = safe_atou(e, &n_fds);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse LISTEN_FDS= value '%s': %m", e);
+        if (n_fds == 0 || n_fds > INT_MAX - SD_LISTEN_FDS_START)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid number of fds in LISTEN_FDS= value '%s'", e);
+
+        e = secure_getenv("LISTEN_FDNAMES");
+        if (!e)
+                return 0;
+
+        r = strv_split_full(&names, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse LISTEN_FDNAMES=%s: %m", e);
+        if (strv_length(names) != (size_t) n_fds)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Mismatch between number of LISTEN_FDS= and LISTEN_FDNAMES= entries: %u vs %zu",
+                                       n_fds, strv_length(names));
+
+        *ret_n_fds = n_fds;
+        *ret_names = TAKE_PTR(names);
+        return 1;
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                index_to_tag_hash_ops,
+                uint64_t, uint64_hash_func, uint64_compare_func,
+                ListenFDsTag, listen_fds_tag_free);
+
+static int parse_listen_fds_mapping(int mapping_fd, Hashmap **ret_index_to_tag) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = NULL;
+        _cleanup_hashmap_free_ Hashmap *index_to_tag = NULL;
+        const char *unit_id;
+        sd_json_variant *fds_json;
+        int r;
+
+        assert(mapping_fd >= 0);
+        assert(ret_index_to_tag);
+
+        /* Parse the JSON mapping memfd that the downstream manager pushed alongside the indexed fds:
+         *   { "unit-name.service": [ { "name": "fdname1", "index": 1 }, ... ], ... }
+         * Returns a hashmap keyed by stringified index ("1", "2", ...) with ListenFDsTag* values
+         * carrying the resolved (unit_id, original fdname, upstream index). */
+
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fdopen_independent(mapping_fd, "r", &f);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to open fdstore-mapping memfd: %m");
+
+        r = sd_json_parse_file(f, "fdstore-mapping", SD_JSON_PARSE_MUST_BE_OBJECT, &root,
+                               /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse fdstore-mapping JSON: %m");
+
+        JSON_VARIANT_OBJECT_FOREACH(unit_id, fds_json, root) {
+                sd_json_variant *entry;
+
+                if (!unit_name_is_valid(unit_id, UNIT_NAME_ANY)) {
+                        log_warning("fdstore-mapping has invalid unit name '%s', skipping.", unit_id);
+                        continue;
+                }
+
+                if (!sd_json_variant_is_array(fds_json)) {
+                        log_warning("fdstore-mapping for unit '%s' is not an array, skipping.", unit_id);
+                        continue;
+                }
+
+                JSON_VARIANT_ARRAY_FOREACH(entry, fds_json) {
+                        struct {
+                                const char *name;
+                                uint64_t index;
+                        } p = {
+                                .index = 0,
+                        };
+
+                        static const sd_json_dispatch_field dispatch_table[] = {
+                                { "name",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, name),  SD_JSON_MANDATORY },
+                                { "index", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       voffsetof(p, index), SD_JSON_MANDATORY },
+                                {}
+                        };
+
+                        r = sd_json_dispatch(entry, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to parse fdstore-mapping entry for unit '%s': %m", unit_id);
+                                continue;
+                        }
+
+                        if (p.index == 0) {
+                                log_warning("fdstore-mapping entry for unit '%s' name '%s' has zero index, skipping.", unit_id, p.name);
+                                continue;
+                        }
+
+                        _cleanup_(listen_fds_tag_freep) ListenFDsTag *t = new(ListenFDsTag, 1);
+                        if (!t)
+                                return log_oom();
+
+                        *t = (ListenFDsTag) {
+                                .index = p.index,
+                        };
+
+                        t->unit_id = strdup(unit_id);
+                        t->fdname = strdup(p.name);
+                        if (!t->unit_id || !t->fdname)
+                                return log_oom();
+
+                        /* Key points into the value struct, so freeing the value frees the key. */
+                        r = hashmap_ensure_put(&index_to_tag, &index_to_tag_hash_ops, &t->index, t);
+                        if (r < 0)
+                                return log_warning_errno(r, "Failed to insert fdstore-mapping entry into hashmap: %m");
+                        if (r > 0)
+                                TAKE_PTR(t);
+                }
+        }
+
+        *ret_index_to_tag = TAKE_PTR(index_to_tag);
+        return 0;
+}
+
+static int collect_listen_fds_named(FDSet *fds, Hashmap **ret_named_fds) {
+        _cleanup_hashmap_free_ Hashmap *named_fds = NULL, *index_to_tag = NULL;
+        _cleanup_strv_free_ char **names = NULL;
+        unsigned n_fds;
+        int r;
+
+        assert(fds);
+        assert(ret_named_fds);
+
+        /* Pull entries from the LISTEN_FDS=/LISTEN_FDNAMES= protocol out of 'fds' into a hashmap
+         * keyed by fd. Two flavours of named entries are recognized:
+         *
+         *   - A single mapping memfd whose fdname matches SERVICE_FDSTORE_MAPPING_FDNAME, which
+         *     contains a JSON map pairing numeric indices to (unit-id, original-fdname).
+         *   - Numeric indices (matching entries in the mapping document) for the actual fds.
+         *
+         * The hashmap owns the fds (closed via destructor on cleanup) so any entries the dispatcher
+         * does not consume are correctly cleaned up. */
+
+        r = parse_listen_fds_env(&n_fds, &names);
+        if (r < 0)
+                return r;
+        if (r == 0) { /* nothing to do */
+                *ret_named_fds = NULL;
+                return 0;
+        }
+
+        /* First pass: locate and parse the mapping memfd, if any. */
+        for (unsigned i = 0; i < n_fds; i++) {
+                int fd = SD_LISTEN_FDS_START + i;
+
+                if (!streq(names[i], SERVICE_FDSTORE_MAPPING_FDNAME))
+                        continue;
+
+                if (!fdset_contains(fds, fd))
+                        continue;
+
+                (void) parse_listen_fds_mapping(fd, &index_to_tag);
+
+                /* The mapping memfd itself is not routed to any unit; close it and remove from fds
+                 * so it doesn't get redistributed */
+                assert_se(fdset_remove(fds, fd) == fd);
+                safe_close(fd);
+                break;
+        }
+
+        /* Second pass: route fds whose name matches an entry in the mapping. */
+        for (unsigned i = 0; i < n_fds; i++) {
+                int fd = SD_LISTEN_FDS_START + i;
+                const char *name = names[i];
+                ListenFDsTag *t;
+                uint64_t idx;
+
+                if (!fdset_contains(fds, fd))
+                        continue;
+
+                if (!index_to_tag || safe_atou64(name, &idx) < 0)
+                        continue;
+
+                /* Steal the matching mapping entry — we transfer ownership of the parsed
+                 * (unit_id, fdname, index) struct into the per-fd hashmap that the manager
+                 * will consume. */
+                t = hashmap_remove(index_to_tag, &idx);
+                if (!t)
+                        continue;
+
+                _cleanup_(listen_fds_tag_freep) ListenFDsTag *t_owned = t;
+
+                r = hashmap_ensure_put(&named_fds, &fd_to_listen_fds_tag_hash_ops, FD_TO_PTR(fd), t_owned);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to insert named fd into hashmap: %m");
+                if (r == 0)
+                        continue; /* fd already inserted, cannot really happen */
+
+                TAKE_PTR(t_owned);
+
+                assert_se(fdset_remove(fds, fd) == fd);
+        }
+
+        *ret_named_fds = TAKE_PTR(named_fds);
+        return 1;
+}
+
+static int collect_fds(FDSet **ret_fds, Hashmap **ret_named_fds, const char **ret_error_message) {
         int r;
 
         assert(ret_fds);
+        assert(ret_named_fds);
         assert(ret_error_message);
 
         /* Pick up all fds passed to us. We apply a filter here: we only take the fds that have O_CLOEXEC
@@ -3099,6 +3354,8 @@ static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
 
         /* The serialization fd should have O_CLOEXEC turned on already, let's verify that we didn't pick it up here */
         assert_se(!arg_serialization || !fdset_contains(*ret_fds, fileno(arg_serialization)));
+
+        (void) collect_listen_fds_named(*ret_fds, ret_named_fds);
 
         return 0;
 }
@@ -3157,6 +3414,7 @@ int main(int argc, char *argv[]) {
                                                                           * for the two that indicate whether
                                                                           * these fields are initialized! */
         bool skip_setup, loaded_policy = false, queue_default_job = false, first_boot = false;
+        _cleanup_hashmap_free_ Hashmap *named_listen_fds = NULL;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
         usec_t before_startup, after_startup;
         static char systemd[] = "systemd";
@@ -3396,7 +3654,7 @@ int main(int argc, char *argv[]) {
                 log_close();
 
                 /* Remember open file descriptors for later deserialization */
-                r = collect_fds(&fds, &error_message);
+                r = collect_fds(&fds, &named_listen_fds, &error_message);
                 if (r < 0)
                         goto finish;
 
@@ -3471,7 +3729,7 @@ int main(int argc, char *argv[]) {
 
         before_startup = now(CLOCK_MONOTONIC);
 
-        r = manager_startup(m, arg_serialization, fds, /* root= */ NULL);
+        r = manager_startup(m, arg_serialization, fds, named_listen_fds, /* root= */ NULL);
         if (r < 0) {
                 error_message = "Failed to start up manager";
                 goto finish;
