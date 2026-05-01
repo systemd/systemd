@@ -879,7 +879,7 @@ static int qmp_setup_scsi_controller(VmspawnQmpBridge *bridge, const char *pcie_
         return 0;
 }
 
-static int vmspawn_qmp_add_block_device(VmspawnQmpBridge *bridge, DriveInfo *drive) {
+int vmspawn_qmp_add_block_device(VmspawnQmpBridge *bridge, DriveInfo *drive) {
         int r;
 
         assert(bridge);
@@ -1025,7 +1025,9 @@ int vmspawn_qmp_remove_block_device(VmspawnQmpBridge *bridge, sd_varlink *link, 
 
         DriveInfo *drive = hashmap_get(bridge->block_devices, id);
         if (!drive)
-                return reply_qmp_error(link, "Unknown block device id", -ENOENT);
+                return sd_varlink_error(link, "io.systemd.MachineInstance.NoSuchStorage", NULL);
+        if (!FLAGS_SET(drive->flags, QMP_DRIVE_REMOVABLE))
+                return sd_varlink_error(link, "io.systemd.MachineInstance.StorageImmutable", NULL);
         if (!FLAGS_SET(drive->state, BLOCK_DEVICE_STATE_BLOCKDEV_ADDED))
                 return reply_qmp_error(link, "Block device add pending", -EBUSY);
         if (FLAGS_SET(drive->state, BLOCK_DEVICE_STATE_REMOVE_PENDING))
