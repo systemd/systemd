@@ -80,6 +80,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.restrict_exec=</varname></term>
+        <listitem>
+          <para>Controls the <varname>RestrictExec=</varname> execution enforcement policy. For
+          details, see
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.mask=</varname></term>
         <term><varname>systemd.wants=</varname></term>
         <term><varname>systemd.debug_shell</varname></term>
