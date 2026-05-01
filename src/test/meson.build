@@ -324,6 +324,11 @@ executables += [
                 'dependencies' : libseccomp_cflags,
         },
         test_template + {
+                'sources' : files('test-fdstore.c'),
+                'link_with' : libsystemd,
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files(
                         'test-hashmap.c',
                         'test-hashmap-plain.c',
