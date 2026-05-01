@@ -349,6 +349,10 @@ executables += [
                 'link_with' : [libshared],
         },
         test_template + {
+                'sources' : files('test-curl-util.c'),
+                'conditions' : ['HAVE_LIBCURL'],
+        },
+        test_template + {
                 'sources' : files('test-libcrypt-util.c'),
                 'conditions' : ['HAVE_LIBCRYPT'],
                 'timeout' : 120,

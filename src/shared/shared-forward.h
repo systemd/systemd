@@ -57,6 +57,8 @@ typedef struct Condition Condition;
 typedef struct ConfigSection ConfigSection;
 typedef struct ConfigTableItem ConfigTableItem;
 typedef struct CPUSet CPUSet;
+typedef struct CurlGlue CurlGlue;
+typedef struct CurlSlot CurlSlot;
 typedef struct DissectedImage DissectedImage;
 typedef struct DnsAnswer DnsAnswer;
 typedef struct DnsPacket DnsPacket;
