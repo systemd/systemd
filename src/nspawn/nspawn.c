@@ -130,6 +130,7 @@
 #include "unit-name.h"
 #include "user-record.h"
 #include "user-util.h"
+#include "volatile-util.h"
 #include "vpick.h"
 
 /* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
@@ -3875,6 +3876,29 @@ static DissectImageFlags determine_dissect_image_flags(void) {
                  (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO) ? DISSECT_IMAGE_IDENTITY_UID : 0);
 }
 
+static int apply_deferred_mstack_bind_mounts(MStack *mstack, const char *directory, MStackFlags flags, MStackBindMountFilter filter) {
+        int r;
+
+        /* Open an O_PATH fd anchored to the staged container root so that
+         * mstack_apply_bind_mounts() can use chaseat() to safely resolve bind
+         * target paths relative to it, without symlink escape risk. */
+        _cleanup_close_ int root_fd = open(directory, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        if (root_fd < 0)
+                return log_error_errno(errno, "Failed to open container root for deferred mstack mount: %m");
+
+        /* Apply .mstack bind mounts that were deferred to avoid being masked by the
+         * volatile overlay. We pass directory as the mount root so
+         * bind targets are constructed against the staged container root rather than
+         * the host filesystem. */
+        r = mstack_apply_bind_mounts(mstack, root_fd, directory, flags, filter);
+        if (r < 0)
+                return log_error_errno(r, "Failed to apply deferred .mstack bind mounts: %m");
+
+        log_debug("Applied deferred .mstack bind mounts.");
+
+        return 0;
+}
+
 static int outer_child(
                 Barrier *barrier,
                 const char *directory,
@@ -3910,6 +3934,10 @@ static int outer_child(
         assert(directory);
         assert(fd_outer_socket >= 0);
         assert(fd_inner_socket >= 0);
+
+        /* To support mstack_apply_attr() helper. */
+        MStackFlags mstack_flags = 0;
+        MStackBindMountFilter mstack_filter = MSTACK_BINDMOUNT_ALL;
 
         log_debug("Outer child is initializing.");
 
@@ -3971,7 +3999,32 @@ static int outer_child(
                 assert(!arg_image);
                 assert(arg_mstack);
 
-                MStackFlags mstack_flags = arg_read_only ? MSTACK_RDONLY : 0;
+                mstack_flags = FLAGS_SET(arg_settings_mask, SETTING_READ_ONLY) ? MSTACK_RDONLY : 0;
+
+                /* Defer binds only if using an mstack root
+                 * AND any of volatile mode is enabled. */
+                if (IN_SET(arg_volatile_mode, VOLATILE_YES, VOLATILE_OVERLAY, VOLATILE_STATE)) {
+                        /* Defer all binds. */
+                        mstack_filter = MSTACK_BINDMOUNT_NONE;
+
+                        log_debug("Detected combination of mstack and volatile flags, deferring all .mstack bind mounts.");
+                }
+
+                bool has_rw_layer = false;
+                FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts)
+                        if (m->mount_type == MSTACK_RW) {
+                                has_rw_layer = true;
+                                break;
+                        }
+
+                if (has_rw_layer && FLAGS_SET(arg_settings_mask, SETTING_READ_ONLY))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Cannot combine .mstack/ rw/ directory with --read-only.");
+
+                if (mstack->has_overlayfs && has_rw_layer && arg_volatile_mode != VOLATILE_NO)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Cannot combine .mstack/ rw/ directory with --volatile=. "
+                                        "Use either rw/ for persistent writes or --volatile= for ephemeral writes, not both.");
 
                 /* This creates the needed overlayfs or tmpfs, owned by our target userns. Note that we pass
                  * the target mount dir as temporary mount dir here. We after all just need some dir here
@@ -3984,12 +4037,16 @@ static int outer_child(
                 if (r < 0)
                         return log_error_errno(r, "Failed to make .mstack/ mounts: %m");
 
-                /* And then attaches all mounts to the directory */
+                /* And then attaches all mounts to the directory
+                 * If volatile is set, we're skipping bind mounts
+                 * to mount them after tmpfs overlay,
+                 * mounting only root. */
                 r = mstack_bind_mounts(
                                 mstack,
                                 directory,
                                 /* where_fd= */ -EBADF,
                                 mstack_flags,
+                                mstack_filter,
                                 /* ret_root_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed bind mount .mstack/ mounts: %m");
@@ -4081,6 +4138,26 @@ static int outer_child(
                         arg_selinux_apifs_context);
         if (r < 0)
                 return r;
+
+        /* Applying skipped mstack bind mounts.
+         * Overlay/Volatile path. */
+        if (mstack && IN_SET(arg_volatile_mode, VOLATILE_YES, VOLATILE_OVERLAY, VOLATILE_STATE)) {
+                assert(arg_mstack);
+
+                mstack_filter = MSTACK_BINDMOUNT_ALL;
+
+                /* Since volatile=state creates only /var overlay
+                 * we can just defer only binds under /var. */
+                if (arg_volatile_mode == VOLATILE_STATE)
+                        mstack_filter = MSTACK_BINDMOUNT_EXCEPT_VAR;
+
+                r = apply_deferred_mstack_bind_mounts(mstack,
+                                directory,
+                                mstack_flags,
+                                mstack_filter);
+                if (r < 0)
+                        return r;
+        }
 
         _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *bind_user_context = NULL;
         r = machine_bind_user_prepare(
@@ -4215,6 +4292,19 @@ static int outer_child(
                         arg_selinux_apifs_context);
         if (r < 0)
                 return r;
+
+        /* Applying skipped mstack bind mounts.
+         * Volatile=state path, mounts binds under /var. */
+        if (mstack && arg_volatile_mode == VOLATILE_STATE) {
+                assert(arg_mstack);
+
+                r = apply_deferred_mstack_bind_mounts(mstack,
+                                directory,
+                                mstack_flags,
+                                MSTACK_BINDMOUNT_VAR_ONLY);
+                if (r < 0)
+                        return r;
+        }
 
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
