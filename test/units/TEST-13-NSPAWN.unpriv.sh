@@ -22,14 +22,17 @@ at_exit() {
     rm -rf /home/testuser/.local/state/machines/inodetest ||:
     rm -rf /home/testuser/.local/state/machines/inodetest2 ||:
     rm -rf /home/testuser/.local/state/machines/mangletest ||:
+    rm -rf /home/testuser/.local/state/machines/fdstore ||:
     machinectl terminate zurps ||:
     machinectl terminate exfiltrate ||:
     systemctl --user --machine testuser@ stop exfiltrate.service ||:
+    systemctl --user --machine testuser@ stop systemd-nspawn@fdstore.service ||:
     rm -f /etc/polkit-1/rules.d/registermachinetest.rules
     machinectl terminate nurps ||:
     machinectl terminate kurps ||:
     machinectl terminate wumms ||:
     machinectl terminate wamms ||:
+    machinectl terminate fdstore ||:
     rm -f /usr/share/polkit-1/rules.d/registermachinetest.rules
     rm -rf /var/tmp/mangletest
     rm -f /var/tmp/mangletest.tar.gz
@@ -306,5 +309,86 @@ echo "ID=brumm" >/var/tmp/mangletest/mangletest-0.1/usr/lib/os-release
 tar -C /var/tmp/mangletest/ -cvzf /var/tmp/mangletest.tar.gz mangletest-0.1
 run0 --pipe -u testuser importctl -m --user import-tar /var/tmp/mangletest.tar.gz
 cmp /var/tmp/mangletest/mangletest-0.1/usr/lib/os-release /home/testuser/.local/state/machines/mangletest/usr/lib/os-release
+
+# Verify the fd-store preservation chain works end-to-end across:
+#   payload (inside container) -> systemd-nspawn (user manager) -> user manager
+#   -> system PID 1 (user@<UID>.service fd store)
+# Then restart the nspawn service and verify the inner payload actually
+# receives the preserved fds back via LISTEN_FDS, with their original content.
+create_dummy_container /home/testuser/.local/state/machines/fdstore
+# The container init execs the helper directly so the FDSTORE notification is
+# sent from PID 1 (nspawn rejects notify messages from anyone but the inner
+# payload's init). The helper itself execs sleep on success to keep the
+# container alive, and on failure it exits non-zero making the systemd-nspawn
+# service fail.
+cat >/home/testuser/.local/state/machines/fdstore/sbin/init <<'EOF'
+#!/usr/bin/env bash
+set -e
+if [[ "${LISTEN_FDS:-0}" -gt 0 ]]; then
+    exec /usr/bin/test-fdstore check
+else
+    exec /usr/bin/test-fdstore store
+fi
+EOF
+chmod +x /home/testuser/.local/state/machines/fdstore/sbin/init
+systemd-dissect --shift /home/testuser/.local/state/machines/fdstore foreign
+
+run0 -u testuser mkdir -p .config/systemd/nspawn/
+run0 -u testuser -i "cat >.config/systemd/nspawn/fdstore.nspawn <<EOF
+[Exec]
+KillSignal=SIGKILL
+EOF"
+
+run0 -u testuser mkdir -p ".config/systemd/user/systemd-nspawn@fdstore.service.d/"
+run0 -u testuser -i "cat >.config/systemd/user/systemd-nspawn@fdstore.service.d/fdstore.conf <<EOF
+[Service]
+FileDescriptorStoreMax=8
+FileDescriptorStorePreserve=yes
+EOF"
+run0 -u testuser systemctl --user daemon-reload
+
+run0 -u testuser systemctl start --user systemd-nspawn@fdstore.service
+timeout 30s bash -c \
+    "until [[ \"\$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)\" -ge 2 ]]; do sleep 0.5; done"
+
+# 1) Payload -> nspawn (user-side systemd-nspawn@fdstore.service fd store)
+n_nspawn_fds=$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)
+test "${n_nspawn_fds}" -ge 2
+
+# 2) nspawn -> user manager -> system PID 1 (user@<UID>.service fd store)
+TESTUSER_UID=$(id -u testuser)
+timeout 30s bash -c \
+    "until [[ \"\$(systemctl show -P NFileDescriptorStore user@${TESTUSER_UID}.service)\" -ge 2 ]]; do sleep 0.5; done"
+n_user_at_fds=$(systemctl show -P NFileDescriptorStore "user@${TESTUSER_UID}.service")
+test "${n_user_at_fds}" -ge 2
+
+# 3) Stop the nspawn service: payload is gone but FileDescriptorStorePreserve=yes
+# must keep the fds in the user-side fdstore (and propagated copy in PID 1).
+run0 -u testuser systemctl --user stop systemd-nspawn@fdstore.service
+n_nspawn_fds=$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)
+test "${n_nspawn_fds}" -ge 2
+
+# 4) Restart the service: nspawn must receive the preserved fds via LISTEN_FDS
+# and forward them into the inner payload, which verifies the content matches.
+run0 -u testuser systemctl start --user systemd-nspawn@fdstore.service
+run0 -u testuser systemctl is-active --user systemd-nspawn@fdstore.service
+
+# 5) Stop the nspawn service and the user session
+run0 -u testuser systemctl --user stop systemd-nspawn@fdstore.service
+n_nspawn_fds=$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)
+test "${n_nspawn_fds}" -ge 2
+systemctl stop "user@${TESTUSER_UID}.service"
+n_user_at_fds=$(systemctl show -P NFileDescriptorStore "user@${TESTUSER_UID}.service")
+test "${n_user_at_fds}" -ge 2
+
+# 6) Restart the user session and container payload
+systemctl start "user@${TESTUSER_UID}.service"
+timeout 30s bash -c \
+    "until systemctl is-active 'user@${TESTUSER_UID}.service' >/dev/null; do sleep 0.5; done"
+run0 -u testuser systemctl --user start systemd-nspawn@fdstore.service
+run0 -u testuser systemctl is-active --user systemd-nspawn@fdstore.service
+
+run0 -u testuser systemctl --user stop systemd-nspawn@fdstore.service
+machinectl terminate fdstore 2>/dev/null || true
 
 loginctl disable-linger testuser
