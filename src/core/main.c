@@ -64,6 +64,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "loopback-setup.h"
+#include "luo.h"
 #include "machine-id-setup.h"
 #include "main.h"
 #include "manager.h"
@@ -153,6 +154,7 @@ static int arg_protect_system;
 static nsec_t arg_timer_slack_nsec;
 static Set* arg_syscall_archs;
 static FILE* arg_serialization;
+static FILE* arg_luo_serialization;
 static sd_id128_t arg_machine_id;
 static bool arg_machine_id_from_firmware = false;
 static EmergencyAction arg_cad_burst_action;
@@ -1759,6 +1761,13 @@ static int become_shutdown(int objective, int retval) {
 
         if (arg_minimum_uptime_usec != USEC_INFINITY)
                 (void) strv_extendf(&env_block, "MINIMUM_UPTIME_USEC=" USEC_FMT, arg_minimum_uptime_usec);
+
+        /* If we have a LUO serialization file, pass the fd to systemd-shutdown so it can
+         * preserve FD store entries across kexec via the kernel Live Update Orchestrator. */
+        if (arg_luo_serialization) {
+                log_debug("Passing LUO serialization fd to systemd-shutdown.");
+                (void) strv_extendf(&env_block, "SYSTEMD_LUO_SERIALIZE_FD=%i", fileno(arg_luo_serialization));
+        }
 
         (void) write_boot_or_shutdown_osc("shutdown");
 
@@ -3474,6 +3483,12 @@ finish:
         if (m) {
                 arg_reboot_watchdog = manager_get_watchdog(m, WATCHDOG_REBOOT);
                 arg_kexec_watchdog = manager_get_watchdog(m, WATCHDOG_KEXEC);
+
+                /* For kexec, serialize fd stores now. Services have stopped and sent
+                 * their FDs to the store, but the manager (and its fd stores) is still alive. */
+                if (r == MANAGER_KEXEC)
+                        (void) manager_luo_serialize_fd_stores(m, &arg_luo_serialization, &fds);
+
                 m = manager_free(m);
         }
 
@@ -3491,7 +3506,13 @@ finish:
                                  &error_message); /* This only returns if reexecution failed */
 
         arg_serialization = safe_fclose(arg_serialization);
-        fds = fdset_free(fds);
+
+        /* For kexec, the FDSet and LUO serialization file must survive until become_shutdown() calls
+         * execve() (CLOEXEC is already cleared on these FDs). For all other paths, free them now. */
+        if (r != MANAGER_KEXEC) {
+                fds = fdset_free(fds);
+                arg_luo_serialization = safe_fclose(arg_luo_serialization);
+        }
 
         saved_env = strv_free(saved_env);
 
