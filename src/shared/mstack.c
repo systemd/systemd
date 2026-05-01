@@ -991,11 +991,76 @@ int mstack_make_mounts(
         return 0;
 }
 
+/* Extracted to make it reusable. */
+static int mstack_apply_attr(int dfd, MStackFlags flags) {
+        /* If we have a tmpfs root, the caller might have created mount point inodes. Hence we left the tmpfs
+         * writable for that. Let's fix that now. Also, let's enable propagation for the future. (Reminder:
+         * we disconnect propagation from the host, but we *want* propagation by default for everything
+         * created further down the tree. Hence we'll set MS_SHARED here right-away.) */
+        if (mount_setattr(dfd, "", AT_EMPTY_PATH|AT_RECURSIVE,
+                          &(struct mount_attr) {
+                                  .attr_set = FLAGS_SET(flags, MSTACK_RDONLY) ? MOUNT_ATTR_RDONLY : 0,
+                                  .attr_clr = FLAGS_SET(flags, MSTACK_RDONLY) ? 0 : MOUNT_ATTR_RDONLY,
+                                  .propagation = MS_SHARED,
+                          }, sizeof(struct mount_attr)) < 0)
+                return log_debug_errno(errno, "Failed to ser mount attributes: %m");
+
+        return 0;
+}
+
+/* Extracted to make it reusable later. */
+int mstack_apply_bind_mounts(
+                MStack *mstack,
+                int root_fd,
+                const char *where,
+                MStackFlags flags,
+                MStackBindMountStrategy mstack_bindmount_strategy) {
+        int r;
+
+        assert(mstack);
+        assert(root_fd >= 0);
+        assert(where);
+
+        if (mstack_bindmount_strategy != MSTACK_BINDMOUNT_NONE) {
+                FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts) {
+                        if (!IN_SET(m->mount_type, MSTACK_BIND, MSTACK_ROBIND) ||
+                            m == mstack->root_mount)
+                                continue;
+
+                        /* These two are for volatile=state path. */
+                        if (mstack_bindmount_strategy == MSTACK_BINDMOUNT_EXCEPT_VAR && path_startswith(m->where, "/var"))
+                                continue;
+
+                        if (mstack_bindmount_strategy == MSTACK_BINDMOUNT_VAR && !path_startswith(m->where, "/var"))
+                                continue;
+
+                        assert(m->mount_fd >= 0);
+
+                        _cleanup_close_ int subdir_fd = -EBADF;
+                        r = chaseat(root_fd, root_fd, m->where, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to open mount point inode '%s': %m", m->where);
+
+                        r = mstack_apply_attr(m->mount_fd, flags);
+                        if (r < 0)
+                                return r;
+
+                        if (move_mount(m->mount_fd, "", subdir_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH) < 0)
+                                return log_debug_errno(errno, "Failed to attach bind mount to '%s' subdir: %m", m->where);
+
+                        log_debug("Attached mstack '%s/' mount to '%s/%s/'.", m->where, where, m->where);
+                }
+        }
+
+        return 0;
+}
+
 int mstack_bind_mounts(
                 MStack *mstack,
                 const char *where,
                 int where_fd,
                 MStackFlags flags,
+                MStackBindMountStrategy mstack_bindmount_strategy,
                 int *ret_root_fd) {
 
         int r;
@@ -1042,36 +1107,14 @@ int mstack_bind_mounts(
                 log_debug("Attached mstack '/usr/' mount to '%s/usr/'.", where);
         }
 
-        FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts) {
+        /* Will defer based on mode. */
+        r = mstack_apply_bind_mounts(mstack, root_fd, where, flags, mstack_bindmount_strategy);
+        if (r < 0)
+                return r;
 
-                if (!IN_SET(m->mount_type, MSTACK_BIND, MSTACK_ROBIND) ||
-                    m == mstack->root_mount)
-                        continue;
-
-                assert(m->mount_fd >= 0);
-
-                _cleanup_close_ int subdir_fd = -EBADF;
-                r = chaseat(root_fd, root_fd, m->where, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to open mount point inode '%s': %m", m->where);
-
-                if (move_mount(m->mount_fd, "", subdir_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH) < 0)
-                        return log_debug_errno(errno, "Failed to attach bind mount to '%s' subdir: %m", m->where);
-
-                log_debug("Attached mstack '%s/' mount to '%s/%s/'.", m->where, where, m->where);
-        }
-
-        /* If we have a tmpfs root, the above might have created mount point inodes. Hence we left the tmpfs
-         * writable for that. Let's fix that now. Also, let's enable propagation for the future. (Reminder:
-         * we disconnect propagation from the host, but we *want* propagation by default for everything
-         * created further down the tree. Hence we'll set MS_SHARED here right-away.) */
-        if (mount_setattr(root_fd, "", AT_EMPTY_PATH|AT_RECURSIVE,
-                          &(struct mount_attr) {
-                                  .attr_set = FLAGS_SET(flags, MSTACK_RDONLY) ? MOUNT_ATTR_RDONLY : 0,
-                                  .attr_clr = FLAGS_SET(flags, MSTACK_RDONLY) ? 0 : MOUNT_ATTR_RDONLY,
-                                  .propagation = MS_SHARED,
-                          }, sizeof(struct mount_attr)) < 0)
-                return log_debug_errno(errno, "Failed to mark root bind mount read-only: %m");
+        r = mstack_apply_attr(root_fd, flags);
+        if (r < 0)
+                return r;
 
         if (ret_root_fd)
                 *ret_root_fd = TAKE_FD(root_fd);
@@ -1116,7 +1159,7 @@ int mstack_apply(
         if (r < 0)
                 return r;
 
-        return mstack_bind_mounts(&mstack, where, /* where_fd= */ -EBADF, flags, ret_root_fd);
+        return mstack_bind_mounts(&mstack, where, /* where_fd= */ -EBADF, flags, MSTACK_BINDMOUNT_ALL, ret_root_fd);
 }
 
 int mstack_load(const char *dir, int dir_fd, MStack **ret) {
