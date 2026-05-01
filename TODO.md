@@ -130,7 +130,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - StorageProvider interface + storagectl
   - hook-up in systemd-nspawn
-  - hook-up in systemd-vmspawn
   - hook-up in service manager (BindVolume=)
   - introduce a locking concept: right now all access to volumes is fully
     shared. Let's add a basic locking concept: supporting backends can take an
