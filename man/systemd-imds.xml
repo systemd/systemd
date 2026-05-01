@@ -150,6 +150,18 @@
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--interface=</option></term>
+        <term><option>-I</option></term>
+
+        <listitem><para>Takes a network interface name. If specified, the IMDS request is directed to the
+        given network interface rather than letting <command>systemd-imdsd</command> select one automatically.
+        This is useful for debugging or for explicitly targeting a specific instance to split the load of the IMDS requests
+        on IMDS environments where there is a per IP request limit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
