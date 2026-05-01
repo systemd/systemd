@@ -200,7 +200,8 @@ TEST(fdset_new_array) {
         int fds[] = {10, 11, 12, 13};
         _cleanup_fdset_free_ FDSet *fdset = NULL;
 
-        assert_se(fdset_new_array(&fdset, fds, 4) >= 0);
+        fdset = fdset_new_array(fds, 4);
+        assert_se(!PTR_IS_ERR(fdset));
         assert_se(fdset_size(fdset) == 4);
         assert_se(fdset_contains(fdset, 10));
         assert_se(fdset_contains(fdset, 11));

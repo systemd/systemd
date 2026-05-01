@@ -22,23 +22,21 @@ int btrfs_validate_subvolume_name(const char *name) {
         return 0;
 }
 
-static int extract_subvolume_name(const char *path, char **ret) {
+static char *extract_subvolume_name(const char *path) {
         _cleanup_free_ char *fn = NULL;
         int r;
 
         assert(path);
-        assert(ret);
 
         r = path_extract_filename(path, &fn);
         if (r < 0)
-                return r;
+                return ERR_TO_PTR(r);
 
         r = btrfs_validate_subvolume_name(fn);
         if (r < 0)
-                return r;
+                return ERR_TO_PTR(r);
 
-        *ret = TAKE_PTR(fn);
-        return 0;
+        return TAKE_PTR(fn);
 }
 
 int btrfs_subvol_make(int dir_fd, const char *path) {
@@ -50,9 +48,9 @@ int btrfs_subvol_make(int dir_fd, const char *path) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(!isempty(path));
 
-        r = extract_subvolume_name(path, &subvolume);
-        if (r < 0)
-                return r;
+        subvolume = extract_subvolume_name(path);
+        if (PTR_IS_ERR(subvolume))
+                return PTR_TO_ERR(subvolume);
 
         r = path_extract_directory(path, &parent);
         if (r < 0) {

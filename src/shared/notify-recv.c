@@ -108,7 +108,6 @@ int notify_recv_with_fds(
                 .msg_controllen = sizeof(control),
         };
         ssize_t n;
-        int r;
 
         assert(fd >= 0);
 
@@ -175,10 +174,10 @@ int notify_recv_with_fds(
                         log_debug("Received fds via notification while none is expected, closing all.");
                         asynchronous_close_many(fd_array, n_fds);
                 } else {
-                        r = fdset_new_array(&fds, fd_array, n_fds);
-                        if (r < 0) {
+                        fds = fdset_new_array(fd_array, n_fds);
+                        if (PTR_IS_ERR(fds)) {
                                 asynchronous_close_many(fd_array, n_fds);
-                                log_warning_errno(r, "Failed to collect fds from notification, ignoring message: %m");
+                                log_warning_errno(PTR_TO_ERR(fds), "Failed to collect fds from notification, ignoring message: %m");
                                 return -EAGAIN;
                         }
                 }

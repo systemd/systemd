@@ -19,25 +19,19 @@ typedef struct BPFForeignKey {
         uint32_t attach_type;
 } BPFForeignKey;
 
-static int bpf_foreign_key_new(uint32_t prog_id,
-                enum bpf_attach_type attach_type,
-                BPFForeignKey **ret) {
-        _cleanup_free_ BPFForeignKey *p = NULL;
-
-        assert(ret);
+static BPFForeignKey *bpf_foreign_key_new(uint32_t prog_id, enum bpf_attach_type attach_type) {
+        BPFForeignKey *p;
 
         p = new(BPFForeignKey, 1);
         if (!p)
-                return -ENOMEM;
+                return ERR_TO_PTR(ENOMEM);
 
         *p = (BPFForeignKey) {
                 .prog_id = prog_id,
                 .attach_type = attach_type,
         };
 
-        *ret = TAKE_PTR(p);
-
-        return 0;
+        return p;
 }
 
 static int bpf_foreign_key_compare_func(const BPFForeignKey *a, const BPFForeignKey *b) {
@@ -116,9 +110,9 @@ static int bpf_foreign_prepare(
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-foreign: Failed to get BPF program id from fd: %m");
 
-        r = bpf_foreign_key_new(prog_id, attach_type, &key);
-        if (r < 0)
-                return log_unit_error_errno(u, r,
+        key = bpf_foreign_key_new(prog_id, attach_type);
+        if (PTR_IS_ERR(key))
+                return log_unit_error_errno(u, PTR_TO_ERR(key),
                                 "bpf-foreign: Failed to create foreign BPF program key from path '%s': %m", bpffs_path);
 
         r = hashmap_ensure_put(&crt->bpf_foreign_by_key, &bpf_foreign_by_key_hash_ops, key, prog);

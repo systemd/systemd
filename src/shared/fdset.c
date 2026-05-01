@@ -29,25 +29,23 @@ static void fdset_shallow_freep(FDSet **s) {
         set_free(MAKE_SET(*ASSERT_PTR(s)));
 }
 
-int fdset_new_array(FDSet **ret, const int fds[], size_t n_fds) {
+FDSet *fdset_new_array(const int fds[], size_t n_fds) {
         _cleanup_(fdset_shallow_freep) FDSet *s = NULL;
         int r;
 
-        assert(ret);
         assert(fds || n_fds == 0);
 
         s = fdset_new();
         if (!s)
-                return -ENOMEM;
+                return ERR_TO_PTR(ENOMEM);
 
         FOREACH_ARRAY(fd, fds, n_fds) {
                 r = fdset_put(s, *fd);
                 if (r < 0)
-                        return r;
+                        return ERR_TO_PTR(r);
         }
 
-        *ret = TAKE_PTR(s);
-        return 0;
+        return TAKE_PTR(s);
 }
 
 int fdset_steal_first(FDSet *fds) {

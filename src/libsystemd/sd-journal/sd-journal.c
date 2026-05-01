@@ -81,7 +81,7 @@ static int journal_put_error(sd_journal *j, int r, const char *path) {
                         return -ENOMEM;
         }
 
-        r = hashmap_ensure_put(&j->errors, &trivial_hash_ops_value_free, INT_TO_PTR(r), copy);
+        r = hashmap_ensure_put(&j->errors, &trivial_hash_ops_value_free, ERR_TO_PTR(r), copy);
         if (r == -EEXIST)
                 return 0;
         if (r < 0)
