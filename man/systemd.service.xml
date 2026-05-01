@@ -1255,6 +1255,17 @@ RestartMaxDelaySec=160s</programlisting>
         is removed, the service manager exits, or the file descriptors get <constant>EPOLLHUP</constant> or
         <constant>EPOLLERR</constant>.</para>
 
+        <para>When set to <constant>yes</constant>, and the service is itself running under another service
+        manager (e.g. a service of <filename>user@.service</filename>, or a payload inside
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>),
+        file descriptors pushed into the store are also forwarded one level up via the enveloping manager's
+        <varname>$NOTIFY_SOCKET</varname>, tagged with the originating unit id, so that they are preserved
+        across restarts of the inner manager and handed back to the originating unit when it is started
+        again. For this to take effect, the enveloping unit must itself enable
+        <varname>FileDescriptorStoreMax=</varname> and <varname>FileDescriptorStorePreserve=yes</varname>.
+        See the <ulink url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink>
+        overview for details.</para>
+
         <para>Use <command>systemctl clean --what=fdstore …</command> to release the file descriptor store
         explicitly.</para>
 

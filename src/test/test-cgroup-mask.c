@@ -51,7 +51,7 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
                 m->defaults.tasks_accounting = false;
         m->defaults.tasks_max = CGROUP_TASKS_MAX_UNSET;
 
-        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
+        assert_se(manager_startup(m, NULL, NULL, NULL, NULL) >= 0);
 
         /* Load units and verify hierarchy. */
         ASSERT_OK(manager_load_startable_unit_or_warn(m, "parent.slice", NULL, &parent));

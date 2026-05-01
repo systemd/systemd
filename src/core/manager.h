@@ -513,6 +513,11 @@ typedef struct Manager {
         /* The number of successfully completed configuration reloads. */
         uint64_t reload_count;
 
+        /* Monotonic counter for fdstore entries propagated to a NOTIFY_SOCKET supervisor. Each propagated
+         * fd is sent upstream using this index as the FDNAME. The mapping (index -> unit_id + original fdname)
+         * is pushed alongside as a JSON memfd named "systemd-fdstore-mapping". */
+        uint64_t fd_store_upstream_next_index;
+
         /* Original ambient capabilities when we were initialized */
         uint64_t saved_ambient_set;
 } Manager;
@@ -542,7 +547,20 @@ int manager_new(RuntimeScope scope, ManagerTestRunFlags test_run_flags, Manager 
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
-int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *root);
+/* One entry parsed out of the upstream "systemd-fdstore-mapping" memfd. Pairs the numeric index from the
+ * JSON map to the (unit-id, original fdname) the fd was originally stored as. */
+typedef struct ListenFDsTag {
+        char *unit_id;
+        char *fdname;
+        uint64_t index;
+} ListenFDsTag;
+
+ListenFDsTag* listen_fds_tag_free(ListenFDsTag *t);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ListenFDsTag*, listen_fds_tag_free);
+
+extern const struct hash_ops fd_to_listen_fds_tag_hash_ops;
+
+int manager_startup(Manager *m, FILE *serialization, FDSet *fds, Hashmap *named_listen_fds, const char *root);
 
 Job *manager_get_job(Manager *m, uint32_t id);
 Unit *manager_get_unit(Manager *m, const char *name);
@@ -552,6 +570,7 @@ int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 bool manager_unit_cache_should_retry_load(Unit *u);
 int manager_load_unit_prepare(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **ret);
 int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **ret);
+int manager_dispatch_external_fd_to_unit(Manager *m, const char *unit_id, const char *fdname, uint64_t index, int fd, const char *log_context);
 int manager_load_startable_unit_or_warn(Manager *m, const char *name, const char *path, Unit **ret);
 int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e, Unit **_u);
 
