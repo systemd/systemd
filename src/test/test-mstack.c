@@ -105,7 +105,7 @@ TEST(mstack) {
                         ASSERT_OK(mkdtemp_malloc("/tmp/mstack-where-XXXXXX", &w));
 
                         _cleanup_close_ int rfd = -EBADF;
-                        ASSERT_OK(mstack_bind_mounts(mstack, w, /* where_fd= */ -EBADF, flags, &rfd));
+                        ASSERT_OK(mstack_bind_mounts(mstack, w, /* where_fd= */ -EBADF, flags, MSTACK_BINDMOUNT_ALL, &rfd));
 
                         _cleanup_close_ int ofd = open(w, O_PATH|O_CLOEXEC);
                         ASSERT_OK_ERRNO(ofd);

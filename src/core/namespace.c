@@ -3157,7 +3157,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 if (r < 0)
                         return r;
 
-                r = mstack_bind_mounts(p->rootfs->mstack_loaded, root, /* where_fd= */ -EBADF, mstack_flags, /* ret_root_fd= */ NULL);
+                r = mstack_bind_mounts(p->rootfs->mstack_loaded, root, /* where_fd= */ -EBADF, mstack_flags, MSTACK_BINDMOUNT_ALL, /* ret_root_fd= */ NULL);
                 if (r < 0)
                         return r;
 
