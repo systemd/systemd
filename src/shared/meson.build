@@ -199,6 +199,7 @@ shared_sources = files(
         'socket-netlink.c',
         'specifier.c',
         'ssl-util.c',
+        'storage-util.c',
         'switch-root.c',
         'swtpm-util.c',
         'tar-util.c',
