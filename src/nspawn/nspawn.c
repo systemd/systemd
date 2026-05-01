@@ -3745,9 +3745,13 @@ static int setup_notify_child(const void *directory) {
         if (r < 0)
                 log_debug_errno(r, "Failed to enable SO_PASSPIDFD, ignoring: %m");
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
-        if (r < 0)
-                log_debug_errno(r, "Failed to turn off SO_PASSRIGHTS, ignoring: %m");
+        /* Only allow the container payload to pass file descriptors to us if we ourselves are
+         * supervised by a service manager (i.e. there's a NOTIFY_SOCKET we can forward them to). */
+        if (!getenv("NOTIFY_SOCKET")) {
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to turn off SO_PASSRIGHTS, ignoring: %m");
+        }
 
         return TAKE_FD(fd);
 }
@@ -4584,7 +4588,8 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
 
         _cleanup_(pidref_done) PidRef sender_pid = PIDREF_NULL;
         _cleanup_strv_free_ char **tags = NULL;
-        r = notify_recv_strv(fd, &tags, /* ret_ucred= */ NULL, &sender_pid);
+        _cleanup_(fdset_freep) FDSet *fds = NULL;
+        r = notify_recv_with_fds_strv(fd, &tags, /* ret_ucred= */ NULL, &sender_pid, &fds);
         if (r == -EAGAIN)
                 return 0;
         if (r < 0)
@@ -4617,6 +4622,63 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
 
                 if (!status)
                         (void) sd_notifyf(/* unset_environment= */ false, "STATUS=Container running.");
+        }
+
+        /* Forward fd-store related messages to our own service manager, so that file descriptors stored
+         * by the inner payload propagate up the chain and are preserved across restarts. */
+        if (strv_contains(tags, "FDSTOREREMOVE=1")) {
+                const char *fdname = strv_find_startswith(tags, "FDNAME=");
+                if (!fdname)
+                        log_warning("Got FDSTOREREMOVE=1 from container payload without FDNAME=, ignoring.");
+                else if (!fdname_is_valid(fdname))
+                        log_warning("Got FDSTOREREMOVE=1 from container payload with invalid FDNAME='%s', ignoring.", fdname);
+                else {
+                        r = sd_notifyf(/* unset_environment= */ false,
+                                       "FDSTOREREMOVE=1\nFDNAME=%s", fdname);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to forward FDSTOREREMOVE upstream, ignoring: %m");
+                }
+        } else if (strv_contains(tags, "FDSTORE=1")) {
+                if (fdset_isempty(fds)) {
+                        log_debug("Got FDSTORE=1 from container payload without any attached file descriptors, ignoring.");
+                        return 0;
+                }
+
+                _cleanup_free_ int *fds_array = NULL;
+                unsigned n_fds;
+                int n;
+
+                n = fdset_to_array(fds, &fds_array);
+                if (n < 0)
+                        log_warning_errno(n, "Failed to convert fdset to array, ignoring FDSTORE forward: %m");
+                else {
+                        n_fds = (unsigned) n;
+                        const char *fdname = strv_find_startswith(tags, "FDNAME=");
+                        bool fdpoll_off = strv_contains(tags, "FDPOLL=0");
+                        _cleanup_free_ char *msg = NULL;
+
+                        if (fdname && !fdname_is_valid(fdname)) {
+                                log_warning("Got FDSTORE=1 from container payload with invalid FDNAME='%s', ignoring name.", fdname);
+                                fdname = NULL;
+                        }
+
+                        if (asprintf(&msg, "FDSTORE=1%s%s%s%s",
+                                     fdname ? "\nFDNAME=" : "",
+                                     strempty(fdname),
+                                     fdpoll_off ? "\nFDPOLL=" : "",
+                                     fdpoll_off ? "0" : "") < 0)
+                                log_oom();
+                        else {
+                                r = sd_pid_notify_with_fds(
+                                                0,
+                                                /* unset_environment= */ false,
+                                                msg,
+                                                fds_array,
+                                                n_fds);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to forward FDSTORE upstream, ignoring: %m");
+                        }
+                }
         }
 
         return 0;
