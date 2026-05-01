@@ -53,7 +53,7 @@ policy:
             keys: ['systemd-hwdb', 'hardware database files']
 
           - name: import
-            keys: ['systemd-import']
+            keys: ['importctl']
 
           - name: journal
             keys: ['systemd-journald', 'journalctl']
