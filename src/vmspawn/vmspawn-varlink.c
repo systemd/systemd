@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "path-util.h"
@@ -11,6 +12,7 @@
 #include "varlink-io.systemd.MachineInstance.h"
 #include "varlink-io.systemd.VirtualMachineInstance.h"
 #include "varlink-util.h"
+#include "vmspawn-bind-volume.h"
 #include "vmspawn-qmp.h"
 #include "vmspawn-varlink.h"
 
@@ -166,6 +168,77 @@ static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_
         VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
 
         return qmp_execute_varlink_async(ctx, link, "query-status", /* arguments= */ NULL, on_qmp_describe_complete);
+}
+
+static int vl_method_add_storage(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                int fd_index;
+                const char *name;
+                const char *config;
+        } p = {
+                .fd_index = -1,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "fileDescriptorIndex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          voffsetof(p, fd_index), SD_JSON_MANDATORY },
+                { "name",                SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, name),     SD_JSON_MANDATORY },
+                { "config",              SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, config),   0                 },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (isempty(p.name) || !string_is_safe(p.name, /* flags= */ 0) || !strchr(p.name, ':'))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        if (disk_type_from_bind_volume_config(p.config) < 0)
+                return sd_varlink_error(link, "io.systemd.MachineInstance.BadConfig", NULL);
+
+        if (p.fd_index < 0)
+                return sd_varlink_error_invalid_parameter_name(link, "fileDescriptorIndex");
+
+        _cleanup_close_ int fd = sd_varlink_take_fd(link, p.fd_index);
+        if (fd < 0)
+                return sd_varlink_error_errno(link, fd);
+
+        r = vmspawn_bind_volume_attach_fd(ctx->bridge, link, TAKE_FD(fd), p.name, p.config);
+        if (r == -EEXIST)
+                return sd_varlink_error(link, "io.systemd.MachineInstance.StorageExists", NULL);
+        if (r == -EOPNOTSUPP || r == -EINVAL)
+                return sd_varlink_error(link, "io.systemd.MachineInstance.ConfigNotSupported", NULL);
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
+
+        /* Async reply via on_add_device_add_complete. */
+        return 0;
+}
+
+static int vl_method_remove_storage(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *name;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, name), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (isempty(p.name))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        return vmspawn_qmp_remove_block_device(ctx->bridge, link, p.name);
 }
 
 static int vl_method_subscribe_events(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -380,9 +453,10 @@ int vmspawn_varlink_setup(
         if (!ctx)
                 return log_oom();
 
-        /* Create varlink server for VM control */
+        /* AddStorage receives an fd from the caller. */
         r = varlink_server_new(&ctx->varlink_server,
-                               SD_VARLINK_SERVER_INHERIT_USERDATA,
+                               SD_VARLINK_SERVER_INHERIT_USERDATA |
+                               SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT,
                                ctx);
         if (r < 0)
                 return log_error_errno(r, "Failed to create varlink server: %m");
@@ -402,7 +476,9 @@ int vmspawn_varlink_setup(
                         "io.systemd.MachineInstance.Resume",            vl_method_resume,
                         "io.systemd.MachineInstance.Reboot",            vl_method_reboot,
                         "io.systemd.MachineInstance.Describe",          vl_method_describe,
-                        "io.systemd.MachineInstance.SubscribeEvents",   vl_method_subscribe_events);
+                        "io.systemd.MachineInstance.SubscribeEvents",   vl_method_subscribe_events,
+                        "io.systemd.MachineInstance.AddStorage",        vl_method_add_storage,
+                        "io.systemd.MachineInstance.RemoveStorage",     vl_method_remove_storage);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind varlink methods: %m");
 

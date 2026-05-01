@@ -90,6 +90,9 @@ int take_etc_passwd_lock(const char *root);
 #define UID_NOBODY ((uid_t) 65534U)
 #define GID_NOBODY ((gid_t) 65534U)
 
+/* Conventional size of a user-namespace UID/GID delegation block (64K). */
+#define USERNS_RANGE_SIZE ((uid_t) 0x10000U)
+
 /* If REMOUNT_IDMAPPING_HOST_ROOT is set for remount_idmap() we'll include a mapping here that maps the host
  * root user accessing the idmapped mount to the this user ID on the backing fs. This is the last valid UID in
  * the *signed* 32-bit range. You might wonder why precisely use this specific UID for this purpose? Well, we

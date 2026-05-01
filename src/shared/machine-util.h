@@ -2,6 +2,7 @@
 #pragma once
 
 #include "shared-forward.h"
+#include "storage-util.h"
 
 typedef enum ImageFormat {
         IMAGE_FORMAT_RAW,
@@ -30,3 +31,33 @@ int parse_disk_spec(
                 ImageFormat *format,
                 DiskType *disk_type,
                 char **ret_path);
+
+/* Parsed "PROVIDER:VOLUME[:CONFIG][:K=V,K=V,...]" used by --bind-volume,
+ * machinectl bind-volume, and (future) the BindVolume= unit setting. The 'config'
+ * field is opaque here and interpreted per-backend (vmspawn: a DiskType name;
+ * nspawn: a mount path). */
+typedef struct BindVolume {
+        char *provider;
+        char *volume;
+        char *config;
+
+        /* Acquire() parameters parsed from the trailing key=value list. */
+        char *template;
+        CreateMode create_mode;
+        int read_only;             /* tristate */
+        uint64_t create_size_bytes;
+        VolumeType request_as;
+} BindVolume;
+
+#define BIND_VOLUME_INIT                                                        \
+        (BindVolume) {                                                          \
+                .read_only         = -1,                                        \
+                .create_size_bytes = UINT64_MAX,                                \
+                .create_mode       = _CREATE_MODE_INVALID,                      \
+                .request_as        = _VOLUME_TYPE_INVALID,                      \
+        }
+
+BindVolume* bind_volume_free(BindVolume *v);
+DEFINE_TRIVIAL_CLEANUP_FUNC(BindVolume*, bind_volume_free);
+
+int bind_volume_parse(const char *arg, BindVolume **ret);
