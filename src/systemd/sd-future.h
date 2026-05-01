@@ -267,7 +267,18 @@ int sd_channel_set_slot(sd_channel *c, void *slot, sd_channel_destroy_t destroy)
 _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_channel);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_channel, sd_channel_unref);
 
-/* Fiber I/O operations - use sd-event for non-blocking I/O when in fiber context */
+/* The sd_fiber_*() I/O functions suspend the calling fiber instead of blocking the thread. If the event loop
+ * uses io_uring, the kernel runs the operation. Otherwise, the function waits until the fd is ready and then
+ * runs the syscall.
+ *
+ * With io_uring, a cancellation or a timeout of the fiber doesn't interrupt I/O on a regular file or a
+ * block device. The fiber gets -ECANCELED or -ETIME only after the I/O finished. The exit of the event loop
+ * also waits until the I/O finished.
+ *
+ * sd_fiber_read(), sd_fiber_write(), sd_fiber_readv() and sd_fiber_writev() use and advance the file
+ * position like read() and write(). With io_uring, the kernel doesn't serialize the update of the file
+ * position, unlike read() and write() on a regular file. Two fibers that do I/O on the same open file at the
+ * same time can read or write at the same position. */
 ssize_t sd_fiber_read(int fd, void *buf, size_t count);
 ssize_t sd_fiber_write(int fd, const void *buf, size_t count);
 ssize_t sd_fiber_readv(int fd, const struct iovec *iov, int iovcnt);

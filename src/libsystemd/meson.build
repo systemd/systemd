@@ -189,8 +189,6 @@ simple_tests += files(
         'sd-event/test-event-future.c',
         'sd-future/test-channel.c',
         'sd-future/test-fiber.c',
-        'sd-future/test-fiber-io.c',
-        'sd-future/test-fiber-ops.c',
         'sd-future/test-future-group.c',
         'sd-hwdb/test-sd-hwdb.c',
         'sd-id128/test-id128.c',
@@ -219,6 +217,7 @@ libsystemd_tests += [
         },
         {
                 'sources' : files('sd-bus/test-bus-chat.c'),
+                'io_uring' : true,
         },
         {
                 'sources' : files('sd-bus/test-bus-cleanup.c'),
@@ -236,6 +235,7 @@ libsystemd_tests += [
         },
         {
                 'sources' : files('sd-bus/test-bus-peersockaddr.c'),
+                'io_uring' : true,
         },
         {
                 'sources' : files('sd-bus/test-bus-queue-ref-cycle.c'),
@@ -253,6 +253,7 @@ libsystemd_tests += [
         {
                 'sources' : files('sd-bus/test-bus-watch-bind.c'),
                 'timeout' : 120,
+                'io_uring' : true,
         },
         {
                 'sources' : files('sd-device/test-sd-device.c'),
@@ -261,6 +262,14 @@ libsystemd_tests += [
         {
                 'sources' : files('sd-event/test-event.c'),
                 'timeout' : 120,
+        },
+        {
+                'sources' : files('sd-future/test-fiber-io.c'),
+                'io_uring' : true,
+        },
+        {
+                'sources' : files('sd-future/test-fiber-ops.c'),
+                'io_uring' : true,
         },
         {
                 'sources' : files('sd-journal/test-journal-enum.c'),
