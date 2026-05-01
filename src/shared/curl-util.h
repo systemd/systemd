@@ -33,9 +33,7 @@ extern DLSYM_PROTOTYPE(curl_slist_free_all);
 typedef int (*curl_finished_t)(CurlSlot *slot, CURL *curl, CURLcode code, void *userdata);
 
 int curl_glue_new(CurlGlue **glue, sd_event *event);
-CurlGlue* curl_glue_ref(CurlGlue *glue);
-CurlGlue* curl_glue_unref(CurlGlue *glue);
-
+DECLARE_TRIVIAL_REF_UNREF_FUNC(CurlGlue, curl_glue);
 DEFINE_TRIVIAL_CLEANUP_FUNC(CurlGlue*, curl_glue_unref);
 
 /* Build a CURL easy handle with sane defaults. The caller configures any
@@ -62,9 +60,7 @@ int curl_glue_perform_async(
 CURL* curl_slot_get_easy(CurlSlot *slot);
 CurlGlue* curl_slot_get_glue(CurlSlot *slot);
 
-CurlSlot* curl_slot_ref(CurlSlot *slot);
-CurlSlot* curl_slot_unref(CurlSlot *slot);
-
+DECLARE_TRIVIAL_REF_UNREF_FUNC(CurlSlot, curl_slot);
 DEFINE_TRIVIAL_CLEANUP_FUNC(CurlSlot*, curl_slot_unref);
 
 struct curl_slist *curl_slist_new(const char *first, ...) _sentinel_;
