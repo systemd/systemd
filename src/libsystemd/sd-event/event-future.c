@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#if HAVE_LIBURING
+#include <liburing/io_uring.h>
+#endif
+
 #include "sd-event.h"
 #include "sd-future.h"
 
@@ -23,6 +27,22 @@ int event_source_inherit_fiber_priority(sd_event_source *s) {
                 return r;
 
         return sd_event_source_set_priority(s, priority);
+}
+
+static int event_slot_inherit_fiber_priority(sd_event_slot *s) {
+        int64_t priority;
+        int r;
+
+        assert(s);
+
+        if (!sd_fiber_is_running())
+                return 0;
+
+        r = sd_fiber_get_priority(&priority);
+        if (r < 0)
+                return r;
+
+        return sd_event_slot_set_priority(s, priority);
 }
 
 typedef struct IoFuture {
@@ -344,6 +364,88 @@ int future_group_add_time_relative(sd_future *group, clockid_t clock, uint64_t u
 
         /* The group owns a reference now: release ours without cancelling the child. */
         timer = sd_future_unref(timer);
+        return 0;
+}
+
+/* Unlike IoFuture/TimeFuture, cancel does not resolve the future: it only enqueues a cancel SQE.
+ * The future resolves when the original CQE arrives (res = -ECANCELED if the kernel honoured it),
+ * because user buffers referenced by the SQE must not be reclaimed until the kernel is done. Pair
+ * with sd_future_cancel_wait_unref(), which keeps the fiber suspended until then. */
+typedef struct IoUringFuture {
+        sd_event_slot *slot;
+} IoUringFuture;
+
+static void* io_uring_future_alloc(void) {
+        return new0(IoUringFuture, 1);
+}
+
+static void io_uring_future_free(sd_future *f) {
+        IoUringFuture *uf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+        sd_event_slot_unref(uf->slot);
+        free(uf);
+}
+
+static int io_uring_future_cancel(sd_future *f) {
+        IoUringFuture *uf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+
+        /* Normally the cancellation CQE resolves us, but if we never got a slot there's nothing that will. */
+        if (!uf->slot)
+                return sd_future_resolve(f, -ECANCELED);
+
+        return sd_event_slot_cancel(uf->slot);
+}
+
+static int io_uring_future_set_priority(sd_future *f, int64_t priority) {
+        IoUringFuture *uf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+        return sd_event_slot_set_priority(uf->slot, priority);
+}
+
+static const sd_future_ops io_uring_future_ops = {
+        .size = sizeof(sd_future_ops),
+        .alloc = io_uring_future_alloc,
+        .free = io_uring_future_free,
+        .cancel = io_uring_future_cancel,
+        .set_priority = io_uring_future_set_priority,
+};
+
+static int io_uring_future_handler(sd_event_slot *s, int32_t res, uint32_t flags, void *userdata) {
+        sd_future *f = ASSERT_PTR(userdata);
+
+#if HAVE_LIBURING
+        /* Multishot: more CQEs follow for the same SQE, so this one doesn't settle the future. */
+        if (FLAGS_SET(flags, IORING_CQE_F_MORE))
+                return 0;
+#endif
+
+        return sd_future_resolve(f, res);
+}
+
+int future_new_io_uring_sqe(sd_event *e, struct io_uring_sqe **ret_sqe, sd_future **ret) {
+        int r;
+
+        assert(e);
+        assert(ret_sqe);
+        assert(ret);
+
+        if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
+                return -ECANCELED;
+
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(e, &io_uring_future_ops, &f);
+        if (r < 0)
+                return r;
+
+        IoUringFuture *uf = sd_future_get_private(f);
+
+        r = sd_event_add_io_uring_sqe(e, &uf->slot, ret_sqe, io_uring_future_handler, f);
+        if (r < 0)
+                return r;
+
+        r = event_slot_inherit_fiber_priority(uf->slot);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(f);
         return 0;
 }
 
