@@ -25,6 +25,7 @@
 #include "hashmap.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "kernel-image.h"
 #include "log.h"
@@ -44,6 +45,7 @@ typedef struct ExtraFile {
         /* The source and the temporary file we copy it into */
         int source_fd, temp_fd;
         char *filename, *temp_filename;
+        struct iovec data; /* Alternative to 'source_fd': literal data */
 } ExtraFile;
 
 #define EXTRA_FILE_NULL                     \
@@ -115,6 +117,7 @@ static void extra_file_done(ExtraFile *x) {
         x->temp_fd = safe_close(x->temp_fd);
         x->filename = mfree(x->filename);
         x->temp_filename = mfree(x->temp_filename);
+        iovec_done(&x->data);
 }
 
 static void profile_done(Profile *p) {
@@ -366,7 +369,8 @@ static int link_context_pick_entry_token(LinkContext *c) {
 }
 
 static int begin_copy_file(
-                int source_fd,
+                int source_fd,               /* Either the source fd is specified, or the 'data' below, not both */
+                const struct iovec *data,
                 const char *filename,
                 int target_dir_fd,
                 int *ret_tmpfile_fd,
@@ -374,7 +378,6 @@ static int begin_copy_file(
 
         int r;
 
-        assert(source_fd >= 0);
         assert(filename);
         assert(target_dir_fd >= 0);
         assert(ret_tmpfile_fd);
@@ -398,11 +401,18 @@ static int begin_copy_file(
 
         CLEANUP_TMPFILE_AT(target_dir_fd, t);
 
-        r = copy_bytes(source_fd, write_fd, UINT64_MAX, COPY_REFLINK|COPY_SEEK0_SOURCE);
-        if (r < 0)
-                return log_error_errno(r, "Failed to copy data into '%s': %m", filename);
+        if (source_fd >= 0) {
+                r = copy_bytes(source_fd, write_fd, UINT64_MAX, COPY_REFLINK|COPY_SEEK0_SOURCE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy data into '%s': %m", filename);
 
-        (void) copy_times(source_fd, write_fd, /* flags= */ 0);
+                (void) copy_times(source_fd, write_fd, /* flags= */ 0);
+        } else if (iovec_is_set(data)) {
+                r = loop_write(write_fd, data->iov_base, data->iov_len);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write data into '%s': %m", filename);
+        }
+
         (void) fchmod(write_fd, 0644);
 
         *ret_tmpfile_fd = TAKE_FD(write_fd);
@@ -824,6 +834,7 @@ static int run_link_now(LinkContext *c) {
 
         r = begin_copy_file(
                         c->kernel_fd,
+                        /* data= */ NULL,
                         c->kernel_filename,
                         c->entry_token_dir_fd,
                         &c->kernel_temp_fd,
@@ -834,6 +845,7 @@ static int run_link_now(LinkContext *c) {
         FOREACH_ARRAY(x, c->extra, c->n_extra) {
                 r = begin_copy_file(
                                 x->source_fd,
+                                &x->data,
                                 x->filename,
                                 c->entry_token_dir_fd,
                                 &x->temp_fd,
@@ -1043,7 +1055,8 @@ static int dispatch_extras(const char *name, sd_json_variant *v, sd_json_dispatc
 
                 static const sd_json_dispatch_field dispatch_table[] = {
                         { "filename",       SD_JSON_VARIANT_STRING,        json_dispatch_loader_entry_resource_filename, offsetof(ExtraParameters, extra_file.filename),  SD_JSON_MANDATORY },
-                        { "fileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,                        offsetof(ExtraParameters, fd_index),             SD_JSON_MANDATORY },
+                        { "fileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,                        offsetof(ExtraParameters, fd_index),             0                 },
+                        { "data",           SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,                 offsetof(ExtraParameters, extra_file.data),      0,                },
                         {},
                 };
 
@@ -1051,17 +1064,21 @@ static int dispatch_extras(const char *name, sd_json_variant *v, sd_json_dispatc
                 if (r < 0)
                         return r;
 
-                xp.extra_file.source_fd = sd_varlink_peek_dup_fd(c->link, xp.fd_index);
-                if (xp.extra_file.source_fd < 0)
-                        return log_debug_errno(xp.extra_file.source_fd, "Failed to acquire extra fd from Varlink: %m");
-
-                r = fd_verify_safe_flags(xp.extra_file.source_fd);
-                if (r < 0)
+                if (iovec_is_set(&xp.extra_file.data) == (xp.fd_index != UINT_MAX))
                         return sd_varlink_error_invalid_parameter_name(c->link, name);
+                if (xp.fd_index != UINT_MAX) {
+                        xp.extra_file.source_fd = sd_varlink_peek_dup_fd(c->link, xp.fd_index);
+                        if (xp.extra_file.source_fd < 0)
+                                return log_debug_errno(xp.extra_file.source_fd, "Failed to acquire extra fd from Varlink: %m");
 
-                r = fd_verify_regular(xp.extra_file.source_fd);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to validate that the extra file is a regular file descriptor: %m");
+                        r = fd_verify_safe_flags(xp.extra_file.source_fd);
+                        if (r < 0)
+                                return sd_varlink_error_invalid_parameter_name(c->link, name);
+
+                        r = fd_verify_regular(xp.extra_file.source_fd);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to validate that the extra file is a regular file descriptor: %m");
+                }
 
                 if (!GREEDY_REALLOC(c->context.extra, c->context.n_extra+1))
                         return log_oom();
