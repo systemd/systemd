@@ -15,6 +15,7 @@
 #include "bus-util.h"
 #include "cgroup.h"
 #include "chase.h"
+#include "daemon-util.h"
 #include "dbus-service.h"
 #include "dbus-unit.h"
 #include "devnum-util.h"
@@ -462,12 +463,22 @@ static void service_override_watchdog_timeout(Service *s, usec_t watchdog_overri
         log_unit_debug(UNIT(s), "watchdog_override_usec="USEC_FMT, s->watchdog_override_usec);
 }
 
-static ServiceFDStore* service_fd_store_unlink(ServiceFDStore *fs) {
+static ServiceFDStore* service_fd_store_unlink_full(ServiceFDStore *fs, bool propagate_upstream) {
         if (!fs)
                 return NULL;
 
         if (fs->service) {
                 assert(fs->service->n_fd_store > 0);
+
+                /* If we previously propagated this fd to an enveloping service/container manager via
+                 * the FDSTORE=1 protocol on its NOTIFY_SOCKET (only done when persistence is on),
+                 * tell that supervisor to drop it now too, so the upstream fd store stays in sync.
+                 * Only do this for explicit removals (EPOLLHUP/EPOLLERR or app FDSTOREREMOVE), not
+                 * for local cleanup like service shutdown or fdstore-limit truncation: in those
+                 * cases we want the upstream copy to survive so it can be handed back to us later. */
+                if (propagate_upstream && fs->propagated_upstream)
+                        (void) notify_remove_fd_warnf("%s|%s", fs->service->meta.id, fs->fdname);
+
                 LIST_REMOVE(fd_store, fs->service->fd_store, fs);
                 fs->service->n_fd_store--;
         }
@@ -477,6 +488,10 @@ static ServiceFDStore* service_fd_store_unlink(ServiceFDStore *fs) {
         free(fs->fdname);
         asynchronous_close(fs->fd);
         return mfree(fs);
+}
+
+static ServiceFDStore* service_fd_store_unlink(ServiceFDStore *fs) {
+        return service_fd_store_unlink_full(fs, /* propagate_upstream= */ false);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(ServiceFDStore*, service_fd_store_unlink);
@@ -495,6 +510,22 @@ static void service_release_fd_store(Service *s) {
         assert(s->n_fd_store == 0);
 }
 
+static void service_truncate_fd_store(Service *s) {
+        assert(s);
+
+        /* Drop fds that exceed the (possibly newly lowered) n_fd_store_max, e.g. after the fragment was
+         * parsed and FileDescriptorStoreMax= shrunk the configured limit. Newest entries are at the head
+         * of the list, so drop from the head (newest first). */
+
+        while (s->n_fd_store > s->n_fd_store_max) {
+                ServiceFDStore *fs = s->fd_store;
+                assert(fs);
+                log_unit_debug(UNIT(s), "Dropping stored fd '%s' to honor FileDescriptorStoreMax=%u.",
+                               strna(fs->fdname), s->n_fd_store_max);
+                service_fd_store_unlink(fs);
+        }
+}
+
 static void service_release_extra_fds(Service *s) {
         assert(s);
 
@@ -510,6 +541,15 @@ static void service_release_extra_fds(Service *s) {
 
         s->extra_fds = mfree(s->extra_fds);
         s->n_extra_fds = 0;
+}
+
+ServiceExtraFD* service_extra_fd_free(ServiceExtraFD *fd) {
+        if (!fd)
+                return NULL;
+
+        safe_close(fd->fd);
+        free(fd->fdname);
+        return mfree(fd);
 }
 
 static void service_release_stdio_fd(Service *s) {
@@ -585,7 +625,7 @@ static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *us
                        "Received %s on stored fd %d (%s), closing.",
                        revents & EPOLLERR ? "EPOLLERR" : "EPOLLHUP",
                        fs->fd, strna(fs->fdname));
-        service_fd_store_unlink(fs);
+        service_fd_store_unlink_full(fs, /* propagate_upstream= */ true);
 
         if (s->state == SERVICE_DEAD_RESOURCES_PINNED && !SERVICE_FD_STORE_POPULATED(s))
                 service_set_state(s, SERVICE_DEAD);
@@ -593,7 +633,7 @@ static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *us
         return 0;
 }
 
-static int service_add_fd_store(Service *s, int fd_in, const char *name, bool do_poll) {
+int service_add_fd_store(Service *s, int fd_in, const char *name, bool do_poll, bool propagate_upstream) {
         _cleanup_(service_fd_store_unlinkp) ServiceFDStore *fs = NULL;
         _cleanup_(asynchronous_closep) int fd = ASSERT_FD(fd_in);
         struct stat st;
@@ -647,14 +687,47 @@ static int service_add_fd_store(Service *s, int fd_in, const char *name, bool do
 
         log_unit_debug(UNIT(s), "Added fd %i (%s) to fd store.", fs->fd, fs->fdname);
 
+        /* If fd-store persistence is enabled and we have an enveloping service/container manager (i.e.
+         * NOTIFY_SOCKET is set), forward the fd to it via sd_notify(FDSTORE=1) tagged with our unit id
+         * and the original fdname ("unit-id|fdname", '|' chosen because it is allowed in fdnames but
+         * forbidden in unit names, and ':' is the LISTEN_FDNAMES entry separator).
+         * The receiving manager parses the tag back via
+         * manager_distribute_listen_fds_named() (or its LUO equivalent if it is the outermost PID 1).
+         * This way fdstore persistence chains all the way up to whichever entity is ultimately
+         * responsible for surviving across kexec/restart. */
+        if (propagate_upstream && s->fd_store_preserve_mode == EXEC_PRESERVE_YES) {
+                r = notify_push_fdf(fs->fd, "%s|%s", UNIT(s)->id, fs->fdname);
+                if (r >= 0)
+                        fs->propagated_upstream = true;
+                else
+                        log_unit_debug_errno(UNIT(s), r,
+                                             "Failed to propagate fd '%s' to upstream supervisor, ignoring: %m",
+                                             fs->fdname);
+        }
+
         fs->service = s;
         LIST_PREPEND(fd_store, s->fd_store, TAKE_PTR(fs));
         s->n_fd_store++;
 
+        /* If fds are added to an otherwise inactive service (e.g. restored from LUO), make sure the unit
+         * transitions from SERVICE_DEAD to SERVICE_DEAD_RESOURCES_PINNED so it won't be garbage collected
+         * across daemon-reload when FileDescriptorStorePreserve=yes is set.
+         *
+         * Skip this during deserialization: if the service is being deserialized into a live state (e.g.
+         * SERVICE_RUNNING after daemon-reload), service_coldplug() will transition into the proper state
+         * later, and calling service_set_state() here would clobber the just-deserialized main_pid via
+         * service_unwatch_main_pid(). */
+        if (s->state == SERVICE_DEAD &&
+            s->deserialized_state == SERVICE_DEAD &&
+            s->fd_store_preserve_mode == EXEC_PRESERVE_YES) {
+                service_set_state(s, SERVICE_DEAD_RESOURCES_PINNED);
+                s->deserialized_state = SERVICE_DEAD_RESOURCES_PINNED;
+        }
+
         return 1; /* fd newly stored */
 }
 
-static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bool do_poll) {
+static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bool do_poll, bool propagate_upstream) {
         int r;
 
         assert(s);
@@ -666,7 +739,7 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bo
                 if (fd < 0)
                         break;
 
-                r = service_add_fd_store(s, fd, name, do_poll);
+                r = service_add_fd_store(s, fd, name, do_poll, propagate_upstream);
                 if (r == -EXFULL)
                         return log_unit_warning_errno(UNIT(s), r,
                                                       "Cannot store more fds than FileDescriptorStoreMax=%u, closing remaining.",
@@ -678,6 +751,23 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bo
         return 0;
 }
 
+static int service_attach_external_fd_to_fdstore(Unit *u, int fd, const char *fdname) {
+        int r;
+
+        assert(u);
+        assert(u->type == UNIT_SERVICE);
+
+        /* service_add_fd_store() always consumes the fd, even on failure. Don't propagate upstream:
+         * the fd just came back to us from upstream (via LISTEN_FDS or LUO), forwarding it again would
+         * loop. */
+        r = service_add_fd_store(SERVICE(u), fd, fdname, /* do_poll= */ true, /* propagate_upstream= */ false);
+        if (r < 0)
+                return log_unit_warning_errno(u, r, "Failed to add LUO fd '%s' to fd store: %m", fdname);
+
+        log_unit_debug(u, "Restored fd '%s'.", fdname);
+        return 1; /* fd consumed */
+}
+
 static void service_remove_fd_store(Service *s, const char *name) {
         assert(s);
         assert(name);
@@ -687,7 +777,7 @@ static void service_remove_fd_store(Service *s, const char *name) {
                         continue;
 
                 log_unit_debug(UNIT(s), "Got explicit request to remove fd %i (%s), closing.", fs->fd, name);
-                service_fd_store_unlink(fs);
+                service_fd_store_unlink_full(fs, /* propagate_upstream= */ true);
         }
 }
 
@@ -951,6 +1041,11 @@ static int service_load(Unit *u) {
 
         if (u->load_state != UNIT_LOADED)
                 return 0;
+
+        /* The fragment may have lowered FileDescriptorStoreMax= below the number of fds currently in the
+         * store (e.g. fds restored from LUO into a synthesized UNIT_NOT_FOUND service that just got a real
+         * fragment via lazy reload, but which now disables the fd store). */
+        service_truncate_fd_store(s);
 
         /* This is a new unit? Then let's add in some extras */
         r = service_add_extras(s);
@@ -1437,7 +1532,8 @@ static int service_coldplug(Unit *u) {
         int r;
 
         assert(s);
-        assert(s->state == SERVICE_DEAD);
+        /* Ensure we can insert FD store into units at boot */
+        assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_DEAD_RESOURCES_PINNED));
 
         if (s->deserialized_state == s->state)
                 return 0;
@@ -3761,12 +3857,34 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         return 0;
                 }
 
-                r = service_add_fd_store(s, TAKE_FD(fd), fdn, do_poll);
+                /* If the unit file is currently absent (e.g. after switch-root, before the unit file is
+                 * available in the new root), the synthesized service has n_fd_store_max=0 and
+                 * preserve_mode=NO, which would reject the fd. Grow the limit by one per fd so it matches
+                 * exactly what was handed back, and force EXEC_PRESERVE_YES, so the fd survives until
+                 * either a daemon-reload picks up the unit file or the service is explicitly stopped.
+                 * Same logic as in luo_dispatch_fd(). */
+                if (u->load_state == UNIT_NOT_FOUND) {
+                        s->fd_store_preserve_mode = EXEC_PRESERVE_YES;
+                        s->n_fd_store_max++;
+                }
+
+                /* Don't propagate upstream during deserialization: the upstream supervisor (if any)
+                 * already has these fds from when they were originally pushed. */
+                r = service_add_fd_store(s, TAKE_FD(fd), fdn, do_poll, /* propagate_upstream= */ false);
+                if (r <= 0 && u->load_state == UNIT_NOT_FOUND)
+                        /* The fd was not actually stored, roll back the limit bump. */
+                        s->n_fd_store_max--;
                 if (r < 0) {
                         log_unit_debug_errno(u, r,
                                              "Failed to store deserialized fd '%s', ignoring: %m", fdn);
                         return 0;
                 }
+                /* If preservation is enabled then this fd was previously propagated upstream when it
+                 * was first pushed. We need to remember that, so that future explicit removals
+                 * (FDSTOREREMOVE or EPOLLHUP/EPOLLERR) get propagated upstream too. The flag isn't
+                 * separately serialized as it's derived fd_store_preserve_mode. */
+                if (r > 0 && s->fd_store && s->fd_store_preserve_mode == EXEC_PRESERVE_YES)
+                        s->fd_store->propagated_upstream = true;
         } else if (streq(key, "extra-fd")) {
                 _cleanup_free_ char *fdv = NULL, *fdn = NULL;
                 _cleanup_close_ int fd = -EBADF;
@@ -5280,7 +5398,7 @@ static void service_notify_message(
                         name = NULL;
                 }
 
-                (void) service_add_fd_store_set(s, fds, name, !strv_contains(tags, "FDPOLL=0"));
+                (void) service_add_fd_store_set(s, fds, name, !strv_contains(tags, "FDPOLL=0"), /* propagate_upstream= */ true);
         }
 
         /* Notify clients about changed status or main pid */
@@ -6175,6 +6293,8 @@ const UnitVTable service_vtable = {
 
         .serialize = service_serialize,
         .deserialize_item = service_deserialize_item,
+
+        .attach_external_fd_to_fdstore = service_attach_external_fd_to_fdstore,
 
         .active_state = service_active_state,
         .sub_state_to_string = service_sub_state_to_string,
