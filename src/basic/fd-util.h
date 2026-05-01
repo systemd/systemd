@@ -128,7 +128,10 @@ int pack_fds(int fds[], size_t n);
 int fd_validate(int fd);
 int same_fd(int a, int b);
 
-bool fdname_is_valid(const char *s);
+bool fdname_is_valid_full(const char *s, bool accept_propagation);
+static inline bool fdname_is_valid(const char *s) {
+        return fdname_is_valid_full(s, /* accept_propagation= */ false);
+}
 
 int fd_get_path(int fd, char **ret);
 

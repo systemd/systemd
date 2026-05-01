@@ -23,6 +23,7 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "unit-name.h"
 
 /* The maximum number of iterations in the loop to close descriptors in the fallback case
  * when /proc/self/fd/ is inaccessible. */
@@ -551,7 +552,7 @@ int same_fd(int a, int b) {
         return fa == fb;
 }
 
-bool fdname_is_valid(const char *s) {
+bool fdname_is_valid_full(const char *s, bool accept_propagation) {
         const char *p;
 
         /* Validates a name for $LISTEN_FDNAMES. We basically allow
@@ -561,11 +562,16 @@ bool fdname_is_valid(const char *s) {
          *
          * Note that the empty string is explicitly allowed
          * here. However, we limit the length of the names to 255
-         * characters. */
+         * characters.
+         *
+         * If accept_propagation is true, fdnames that contain '|' are also accepted up to
+         * UNIT_NAME_MAX + FDNAME_MAX + 1 characters, to support the upstream propagation
+         * tagging scheme used by FileDescriptorStorePreserve=yes (see service_add_fd_store()). */
 
         if (!s)
                 return false;
 
+        bool has_pipe = false;
         for (p = s; *p; p++) {
                 if (*p < ' ')
                         return false;
@@ -573,9 +579,15 @@ bool fdname_is_valid(const char *s) {
                         return false;
                 if (*p == ':')
                         return false;
+                if (*p == '|')
+                        has_pipe = true;
         }
 
-        return p - s <= FDNAME_MAX;
+        size_t max = FDNAME_MAX;
+        if (accept_propagation && has_pipe)
+                max = UNIT_NAME_MAX + FDNAME_MAX + 1;
+
+        return (size_t) (p - s) <= max;
 }
 
 int fd_get_path(int fd, char **ret) {
