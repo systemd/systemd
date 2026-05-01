@@ -195,7 +195,7 @@ static int loop_write_suspend_fiber(void *userdata) {
 }
 
 /* Test: two fibers cooperatively pass a small payload through a blocking pipe using the suspending
- * loop helpers. Exercises the non-blocking flip, event-loop yielding, and the blocking-mode restore. */
+ * loop helpers. Without io_uring, this exercises the non-blocking flip and the blocking-mode restore. */
 TEST(loop_read_write_suspend) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
