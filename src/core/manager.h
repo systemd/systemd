@@ -14,8 +14,12 @@
 
 struct libmnt_monitor;
 
-/* Enforce upper limit how many names we allow */
+/* Enforce upper limit on how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
+
+/* Enforce upper limit on the number of patterns/states requested over IPC */
+#define MANAGER_MAX_PATTERNS_PER_CALL 4096U
+#define MANAGER_MAX_STATES_PER_CALL 256U
 
 /* On sigrtmin+18, private commands */
 enum {
