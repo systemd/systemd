@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
         ASSERT_NOT_NULL((runtime_dir = setup_fake_runtime_dir()));
 
         ASSERT_OK(manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_BASIC, &m));
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
 
         /* We need to enable access to the filesystem where the binary is so we
          * add @common-block and @application */
