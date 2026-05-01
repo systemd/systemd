@@ -435,6 +435,9 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         r = sd_bus_message_read_strv(message, &env);
         if (r < 0)
                 return r;
+        if (strv_length(env) > ENVIRONMENT_ASSIGNMENTS_MAX)
+                return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many environment assignments in a single query.");
         if (!strv_env_is_valid(env))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
 
