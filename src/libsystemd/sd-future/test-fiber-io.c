@@ -235,6 +235,135 @@ TEST(fiber_io_interrupted) {
         ASSERT_OK_ZERO(sd_future_result(f));
 }
 
+typedef struct CancelledRead {
+        int fd;
+        char buf[64];
+        ssize_t n;
+        int yield_result;
+} CancelledRead;
+
+static int cancelled_recv_fiber(void *userdata) {
+        CancelledRead *c = ASSERT_PTR(userdata);
+
+        c->n = sd_fiber_recv(c->fd, c->buf, sizeof(c->buf), /* flags= */ 0);
+        c->yield_result = sd_fiber_yield();
+        return 0;
+}
+
+TEST(fiber_io_cancel_after_data) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        _cleanup_close_pair_ int sockfd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sockfd));
+
+        CancelledRead c = { .fd = sockfd[0] };
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(sd_fiber_new(e, "cancelled-recv", cancelled_recv_fiber, &c, &f));
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+
+        /* The data arrives before the fiber runs again to see the cancellation. */
+        ASSERT_OK_EQ_ERRNO(write(sockfd[1], "x", 1), 1);
+        ASSERT_OK(sd_future_cancel(f));
+        ASSERT_OK(sd_event_loop(e));
+
+        /* A cancelled recv() must not lose the data. Either sd_fiber_recv() returned the data, or the
+         * socket still holds it. */
+        if (c.n == -ECANCELED) {
+                char b;
+                ASSERT_OK_EQ_ERRNO(read(sockfd[0], &b, 1), 1);
+                ASSERT_EQ(b, 'x');
+        } else {
+                ASSERT_EQ(c.n, 1);
+                ASSERT_EQ(c.buf[0], 'x');
+                ASSERT_ERROR(c.yield_result, ECANCELED);
+        }
+}
+
+static int send_after_exit_fiber(void *userdata) {
+        int fd = PTR_TO_INT(userdata);
+
+        ASSERT_ERROR(sd_fiber_suspend(), ECANCELED);
+
+        /* sd_event_exit() cancelled the fiber. The socket has room, so the send() doesn't have to wait and
+         * has to succeed. */
+        ASSERT_OK_EQ(sd_fiber_send(fd, "x", 1, /* flags= */ 0), (ssize_t) 1);
+        return 0;
+}
+
+TEST(fiber_io_after_exit) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        _cleanup_close_pair_ int sockfd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sockfd));
+
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(sd_fiber_new(e, "send-after-exit", send_after_exit_fiber, INT_TO_PTR(sockfd[1]), &f));
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+
+        ASSERT_OK(sd_event_exit(e, 0));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(f));
+
+        char c;
+        ASSERT_OK_EQ_ERRNO(read(sockfd[0], &c, 1), 1);
+        ASSERT_EQ(c, 'x');
+}
+
+typedef struct ExitOrder {
+        int fd;
+        unsigned next;
+        unsigned fiber;
+        unsigned exit_source;
+} ExitOrder;
+
+static int exit_order_fiber(void *userdata) {
+        ExitOrder *o = ASSERT_PTR(userdata);
+        char buf[16];
+
+        ASSERT_ERROR(sd_fiber_recv(o->fd, buf, sizeof(buf), /* flags= */ 0), ECANCELED);
+        o->fiber = ++o->next;
+        return 0;
+}
+
+static int exit_order_handler(sd_event_source *s, void *userdata) {
+        ExitOrder *o = ASSERT_PTR(userdata);
+
+        o->exit_source = ++o->next;
+        return 0;
+}
+
+/* On exit, a fiber that waits in sd_fiber_recv() runs its cleanup from its exit source. The exit source of
+ * the fiber has a higher priority than the other exit source, so the cleanup of the fiber has to come
+ * first. */
+TEST(fiber_io_exit_order) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        _cleanup_close_pair_ int sockfd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sockfd));
+
+        ExitOrder o = { .fd = sockfd[0] };
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(sd_fiber_new(e, "exit-order", exit_order_fiber, &o, &f));
+        ASSERT_OK(sd_future_set_priority(f, -10));
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        ASSERT_OK(sd_event_add_exit(e, &s, exit_order_handler, &o));
+
+        /* The fiber suspends in sd_fiber_recv(). */
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+
+        ASSERT_OK(sd_event_exit(e, 0));
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_OK_ZERO(sd_future_result(f));
+        ASSERT_EQ(o.fiber, 1u);
+        ASSERT_EQ(o.exit_source, 2u);
+}
+
 TEST(fiber_io_fallback) {
         _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC));  /* Note: blocking pipe */
@@ -408,6 +537,34 @@ static int socket_recv_order_fiber(void *userdata) {
         return (int) n;
 }
 
+static int send_closed_fiber(void *userdata) {
+        int fd = PTR_TO_INT(userdata);
+
+        return (int) sd_fiber_send(fd, "x", 1, /* flags= */ 0);
+}
+
+/* io_uring always sends with MSG_NOSIGNAL. A send to a closed peer has to fail with EPIPE without SIGPIPE
+ * without io_uring too. */
+TEST(fiber_io_send_closed) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        _cleanup_close_pair_ int sockfd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sockfd));
+        sockfd[1] = safe_close(sockfd[1]);
+
+        struct sigaction sa = { .sa_handler = SIG_DFL }, old_sa;
+        ASSERT_OK_ERRNO(sigaction(SIGPIPE, &sa, &old_sa));
+
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(sd_fiber_new(e, "send-closed", send_closed_fiber, INT_TO_PTR(sockfd[0]), &f));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_ERROR(sd_future_result(f), EPIPE);
+
+        ASSERT_OK_ERRNO(sigaction(SIGPIPE, &old_sa, NULL));
+}
+
 TEST(fiber_io_recv_send) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
@@ -473,6 +630,43 @@ TEST(fiber_io_recv_peek) {
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));
+}
+
+static int socket_recv_dontwait_fiber(void *userdata) {
+        int sockfd = PTR_TO_INT(userdata);
+        char buf[64];
+
+        /* io_uring completes a recv with MSG_DONTWAIT with -EAGAIN if no data is queued. sd_fiber_recv() has
+         * to wait for the data instead, like it does without io_uring. */
+        return (int) sd_fiber_recv(sockfd, buf, sizeof(buf), MSG_DONTWAIT);
+}
+
+static int socket_send_dontwait_fiber(void *userdata) {
+        int sockfd = PTR_TO_INT(userdata);
+
+        return (int) sd_fiber_send(sockfd, "wait", STRLEN("wait"), /* flags= */ 0);
+}
+
+TEST(fiber_io_recv_dontwait) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        _cleanup_close_pair_ int sockfd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sockfd));
+
+        /* The recv fiber has the higher priority, so it suspends in sd_fiber_recv() before the send fiber
+         * runs. */
+        _cleanup_(sd_future_unrefp) sd_future *fr = NULL, *fs = NULL;
+        ASSERT_OK(sd_fiber_new(e, "socket-recv-dontwait", socket_recv_dontwait_fiber, INT_TO_PTR(sockfd[1]), &fr));
+        ASSERT_OK(sd_future_set_priority(fr, 0));
+        ASSERT_OK(sd_fiber_new(e, "socket-send-dontwait", socket_send_dontwait_fiber, INT_TO_PTR(sockfd[0]), &fs));
+        ASSERT_OK(sd_future_set_priority(fs, 1));
+
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_OK_EQ(sd_future_result(fr), 4);
+        ASSERT_OK_EQ(sd_future_result(fs), 4);
 }
 
 static int socket_connect_fiber(void *userdata) {
@@ -1509,6 +1703,84 @@ TEST(fiber_io_connect_blocking) {
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));
+}
+
+typedef struct ShutdownIOCtx {
+        int sockfd[2];
+        size_t *bytes_transferred;
+} ShutdownIOCtx;
+
+static int shutdown_writer_fiber(void *userdata) {
+        ShutdownIOCtx *ctx = ASSERT_PTR(userdata);
+        char buf[256];
+
+        memset(buf, 'W', sizeof(buf));
+
+        /* Loop sending until cancelled. The buffer is on the fiber's stack: any io_uring SQE
+         * targeting it must be drained before this stack frame unwinds, otherwise the kernel could
+         * write/read freed memory. */
+        for (;;) {
+                ssize_t n = sd_fiber_send(ctx->sockfd[0], buf, sizeof(buf), /* flags= */ 0);
+                if (n < 0)
+                        return (int) n;
+        }
+}
+
+static int shutdown_reader_fiber(void *userdata) {
+        ShutdownIOCtx *ctx = ASSERT_PTR(userdata);
+        char buf[256];
+
+        for (;;) {
+                ssize_t n = sd_fiber_recv(ctx->sockfd[1], buf, sizeof(buf), /* flags= */ 0);
+                if (n < 0)
+                        return (int) n;
+                *ctx->bytes_transferred += (size_t) n;
+        }
+}
+
+static int on_shutdown_timer(sd_event_source *s, uint64_t usec, void *userdata) {
+        return sd_event_exit(sd_event_source_get_event(s), 0);
+}
+
+/* Fibers doing I/O into stack-allocated buffers while a timer fires sd_event_exit(). Every fiber
+ * must unwind before the kernel could touch those buffers. */
+TEST(fiber_io_shutdown_during_work) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        sd_future *readers[4] = {}, *writers[4] = {};
+        CLEANUP_ELEMENTS(readers, sd_future_unref_array_clear);
+        CLEANUP_ELEMENTS(writers, sd_future_unref_array_clear);
+
+        ShutdownIOCtx ctxs[ELEMENTSOF(readers)];
+        size_t bytes_transferred = 0;
+
+        for (size_t i = 0; i < ELEMENTSOF(readers); i++) {
+                ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, ctxs[i].sockfd));
+                ctxs[i].bytes_transferred = &bytes_transferred;
+                ASSERT_OK(sd_fiber_new(e, "shutdown-reader", shutdown_reader_fiber, &ctxs[i], &readers[i]));
+                ASSERT_OK(sd_fiber_new(e, "shutdown-writer", shutdown_writer_fiber, &ctxs[i], &writers[i]));
+        }
+
+        /* Short delay so the fibers actually transfer something before the teardown. */
+        _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
+        ASSERT_OK(sd_event_add_time_relative(e, &timer, CLOCK_MONOTONIC, 50 * USEC_PER_MSEC, 0,
+                                             on_shutdown_timer, NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+
+        /* Otherwise the test isn't exercising the shutdown-during-in-flight-I/O path it claims to. */
+        ASSERT_GT(bytes_transferred, 0u);
+
+        /* fiber_free() additionally asserts each fiber reached FIBER_STATE_COMPLETED, catching any that
+         * failed to unwind. */
+        for (size_t i = 0; i < ELEMENTSOF(readers); i++) {
+                ASSERT_ERROR(sd_future_result(readers[i]), ECANCELED);
+                ASSERT_ERROR(sd_future_result(writers[i]), ECANCELED);
+        }
+
+        for (size_t i = 0; i < ELEMENTSOF(readers); i++)
+                safe_close_pair(ctxs[i].sockfd);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
