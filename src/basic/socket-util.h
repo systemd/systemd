@@ -270,3 +270,5 @@ int netlink_socket_get_multicast_groups(int fd, size_t *ret_len, uint32_t **ret_
 int socket_get_cookie(int fd, uint64_t *ret);
 
 void cmsg_close_all(struct msghdr *mh);
+
+uint32_t tos_to_priority(uint8_t tos);
