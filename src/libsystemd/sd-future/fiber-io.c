@@ -14,27 +14,52 @@
 #include "errno-util.h"
 #include "event-future.h"
 #include "fd-util.h"
+#include "io-uring-util.h"
 #include "io-util.h"
 #include "time-util.h"
 
 typedef ssize_t (*FiberIOFunc)(int fd, void *args);
+typedef void (*FiberIOPrep)(struct io_uring_sqe *sqe, int fd, void *args);
 
 static ssize_t fiber_io_operation(
                 int fd,
                 uint32_t events,
                 FiberIOFunc func,
+                FiberIOPrep prep,
                 void *args) {
+
         _cleanup_(nonblock_resetp) int reset_fd = -EBADF;
         int r;
 
         assert(fd >= 0);
         assert(func);
+        assert(prep);
 
         if (!sd_fiber_is_running())
                 return func(fd, args);
 
         sd_event *e = sd_fiber_get_event();
         assert(e);
+
+#if HAVE_LIBURING
+        r = sd_event_get_io_uring_enabled(e);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                /* The kernel handles blocking semantics for the SQE itself, so we don't flip the fd
+                 * to non-blocking, and the CQE result lands directly as the fiber resume value:
+                 * non-negative for the byte count, -errno on failure. */
+                struct io_uring_sqe *sqe;
+                _cleanup_(sd_future_cancel_wait_unrefp) sd_future *io = NULL;
+                r = future_new_io_uring_sqe(e, &sqe, &io);
+                if (r < 0)
+                        return r;
+
+                prep(sqe, fd, args);
+
+                return sd_fiber_await(io);
+        }
+#endif
 
         r = fd_nonblock(fd, true);
         if (r < 0)
@@ -71,11 +96,20 @@ static ssize_t read_callback(int fd, void *args) {
         return n >= 0 ? n : -errno;
 }
 
+#if HAVE_LIBURING
+static void read_prep(struct io_uring_sqe *sqe, int fd, void *args) {
+        ReadArgs *a = ASSERT_PTR(args);
+        io_uring_prep_read(sqe, fd, a->buf, a->count, /* offset = */ (uint64_t) -1);
+}
+#else
+#  define read_prep NULL
+#endif
+
 ssize_t sd_fiber_read(int fd, void *buf, size_t count) {
         assert_return(fd >= 0, -EBADF);
         assert_return(buf || count == 0, -EINVAL);
 
-        return fiber_io_operation(fd, EPOLLIN, read_callback, &(ReadArgs) {
+        return fiber_io_operation(fd, EPOLLIN, read_callback, read_prep, &(ReadArgs) {
                 .buf = buf,
                 .count = count,
         });
@@ -94,11 +128,20 @@ static ssize_t write_callback(int fd, void *args) {
         return n >= 0 ? n : -errno;
 }
 
+#if HAVE_LIBURING
+static void write_prep(struct io_uring_sqe *sqe, int fd, void *args) {
+        WriteArgs *a = ASSERT_PTR(args);
+        io_uring_prep_write(sqe, fd, a->buf, a->count, /* offset = */ (uint64_t) -1);
+}
+#else
+#  define write_prep NULL
+#endif
+
 ssize_t sd_fiber_write(int fd, const void *buf, size_t count) {
         assert_return(fd >= 0, -EBADF);
         assert_return(buf || count == 0, -EINVAL);
 
-        return fiber_io_operation(fd, EPOLLOUT, write_callback, &(WriteArgs) {
+        return fiber_io_operation(fd, EPOLLOUT, write_callback, write_prep, &(WriteArgs) {
                 .buf = buf,
                 .count = count,
         });
@@ -117,11 +160,20 @@ static ssize_t readv_callback(int fd, void *args) {
         return n >= 0 ? n : -errno;
 }
 
+#if HAVE_LIBURING
+static void readv_prep(struct io_uring_sqe *sqe, int fd, void *args) {
+        ReadvArgs *a = ASSERT_PTR(args);
+        io_uring_prep_readv(sqe, fd, a->iov, a->iovcnt, /* offset = */ (uint64_t) -1);
+}
+#else
+#  define readv_prep NULL
+#endif
+
 ssize_t sd_fiber_readv(int fd, const struct iovec *iov, int iovcnt) {
         assert_return(fd >= 0, -EBADF);
         assert_return(iov || iovcnt == 0, -EINVAL);
 
-        return fiber_io_operation(fd, EPOLLIN, readv_callback, &(ReadvArgs) {
+        return fiber_io_operation(fd, EPOLLIN, readv_callback, readv_prep, &(ReadvArgs) {
                 .iov = iov,
                 .iovcnt = iovcnt,
         });
@@ -140,11 +192,20 @@ static ssize_t writev_callback(int fd, void *args) {
         return n >= 0 ? n : -errno;
 }
 
+#if HAVE_LIBURING
+static void writev_prep(struct io_uring_sqe *sqe, int fd, void *args) {
+        WritevArgs *a = ASSERT_PTR(args);
+        io_uring_prep_writev(sqe, fd, a->iov, a->iovcnt, /* offset = */ (uint64_t) -1);
+}
+#else
+#  define writev_prep NULL
+#endif
+
 ssize_t sd_fiber_writev(int fd, const struct iovec *iov, int iovcnt) {
         assert_return(fd >= 0, -EBADF);
         assert_return(iov || iovcnt == 0, -EINVAL);
 
-        return fiber_io_operation(fd, EPOLLOUT, writev_callback, &(WritevArgs) {
+        return fiber_io_operation(fd, EPOLLOUT, writev_callback, writev_prep, &(WritevArgs) {
                 .iov = iov,
                 .iovcnt = iovcnt,
         });
@@ -164,11 +225,20 @@ static ssize_t recv_callback(int fd, void *args) {
         return n >= 0 ? n : -errno;
 }
 
+#if HAVE_LIBURING
+static void recv_prep(struct io_uring_sqe *sqe, int fd, void *args) {
+        RecvArgs *a = ASSERT_PTR(args);
+        io_uring_prep_recv(sqe, fd, a->buf, a->len, a->flags);
+}
+#else
+#  define recv_prep NULL
+#endif
+
 ssize_t sd_fiber_recv(int sockfd, void *buf, size_t len, int flags) {
         assert_return(sockfd >= 0, -EBADF);
         assert_return(buf || len == 0, -EINVAL);
 
-        return fiber_io_operation(sockfd, EPOLLIN, recv_callback, &(RecvArgs) {
+        return fiber_io_operation(sockfd, EPOLLIN, recv_callback, recv_prep, &(RecvArgs) {
                 .buf = buf,
                 .len = len,
                 .flags = flags,
@@ -189,11 +259,20 @@ static ssize_t send_callback(int fd, void *args) {
         return n >= 0 ? n : -errno;
 }
 
+#if HAVE_LIBURING
+static void send_prep(struct io_uring_sqe *sqe, int fd, void *args) {
+        SendArgs *a = ASSERT_PTR(args);
+        io_uring_prep_send(sqe, fd, a->buf, a->len, a->flags);
+}
+#else
+#  define send_prep NULL
+#endif
+
 ssize_t sd_fiber_send(int sockfd, const void *buf, size_t len, int flags) {
         assert_return(sockfd >= 0, -EBADF);
         assert_return(buf || len == 0, -EINVAL);
 
-        return fiber_io_operation(sockfd, EPOLLOUT, send_callback, &(SendArgs) {
+        return fiber_io_operation(sockfd, EPOLLOUT, send_callback, send_prep, &(SendArgs) {
                 .buf = buf,
                 .len = len,
                 .flags = flags,
@@ -212,6 +291,23 @@ int sd_fiber_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 
         sd_event *e = sd_fiber_get_event();
         assert(e);
+
+#if HAVE_LIBURING
+        r = sd_event_get_io_uring_enabled(e);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                struct io_uring_sqe *sqe;
+                _cleanup_(sd_future_cancel_wait_unrefp) sd_future *io = NULL;
+                r = future_new_io_uring_sqe(e, &sqe, &io);
+                if (r < 0)
+                        return r;
+
+                io_uring_prep_connect(sqe, sockfd, addr, addrlen);
+
+                return sd_fiber_await(io);
+        }
+#endif
 
         r = fd_nonblock(sockfd, true);
         if (r < 0)
@@ -247,11 +343,20 @@ static ssize_t recvmsg_callback(int fd, void *args) {
         return n >= 0 ? n : -errno;
 }
 
+#if HAVE_LIBURING
+static void recvmsg_prep(struct io_uring_sqe *sqe, int fd, void *args) {
+        RecvmsgArgs *a = ASSERT_PTR(args);
+        io_uring_prep_recvmsg(sqe, fd, a->msg, a->flags);
+}
+#else
+#  define recvmsg_prep NULL
+#endif
+
 ssize_t sd_fiber_recvmsg(int sockfd, struct msghdr *msg, int flags) {
         assert_return(sockfd >= 0, -EBADF);
         assert_return(msg, -EINVAL);
 
-        return fiber_io_operation(sockfd, EPOLLIN, recvmsg_callback, &(RecvmsgArgs) {
+        return fiber_io_operation(sockfd, EPOLLIN, recvmsg_callback, recvmsg_prep, &(RecvmsgArgs) {
                 .msg = msg,
                 .flags = flags,
         });
@@ -270,11 +375,20 @@ static ssize_t sendmsg_callback(int fd, void *args) {
         return n >= 0 ? n : -errno;
 }
 
+#if HAVE_LIBURING
+static void sendmsg_prep(struct io_uring_sqe *sqe, int fd, void *args) {
+        SendmsgArgs *a = ASSERT_PTR(args);
+        io_uring_prep_sendmsg(sqe, fd, a->msg, a->flags);
+}
+#else
+#  define sendmsg_prep NULL
+#endif
+
 ssize_t sd_fiber_sendmsg(int sockfd, const struct msghdr *msg, int flags) {
         assert_return(sockfd >= 0, -EBADF);
         assert_return(msg, -EINVAL);
 
-        return fiber_io_operation(sockfd, EPOLLOUT, sendmsg_callback, &(SendmsgArgs) {
+        return fiber_io_operation(sockfd, EPOLLOUT, sendmsg_callback, sendmsg_prep, &(SendmsgArgs) {
                 .msg = msg,
                 .flags = flags,
         });
@@ -287,6 +401,15 @@ static ssize_t recvfrom_callback(int fd, void *args) {
         n = recvmsg(fd, a->msg, a->flags);
         return n >= 0 ? n : -errno;
 }
+
+#if HAVE_LIBURING
+static void recvfrom_prep(struct io_uring_sqe *sqe, int fd, void *args) {
+        RecvmsgArgs *a = ASSERT_PTR(args);
+        io_uring_prep_recvmsg(sqe, fd, a->msg, a->flags);
+}
+#else
+#  define recvfrom_prep NULL
+#endif
 
 ssize_t sd_fiber_recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen) {
         ssize_t n;
@@ -303,7 +426,7 @@ ssize_t sd_fiber_recvfrom(int sockfd, void *buf, size_t len, int flags, struct s
                 .msg_iovlen = 1,
         };
 
-        n = fiber_io_operation(sockfd, EPOLLIN, recvfrom_callback, &(RecvmsgArgs) {
+        n = fiber_io_operation(sockfd, EPOLLIN, recvfrom_callback, recvfrom_prep, &(RecvmsgArgs) {
                 .msg = &msg,
                 .flags = flags,
         });
@@ -324,6 +447,15 @@ static ssize_t sendto_callback(int fd, void *args) {
         return n >= 0 ? n : -errno;
 }
 
+#if HAVE_LIBURING
+static void sendto_prep(struct io_uring_sqe *sqe, int fd, void *args) {
+        SendmsgArgs *a = ASSERT_PTR(args);
+        io_uring_prep_sendmsg(sqe, fd, a->msg, a->flags);
+}
+#else
+#  define sendto_prep NULL
+#endif
+
 ssize_t sd_fiber_sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen) {
         assert_return(sockfd >= 0, -EBADF);
         assert_return(buf || len == 0, -EINVAL);
@@ -336,7 +468,7 @@ ssize_t sd_fiber_sendto(int sockfd, const void *buf, size_t len, int flags, cons
                 .msg_iovlen = 1,
         };
 
-        return fiber_io_operation(sockfd, EPOLLOUT, sendto_callback, &(SendmsgArgs) {
+        return fiber_io_operation(sockfd, EPOLLOUT, sendto_callback, sendto_prep, &(SendmsgArgs) {
                 .msg = &msg,
                 .flags = flags,
         });
@@ -354,16 +486,29 @@ static ssize_t accept_callback(int fd, void *args) {
         return RET_NERRNO(accept4(fd, a->addr, a->addrlen, a->flags));
 }
 
+#if HAVE_LIBURING
+static void accept_prep(struct io_uring_sqe *sqe, int fd, void *args) {
+        AcceptArgs *a = ASSERT_PTR(args);
+        io_uring_prep_accept(sqe, fd, a->addr, a->addrlen, a->flags);
+}
+#else
+#  define accept_prep NULL
+#endif
+
 int sd_fiber_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags) {
         assert_return(sockfd >= 0, -EBADF);
 
-        return fiber_io_operation(sockfd, EPOLLIN, accept_callback, &(AcceptArgs) {
+        return fiber_io_operation(sockfd, EPOLLIN, accept_callback, accept_prep, &(AcceptArgs) {
                 .addr = addr,
                 .addrlen = addrlen,
                 .flags = flags,
         });
 }
 
+/* Unlike sd_fiber_read/write/connect/etc., this function does not submit io-uring SQEs directly: the
+ * underlying future_new_io() / future_new_time_relative() already route through io_uring_prep_poll_add
+ * (via sd_event_add_io and the per-clock timerfd) when io-uring is enabled on the event loop, so a
+ * direct submission would just duplicate that work. */
 int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *timeout, const sigset_t *sigmask) {
         int r;
 
