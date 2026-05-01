@@ -53,7 +53,7 @@ PullJob* pull_job_unref(PullJob *j) {
 
         pull_job_close_disk_fd(j);
 
-        curl_glue_remove_and_free(j->glue, j->curl);
+        curl_slot_unref(j->slot);
         sym_curl_slist_free_all(j->request_header);
 
         j->compress = compressor_free(j->compress);
@@ -83,11 +83,13 @@ static const char* pull_job_description(PullJob *j) {
         return j->description ?: j->url;
 }
 
-static void pull_job_finish(PullJob *j, int ret) {
+static int pull_job_finish(PullJob *j, int ret) {
         assert(j);
 
+        /* Returns 0 so callers in int-returning paths can `return pull_job_finish(...)` directly. */
+
         if (IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED))
-                return;
+                return 0;
 
         if (ret == 0) {
                 j->state = PULL_JOB_DONE;
@@ -100,6 +102,8 @@ static void pull_job_finish(PullJob *j, int ret) {
 
         if (j->on_finished)
                 j->on_finished(j);
+
+        return 0;
 }
 
 int pull_job_restart(PullJob *j, const char *new_url) {
@@ -134,8 +138,7 @@ int pull_job_restart(PullJob *j, const char *new_url) {
                 j->expected_content_length = UINT64_MAX;
         }
 
-        curl_glue_remove_and_free(j->glue, j->curl);
-        j->curl = NULL;
+        j->slot = curl_slot_unref(j->slot);
 
         j->compress = compressor_free(j->compress);
 
@@ -160,23 +163,18 @@ static uint64_t pull_job_content_length_effective(PullJob *j) {
         return j->content_length;
 }
 
-void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
-        PullJob *j = NULL;
+static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *userdata) {
+        PullJob *j = ASSERT_PTR(userdata);
         char *scheme = NULL;
         CURLcode code;
         int r;
 
-        if (sym_curl_easy_getinfo(curl, CURLINFO_PRIVATE, (char **)&j) != CURLE_OK)
-                return;
-
-        if (!j || IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED))
-                return;
+        if (IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED))
+                return 0;
 
         code = sym_curl_easy_getinfo(curl, CURLINFO_SCHEME, &scheme);
-        if (code != CURLE_OK || !scheme) {
-                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve URL scheme.");
-                goto finish;
-        }
+        if (code != CURLE_OK || !scheme)
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve URL scheme."));
 
         if (strcaseeq(scheme, "FILE") && result == CURLE_FILE_COULDNT_READ_FILE && j->on_not_found) {
                 _cleanup_free_ char *new_url = NULL;
@@ -184,43 +182,37 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 /* This resource wasn't found, but the implementer wants to maybe let us know a new URL, query for it. */
                 r = j->on_not_found(j, &new_url);
                 if (r < 0)
-                        goto finish;
+                        return pull_job_finish(j, r);
                 if (r > 0) { /* A new url to use */
                         assert(new_url);
 
                         r = pull_job_restart(j, new_url);
                         if (r < 0)
-                                goto finish;
+                                return pull_job_finish(j, r);
 
-                        return;
+                        return 0;
                 }
 
                 /* if this didn't work, handle like any other error below */
         }
 
-        if (result != CURLE_OK) {
-                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Transfer failed: %s", sym_curl_easy_strerror(result));
-                goto finish;
-        }
+        if (result != CURLE_OK)
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Transfer failed: %s", sym_curl_easy_strerror(result)));
 
         if (STRCASE_IN_SET(scheme, "HTTP", "HTTPS")) {
                 long status;
 
                 code = sym_curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
-                if (code != CURLE_OK) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code));
-                        goto finish;
-                }
+                if (code != CURLE_OK)
+                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code)));
 
                 if (http_status_etag_exists(status)) {
                         log_info("Image already downloaded. Skipping download.");
                         j->etag_exists = true;
-                        r = 0;
-                        goto finish;
+                        return pull_job_finish(j, 0);
                 } else if (http_status_need_authentication(status)) {
                         log_info("Access to image requires authentication.");
-                        r = -ENOKEY;
-                        goto finish;
+                        return pull_job_finish(j, -ENOKEY);
                 } else if (status >= 300) {
 
                         if (status == 404 && j->on_not_found) {
@@ -229,81 +221,64 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                                 /* This resource wasn't found, but the implementer wants to maybe let us know a new URL, query for it. */
                                 r = j->on_not_found(j, &new_url);
                                 if (r < 0)
-                                        goto finish;
+                                        return pull_job_finish(j, r);
 
                                 if (r > 0) { /* A new url to use */
                                         assert(new_url);
 
                                         r = pull_job_restart(j, new_url);
                                         if (r < 0)
-                                                goto finish;
+                                                return pull_job_finish(j, r);
 
-                                        code = sym_curl_easy_getinfo(j->curl, CURLINFO_RESPONSE_CODE, &status);
-                                        if (code != CURLE_OK) {
-                                                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code));
-                                                goto finish;
-                                        }
+                                        code = sym_curl_easy_getinfo(curl_slot_get_easy(j->slot), CURLINFO_RESPONSE_CODE, &status);
+                                        if (code != CURLE_OK)
+                                                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code)));
 
                                         if (status == 0)
-                                                return;
+                                                return 0;
                                 }
                         }
 
-                        r = log_notice_errno(
+                        return pull_job_finish(j, log_notice_errno(
                                         status == 404 ? SYNTHETIC_ERRNO(ENOMEDIUM) : SYNTHETIC_ERRNO(EIO), /* Make the most common error recognizable */
-                                        "HTTP request to %s failed with code %li.", j->url, status);
-                        goto finish;
-                } else if (status < 200) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EIO), "HTTP request to %s finished with unexpected code %li.", j->url, status);
-                        goto finish;
-                }
+                                        "HTTP request to %s failed with code %li.", j->url, status));
+                } else if (status < 200)
+                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "HTTP request to %s finished with unexpected code %li.", j->url, status));
         }
 
-        if (j->state != PULL_JOB_RUNNING) {
-                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Premature connection termination.");
-                goto finish;
-        }
+        if (j->state != PULL_JOB_RUNNING)
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Premature connection termination."));
 
         uint64_t cl = pull_job_content_length_effective(j);
         if (cl != UINT64_MAX &&
-            cl != j->written_compressed) {
-                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Download truncated.");
-                goto finish;
-        }
+            cl != j->written_compressed)
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Download truncated."));
 
         if (j->checksum_ctx) {
                 unsigned checksum_len;
 
                 iovec_done(&j->checksum);
                 j->checksum.iov_base = malloc(EVP_MAX_MD_SIZE);
-                if (!j->checksum.iov_base) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!j->checksum.iov_base)
+                        return pull_job_finish(j, log_oom());
 
                 r = sym_EVP_DigestFinal_ex(j->checksum_ctx, j->checksum.iov_base, &checksum_len);
-                if (r == 0) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get checksum.");
-                        goto finish;
-                }
+                if (r == 0)
+                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get checksum."));
                 assert(checksum_len <= EVP_MAX_MD_SIZE);
                 j->checksum.iov_len = checksum_len;
 
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *h = hexmem(j->checksum.iov_base, j->checksum.iov_len);
-                        if (!h) {
-                                r = log_oom();
-                                goto finish;
-                        }
+                        if (!h)
+                                return pull_job_finish(j, log_oom());
 
                         log_debug("%s of %s is %s.", sym_EVP_MD_CTX_get0_name(j->checksum_ctx), pull_job_description(j), h);
                 }
 
                 if (iovec_is_set(&j->expected_checksum) &&
-                    !iovec_equal(&j->checksum, &j->expected_checksum)) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Checksum of downloaded resource does not match expected checksum, yikes.");
-                        goto finish;
-                }
+                    !iovec_equal(&j->checksum, &j->expected_checksum))
+                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Checksum of downloaded resource does not match expected checksum, yikes."));
         }
 
         /* Do a couple of finishing disk operations, but only if we are the sole owner of the file (i.e. no
@@ -318,10 +293,8 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                                 if (j->written_compressed > 0) {
                                         /* Make sure the file size is right, in case the file was sparse and
                                          * we just moved to the last part. */
-                                        if (ftruncate(j->disk_fd, j->written_uncompressed) < 0) {
-                                                r = log_error_errno(errno, "Failed to truncate file: %m");
-                                                goto finish;
-                                        }
+                                        if (ftruncate(j->disk_fd, j->written_uncompressed) < 0)
+                                                return pull_job_finish(j, log_error_errno(errno, "Failed to truncate file: %m"));
                                 }
 
                                 if (j->etag)
@@ -345,27 +318,20 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
 
                         if (j->sync) {
                                 r = fsync_full(j->disk_fd);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to synchronize file to disk: %m");
-                                        goto finish;
-                                }
+                                if (r < 0)
+                                        return pull_job_finish(j, log_error_errno(r, "Failed to synchronize file to disk: %m"));
                         }
 
                 } else if (S_ISBLK(j->disk_stat.st_mode) && j->sync) {
 
-                        if (fsync(j->disk_fd) < 0) {
-                                r = log_error_errno(errno, "Failed to synchronize block device: %m");
-                                goto finish;
-                        }
+                        if (fsync(j->disk_fd) < 0)
+                                return pull_job_finish(j, log_error_errno(errno, "Failed to synchronize block device: %m"));
                 }
         }
 
         log_info("Acquired %s for %s.", FORMAT_BYTES(j->written_uncompressed), pull_job_description(j));
 
-        r = 0;
-
-finish:
-        pull_job_finish(j, r);
+        return pull_job_finish(j, 0);
 }
 
 static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata) {
@@ -595,7 +561,7 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
 
         assert(j->state == PULL_JOB_ANALYZING);
 
-        code = sym_curl_easy_getinfo(j->curl, CURLINFO_RESPONSE_CODE, &status);
+        code = sym_curl_easy_getinfo(curl_slot_get_easy(j->slot), CURLINFO_RESPONSE_CODE, &status);
         if (code != CURLE_OK) {
                 r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code));
                 goto fail;
@@ -809,7 +775,8 @@ int pull_job_begin(PullJob *j) {
         if (j->state != PULL_JOB_INIT)
                 return -EBUSY;
 
-        r = curl_glue_make(&j->curl, j->url, j);
+        _cleanup_(curl_easy_cleanupp) CURL *easy = NULL;
+        r = curl_glue_make(&easy, j->url);
         if (r < 0)
                 return r;
 
@@ -830,34 +797,35 @@ int pull_job_begin(PullJob *j) {
         }
 
         if (j->request_header) {
-                if (sym_curl_easy_setopt(j->curl, CURLOPT_HTTPHEADER, j->request_header) != CURLE_OK)
+                if (sym_curl_easy_setopt(easy, CURLOPT_HTTPHEADER, j->request_header) != CURLE_OK)
                         return -EIO;
         }
 
-        if (sym_curl_easy_setopt(j->curl, CURLOPT_WRITEFUNCTION, pull_job_write_callback) != CURLE_OK)
+        if (sym_curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, pull_job_write_callback) != CURLE_OK)
                 return -EIO;
 
-        if (sym_curl_easy_setopt(j->curl, CURLOPT_WRITEDATA, j) != CURLE_OK)
+        if (sym_curl_easy_setopt(easy, CURLOPT_WRITEDATA, j) != CURLE_OK)
                 return -EIO;
 
-        if (sym_curl_easy_setopt(j->curl, CURLOPT_HEADERFUNCTION, pull_job_header_callback) != CURLE_OK)
+        if (sym_curl_easy_setopt(easy, CURLOPT_HEADERFUNCTION, pull_job_header_callback) != CURLE_OK)
                 return -EIO;
 
-        if (sym_curl_easy_setopt(j->curl, CURLOPT_HEADERDATA, j) != CURLE_OK)
+        if (sym_curl_easy_setopt(easy, CURLOPT_HEADERDATA, j) != CURLE_OK)
                 return -EIO;
 
-        if (sym_curl_easy_setopt(j->curl, CURLOPT_XFERINFOFUNCTION, pull_job_progress_callback) != CURLE_OK)
+        if (sym_curl_easy_setopt(easy, CURLOPT_XFERINFOFUNCTION, pull_job_progress_callback) != CURLE_OK)
                 return -EIO;
 
-        if (sym_curl_easy_setopt(j->curl, CURLOPT_XFERINFODATA, j) != CURLE_OK)
+        if (sym_curl_easy_setopt(easy, CURLOPT_XFERINFODATA, j) != CURLE_OK)
                 return -EIO;
 
-        if (sym_curl_easy_setopt(j->curl, CURLOPT_NOPROGRESS, 0L) != CURLE_OK)
+        if (sym_curl_easy_setopt(easy, CURLOPT_NOPROGRESS, 0L) != CURLE_OK)
                 return -EIO;
 
-        r = curl_glue_add(j->glue, j->curl);
+        r = curl_glue_perform_async(j->glue, easy, pull_job_curl_on_finished, j, &j->slot);
         if (r < 0)
                 return r;
+        TAKE_PTR(easy);
 
         j->state = PULL_JOB_ANALYZING;
 
