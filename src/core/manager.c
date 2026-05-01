@@ -42,6 +42,7 @@
 #include "exec-util.h"
 #include "execute.h"
 #include "exit-status.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "format-util.h"
@@ -1870,6 +1871,136 @@ static void manager_catchup(Manager *m) {
         }
 }
 
+int manager_dispatch_external_fd_to_unit(
+                Manager *m,
+                const char *unit_id,
+                const char *fdname,
+                int fd_in,
+                const char *log_context) {
+
+        _cleanup_close_ int fd = ASSERT_FD(fd_in);
+        Unit *u = NULL;
+        Service *s;
+        int r;
+
+        assert(m);
+        assert(unit_id);
+        assert(fdname);
+        assert(log_context);
+
+        /* Load the unit eagerly: if the unit file exists this brings it into UNIT_LOADED, otherwise it
+         * lands in UNIT_NOT_FOUND. In both cases we want to attach the fd so it's preserved until the
+         * unit is fully stopped (or its file appears via daemon-reload). */
+        r = manager_load_unit(m, unit_id, /* path= */ NULL, /* e= */ NULL, &u);
+        if (r < 0)
+                return log_warning_errno(r, "%s: failed to load unit '%s', closing fd '%s': %m",
+                                         log_context, unit_id, fdname);
+
+        if (u->type != UNIT_SERVICE)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: unit '%s' is not a service, closing fd '%s'.",
+                                         log_context, unit_id, fdname);
+
+        if (!UNIT_VTABLE(u)->attach_external_fd_to_fdstore)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: unit '%s' does not support fd restoration, closing fd '%s'.",
+                                         log_context, unit_id, fdname);
+
+        s = SERVICE(u);
+
+        /* If the unit file is currently absent, the in-memory service was just synthesized in
+         * UNIT_NOT_FOUND state and its fd store config is at the init defaults (n_fd_store_max=0,
+         * preserve=NO). Bump n_fd_store_max by one and force EXEC_PRESERVE_YES so
+         * service_add_fd_store() accepts the fd and pins the unit (DEAD -> DEAD_RESOURCES_PINNED).
+         * The limit is grown exactly to fit what was handed back, so it stays meaningful until
+         * either a daemon-reload picks up the unit file (which will replace these synthesized
+         * values with the real configuration) or the service is explicitly stopped. */
+        if (u->load_state == UNIT_NOT_FOUND) {
+                s->fd_store_preserve_mode = EXEC_PRESERVE_YES;
+                s->n_fd_store_max++;
+        }
+
+        r = UNIT_VTABLE(u)->attach_external_fd_to_fdstore(u, TAKE_FD(fd), fdname);
+        if (r < 0)
+                return log_unit_warning_errno(u, r, "%s: failed to attach fd '%s' to fd store: %m",
+                                              log_context, fdname);
+
+        return 1; /* fd consumed and stored */
+}
+
+static void manager_distribute_listen_fds_named(Manager *m, FDSet *fds) {
+        _cleanup_strv_free_ char **names = NULL;
+        const char *e;
+        unsigned n_fds;
+        int r;
+
+        assert(m);
+
+        /* Look at fds passed to us via the LISTEN_FDS=/LISTEN_FDNAMES= protocol (e.g. by an enveloping
+         * service or container manager via sd_notify(FDSTORE=1) propagation). Any fd whose name has the
+         * form "unit:fdname" is meant to be restored into a specific unit's fd store, mirroring what we
+         * do on the LUO restore path. We eagerly load the named unit (so even units whose unit files
+         * have not yet been picked up will get the fd attached and pinned). Untagged fds are left in
+         * 'fds' and continue through the regular socket-unit distribution loop in
+         * manager_distribute_fds() below. */
+
+        if (!fds || MANAGER_IS_TEST_RUN(m))
+                return;
+
+        e = getenv("LISTEN_PID");
+        if (!e)
+                return;
+
+        pid_t pid;
+        r = parse_pid(e, &pid);
+        if (r < 0 || pid != getpid_cached())
+                return;
+
+        e = getenv("LISTEN_FDS");
+        if (!e)
+                return;
+
+        r = safe_atou(e, &n_fds);
+        if (r < 0 || n_fds == 0 || n_fds > INT_MAX - SD_LISTEN_FDS_START)
+                return;
+
+        e = getenv("LISTEN_FDNAMES");
+        if (!e)
+                return; /* no names → no tagged fds → nothing to do here */
+
+        r = strv_split_full(&names, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0 || strv_length(names) != n_fds)
+                return;
+
+        for (unsigned i = 0; i < n_fds; i++) {
+                int fd = SD_LISTEN_FDS_START + i;
+                _cleanup_free_ char *unit_id = NULL;
+                const char *p = names[i];
+
+                if (!fdset_contains(fds, fd))
+                        continue;
+
+                /* Format: "unit-id|fdname" ('|' is allowed in fdnames but forbidden in unit names,
+                 * and ':' is reserved by LISTEN_FDNAMES as the entry separator). Untagged names (no
+                 * '|') stay in the FDSet for the regular distribution path. */
+                r = extract_first_word(&p, &unit_id, "|", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r <= 0)
+                        continue;
+
+                /* No '|' separator means it's not a tagged fd, leave it for socket-unit distribution. */
+                if (isempty(p))
+                        continue;
+
+                if (!unit_name_is_valid(unit_id, UNIT_NAME_ANY))
+                        continue;
+
+                /* Take the fd out of the FDSet so the regular distribute_fds() loop won't see it. */
+                fdset_remove(fds, fd);
+
+                (void) manager_dispatch_external_fd_to_unit(m, unit_id, p, fd, "LISTEN_FDS");
+        }
+}
+
 static void manager_distribute_fds(Manager *m, FDSet *fds) {
         Unit *u;
 
@@ -2094,6 +2225,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                  * that they can reliably read it. We get the previous objective from serialized state. */
                 if (m->previous_objective == MANAGER_SOFT_REBOOT)
                         m->soft_reboots_count++;
+
+                /* Pick up fds passed via the LISTEN_FDS=/LISTEN_FDNAMES= protocol that are tagged with a
+                 * unit id ("unit:fdname"), and route them into the matching unit's fd store. Untagged
+                 * fds remain in 'fds' and are handed to socket units below as before. */
+                manager_distribute_listen_fds_named(m, fds);
 
                 /* Any fds left? Find some unit which wants them. This is useful to allow container managers to pass
                  * some file descriptors to us pre-initialized. This enables socket-based activation of entire

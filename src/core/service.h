@@ -112,6 +112,7 @@ typedef struct ServiceFDStore {
         char *fdname;
         sd_event_source *event_source;
         bool do_poll;
+        bool propagated_upstream; /* Was this fd forwarded to NOTIFY_SOCKET supervisor via FDSTORE=1? */
 
         LIST_FIELDS(struct ServiceFDStore, fd_store);
 } ServiceFDStore;
@@ -278,6 +279,10 @@ extern const UnitVTable service_vtable;
 
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket, struct SocketPeer *peer, bool selinux_context_net);
 void service_release_socket_fd(Service *s);
+
+int service_add_fd_store(Service *s, int fd_in, const char *name, bool do_poll, bool propagate_upstream);
+
+ServiceExtraFD* service_extra_fd_free(ServiceExtraFD *fd);
 
 usec_t service_restart_usec_next(const Service *s) _pure_;
 
