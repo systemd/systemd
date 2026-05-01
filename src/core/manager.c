@@ -57,6 +57,7 @@
 #include "libaudit-util.h"
 #include "locale-setup.h"
 #include "log.h"
+#include "luo.h"
 #include "manager-dump.h"
 #include "manager-serialize.h"
 #include "manager.h"
@@ -2190,6 +2191,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, Hashmap *named_
                  * that they can reliably read it. We get the previous objective from serialized state. */
                 if (m->previous_objective == MANAGER_SOFT_REBOOT)
                         m->soft_reboots_count++;
+
+                /* If a LUO (Live Update Orchestrator) session from a previous kexec is available, restore
+                 * preserved file descriptors into the appropriate service fd stores now, before coldplug. */
+                (void) manager_luo_restore_fd_stores(m);
 
                 /* Pick up fds passed via the LISTEN_FDS=/LISTEN_FDNAMES= protocol that are tagged with a
                  * unit id ("unit-id|fdname"), and route them into the matching unit's fd store. Untagged
