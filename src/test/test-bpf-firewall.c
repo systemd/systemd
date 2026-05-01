@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
         /* The simple tests succeeded. Now let's try full unit-based use-case. */
 
         ASSERT_OK(manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m));
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
 
         ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
         ASSERT_EQ(unit_add_name(u, "foo.service"), 0);
