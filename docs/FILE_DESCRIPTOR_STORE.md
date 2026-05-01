@@ -198,6 +198,27 @@ The soft reboot cycle transition and the initrd→host transition are
 semantically very similar, hence similar rules apply, and in both cases it is
 recommended to use the fdstore if pinned resources shall be passed over.
 
+## Propagation Across Manager Boundaries
+
+When a service that has `FileDescriptorStorePreserve=yes` set is itself running
+under another service manager, for example a service of the per-user manager
+(`user@.service`), or a payload running inside a
+[`systemd-nspawn`](https://www.freedesktop.org/software/systemd/man/latest/systemd-nspawn.html)
+container, fds pushed into its fdstore are automatically forwarded one level up
+the supervisor chain via the enveloping manager's `$NOTIFY_SOCKET`. This allows
+the fdstore contents of inner services to be preserved across restarts, re-execs,
+soft-reboots, etc. of the *outer* manager, even when the inner manager (or the
+container payload) is itself restarted along the way. On the way up, each fd is
+tagged with its originating unit id and the original `FDNAME=…` value, so that
+when the fds are eventually handed back down (via the regular
+`$LISTEN_FDS`/`$LISTEN_FDNAMES` protocol), each manager along the chain can
+route them back to the correct unit's fdstore. `FDSTOREREMOVE=1` notifications
+are forwarded the same way, so that explicit removals propagate all the way up too.
+
+For this to work the enveloping unit must itself enable the fdstore (i.e. set
+`FileDescriptorStoreMax=` to a sufficiently large value and
+`FileDescriptorStorePreserve=yes`).
+
 ## Debugging
 
 The
