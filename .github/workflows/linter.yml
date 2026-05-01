@@ -30,7 +30,7 @@ jobs:
           persist-credentials: false
 
       - name: Lint Code Base
-        uses: super-linter/super-linter/slim@61abc07d755095a68f4987d1c2c3d1d64408f1f9
+        uses: super-linter/super-linter/slim@9e863354e3ff62e0727d37183162c4a88873df41
         env:
           DEFAULT_BRANCH: main
           MULTI_STATUS: false
