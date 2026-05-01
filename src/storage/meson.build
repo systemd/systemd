@@ -4,18 +4,15 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-storage-block',
                 'sources' : files('storage-block.c'),
-                'extract' : files('storage-util.c')
         },
         libexec_template + {
                 'name' : 'systemd-storage-fs',
                 'sources' : files('storage-fs.c'),
-                'objects' : ['systemd-storage-block'],
         },
         executable_template + {
                 'name' : 'storagectl',
                 'public' : true,
                 'sources' : files('storagectl.c'),
-                'objects' : ['systemd-storage-block'],
         },
 ]
 
