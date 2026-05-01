@@ -14,6 +14,7 @@ struct in_addr_full;
 
 typedef enum AskPasswordFlags AskPasswordFlags;
 typedef enum BootEntryTokenType BootEntryTokenType;
+typedef enum BootEntrySource BootEntrySource;
 typedef enum BusPrintPropertyFlags BusPrintPropertyFlags;
 typedef enum BusTransport BusTransport;
 typedef enum CatFlags CatFlags;
@@ -48,6 +49,7 @@ typedef enum UserStorage UserStorage;
 typedef struct AskPasswordRequest AskPasswordRequest;
 typedef struct Bitmap Bitmap;
 typedef struct BootConfig BootConfig;
+typedef struct BootEntry BootEntry;
 typedef struct BPFProgram BPFProgram;
 typedef struct BusObjectImplementation BusObjectImplementation;
 typedef struct CalendarSpec CalendarSpec;
