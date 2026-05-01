@@ -108,7 +108,7 @@ TEST(config_parse_exec) {
         }
 
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
 
         ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
 
@@ -430,7 +430,7 @@ TEST(config_parse_log_extra_fields) {
         }
 
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
 
         ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
 
@@ -788,7 +788,7 @@ TEST(config_parse_unit_env_file) {
         }
 
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
 
         ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
         ASSERT_OK_ZERO(unit_add_name(u, "foobar.service"));
@@ -912,7 +912,7 @@ TEST(unit_is_recursive_template_dependency) {
         }
 
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
 
         ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
         ASSERT_OK_ZERO(unit_add_name(u, "foobar@1.service"));
@@ -1006,7 +1006,7 @@ TEST(config_parse_open_file) {
         }
 
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
 
         ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
         ASSERT_OK_ZERO(unit_add_name(u, "foobar.service"));
@@ -1065,7 +1065,7 @@ TEST(config_parse_service_refresh_on_reload) {
         }
 
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
 
         ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
         ASSERT_OK_ZERO(unit_add_name(u, "foobar.service"));

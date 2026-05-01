@@ -618,6 +618,13 @@ typedef struct UnitVTable {
         /* Try to match up fds with what we need for this unit */
         void (*distribute_fds)(Unit *u, FDSet *fds);
 
+        /* Restore one file descriptor that PID 1 retrieved from a Live Update Orchestrator session into the
+         * unit's per-instance state (e.g. fd store). Always consumes 'fd', even on failure. If the fd
+         * was previously propagated to an upstream NOTIFY_SOCKET supervisor under a numeric index,
+         * 'index' carries that index so it can be re-claimed (avoiding collisions with newly allocated
+         * indices and keeping FDSTOREREMOVE messages routable). Pass 0 to indicate no preserved index. */
+        int (*attach_external_fd_to_fdstore)(Unit *u, int fd, const char *fdname, uint64_t index);
+
         /* Boils down the more complex internal state of this unit to
          * a simpler one that the engine can understand */
         UnitActiveState (*active_state)(Unit *u);
