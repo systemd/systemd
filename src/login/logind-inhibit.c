@@ -204,6 +204,8 @@ void inhibitor_stop(Inhibitor *i) {
                 r = sd_event_source_set_time(m->idle_action_event_source, now(CLOCK_MONOTONIC));
                 if (r < 0)
                         log_debug_errno(r, "Failed to reset idle action timer after inhibitor removal: %m");
+                else
+                        log_debug("Reset idle action timer after inhibitor removal for immediate recalculation.");
         }
 }
 
