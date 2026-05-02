@@ -3,6 +3,7 @@
 #include <linux/if_arp.h>
 
 #include "conf-parser.h"
+#include "memory-util.h"
 #include "netdev.h"
 #include "ovs-port.h"
 #include "string-table.h"
@@ -59,7 +60,6 @@ static void ovs_port_done(NetDev *netdev) {
         OVSPort *p = OVS_PORT(netdev);
 
         free(p->bridge);
-        free(p->trunks);
         free(p->peer_port);
 }
 
@@ -104,6 +104,17 @@ static int ovs_port_verify(NetDev *netdev, const char *filename) {
                                    filename);
                 p->peer_port = mfree(p->peer_port);
         }
+
+        /* When vlan_mode is left empty in OVSDB, Open vSwitch applies its own default: with
+         * 'tag' set the port becomes an access port and 'trunks' is ignored. Warn so the
+         * trunk VLANs are not silently dropped, but do not fail — the configuration is
+         * accepted by OVS as-is. */
+        if (p->tag != VLANID_INVALID && !eqzero(p->vlan_bitmap) && p->vlan_mode < 0)
+                log_netdev_warning(netdev,
+                                   "%s: Both Tag=/PVID= and VLAN=/Trunks= are set, but VLANMode= is not. "
+                                   "Open vSwitch will treat the port as an access port and ignore the trunk VLANs. "
+                                   "Set VLANMode=native-tagged (or native-untagged) to use both.",
+                                   filename);
 
         /* Strip bond-only settings on non-bond ports. Invalid VLANMode=/LACP=/BondMode=
          * values are already rejected at parse time by the enum parsers, so no value
