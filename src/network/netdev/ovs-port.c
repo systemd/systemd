@@ -180,4 +180,5 @@ const NetDevVTable ovs_port_vtable = {
         .config_verify = ovs_port_verify,
         .iftype = ARPHRD_ETHER,
         .skip_netdev_kind_check = true,
+        .keep_on_drop = true,
 };
