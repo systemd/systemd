@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/filter.h>
 #include <net/if_arp.h>
 
 #include "sd-event.h"
@@ -8,11 +9,214 @@
 #include "dhcp-client-send.h"
 #include "dhcp-lease-internal.h"  /* IWYU pragma: keep */
 #include "dhcp-message.h"
-#include "dhcp-network.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "iovec-wrapper.h"
 #include "ip-util.h"
 #include "socket-util.h"
+#include "unaligned.h"
+
+/* The minimal DHCP packet size:
+ * IP header (without options, 20 bytes) + UDP header (8 bytes) + DHCP header (without options) */
+#define DHCP_MINIMUM_PACKET_SIZE (sizeof(struct iphdr) + sizeof(struct udphdr) + sizeof(struct DHCPMessageHeader))
+
+static int client_set_bpf(sd_dhcp_client *client, int fd) {
+        assert(client);
+        assert(fd >= 0);
+
+        size_t hlen = 0;
+        uint32_t mac_hi = 0;
+        uint16_t mac_lo = 0;
+        if (client->arp_type != ARPHRD_INFINIBAND)
+                hlen = client->hw_addr.length;
+        if (hlen == ETH_ALEN) {
+                mac_hi = unaligned_read_be32(client->hw_addr.bytes);
+                mac_lo = unaligned_read_be16(client->hw_addr.bytes + 4);
+        }
+
+        struct sock_filter filter[] = {
+                /* 1. Basic packet length check.
+                 * Check against the minimum possible length. */
+                BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                 /* A <- packet length */
+                BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, DHCP_MINIMUM_PACKET_SIZE, 1, 0),   /* packet length >= min_length ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+
+                /* 2. Protocol check (Fixed offset in IPv4 header) */
+                BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(struct iphdr, protocol)),  /* A <- IP protocol */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 1, 0),                /* IP protocol == UDP ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+
+                /* 3. IP Fragmentation checks.
+                 * When an IP packet is larger than the MTU, it is fragmented into smaller pieces. The UDP
+                 * header is ONLY present in the very first fragment. Since BPF filters are stateless and
+                 * cannot reassemble fragments, we must explicitly drop any packet that is part of a
+                 * fragmented sequence to avoid parsing raw payload data as if it were a UDP/DHCP header. */
+
+                /* 3a. Check the 'More Fragments' (MF) bit.
+                 * If the bit is set, it means there are more fragments following this one. Hence, the packet
+                 * must be dropped. */
+                BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(struct iphdr, frag_off)),
+                BPF_STMT(BPF_ALU + BPF_AND + BPF_K, 0x20),                             /* A <- A & 0x20 (More Fragments bit) */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 1, 0),                          /* A == 0 ? (No more fragments) */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore packet if MF == 1 */
+
+                /* 3b. Check the 'Fragment Offset' field.
+                 * This indicates the position of this specific fragment relative to the beginning of the
+                 * original, unfragmented packet. If the offset is greater than 0, it means this is a
+                 * subsequent fragment (e.g., the 2nd or later piece), hence it must be dropped. */
+                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct iphdr, frag_off)),
+                BPF_STMT(BPF_ALU + BPF_AND + BPF_K, 0x1fff),                           /* A <- A & 0x1fff (Fragment offset) */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 1, 0),                          /* A == 0 ? (This is the first fragment) */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore packet if Offset != 0 */
+
+                /* -------------------------------------------------------------------------
+                 * 4. Variable Offset Processing (Support for IP Options)
+                 * ------------------------------------------------------------------------- */
+                /* Load the IP header length (IHL field) from the first byte of the IP header.
+                 * BPF_MSH extracts the lower 4 bits (IHL) and multiplies by 4 to get the byte length.
+                 * The result is stored in the 'X' index register. */
+                BPF_STMT(BPF_LDX + BPF_B + BPF_MSH, 0),                                /* X <- IP header length in bytes */
+
+                /* Check UDP destination port using indirect load (X + offset) */
+                BPF_STMT(BPF_LD + BPF_H + BPF_IND, offsetof(struct udphdr, dest)),     /* A <- (UDP destination port) */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, client->port, 1, 0),               /* UDP destination port == 68 ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+
+                /* Check DHCP operation code (op) using indirect load (X + UDP header len + op offset) */
+                BPF_STMT(BPF_LD + BPF_B + BPF_IND, sizeof(struct udphdr) + offsetof(DHCPMessageHeader, op)),
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, BOOTREPLY, 1, 0),                  /* op == BOOTREQUEST ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+
+                /* Check hardware type using indirect load (X + UDP header len + htype offset) */
+                BPF_STMT(BPF_LD + BPF_B + BPF_IND, sizeof(struct udphdr) + offsetof(DHCPMessageHeader, htype)),
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, client->arp_type, 1, 0),           /* htype == client->arp_type ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+
+                /* Check message xid using indirect load (X + UDP header len + xid offset) */
+                BPF_STMT(BPF_LD + BPF_W + BPF_IND, sizeof(struct udphdr) + offsetof(DHCPMessageHeader, xid)),
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, client->xid, 1, 0),                /* xid == client->xid ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+
+                /* Check hardware address length using indirect load (X + UDP header len + hlen offset) */
+                BPF_STMT(BPF_LD + BPF_B + BPF_IND, sizeof(struct udphdr) + offsetof(DHCPMessageHeader, hlen)),
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, hlen, 1, 0),                       /* hlen == expected hlen ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+
+                /* Check hardware address when the hardware address length is 6 (ETH_ALEN) */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETH_ALEN, 0, 6),                   /* hlen == ETH_ALEN ? */
+                BPF_STMT(BPF_LD + BPF_W + BPF_IND, sizeof(struct udphdr) + offsetof(DHCPMessageHeader, chaddr)),
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, mac_hi, 1, 0),                     /* first 4 bytes of chaddr == mac_hi ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+                BPF_STMT(BPF_LD + BPF_H + BPF_IND, sizeof(struct udphdr) + offsetof(DHCPMessageHeader, chaddr) + 4),
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, mac_lo, 1, 0),                     /* next 2 bytes of chaddr == mac_lo ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+
+                /* Check DHCP magic cookie using indirect load (X + UDP header len + magic cookie offset) */
+                BPF_STMT(BPF_LD + BPF_W + BPF_IND, sizeof(struct udphdr) + offsetof(DHCPMessageHeader, magic)),
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, DHCP_MAGIC_COOKIE, 1, 0),          /* cookie == DHCP magic cookie ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+
+                /* All checks passed, accept the entire packet. */
+                BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                 /* accept */
+        };
+
+        struct sock_fprog fprog = {
+                .len = ELEMENTSOF(filter),
+                .filter = filter
+        };
+
+        return RET_NERRNO(setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)));
+}
+
+static int client_open_raw_socket(sd_dhcp_client *client) {
+        int r;
+
+        assert(client);
+
+        _cleanup_close_ int fd = RET_NERRNO(socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
+        if (fd < 0)
+                return fd;
+
+        /* While bind() with sockaddr_ll is strictly sufficient for AF_PACKET, we also set SO_BINDTOIFINDEX
+         * to initialize the kernel's sk_bound_dev_if state. This ensures compatibility with cgroup/eBPF
+         * filters and maintains consistency. */
+        r = socket_bind_to_ifindex(fd, client->ifindex);
+        if (r < 0)
+                return r;
+
+        r = client_set_bpf(client, fd);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_TIMESTAMP, true);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PRIORITY, client->socket_priority);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, SOL_PACKET, PACKET_AUXDATA, true);
+        if (r < 0)
+                return r;
+
+        union sockaddr_union sa = {
+                .ll.sll_family = AF_PACKET,
+                .ll.sll_protocol = htobe16(ETH_P_IP),
+                .ll.sll_ifindex = client->ifindex,
+        };
+
+        if (bind(fd, &sa.sa, sockaddr_ll_len(&sa.ll)) < 0)
+                return -errno;
+
+        return TAKE_FD(fd);
+}
+
+static int client_open_udp_socket(sd_dhcp_client *client) {
+        int r;
+
+        assert(client);
+        assert(client->lease);
+
+        _cleanup_close_ int fd = RET_NERRNO(socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
+        if (fd < 0)
+                return fd;
+
+        r = socket_bind_to_ifindex(fd, client->ifindex);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR, true);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_TIMESTAMP, true);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PRIORITY, client->socket_priority);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, IPPROTO_IP, IP_TOS, client->ip_service_type);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, true);
+        if (r < 0)
+                return r;
+
+        union sockaddr_union sa = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = htobe16(client->port),
+                .in.sin_addr.s_addr = client->lease->address,
+        };
+
+        if (bind(fd, &sa.sa, sizeof(sa.in)) < 0)
+                return -errno;
+
+        return TAKE_FD(fd);
+}
 
 static int client_get_socket(sd_dhcp_client *client, int domain) {
         int r, d, fd;
@@ -100,20 +304,9 @@ static int client_send_raw(
 
         fd = client_get_socket(client, AF_PACKET);
         if (fd < 0) {
-                fd = dhcp_network_bind_raw_socket(
-                                client->ifindex,
-                                &client->link,
-                                client->xid,
-                                &client->hw_addr,
-                                &client->bcast_addr,
-                                client->arp_type,
-                                client->port,
-                                /* so_priority_set= */ true,
-                                client->socket_priority);
+                fd = fd_close = client_open_raw_socket(client);
                 if (fd < 0)
                         return fd;
-
-                fd_close = fd;
         }
 
         _cleanup_(iovw_done_free) struct iovec_wrapper payload = {};
@@ -148,9 +341,23 @@ static int client_send_raw(
         if (r < 0)
                 return r;
 
-        r = dhcp_network_send_raw_socket(fd, &client->link, &iovw);
-        if (r < 0)
-                return r;
+        union sockaddr_union sa = {
+                .ll.sll_family = AF_PACKET,
+                .ll.sll_protocol = htobe16(ETH_P_IP),
+                .ll.sll_ifindex = client->ifindex,
+                .ll.sll_hatype = htobe16(client->arp_type),
+                .ll.sll_pkttype = PACKET_BROADCAST,
+        };
+
+        struct msghdr mh = {
+                .msg_name = &sa.sa,
+                .msg_namelen = sockaddr_ll_len(&sa.ll),
+                .msg_iov = iovw.iovec,
+                .msg_iovlen = iovw.count,
+        };
+
+        if (sendmsg(fd, &mh, MSG_NOSIGNAL) < 0)
+                return -errno;
 
         if (!expect_reply) {
                 /* We do not expect any replies, hence stop the IO event source if enabled. */
@@ -185,15 +392,9 @@ static int client_send_udp(
 
         fd = client_get_socket(client, AF_INET);
         if (fd < 0) {
-                fd = dhcp_network_bind_udp_socket(
-                                client->ifindex,
-                                client->lease->address,
-                                client->port,
-                                client->ip_service_type);
+                fd = fd_close = client_open_udp_socket(client);
                 if (fd < 0)
                         return fd;
-
-                fd_close = fd;
         }
 
         _cleanup_(iovw_done_free) struct iovec_wrapper payload = {};
@@ -201,13 +402,21 @@ static int client_send_udp(
         if (r < 0)
                 return r;
 
-        r = dhcp_network_send_udp_socket(
-                        fd,
-                        client->lease->server_address,
-                        client->server_port,
-                        &payload);
-        if (r < 0)
-                return r;
+        union sockaddr_union sa = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = htobe16(client->server_port),
+                .in.sin_addr.s_addr = client->lease->server_address,
+        };
+
+        struct msghdr mh = {
+                .msg_name = &sa.sa,
+                .msg_namelen = sizeof(sa.in),
+                .msg_iov = payload.iovec,
+                .msg_iovlen = payload.count,
+        };
+
+        if (sendmsg(fd, &mh, MSG_NOSIGNAL) < 0)
+                return -errno;
 
         if (!expect_reply) {
                 /* We do not expect any replies, hence stop the IO event source if enabled. */
