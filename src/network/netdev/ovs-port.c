@@ -30,7 +30,6 @@ static void ovs_port_done(NetDev *netdev) {
 
         free(p->bridge);
         free(p->vlan_mode);
-        free(p->trunks);
         free(p->peer_port);
         free(p->lacp);
         free(p->bond_mode);
