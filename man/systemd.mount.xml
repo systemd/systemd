@@ -333,6 +333,21 @@
         <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>x-systemd.automount-options=</option></term>
+
+        <listitem><para>Configures extra mount options for the autofs
+        mountpoint. See <varname>ExtraOptions=</varname> in
+        <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
+        <para>Note that specifiers starting with <literal>%</literal> like <literal>%n</literal> will not be expanded
+        and interpreted. If the options contain commas, they must be escaped using <literal>\,</literal>. Other
+        characters do not need escaping and will be passed literally to autofs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
       <varlistentry id='device-timeout'>
         <term><option>x-systemd.device-timeout=</option></term>
 
