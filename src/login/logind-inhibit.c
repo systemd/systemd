@@ -285,6 +285,9 @@ static int inhibitor_dispatch_fifo(sd_event_source *s, int fd, uint32_t revents,
         assert(s);
         assert(fd == i->fifo_fd);
 
+        log_debug("Inhibitor %s pid=" PID_FMT " fifo=%s revents=0x%x: FIFO hangup/EOF received, stopping inhibitor.",
+                  strna(i->why), i->pid.pid, strna(i->fifo_path), revents);
+
         inhibitor_stop(i);
         inhibitor_free(i);
 
@@ -319,6 +322,9 @@ int inhibitor_create_fifo(Inhibitor *i) {
 
         if (!i->event_source) {
                 /* Watch the FIFO for hangup/EOF from the inhibitor client. */
+                log_debug("Inhibitor %s pid=" PID_FMT " fifo=%s: registering FIFO watch.",
+                          strna(i->why), i->pid.pid, strna(i->fifo_path));
+
                 r = sd_event_add_io(i->manager->event, &i->event_source, i->fifo_fd, EPOLLIN|EPOLLHUP, inhibitor_dispatch_fifo, i);
                 if (r < 0)
                         return r;
