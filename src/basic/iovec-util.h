@@ -43,5 +43,6 @@ static inline bool iovec_equal(const struct iovec *a, const struct iovec *b) {
 }
 
 struct iovec* iovec_memdup(const struct iovec *source, struct iovec *ret);
+int iovec_done_and_memdup(struct iovec *iovec, const struct iovec *source);
 
 struct iovec* iovec_append(struct iovec *iovec, const struct iovec *append);
