@@ -299,8 +299,10 @@ OVSBridge.DatapathID,                     config_parse_string,                  
 OVSPort.Bridge,                           config_parse_ifname,                            0,                             offsetof(OVSPort, bridge)
 OVSPort.Type,                             config_parse_ovs_port_type,                     0,                             0
 OVSPort.Tag,                              config_parse_vlanid,                            0,                             offsetof(OVSPort, tag)
+OVSPort.PVID,                             config_parse_vlanid,                            0,                             offsetof(OVSPort, tag)
 OVSPort.VLANMode,                         config_parse_string,                            CONFIG_PARSE_STRING_SAFE,      offsetof(OVSPort, vlan_mode)
-OVSPort.Trunks,                           config_parse_string,                            CONFIG_PARSE_STRING_SAFE,      offsetof(OVSPort, trunks)
+OVSPort.VLAN,                             config_parse_bridge_vlan_id_range,              0,                             offsetof(OVSPort, vlan_bitmap)
+OVSPort.Trunks,                           config_parse_ovs_trunks,                        0,                             offsetof(OVSPort, vlan_bitmap)
 OVSPort.PeerPort,                         config_parse_ifname,                            0,                             offsetof(OVSPort, peer_port)
 OVSPort.LACP,                             config_parse_string,                            CONFIG_PARSE_STRING_SAFE,      offsetof(OVSPort, lacp)
 OVSPort.BondMode,                         config_parse_string,                            CONFIG_PARSE_STRING_SAFE,      offsetof(OVSPort, bond_mode)

@@ -85,9 +85,20 @@ typedef struct Network {
         char *ovs_bridge_name;
         char *ovs_bond_name;
 
-        /* [OVSPort] per-link settings (only meaningful with OVSBridge=) */
-        uint16_t ovs_port_tag;          /* VLANID_INVALID = unset */
+        /* [OVSPort] per-link settings (only meaningful with OVSBridge=).
+         *
+         * PVID/Tag (synonyms): primary VLAN tag for the port, set on all
+         * untagged ingress traffic. VLANID_INVALID = unset.
+         *
+         * VLAN bitmap (settable via OVSPort.VLAN= range syntax, BridgeVLAN-style)
+         * and Trunks bitmap (legacy comma-list via OVSPort.Trunks=) are merged
+         * into a single ovs_port_vlan_bitmap consumed by the reconciler — the
+         * names exist to mirror the kernel-bridge BridgeVLAN.VLAN= ergonomics
+         * while keeping backwards compatibility with the original Trunks=
+         * spelling. */
+        uint16_t ovs_port_tag;          /* VLANID_INVALID = unset (Tag= / PVID=) */
         char *ovs_port_vlan_mode;
+        uint32_t ovs_port_vlan_bitmap[BRIDGE_VLAN_BITMAP_LEN];           /* VLAN= / Trunks= */
 
         /* [Link] section */
         struct hw_addr_data hw_addr;
