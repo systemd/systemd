@@ -66,6 +66,7 @@
 #include "networkd-sysctl.h"
 #include "networkd-wifi.h"
 #include "networkd-wwan-bus.h"
+#include "ovsdb/ovsdb-client.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"
@@ -1478,8 +1479,15 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
 #if ENABLE_OPENVSWITCH
         /* If the new .network attaches this link to an OVS bridge or bond,
          * trigger reconciliation so OVS state catches up with this newly
-         * assigned link (which may have appeared after the initial reconcile). */
-        if ((network->ovs_bridge_name || network->ovs_bond_name) && link->manager->ovsdb) {
+         * assigned link (which may have appeared after the initial reconcile).
+         *
+         * Skip if the client is still HANDSHAKING / FAILED — ovs_reconcile would
+         * see an empty monitor cache and emit ops as if nothing existed in OVSDB,
+         * causing constraint-violation transacts. The post-handshake snapshot
+         * reconcile (manager_ovs_on_monitor_initial) covers this link too. */
+        if ((network->ovs_bridge_name || network->ovs_bond_name) &&
+            link->manager->ovsdb &&
+            ovsdb_client_get_state(link->manager->ovsdb) == OVSDB_CLIENT_READY) {
                 int rr = ovs_reconcile(link->manager);
                 if (rr < 0)
                         log_link_warning_errno(link, rr, "OVS reconciliation triggered by link reconfigure failed: %m");
