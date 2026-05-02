@@ -527,9 +527,9 @@ static int ovsdb_client_on_monitor_cond_reply(
 
         client->monitor = ovsdb_monitor_new();
         if (!client->monitor) {
+                (void) ovsdb_client_set_state(client, OVSDB_CLIENT_FAILED);
                 if (ctx->initial_cb)
                         (void) ctx->initial_cb(client, NULL, NULL, ctx->initial_userdata);
-                (void) ovsdb_client_set_state(client, OVSDB_CLIENT_FAILED);
                 return -ENOMEM;
         }
 
@@ -540,6 +540,7 @@ static int ovsdb_client_on_monitor_cond_reply(
                  * don't compound on top of inconsistent state; reconnect/resubscribe
                  * will get a fresh snapshot. */
                 client->monitor = ovsdb_monitor_free(client->monitor);
+                (void) ovsdb_client_set_state(client, OVSDB_CLIENT_FAILED);
                 if (ctx->initial_cb)
                         (void) ctx->initial_cb(client, NULL, NULL, ctx->initial_userdata);
                 return r;
