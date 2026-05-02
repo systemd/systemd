@@ -421,7 +421,10 @@ Bridge.Locked,                                   config_parse_tristate,         
 Bridge.MACAuthenticationBypass,                  config_parse_tristate,                          0,                                      offsetof(Network, bridge_mac_authentication_bypass)
 Bridge.VLANTunnel,                               config_parse_tristate,                          0,                                      offsetof(Network, bridge_vlan_tunnel)
 OVSPort.Tag,                                     config_parse_vlanid,                            0,                                      offsetof(Network, ovs_port_tag)
+OVSPort.PVID,                                    config_parse_vlanid,                            0,                                      offsetof(Network, ovs_port_tag)
 OVSPort.VLANMode,                                config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, ovs_port_vlan_mode)
+OVSPort.VLAN,                                    config_parse_bridge_vlan_id_range,              0,                                      offsetof(Network, ovs_port_vlan_bitmap)
+OVSPort.Trunks,                                  config_parse_ovs_trunks,                        0,                                      offsetof(Network, ovs_port_vlan_bitmap)
 BridgeFDB.MACAddress,                            config_parse_fdb_hwaddr,                        0,                                      0
 BridgeFDB.VLANId,                                config_parse_fdb_vlan_id,                       0,                                      0
 BridgeFDB.Destination,                           config_parse_fdb_destination,                   0,                                      0
