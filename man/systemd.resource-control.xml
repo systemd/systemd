@@ -275,6 +275,28 @@ CPUWeight=20   DisableControllers=cpu              /          \
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CPUBurst=</varname></term>
+
+        <listitem>
+          <para>This setting controls the <option>cpu</option> controller in the unified hierarchy.</para>
+
+          <para>Assign the specified CPU time burst to the processes executed. Takes a percentage value, suffixed with
+          "%". This configures the maximum amount of unused CPU time that can be accumulated and used for bursting
+          above the quota set by <varname>CPUQuota=</varname>. This controls the
+          <literal>cpu.max.burst</literal> attribute on the unified control group hierarchy. For details about this
+          control group attribute, see <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Groups
+          v2</ulink> and <ulink url="https://docs.kernel.org/scheduler/sched-bwc.html">CFS Bandwidth
+          Control</ulink>. Setting <varname>CPUBurst=</varname> to an empty value unsets the burst (the default is no
+          burst).</para>
+
+          <para>Example: <varname>CPUBurst=20%</varname> ensures that the executed processes may accumulate up to 20%
+          of one CPU's time as burst capacity.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>AllowedCPUs=</varname></term>
         <term><varname>StartupAllowedCPUs=</varname></term>
 

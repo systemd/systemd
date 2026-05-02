@@ -320,6 +320,7 @@ All cgroup/resource control settings are available for transient units
 ✓ TasksMax=
 ✓ CPUQuota=
 ✓ CPUQuotaPeriodSec=
+✓ CPUBurst=
 ✓ DeviceAllow=
 ✓ IODeviceWeight=
 ✓ IODeviceLatencyTargetSec=
