@@ -90,6 +90,9 @@ executables += [
                 'sources' : files('test-dhcp-option.c'),
         },
         network_test_template + {
+                'sources' : files('test-dhcp-relay.c'),
+        },
+        network_test_template + {
                 'sources' : files('test-dhcp-server.c'),
         },
         network_test_template + {
