@@ -459,6 +459,7 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
           <filename>/run/openvswitch/db.sock</filename>, which is where
           <command>ovsdb-server</command> listens by default on all common
           distributions.</para>
+          <xi:include href="version-info.xml" xpointer="v261"/>
         </listitem>
       </varlistentry>
 
@@ -480,6 +481,7 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
           <literal>Open_vSwitch</literal> row is cleared; controller and SSL
           configuration provisioned out of band (by OVN, OpenStack, etc.) is
           preserved.</para>
+          <xi:include href="version-info.xml" xpointer="v261"/>
         </listitem>
       </varlistentry>
     </variablelist>
