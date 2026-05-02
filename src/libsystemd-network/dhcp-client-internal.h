@@ -78,9 +78,8 @@ struct sd_dhcp_client {
         void *state_userdata;
         sd_dhcp_lease *lease;
         usec_t start_delay;
-        int ip_service_type;
+        uint8_t ip_service_type;
         int socket_priority;
-        bool socket_priority_set;
         bool ipv6_acquired;
         bool bootp;
         bool send_release;
