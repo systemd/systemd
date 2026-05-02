@@ -193,10 +193,31 @@ enum {
         SD_DHCP_OPTION_END                                            = 255  /* [RFC2132] */
 };
 
-/* Suboptions for SD_DHCP_OPTION_RELAY_AGENT_INFORMATION option */
+/* Suboptions for SD_DHCP_OPTION_RELAY_AGENT_INFORMATION option. See
+ * https://www.iana.org/assignments/bootp-dhcp-parameters/bootp-dhcp-parameters.xhtml#relay-agent-sub-options */
 enum {
-        SD_DHCP_RELAY_AGENT_CIRCUIT_ID             = 1,
-        SD_DHCP_RELAY_AGENT_REMOTE_ID              = 2
+        SD_DHCP_RELAY_AGENT_CIRCUIT_ID                       = 1,
+        SD_DHCP_RELAY_AGENT_REMOTE_ID                        = 2,
+        /* suboption code 3 is reserved */
+        SD_DHCP_RELAY_AGENT_DOCSIS_DEVICE_CLASS              = 4,
+        SD_DHCP_RELAY_AGENT_LINK_SELECTION                   = 5,
+        SD_DHCP_RELAY_AGENT_SUBSCRIBER_ID                    = 6,
+        SD_DHCP_RELAY_AGENT_RADIUS_ATTRIBUTE                 = 7,
+        SD_DHCP_RELAY_AGENT_AUTHENTICATION                   = 8,
+        SD_DHCP_RELAY_AGENT_VENDOR_SPECIFIC_INFORMATION      = 9,
+        SD_DHCP_RELAY_AGENT_FLAGS                            = 10,
+        SD_DHCP_RELAY_AGENT_SERVER_IDENTIFIER_OVERRIDE       = 11,
+        SD_DHCP_RELAY_AGENT_IDENTIFIER                       = 12,
+        SD_DHCP_RELAY_AGENT_ACCESS_TECHNOLOGY_TYPE           = 13,
+        SD_DHCP_RELAY_AGENT_ACCESS_NETWORK_NAME              = 14,
+        SD_DHCP_RELAY_AGENT_ACCESS_POINT_NAME                = 15,
+        SD_DHCP_RELAY_AGENT_ACCESS_POINT_BSSID               = 16,
+        SD_DHCP_RELAY_AGENT_OPERATOR_IDENTIFIER              = 17,
+        SD_DHCP_RELAY_AGENT_OPERATOR_REALM                   = 18,
+        SD_DHCP_RELAY_AGENT_SOURCE_PORT                      = 19,
+        /* suboption code 20-150 are unassigned */
+        SD_DHCP_RELAY_AGENT_VIRTUAL_SUBNET_SELECTION         = 151,
+        SD_DHCP_RELAY_AGENT_VIRTUAL_SUBNET_SELECTION_CONTROL = 152
 };
 
 _SD_END_DECLARATIONS;
