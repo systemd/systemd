@@ -2,6 +2,7 @@
 #pragma once
 
 #include "netdev.h"
+#include "networkd-bridge-vlan.h"
 #include "networkd-forward.h"
 #include "time-util.h"
 #include "vlan-util.h"
@@ -19,9 +20,12 @@ typedef struct OVSPort {
 
         char *bridge;
         OVSPortType type;
-        uint16_t tag;             /* 802.1Q VLAN tag, VLANID_INVALID = unset */
+        uint16_t tag;             /* 802.1Q VLAN tag (Tag= / PVID=); VLANID_INVALID = unset */
         char *vlan_mode;
-        char *trunks;             /* comma-separated VLAN IDs, parsed by reconciler */
+        /* VLAN bitmap consumed by the reconciler. Settable via OVSPort.VLAN= range
+         * syntax (BridgeVLAN-style, repeatable) or the legacy comma-separated
+         * OVSPort.Trunks= (deprecated alias). */
+        uint32_t vlan_bitmap[BRIDGE_VLAN_BITMAP_LEN];
         char *peer_port;          /* patch only */
         char *lacp;               /* bond: off|active|passive */
         char *bond_mode;          /* active-backup|balance-slb|balance-tcp */
