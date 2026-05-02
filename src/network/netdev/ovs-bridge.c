@@ -123,4 +123,5 @@ const NetDevVTable ovs_bridge_vtable = {
         .config_verify = ovs_bridge_verify,
         .iftype = ARPHRD_ETHER,
         .skip_netdev_kind_check = true,
+        .keep_on_drop = true,
 };
