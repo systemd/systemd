@@ -59,7 +59,6 @@ static void ovs_port_done(NetDev *netdev) {
         OVSPort *p = OVS_PORT(netdev);
 
         free(p->bridge);
-        free(p->trunks);
         free(p->peer_port);
 }
 

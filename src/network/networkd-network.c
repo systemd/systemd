@@ -160,13 +160,26 @@ int network_verify(Network *network) {
                                          "%s: OVSBond= is mutually exclusive with Bridge=, Bond=, VRF=, and BatmanAdvanced=.",
                                          network->filename);
 
-        if (!network->ovs_bridge_name && !network->ovs_bond_name &&
-            (network->ovs_port_tag != VLANID_INVALID ||
-             network->ovs_port_vlan_mode >= 0)) {
-                log_warning("%s: [OVSPort] settings without OVSBridge= or OVSBond=, ignoring.",
-                            network->filename);
-                network->ovs_port_tag = VLANID_INVALID;
-                network->ovs_port_vlan_mode = _OVS_PORT_VLAN_MODE_INVALID;
+        if (network->ovs_port_tag != VLANID_INVALID ||
+            network->ovs_port_vlan_mode >= 0 ||
+            !eqzero(network->ovs_port_vlan_bitmap)) {
+                /* [OVSPort] settings only apply to the standalone Port row created via
+                 * OVSBridge=. For OVSBond= members they are silently dropped by the
+                 * reconciler (members are Interface rows inside the bond's Port and
+                 * inherit the bond Port's VLAN settings — see systemd.network(5)), so
+                 * warn and clear them instead of keeping dead config around. */
+                if (network->ovs_bond_name)
+                        log_warning("%s: [OVSPort] settings do not apply to OVSBond= members, ignoring.",
+                                    network->filename);
+                else if (!network->ovs_bridge_name)
+                        log_warning("%s: [OVSPort] settings without OVSBridge= or OVSBond=, ignoring.",
+                                    network->filename);
+
+                if (!network->ovs_bridge_name) {
+                        network->ovs_port_tag = VLANID_INVALID;
+                        network->ovs_port_vlan_mode = _OVS_PORT_VLAN_MODE_INVALID;
+                        memzero(network->ovs_port_vlan_bitmap, sizeof(network->ovs_port_vlan_bitmap));
+                }
         }
 
         if (network->keep_master) {
@@ -197,6 +210,7 @@ int network_verify(Network *network) {
                 network->ovs_bond_name = mfree(network->ovs_bond_name);
                 network->ovs_port_tag = VLANID_INVALID;
                 network->ovs_port_vlan_mode = _OVS_PORT_VLAN_MODE_INVALID;
+                memzero(network->ovs_port_vlan_bitmap, sizeof(network->ovs_port_vlan_bitmap));
         }
 
         (void) network_resolve_netdev_one(network, network->batadv_name, NETDEV_KIND_BATADV, &network->batadv);
