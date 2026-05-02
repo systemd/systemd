@@ -1347,7 +1347,10 @@ testcase_unpriv() {
 }
 
 testcase_fuse() {
-    if [[ "$(cat <>/dev/fuse 2>&1)" != 'cat: -: Operation not permitted' ]]; then
+    # On some kernels reading from /dev/fuse without an attached connection blocks indefinitely
+    # rather than returning EPERM, so guard the probe with a short timeout and skip the test
+    # whenever we don't get the expected error string.
+    if [[ "$(timeout --foreground 5 cat <>/dev/fuse 2>&1)" != 'cat: -: Operation not permitted' ]]; then
         echo "FUSE is not supported, skipping the test..."
         return 0
     fi
@@ -1378,7 +1381,7 @@ testcase_fuse() {
     #    "cat: -: Operation not permitted"                   # pass the test; opened but not read
     #    "bash: line 1: /dev/fuse: Operation not permitted"  # fail the test; could not open
     #    ""                                                  # fail the test; reading worked
-    [[ "$(systemd-nspawn --register=no --pipe --directory="$root" \
+    [[ "$(timeout --foreground 30 systemd-nspawn --register=no --pipe --directory="$root" \
               bash -c 'cat <>/dev/fuse' 2>&1)" == 'cat: -: Operation not permitted' ]]
 
     rm -fr "$root"
@@ -1387,7 +1390,7 @@ testcase_fuse() {
 testcase_unpriv_fuse() {
     # Same as above, but for unprivileged operation.
 
-    if [[ "$(cat <>/dev/fuse 2>&1)" != 'cat: -: Operation not permitted' ]]; then
+    if [[ "$(timeout --foreground 5 cat <>/dev/fuse 2>&1)" != 'cat: -: Operation not permitted' ]]; then
         echo "FUSE is not supported, skipping the test..."
         return 0
     fi
@@ -1406,7 +1409,7 @@ testcase_unpriv_fuse() {
     create_dummy_ddi "$tmpdir" "$name"
     chown --recursive testuser: "$tmpdir"
 
-    [[ "$(run0 -u testuser --pipe systemd-run \
+    [[ "$(timeout --foreground 60 run0 -u testuser --pipe systemd-run \
               --user \
               --pipe \
               --property=Delegate=yes \
