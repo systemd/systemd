@@ -166,9 +166,9 @@ int network_verify(Network *network) {
 
         if (network->ovs_bond_name &&
             (network->bridge_name || network->bond_name || network->vrf_name ||
-             network->batadv_name || network->ovs_bridge_name))
+             network->batadv_name))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: OVSBond= is mutually exclusive with Bridge=, Bond=, VRF=, BatmanAdvanced=, and OVSBridge=.",
+                                         "%s: OVSBond= is mutually exclusive with Bridge=, Bond=, VRF=, and BatmanAdvanced=.",
                                          network->filename);
 
         if (!network->ovs_bridge_name && !network->ovs_bond_name &&
