@@ -2,6 +2,8 @@
 
 #include <fcntl.h>
 #include <grp.h>
+#include <linux/pkt_sched.h>
+#include <netinet/ip.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -528,6 +530,19 @@ TEST(getpeerpidref) {
         ASSERT_TRUE(!pidref_equal(&pidref_self, &pidref_pid1));
         ASSERT_TRUE(!pidref_equal(&pidref1, &pidref_pid1));
         ASSERT_TRUE(!pidref_equal(&pidref0, &pidref_pid1));
+}
+
+TEST(tos_to_priority) {
+        ASSERT_EQ(tos_to_priority(IPTOS_CLASS_CS7), TC_PRIO_CONTROL);
+        ASSERT_EQ(tos_to_priority(IPTOS_CLASS_CS6), TC_PRIO_CONTROL);
+        ASSERT_EQ(tos_to_priority(IPTOS_CLASS_CS5), TC_PRIO_INTERACTIVE);
+        ASSERT_EQ(tos_to_priority(IPTOS_CLASS_CS4), TC_PRIO_INTERACTIVE);
+        ASSERT_EQ(tos_to_priority(IPTOS_CLASS_CS3), TC_PRIO_INTERACTIVE_BULK);
+        ASSERT_EQ(tos_to_priority(IPTOS_CLASS_CS2), TC_PRIO_INTERACTIVE_BULK);
+        ASSERT_EQ(tos_to_priority(IPTOS_CLASS_CS1), TC_PRIO_BULK);
+        ASSERT_EQ(tos_to_priority(IPTOS_CLASS_CS0), TC_PRIO_BESTEFFORT);
+        ASSERT_EQ(tos_to_priority(0x00), TC_PRIO_BESTEFFORT);
+        ASSERT_EQ(tos_to_priority(0xff), TC_PRIO_CONTROL);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
