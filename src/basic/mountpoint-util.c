@@ -410,7 +410,9 @@ bool fstype_is_blockdev_backed(const char *fstype) {
         if (x)
                 fstype = x;
 
-        return !STR_IN_SET(fstype, "9p", "overlay") && !fstype_is_network(fstype) && !fstype_is_api_vfs(fstype);
+        return !STR_IN_SET(fstype, "9p", "overlay", "zfs")
+                        && !fstype_is_network(fstype)
+                        && !fstype_is_api_vfs(fstype);
 }
 
 bool fstype_is_ro(const char *fstype) {
