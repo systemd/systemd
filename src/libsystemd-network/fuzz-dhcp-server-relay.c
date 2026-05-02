@@ -2,8 +2,11 @@
 
 #include <fcntl.h>
 
+#include "dhcp-server-internal.h"
+#include "dhcp-server-request.h"
 #include "fuzz.h"
-#include "sd-dhcp-server.c"
+#include "in-addr-util.h"
+#include "iovec-util.h"
 
 ssize_t sendto(int __fd, const void *__buf, size_t __n, int flags, const struct sockaddr *__addr, socklen_t __addr_len) {
         return __n;
@@ -17,10 +20,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         struct in_addr address = {.s_addr = htobe32(UINT32_C(10) << 24 | UINT32_C(1))};
         union in_addr_union relay_address;
-        _cleanup_free_ uint8_t *message = NULL;
-
-        if (size < sizeof(DHCPMessage))
-                return 0;
 
         fuzz_setup_logging();
 
@@ -32,14 +31,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(sd_dhcp_server_set_bind_to_interface(server, false) >= 0);
         assert_se(sd_dhcp_server_set_relay_agent_information(server, "string:sample_circuit_id", "string:sample_remote_id") >= 0);
 
-        size_t buflen = size;
-        buflen += relay_agent_information_length(server->agent_circuit_id, server->agent_remote_id) + 2;
-        assert_se(message = malloc(buflen));
-        memcpy(message, data, size);
-
         server->fd = open("/dev/null", O_RDWR|O_CLOEXEC|O_NOCTTY);
         assert_se(server->fd >= 0);
 
-        (void) dhcp_server_relay_message(server, (DHCPMessage *) message, size - sizeof(DHCPMessage), buflen);
+        (void) dhcp_server_relay_message(server, &IOVEC_MAKE(data, size));
         return 0;
 }

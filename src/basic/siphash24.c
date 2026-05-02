@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 
+#include "iovec-util.h"
 #include "siphash24.h"
 #include "string-util.h"
 #include "unaligned.h"
@@ -154,6 +155,16 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
 
 void siphash24_compress_string(const char *in, struct siphash *state) {
         siphash24_compress_safe(in, strlen_ptr(in), state);
+}
+
+void siphash24_compress_iovec(const struct iovec *iov, struct siphash *state) {
+        assert(iovec_is_valid(iov));
+        assert(state);
+
+        if (!iovec_is_set(iov))
+                return;
+
+        siphash24_compress(iov->iov_base, iov->iov_len, state);
 }
 
 uint64_t siphash24_finalize(struct siphash *state) {

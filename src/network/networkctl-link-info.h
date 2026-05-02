@@ -5,6 +5,8 @@
 #include <linux/if_link.h>
 #include <linux/nl80211.h>
 
+#include "dhcp-client-id-internal.h"
+#include "dhcp-message.h"
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
 #include "shared-forward.h"
@@ -57,6 +59,10 @@ typedef struct LinkInfo {
 
         uint64_t tx_bitrate;
         uint64_t rx_bitrate;
+
+        /* DHCPv4 */
+        sd_dhcp_message *dhcp_message;
+        sd_dhcp_client_id dhcp_client_id;
 
         /* bridge info */
         uint32_t forward_delay;

@@ -5,9 +5,11 @@
 
 #include "dhcp-client-id-internal.h"
 #include "ether-addr-util.h"
+#include "iovec-wrapper.h"
 #include "network-common.h"
 #include "sd-forward.h"
 #include "socket-util.h"
+#include "tlv-util.h"
 
 typedef enum DHCPState {
         DHCP_STATE_STOPPED,
@@ -28,6 +30,8 @@ DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_state, DHCPState);
 struct sd_dhcp_client {
         unsigned n_ref;
 
+        int socket_fd; /* socket fd set externally, used by unit tests */
+
         DHCPState state;
         sd_event *event;
         int event_priority;
@@ -40,7 +44,6 @@ struct sd_dhcp_client {
 
         uint16_t port;
         uint16_t server_port;
-        union sockaddr_union link;
         sd_event_source *receive_message;
         bool request_broadcast;
         Set *req_opts;
@@ -48,13 +51,12 @@ struct sd_dhcp_client {
         bool rapid_commit;
         be32_t last_addr;
         struct hw_addr_data hw_addr;
-        struct hw_addr_data bcast_addr;
         uint16_t arp_type;
         sd_dhcp_client_id client_id;
         char *hostname;
         char *vendor_class_identifier;
         char *mudurl;
-        char **user_class;
+        struct iovec_wrapper user_class;
         uint32_t mtu;
         usec_t fallback_lease_lifetime;
         uint32_t xid;
@@ -65,8 +67,8 @@ struct sd_dhcp_client {
         uint64_t discover_attempt;
         uint64_t request_attempt;
         uint64_t max_discover_attempts;
-        OrderedHashmap *extra_options;
-        OrderedHashmap *vendor_options;
+        TLV *extra_options;
+        TLV *vendor_options;
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;
         sd_event_source *timeout_expire;
@@ -76,9 +78,8 @@ struct sd_dhcp_client {
         void *state_userdata;
         sd_dhcp_lease *lease;
         usec_t start_delay;
-        int ip_service_type;
+        uint8_t ip_service_type;
         int socket_priority;
-        bool socket_priority_set;
         bool ipv6_acquired;
         bool bootp;
         bool send_release;
@@ -89,6 +90,10 @@ int dhcp_client_set_state_callback(
                 sd_dhcp_client_callback_t cb,
                 void *userdata);
 int dhcp_client_get_state(sd_dhcp_client *client);
+
+int dhcp_client_set_extra_options(sd_dhcp_client *client, TLV *options);
+int dhcp_client_set_vendor_options(sd_dhcp_client *client, TLV *options);
+int dhcp_client_set_user_class(sd_dhcp_client *client, const struct iovec_wrapper *user_class);
 
 int client_receive_message_raw(
                 sd_event_source *s,
