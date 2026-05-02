@@ -44,7 +44,6 @@ struct sd_dhcp_client {
 
         uint16_t port;
         uint16_t server_port;
-        union sockaddr_union link;
         sd_event_source *receive_message;
         bool request_broadcast;
         Set *req_opts;
@@ -52,7 +51,6 @@ struct sd_dhcp_client {
         bool rapid_commit;
         be32_t last_addr;
         struct hw_addr_data hw_addr;
-        struct hw_addr_data bcast_addr;
         uint16_t arp_type;
         sd_dhcp_client_id client_id;
         char *hostname;

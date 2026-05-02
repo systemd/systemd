@@ -165,7 +165,6 @@ int sd_dhcp_client_get_ifname(sd_dhcp_client *client, const char **ret) {
 int sd_dhcp_client_set_mac(
                 sd_dhcp_client *client,
                 const uint8_t *hw_addr,
-                const uint8_t *bcast_addr,
                 size_t addr_len,
                 uint16_t arp_type) {
 
@@ -173,8 +172,7 @@ int sd_dhcp_client_set_mac(
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
         assert_return(IN_SET(arp_type, ARPHRD_ETHER, ARPHRD_INFINIBAND, ARPHRD_RAWIP, ARPHRD_NONE), -EINVAL);
 
-        static const uint8_t default_eth_bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
-                        default_eth_hwaddr[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        static const uint8_t default_eth_hwaddr[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
         switch (arp_type) {
         case ARPHRD_RAWIP:
@@ -192,9 +190,7 @@ int sd_dhcp_client_set_mac(
                 arp_type = ARPHRD_ETHER;
                 if (addr_len == 0) {
                         assert_cc(sizeof(default_eth_hwaddr) == ETH_ALEN);
-                        assert_cc(sizeof(default_eth_bcast) == ETH_ALEN);
                         hw_addr = default_eth_hwaddr;
-                        bcast_addr = default_eth_bcast;
                         addr_len = ETH_ALEN;
                 }
                 break;
@@ -206,7 +202,6 @@ int sd_dhcp_client_set_mac(
 
         client->arp_type = arp_type;
         hw_addr_set(&client->hw_addr, hw_addr, addr_len);
-        hw_addr_set(&client->bcast_addr, bcast_addr, bcast_addr ? addr_len : 0);
 
         return 0;
 }

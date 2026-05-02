@@ -30,9 +30,6 @@
 static const struct hw_addr_data hw_addr = {
         .length = ETH_ALEN,
         .ether = {{ 'A', 'B', 'C', '1', '2', '3' }},
-}, bcast_addr = {
-        .length = ETH_ALEN,
-        .ether = {{ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }},
 };
 
 static const uint16_t server_port = 1067;
@@ -82,20 +79,9 @@ static void setup(sd_event_io_handler_t io_handler, sd_dhcp_client_callback_t cl
 
         client->socket_fd = TAKE_FD(socket_fd[0]);
 
-        /* Set a fake socket address, as the client will never call dhcp_network_bind_raw_socket() when
-         * socket_fd is set. */
-        client->link.ll = (struct sockaddr_ll) {
-                .sll_family = AF_PACKET,
-                .sll_protocol = htobe16(ETH_P_IP),
-                .sll_ifindex = 42,
-                .sll_hatype = ARPHRD_ETHER,
-                .sll_halen = bcast_addr.length,
-        };
-        memcpy(client->link.ll.sll_addr, bcast_addr.bytes, bcast_addr.length);
-
         ASSERT_OK(sd_dhcp_client_attach_event(client, e, SD_EVENT_PRIORITY_NORMAL));
         ASSERT_OK(sd_dhcp_client_set_ifindex(client, 42));
-        ASSERT_OK(sd_dhcp_client_set_mac(client, hw_addr.bytes, bcast_addr.bytes, hw_addr.length, ARPHRD_ETHER));
+        ASSERT_OK(sd_dhcp_client_set_mac(client, hw_addr.bytes, hw_addr.length, ARPHRD_ETHER));
         ASSERT_OK(sd_dhcp_client_set_callback(client, client_handler, e));
         ASSERT_OK(sd_dhcp_client_set_port(client, server_port));
         ASSERT_OK(sd_dhcp_client_set_client_port(client, client_port));

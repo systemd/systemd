@@ -19,9 +19,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         static const struct hw_addr_data hw_addr = {
                 .length = ETH_ALEN,
                 .ether = {{ 'A', 'B', 'C', '1', '2', '3' }},
-        }, bcast_addr = {
-                .length = ETH_ALEN,
-                .ether = {{ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }},
         };
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_NETWORK_TEST_MODE", "1", /* overwrite= */ true));
@@ -40,21 +37,10 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
         client->socket_fd = TAKE_FD(socket_fd[0]);
 
-        /* Set a fake socket address, as the client will never call dhcp_network_bind_raw_socket() when
-         * socket_fd is set. */
-        client->link.ll = (struct sockaddr_ll) {
-                .sll_family = AF_PACKET,
-                .sll_protocol = htobe16(ETH_P_IP),
-                .sll_ifindex = 42,
-                .sll_hatype = ARPHRD_ETHER,
-                .sll_halen = bcast_addr.length,
-        };
-        memcpy(client->link.ll.sll_addr, bcast_addr.bytes, bcast_addr.length);
-
         ASSERT_OK(sd_dhcp_client_attach_event(client, e, /* priority= */ 0));
 
         ASSERT_OK(sd_dhcp_client_set_ifindex(client, 42));
-        ASSERT_OK(sd_dhcp_client_set_mac(client, hw_addr.bytes, bcast_addr.bytes, hw_addr.length, ARPHRD_ETHER));
+        ASSERT_OK(sd_dhcp_client_set_mac(client, hw_addr.bytes, hw_addr.length, ARPHRD_ETHER));
 
         ASSERT_OK(sd_dhcp_client_start(client));
         client->xid = 2;

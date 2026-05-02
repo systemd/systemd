@@ -1519,7 +1519,6 @@ static int dhcp4_configure(Link *link) {
 
         r = sd_dhcp_client_set_mac(link->dhcp_client,
                                    link->hw_addr.bytes,
-                                   link->bcast_addr.length > 0 ? link->bcast_addr.bytes : NULL,
                                    link->hw_addr.length, link->iftype);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set MAC address: %m");
@@ -1709,7 +1708,6 @@ int dhcp4_update_mac(Link *link) {
 
         r = sd_dhcp_client_set_mac(link->dhcp_client,
                                    link->hw_addr.bytes,
-                                   link->bcast_addr.length > 0 ? link->bcast_addr.bytes : NULL,
                                    link->hw_addr.length, link->iftype);
         if (r < 0)
                 return r;
