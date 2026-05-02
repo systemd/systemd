@@ -140,7 +140,6 @@ typedef struct Network {
         int dhcp_critical;
         int dhcp_ip_service_type;
         int dhcp_socket_priority;
-        bool dhcp_socket_priority_set;
         bool dhcp_anonymize;
         bool dhcp_send_hostname;
         bool dhcp_send_hostname_set;
