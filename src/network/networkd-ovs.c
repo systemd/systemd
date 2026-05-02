@@ -1456,7 +1456,8 @@ static int ovs_reconcile_port(Manager *m, NetDev *netdev, sd_json_variant **ops)
                                         r = sd_json_buildo(
                                                         &iface_row_update,
                                                         SD_JSON_BUILD_PAIR_STRING("type", iface_type_now),
-                                                        SD_JSON_BUILD_PAIR_VARIANT("options", iface_options));
+                                                        SD_JSON_BUILD_PAIR_VARIANT("options", iface_options),
+                                                        SD_JSON_BUILD_PAIR_VARIANT("external_ids", update_ext));
                                         if (r < 0)
                                                 return r;
 
@@ -2172,12 +2173,27 @@ static int ovs_reconcile_done(
                 void *userdata) {
 
         Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        if (m->ovs_inflight_transacts > 0)
+                m->ovs_inflight_transacts--;
+
+        /* Aborted transact: server never applied the ops. Two paths produce
+         * result==NULL: ovsdb_client_unref cancel (NULL/NULL via cancel_all),
+         * and runtime FAILED-state cancel (NULL plus synthetic_error="connection
+         * failed", emitted from ovsdb_client_set_state). Treat both identically
+         * — silent log_debug, no warnings, no post-processing. The next
+         * reconcile after reconnect will rebuild whatever state was lost. */
+        if (!result) {
+                log_debug("OVS reconcile transact aborted (cancel/disconnect), skipping post-processing");
+                goto try_pending;
+        }
 
         if (error) {
                 _cleanup_free_ char *text = NULL;
                 (void) sd_json_variant_format(error, 0, &text);
                 log_warning("OVS reconciliation failed: %s", strna(text));
-                return 0;
+                goto try_pending;
         }
 
         /* Check per-op results -- result is an array of per-op results */
@@ -2261,6 +2277,45 @@ static int ovs_reconcile_done(
         } else
                 log_warning("OVS reconciliation: unexpected response (connection dropped?)");
 
+try_pending:
+        /* Drain any reconcile that was coalesced while this transact was in
+         * flight (per-link hooks, reload arriving mid-transact). Bound the
+         * recursion: do nothing if there's still an in-flight transact (some
+         * other reply will pick it up) or if the new reconcile coalesces too.
+         *
+         * Skip when m->ovsdb is NULL or the client is not READY: this happens
+         * when ovsdb_client_unref() drains in-flight callbacks during runtime
+         * teardown / reconnect. ovs_reconcile() would otherwise log a confusing
+         * "OVSDB client not available" warning for what is a normal disconnect,
+         * and the next reconnect's snapshot reconcile will re-pick up the
+         * deferred work anyway. */
+        if (m->ovsdb &&
+            ovsdb_client_get_state(m->ovsdb) == OVSDB_CLIENT_READY &&
+            m->ovs_reconcile_pending && m->ovs_inflight_transacts == 0) {
+                m->ovs_reconcile_pending = false;
+                log_debug("OVS reconcile: running coalesced pending reconcile");
+                r = ovs_reconcile(m);
+                if (r < 0) {
+                        /* Restore pending so the deferred work isn't lost — a future
+                         * monitor update or manager_ovs_maybe_start (reload) will retry. */
+                        m->ovs_reconcile_pending = true;
+                        log_warning_errno(r, "OVS coalesced reconcile failed, will retry: %m");
+                }
+        }
+
+        /* Deferred teardown after the last OVS config was removed: now that the
+         * delete-only reconcile transact has been acknowledged, drop the client
+         * and clear lifecycle state. Skip if a coalesced pending reconcile re-armed
+         * inflight above; that next reply will revisit the teardown. */
+        if (m->ovs_pending_teardown && m->ovs_inflight_transacts == 0) {
+                log_debug("OVS pending teardown: drained, releasing client");
+                m->ovs_pending_teardown = false;
+                m->ovs_reconnect_timer = sd_event_source_disable_unref(m->ovs_reconnect_timer);
+                m->ovs_reconnect_delay = 0;
+                m->ovsdb = ovsdb_client_unref(m->ovsdb);
+                m->ovs_reconcile_pending = false;
+        }
+
         return 0;
 }
 
@@ -2273,6 +2328,19 @@ static int ovs_clear_done(
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
+        if (m->ovs_inflight_transacts > 0)
+                m->ovs_inflight_transacts--;
+
+        /* Aborted transact (cancel from unref, or runtime FAILED-state). Skip
+         * everything: the database state is unknown, the manager may be tearing
+         * down, and the next reconnect will re-attempt the clear via the marker
+         * file. result==NULL covers both NULL/NULL (unref cancel) and NULL with
+         * synthetic_error="connection failed" (FAILED-state cancel). */
+        if (!result) {
+                log_debug("OVS clear transact aborted (cancel/disconnect), skipping post-processing");
+                return 0;
+        }
+
         if (error) {
                 _cleanup_free_ char *text = NULL;
                 (void) sd_json_variant_format(error, 0, &text);
@@ -2282,13 +2350,6 @@ static int ovs_clear_done(
                 r = ovs_reconcile(m);
                 if (r < 0)
                         log_warning_errno(r, "OVS reconciliation after failed clear: %m");
-                return 0;
-        }
-
-        /* Cancelled transact (e.g. during manager teardown): both result and error
-         * are NULL. Don't mark success or re-enter reconcile on freed manager state. */
-        if (!result) {
-                log_debug("OVS clear transact cancelled, skipping post-processing");
                 return 0;
         }
 
@@ -2319,18 +2380,42 @@ static int ovs_clear_done(
                 }
         }
 
-        /* Set marker only on confirmed success so next reconnect-within-same-boot skips the clear */
-        r = touch_file("/run/systemd/networkd/ovs-cleared",
+        /* Set marker only on confirmed success so next reconnect-within-same-boot skips the clear.
+         * Use /run/systemd/netif/ — that's networkd's RuntimeDirectory= and is the only
+         * /run subtree systemd-network has write access to. */
+        r = touch_file("/run/systemd/netif/ovs-cleared",
                        /* parents= */ true, USEC_INFINITY,
                        UID_INVALID, GID_INVALID, MODE_INVALID);
         if (r < 0)
                 log_warning_errno(r, "Failed to create OVS clear marker file, continuing anyway: %m");
 
-        log_info("OVS database cleared successfully, proceeding with reconciliation");
+        log_info("OVS database cleared successfully");
 
-        r = ovs_reconcile(m);
-        if (r < 0)
-                log_warning_errno(r, "OVS reconciliation after clear failed: %m");
+        /* The post-clear monitor update2 typically arrives BEFORE the transact
+         * reply (server broadcasts the row deletions to all subscribers, then
+         * sends our reply). In that ordering manager_ovs_on_update has already
+         * fired with inflight>0 and was either suppressed (the prior code path)
+         * or set ovs_reconcile_pending (current path). Either way, we just
+         * decremented inflight to 0 and the deletions are in the cache —
+         * either run reconcile inline (cache reflects empty DB) or arm the
+         * unified pending flag (cache still pre-clear; the in-flight update2
+         * for the deletes will arrive next and on_update will pick up the
+         * pending flag). */
+        OVSDBMonitor *mon = ovsdb_client_get_monitor(client);
+        if (mon && ovsdb_monitor_count(mon, "Bridge") == 0) {
+                log_debug("OVS post-clear cache already empty, running reconcile inline");
+                /* Consume any pending flag the suppressed update2 may have
+                 * set: we are about to run reconcile right now, so the
+                 * reconcile_done try_pending path must not trigger a second
+                 * one. */
+                m->ovs_reconcile_pending = false;
+                r = ovs_reconcile(m);
+                if (r < 0)
+                        log_warning_errno(r, "OVS reconciliation after clear failed: %m");
+        } else {
+                log_debug("OVS post-clear cache not yet drained, deferring reconcile via pending flag");
+                m->ovs_reconcile_pending = true;
+        }
 
         return 0;
 }
@@ -2386,9 +2471,12 @@ int ovs_clear_database(Manager *m) {
 
         log_info("Clearing OVS database (ClearDatabaseOnBoot=yes)");
 
+        m->ovs_inflight_transacts++;
         r = ovsdb_client_transact(m->ovsdb, ops, ovs_clear_done, m);
-        if (r < 0)
+        if (r < 0) {
+                m->ovs_inflight_transacts--;
                 return log_warning_errno(r, "Failed to send OVS clear transact: %m");
+        }
 
         return 0;
 }
@@ -2405,6 +2493,40 @@ int ovs_reconcile(Manager *m) {
         if (!m->ovsdb) {
                 log_warning("OVS reconciliation requested but OVSDB client not available");
                 return -ENOTCONN;
+        }
+
+        /* Don't reconcile until the OVSDB monitor snapshot has arrived.
+         *
+         * Otherwise the existence checks in ovs_reconcile_{bridge,port,tunnel} see an
+         * empty cache, take the INSERT path, and OVSDB rejects the transact with a
+         * "constraint violation" because the row already exists in the database
+         * (typical at networkd restart, when ovs-vswitchd has kept the rows from the
+         * previous session).
+         *
+         * Return success silently rather than an error: every caller of
+         * ovs_reconcile() either runs at startup (link_reconfigure_full hook), at
+         * reload (manager_ovs_maybe_start), or after a OVSDB transact reply
+         * (ovs_clear_done). The first reconcile that actually has authoritative
+         * state is dispatched from manager_ovs_on_monitor_initial() once the
+         * snapshot lands; nobody else needs to retry. Treating this as 0 keeps
+         * call sites trivial and avoids leaking a confusing "Resource temporarily
+         * unavailable" warning to operators. */
+        if (!ovsdb_client_get_monitor(m->ovsdb)) {
+                log_debug("OVS reconcile deferred: monitor snapshot not yet received");
+                return 0;
+        }
+
+        /* Coalesce: if a transact is already in flight, the next *_done callback
+         * picks up the pending flag and re-runs reconcile against the fresh
+         * post-transact cache. Without this, a reload over N OVS-attached
+         * links would issue N redundant full-DB transacts via the per-link
+         * link_reconfigure_full hook (each transact is idempotent but each
+         * still pays a wire-roundtrip and ops-build cost). */
+        if (m->ovs_inflight_transacts > 0) {
+                m->ovs_reconcile_pending = true;
+                log_debug("OVS reconcile coalesced: %u transact(s) in flight, will re-run on drain",
+                          m->ovs_inflight_transacts);
+                return 0;
         }
 
         /* Phase 0: delete managed objects that are no longer in config */
@@ -2472,9 +2594,12 @@ int ovs_reconcile(Manager *m) {
         log_debug("OVS reconciliation: sending transact with %zu operations",
                   sd_json_variant_elements(ops));
 
+        m->ovs_inflight_transacts++;
         r = ovsdb_client_transact(m->ovsdb, ops, ovs_reconcile_done, m);
-        if (r < 0)
+        if (r < 0) {
+                m->ovs_inflight_transacts--;
                 return log_warning_errno(r, "Failed to send OVS reconciliation transact: %m");
+        }
 
         return 0;
 }
