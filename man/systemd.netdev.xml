@@ -3022,27 +3022,80 @@ Ports=eth2</programlisting>
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>PVID=</varname></term>
         <term><varname>Tag=</varname></term>
         <listitem>
-          <para>Sets the access VLAN tag (0-4094).</para>
+          <para>Primary VLAN ID (1…4094) for this port: the tag implicitly assumed for
+          untagged ingress frames and (depending on <varname>VLANMode=</varname>) the
+          tag stripped from egress frames. <varname>Tag=</varname> is the legacy
+          spelling, kept as an alias of <varname>PVID=</varname> for backwards
+          compatibility with previous releases.</para>
           <xi:include href="version-info.xml" xpointer="v261"/>
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>VLAN=</varname></term>
         <term><varname>Trunks=</varname></term>
         <listitem>
-          <para>A comma-separated list of allowed trunk VLAN IDs, e.g.
-          <literal>100,200,300</literal>.</para>
+          <para>The set of VLAN IDs the port is allowed to carry as a trunk. Two
+          equivalent spellings are accepted:</para>
+          <itemizedlist>
+            <listitem><para><varname>VLAN=</varname> mirrors the kernel-bridge
+            <varname>[BridgeVLAN] VLAN=</varname> ergonomics: the key may be repeated,
+            and each value may be a single VID or a range <literal>N-M</literal>:
+<programlisting>VLAN=10
+VLAN=20-30
+VLAN=100</programlisting></para></listitem>
+            <listitem><para><varname>Trunks=</varname> is the legacy spelling and
+            accepts a single comma-separated list, optionally with ranges, e.g.
+            <literal>Trunks=10,20-30,100</literal>. Kept as a deprecated alias of
+            <varname>VLAN=</varname>; both keys write into the same internal storage.
+            </para></listitem>
+          </itemizedlist>
+          <para>An empty value clears the previously-accumulated set.</para>
           <xi:include href="version-info.xml" xpointer="v261"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>VLANMode=</varname></term>
         <listitem>
-          <para>Sets the VLAN mode. Takes <literal>access</literal>,
-          <literal>trunk</literal>, <literal>native-tagged</literal>,
-          <literal>native-untagged</literal>, or
-          <literal>dot1q-tunnel</literal>.</para>
+          <para>Selects the port's VLAN treatment. Five modes are available, mirroring
+          the values accepted by <command>ovs-vsctl set Port &lt;name&gt;
+          vlan_mode=</command>:</para>
+          <itemizedlist>
+            <listitem><para><literal>access</literal> — the port belongs to a single
+            VLAN identified by <varname>PVID=</varname>. Untagged ingress frames are
+            tagged with the PVID; egress frames have the tag stripped. Frames
+            arriving with a tag are dropped. <varname>VLAN=</varname> /
+            <varname>Trunks=</varname> are ignored.</para></listitem>
+
+            <listitem><para><literal>trunk</literal> — the port carries multiple
+            VLANs listed in <varname>VLAN=</varname>. Tagged frames are passed as-is;
+            untagged frames are dropped on ingress and untagged frames are not
+            generated on egress. <varname>PVID=</varname> is ignored.</para></listitem>
+
+            <listitem><para><literal>native-tagged</literal> — like
+            <literal>trunk</literal>, but untagged ingress frames are tagged with
+            <varname>PVID=</varname> (which must be one of the
+            <varname>VLAN=</varname> entries). Egress frames keep their tag.
+            </para></listitem>
+
+            <listitem><para><literal>native-untagged</literal> — like
+            <literal>native-tagged</literal> for ingress, but egress frames whose
+            VLAN matches <varname>PVID=</varname> are sent untagged.</para></listitem>
+
+            <listitem><para><literal>dot1q-tunnel</literal> — QinQ tunnel mode: the
+            port pushes an outer 802.1Q tag (<varname>PVID=</varname>) onto every
+            ingress frame regardless of any inner tag, and strips the outer tag on
+            egress. Inner customer VLAN IDs may be restricted via the OVS
+            <literal>cvlans</literal> column (not currently exposed by this
+            section).</para></listitem>
+          </itemizedlist>
+          <para>If <varname>VLANMode=</varname> is unset, OVS infers the mode from
+          which of <varname>PVID=</varname> / <varname>VLAN=</varname> are populated:
+          PVID-only behaves as <literal>access</literal>; VLAN-only behaves as
+          <literal>trunk</literal>; both behave as <literal>native-tagged</literal>.
+          Setting it explicitly is preferred.</para>
           <xi:include href="version-info.xml" xpointer="v261"/>
         </listitem>
       </varlistentry>
