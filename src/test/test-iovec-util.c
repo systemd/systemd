@@ -163,4 +163,29 @@ TEST(iovec_make_byte) {
         ASSERT_EQ(memcmp_nn(x.iov_base, x.iov_len, "x", 1), 0);
 }
 
+TEST(iovec_done_and_memdup) {
+        _cleanup_(iovec_done) struct iovec iov = {};
+
+        ASSERT_OK(iovec_done_and_memdup(&iov, NULL));
+        ASSERT_TRUE(!iovec_is_set(&iov));
+        ASSERT_OK(iovec_done_and_memdup(&iov, &(struct iovec) {}));
+        ASSERT_TRUE(!iovec_is_set(&iov));
+        ASSERT_OK(iovec_done_and_memdup(&iov, &IOVEC_MAKE_STRING("aaa")));
+        ASSERT_TRUE(iovec_equal(&iov, &IOVEC_MAKE_STRING("aaa")));
+        ASSERT_OK(iovec_done_and_memdup(&iov, &IOVEC_MAKE_STRING("bbbbb")));
+        ASSERT_TRUE(iovec_equal(&iov, &IOVEC_MAKE_STRING("bbbbb")));
+        ASSERT_OK(iovec_done_and_memdup(&iov, NULL));
+        ASSERT_TRUE(!iovec_is_set(&iov));
+        ASSERT_OK(iovec_done_and_memdup(&iov, &IOVEC_MAKE_STRING("ccc")));
+        ASSERT_TRUE(iovec_equal(&iov, &IOVEC_MAKE_STRING("ccc")));
+        ASSERT_OK(iovec_done_and_memdup(&iov, &(struct iovec) {}));
+        ASSERT_TRUE(!iovec_is_set(&iov));
+        ASSERT_OK(iovec_done_and_memdup(&iov, &iov));
+        ASSERT_TRUE(!iovec_is_set(&iov));
+        ASSERT_OK(iovec_done_and_memdup(&iov, &IOVEC_MAKE_STRING("ddd")));
+        ASSERT_TRUE(iovec_equal(&iov, &IOVEC_MAKE_STRING("ddd")));
+        ASSERT_OK(iovec_done_and_memdup(&iov, &iov));
+        ASSERT_TRUE(iovec_equal(&iov, &IOVEC_MAKE_STRING("ddd")));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
