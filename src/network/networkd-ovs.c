@@ -944,35 +944,29 @@ static int ovs_reconcile_bridge(Manager *m, NetDev *netdev, sd_json_variant **op
         return 0;
 }
 
-static int ovs_build_vlan_set(const char *trunks_str, sd_json_variant **ret) {
+/* Build an OVSDB ["set", [vid, vid, ...]] from a BridgeVLAN-style bitmap. Returns
+ * 0 with *ret=NULL when the bitmap is empty (caller should either skip the column
+ * entirely or emit ovs_build_empty_set instead, depending on INSERT vs UPDATE). */
+static int ovs_build_vlan_set_from_bitmap(const uint32_t *bitmap, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *ids = NULL;
         int r;
 
-        assert(trunks_str);
+        assert(bitmap);
         assert(ret);
 
-        /* Parse comma-separated VLAN IDs into ["set", [id1, id2, ...]] */
-        for (const char *p = trunks_str;;) {
-                _cleanup_free_ char *word = NULL;
-                uint16_t vid;
-
-                r = extract_first_word(&p, &word, ",", 0);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                r = parse_vlanid(word, &vid);
-                if (r < 0)
-                        return r;
-
+        /* IEEE 802.1Q reserves VID 0 (priority-tagged frames) and VID 4095. ovs-vswitchd
+         * rejects them with "Trunk VLAN ... is reserved". parse_vid_range() accepts both,
+         * so clamp at the encoder so misconfigured Trunks=0 / VLAN=0..4095 don't poison
+         * the entire transact. */
+        for (unsigned vid = 1; vid <= VLANID_MAX; vid++) {
+                if (!(bitmap[vid / 32] & (UINT32_C(1) << (vid % 32))))
+                        continue;
                 r = sd_json_variant_append_arrayb(&ids, SD_JSON_BUILD_INTEGER(vid));
                 if (r < 0)
                         return r;
         }
 
         if (!ids) {
-                /* Empty trunks list — caller should skip the column */
                 *ret = NULL;
                 return 0;
         }
@@ -1061,8 +1055,8 @@ static int ovs_reconcile_bond_port(
                         if (r < 0)
                                 return r;
 
-                        if (p->trunks) {
-                                r = ovs_build_vlan_set(p->trunks, &update_trunks);
+                        if (!eqzero(p->vlan_bitmap)) {
+                                r = ovs_build_vlan_set_from_bitmap(p->vlan_bitmap, &update_trunks);
                                 if (r < 0)
                                         return r;
                         }
@@ -1247,10 +1241,10 @@ static int ovs_reconcile_bond_port(
                 return r;
 
         /* 2. Insert Port with bond settings */
-        if (p->trunks) {
-                r = ovs_build_vlan_set(p->trunks, &trunks_set);
+        if (!eqzero(p->vlan_bitmap)) {
+                r = ovs_build_vlan_set_from_bitmap(p->vlan_bitmap, &trunks_set);
                 if (r < 0)
-                        return log_netdev_warning_errno(netdev, r, "Failed to parse trunks: %m");
+                        return log_netdev_warning_errno(netdev, r, "Failed to build trunks set: %m");
         }
 
         r = sd_json_buildo(
@@ -1407,10 +1401,10 @@ static int ovs_reconcile_port(Manager *m, NetDev *netdev, sd_json_variant **ops)
                         if (r < 0)
                                 return r;
 
-                        if (p->trunks) {
-                                r = ovs_build_vlan_set(p->trunks, &update_trunks);
+                        if (!eqzero(p->vlan_bitmap)) {
+                                r = ovs_build_vlan_set_from_bitmap(p->vlan_bitmap, &update_trunks);
                                 if (r < 0)
-                                        return log_netdev_warning_errno(netdev, r, "Failed to parse trunks '%s': %m", p->trunks);
+                                        return log_netdev_warning_errno(netdev, r, "Failed to build trunks set: %m");
                         }
                         if (!update_trunks) {
                                 r = ovs_build_empty_set(&update_trunks);
@@ -1586,10 +1580,10 @@ static int ovs_reconcile_port(Manager *m, NetDev *netdev, sd_json_variant **ops)
         if (r < 0)
                 return r;
 
-        if (p->trunks) {
-                r = ovs_build_vlan_set(p->trunks, &trunks_set);
+        if (!eqzero(p->vlan_bitmap)) {
+                r = ovs_build_vlan_set_from_bitmap(p->vlan_bitmap, &trunks_set);
                 if (r < 0)
-                        return log_netdev_warning_errno(netdev, r, "Failed to parse trunks '%s': %m", p->trunks);
+                        return log_netdev_warning_errno(netdev, r, "Failed to build trunks set: %m");
         }
 
         r = sd_json_buildo(
@@ -2047,6 +2041,7 @@ static int ovs_reconcile_network_port_one(Manager *m, Network *network, const ch
                         /* Always emit optional columns so removed config resets the OVSDB column */
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *tag_v = NULL;
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *vlan_mode_v = NULL;
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *trunks_v = NULL;
 
                         r = ovs_build_optional_int(network->ovs_port_tag, network->ovs_port_tag != VLANID_INVALID, &tag_v);
                         if (r < 0)
@@ -2054,11 +2049,22 @@ static int ovs_reconcile_network_port_one(Manager *m, Network *network, const ch
                         r = ovs_build_optional_string(network->ovs_port_vlan_mode, &vlan_mode_v);
                         if (r < 0)
                                 return r;
+                        if (!eqzero(network->ovs_port_vlan_bitmap)) {
+                                r = ovs_build_vlan_set_from_bitmap(network->ovs_port_vlan_bitmap, &trunks_v);
+                                if (r < 0)
+                                        return r;
+                        }
+                        if (!trunks_v) {
+                                r = ovs_build_empty_set(&trunks_v);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         r = sd_json_buildo(
                                         &update_row,
                                         SD_JSON_BUILD_PAIR_VARIANT("tag", tag_v),
                                         SD_JSON_BUILD_PAIR_VARIANT("vlan_mode", vlan_mode_v),
+                                        SD_JSON_BUILD_PAIR_VARIANT("trunks", trunks_v),
                                         SD_JSON_BUILD_PAIR_VARIANT("external_ids", update_ext));
                         if (r < 0)
                                 return r;
@@ -2118,12 +2124,20 @@ static int ovs_reconcile_network_port_one(Manager *m, Network *network, const ch
         if (r < 0)
                 return r;
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *insert_trunks = NULL;
+        if (!eqzero(network->ovs_port_vlan_bitmap)) {
+                r = ovs_build_vlan_set_from_bitmap(network->ovs_port_vlan_bitmap, &insert_trunks);
+                if (r < 0)
+                        return r;
+        }
+
         r = sd_json_buildo(
                         &port_row,
                         SD_JSON_BUILD_PAIR_STRING("name", ifname),
                         SD_JSON_BUILD_PAIR_VARIANT("interfaces", iface_ref),
                         SD_JSON_BUILD_PAIR_CONDITION(network->ovs_port_tag != VLANID_INVALID, "tag", SD_JSON_BUILD_INTEGER(network->ovs_port_tag)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!network->ovs_port_vlan_mode, "vlan_mode", SD_JSON_BUILD_STRING(network->ovs_port_vlan_mode)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!insert_trunks, "trunks", SD_JSON_BUILD_VARIANT(insert_trunks)),
                         SD_JSON_BUILD_PAIR_VARIANT("external_ids", external_ids));
         if (r < 0)
                 return log_warning_errno(r, "Failed to build Port row for '%s': %m", ifname);
