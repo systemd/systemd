@@ -157,11 +157,14 @@ int network_verify(Network *network) {
                                          network->filename);
 
         if (!network->ovs_bridge_name && !network->ovs_bond_name &&
-            (network->ovs_port_tag != VLANID_INVALID || network->ovs_port_vlan_mode)) {
+            (network->ovs_port_tag != VLANID_INVALID ||
+             network->ovs_port_vlan_mode ||
+             !eqzero(network->ovs_port_vlan_bitmap))) {
                 log_warning("%s: [OVSPort] settings without OVSBridge= or OVSBond=, ignoring.",
                             network->filename);
                 network->ovs_port_tag = VLANID_INVALID;
                 network->ovs_port_vlan_mode = mfree(network->ovs_port_vlan_mode);
+                memzero(network->ovs_port_vlan_bitmap, sizeof(network->ovs_port_vlan_bitmap));
         }
 
         if (network->ovs_port_vlan_mode &&
@@ -199,6 +202,7 @@ int network_verify(Network *network) {
                 network->ovs_bond_name = mfree(network->ovs_bond_name);
                 network->ovs_port_tag = VLANID_INVALID;
                 network->ovs_port_vlan_mode = mfree(network->ovs_port_vlan_mode);
+                memzero(network->ovs_port_vlan_bitmap, sizeof(network->ovs_port_vlan_bitmap));
         }
 
         (void) network_resolve_netdev_one(network, network->batadv_name, NETDEV_KIND_BATADV, &network->batadv);
