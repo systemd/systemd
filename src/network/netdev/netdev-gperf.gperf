@@ -299,9 +299,11 @@ OVSBridge.Protocols,                      config_parse_ovs_protocols,           
 OVSBridge.DatapathID,                     config_parse_string,                            CONFIG_PARSE_STRING_SAFE,      offsetof(OVSBridge, datapath_id)
 OVSPort.Bridge,                           config_parse_ifname,                            0,                             offsetof(OVSPort, bridge)
 OVSPort.Type,                             config_parse_ovs_port_type,                     0,                             offsetof(OVSPort, type)
-OVSPort.Tag,                              config_parse_vlanid,                            0,                             offsetof(OVSPort, tag)
+OVSPort.Tag,                              config_parse_ovs_port_vlanid,                    0,                             offsetof(OVSPort, tag)
+OVSPort.PVID,                             config_parse_ovs_port_vlanid,                    0,                             offsetof(OVSPort, tag)
 OVSPort.VLANMode,                         config_parse_ovs_port_vlan_mode,                0,                             offsetof(OVSPort, vlan_mode)
-OVSPort.Trunks,                           config_parse_string,                            CONFIG_PARSE_STRING_SAFE,      offsetof(OVSPort, trunks)
+OVSPort.VLAN,                             config_parse_bridge_vlan_id_range,              0,                             offsetof(OVSPort, vlan_bitmap)
+OVSPort.Trunks,                           config_parse_ovs_trunks,                        0,                             offsetof(OVSPort, vlan_bitmap) /* deprecated */
 OVSPort.PeerPort,                         config_parse_ifname,                            0,                             offsetof(OVSPort, peer_port)
 OVSPort.LACP,                             config_parse_ovs_lacp,                          0,                             offsetof(OVSPort, lacp)
 OVSPort.BondMode,                         config_parse_ovs_bond_mode,                     0,                             offsetof(OVSPort, bond_mode)

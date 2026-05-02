@@ -6,7 +6,6 @@
 #include "sd-id128.h"
 #include "sd-json.h"
 
-#include "extract-word.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
@@ -1020,35 +1019,29 @@ static int ovs_reconcile_bridge(Manager *m, NetDev *netdev, sd_json_variant **op
         return 0;
 }
 
-static int ovs_build_vlan_set(const char *trunks_str, sd_json_variant **ret) {
+/* Build an OVSDB ["set", [vid, vid, ...]] from a BridgeVLAN-style bitmap. Returns 0 with
+ * *ret=NULL when the bitmap is empty; the sole caller, ovs_build_trunks_for_update(), turns
+ * that NULL into an explicit empty set. */
+static int ovs_build_vlan_set_from_bitmap(const uint32_t *bitmap, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *ids = NULL;
         int r;
 
-        assert(trunks_str);
+        assert(bitmap);
         assert(ret);
 
-        /* Parse comma-separated VLAN IDs into ["set", [id1, id2, ...]] */
-        for (const char *p = trunks_str;;) {
-                _cleanup_free_ char *word = NULL;
-                uint16_t vid;
-
-                r = extract_first_word(&p, &word, ",", 0);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                r = parse_vlanid(word, &vid);
-                if (r < 0)
-                        return r;
-
+        /* IEEE 802.1Q reserves VID 0 (priority-tagged frames) and VID 4095. ovs-vswitchd
+         * rejects them with "Trunk VLAN ... is reserved". parse_vid_range() accepts VID 0
+         * but rejects VID 4095 (> VLANID_MAX). Clamp the encoder to 1..VLANID_MAX so a
+         * misconfigured Trunks=0 / VLAN=0 does not poison the entire transact. */
+        for (unsigned vid = 1; vid <= VLANID_MAX; vid++) {
+                if (!(bitmap[vid / 32] & (UINT32_C(1) << (vid % 32))))
+                        continue;
                 r = sd_json_variant_append_arrayb(&ids, SD_JSON_BUILD_INTEGER(vid));
                 if (r < 0)
                         return r;
         }
 
         if (!ids) {
-                /* Empty trunks list — caller should skip the column */
                 *ret = NULL;
                 return 0;
         }
@@ -1058,6 +1051,94 @@ static int ovs_build_vlan_set(const char *trunks_str, sd_json_variant **ret) {
                         SD_JSON_BUILD_ARRAY(
                                 JSON_BUILD_CONST_STRING("set"),
                                 SD_JSON_BUILD_VARIANT(ids)));
+}
+
+/* Build the Port.trunks value: the configured VLAN set, or an empty set when no VLANs are
+ * configured, so the column is reset rather than left stale. All callers (INSERT and UPDATE)
+ * route through ovs_build_port_row(), which emits this column unconditionally. */
+static int ovs_build_trunks_for_update(const uint32_t *bitmap, sd_json_variant **ret) {
+        int r;
+
+        assert(ret);
+
+        r = ovs_build_vlan_set_from_bitmap(bitmap, ret);
+        if (r < 0)
+                return r;
+        if (!*ret)
+                return ovs_build_empty_set(ret);
+        return 0;
+}
+
+/* All columns of an OVSDB Port row that the reconciler ever writes. One struct + one builder so
+ * the bond, standalone-port and .network-attachment paths emit rows uniformly for both INSERT and
+ * UPDATE, and a future column or reset rule is changed in exactly one place. */
+struct ovs_port_columns {
+        const char *name;             /* set on INSERT, NULL on UPDATE (Port.name is immutable) */
+        sd_json_variant *interfaces;  /* Port.interfaces uuid-set; NULL leaves the column untouched */
+        uint16_t tag;                 /* VLANID_INVALID → reset to unset */
+        OVSPortVLANMode vlan_mode;    /* <0 → reset to unset */
+        const uint32_t *vlan_bitmap;  /* trunks set; empty → reset to empty set */
+        sd_json_variant *external_ids;/* prebuilt external_ids map (caller owns) */
+        const OVSPort *bond;          /* non-NULL → also emit lacp/bond_mode/bond_*delay from it */
+};
+
+static int ovs_build_port_row(const struct ovs_port_columns *c, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *tag_v = NULL, *vlan_mode_v = NULL,
+                *trunks_v = NULL, *lacp_v = NULL, *bond_mode_v = NULL,
+                *updelay_v = NULL, *downdelay_v = NULL;
+        int r;
+
+        assert(c);
+        assert(c->external_ids);
+        assert(ret);
+
+        /* Optional VLAN columns are emitted unconditionally so that removing config resets them;
+         * on INSERT an empty set is equivalent to omitting the column on the fresh row. */
+        r = ovs_build_optional_int(c->tag, c->tag != VLANID_INVALID, &tag_v);
+        if (r < 0)
+                return r;
+        r = ovs_build_optional_string(ovs_port_vlan_mode_to_string(c->vlan_mode), &vlan_mode_v);
+        if (r < 0)
+                return r;
+        r = ovs_build_trunks_for_update(c->vlan_bitmap, &trunks_v);
+        if (r < 0)
+                return r;
+
+        /* Bond-only columns, emitted only for bond Ports. lacp/bond_mode follow the reset rule
+         * (value, or empty set to clear) like the VLAN columns. The delays instead omit when unset,
+         * to preserve values written by ovs-vsctl/OVN (an empty set there would clobber them). For
+         * a freshly INSERTed Port an emitted empty set is equivalent to omitting the column. */
+        if (c->bond) {
+                r = ovs_build_optional_string(ovs_lacp_to_string(c->bond->lacp), &lacp_v);
+                if (r < 0)
+                        return r;
+                r = ovs_build_optional_string(ovs_bond_mode_to_string(c->bond->bond_mode), &bond_mode_v);
+                if (r < 0)
+                        return r;
+                if (c->bond->bond_updelay != USEC_INFINITY) {
+                        r = sd_json_variant_new_integer(&updelay_v, ovs_bond_delay_clamp_ms(c->bond->bond_updelay));
+                        if (r < 0)
+                                return r;
+                }
+                if (c->bond->bond_downdelay != USEC_INFINITY) {
+                        r = sd_json_variant_new_integer(&downdelay_v, ovs_bond_delay_clamp_ms(c->bond->bond_downdelay));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_CONDITION(!!c->name, "name", SD_JSON_BUILD_STRING(c->name)),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("interfaces", c->interfaces),
+                        SD_JSON_BUILD_PAIR_VARIANT("tag", tag_v),
+                        SD_JSON_BUILD_PAIR_VARIANT("vlan_mode", vlan_mode_v),
+                        SD_JSON_BUILD_PAIR_VARIANT("trunks", trunks_v),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("lacp", lacp_v),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("bond_mode", bond_mode_v),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("bond_updelay", updelay_v),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("bond_downdelay", downdelay_v),
+                        SD_JSON_BUILD_PAIR_VARIANT("external_ids", c->external_ids));
 }
 
 /* Collect concrete interface names from Links whose effective .network references this bond.
@@ -1142,7 +1223,7 @@ static int ovs_reconcile_bond_port(
                 sd_json_variant **ops) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *external_ids = NULL, *iface_set = NULL,
-                *port_row = NULL, *port_op = NULL, *trunks_set = NULL;
+                *port_row = NULL, *port_op = NULL;
         _cleanup_free_ char *port_uuid_name = NULL;
         int r;
 
@@ -1158,19 +1239,13 @@ static int ovs_reconcile_bond_port(
                 if (check.found) {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *update_row = NULL,
                                 *update_where = NULL, *update_op = NULL, *update_ext = NULL,
-                                *update_trunks = NULL, *update_iface_refs = NULL, *update_iface_set = NULL;
+                                *update_iface_refs = NULL, *update_iface_set = NULL;
 
                         log_netdev_debug(netdev, "OVS bond '%s' already exists, updating", strna(netdev->ifname));
 
                         r = ovs_build_external_ids(netdev->filename, &update_ext);
                         if (r < 0)
                                 return r;
-
-                        if (p->trunks) {
-                                r = ovs_build_vlan_set(p->trunks, &update_trunks);
-                                if (r < 0)
-                                        return r;
-                        }
 
                         /* Build interfaces set: reuse existing Interface UUIDs from cache,
                          * INSERT new Interface rows for members not yet in OVSDB. */
@@ -1210,45 +1285,16 @@ static int ovs_reconcile_bond_port(
                         if (r < 0)
                                 return r;
 
-                        /* Always emit optional columns so removed config resets the OVSDB column */
-                        if (!update_trunks) {
-                                r = ovs_build_empty_set(&update_trunks);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *tag_v = NULL, *vlan_mode_v = NULL,
-                                *lacp_v = NULL, *bond_mode_v = NULL;
-
-                        r = ovs_build_optional_int(p->tag, p->tag != VLANID_INVALID, &tag_v);
-                        if (r < 0)
-                                return r;
-                        r = ovs_build_optional_string(ovs_port_vlan_mode_to_string(p->vlan_mode), &vlan_mode_v);
-                        if (r < 0)
-                                return r;
-                        r = ovs_build_optional_string(ovs_lacp_to_string(p->lacp), &lacp_v);
-                        if (r < 0)
-                                return r;
-                        r = ovs_build_optional_string(ovs_bond_mode_to_string(p->bond_mode), &bond_mode_v);
-                        if (r < 0)
-                                return r;
-
-                        /* Bond delays: emit only when the operator explicitly set them, mirroring
-                         * the INSERT path. Always-emit-with-zero clobbers values set by ovs-vsctl
-                         * or OVN on every reload. */
-                        r = sd_json_buildo(
-                                        &update_row,
-                                        SD_JSON_BUILD_PAIR_VARIANT("interfaces", update_iface_set),
-                                        SD_JSON_BUILD_PAIR_VARIANT("tag", tag_v),
-                                        SD_JSON_BUILD_PAIR_VARIANT("vlan_mode", vlan_mode_v),
-                                        SD_JSON_BUILD_PAIR_VARIANT("trunks", update_trunks),
-                                        SD_JSON_BUILD_PAIR_VARIANT("lacp", lacp_v),
-                                        SD_JSON_BUILD_PAIR_VARIANT("bond_mode", bond_mode_v),
-                                        SD_JSON_BUILD_PAIR_CONDITION(p->bond_updelay != USEC_INFINITY,
-                                                "bond_updelay", SD_JSON_BUILD_INTEGER(ovs_bond_delay_clamp_ms(p->bond_updelay))),
-                                        SD_JSON_BUILD_PAIR_CONDITION(p->bond_downdelay != USEC_INFINITY,
-                                                "bond_downdelay", SD_JSON_BUILD_INTEGER(ovs_bond_delay_clamp_ms(p->bond_downdelay))),
-                                        SD_JSON_BUILD_PAIR_VARIANT("external_ids", update_ext));
+                        r = ovs_build_port_row(
+                                        &(const struct ovs_port_columns) {
+                                                .interfaces = update_iface_set,
+                                                .tag = p->tag,
+                                                .vlan_mode = p->vlan_mode,
+                                                .vlan_bitmap = p->vlan_bitmap,
+                                                .external_ids = update_ext,
+                                                .bond = p,
+                                        },
+                                        &update_row);
                         if (r < 0)
                                 return r;
 
@@ -1308,24 +1354,17 @@ static int ovs_reconcile_bond_port(
                 return r;
 
         /* 2. Insert Port with bond settings */
-        if (p->trunks) {
-                r = ovs_build_vlan_set(p->trunks, &trunks_set);
-                if (r < 0)
-                        return log_netdev_warning_errno(netdev, r, "Failed to parse trunks: %m");
-        }
-
-        r = sd_json_buildo(
-                        &port_row,
-                        SD_JSON_BUILD_PAIR_STRING("name", netdev->ifname),
-                        SD_JSON_BUILD_PAIR_VARIANT("interfaces", iface_set),
-                        SD_JSON_BUILD_PAIR_CONDITION(p->tag != VLANID_INVALID, "tag", SD_JSON_BUILD_INTEGER(p->tag)),
-                        SD_JSON_BUILD_PAIR_CONDITION(p->vlan_mode >= 0, "vlan_mode", SD_JSON_BUILD_STRING(ovs_port_vlan_mode_to_string(p->vlan_mode))),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!trunks_set, "trunks", SD_JSON_BUILD_VARIANT(trunks_set)),
-                        SD_JSON_BUILD_PAIR_CONDITION(p->lacp >= 0, "lacp", SD_JSON_BUILD_STRING(ovs_lacp_to_string(p->lacp))),
-                        SD_JSON_BUILD_PAIR_CONDITION(p->bond_mode >= 0, "bond_mode", SD_JSON_BUILD_STRING(ovs_bond_mode_to_string(p->bond_mode))),
-                        SD_JSON_BUILD_PAIR_CONDITION(p->bond_updelay != USEC_INFINITY, "bond_updelay", SD_JSON_BUILD_INTEGER(ovs_bond_delay_clamp_ms(p->bond_updelay))),
-                        SD_JSON_BUILD_PAIR_CONDITION(p->bond_downdelay != USEC_INFINITY, "bond_downdelay", SD_JSON_BUILD_INTEGER(ovs_bond_delay_clamp_ms(p->bond_downdelay))),
-                        SD_JSON_BUILD_PAIR_VARIANT("external_ids", external_ids));
+        r = ovs_build_port_row(
+                        &(const struct ovs_port_columns) {
+                                .name = netdev->ifname,
+                                .interfaces = iface_set,
+                                .tag = p->tag,
+                                .vlan_mode = p->vlan_mode,
+                                .vlan_bitmap = p->vlan_bitmap,
+                                .external_ids = external_ids,
+                                .bond = p,
+                        },
+                        &port_row);
         if (r < 0)
                 return log_netdev_warning_errno(netdev, r, "Failed to build Port row: %m");
 
@@ -1412,7 +1451,7 @@ static bool ovs_port_needs_recreate(OVSDBMonitor *mon, sd_id128_t port_uuid, con
 static int ovs_reconcile_port(Manager *m, NetDev *netdev, Set *doomed_ports, sd_json_variant **ops) {
         OVSPort *p;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *external_ids = NULL, *iface_row = NULL,
-                *iface_op = NULL, *iface_ref = NULL, *port_row = NULL, *port_op = NULL, *trunks_set = NULL;
+                *iface_op = NULL, *iface_ref = NULL, *port_row = NULL, *port_op = NULL;
         _cleanup_free_ char *iface_uuid_name = NULL, *port_uuid_name = NULL;
         const char *iface_type;
         int r;
@@ -1513,8 +1552,7 @@ static int ovs_reconcile_port(Manager *m, NetDev *netdev, Set *doomed_ports, sd_
                         /* No return here — continue to the INSERT path below. */
                 } else if (check.found) {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *update_row = NULL,
-                                *update_where = NULL, *update_op = NULL, *update_ext = NULL,
-                                *update_trunks = NULL;
+                                *update_where = NULL, *update_op = NULL, *update_ext = NULL;
 
                         log_netdev_debug(netdev, "OVS port '%s' already exists, updating", strna(netdev->ifname));
 
@@ -1522,33 +1560,14 @@ static int ovs_reconcile_port(Manager *m, NetDev *netdev, Set *doomed_ports, sd_
                         if (r < 0)
                                 return r;
 
-                        if (p->trunks) {
-                                r = ovs_build_vlan_set(p->trunks, &update_trunks);
-                                if (r < 0)
-                                        return log_netdev_warning_errno(netdev, r, "Failed to parse trunks '%s': %m", p->trunks);
-                        }
-                        if (!update_trunks) {
-                                r = ovs_build_empty_set(&update_trunks);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        /* Always emit optional columns so removed config resets the OVSDB column */
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *tag_v = NULL, *vlan_mode_v = NULL;
-
-                        r = ovs_build_optional_int(p->tag, p->tag != VLANID_INVALID, &tag_v);
-                        if (r < 0)
-                                return r;
-                        r = ovs_build_optional_string(ovs_port_vlan_mode_to_string(p->vlan_mode), &vlan_mode_v);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_json_buildo(
-                                        &update_row,
-                                        SD_JSON_BUILD_PAIR_VARIANT("tag", tag_v),
-                                        SD_JSON_BUILD_PAIR_VARIANT("vlan_mode", vlan_mode_v),
-                                        SD_JSON_BUILD_PAIR_VARIANT("trunks", update_trunks),
-                                        SD_JSON_BUILD_PAIR_VARIANT("external_ids", update_ext));
+                        r = ovs_build_port_row(
+                                        &(const struct ovs_port_columns) {
+                                                .tag = p->tag,
+                                                .vlan_mode = p->vlan_mode,
+                                                .vlan_bitmap = p->vlan_bitmap,
+                                                .external_ids = update_ext,
+                                        },
+                                        &update_row);
                         if (r < 0)
                                 return r;
 
@@ -1699,20 +1718,16 @@ static int ovs_reconcile_port(Manager *m, NetDev *netdev, Set *doomed_ports, sd_
         if (r < 0)
                 return r;
 
-        if (p->trunks) {
-                r = ovs_build_vlan_set(p->trunks, &trunks_set);
-                if (r < 0)
-                        return log_netdev_warning_errno(netdev, r, "Failed to parse trunks '%s': %m", p->trunks);
-        }
-
-        r = sd_json_buildo(
-                        &port_row,
-                        SD_JSON_BUILD_PAIR_STRING("name", netdev->ifname),
-                        SD_JSON_BUILD_PAIR_VARIANT("interfaces", iface_ref),
-                        SD_JSON_BUILD_PAIR_CONDITION(p->tag != VLANID_INVALID, "tag", SD_JSON_BUILD_INTEGER(p->tag)),
-                        SD_JSON_BUILD_PAIR_CONDITION(p->vlan_mode >= 0, "vlan_mode", SD_JSON_BUILD_STRING(ovs_port_vlan_mode_to_string(p->vlan_mode))),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!trunks_set, "trunks", SD_JSON_BUILD_VARIANT(trunks_set)),
-                        SD_JSON_BUILD_PAIR_VARIANT("external_ids", external_ids));
+        r = ovs_build_port_row(
+                        &(const struct ovs_port_columns) {
+                                .name = netdev->ifname,
+                                .interfaces = iface_ref,
+                                .tag = p->tag,
+                                .vlan_mode = p->vlan_mode,
+                                .vlan_bitmap = p->vlan_bitmap,
+                                .external_ids = external_ids,
+                        },
+                        &port_row);
         if (r < 0)
                 return log_netdev_warning_errno(netdev, r, "Failed to build Port row: %m");
 
@@ -2066,21 +2081,14 @@ static int ovs_reconcile_network_port_one(Manager *m, Network *network, const ch
                         if (r < 0)
                                 return r;
 
-                        /* Always emit optional columns so removed config resets the OVSDB column */
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *tag_v = NULL, *vlan_mode_v = NULL;
-
-                        r = ovs_build_optional_int(network->ovs_port_tag, network->ovs_port_tag != VLANID_INVALID, &tag_v);
-                        if (r < 0)
-                                return r;
-                        r = ovs_build_optional_string(ovs_port_vlan_mode_to_string(network->ovs_port_vlan_mode), &vlan_mode_v);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_json_buildo(
-                                        &update_row,
-                                        SD_JSON_BUILD_PAIR_VARIANT("tag", tag_v),
-                                        SD_JSON_BUILD_PAIR_VARIANT("vlan_mode", vlan_mode_v),
-                                        SD_JSON_BUILD_PAIR_VARIANT("external_ids", update_ext));
+                        r = ovs_build_port_row(
+                                        &(const struct ovs_port_columns) {
+                                                .tag = network->ovs_port_tag,
+                                                .vlan_mode = network->ovs_port_vlan_mode,
+                                                .vlan_bitmap = network->ovs_port_vlan_bitmap,
+                                                .external_ids = update_ext,
+                                        },
+                                        &update_row);
                         if (r < 0)
                                 return r;
 
@@ -2139,13 +2147,16 @@ static int ovs_reconcile_network_port_one(Manager *m, Network *network, const ch
         if (r < 0)
                 return r;
 
-        r = sd_json_buildo(
-                        &port_row,
-                        SD_JSON_BUILD_PAIR_STRING("name", ifname),
-                        SD_JSON_BUILD_PAIR_VARIANT("interfaces", iface_ref),
-                        SD_JSON_BUILD_PAIR_CONDITION(network->ovs_port_tag != VLANID_INVALID, "tag", SD_JSON_BUILD_INTEGER(network->ovs_port_tag)),
-                        SD_JSON_BUILD_PAIR_CONDITION(network->ovs_port_vlan_mode >= 0, "vlan_mode", SD_JSON_BUILD_STRING(ovs_port_vlan_mode_to_string(network->ovs_port_vlan_mode))),
-                        SD_JSON_BUILD_PAIR_VARIANT("external_ids", external_ids));
+        r = ovs_build_port_row(
+                        &(const struct ovs_port_columns) {
+                                .name = ifname,
+                                .interfaces = iface_ref,
+                                .tag = network->ovs_port_tag,
+                                .vlan_mode = network->ovs_port_vlan_mode,
+                                .vlan_bitmap = network->ovs_port_vlan_bitmap,
+                                .external_ids = external_ids,
+                        },
+                        &port_row);
         if (r < 0)
                 return log_warning_errno(r, "Failed to build Port row for '%s': %m", ifname);
 
