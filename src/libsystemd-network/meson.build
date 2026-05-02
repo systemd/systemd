@@ -133,6 +133,9 @@ executables += [
                 'sources' : files('fuzz-dhcp-client.c'),
         },
         network_fuzz_template + {
+                'sources' : files('fuzz-dhcp-relay.c'),
+        },
+        network_fuzz_template + {
                 'sources' : files('fuzz-dhcp6-client.c'),
         },
         network_fuzz_template + {
