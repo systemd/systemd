@@ -93,7 +93,7 @@ static int client_send_raw(
                                 &client->bcast_addr,
                                 client->arp_type,
                                 client->port,
-                                client->socket_priority_set,
+                                /* so_priority_set= */ true,
                                 client->socket_priority);
                 if (fd < 0)
                         return fd;

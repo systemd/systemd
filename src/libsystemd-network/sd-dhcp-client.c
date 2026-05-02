@@ -22,6 +22,7 @@
 #include "network-common.h"
 #include "random-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -515,7 +516,7 @@ int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
         return 0;
 }
 
-int sd_dhcp_client_set_service_type(sd_dhcp_client *client, int type) {
+int sd_dhcp_client_set_ip_service_type(sd_dhcp_client *client, uint8_t type) {
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
@@ -528,7 +529,6 @@ int sd_dhcp_client_set_socket_priority(sd_dhcp_client *client, int socket_priori
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
-        client->socket_priority_set = true;
         client->socket_priority = socket_priority;
 
         return 0;
@@ -1425,7 +1425,8 @@ int sd_dhcp_client_new(sd_dhcp_client **ret) {
                 .port = DHCP_PORT_CLIENT,
                 .server_port = DHCP_PORT_SERVER,
                 .max_discover_attempts = UINT64_MAX,
-                .ip_service_type = -1,
+                .ip_service_type = IPTOS_CLASS_CS6, /* Defaults to CS6 (Internetwork Control). */
+                .socket_priority = tos_to_priority(IPTOS_CLASS_CS6),
         };
 
         FOREACH_ELEMENT(opt, default_req_opts) {

@@ -132,9 +132,9 @@ int sd_dhcp_client_set_mud_url(
 int sd_dhcp_client_get_lease(
                 sd_dhcp_client *client,
                 sd_dhcp_lease **ret);
-int sd_dhcp_client_set_service_type(
+int sd_dhcp_client_set_ip_service_type(
                 sd_dhcp_client *client,
-                int type);
+                uint8_t type);
 int sd_dhcp_client_set_socket_priority(
                 sd_dhcp_client *client,
                 int socket_priority);
