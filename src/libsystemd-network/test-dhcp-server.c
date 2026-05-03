@@ -24,7 +24,7 @@ static void test_pool(struct in_addr *address, unsigned size, int ret) {
                 ASSERT_RETURN_IS_CRITICAL(false, ASSERT_ERROR(sd_dhcp_server_configure_pool(server, address, 8, 0, size), -ret));
 }
 
-static int test_basic(bool bind_to_interface) {
+static int test_basic(void) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         struct in_addr address_lo = {
@@ -35,14 +35,13 @@ static int test_basic(bool bind_to_interface) {
         };
         int r;
 
-        log_debug("/* %s(bind_to_interface=%s) */", __func__, yes_no(bind_to_interface));
+        log_debug("/* %s */", __func__);
 
         ASSERT_OK(sd_event_new(&event));
 
         /* attach to loopback interface */
         ASSERT_OK(sd_dhcp_server_new(&server, 1));
         ASSERT_NOT_NULL(server);
-        server->bind_to_interface = bind_to_interface;
 
         ASSERT_OK(sd_dhcp_server_attach_event(server, event, 0));
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_attach_event(server, event, 0), EBUSY));
@@ -456,13 +455,9 @@ int main(int argc, char *argv[]) {
         test_static_lease();
         test_domain_name();
 
-        r = test_basic(true);
+        r = test_basic();
         if (r < 0)
                 return log_tests_skipped_errno(r, "cannot start dhcp server(bound to interface)");
-
-        r = test_basic(false);
-        if (r < 0)
-                return log_tests_skipped_errno(r, "cannot start dhcp server(non-bound to interface)");
 
         test_message_handler();
 
