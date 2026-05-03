@@ -368,9 +368,9 @@ DHCPRelay.ExtraOption,                           config_parse_dhcp_option_tlv,  
 DHCPRelay.InterfacePriority,                     config_parse_int,                               0,                                      offsetof(Network, dhcp_relay_interface_priority)
 DHCPServer.ServerAddress,                        config_parse_dhcp_server_address,               0,                                      0
 DHCPServer.UplinkInterface,                      config_parse_uplink,                            0,                                      0
-DHCPServer.RelayTarget,                          config_parse_in_addr_non_null,                  AF_INET,                                offsetof(Network, dhcp_server_relay_target)
-DHCPServer.RelayAgentCircuitId,                  config_parse_dhcp_server_relay_agent_suboption, 0,                                      offsetof(Network, dhcp_server_relay_agent_circuit_id)
-DHCPServer.RelayAgentRemoteId,                   config_parse_dhcp_server_relay_agent_suboption, 0,                                      offsetof(Network, dhcp_server_relay_agent_remote_id)
+DHCPServer.RelayTarget,                          config_parse_warn_compat,                       DISABLED_LEGACY,                        0
+DHCPServer.RelayAgentCircuitId,                  config_parse_warn_compat,                       DISABLED_LEGACY,                        0
+DHCPServer.RelayAgentRemoteId,                   config_parse_warn_compat,                       DISABLED_LEGACY,                        0
 DHCPServer.MaxLeaseTimeSec,                      config_parse_sec,                               0,                                      offsetof(Network, dhcp_server_max_lease_time_usec)
 DHCPServer.DefaultLeaseTimeSec,                  config_parse_sec,                               0,                                      offsetof(Network, dhcp_server_default_lease_time_usec)
 DHCPServer.IPv6OnlyPreferredSec,                 config_parse_dhcp_server_ipv6_only_preferred,   0,                                      offsetof(Network, dhcp_server_ipv6_only_preferred_usec)
@@ -396,7 +396,7 @@ DHCPServer.PoolOffset,                           config_parse_uint32,           
 DHCPServer.PoolSize,                             config_parse_uint32,                            0,                                      offsetof(Network, dhcp_server_pool_size)
 DHCPServer.SendOption,                           config_parse_dhcp_option_tlv,                   0,                                      offsetof(Network, dhcp_server_extra_options)
 DHCPServer.SendVendorOption,                     config_parse_dhcp_option_tlv,                   0,                                      offsetof(Network, dhcp_server_vendor_options)
-DHCPServer.BindToInterface,                      config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_bind_to_interface)
+DHCPServer.BindToInterface,                      config_parse_warn_compat,                       DISABLED_LEGACY,                        0
 DHCPServer.BootServerAddress,                    config_parse_in_addr_non_null,                  AF_INET,                                offsetof(Network, dhcp_server_boot_server_address)
 DHCPServer.BootServerName,                       config_parse_dns_name,                          0,                                      offsetof(Network, dhcp_server_boot_server_name)
 DHCPServer.BootFilename,                         config_parse_string,                            CONFIG_PARSE_STRING_SAFE_AND_ASCII,     offsetof(Network, dhcp_server_boot_filename)

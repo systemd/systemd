@@ -160,9 +160,6 @@ static DHCPServerPersistLeases link_get_dhcp_server_persist_leases(Link *link) {
         assert(link->manager);
         assert(link->network);
 
-        if (in4_addr_is_set(&link->network->dhcp_server_relay_target))
-                return DHCP_SERVER_PERSIST_LEASES_NO; /* On relay mode. Nothing saved in the persistent storage. */
-
         if (link->network->dhcp_server_persist_leases >= 0)
                 return link->network->dhcp_server_persist_leases;
 
@@ -571,7 +568,6 @@ static int dhcp4_server_configure(Link *link) {
         DHCPStaticLease *static_lease;
         Link *uplink = NULL;
         Address *address;
-        bool bind_to_interface;
         int r;
 
         assert(link);
@@ -680,19 +676,6 @@ static int dhcp4_server_configure(Link *link) {
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to set router address for DHCP server: %m");
         }
-
-        r = sd_dhcp_server_set_relay_target(link->dhcp_server, &link->network->dhcp_server_relay_target);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to set relay target for DHCP server: %m");
-
-        bind_to_interface = sd_dhcp_server_is_in_relay_mode(link->dhcp_server) ? false : link->network->dhcp_server_bind_to_interface;
-        r = sd_dhcp_server_set_bind_to_interface(link->dhcp_server, bind_to_interface);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to set interface binding for DHCP server: %m");
-
-        r = sd_dhcp_server_set_relay_agent_information(link->dhcp_server, link->network->dhcp_server_relay_agent_circuit_id, link->network->dhcp_server_relay_agent_remote_id);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to set agent circuit/remote id for DHCP server: %m");
 
         if (link->network->dhcp_server_emit_timezone) {
                 _cleanup_free_ char *buffer = NULL;
