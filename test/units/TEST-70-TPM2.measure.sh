@@ -14,6 +14,32 @@ if [[ ! -x "${SD_MEASURE:?}" ]]; then
     exit 0
 fi
 
+at_exit() {
+    set +e
+
+    systemd-cryptsetup detach test-volume2
+    rm -f "${IMAGE:-}" \
+        /run/systemd/tpm2-pcr-signature.json \
+        /tmp/passphrase \
+        /tmp/pcrsign-private.pem \
+        /tmp/pcrsign-public.pem \
+        /tmp/pcrsign.sig \
+        /tmp/pcrsign.sig2 \
+        /tmp/pcrsign.sig3 \
+        /tmp/pcrsign.sig4 \
+        /tmp/pcrsign.sig5 \
+        /tmp/pcrsign.sig6 \
+        /tmp/pcrsign.sig7 \
+        /tmp/pcrtestdata \
+        /tmp/pcrtestdata.encrypted \
+        /tmp/result \
+        /tmp/result.json \
+        /tmp/tpmdata1 \
+        /tmp/tpmdata2
+}
+
+trap at_exit EXIT
+
 IMAGE="$(mktemp /tmp/systemd-measure-XXX.image)"
 
 echo HALLO >/tmp/tpmdata1
