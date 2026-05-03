@@ -923,6 +923,22 @@ def join_initrds(initrds: list[Path]) -> Union[Path, bytes, None]:
     return b''.join(seq)
 
 
+def resolve_devicetree_path(path: Path, uname: str) -> Path:
+    if path.is_absolute():
+        return path
+
+    return Path('/lib/modules') / uname / 'dtb' / path
+
+
+def resolve_devicetree_options(opts: argparse.Namespace) -> None:
+    if opts.uname is None:
+        return
+
+    if opts.devicetree is not None:
+        opts.devicetree = resolve_devicetree_path(opts.devicetree, opts.uname)
+    opts.devicetree_auto = [resolve_devicetree_path(path, opts.uname) for path in opts.devicetree_auto]
+
+
 T = TypeVar('T')
 
 
@@ -1357,6 +1373,8 @@ def make_uki(opts: UkifyConfig) -> None:
     if opts.uname is None and linux is not None:
         print('Kernel version not specified, starting autodetection 😖.', file=sys.stderr)
         opts.uname = Uname.scrape(linux, opts=opts)
+
+    resolve_devicetree_options(opts)
 
     uki = UKI(opts.join_pcrsig if opts.join_pcrsig else opts.stub)
     initrd = join_initrds(opts.initrd)
@@ -2433,6 +2451,8 @@ def finalize_options(opts: argparse.Namespace) -> None:
 
     if opts.efi_arch is None:
         opts.efi_arch = guess_efi_arch()
+
+    resolve_devicetree_options(opts)
 
     if opts.stub is None and not opts.join_pcrsig:
         if opts.linux is not None:
