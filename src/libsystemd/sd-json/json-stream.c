@@ -35,9 +35,89 @@ struct JsonStreamQueueItem {
         int fds[];
 };
 
+/* Locate the end of the first complete top-level JSON value (object or array) in the given
+ * buffer by counting brace/bracket nesting depth. Used for delimiterless JSON wire formats
+ * (e.g. OVSDB/RFC 7047) where messages are back-to-back JSON objects with no separator.
+ *
+ * Returns:
+ *   1 with *ret_consumed set to the byte count of the first complete value,
+ *   0 with *ret_consumed = 0 when the buffer is incomplete (need more data),
+ *  -EBADMSG with *ret_consumed = 0 when the first non-whitespace byte is not '{' or '['. */
+static int json_stream_find_message_end(
+                const char *buf,
+                size_t size,
+                size_t *ret_consumed) {
+
+        size_t depth = 0;
+        bool in_string = false, escape_next = false;
+
+        assert(ret_consumed);
+
+        if (!buf || size == 0) {
+                *ret_consumed = 0;
+                return 0;
+        }
+
+        for (size_t i = 0; i < size; i++) {
+                char c = buf[i];
+
+                /* Before we enter the top-level value, skip whitespace */
+                if (depth == 0 && !in_string) {
+                        if (c == ' ' || c == '\t' || c == '\n' || c == '\r')
+                                continue;
+                        if (c != '{' && c != '[') {
+                                *ret_consumed = 0;
+                                return -EBADMSG;
+                        }
+                }
+
+                if (in_string) {
+                        if (escape_next) {
+                                escape_next = false;
+                                continue;
+                        }
+                        if (c == '\\') {
+                                escape_next = true;
+                                continue;
+                        }
+                        if (c == '"')
+                                in_string = false;
+                        continue;
+                }
+
+                switch (c) {
+                case '"':
+                        in_string = true;
+                        break;
+                case '{':
+                case '[':
+                        depth++;
+                        break;
+                case '}':
+                case ']':
+                        if (depth == 0) {
+                                *ret_consumed = 0;
+                                return -EBADMSG;
+                        }
+                        depth--;
+                        if (depth == 0) {
+                                *ret_consumed = i + 1;
+                                return 1;
+                        }
+                        break;
+                }
+        }
+
+        /* Incomplete: we ran out of data before depth returned to 0 */
+        *ret_consumed = 0;
+        return 0;
+}
+
 /* Returns the size of the framing delimiter in bytes: strlen(delimiter) for multi-char
  * delimiters (e.g. "\r\n"), or 1 for the default NUL-byte delimiter (delimiter == NULL). */
 static size_t json_stream_delimiter_size(const JsonStream *s) {
+        if (FLAGS_SET(s->flags, JSON_STREAM_DELIMITERLESS))
+                return 0;
         return strlen_ptr(s->delimiter) ?: 1;
 }
 
@@ -275,7 +355,7 @@ int json_stream_connect_fd_pair(JsonStream *s, int input_fd, int output_fd) {
 
 bool json_stream_flags_set(const JsonStream *s, JsonStreamFlags flags) {
         assert(s);
-        assert((flags & ~(JSON_STREAM_BOUNDED_READS|JSON_STREAM_INPUT_SENSITIVE|JSON_STREAM_ALLOW_FD_PASSING_INPUT|JSON_STREAM_ALLOW_FD_PASSING_OUTPUT)) == 0);
+        assert((flags & ~(JSON_STREAM_BOUNDED_READS|JSON_STREAM_INPUT_SENSITIVE|JSON_STREAM_ALLOW_FD_PASSING_INPUT|JSON_STREAM_ALLOW_FD_PASSING_OUTPUT|JSON_STREAM_DELIMITERLESS)) == 0);
 
         return FLAGS_SET(s->flags, flags);
 }
@@ -283,9 +363,14 @@ bool json_stream_flags_set(const JsonStream *s, JsonStreamFlags flags) {
 /* Multiple flags may be passed — all are set or cleared together. */
 void json_stream_set_flags(JsonStream *s, JsonStreamFlags flags, bool b) {
         assert(s);
-        assert((flags & ~(JSON_STREAM_BOUNDED_READS|JSON_STREAM_INPUT_SENSITIVE)) == 0);
+        assert((flags & ~(JSON_STREAM_BOUNDED_READS|JSON_STREAM_INPUT_SENSITIVE|JSON_STREAM_DELIMITERLESS)) == 0);
 
         SET_FLAG(s->flags, flags, b);
+
+        /* DELIMITERLESS and BOUNDED_READS are mutually exclusive: delimiterless mode scans the
+         * entire buffer from the start to find message boundaries, while bounded reads truncate
+         * the buffer after a fixed amount. Combining them would break framing. */
+        assert(!FLAGS_SET(s->flags, JSON_STREAM_DELIMITERLESS | JSON_STREAM_BOUNDED_READS));
 }
 
 bool json_stream_has_buffered_input(const JsonStream *s) {
@@ -1336,29 +1421,71 @@ int json_stream_parse(JsonStream *s, sd_json_variant **ret) {
 
         begin = s->input_buffer + s->input_buffer_index;
 
-        size_t dsz = json_stream_delimiter_size(s);
-        e = memmem_safe(begin + s->input_buffer_size - s->input_buffer_unscanned, s->input_buffer_unscanned, s->delimiter ?: "\0", dsz);
-        if (!e) {
-                s->input_buffer_unscanned = 0;
-                *ret = NULL;
-                return 0;
-        }
+        if (FLAGS_SET(s->flags, JSON_STREAM_DELIMITERLESS)) {
+                /* Delimiterless mode: use brace-counting to find message boundaries.
+                 * Unlike the delimiter path where memmem can scan any substring,
+                 * brace-counting is stateful and must always start from the beginning
+                 * of the buffer (the opening '{' or '['). So we always scan from
+                 * 'begin' over the entire input_buffer_size. */
+                size_t consumed;
 
-        sz = e - begin + dsz;
+                r = json_stream_find_message_end(begin, s->input_buffer_size, &consumed);
+                if (r == 0) {
+                        s->input_buffer_unscanned = 0;
+                        *ret = NULL;
+                        return 0;
+                }
+                if (r < 0) {
+                        s->input_buffer_index = s->input_buffer_size = s->input_buffer_unscanned = 0;
+                        return json_stream_log_errno(s, r, "Failed to find JSON message boundary: %m");
+                }
 
-        /* For non-NUL delimiters (e.g. "\r\n" for QMP) sd_json_parse() needs a NUL-terminated
-         * string; overwrite the first delimiter byte with NUL in place. For NUL delimiters
-         * this is a no-op since the byte is already '\0'. */
-        if (s->delimiter)
-                *e = '\0';
+                /* consumed is relative to begin since we always scan from the start */
+                sz = consumed;
 
-        r = sd_json_parse(begin, SD_JSON_PARSE_MUST_BE_OBJECT, ret, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
-        if (FLAGS_SET(s->flags, JSON_STREAM_INPUT_SENSITIVE))
-                explicit_bzero_safe(begin, sz);
-        if (r < 0) {
-                /* Unrecoverable parse failure: drop all buffered data. */
-                s->input_buffer_index = s->input_buffer_size = s->input_buffer_unscanned = 0;
-                return json_stream_log_errno(s, r, "Failed to parse JSON object: %m");
+                _cleanup_free_ char *msg = strndup(begin, sz);
+                if (!msg)
+                        return -ENOMEM;
+
+                /* Same MUST_BE_OBJECT contract as the delimiter path: every parsed
+                 * message is required to be a JSON object. find_message_end already
+                 * rejects bytes other than '{' / '[' at top-level, so an array would
+                 * sneak through; this enforces "object only" symmetrically. */
+                r = sd_json_parse(msg, SD_JSON_PARSE_MUST_BE_OBJECT, ret, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+                if (FLAGS_SET(s->flags, JSON_STREAM_INPUT_SENSITIVE)) {
+                        explicit_bzero_safe(begin, sz);
+                        explicit_bzero_safe(msg, sz);
+                }
+                if (r < 0) {
+                        s->input_buffer_index = s->input_buffer_size = s->input_buffer_unscanned = 0;
+                        return json_stream_log_errno(s, r, "Failed to parse JSON object: %m");
+                }
+        } else {
+                size_t dsz = json_stream_delimiter_size(s);
+
+                e = memmem_safe(begin + s->input_buffer_size - s->input_buffer_unscanned, s->input_buffer_unscanned, s->delimiter ?: "\0", dsz);
+                if (!e) {
+                        s->input_buffer_unscanned = 0;
+                        *ret = NULL;
+                        return 0;
+                }
+
+                sz = e - begin + dsz;
+
+                /* For non-NUL delimiters (e.g. "\r\n" for QMP) sd_json_parse() needs a NUL-terminated
+                 * string; overwrite the first delimiter byte with NUL in place. For NUL delimiters
+                 * this is a no-op since the byte is already '\0'. */
+                if (s->delimiter)
+                        *e = '\0';
+
+                r = sd_json_parse(begin, SD_JSON_PARSE_MUST_BE_OBJECT, ret, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+                if (FLAGS_SET(s->flags, JSON_STREAM_INPUT_SENSITIVE))
+                        explicit_bzero_safe(begin, sz);
+                if (r < 0) {
+                        /* Unrecoverable parse failure: drop all buffered data. */
+                        s->input_buffer_index = s->input_buffer_size = s->input_buffer_unscanned = 0;
+                        return json_stream_log_errno(s, r, "Failed to parse JSON object: %m");
+                }
         }
 
         if (DEBUG_LOGGING) {
