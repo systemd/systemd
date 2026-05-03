@@ -32,14 +32,11 @@ typedef struct sd_dhcp_server {
         sd_event *event;
         int event_priority;
         sd_event_source *receive_message;
-        sd_event_source *receive_broadcast;
         int fd;
         int fd_raw;
-        int fd_broadcast;
 
         int ifindex;
         char *ifname;
-        bool bind_to_interface;
         be32_t address;
         be32_t netmask;
         be32_t subnet;
@@ -72,11 +69,6 @@ typedef struct sd_dhcp_server {
 
         sd_dhcp_server_callback_t callback;
         void *callback_userdata;
-
-        struct in_addr relay_target;
-
-        char *agent_circuit_id;
-        char *agent_remote_id;
 
         int lease_dir_fd;
         char *lease_file;
