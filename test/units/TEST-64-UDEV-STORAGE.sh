@@ -1333,6 +1333,12 @@ testcase_mdadm_lvm() {
     helper_check_device_units
     # Cleanup
     lvm vgchange -an "$vgroup"
+    # Wipe the LVM signature off the MD device, otherwise the underlying disks
+    # still hold the PV header at the same offset. If the VM is restarted (e.g.
+    # the test gets re-run because of a reboot), mdadm --create with the same
+    # UUID would expose the same data and udev would auto-trigger
+    # lvm-activate-${vgroup}.service, racing with the test's pvcreate.
+    wipefs --all "$raid_dev"
     mdadm -v --stop "$raid_dev"
 
     # Clear superblocks to make the MD device will not be restarted even if the VM is restarted.
@@ -1340,6 +1346,10 @@ testcase_mdadm_lvm() {
     udevadm settle --timeout=30
     # shellcheck disable=SC2046
     mdadm -v --zero-superblock --force $(readlink -f "${devices[@]}")
+    # Also wipe any leftover signatures from the underlying disks for the same
+    # reason as above.
+    # shellcheck disable=SC2046
+    wipefs --all $(readlink -f "${devices[@]}")
     udevadm settle --timeout=30
 
     # Check if all expected symlinks were removed after the cleanup
