@@ -243,6 +243,7 @@ static void link_free_engines(Link *link) {
                 return;
 
         link->dhcp_relay_interface = sd_dhcp_relay_interface_unref(link->dhcp_relay_interface);
+        link->dhcp_relay_interface_compat = sd_dhcp_relay_interface_unref(link->dhcp_relay_interface_compat);
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
 
         link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
@@ -430,6 +431,10 @@ int link_stop_engines(Link *link, bool may_keep_dynamic) {
         r = sd_dhcp_relay_interface_stop(link->dhcp_relay_interface);
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCP relay agent: %m"));
+
+        r = sd_dhcp_relay_interface_stop(link->dhcp_relay_interface_compat);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCP relay agent (compat): %m"));
 
         r = sd_dhcp_server_stop(link->dhcp_server);
         if (r < 0)
@@ -1168,6 +1173,7 @@ static int link_drop_dynamic_config(Link *link, Network *network) {
         RET_GATHER(r, link_drop_dhcp6_config(link, network));
         RET_GATHER(r, link_drop_dhcp_pd_config(link, network));
         link->dhcp_relay_interface = sd_dhcp_relay_interface_unref(link->dhcp_relay_interface);
+        link->dhcp_relay_interface_compat = sd_dhcp_relay_interface_unref(link->dhcp_relay_interface_compat);
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
         link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx); /* TODO: keep the received neighbors. */
         link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
