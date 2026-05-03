@@ -209,6 +209,19 @@ static int link_configure_dhcp_relay(Link *link) {
         }
 
         link->dhcp_relay_interface = TAKE_PTR(interface);
+
+        if (link->network->dhcp_relay_interface_mode == DHCP_RELAY_INTERFACE_COMPAT) {
+                assert(!link->dhcp_relay_interface_compat);
+
+                r = sd_dhcp_relay_add_interface(
+                                link->manager->dhcp_relay,
+                                DHCP_RELAY_IFINDEX_UNBOUND,
+                                /* upstream= */ true,
+                                &link->dhcp_relay_interface_compat);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
@@ -297,6 +310,12 @@ int link_start_dhcp_relay(Link *link) {
         r = sd_dhcp_relay_interface_start(link->dhcp_relay_interface);
         if (r < 0)
                 return r;
+
+        if (link->dhcp_relay_interface_compat) {
+                r = sd_dhcp_relay_interface_start(link->dhcp_relay_interface_compat);
+                if (r < 0)
+                        return r;
+        }
 
         log_link_debug(link, "Relaying DHCPv4 messages.");
         return 0;
