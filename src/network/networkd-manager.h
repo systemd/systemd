@@ -3,6 +3,7 @@
 
 #include "networkd-forward.h"
 #include "networkd-network.h"
+#include "tlv-util.h"
 
 typedef enum ManagerState {
         MANAGER_RUNNING,
@@ -73,6 +74,13 @@ typedef struct Manager {
         DUID duid_product_uuid;
         bool has_product_uuid;
         bool product_uuid_requested;
+
+        /* DHCP relay agent */
+        sd_dhcp_relay *dhcp_relay;
+        struct in_addr dhcp_relay_server_address;
+        bool dhcp_relay_override_server_id;
+        struct iovec dhcp_relay_remote_id;
+        TLV dhcp_relay_extra_options;
 
         char* dynamic_hostname;
         char* dynamic_timezone;
