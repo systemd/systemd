@@ -56,11 +56,11 @@ at_exit() {
 trap at_exit EXIT
 
 update_checksums() {
-    (cd "$WORKDIR/source" && rm -f BEST-BEFORE-* && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
+    (cd "$WORKDIR/source" && rm -f BEST-BEFORE-* && sha256sum uki* part* dir-*.tar.gz linux* >SHA256SUMS)
 }
 
 update_checksums_with_best_before() {
-    (cd "$WORKDIR/source" && rm -f BEST-BEFORE-* && touch "BEST-BEFORE-$1" && sha256sum uki* part* dir-*.tar.gz "BEST-BEFORE-$1" >SHA256SUMS)
+    (cd "$WORKDIR/source" && rm -f BEST-BEFORE-* && touch "BEST-BEFORE-$1" && sha256sum uki* part* dir-*.tar.gz linux* "BEST-BEFORE-$1" >SHA256SUMS)
 }
 
 new_version() {
@@ -75,6 +75,10 @@ new_version() {
     dd if=/dev/urandom of="$WORKDIR/source/part1-$version.raw" bs="$sector_size" count=2047 conv=notrunc oflag=append
     dd if=/dev/urandom of="$WORKDIR/source/part2-$version.raw" bs="$sector_size" count=2048
     gzip -k -f "$WORKDIR/source/part2-$version.raw"
+
+    # Create a file payload and a suffixed version
+    echo $RANDOM >"$WORKDIR/source/linux-$version.erofs"
+    echo $RANDOM >"$WORKDIR/source/linux-$version.erofs.caibx"
 
     # Create a random "UKI" payload
     echo $RANDOM >"$WORKDIR/source/uki-$version.efi"
@@ -99,6 +103,8 @@ new_version() {
             echo "abad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1dea  part1-$version.raw"
             echo "abad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1dea  part2-$version.raw"
             echo "abad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1dea  part2-$version.raw.gz"
+            echo "abad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1dea  linux-$version.erofs"
+            echo "abad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1dea  linux-$version.erofs.caibx"
             echo "abad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1dea  uki-$version.efi"
             echo "abad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1dea  uki-extra-$version.efi"
             echo "abad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1deaabad1dea  dir-$version.tar.gz"
@@ -172,6 +178,10 @@ verify_version() {
 
     # Check the extra efi
     cmp "$WORKDIR/source/uki-extra-$version.efi" "$WORKDIR/xbootldr/EFI/Linux/uki_$version.efi.extra.d/extra.addon.efi"
+
+    # Check the regular file and its suffixed version
+    cmp "$WORKDIR/source/linux-$version.erofs" "$WORKDIR/system/linux-$version.erofs"
+    cmp "$WORKDIR/source/linux-$version.erofs.caibx" "$WORKDIR/system/linux-$version.erofs.caibx"
 }
 
 verify_version_current() {
@@ -296,6 +306,36 @@ Mode=0444
 InstancesMax=2
 EOF
 
+    # Test with a transfer which contains one of the other transfers as a prefix
+    # of its files, to check pattern matching can distinguish the two.
+    cat >"$CONFIGDIR/06-sixth.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/source
+MatchPattern=linux-@v.erofs
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/system
+MatchPattern=linux-@v.erofs
+ReadOnly=yes
+InstancesMax=4
+EOF
+
+    cat >"$CONFIGDIR/07-seventh.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/source
+MatchPattern=linux-@v.erofs.caibx
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/system
+MatchPattern=linux-@v.erofs.caibx
+ReadOnly=yes
+InstancesMax=4
+EOF
+
     cat >"$CONFIGDIR/optional.feature" <<EOF
 [Feature]
 Description=Optional Feature
@@ -319,8 +359,8 @@ Mode=0444
 InstancesMax=2
 EOF
 
-    rm -rf "${WORKDIR:?}"/{esp,xbootldr,source}
-    mkdir -p "$WORKDIR"/{source,esp/EFI/Linux,xbootldr/EFI/Linux}
+    rm -rf "${WORKDIR:?}"/{esp,xbootldr,source,system}
+    mkdir -p "$WORKDIR"/{source,esp/EFI/Linux,xbootldr/EFI/Linux,system}
 
     # Install initial version and verify
     new_version "$sector_size" v1
