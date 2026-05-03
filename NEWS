@@ -42,6 +42,12 @@ CHANGES WITH 261 in spe:
           Affected enum types: ExecInputType, ExecOutputType, ProtectHome,
           CGroupController, CollectMode, EmergencyAction, JobMode.
 
+        * ukify now resolves relative DeviceTree=/--devicetree= and
+          DeviceTreeAuto=/--devicetree-auto= paths under
+          /usr/lib/modules/<kernel-version>/dtb/. Absolute paths continue to be
+          used as-is. For relative paths, the kernel version must be specified
+          explicitly or autodetectable from the kernel image.
+
         * It was discovered that some of the events systemd-stub measures to
           the TPM were not also measured to the hardware CC registers (e.g.
           Intel TDX RTMRs) via EFI_CC_MEASUREMENT_PROTOCOL. In particular,
