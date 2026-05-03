@@ -29,6 +29,8 @@ typedef enum JsonStreamFlags {
         JSON_STREAM_PREFER_READ             = 1u << 8,
         JSON_STREAM_PREFER_WRITE            = 1u << 9,
         JSON_STREAM_OUTPUT_BUFFER_SENSITIVE = 1u << 10,
+        JSON_STREAM_DELIMITERLESS           = 1u << 11, /* brace-framed streaming, no inter-message delimiter (OVSDB, JSON-RPC 1.0).
+                                                        * Mutually exclusive with BOUNDED_READS. */
 } JsonStreamFlags;
 
 /* What the consumer's high-level state machine is currently doing — used by the various
