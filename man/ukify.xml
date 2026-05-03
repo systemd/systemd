@@ -422,7 +422,15 @@
 
           <listitem><para>The devicetree description (the <literal>.dtb</literal> section). The argument is a
           path to a compiled binary DeviceTree file. If not specified, the section will not be present.
-          </para>
+          Absolute paths are used as-is. Relative paths are resolved by looking under
+          <filename>$KERNEL_INSTALL_CONF_ROOT</filename> when set. Otherwise, they are resolved by looking under
+          <filename>/usr/lib/firmware/<replaceable>VERSION</replaceable>/device-tree/</filename>,
+          <filename>/usr/lib/linux-image-<replaceable>VERSION</replaceable>/</filename>, and
+          <filename>/usr/lib/modules/<replaceable>VERSION</replaceable>/dtb/</filename>, in that order.
+          The last location is used as the fallback when reporting a missing relative path. The kernel
+          version must be specified with
+          <varname>Uname=</varname>/<option>--uname=</option> or autodetectable from the kernel image for
+          relative paths to work.</para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
@@ -432,7 +440,9 @@
           <term><option>--devicetree-auto=<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>Zero or more automatically selectable DeviceTree files. In the configuration file, items are separated by
-          whitespace. Each DeviceTree will be in a separate <literal>.dtbauto</literal> section.</para>
+          whitespace. Each DeviceTree will be in a separate <literal>.dtbauto</literal> section. Absolute and
+          relative paths are handled as described for <varname>DeviceTree=</varname>/<option>--devicetree=</option>
+          above.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
