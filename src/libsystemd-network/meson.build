@@ -142,9 +142,6 @@ executables += [
                 'sources' : files('fuzz-dhcp-server.c'),
         },
         network_fuzz_template + {
-                'sources' : files('fuzz-dhcp-server-relay.c'),
-        },
-        network_fuzz_template + {
                 'sources' : files('fuzz-lldp-rx.c'),
         },
         network_fuzz_template + {
