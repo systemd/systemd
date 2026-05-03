@@ -855,8 +855,7 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
         if (r < 0)
                 return 0;
 
-        if (streq(interface, "org.freedesktop.network1.DHCPServer") &&
-            (!link->dhcp_server || sd_dhcp_server_is_in_relay_mode(link->dhcp_server)))
+        if (streq(interface, "org.freedesktop.network1.DHCPServer") && !link->dhcp_server)
                 return 0;
 
         if (streq(interface, "org.freedesktop.network1.DHCPv4Client") && !link->dhcp_client)
