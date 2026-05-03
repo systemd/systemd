@@ -44,7 +44,6 @@ struct sd_dhcp_client {
 
         uint16_t port;
         uint16_t server_port;
-        union sockaddr_union link;
         sd_event_source *receive_message;
         bool request_broadcast;
         Set *req_opts;
