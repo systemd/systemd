@@ -8,6 +8,12 @@ CHANGES WITH 262:
           the symlink target. Previously, these were only expanded in the
           source.
 
+        * ukify now resolves relative DeviceTree=/--devicetree= and
+          DeviceTreeAuto=/--devicetree-auto= paths using kernel-install's
+          devicetree lookup paths. Absolute paths continue to be used as-is.
+          For relative paths, the kernel version must be specified explicitly
+          or autodetectable from the kernel image.
+
 CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:
