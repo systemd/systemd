@@ -64,6 +64,11 @@ if build_root and (
 ).exists():
     arg_tools += ['--stub', p]
 
+
+def module_dtb_path(uname, path):
+    return pathlib.Path('/usr/lib/modules') / uname / 'dtb' / path
+
+
 def systemd_measure():
     opts = ukify.create_parser().parse_args(arg_tools)
     return ukify.find_tool('systemd-measure', opts=opts)
@@ -103,6 +108,7 @@ def test_apply_config(tmp_path):
                   6 7 8
         OSRelease = @some/path1
         DeviceTree = some/path2
+        DeviceTreeAuto = auto/path1 auto/path2
         Splash = some/path3
         Uname = 1.2.3
         EFIArch=arm
@@ -131,6 +137,7 @@ def test_apply_config(tmp_path):
     assert ns.cmdline == '1 2 3 4 5\n6 7 8'
     assert ns.os_release == '@some/path1'
     assert ns.devicetree == pathlib.Path('some/path2')
+    assert ns.devicetree_auto == [pathlib.Path('auto/path1'), pathlib.Path('auto/path2')]
     assert ns.splash == pathlib.Path('some/path3')
     assert ns.efi_arch == 'arm'
     assert ns.stub == pathlib.Path('some/path4')
@@ -153,7 +160,11 @@ def test_apply_config(tmp_path):
                          pathlib.Path('initrd3')]
     assert ns.cmdline == '1 2 3 4 5 6 7 8'
     assert ns.os_release == pathlib.Path('some/path1')
-    assert ns.devicetree == pathlib.Path('some/path2')
+    assert ns.devicetree == module_dtb_path('1.2.3', 'some/path2')
+    assert ns.devicetree_auto == [
+        module_dtb_path('1.2.3', 'auto/path1'),
+        module_dtb_path('1.2.3', 'auto/path2'),
+    ]
     assert ns.splash == pathlib.Path('some/path3')
     assert ns.efi_arch == 'arm'
     assert ns.stub == pathlib.Path('some/path4')
@@ -179,11 +190,14 @@ def test_parse_args_minimal():
                                pathlib.Path('/usr/lib/os-release'))
 
 def test_parse_args_many_deprecated():
+    uname = '1.2.3'
+
     opts = ukify.parse_args(
         ['/ARG1', '///ARG2', '/ARG3 WITH SPACE',
          '--cmdline=a b c',
          '--os-release=K1=V1\nK2=V2',
          '--devicetree=DDDDTTTT',
+         '--devicetree-auto=AAAADDDDTTTT',
          '--splash=splash',
          '--pcrpkey=PATH',
          '--uname=1.2.3',
@@ -205,10 +219,11 @@ def test_parse_args_many_deprecated():
     assert opts.initrd == [pathlib.Path('/ARG2'), pathlib.Path('/ARG3 WITH SPACE')]
     assert opts.cmdline == 'a b c'
     assert opts.os_release == 'K1=V1\nK2=V2'
-    assert opts.devicetree == pathlib.Path('DDDDTTTT')
+    assert opts.devicetree == module_dtb_path(uname, 'DDDDTTTT')
+    assert opts.devicetree_auto == [module_dtb_path(uname, 'AAAADDDDTTTT')]
     assert opts.splash == pathlib.Path('splash')
     assert opts.pcrpkey == pathlib.Path('PATH')
-    assert opts.uname == '1.2.3'
+    assert opts.uname == uname
     assert opts.stub == pathlib.Path('STUBPATH')
     assert opts.pcr_private_keys == ['PKEY1']
     assert opts.pcr_public_keys == ['PKEY2']
@@ -222,6 +237,8 @@ def test_parse_args_many_deprecated():
     assert opts.measure is False
 
 def test_parse_args_many():
+    uname = '1.2.3'
+
     opts = ukify.parse_args(
         ['build',
          '--linux=/ARG1',
@@ -230,6 +247,7 @@ def test_parse_args_many():
          '--cmdline=a b c',
          '--os-release=K1=V1\nK2=V2',
          '--devicetree=DDDDTTTT',
+         '--devicetree-auto=AAAADDDDTTTT',
          '--splash=splash',
          '--pcrpkey=PATH',
          '--uname=1.2.3',
@@ -253,10 +271,11 @@ def test_parse_args_many():
     assert opts.initrd == [pathlib.Path('/ARG2'), pathlib.Path('/ARG3 WITH SPACE')]
     assert opts.cmdline == 'a b c'
     assert opts.os_release == 'K1=V1\nK2=V2'
-    assert opts.devicetree == pathlib.Path('DDDDTTTT')
+    assert opts.devicetree == module_dtb_path(uname, 'DDDDTTTT')
+    assert opts.devicetree_auto == [module_dtb_path(uname, 'AAAADDDDTTTT')]
     assert opts.splash == pathlib.Path('splash')
     assert opts.pcrpkey == pathlib.Path('PATH')
-    assert opts.uname == '1.2.3'
+    assert opts.uname == uname
     assert opts.stub == pathlib.Path('STUBPATH')
     assert opts.pcr_private_keys == ['PKEY1']
     assert opts.pcr_public_keys == ['PKEY2']
@@ -294,6 +313,8 @@ def test_parse_sections():
     assert opts.sections[1].measure is False
 
 def test_config_priority(tmp_path):
+    uname = '1.2.3'
+
     config = tmp_path / 'config1.conf'
     # config: use pesign and give certdir + certname
     config.write_text(textwrap.dedent(
@@ -361,10 +382,10 @@ def test_config_priority(tmp_path):
                            pathlib.Path('/ARG3 WITH SPACE')]
     assert opts.cmdline == 'a b c'
     assert opts.os_release == 'K1=V1\nK2=V2'
-    assert opts.devicetree == pathlib.Path('DDDDTTTT')
+    assert opts.devicetree == module_dtb_path(uname, 'DDDDTTTT')
     assert opts.splash == pathlib.Path('splash')
     assert opts.pcrpkey == pathlib.Path('PATH')
-    assert opts.uname == '1.2.3'
+    assert opts.uname == uname
     assert opts.stub == pathlib.Path('STUBPATH')
     assert opts.pcr_private_keys == ['PKEY1', 'some/path7']
     assert opts.pcr_public_keys == ['PKEY2', 'some/path8']
