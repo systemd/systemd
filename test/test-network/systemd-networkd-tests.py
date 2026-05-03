@@ -8361,11 +8361,22 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
         tear_down_common()
 
     def test_relay_agent(self):
+        check_output('ip netns add ns-server')
+        check_output('ip link add server type veth peer server-peer')
+        check_output('ip link set server netns ns-server')
+        check_output('ip netns exec ns-server ip link set server up')
+        check_output('ip netns exec ns-server ip address add 192.0.2.1/24 dev server')
+
+        start_dnsmasq(
+            namespace='ns-server',
+            interface='server',
+            ipv4_range='198.51.100.100,198.51.100.109',
+            ipv4_router='198.51.100.10',
+        )
+
         copy_network_unit(
             '25-agent-veth-client.netdev',
-            '25-agent-veth-server.netdev',
             '25-agent-client.network',
-            '25-agent-server.network',
             '25-agent-client-peer.network',
             '25-agent-server-peer.network',
         )
@@ -8375,7 +8386,7 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
 
         output = networkctl_status('client')
         print(output)
-        self.assertRegex(output, r'Address: 192.168.5.150 \(DHCPv4 via 192.168.5.1\)')
+        self.assertRegex(output, r'Address: 198\.51\.100\.10[0-9] \(DHCPv4 via 192\.0\.2\.1\)')
 
     def test_relay_agent_on_bridge(self):
         copy_network_unit(
@@ -8389,7 +8400,7 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
         self.wait_online('bridge-relay:routable', 'client-peer:enslaved')
 
         # For issue #30763.
-        self.check_networkd_log('bridge-relay: DHCPv4 server: STARTED')
+        self.check_networkd_log('bridge-relay: Relaying DHCPv4 messages')
 
     def test_sd_dhcp_relay(self):
         check_output('ip netns add ns-relay')
