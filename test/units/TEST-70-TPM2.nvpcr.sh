@@ -20,7 +20,8 @@ at_exit() {
         jq --seq --slurp </run/log/systemd/tpm2-measure.log
     fi
 
-    rm -rf /run/nvpcr
+    rm -rf /run/nvpcr /tmp/nvpcr
+    rm -f /var/tmp/nvpcr.raw /run/verity.d/test-70-nvpcr.crt /run/systemd/nvpcr/test.anchor
 }
 
 trap at_exit EXIT
