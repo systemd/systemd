@@ -7,6 +7,7 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "in-addr-util.h"
+#include "iovec-util.h"
 #include "net-condition.h"
 #include "netdev/macvlan.h"
 #include "netif-sriov.h"
@@ -432,6 +433,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_pd_subnet_id = -1,
                 .dhcp_pd_route_metric = DHCP6PD_ROUTE_METRIC,
 
+                .dhcp_relay_interface_mode = _DHCP_RELAY_INTERFACE_INVALID,
+                .dhcp_relay_extra_options = TLV_INIT(TLV_DHCP4_SUBOPTION),
+
                 .dhcp_server_bind_to_interface = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_DNS].emit = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_NTP].emit = true,
@@ -546,6 +550,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "DHCPv6\0"
                         "DHCPv6PrefixDelegation\0" /* compat */
                         "DHCPPrefixDelegation\0"
+                        "DHCPRelay\0"
                         "DHCPServer\0"
                         "DHCPServerStaticLease\0"
                         "IPv6AcceptRA\0"
@@ -765,6 +770,11 @@ static Network *network_free(Network *network) {
         ordered_set_free(network->search_domains);
         ordered_set_free(network->route_domains);
         set_free(network->dnssec_negative_trust_anchors);
+
+        /* DHCP relay agent */
+        iovec_done(&network->dhcp_relay_circuit_id);
+        iovec_done(&network->dhcp_relay_vss);
+        tlv_done(&network->dhcp_relay_extra_options);
 
         /* DHCP server */
         free(network->dhcp_server_relay_agent_circuit_id);
