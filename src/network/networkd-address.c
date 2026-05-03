@@ -19,6 +19,7 @@
 #include "networkd-address.h"
 #include "networkd-address-pool.h"
 #include "networkd-dhcp-prefix-delegation.h"
+#include "networkd-dhcp-relay.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-link.h"
@@ -244,6 +245,9 @@ static Address* address_detach_impl(Address *address) {
 
                 if (address->network->dhcp_server_address == address)
                         address->network->dhcp_server_address = NULL;
+
+                if (address->network->dhcp_relay_agent_address == address)
+                        address->network->dhcp_relay_agent_address = NULL;
 
                 address->network = NULL;
                 return address;
@@ -892,6 +896,8 @@ static int address_drop(Address *in, bool removed_by_us) {
                 link->ipv6ll_address = (const struct in6_addr) {};
 
         ipv4acd_detach(link, address);
+
+        (void) link_dhcp_relay_address_dropped(link, address);
 
         address_detach(address);
 
@@ -2482,5 +2488,6 @@ int network_drop_invalid_addresses(Network *network) {
         if (r < 0)
                 return r;
 
+        network_adjust_dhcp_relay(network);
         return 0;
 }
