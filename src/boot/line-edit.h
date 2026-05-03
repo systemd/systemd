@@ -2,5 +2,6 @@
 #pragma once
 
 #include "efi.h"
+#include "palette.h"
 
-bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos);
+bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos, const EfiPalette *palette);

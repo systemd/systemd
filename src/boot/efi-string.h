@@ -119,6 +119,8 @@ bool parse_boolean(const char *v, bool *ret);
 
 char* line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, char **ret_value);
 
+char* parse_array(char *s, const char *sep, size_t *pos);
+
 char16_t *hexdump(const void *data, size_t size);
 
 #ifdef __clang__
