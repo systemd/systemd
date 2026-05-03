@@ -4144,52 +4144,6 @@ ServerAddress=192.168.0.1/24</programlisting>
           <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
-      <varlistentry>
-        <term><varname>BindToInterface=</varname></term>
-        <listitem>
-          <para>Takes a boolean value. When <literal>yes</literal>, DHCP server socket will be bound
-          to its network interface and all socket communication will be restricted to this interface.
-          Defaults to <literal>yes</literal>, except if <varname>RelayTarget=</varname> is used (see below),
-          in which case it defaults to <literal>no</literal>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v249"/>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>RelayTarget=</varname></term>
-        <listitem>
-          <para>Takes an IPv4 address, which must be in the format described in
-          <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-          Turns this DHCP server into a DHCP relay agent. See <ulink url="https://tools.ietf.org/html/rfc1542">RFC 1542</ulink>.
-          The address is the address of DHCP server or another relay agent to forward DHCP messages to and from.</para>
-
-          <xi:include href="version-info.xml" xpointer="v249"/>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>RelayAgentCircuitId=</varname></term>
-        <listitem>
-          <para>Specifies value for Agent Circuit ID suboption of Relay Agent Information option.
-          Takes a string, which must be in the format <literal>string:<replaceable>value</replaceable></literal>,
-          where <literal><replaceable>value</replaceable></literal> should be replaced with the value of the suboption.
-          Defaults to unset (means no Agent Circuit ID suboption is generated).
-          Ignored if <varname>RelayTarget=</varname> is not specified.</para>
-
-          <xi:include href="version-info.xml" xpointer="v249"/>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>RelayAgentRemoteId=</varname></term>
-        <listitem>
-          <para>Specifies value for Agent Remote ID suboption of Relay Agent Information option.
-          Takes a string, which must be in the format <literal>string:<replaceable>value</replaceable></literal>,
-          where <literal><replaceable>value</replaceable></literal> should be replaced with the value of the suboption.
-          Defaults to unset (means no Agent Remote ID suboption is generated).
-          Ignored if <varname>RelayTarget=</varname> is not specified.</para>
-
-          <xi:include href="version-info.xml" xpointer="v249"/>
-        </listitem>
-      </varlistentry>
 
       <varlistentry>
         <term><varname>RapidCommit=</varname></term>

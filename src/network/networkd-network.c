@@ -436,7 +436,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_relay_interface_mode = _DHCP_RELAY_INTERFACE_INVALID,
                 .dhcp_relay_extra_options = TLV_INIT(TLV_DHCP4_SUBOPTION),
 
-                .dhcp_server_bind_to_interface = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_DNS].emit = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_NTP].emit = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_SIP].emit = true,
@@ -776,8 +775,6 @@ static Network *network_free(Network *network) {
         tlv_done(&network->dhcp_relay_extra_options);
 
         /* DHCP server */
-        free(network->dhcp_server_relay_agent_circuit_id);
-        free(network->dhcp_server_relay_agent_remote_id);
         free(network->dhcp_server_boot_server_name);
         free(network->dhcp_server_boot_filename);
         free(network->dhcp_server_timezone);
