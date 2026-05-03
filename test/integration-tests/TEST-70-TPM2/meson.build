@@ -10,5 +10,6 @@ integration_tests += [
                 'vm' : true,
                 'firmware' : 'auto',
                 'tpm' : true,
+                'cmdline' : ['systemd.default_device_timeout_sec=300'],
         },
 ]
