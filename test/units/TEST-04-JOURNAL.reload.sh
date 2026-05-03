@@ -11,12 +11,12 @@ MACHINE_ID="$(</etc/machine-id)"
 SYSLOG_ID="$(systemd-id128 new)"
 
 SERVICE_COUNTER=0
+SERVICE_NAME=
 
 write_to_journal() {
-    local service="test-$((SERVICE_COUNTER++))-${RANDOM}.service"
+    SERVICE_NAME="test-$((SERVICE_COUNTER++))-${RANDOM}.service"
 
-    systemd-run -q --wait -u "$service" bash -c "echo service=$service invocation=\$INVOCATION_ID; journalctl --sync"
-    echo "$service"
+    systemd-run -q --wait -u "$SERVICE_NAME" bash -c "echo service=$SERVICE_NAME invocation=\$INVOCATION_ID; journalctl --sync"
 }
 
 verify_journals() {
@@ -62,7 +62,8 @@ systemctl restart systemd-journald.service
 
 : "Add entries in system."
 journalctl --flush
-VAL1=$(write_to_journal)
+write_to_journal
+VAL1="$SERVICE_NAME"
 verify_journals "$VAL1" persistent
 
 : "Reload journald (persistent->persistent)"
@@ -73,7 +74,8 @@ verify_journals "$VAL1" persistent
 
 : "Add entries in runtime"
 journalctl --relinquish
-VAL2=$(write_to_journal)
+write_to_journal
+VAL2="$SERVICE_NAME"
 verify_journals "$VAL2" runtime
 
 : "Reload journald after relinquish (persistent->persistent)"
@@ -84,13 +86,13 @@ verify_journals "$VAL1" persistent
 verify_journals "$VAL2" runtime
 
 : "Write new message and confirm it's written to runtime."
-VAL=$(write_to_journal)
-verify_journals "$VAL" runtime
+write_to_journal
+verify_journals "$SERVICE_NAME" runtime
 
 : "Flush and confirm that messages are written to system."
 journalctl --flush
-VAL=$(write_to_journal)
-verify_journals "$VAL" persistent
+write_to_journal
+verify_journals "$SERVICE_NAME" persistent
 
 # Test persistent->volatile
 cat <<EOF >/run/systemd/journald.conf.d/reload.conf
@@ -100,16 +102,16 @@ EOF
 
 : "Confirm old message exists where it was written to persistent journal."
 systemctl reload systemd-journald.service
-verify_journals "$VAL" persistent
+verify_journals "$SERVICE_NAME" persistent
 
 : "Confirm that new message is written to runtime journal."
-VAL=$(write_to_journal)
-verify_journals "$VAL" runtime
+write_to_journal
+verify_journals "$SERVICE_NAME" runtime
 
 : "Test volatile works and logs are NOT getting written to system journal despite flush."
 journalctl --flush
-VAL=$(write_to_journal)
-verify_journals "$VAL" runtime
+write_to_journal
+verify_journals "$SERVICE_NAME" runtime
 
 : "Disable compression"
 cat <<EOF >/run/systemd/journald.conf.d/reload.conf
@@ -154,8 +156,8 @@ if (( total_size > max_size )) && (( num_archived_journals > 0 )); then
 fi
 
 : "Write a message to runtime journal"
-VAL=$(write_to_journal)
-verify_journals "$VAL" runtime
+write_to_journal
+verify_journals "$SERVICE_NAME" runtime
 
 : "Reload volatile->persistent"
 cat <<EOF >/run/systemd/journald.conf.d/reload.conf
@@ -165,15 +167,15 @@ EOF
 systemctl reload systemd-journald.service
 
 : "Confirm that previous message is still in runtime journal."
-verify_journals "$VAL" runtime
+verify_journals "$SERVICE_NAME" runtime
 
 : "Confirm that new messages are written to runtime journal."
-VAL=$(write_to_journal)
-verify_journals "$VAL" runtime
+write_to_journal
+verify_journals "$SERVICE_NAME" runtime
 
 : "Confirm that flushing writes to system journal."
 journalctl --flush
-verify_journals "$VAL" persistent
+verify_journals "$SERVICE_NAME" persistent
 
 : "Disable compression"
 cat <<EOF >/run/systemd/journald.conf.d/reload.conf
