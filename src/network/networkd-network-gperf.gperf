@@ -132,6 +132,7 @@ Network.VLAN,                                    config_parse_stacked_netdev,   
 Network.VXLAN,                                   config_parse_stacked_netdev,                    NETDEV_KIND_VXLAN,                      offsetof(Network, stacked_netdev_names)
 Network.Xfrm,                                    config_parse_stacked_netdev,                    NETDEV_KIND_XFRM,                       offsetof(Network, stacked_netdev_names)
 Network.DHCP,                                    config_parse_dhcp,                              0,                                      offsetof(Network, dhcp)
+Network.DHCPRelay,                               config_parse_dhcp_relay_interface_mode,         0,                                      offsetof(Network, dhcp_relay_interface_mode)
 Network.DHCPServer,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_server)
 Network.LinkLocalAddressing,                     config_parse_link_local_address_family,         0,                                      offsetof(Network, link_local)
 Network.IPv6LinkLocalAddressGenerationMode,      config_parse_ipv6_link_local_address_gen_mode,  0,                                      offsetof(Network, ipv6ll_address_gen_mode)
@@ -359,6 +360,12 @@ IPv6AcceptRA.RouteDenyList,                      config_parse_in_addr_prefixes, 
 IPv6AcceptRA.Token,                              config_parse_address_generation_type,           0,                                      offsetof(Network, ndisc_tokens)
 IPv6AcceptRA.NetLabel,                           config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, ndisc_netlabel)
 IPv6AcceptRA.NFTSet,                             config_parse_nft_set,                           NFT_SET_PARSE_NETWORK,                  offsetof(Network, ndisc_nft_set_context)
+DHCPRelay.AgentAddress,                          config_parse_in_addr_non_null,                  AF_INET,                                offsetof(Network, dhcp_relay_agent_address_in_addr)
+DHCPRelay.GatewayAddress,                        config_parse_in_addr_non_null,                  AF_INET,                                offsetof(Network, dhcp_relay_gateway_address)
+DHCPRelay.CircuitId,                             config_parse_dhcp_option,                       /* check_length= */ true,               offsetof(Network, dhcp_relay_circuit_id)
+DHCPRelay.VirtualSubnetSelection,                config_parse_dhcp_option,                       /* check_length= */ true,               offsetof(Network, dhcp_relay_vss)
+DHCPRelay.ExtraOption,                           config_parse_dhcp_option_tlv,                   0,                                      offsetof(Network, dhcp_relay_extra_options)
+DHCPRelay.InterfacePriority,                     config_parse_int,                               0,                                      offsetof(Network, dhcp_relay_interface_priority)
 DHCPServer.ServerAddress,                        config_parse_dhcp_server_address,               0,                                      0
 DHCPServer.UplinkInterface,                      config_parse_uplink,                            0,                                      0
 DHCPServer.RelayTarget,                          config_parse_in_addr_non_null,                  AF_INET,                                offsetof(Network, dhcp_server_relay_target)
