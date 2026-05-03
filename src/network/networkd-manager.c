@@ -49,11 +49,16 @@
 #include "networkd-wiphy.h"
 #include "networkd-wwan-bus.h"
 #include "ordered-set.h"
+#if ENABLE_OPENVSWITCH
+#include "networkd-ovs.h"
+#include "ovsdb/ovsdb-client.h"
+#endif
 #include "qdisc.h"
 #include "set.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "tclass.h"
 #include "tuntap.h"
 #include "udev-util.h"
@@ -742,6 +747,15 @@ Manager* manager_free(Manager *m) {
 
         m->tuntap_fds_by_name = hashmap_free(m->tuntap_fds_by_name);
 
+#if ENABLE_OPENVSWITCH
+        /* Reassign so the in-flight callbacks fired by cancel_all (during unref)
+         * see m->ovsdb == NULL via try_pending's guard, otherwise they re-enter
+         * ovs_reconcile() against the about-to-be-freed client. */
+        m->ovsdb = ovsdb_client_unref(m->ovsdb);
+#endif
+        sd_event_source_disable_unref(m->ovs_reconnect_timer);
+        free(m->ovs_socket_path);
+
         m->wiphy_by_name = hashmap_free(m->wiphy_by_name);
         m->wiphy_by_index = hashmap_free(m->wiphy_by_index);
 
@@ -848,6 +862,329 @@ int manager_start(Manager *m) {
         return 0;
 }
 
+static void manager_count_ovs_usage(Manager *m) {
+        NetDev *netdev;
+        Network *network;
+
+        assert(m);
+
+        m->ovs_use_count = 0;
+
+        HASHMAP_FOREACH(netdev, m->netdevs)
+                if (IN_SET(netdev->kind,
+                           NETDEV_KIND_OVS_BRIDGE,
+                           NETDEV_KIND_OVS_PORT,
+                           NETDEV_KIND_OVS_TUNNEL))
+                        m->ovs_use_count++;
+
+        ORDERED_HASHMAP_FOREACH(network, m->networks)
+                if (network->ovs_bridge_name || network->ovs_bond_name)
+                        m->ovs_use_count++;
+}
+
+#if ENABLE_OPENVSWITCH
+#define OVS_DEFAULT_SOCKET_PATH "/run/openvswitch/db.sock"
+
+static int manager_ovs_reconnect_handler(sd_event_source *s, uint64_t usec, void *userdata);
+
+static int manager_ovs_on_monitor_initial(
+                OVSDBClient *client,
+                sd_json_variant *result,
+                sd_json_variant *error,
+                void *userdata) {
+
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        if (error) {
+                _cleanup_free_ char *text = NULL;
+                (void) sd_json_variant_format(error, 0, &text);
+                log_warning("OVSDB monitor_cond failed: %s, will reconnect", strna(text));
+
+                m->ovsdb = ovsdb_client_unref(m->ovsdb);
+                m->ovs_inflight_transacts = 0;
+                m->ovs_reconcile_pending = false;
+                m->ovs_pending_teardown = false;
+
+                if (m->ovs_reconnect_delay == 0)
+                        m->ovs_reconnect_delay = 1 * USEC_PER_SEC;
+                m->ovs_reconnect_timer = sd_event_source_disable_unref(m->ovs_reconnect_timer);
+                (void) sd_event_add_time_relative(m->event, &m->ovs_reconnect_timer,
+                                CLOCK_MONOTONIC, m->ovs_reconnect_delay, 0,
+                                manager_ovs_reconnect_handler, m);
+                m->ovs_reconnect_delay = MIN(m->ovs_reconnect_delay * 2, 30 * USEC_PER_SEC);
+                return 0;
+        }
+
+        if (!result) {
+                /* Both result and error NULL: monitor subscription failed internally
+                 * (OOM, or monitor_cache apply failure). Treat as failure and reconnect. */
+                log_warning("OVSDB monitor_cond produced no result, scheduling reconnect");
+
+                m->ovsdb = ovsdb_client_unref(m->ovsdb);
+                m->ovs_inflight_transacts = 0;
+                m->ovs_reconcile_pending = false;
+                m->ovs_pending_teardown = false;
+
+                if (m->ovs_reconnect_delay == 0)
+                        m->ovs_reconnect_delay = 1 * USEC_PER_SEC;
+                m->ovs_reconnect_timer = sd_event_source_disable_unref(m->ovs_reconnect_timer);
+                (void) sd_event_add_time_relative(m->event, &m->ovs_reconnect_timer,
+                                CLOCK_MONOTONIC, m->ovs_reconnect_delay, 0,
+                                manager_ovs_reconnect_handler, m);
+                m->ovs_reconnect_delay = MIN(m->ovs_reconnect_delay * 2, 30 * USEC_PER_SEC);
+                return 0;
+        }
+
+        log_debug("OVSDB monitor initial snapshot received, reconciling");
+
+        if (m->ovs_clear_on_boot && access("/run/systemd/netif/ovs-cleared", F_OK) < 0) {
+                /* First boot with ClearDatabaseOnBoot=yes: wipe and re-create.
+                 * Marker file and reconciliation are set up from ovs_clear_done(). */
+                r = ovs_clear_database(m);
+                if (r < 0) {
+                        log_warning_errno(r, "OVS database clear failed, falling back to reconcile: %m");
+                        r = ovs_reconcile(m);
+                        if (r < 0)
+                                log_warning_errno(r, "OVS reconciliation failed: %m");
+                }
+        } else {
+                r = ovs_reconcile(m);
+                if (r < 0)
+                        log_warning_errno(r, "OVS reconciliation failed: %m");
+        }
+
+        return 0;
+}
+
+static int manager_ovs_maybe_start(Manager *m);
+
+static int manager_ovs_reconnect_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        m->ovs_reconnect_timer = sd_event_source_disable_unref(m->ovs_reconnect_timer);
+
+        log_debug("OVS reconnect timer fired, attempting reconnect");
+        (void) manager_ovs_maybe_start(m);
+        return 0;
+}
+
+static void manager_ovs_on_update(OVSDBClient *client, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        /* Monitor cache was updated — re-reconcile to pick up deferred
+         * .network attachments that were waiting for a bridge to appear.
+         *
+         * BUT: every transact we send to OVSDB also produces an update2
+         * notification on the same connection (the server broadcasts row
+         * changes to all subscribed monitors, including the one that caused
+         * them). If we re-entered ovs_reconcile() here we would re-emit the
+         * same UPDATE rows, the server would echo another update2, and we'd
+         * spin in a back-to-back transact storm until idempotency happened
+         * to produce no further row changes. Suppress while we have any
+         * transact in flight; ovs_reconcile_done drains the counter and
+         * picks up the unified ovs_reconcile_pending flag if anything
+         * coalesced during the in-flight window. */
+        if (m->ovs_inflight_transacts > 0) {
+                log_debug("OVSDB update arrived while %u transact(s) in flight, suppressing self-induced reconcile",
+                          m->ovs_inflight_transacts);
+                /* Mark pending so the in-flight transact's *_done callback
+                 * runs reconcile after draining — that's the only way to
+                 * guarantee externally-relevant updates aren't lost. */
+                m->ovs_reconcile_pending = true;
+                return;
+        }
+
+        /* Drain any coalesced pending reconcile (cleared by us; ovs_reconcile
+         * still runs unconditionally because some externally-triggered update
+         * may have caused this callback even with no pending flag set). */
+        m->ovs_reconcile_pending = false;
+        m->ovs_pending_teardown = false;
+
+        log_debug("OVSDB monitor cache updated, re-reconciling");
+        r = ovs_reconcile(m);
+        if (r < 0)
+                log_warning_errno(r, "OVS re-reconciliation after monitor update failed: %m");
+}
+
+static int manager_ovs_state_changed(
+                OVSDBClient *client,
+                OVSDBClientState old_state,
+                OVSDBClientState new_state,
+                void *userdata) {
+
+        Manager *m = ASSERT_PTR(userdata);
+
+        if (new_state == OVSDB_CLIENT_READY) {
+                int r;
+
+                m->ovs_reconnect_delay = 1 * USEC_PER_SEC; /* reset backoff */
+
+                log_debug("Connected to OVSDB at '%s'",
+                          m->ovs_socket_path ?: OVS_DEFAULT_SOCKET_PATH);
+
+                /* Subscribe to monitor updates; reconcile runs after the initial snapshot arrives */
+                r = ovsdb_client_monitor_cond(client, manager_ovs_on_monitor_initial, m);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to subscribe to OVSDB monitor, scheduling reconnect: %m");
+
+                        /* Without a monitor subscription the client is READY but
+                         * useless: ovs_reconcile() returns 0 silently because the
+                         * monitor cache is NULL, the snapshot callback was never
+                         * installed so it'll never arrive, and we'd silently miss
+                         * every later reload/link-trigger reconcile. Drop the
+                         * client and arm the reconnect timer so the next attempt
+                         * gets a fresh client and another monitor_cond. */
+                        m->ovsdb = ovsdb_client_unref(m->ovsdb);
+                        m->ovs_inflight_transacts = 0;
+                        m->ovs_reconcile_pending = false;
+                        m->ovs_pending_teardown = false;
+
+                        m->ovs_reconnect_timer = sd_event_source_disable_unref(m->ovs_reconnect_timer);
+                        if (m->ovs_reconnect_delay == 0)
+                                m->ovs_reconnect_delay = 1 * USEC_PER_SEC;
+                        (void) sd_event_add_time_relative(m->event, &m->ovs_reconnect_timer,
+                                        CLOCK_MONOTONIC, m->ovs_reconnect_delay, 0,
+                                        manager_ovs_reconnect_handler, m);
+                        m->ovs_reconnect_delay = MIN(m->ovs_reconnect_delay * 2, 30 * USEC_PER_SEC);
+                }
+        }
+
+        if (new_state == OVSDB_CLIENT_FAILED) {
+                int r;
+
+                /* Initialise on first FAILED before any successful connect, otherwise a
+                 * delay of 0 produces an immediate reconnect and `delay * 2` keeps it
+                 * stuck at 0 — a tight reconnect spin against a dead ovsdb-server. */
+                if (m->ovs_reconnect_delay == 0)
+                        m->ovs_reconnect_delay = 1 * USEC_PER_SEC;
+
+                log_warning("OVSDB client failed, scheduling reconnect in %s",
+                            FORMAT_TIMESPAN(m->ovs_reconnect_delay, USEC_PER_SEC));
+                m->ovsdb = ovsdb_client_unref(m->ovsdb);
+                m->ovs_inflight_transacts = 0;
+                m->ovs_reconcile_pending = false;
+                m->ovs_pending_teardown = false;
+
+                /* Cancel any previous reconnect timer before scheduling a new one */
+                m->ovs_reconnect_timer = sd_event_source_disable_unref(m->ovs_reconnect_timer);
+
+                /* Schedule reconnect timer */
+                r = sd_event_add_time_relative(
+                                m->event,
+                                &m->ovs_reconnect_timer,
+                                CLOCK_MONOTONIC,
+                                m->ovs_reconnect_delay,
+                                0,
+                                manager_ovs_reconnect_handler,
+                                m);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to schedule OVS reconnect: %m");
+                        return 0;
+                }
+
+                /* Exponential backoff: 1s -> 2s -> 4s -> 8s -> 16s -> 30s (cap) */
+                m->ovs_reconnect_delay = MIN(m->ovs_reconnect_delay * 2, 30 * USEC_PER_SEC);
+        }
+
+        return 0;
+}
+#endif
+
+static int manager_ovs_maybe_start(Manager *m) {
+        assert(m);
+
+        manager_count_ovs_usage(m);
+
+        if (m->ovs_use_count == 0) {
+#if ENABLE_OPENVSWITCH
+                /* If we still have a live, READY client, run a final reconcile
+                 * before tearing down. With desired state empty, ovs_reconcile()
+                 * emits DELETE ops that sweep our managed rows out of OVSDB.
+                 * The actual unref is deferred to ovs_reconcile_done() once the
+                 * delete transact is acknowledged, so the bytes actually reach
+                 * the server instead of being discarded by cancel_all() in unref. */
+                if (m->ovsdb && ovsdb_client_get_state(m->ovsdb) == OVSDB_CLIENT_READY) {
+                        int r;
+
+                        m->ovs_pending_teardown = true;
+                        r = ovs_reconcile(m);
+                        if (r < 0)
+                                log_warning_errno(r, "Final OVS reconcile before teardown failed, tearing down anyway: %m");
+                        else if (m->ovs_inflight_transacts > 0)
+                                /* Deferred teardown: ovs_reconcile_done sees ovs_pending_teardown
+                                 * and unrefs after the delete transact is processed. */
+                                return 0;
+                        /* else: reconcile found nothing to do (no managed rows), fall through
+                         * to immediate teardown */
+                }
+                m->ovs_reconnect_timer = sd_event_source_disable_unref(m->ovs_reconnect_timer);
+                m->ovs_reconnect_delay = 0;
+                m->ovsdb = ovsdb_client_unref(m->ovsdb);
+                m->ovs_inflight_transacts = 0;
+                m->ovs_reconcile_pending = false;
+                m->ovs_pending_teardown = false;
+#endif
+                return 0;
+        }
+
+#if ENABLE_OPENVSWITCH
+        const char *socket_path;
+        int r;
+
+        /* OVS configs were re-added (or first-arrived) before a previously-armed
+         * teardown had a chance to drain. Cancel the deferred teardown so the
+         * next ovs_reconcile_done doesn't unref the client we are about to use. */
+        m->ovs_pending_teardown = false;
+
+        if (m->ovsdb) {
+                /* Client already exists. If it's READY, re-reconcile
+                 * to pick up config changes from reload. */
+                if (ovsdb_client_get_state(m->ovsdb) == OVSDB_CLIENT_READY) {
+                        r = ovs_reconcile(m);
+                        if (r < 0)
+                                log_warning_errno(r, "OVS re-reconciliation after reload failed: %m");
+                }
+                return 0;
+        }
+
+        if (m->ovs_reconnect_delay == 0)
+                m->ovs_reconnect_delay = 1 * USEC_PER_SEC;
+
+        socket_path = m->ovs_socket_path ?: OVS_DEFAULT_SOCKET_PATH;
+        r = ovsdb_client_new(&m->ovsdb, m->event, socket_path);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to create OVSDB client: %m");
+
+        ovsdb_client_set_state_cb(m->ovsdb, manager_ovs_state_changed, m);
+        ovsdb_client_set_update_cb(m->ovsdb, manager_ovs_on_update, m);
+
+        r = ovsdb_client_start(m->ovsdb);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to start OVSDB client, will retry: %m");
+                m->ovsdb = ovsdb_client_unref(m->ovsdb);
+                m->ovs_inflight_transacts = 0;
+                m->ovs_reconcile_pending = false;
+                m->ovs_pending_teardown = false;
+                /* Schedule retry with backoff */
+                if (m->ovs_reconnect_delay == 0)
+                        m->ovs_reconnect_delay = 1 * USEC_PER_SEC;
+                m->ovs_reconnect_timer = sd_event_source_disable_unref(m->ovs_reconnect_timer);
+                (void) sd_event_add_time_relative(m->event, &m->ovs_reconnect_timer,
+                                CLOCK_MONOTONIC, m->ovs_reconnect_delay, 0,
+                                manager_ovs_reconnect_handler, m);
+                m->ovs_reconnect_delay = MIN(m->ovs_reconnect_delay * 2, 30 * USEC_PER_SEC);
+                return 0; /* don't propagate error — retry scheduled */
+        }
+
+        log_debug("OVSDB client started, handshaking... (ovs_use_count=%u)", m->ovs_use_count);
+#else
+        log_once(LOG_WARNING, "Open vSwitch configurations present but built without Open vSwitch support, ignoring.");
+#endif
+        return 0;
+}
+
 int manager_load_config(Manager *m) {
         int r;
 
@@ -870,6 +1207,8 @@ int manager_load_config(Manager *m) {
         r = manager_build_nexthop_ids(m);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build nexthop ID map: %m");
+
+        (void) manager_ovs_maybe_start(m);
 
         log_debug("Loaded.");
         return 0;
@@ -1280,6 +1619,8 @@ int manager_reload(Manager *m, sd_bus_message *message, sd_varlink *varlink) {
                 log_debug_errno(r, "Failed to reload .network files: %m");
                 goto finish;
         }
+
+        (void) manager_ovs_maybe_start(m);
 
         HASHMAP_FOREACH(link, m->links_by_index)
                 (void) link_reconfigure_full(
