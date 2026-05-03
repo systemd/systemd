@@ -43,6 +43,7 @@ systemd_networkd_extract_sources = files(
         'networkd-conf.c',
         'networkd-dhcp-common.c',
         'networkd-dhcp-prefix-delegation.c',
+        'networkd-dhcp-relay.c',
         'networkd-dhcp-server-bus.c',
         'networkd-dhcp-server-static-lease.c',
         'networkd-dhcp-server.c',
