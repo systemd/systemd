@@ -23,3 +23,4 @@ int link_update_bridge_vlan(Link *link, sd_netlink_message *m);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_bridge_vlan_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_bridge_vlan_id_range);
+CONFIG_PARSER_PROTOTYPE(config_parse_ovs_trunks);
