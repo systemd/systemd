@@ -153,8 +153,10 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 BootEntryExtraFile,
                 SD_VARLINK_FIELD_COMMENT("The name of the extra file"),
                 SD_VARLINK_DEFINE_FIELD(filename, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Index into array of file descriptors, pointing to a file descriptor referencing the extra file."),
-                SD_VARLINK_DEFINE_FIELD(fileDescriptor, SD_VARLINK_INT, 0));
+                SD_VARLINK_FIELD_COMMENT("Index into array of file descriptors, pointing to a file descriptor referencing the extra file to copy in. Either this or the 'data' field below must be set – not both, not neither."),
+                SD_VARLINK_DEFINE_FIELD(fileDescriptor, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Literal data to place in the extra file."),
+                SD_VARLINK_DEFINE_FIELD(data, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Link,
