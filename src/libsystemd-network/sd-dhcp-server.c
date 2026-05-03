@@ -113,12 +113,6 @@ int sd_dhcp_server_is_running(sd_dhcp_server *server) {
         return !!server->receive_message;
 }
 
-int sd_dhcp_server_is_in_relay_mode(sd_dhcp_server *server) {
-        assert_return(server, -EINVAL);
-
-        return in4_addr_is_set(&server->relay_target);
-}
-
 static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         assert(server);
 
@@ -141,9 +135,6 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
 
         tlv_unref(server->extra_options);
         tlv_unref(server->vendor_options);
-
-        free(server->agent_circuit_id);
-        free(server->agent_remote_id);
 
         safe_close(server->lease_dir_fd);
         free(server->lease_file);
@@ -168,11 +159,9 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
                 .n_ref = 1,
                 .fd_raw = -EBADF,
                 .fd = -EBADF,
-                .fd_broadcast = -EBADF,
                 .address = htobe32(INADDR_ANY),
                 .netmask = htobe32(INADDR_ANY),
                 .ifindex = ifindex,
-                .bind_to_interface = true,
                 .default_lease_time = DHCP_DEFAULT_LEASE_TIME_USEC,
                 .max_lease_time = DHCP_MAX_LEASE_TIME_USEC,
                 .rapid_commit = true,
@@ -289,11 +278,9 @@ int sd_dhcp_server_stop(sd_dhcp_server *server) {
         running = sd_dhcp_server_is_running(server);
 
         server->receive_message = sd_event_source_disable_unref(server->receive_message);
-        server->receive_broadcast = sd_event_source_disable_unref(server->receive_broadcast);
 
         server->fd_raw = safe_close(server->fd_raw);
         server->fd = safe_close(server->fd);
-        server->fd_broadcast = safe_close(server->fd_broadcast);
 
         if (running)
                 log_dhcp_server(server, "STOPPED");
@@ -385,27 +372,25 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
         assert(message);
         assert(len >= sizeof(DHCPMessage));
 
-        if (server->bind_to_interface) {
-                msg.msg_control = &control;
-                msg.msg_controllen = sizeof(control);
+        msg.msg_control = &control;
+        msg.msg_controllen = sizeof(control);
 
-                cmsg = CMSG_FIRSTHDR(&msg);
-                assert(cmsg);
+        cmsg = CMSG_FIRSTHDR(&msg);
+        assert(cmsg);
 
-                cmsg->cmsg_level = IPPROTO_IP;
-                cmsg->cmsg_type = IP_PKTINFO;
-                cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
+        cmsg->cmsg_level = IPPROTO_IP;
+        cmsg->cmsg_type = IP_PKTINFO;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
 
-                /* we attach source interface and address info to the message
-                   rather than binding the socket. This will be mostly useful
-                   when we gain support for arbitrary number of server addresses
-                 */
-                pktinfo = CMSG_TYPED_DATA(cmsg, struct in_pktinfo);
-                assert(pktinfo);
+        /* we attach source interface and address info to the message
+           rather than binding the socket. This will be mostly useful
+           when we gain support for arbitrary number of server addresses
+        */
+        pktinfo = CMSG_TYPED_DATA(cmsg, struct in_pktinfo);
+        assert(pktinfo);
 
-                pktinfo->ipi_ifindex = server->ifindex;
-                pktinfo->ipi_spec_dst.s_addr = server->address;
-        }
+        pktinfo->ipi_ifindex = server->ifindex;
+        pktinfo->ipi_spec_dst.s_addr = server->address;
 
         if (sendmsg(server->fd, &msg, 0) < 0)
                 return -errno;
@@ -1000,83 +985,6 @@ static bool address_is_in_pool(sd_dhcp_server *server, be32_t address) {
         return true;
 }
 
-static int append_agent_information_option(sd_dhcp_server *server, DHCPMessage *message, size_t opt_length, size_t size) {
-        int r;
-        size_t offset;
-
-        assert(server);
-        assert(message);
-
-        r = dhcp_option_find_option(message->options, opt_length, SD_DHCP_OPTION_END, &offset);
-        if (r < 0)
-                return r;
-
-        r = dhcp_option_append(message, size, &offset, 0, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION, 0, server);
-        if (r < 0)
-                return r;
-
-        r = dhcp_option_append(message, size, &offset, 0, SD_DHCP_OPTION_END, 0, NULL);
-        if (r < 0)
-                return r;
-        return offset;
-}
-
-static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *message, size_t opt_length, size_t buflen) {
-        _cleanup_free_ DHCPPacket *packet = NULL;
-        int r;
-
-        assert(server);
-        assert(message);
-        assert(sd_dhcp_server_is_in_relay_mode(server));
-
-        if (message->hlen == 0 || message->hlen > sizeof(message->chaddr) || memeqzero(message->chaddr, message->hlen))
-                return log_dhcp_server_errno(server, SYNTHETIC_ERRNO(EBADMSG),
-                                             "(relay agent) received message without/invalid hardware address, discarding.");
-
-        if (message->op == BOOTREQUEST) {
-                log_dhcp_server(server, "(relay agent) BOOTREQUEST (0x%x)", be32toh(message->xid));
-                if (message->hops >= 16)
-                        return -ETIME;
-                message->hops++;
-
-                /* https://tools.ietf.org/html/rfc1542#section-4.1.1 */
-                if (message->giaddr == 0)
-                        message->giaddr = server->address;
-
-                if (server->agent_circuit_id || server->agent_remote_id) {
-                        r = append_agent_information_option(server, message, opt_length, buflen - sizeof(DHCPMessage));
-                        if (r < 0)
-                                return log_dhcp_server_errno(server, r, "could not append relay option: %m");
-                        opt_length = r;
-                }
-
-                return dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, sizeof(DHCPMessage) + opt_length);
-        } else if (message->op == BOOTREPLY) {
-                log_dhcp_server(server, "(relay agent) BOOTREPLY (0x%x)", be32toh(message->xid));
-                if (message->giaddr != server->address)
-                        return log_dhcp_server_errno(server, SYNTHETIC_ERRNO(EBADMSG),
-                                                     "(relay agent) BOOTREPLY giaddr mismatch, discarding");
-
-                int message_type = dhcp_option_parse(message, sizeof(DHCPMessage) + opt_length, NULL, NULL, NULL);
-                if (message_type < 0)
-                        return message_type;
-
-                packet = malloc0(sizeof(DHCPPacket) + opt_length);
-                if (!packet)
-                        return -ENOMEM;
-                memcpy(&packet->dhcp, message, sizeof(DHCPMessage) + opt_length);
-
-                r = dhcp_option_remove_option(packet->dhcp.options, opt_length, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION);
-                if (r > 0)
-                        opt_length = r;
-
-                bool l2_broadcast = requested_broadcast(message) || message_type == DHCP_NAK;
-                const be32_t destination = message_type == DHCP_NAK ? INADDR_ANY : message->ciaddr;
-                return dhcp_server_send(server, message->hlen, message->chaddr, destination, DHCP_PORT_CLIENT, packet, opt_length, l2_broadcast);
-        }
-        return -EBADMSG;
-}
-
 static int server_ack_request(sd_dhcp_server *server, DHCPRequest *req, be32_t address) {
         usec_t expiration;
         int r;
@@ -1315,15 +1223,6 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
         return 0;
 }
 
-static size_t relay_agent_information_length(const char* agent_circuit_id, const char* agent_remote_id) {
-        size_t sum = 0;
-        if (agent_circuit_id)
-                sum += 2 + strlen(agent_circuit_id);
-        if (agent_remote_id)
-                sum += 2 + strlen(agent_remote_id);
-        return sum;
-}
-
 static int server_receive_message(sd_event_source *s, int fd,
                                   uint32_t revents, void *userdata) {
         _cleanup_free_ DHCPMessage *message = NULL;
@@ -1351,10 +1250,6 @@ static int server_receive_message(sd_event_source *s, int fd,
         }
 
         size_t buflen = datagram_size;
-        if (sd_dhcp_server_is_in_relay_mode(server))
-                /* Preallocate the additional size for DHCP Relay Agent Information Option if needed */
-                buflen += relay_agent_information_length(server->agent_circuit_id, server->agent_remote_id) + 2;
-
         message = malloc0(buflen);
         if (!message)
                 return -ENOMEM;
@@ -1377,15 +1272,10 @@ static int server_receive_message(sd_event_source *s, int fd,
         if (info && info->ipi_ifindex != server->ifindex)
                 return 0;
 
-        if (sd_dhcp_server_is_in_relay_mode(server)) {
-                r = dhcp_server_relay_message(server, message, len - sizeof(DHCPMessage), buflen);
-                if (r < 0)
-                        log_dhcp_server_errno(server, r, "Couldn't relay message, ignoring: %m");
-        } else {
-                r = dhcp_server_handle_message(server, message, (size_t) len, TRIPLE_TIMESTAMP_FROM_CMSG(&msg));
-                if (r < 0)
-                        log_dhcp_server_errno(server, r, "Couldn't process incoming message, ignoring: %m");
-        }
+        r = dhcp_server_handle_message(server, message, (size_t) len, TRIPLE_TIMESTAMP_FROM_CMSG(&msg));
+        if (r < 0)
+                log_dhcp_server_errno(server, r, "Couldn't process incoming message, ignoring: %m");
+
         return 0;
 }
 
@@ -1424,10 +1314,7 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         }
         server->fd_raw = r;
 
-        if (server->bind_to_interface)
-                r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
-        else
-                r = dhcp_network_bind_udp_socket(0, server->address, DHCP_PORT_SERVER, -1);
+        r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
         if (r < 0)
                 goto on_error;
         server->fd = r;
@@ -1442,25 +1329,6 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
                                          server->event_priority);
         if (r < 0)
                 goto on_error;
-
-        if (!server->bind_to_interface) {
-                r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_BROADCAST, DHCP_PORT_SERVER, -1);
-                if (r < 0)
-                        goto on_error;
-
-                server->fd_broadcast = r;
-
-                r = sd_event_add_io(server->event, &server->receive_broadcast,
-                                    server->fd_broadcast, EPOLLIN,
-                                    server_receive_message, server);
-                if (r < 0)
-                        goto on_error;
-
-                r = sd_event_source_set_priority(server->receive_broadcast,
-                                                 server->event_priority);
-                if (r < 0)
-                        goto on_error;
-        }
 
         r = dhcp_server_load_leases(server);
         if (r < 0)
@@ -1488,18 +1356,6 @@ int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
                            server_send_forcerenew(server, lease->address, lease->gateway,
                                                   lease->htype, lease->hlen, lease->chaddr));
         return r;
-}
-
-int sd_dhcp_server_set_bind_to_interface(sd_dhcp_server *server, int enabled) {
-        assert_return(server, -EINVAL);
-        assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
-
-        if (!!enabled == server->bind_to_interface)
-                return 0;
-
-        server->bind_to_interface = enabled;
-
-        return 1;
 }
 
 int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *tz) {
@@ -1646,46 +1502,6 @@ int sd_dhcp_server_set_callback(sd_dhcp_server *server, sd_dhcp_server_callback_
         server->callback = cb;
         server->callback_userdata = userdata;
 
-        return 0;
-}
-
-int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr *address) {
-        assert_return(server, -EINVAL);
-        assert_return(address, -EINVAL);
-        assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
-
-        if (memcmp(address, &server->relay_target, sizeof(struct in_addr)) == 0)
-                return 0;
-
-        server->relay_target = *address;
-        return 1;
-}
-
-int sd_dhcp_server_set_relay_agent_information(
-                sd_dhcp_server *server,
-                const char *agent_circuit_id,
-                const char *agent_remote_id) {
-        _cleanup_free_ char *circuit_id_dup = NULL, *remote_id_dup = NULL;
-
-        assert_return(server, -EINVAL);
-
-        if (relay_agent_information_length(agent_circuit_id, agent_remote_id) > UINT8_MAX)
-                return -ENOBUFS;
-
-        if (agent_circuit_id) {
-                circuit_id_dup = strdup(agent_circuit_id);
-                if (!circuit_id_dup)
-                        return -ENOMEM;
-        }
-
-        if (agent_remote_id) {
-                remote_id_dup = strdup(agent_remote_id);
-                if (!remote_id_dup)
-                        return -ENOMEM;
-        }
-
-        free_and_replace(server->agent_circuit_id, circuit_id_dup);
-        free_and_replace(server->agent_remote_id, remote_id_dup);
         return 0;
 }
 
