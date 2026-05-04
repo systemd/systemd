@@ -19,7 +19,7 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "help-util.h"
-#include "json-util.h"
+#include "machine-util.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "namespace-util.h"
@@ -565,141 +565,68 @@ static int run_as_mount_helper(int argc, char *argv[]) {
         if (fake)
                 return 0;
 
-        _cleanup_free_ char *socket_path = NULL;
-        r = runtime_directory_generic(arg_runtime_scope, "systemd/io.systemd.StorageProvider", &socket_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine socket directory: %m");
-
-        if (!path_extend(&socket_path, provider))
-                return log_oom();
-
-        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
-        r = sd_varlink_connect_address(&link, socket_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to '%s': %m", socket_path);
-
-        r = sd_varlink_set_allow_fd_passing_input(link, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable file descriptor passing: %m");
-
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        sd_json_variant *mreply = NULL;
-        const char *merror_id = NULL, *vtype = fstype ? "reg" : "dir";
-        r = sd_varlink_callbo(
-                        link,
-                        "io.systemd.StorageProvider.Acquire",
-                        &mreply,
-                        &merror_id,
-                        SD_JSON_BUILD_PAIR_STRING("name", name),
-                        SD_JSON_BUILD_PAIR_CONDITION(create_mode >= 0, "createMode", SD_JSON_BUILD_STRING(create_mode_to_string(create_mode))),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("template", template),
-                        SD_JSON_BUILD_PAIR_CONDITION(read_only >= 0, "readOnly", SD_JSON_BUILD_BOOLEAN(read_only)),
-                        SD_JSON_BUILD_PAIR_STRING("requestAs", vtype),
-                        SD_JSON_BUILD_PAIR_CONDITION(create_size != UINT64_MAX, "createSizeBytes", SD_JSON_BUILD_UNSIGNED(create_size)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
-        if (r < 0)
-                return log_error_errno(r, "Failed to issue io.systemd.StorageProvider.Acquire() varlink call: %m");
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = sd_json_variant_ref(mreply);
-        if (merror_id) {
-                /* Copy out the error ID, as the follow-up call will invalidate it */
-                _cleanup_free_ char *error_id = strdup(merror_id);
-                if (!error_id)
-                        return log_oom();
+        VolumeType requested_type = fstype ? VOLUME_REG : VOLUME_DIR;
 
-                /* Hmm, the type might not have been right for the backend or the volume? then try
-                 * again, and switch from "reg" to "blk", maybe it works then. (We keep the original
-                 * reply referenced, since we prefer generating an error for the first error.) */
-                if (streq(vtype, "reg") && STR_IN_SET(error_id,
-                                         "io.systemd.StorageProvider.TypeNotSupported",
-                                         "io.systemd.StorageProvider.WrongType")) {
+        BindVolume bv = BIND_VOLUME_INIT;
+        bv.provider = provider;
+        bv.volume = name;
+        bv.create_mode = create_mode;
+        bv.template = template;
+        bv.read_only = read_only;
+        bv.request_as = requested_type;
+        bv.create_size_bytes = create_size;
 
-                        sd_json_variant *freply = NULL;
-                        const char *ferror_id = NULL;
-                        r = sd_varlink_callbo(
-                                        link,
-                                        "io.systemd.StorageProvider.Acquire",
-                                        &freply,
-                                        &ferror_id,
-                                        SD_JSON_BUILD_PAIR_STRING("name", name),
-                                        SD_JSON_BUILD_PAIR_CONDITION(create_mode >= 0, "createMode", SD_JSON_BUILD_STRING(create_mode_to_string(create_mode))),
-                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("template", template),
-                                        SD_JSON_BUILD_PAIR_CONDITION(read_only >= 0, "readOnly", SD_JSON_BUILD_BOOLEAN(read_only)),
-                                        SD_JSON_BUILD_PAIR_STRING("requestAs", "blk"),
-                                        SD_JSON_BUILD_PAIR_CONDITION(create_size != UINT64_MAX, "createSizeBytes", SD_JSON_BUILD_UNSIGNED(create_size)),
-                                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to issue io.systemd.StorageProvider.Acquire() varlink call: %m");
-                        if (!ferror_id) {
-                                /* The 2nd call worked? then let's forget about the first failure */
-                                sd_json_variant_unref(reply);
-                                reply = sd_json_variant_ref(freply);
-                                error_id = mfree(error_id);
-                        }
-
-                        /* NB: if both fail we show the Varlink error of the first call here, i.e. of the preferred type */
-                }
-
-                if (error_id) {
-                        if (streq(error_id, "io.systemd.StorageProvider.NoSuchVolume"))
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Volume '%s' not known.", name);
-                        if (streq(error_id, "io.systemd.StorageProvider.NoSuchTemplate"))
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Template '%s' not known.", template);
-                        if (streq(error_id, "io.systemd.StorageProvider.VolumeExists"))
-                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Volume '%s' exists already.", name);
-                        if (streq(error_id, "io.systemd.StorageProvider.TypeNotSupported"))
-                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Storage provider does not support the specified volume type '%s'.", vtype);
-                        if (streq(error_id, "io.systemd.StorageProvider.WrongType"))
-                                return log_error_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Volume '%s' is not of type '%s'.", name, vtype);
-                        if (streq(error_id, "io.systemd.StorageProvider.CreateNotSupported"))
-                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Storage provider does not support creating volumes.");
-                        if (streq(error_id, "io.systemd.StorageProvider.CreateSizeRequired"))
-                                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Storage provider requires a create size to be provided when creating volumes on-the-fly. Use 'storage.create-size=' mount option.");
-                        if (streq(error_id, "io.systemd.StorageProvider.ReadOnlyVolume"))
-                                return log_error_errno(SYNTHETIC_ERRNO(EROFS), "Volume '%s' is read-only.", name);
-                        if (streq(error_id, "io.systemd.StorageProvider.BadTemplate"))
-                                return log_error_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Template does not apply to this volume type.");
-
-                        r = sd_varlink_error_to_errno(error_id, reply); /* If this is a system errno style error, output it with %m */
-                        if (r != -EBADR)
-                                return log_error_errno(r, "Failed to issue io.systemd.StorageProvider.Acquire() varlink call: %m");
-
-                        return log_error_errno(r, "Failed to issue io.systemd.StorageProvider.Acquire() varlink call: %s", error_id);
+        _cleanup_(storage_acquire_reply_done) StorageAcquireReply reply = STORAGE_ACQUIRE_REPLY_INIT;
+        _cleanup_free_ char *acquire_error_id = NULL;
+        r = storage_acquire_volume(arg_runtime_scope, &bv, arg_ask_password, &acquire_error_id, &reply);
+        if (r < 0 && fstype &&
+            STR_IN_SET(strna(acquire_error_id),
+                       "io.systemd.StorageProvider.TypeNotSupported",
+                       "io.systemd.StorageProvider.WrongType")) {
+                _cleanup_(storage_acquire_reply_done) StorageAcquireReply retry = STORAGE_ACQUIRE_REPLY_INIT;
+                bv.request_as = VOLUME_BLK;
+                int rr = storage_acquire_volume(arg_runtime_scope, &bv, arg_ask_password, /* reterr_error_id= */ NULL, &retry);
+                if (rr >= 0) {
+                        storage_acquire_reply_done(&reply);
+                        reply = retry;
+                        retry = STORAGE_ACQUIRE_REPLY_INIT;
+                        acquire_error_id = mfree(acquire_error_id);
+                        requested_type = VOLUME_BLK;
+                        r = 0;
                 }
         }
 
-        struct {
-                unsigned fd_idx;
-                int read_only;
-                const char *type;
-                uid_t base_uid;
-                gid_t base_gid;
-        } p = {
-                .fd_idx = UINT_MAX,
-                .read_only = -1,
-                .base_uid = UID_INVALID,
-                .base_gid = GID_INVALID,
-        };
+        if (r < 0) {
+                const char *eid = acquire_error_id;
 
-        static const sd_json_dispatch_field dispatch_table[] = {
-                { "fileDescriptorIndex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         voffsetof(p, fd_idx),     SD_JSON_MANDATORY },
-                { "readOnly",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,     voffsetof(p, read_only),  0                 },
-                { "type",                SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, type),       SD_JSON_MANDATORY },
-                { "baseUID",             _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      voffsetof(p, base_uid),   0                 },
-                { "baseGID",             _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      voffsetof(p, base_gid),   0                 },
-                {}
-        };
+                if (streq_ptr(eid, "io.systemd.StorageProvider.NoSuchVolume"))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Volume '%s' not known.", name);
+                if (streq_ptr(eid, "io.systemd.StorageProvider.NoSuchTemplate"))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Template '%s' not known.", template);
+                if (streq_ptr(eid, "io.systemd.StorageProvider.VolumeExists"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Volume '%s' exists already.", name);
+                if (streq_ptr(eid, "io.systemd.StorageProvider.TypeNotSupported"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Storage provider does not support the specified volume type '%s'.", volume_type_to_string(requested_type));
+                if (streq_ptr(eid, "io.systemd.StorageProvider.WrongType"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Volume '%s' is not of type '%s'.", name, volume_type_to_string(requested_type));
+                if (streq_ptr(eid, "io.systemd.StorageProvider.CreateNotSupported"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Storage provider does not support creating volumes.");
+                if (streq_ptr(eid, "io.systemd.StorageProvider.CreateSizeRequired"))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Storage provider requires a create size to be provided when creating volumes on-the-fly. Use 'storage.create-size=' mount option.");
+                if (streq_ptr(eid, "io.systemd.StorageProvider.ReadOnlyVolume"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EROFS), "Volume '%s' is read-only.", name);
+                if (streq_ptr(eid, "io.systemd.StorageProvider.BadTemplate"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Template does not apply to this volume type.");
 
-        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
-        if (r < 0)
-                return log_error_errno(r, "Failed to decode Acquire() reply: %m");
-
-        _cleanup_close_ int fd = sd_varlink_take_fd(link, p.fd_idx);
-        if (fd < 0)
-                return log_error_errno(fd, "Failed to acquire fd from Varlink connection: %m");
+                if (eid)
+                        return log_error_errno(r, "Failed to issue io.systemd.StorageProvider.Acquire() varlink call (%s): %m", eid);
+                return log_error_errno(r, "Failed to issue io.systemd.StorageProvider.Acquire() varlink call: %m");
+        }
 
         struct stat st;
-        if (fstat(fd, &st) < 0)
+        if (fstat(reply.fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat returned file descriptor: %m");
 
         _cleanup_strv_free_ char **cmdline = strv_new("mount", "-c");
@@ -707,7 +634,7 @@ static int run_as_mount_helper(int argc, char *argv[]) {
                 return log_oom();
 
         if (fstype) {
-                if (!STR_IN_SET(p.type, "reg", "blk"))
+                if (!IN_SET(reply.type, VOLUME_REG, VOLUME_BLK))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Mounting as file system type '%s' requested, but volume is not a block device or regular file.", fstype);
 
                 r = stat_verify_regular_or_block(&st);
@@ -717,31 +644,31 @@ static int run_as_mount_helper(int argc, char *argv[]) {
                 if (strv_extend_strv(&cmdline, STRV_MAKE("-t", fstype), /* filter_duplicates= */ false) < 0)
                         return log_oom();
         } else {
-                if (!streq(p.type, "dir"))
+                if (reply.type != VOLUME_DIR)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Mount as directory requested, but volume is not a directory.");
 
-                if (!uid_is_valid(p.base_uid) || !gid_is_valid(p.base_gid))
+                if (!uid_is_valid(reply.base_uid) || !gid_is_valid(reply.base_gid))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Provider did not report base UID/GID, cannot mount.");
 
-                if (p.base_uid > UINT32_MAX - 0x10000U ||
-                    p.base_gid > UINT32_MAX - 0x10000U)
+                if (reply.base_uid > UINT32_MAX - USERNS_RANGE_SIZE ||
+                    reply.base_gid > UINT32_MAX - USERNS_RANGE_SIZE)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Returned base UID/GID out of range.");
 
                 r = stat_verify_directory(&st);
                 if (r < 0)
                         return log_error_errno(r, "File descriptor for directory volume is not a directory inode: %m");
 
-                if (st.st_uid < p.base_uid || st.st_uid >= p.base_uid + 0x10000 ||
-                    st.st_gid < p.base_gid || st.st_gid >= p.base_gid + 0x10000)
+                if (st.st_uid < reply.base_uid || st.st_uid >= reply.base_uid + USERNS_RANGE_SIZE ||
+                    st.st_gid < reply.base_gid || st.st_gid >= reply.base_gid + USERNS_RANGE_SIZE)
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "File descriptor for directory volume is not owned by base UID/GID range, refusing.");
 
                 /* Now move the mount into our own UID/GID range */
                 _cleanup_free_ char *uid_line = asprintf_safe(
                                 UID_FMT " " UID_FMT " " UID_FMT "\n",
-                                p.base_uid, (uid_t) 0, (uid_t) 0x10000);
+                                reply.base_uid, (uid_t) 0, USERNS_RANGE_SIZE);
                 _cleanup_free_ char *gid_line = asprintf_safe(
                                 GID_FMT " " GID_FMT " " GID_FMT "\n",
-                                p.base_gid, (gid_t) 0, (gid_t) 0x10000);
+                                reply.base_gid, (gid_t) 0, USERNS_RANGE_SIZE);
                 if (!uid_line || !gid_line)
                         return log_oom();
 
@@ -750,7 +677,7 @@ static int run_as_mount_helper(int argc, char *argv[]) {
                         return log_error_errno(userns_fd, "Failed to acquire new user namespace: %m");
 
                 _cleanup_close_ int remapped_fd = open_tree_attr_with_fallback(
-                                fd,
+                                reply.fd,
                                 /* path= */ NULL,
                                 OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC,
                                 &(struct mount_attr) {
@@ -760,13 +687,13 @@ static int run_as_mount_helper(int argc, char *argv[]) {
                 if (remapped_fd < 0)
                         return log_error_errno(remapped_fd, "Failed to set ID mapping on returned mount: %m");
 
-                close_and_replace(fd, remapped_fd);
+                close_and_replace(reply.fd, remapped_fd);
 
                 if (strv_extend(&cmdline, "--bind") < 0)
                         return log_oom();
         }
 
-        if (p.read_only > 0)
+        if (reply.read_only > 0)
                 read_only = true;
 
         if (!strextend_with_separator(&filtered, ",", read_only > 0 ? "ro" : "rw"))
@@ -775,10 +702,10 @@ static int run_as_mount_helper(int argc, char *argv[]) {
         if (strv_extend_strv(&cmdline, STRV_MAKE("-o", filtered), /* filter_duplicates= */ false) < 0)
                 return log_oom();
 
-        if (strv_extend_strv(&cmdline, STRV_MAKE(FORMAT_PROC_FD_PATH(fd), path), /* filter_duplicates= */ false) < 0)
+        if (strv_extend_strv(&cmdline, STRV_MAKE(FORMAT_PROC_FD_PATH(reply.fd), path), /* filter_duplicates= */ false) < 0)
                 return log_oom();
 
-        r = fd_cloexec(fd, false);
+        r = fd_cloexec(reply.fd, false);
         if (r < 0)
                 return log_error_errno(r, "Failed to disable O_CLOEXEC for mount fd: %m");
 

@@ -268,6 +268,8 @@ enum {
         SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_UNSIGNED(value))
 #define JSON_BUILD_PAIR_CONDITION_BOOLEAN(condition, name, value) \
         SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_BOOLEAN(value))
+#define JSON_BUILD_PAIR_CONDITION_STRING(condition, name, value) \
+        SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_STRING(value))
 #define JSON_BUILD_PAIR_CONDITION_STRV(condition, name, value) \
         SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_STRV(value))
 
