@@ -84,6 +84,9 @@ executables += [
                 'sources' : files('test-dhcp-client.c'),
         },
         network_test_template + {
+                'sources' : files('test-dhcp-client-id.c'),
+        },
+        network_test_template + {
                 'sources' : files('test-dhcp-duid.c'),
         },
         network_test_template + {
