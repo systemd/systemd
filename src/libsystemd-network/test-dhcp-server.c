@@ -10,6 +10,7 @@
 
 #include "dhcp-server-internal.h"
 #include "dhcp-server-request.h"
+#include "fd-util.h"
 #include "tests.h"
 
 TEST(basic) {
@@ -19,14 +20,12 @@ TEST(basic) {
         struct in_addr address_any = {
                 .s_addr = htobe32(INADDR_ANY),
         };
-        int r;
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         ASSERT_OK(sd_event_new(&event));
 
-        /* attach to loopback interface */
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
-        ASSERT_OK(sd_dhcp_server_new(&server, 1));
+        ASSERT_OK(sd_dhcp_server_new(&server, 4242));
         ASSERT_NOT_NULL(server);
 
         ASSERT_OK(sd_dhcp_server_attach_event(server, event, SD_EVENT_PRIORITY_NORMAL));
@@ -49,13 +48,12 @@ TEST(basic) {
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_configure_pool(server, &address_any, 8, 0, 1), EINVAL));
         ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 1));
 
-        r = sd_dhcp_server_start(server);
-        /* skip test if running in an environment with no full networking support, CONFIG_PACKET not
-         * compiled in kernel, nor af_packet module available. */
-        if (IN_SET(r, -EPERM, -EAFNOSUPPORT))
-                return (void) log_tests_skipped_errno(r, "cannot start dhcp server");
-        ASSERT_OK(r);
+        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
 
+        server->socket_fd = TAKE_FD(socket_fd[0]);
+
+        ASSERT_OK(sd_dhcp_server_start(server));
         ASSERT_OK(sd_dhcp_server_start(server));
         ASSERT_OK(sd_dhcp_server_stop(server));
         ASSERT_OK(sd_dhcp_server_stop(server));
@@ -112,13 +110,15 @@ TEST(dhcp_server_handle_message) {
                 .s_addr = htobe32(INADDR_LOOPBACK + 42),
         };
         static uint8_t static_lease_client_id[7] = {0x01, 'A', 'B', 'C', 'D', 'E', 'G' };
-        int r;
+
+        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         ASSERT_OK(sd_event_new(&event));
 
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
-        ASSERT_OK(sd_dhcp_server_new(&server, 1));
+        ASSERT_OK(sd_dhcp_server_new(&server, 4242));
         ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
         ASSERT_OK(sd_dhcp_server_set_static_lease(
                         server,
@@ -127,15 +127,10 @@ TEST(dhcp_server_handle_message) {
                         ELEMENTSOF(static_lease_client_id),
                         /* hostname= */ NULL));
         ASSERT_OK(sd_dhcp_server_attach_event(server, event, SD_EVENT_PRIORITY_NORMAL));
-        r = sd_dhcp_server_start(server);
-        if (IN_SET(r, -EPERM, -EAFNOSUPPORT))
-                return (void) log_tests_skipped_errno(r, "cannot start dhcp server");
-        ASSERT_OK(r);
+        server->socket_fd = TAKE_FD(socket_fd[0]);
+        ASSERT_OK(sd_dhcp_server_start(server));
 
-        r = dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL);
-        if (r == -ENETDOWN)
-                return (void) log_tests_skipped("Network is not available");
-        ASSERT_OK_EQ(r, DHCP_OFFER);
+        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
 
         test.end = 0;
         /* TODO, shouldn't this fail? */
@@ -273,7 +268,7 @@ TEST(dhcp_server_handle_message) {
 
 TEST(sd_dhcp_server_set_static_lease) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
-        ASSERT_OK(sd_dhcp_server_new(&server, 1));
+        ASSERT_OK(sd_dhcp_server_new(&server, 4242));
 
         ASSERT_OK(sd_dhcp_server_set_static_lease(
                         server,
@@ -351,7 +346,7 @@ TEST(sd_dhcp_server_set_static_lease) {
 
 TEST(sd_dhcp_server_set_domain_name) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
-        ASSERT_OK(sd_dhcp_server_new(&server, 1));
+        ASSERT_OK(sd_dhcp_server_new(&server, 4242));
 
         /* Test setting domain name */
         ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "example.com"));
