@@ -683,6 +683,9 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         if (r < 0)
                 return r;
 
+        if (strv_length(ntas) > LINK_NEGATIVE_TRUST_ANCHORS_MAX)
+                return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many negative trust anchors per link");
+
         STRV_FOREACH(i, ntas) {
                 r = dns_name_is_valid(*i);
                 if (r < 0)
