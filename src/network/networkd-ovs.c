@@ -2355,7 +2355,7 @@ try_pending:
          * delete-only reconcile transact has been acknowledged, drop the client
          * and clear lifecycle state. Skip if a coalesced pending reconcile re-armed
          * inflight above; that next reply will revisit the teardown. */
-        if (m->ovs_pending_teardown && m->ovs_inflight_transacts == 0) {
+        if (m->ovsdb && m->ovs_pending_teardown && m->ovs_inflight_transacts == 0) {
                 log_debug("OVS pending teardown: drained, releasing client");
                 m->ovs_pending_teardown = false;
                 m->ovs_reconnect_timer = sd_event_source_disable_unref(m->ovs_reconnect_timer);
