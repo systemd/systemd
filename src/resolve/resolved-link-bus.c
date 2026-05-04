@@ -321,7 +321,7 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        for (;;) {
+        for (unsigned n_names = 0;; n_names++) {
                 _cleanup_free_ char *prefixed = NULL;
                 const char *name;
                 int route_only;
@@ -339,6 +339,8 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search domain %s", name);
                 if (!route_only && dns_name_is_root(name))
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root domain is not suitable as search domain");
+                if (n_names >= LINK_SEARCH_DOMAINS_MAX)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many search domains per link");
 
                 if (route_only) {
                         prefixed = strjoin("~", name);
