@@ -41,7 +41,7 @@ _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server);
 
 int sd_dhcp_server_attach_event(sd_dhcp_server *server, sd_event *event, int64_t priority);
 int sd_dhcp_server_detach_event(sd_dhcp_server *server);
-sd_event *sd_dhcp_server_get_event(sd_dhcp_server *server);
+sd_event* sd_dhcp_server_get_event(sd_dhcp_server *server);
 
 typedef void (*sd_dhcp_server_callback_t)(sd_dhcp_server *server, uint64_t event, void *userdata);
 
@@ -53,6 +53,7 @@ int sd_dhcp_server_start(sd_dhcp_server *server);
 int sd_dhcp_server_stop(sd_dhcp_server *server);
 
 int sd_dhcp_server_configure_pool(sd_dhcp_server *server, const struct in_addr *address, unsigned char prefixlen, uint32_t offset, uint32_t size);
+int sd_dhcp_server_set_ip_service_type(sd_dhcp_server *server, uint8_t type);
 
 int sd_dhcp_server_set_boot_server_address(sd_dhcp_server *server, const struct in_addr *address);
 int sd_dhcp_server_set_boot_server_name(sd_dhcp_server *server, const char *name);
