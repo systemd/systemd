@@ -4,6 +4,13 @@
 set -eux
 set -o pipefail
 
+if [[ -v ASAN_OPTIONS ]]; then
+    # Under sanitizers the service is slow enough that the calendar timer with 5s resolution ends up
+    # missing ticks, making the test flaky
+    echo "Sanitizers detected, skipping the test..."
+    exit 0
+fi
+
 systemctl start defer-reactivation.timer
 
 timeout 20 bash -c 'until [[ -e /tmp/defer-reactivation.log ]]; do sleep .5; done'
