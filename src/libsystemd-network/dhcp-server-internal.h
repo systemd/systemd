@@ -5,13 +5,11 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include "sd-dhcp-lease.h"
 #include "sd-dhcp-server.h"
 
-#include "dhcp-client-id-internal.h"
 #include "dhcp-option.h"
-#include "sd-forward.h"
 #include "network-common.h"
+#include "sd-forward.h"
 #include "sparse-endian.h"
 #include "tlv-util.h"
 
@@ -74,32 +72,12 @@ typedef struct sd_dhcp_server {
         char *lease_file;
 } sd_dhcp_server;
 
-typedef struct DHCPRequest {
-        /* received message */
-        DHCPMessage *message;
-
-        /* options */
-        sd_dhcp_client_id client_id;
-        size_t max_optlen;
-        be32_t server_id;
-        be32_t requested_ip;
-        usec_t lifetime;
-        const uint8_t *agent_info_option;
-        char *hostname;
-        const uint8_t *parameter_request_list;
-        size_t parameter_request_list_len;
-        bool rapid_commit;
-        triple_timestamp timestamp;
-} DHCPRequest;
-
 int dhcp_server_set_extra_options(sd_dhcp_server *server, TLV *options);
 int dhcp_server_set_vendor_options(sd_dhcp_server *server, TLV *options);
 
-int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
-                               size_t length, const triple_timestamp *timestamp);
-int dhcp_server_send_packet(sd_dhcp_server *server,
-                            DHCPRequest *req, DHCPPacket *packet,
-                            int type, size_t optoffset);
+void dhcp_server_on_lease_change(sd_dhcp_server *server);
+bool dhcp_server_address_is_in_pool(sd_dhcp_server *server, be32_t address);
+bool dhcp_server_address_available(sd_dhcp_server *server, be32_t address);
 
 #define log_dhcp_server_errno(server, error, fmt, ...)          \
         log_interface_prefix_full_errno(                        \
