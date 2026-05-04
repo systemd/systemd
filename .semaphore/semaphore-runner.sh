@@ -69,7 +69,7 @@ for phase in "${PHASES[@]}"; do
     case "$phase" in
         SETUP)
             # remove semaphore repos, some of them don't work and cause error messages
-            sudo rm -rf /etc/apt/sources.list.d/*
+            sudo rm -rf /etc/apt/sources.list.d/google-chrome.sources /etc/apt/sources.list.d/disabled/
 
             # enable backports for latest LXC
             echo "deb http://archive.ubuntu.com/ubuntu $UBUNTU_RELEASE-backports main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/backports.list
