@@ -3,7 +3,7 @@
 #include "varlink-idl-common.h"
 #include "varlink-io.systemd.Login.h"
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 SessionType,
                 SD_VARLINK_DEFINE_ENUM_VALUE(unspecified),
                 SD_VARLINK_DEFINE_ENUM_VALUE(tty),
@@ -12,7 +12,7 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(mir),
                 SD_VARLINK_DEFINE_ENUM_VALUE(web));
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 SessionClass,
                 SD_VARLINK_FIELD_COMMENT("Regular user sessions"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(user),
@@ -36,6 +36,13 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(manager),
                 SD_VARLINK_FIELD_COMMENT("The special session of the service manager for the root user"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(manager_early));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                SessionUser,
+                SD_VARLINK_FIELD_COMMENT("Numeric UNIX UID"),
+                SD_VARLINK_DEFINE_FIELD(UID, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("User name"),
+                SD_VARLINK_DEFINE_FIELD(Name, SD_VARLINK_STRING, 0));
 
 static SD_VARLINK_DEFINE_METHOD(
                 CreateSession,
@@ -69,7 +76,7 @@ static SD_VARLINK_DEFINE_METHOD(
                                          "For every $ID in the list, this adds access for all devices tagged with \"xaccess-$ID\" in udev."),
                 SD_VARLINK_DEFINE_INPUT(ExtraDeviceAccess, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("The identifier string of the session of the user."),
-                SD_VARLINK_DEFINE_OUTPUT(Id, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_OUTPUT(ID, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The runtime path ($XDG_RUNTIME_DIR) of the user."),
                 SD_VARLINK_DEFINE_OUTPUT(RuntimePath, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The original UID of this session."),
@@ -83,13 +90,147 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The assigned session class"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Class, SessionClass, 0));
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                ListSessions,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("If non-null, the identifier string of a session to look up. Supports the special names 'self' and 'auto' which resolve to the caller's session."),
+                SD_VARLINK_DEFINE_INPUT(ID, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If non-null, return the session containing the process with this PID. If both ID and PID are specified they must reference the same session, otherwise NoSuchSession is returned."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(PID, ProcessId, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The session identifier"),
+                SD_VARLINK_DEFINE_OUTPUT(ID, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The user owning this session"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(User, SessionUser, 0),
+                SD_VARLINK_FIELD_COMMENT("The session timestamps"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Timestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Virtual terminal number of the session, if applicable"),
+                SD_VARLINK_DEFINE_OUTPUT(VTNr, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Seat this session is assigned to"),
+                SD_VARLINK_DEFINE_OUTPUT(Seat, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("TTY device of the session"),
+                SD_VARLINK_DEFINE_OUTPUT(TTY, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("X11 display of the session"),
+                SD_VARLINK_DEFINE_OUTPUT(Display, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether this is a remote session"),
+                SD_VARLINK_DEFINE_OUTPUT(Remote, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Remote host, if this is a remote session"),
+                SD_VARLINK_DEFINE_OUTPUT(RemoteHost, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Remote user, if this is a remote session"),
+                SD_VARLINK_DEFINE_OUTPUT(RemoteUser, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("PAM service name"),
+                SD_VARLINK_DEFINE_OUTPUT(Service, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Desktop identifier"),
+                SD_VARLINK_DEFINE_OUTPUT(Desktop, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("systemd scope unit name"),
+                SD_VARLINK_DEFINE_OUTPUT(Scope, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Device paths this session has special access to"),
+                SD_VARLINK_DEFINE_OUTPUT(ExtraDeviceAccess, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("PID of the session leader"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Leader, ProcessId, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Audit session ID"),
+                SD_VARLINK_DEFINE_OUTPUT(Audit, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The type of the session"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Type, SessionType, 0),
+                SD_VARLINK_FIELD_COMMENT("The class of the session"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Class, SessionClass, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether the session is active (i.e. in the foreground)"),
+                SD_VARLINK_DEFINE_OUTPUT(Active, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Current state of the session"),
+                SD_VARLINK_DEFINE_OUTPUT(State, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether the session is idle"),
+                SD_VARLINK_DEFINE_OUTPUT(IdleHint, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when the session went idle, only present when IdleHint is true"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(IdleSinceHint, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether this session class supports idle tracking"),
+                SD_VARLINK_DEFINE_OUTPUT(CanIdle, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether this session class supports locking"),
+                SD_VARLINK_DEFINE_OUTPUT(CanLock, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether the session is currently locked"),
+                SD_VARLINK_DEFINE_OUTPUT(LockedHint, SD_VARLINK_BOOL, 0));
+
 static SD_VARLINK_DEFINE_METHOD(
                 ReleaseSession,
                 SD_VARLINK_FIELD_COMMENT("The identifier string of the session to release. If unspecified or 'self', will return the callers session."),
-                SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_INPUT(ID, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                ListUsers,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("If non-null, the UNIX UID of a user to look up."),
+                SD_VARLINK_DEFINE_INPUT(UID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If non-null, return the user owning the cgroup containing the process with this PID. If both UID and PID are specified they must reference the same user, otherwise NoSuchUser is returned."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(PID, ProcessId, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Numeric UNIX UID"),
+                SD_VARLINK_DEFINE_OUTPUT(UID, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Numeric UNIX GID"),
+                SD_VARLINK_DEFINE_OUTPUT(GID, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("User name"),
+                SD_VARLINK_DEFINE_OUTPUT(Name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when the user was 'started' for the first time"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Timestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Path to the user's runtime directory"),
+                SD_VARLINK_DEFINE_OUTPUT(RuntimePath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Service manager unit name"),
+                SD_VARLINK_DEFINE_OUTPUT(Service, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("User slice unit name"),
+                SD_VARLINK_DEFINE_OUTPUT(Slice, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Display session identifier"),
+                SD_VARLINK_DEFINE_OUTPUT(Display, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Current state of the user"),
+                SD_VARLINK_DEFINE_OUTPUT(State, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Identifiers of sessions belonging to this user"),
+                SD_VARLINK_DEFINE_OUTPUT(Sessions, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Whether the user is idle"),
+                SD_VARLINK_DEFINE_OUTPUT(IdleHint, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when the user went idle, only present when IdleHint is true"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(IdleSinceHint, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether lingering is enabled for this user"),
+                SD_VARLINK_DEFINE_OUTPUT(Linger, SD_VARLINK_BOOL, 0));
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                ListSeats,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("If non-null, the identifier string of a seat to look up."),
+                SD_VARLINK_DEFINE_INPUT(ID, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The seat identifier"),
+                SD_VARLINK_DEFINE_OUTPUT(ID, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The currently active session on this seat, if any"),
+                SD_VARLINK_DEFINE_OUTPUT(ActiveSession, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Identifiers of sessions assigned to this seat"),
+                SD_VARLINK_DEFINE_OUTPUT(Sessions, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Whether this seat supports text terminal sessions"),
+                SD_VARLINK_DEFINE_OUTPUT(CanTTY, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether this seat supports graphical sessions"),
+                SD_VARLINK_DEFINE_OUTPUT(CanGraphical, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether the seat is idle"),
+                SD_VARLINK_DEFINE_OUTPUT(IdleHint, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when the seat went idle, only present when IdleHint is true"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(IdleSinceHint, Timestamp, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                ListInhibitors,
+                SD_VARLINK_REQUIRES_MORE,
+                SD_VARLINK_FIELD_COMMENT("The inhibitor identifier"),
+                SD_VARLINK_DEFINE_OUTPUT(ID, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("What is being inhibited; an array of: shutdown, sleep, idle, handle-power-key, handle-suspend-key, handle-hibernate-key, handle-lid-switch, handle-reboot-key"),
+                SD_VARLINK_DEFINE_OUTPUT(What, SD_VARLINK_STRING, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("A human-readable descriptive string of who is taking the inhibition"),
+                SD_VARLINK_DEFINE_OUTPUT(Who, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("A human-readable descriptive string of why the inhibition is taken"),
+                SD_VARLINK_DEFINE_OUTPUT(Why, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The inhibition mode, one of block, block_weak, or delay"),
+                SD_VARLINK_DEFINE_OUTPUT(Mode, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The UID of the user taking the inhibition"),
+                SD_VARLINK_DEFINE_OUTPUT(UID, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The PID of the process taking the inhibition"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(PID, ProcessId, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The inhibitor timestamps"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Since, Timestamp, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchSession);
+static SD_VARLINK_DEFINE_ERROR(NoSuchUser);
 static SD_VARLINK_DEFINE_ERROR(NoSuchSeat);
+static SD_VARLINK_DEFINE_ERROR(NoSuchInhibitor);
 static SD_VARLINK_DEFINE_ERROR(AlreadySessionMember);
 static SD_VARLINK_DEFINE_ERROR(VirtualTerminalAlreadyTaken);
 static SD_VARLINK_DEFINE_ERROR(TooManySessions);
@@ -102,18 +243,34 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_INTERFACE_COMMENT("APIs for managing login sessions."),
                 SD_VARLINK_SYMBOL_COMMENT("Process identifier"),
                 &vl_type_ProcessId,
+                SD_VARLINK_SYMBOL_COMMENT("Dual timestamp"),
+                &vl_type_Timestamp,
                 SD_VARLINK_SYMBOL_COMMENT("Various types of sessions"),
                 &vl_type_SessionType,
                 SD_VARLINK_SYMBOL_COMMENT("Various classes of sessions"),
                 &vl_type_SessionClass,
+                SD_VARLINK_SYMBOL_COMMENT("User owning a session"),
+                &vl_type_SessionUser,
                 SD_VARLINK_SYMBOL_COMMENT("Allocates a new session."),
                 &vl_method_CreateSession,
-                SD_VARLINK_SYMBOL_COMMENT("Releases an existing session. Currently, will be refuses unless originating from the session to release itself."),
+                SD_VARLINK_SYMBOL_COMMENT("Releases an existing session. Currently, will be refused unless originating from the session to release itself."),
                 &vl_method_ReleaseSession,
+                SD_VARLINK_SYMBOL_COMMENT("Lists current sessions. If an ID or PID filter is provided, returns the single matching session; otherwise streams all current sessions (requires the 'more' flag)."),
+                &vl_method_ListSessions,
+                SD_VARLINK_SYMBOL_COMMENT("Lists current users. If a UID or PID filter is provided, returns the single matching user; otherwise streams all current users (requires the 'more' flag)."),
+                &vl_method_ListUsers,
+                SD_VARLINK_SYMBOL_COMMENT("Lists current seats. If an ID filter is provided, returns the single matching seat; otherwise streams all current seats (requires the 'more' flag)."),
+                &vl_method_ListSeats,
+                SD_VARLINK_SYMBOL_COMMENT("Lists all current inhibitors."),
+                &vl_method_ListInhibitors,
                 SD_VARLINK_SYMBOL_COMMENT("No session by this name found"),
                 &vl_error_NoSuchSession,
                 SD_VARLINK_SYMBOL_COMMENT("No seat by this name found"),
                 &vl_error_NoSuchSeat,
+                SD_VARLINK_SYMBOL_COMMENT("No user by this UID found"),
+                &vl_error_NoSuchUser,
+                SD_VARLINK_SYMBOL_COMMENT("No inhibitor found"),
+                &vl_error_NoSuchInhibitor,
                 SD_VARLINK_SYMBOL_COMMENT("Process already member of a session"),
                 &vl_error_AlreadySessionMember,
                 SD_VARLINK_SYMBOL_COMMENT("The specified virtual terminal (VT) is already taken by another session"),

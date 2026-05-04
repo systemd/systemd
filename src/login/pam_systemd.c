@@ -1179,7 +1179,7 @@ static int register_session(
                         };
 
                         static const sd_json_dispatch_field dispatch_table[] = {
-                                { "Id",                    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, id),             SD_JSON_MANDATORY },
+                                { "ID",                    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, id),             SD_JSON_MANDATORY },
                                 { "RuntimePath",           SD_JSON_VARIANT_STRING,        json_dispatch_const_path,      voffsetof(p, runtime_path),   SD_JSON_MANDATORY },
                                 { "UID",                   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      voffsetof(p, uid),            SD_JSON_MANDATORY },
                                 { "Seat",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, seat),           0                 },
@@ -1882,7 +1882,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                                         "io.systemd.Login.ReleaseSession",
                                         /* ret_reply= */ NULL,
                                         &error_id,
-                                        SD_JSON_BUILD_PAIR_STRING("Id", id));
+                                        SD_JSON_BUILD_PAIR_STRING("ID", id));
                         if (r < 0)
                                 return pam_syslog_errno(pamh, LOG_ERR, r,
                                                         "Failed to issue io.systemd.Login.ReleaseSession varlink call: %m");
