@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
 #include "dhcp-network.h"
 #include "dhcp-option.h"
@@ -8,11 +10,44 @@
 #include "dhcp-server-send.h"
 #include "dns-domain.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "socket-util.h"
+
+static int server_open_raw_socket(sd_dhcp_server *server) {
+        int r;
+
+        assert(server);
+
+        _cleanup_close_ int fd = RET_NERRNO(socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
+        if (fd < 0)
+                return fd;
+
+        /* While bind() with sockaddr_ll is strictly sufficient for AF_PACKET, we also set SO_BINDTOIFINDEX
+         * to initialize the kernel's sk_bound_dev_if state. This ensures compatibility with cgroup/eBPF
+         * filters and maintains consistency. */
+        r = socket_bind_to_ifindex(fd, server->ifindex);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PRIORITY, tos_to_priority(server->ip_service_type));
+        if (r < 0)
+                return r;
+
+        union sockaddr_union sa = {
+                .ll.sll_family = AF_PACKET,
+                .ll.sll_protocol = htobe16(ETH_P_IP),
+                .ll.sll_ifindex = server->ifindex,
+        };
+
+        if (bind(fd, &sa.sa, sockaddr_ll_len(&sa.ll)) < 0)
+                return -errno;
+
+        return TAKE_FD(fd);
+}
 
 static int dhcp_server_send_unicast_raw(
                 sd_dhcp_server *server,
@@ -21,12 +56,6 @@ static int dhcp_server_send_unicast_raw(
                 DHCPPacket *packet,
                 size_t len) {
 
-        union sockaddr_union link = {
-                .ll.sll_family = AF_PACKET,
-                .ll.sll_protocol = htobe16(ETH_P_IP),
-                .ll.sll_ifindex = server->ifindex,
-                .ll.sll_halen = hlen,
-        };
         int r;
 
         assert(server);
@@ -37,10 +66,19 @@ static int dhcp_server_send_unicast_raw(
         assert(packet);
         assert(len > sizeof(DHCPPacket));
 
-        memcpy(link.ll.sll_addr, chaddr, hlen);
-
         if (len > UINT16_MAX)
                 return -EOVERFLOW;
+
+        _cleanup_close_ int fd_close = -EBADF;
+        int fd;
+        if (server->socket_fd >= 0)
+                /* When a socket fd is given externally, unconditionally use it and do not close the socket. */
+                fd = server->socket_fd;
+        else {
+                fd = fd_close = server_open_raw_socket(server);
+                if (fd < 0)
+                        return fd;
+        }
 
         r = dhcp_packet_append_ip_headers(
                         packet,
@@ -49,67 +87,69 @@ static int dhcp_server_send_unicast_raw(
                         packet->dhcp.yiaddr,
                         DHCP_PORT_CLIENT,
                         len,
-                        /* ip_service_type= */ -1);
+                        server->ip_service_type);
         if (r < 0)
                 return r;
 
-        return dhcp_network_send_raw_socket(
-                        server->fd_raw,
-                        &link,
-                        &(struct iovec_wrapper) {
-                                .iovec = &IOVEC_MAKE(packet, len),
-                                .count = 1,
-                        });
+        union sockaddr_union sa = {
+                .ll.sll_family = AF_PACKET,
+                .ll.sll_protocol = htobe16(ETH_P_IP),
+                .ll.sll_ifindex = server->ifindex,
+                .ll.sll_halen = hlen,
+        };
+
+        memcpy(sa.ll.sll_addr, chaddr, hlen);
+
+        struct msghdr mh = {
+                .msg_name = &sa.sa,
+                .msg_namelen = sockaddr_ll_len(&sa.ll),
+                .msg_iov = &IOVEC_MAKE(packet, len),
+                .msg_iovlen = 1,
+        };
+
+        if (sendmsg(fd, &mh, MSG_NOSIGNAL) < 0)
+                return -errno;
+
+        return 0;
 }
 
 static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
                                 uint16_t destination_port,
                                 DHCPMessage *message, size_t len) {
-        union sockaddr_union dest = {
+
+        assert(server);
+        assert(message);
+        assert(len >= sizeof(DHCPMessage));
+
+        int fd = sd_event_source_get_io_fd(server->io_event_source);
+        if (fd < 0)
+                return fd;
+
+        union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(destination_port),
                 .in.sin_addr.s_addr = destination,
         };
-        struct iovec iov = {
-                .iov_base = message,
-                .iov_len = len,
-        };
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct in_pktinfo))) control = {};
         struct msghdr msg = {
-                .msg_name = &dest,
-                .msg_namelen = sizeof(dest.in),
-                .msg_iov = &iov,
+                .msg_name = &sa,
+                .msg_namelen = sizeof(sa.in),
+                .msg_iov = &IOVEC_MAKE(message, len),
                 .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
         };
-        struct cmsghdr *cmsg;
-        struct in_pktinfo *pktinfo;
 
-        assert(server);
-        assert(server->fd >= 0);
-        assert(message);
-        assert(len >= sizeof(DHCPMessage));
-
-        msg.msg_control = &control;
-        msg.msg_controllen = sizeof(control);
-
-        cmsg = CMSG_FIRSTHDR(&msg);
-        assert(cmsg);
-
+        struct cmsghdr *cmsg = ASSERT_PTR(CMSG_FIRSTHDR(&msg));
         cmsg->cmsg_level = IPPROTO_IP;
         cmsg->cmsg_type = IP_PKTINFO;
         cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
 
-        /* we attach source interface and address info to the message
-           rather than binding the socket. This will be mostly useful
-           when we gain support for arbitrary number of server addresses
-        */
-        pktinfo = CMSG_TYPED_DATA(cmsg, struct in_pktinfo);
-        assert(pktinfo);
-
+        struct in_pktinfo *pktinfo = ASSERT_PTR(CMSG_TYPED_DATA(cmsg, struct in_pktinfo));
         pktinfo->ipi_ifindex = server->ifindex;
         pktinfo->ipi_spec_dst.s_addr = server->address;
 
-        if (sendmsg(server->fd, &msg, 0) < 0)
+        if (sendmsg(fd, &msg, MSG_NOSIGNAL) < 0)
                 return -errno;
 
         return 0;
