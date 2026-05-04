@@ -63,9 +63,6 @@ static int add_static_lease(sd_dhcp_server *server, uint8_t i) {
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         struct in_addr address = { .s_addr = htobe32(UINT32_C(10) << 24 | UINT32_C(1))};
 
-        if (size < sizeof(DHCPMessage))
-                return 0;
-
         fuzz_setup_logging();
 
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
