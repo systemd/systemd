@@ -1,21 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
 #include <net/if_arp.h>
 
+#include "sd-event.h"
+
+#include "alloc-util.h"
+#include "dhcp-server-internal.h"
+#include "dhcp-server-lease-internal.h"
+#include "fd-util.h"
 #include "fuzz.h"
+#include "hashmap.h"
 #include "rm-rf.h"
-#include "sd-dhcp-server.c"
+#include "tests.h"
 #include "tmpfile-util.h"
-
-/* stub out network so that the server doesn't send */
-ssize_t sendto(int __fd, const void *__buf, size_t __n, int flags, const struct sockaddr *__addr, socklen_t __addr_len) {
-        return __n;
-}
-
-ssize_t sendmsg(int __fd, const struct msghdr *__message, int flags) {
-        return 0;
-}
 
 static int add_lease(sd_dhcp_server *server, const struct in_addr *server_address, uint8_t i) {
         _cleanup_(sd_dhcp_server_lease_unrefp) sd_dhcp_server_lease *lease = NULL;
@@ -64,43 +61,41 @@ static int add_static_lease(sd_dhcp_server *server, uint8_t i) {
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
-        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         struct in_addr address = { .s_addr = htobe32(UINT32_C(10) << 24 | UINT32_C(1))};
-        _cleanup_free_ uint8_t *duped = NULL;
-        _cleanup_close_ int dir_fd = -EBADF;
 
         if (size < sizeof(DHCPMessage))
                 return 0;
 
         fuzz_setup_logging();
 
-        assert_se(duped = memdup(data, size));
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        _cleanup_close_ int dir_fd = ASSERT_OK(mkdtemp_open(NULL, 0, &tmpdir));
 
-        dir_fd = mkdtemp_open(NULL, 0, &tmpdir);
-        assert_se(dir_fd >= 0);
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        ASSERT_OK(sd_event_new(&event));
 
-        assert_se(sd_dhcp_server_new(&server, 1) >= 0);
-        assert_se(sd_dhcp_server_attach_event(server, NULL, 0) >= 0);
-        assert_se(sd_dhcp_server_set_lease_file(server, dir_fd, "leases") >= 0);
-        server->fd = open("/dev/null", O_RDWR|O_CLOEXEC|O_NOCTTY);
-        assert_se(server->fd >= 0);
-        assert_se(sd_dhcp_server_configure_pool(server, &address, 24, 0, 0) >= 0);
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        ASSERT_OK(sd_dhcp_server_new(&server, 1));
+        ASSERT_OK(sd_dhcp_server_attach_event(server, event, SD_EVENT_PRIORITY_NORMAL));
+        server->fd = ASSERT_OK_ERRNO(open("/dev/null", O_RDWR|O_CLOEXEC|O_NOCTTY));
+        ASSERT_OK(sd_dhcp_server_set_lease_file(server, dir_fd, "leases"));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, 0, 0));
 
         /* add leases to the pool to expose additional code paths */
-        assert_se(add_lease(server, &address, 2) >= 0);
-        assert_se(add_lease(server, &address, 3) >= 0);
+        ASSERT_OK(add_lease(server, &address, 2));
+        ASSERT_OK(add_lease(server, &address, 3));
 
         /* add static leases */
-        assert_se(add_static_lease(server, 3) >= 0);
-        assert_se(add_static_lease(server, 4) >= 0);
+        ASSERT_OK(add_static_lease(server, 3));
+        ASSERT_OK(add_static_lease(server, 4));
 
+        _cleanup_free_ uint8_t *duped = ASSERT_NOT_NULL(memdup(data, size));
         (void) dhcp_server_handle_message(server, (DHCPMessage*) duped, size, NULL);
 
-        assert_se(dhcp_server_save_leases(server) >= 0);
+        ASSERT_OK(dhcp_server_save_leases(server));
         server->bound_leases_by_address = hashmap_free(server->bound_leases_by_address);
         server->bound_leases_by_client_id = hashmap_free(server->bound_leases_by_client_id);
-        assert_se(dhcp_server_load_leases(server) >= 0);
+        ASSERT_OK(dhcp_server_load_leases(server));
 
         return 0;
 }
