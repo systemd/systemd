@@ -71,9 +71,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         _cleanup_close_ int dir_fd = ASSERT_OK(mkdtemp_open(NULL, 0, &tmpdir));
 
-        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
-        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
-
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         ASSERT_OK(sd_event_new(&event));
 
