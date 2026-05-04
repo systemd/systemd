@@ -6,6 +6,7 @@
 #include "dhcp-client-id-internal.h"
 #include "dhcp-server-internal.h"
 #include "dhcp-server-request.h"
+#include "ether-addr-util.h"
 #include "sd-forward.h"
 
 typedef struct sd_dhcp_server_lease {
@@ -16,10 +17,9 @@ typedef struct sd_dhcp_server_lease {
         sd_dhcp_client_id client_id;
 
         uint8_t htype; /* e.g. ARPHRD_ETHER */
-        uint8_t hlen;  /* e.g. ETH_ALEN */
+        struct hw_addr_data hw_addr;
         be32_t address;
         be32_t gateway;
-        uint8_t chaddr[16];
         usec_t expiration;
         char *hostname;
 } sd_dhcp_server_lease;
