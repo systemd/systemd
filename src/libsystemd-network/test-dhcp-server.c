@@ -9,6 +9,7 @@
 #include "sd-event.h"
 
 #include "dhcp-server-internal.h"
+#include "dhcp-server-request.h"
 #include "tests.h"
 
 TEST(basic) {
