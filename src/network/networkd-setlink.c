@@ -2,6 +2,7 @@
 
 #include <linux/if_arp.h>
 #include <linux/ipv6.h>
+#include <net/if.h>
 #include <netinet/in.h>
 
 #include "sd-netlink.h"
@@ -938,6 +939,36 @@ int link_request_to_set_ipoib(Link *link) {
                                      NULL);
 }
 
+/* True if link->master_ifindex points at the OVS datapath (ovs-system). Robust
+ * against early-boot ordering: looks up the master by ifindex via the kernel
+ * (if_indextoname), not via networkd's links_by_index hashmap, which may not
+ * have enumerated ovs-system yet at the moment link_request_to_set_master is
+ * called for an OVS-attached system port. */
+static bool link_master_is_ovs_system(Link *link) {
+#if ENABLE_OPENVSWITCH
+        char buf[IF_NAMESIZE];
+
+        assert(link);
+
+        if (link->master_ifindex <= 0)
+                return false;
+
+        if (!if_indextoname(link->master_ifindex, buf)) {
+                /* ENXIO is the common case: the master ifindex was just freed by the
+                 * kernel and not yet observed via RTM_DELLINK. Other errors (e.g. ENOMEM)
+                 * are unexpected and worth surfacing in debug output. */
+                if (errno != ENXIO)
+                        log_link_debug_errno(link, errno, "Failed to resolve master ifindex %i to name, treating as non-OVS: %m",
+                                             link->master_ifindex);
+                return false;
+        }
+
+        return streq(buf, "ovs-system");
+#else
+        return false;
+#endif
+}
+
 int link_request_to_set_master(Link *link) {
         assert(link);
         assert(link->network);
@@ -948,12 +979,74 @@ int link_request_to_set_master(Link *link) {
                 return 0;
 
         } else if (link->network->batadv || link->network->bond || link->network->bridge || link->network->vrf) {
+                /* Refuse to set a kernel master while the link is currently bound
+                 * as an OVS slave (kernel master = ovs-system). The kernel rejects
+                 * IFLA_MASTER on openvswitch_slave ports with EOPNOTSUPP, which
+                 * the strict link_set_master_handler escalates to link_enter_failed
+                 * → automatic reconfigure → another set-master attempt → infinite
+                 * loop. Detaching from OVS first is out-of-band: the operator must
+                 * 'ovs-vsctl del-port <iface>' before networkd can move the link
+                 * to a kernel bridge. Mark master_set=true to break the loop and
+                 * skip the doomed netlink op; emit a one-shot warning so the
+                 * misconfiguration is visible. */
+                if (link_master_is_ovs_system(link)) {
+                        log_link_warning(link,
+                                         "Cannot move OVS-attached port to kernel master via netlink; "
+                                         "remove the port from the OVS bridge first ('ovs-vsctl del-port'). "
+                                         "Skipping master change.");
+                        link->master_set = true;
+                        return 0;
+                }
+
                 link->master_set = false;
                 return link_request_set_link(link, REQUEST_TYPE_SET_LINK_MASTER,
                                              link_set_master_handler,
                                              NULL);
 
+        } else if (link->network->ovs_bridge_name || link->network->ovs_bond_name) {
+                /* OVS attachment is set up out-of-band: ovs_reconcile() pushes
+                 * the desired Bridge/Port/Interface rows to OVSDB, ovs-vswitchd
+                 * adds the port to the datapath, and the kernel-side master
+                 * becomes ovs-system. netlink IFLA_MASTER cannot manipulate
+                 * that membership (returns EOPNOTSUPP).
+                 *
+                 * Two sub-cases:
+                 *  - link has no master, or its master is already the OVS
+                 *    datapath: nothing to do via netlink — mark master_set
+                 *    and let ovs_reconcile() do its thing.
+                 *  - link is currently a slave of a kernel bridge/bond/vrf
+                 *    (config just changed from kernel master to OVS): the
+                 *    kernel master must be cleared first, otherwise the port
+                 *    stays double-bound and the OVS attachment will fail (or
+                 *    look correct in OVSDB while the kernel keeps forwarding
+                 *    via the old master). Take the netlink unset-master path
+                 *    in that case; ovs_reconcile() will run on the next
+                 *    update and add the port to the OVS datapath. */
+                if (link->master_ifindex == 0 || link_master_is_ovs_system(link)) {
+                        link->master_set = true;
+                        return 0;
+                }
+
+                link->master_set = false;
+                return link_request_set_link(link, REQUEST_TYPE_SET_LINK_MASTER,
+                                             link_unset_master_handler,
+                                             NULL);
+
         } else if (link->master_ifindex != 0) {
+                /* OVS-removal symmetry: when the user removes OVSBridge=/OVSBond=
+                 * from a .network, this branch is entered with master_ifindex
+                 * still pointing at ovs-system (kernel state has not changed
+                 * yet — ovs-vswitchd will release the port when ovs_reconcile()
+                 * deletes the corresponding Port row from OVSDB). The netlink
+                 * IFLA_MASTER unset op would return EOPNOTSUPP and spam the log
+                 * on every reload. Mark master_set=true and trust the OVS
+                 * delete path; the link's master_ifindex will go to 0 via
+                 * RTM_NEWLINK once ovs-vswitchd processes the OVSDB transact. */
+                if (link_master_is_ovs_system(link)) {
+                        link->master_set = true;
+                        return 0;
+                }
+
                 /* Unset master only when it is set. */
                 link->master_set = false;
                 return link_request_set_link(link, REQUEST_TYPE_SET_LINK_MASTER,

@@ -8,6 +8,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "extract-word.h"
 #include "netlink-util.h"
 #include "networkd-bridge-vlan.h"
 #include "networkd-link.h"
@@ -415,6 +416,79 @@ int config_parse_bridge_vlan_id_range(
 
         for (; vid <= vid_end; vid++)
                 set_bit(vid, bitmap);
+
+        return 0;
+}
+
+/* Legacy comma-separated VLAN-list parser for OVSPort.Trunks=, kept as a
+ * deprecated alias of the BridgeVLAN-style OVSPort.VLAN= range syntax (which
+ * uses config_parse_bridge_vlan_id_range above). Both write into the same
+ * bitmap so the reconciler sees a single source of truth.
+ *
+ * Accepts comma-separated VID ranges:
+ *   Trunks=10
+ *   Trunks=10,20,30
+ *   Trunks=10-20,30,40-50
+ * Empty value clears the bitmap. */
+int config_parse_ovs_trunks(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t *bitmap = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                memzero(bitmap, BRIDGE_VLAN_BITMAP_LEN * sizeof(uint32_t));
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+                uint16_t vid, vid_end;
+
+                r = extract_first_word(&p, &word, ",", 0);
+                if (r == 0)
+                        break;
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to extract VLAN id from %s=, ignoring rest: %s",
+                                   lvalue, rvalue);
+                        return 0;
+                }
+
+                r = parse_vid_range(word, &vid, &vid_end);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse VLAN id '%s' in %s=, ignoring: %s",
+                                   word, lvalue, rvalue);
+                        continue;
+                }
+
+                /* parse_vid_range accepts 0..4094, but IEEE 802.1Q reserves VID 0
+                 * (priority-tagged) and VID 4095. ovs-vswitchd rejects them as trunks;
+                 * the encoder clamps to 1..VLANID_MAX. Warn so the operator sees their
+                 * config didn't take effect, instead of silently dropping the VID. */
+                if (vid == 0)
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "VLAN id 0 is reserved (IEEE 802.1Q priority-tagged frames), ignoring in %s=: %s",
+                                   lvalue, word);
+
+                for (; vid <= vid_end; vid++)
+                        set_bit(vid, bitmap);
+        }
 
         return 0;
 }
