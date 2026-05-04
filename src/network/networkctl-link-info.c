@@ -11,7 +11,7 @@
 #include "glob-util.h"
 #include "netlink-util.h"
 #include "networkctl-link-info.h"
-#include "networkctl-util.h"
+#include "networkctl-link-info-json.h"
 #include "sort-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -26,6 +26,7 @@ LinkInfo* link_info_array_free(LinkInfo *array) {
         for (unsigned i = 0; array && array[i].needs_freeing; i++) {
                 sd_device_unref(array[i].sd_device);
                 sd_json_variant_unref(array[i].description);
+                sd_dhcp_message_unref(array[i].dhcp_message);
                 free(array[i].netdev_kind);
                 free(array[i].ssid);
                 free(array[i].qdisc);
@@ -278,34 +279,6 @@ static int decode_link(
         return 1;
 }
 
-static int acquire_link_bitrates(LinkInfo *link) {
-        int r;
-
-        assert(link);
-
-        sd_json_variant *v;
-        r = json_variant_find_object(link->description, STRV_MAKE("Interface", "BitRates"), &v);
-        if (r == -ENODATA)
-                return 0;
-        if (r < 0)
-                return r;
-
-        static const sd_json_dispatch_field dispatch_table[] = {
-                { "TxBitRate", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LinkInfo, tx_bitrate), SD_JSON_MANDATORY },
-                { "RxBitRate", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LinkInfo, rx_bitrate), SD_JSON_MANDATORY },
-                {}
-        };
-
-        r = sd_json_dispatch(v, dispatch_table,
-                             SD_JSON_LOG | SD_JSON_WARNING | SD_JSON_ALLOW_EXTENSIONS,
-                             link);
-        if (r < 0)
-                return r;
-
-        link->has_bitrates = true;
-        return 0;
-}
-
 static void acquire_ether_link_info(int *fd, LinkInfo *link) {
         assert(fd);
         assert(link);
@@ -398,9 +371,7 @@ int acquire_link_info(sd_varlink *vl, sd_netlink *rtnl, char * const *patterns, 
                 acquire_ether_link_info(&fd, &links[c]);
                 acquire_wlan_link_info(&links[c]);
 
-                if (vl)
-                        (void) acquire_link_description(vl, links[c].ifindex, &links[c].description);
-                (void) acquire_link_bitrates(&links[c]);
+                (void) link_info_parse_description(&links[c], vl);
 
                 c++;
         }
