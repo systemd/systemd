@@ -155,42 +155,77 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
         return 0;
 }
 
-static bool requested_broadcast(DHCPMessage *message) {
-        assert(message);
-        return message->flags & htobe16(0x8000);
-}
-
-static int dhcp_server_send(
+static int dhcp_server_send_message(
                 sd_dhcp_server *server,
-                uint8_t hlen,
-                const uint8_t *chaddr,
-                be32_t destination,
-                uint16_t destination_port,
+                DHCPRequest *req,
+                uint8_t type,
                 DHCPPacket *packet,
-                size_t optoffset,
-                bool l2_broadcast) {
+                size_t optoffset) {
 
-        if (destination != INADDR_ANY)
-                return dhcp_server_send_udp(server, destination,
-                                            destination_port, &packet->dhcp,
-                                            sizeof(DHCPMessage) + optoffset);
-        else if (l2_broadcast)
-                return dhcp_server_send_udp(server, INADDR_BROADCAST,
-                                            destination_port, &packet->dhcp,
-                                            sizeof(DHCPMessage) + optoffset);
-        else
-                /* we cannot send UDP packet to specific MAC address when the
-                   address is not yet configured, so must fall back to raw
-                   packets */
-                return dhcp_server_send_unicast_raw(server, hlen, chaddr, packet,
-                                                    sizeof(DHCPPacket) + optoffset);
+        assert(server);
+        assert(req);
+        assert(req->message);
+        assert(packet);
+
+        /* RFC 2131 Section 4.1 */
+
+        /* If the ’giaddr’ field in a DHCP message from a client is non-zero, the server sends any
+         * return messages to the ’DHCP server’ port on the BOOTP relay agent whose address appears
+         * in ’giaddr’. */
+        if (req->message->giaddr != INADDR_ANY)
+                return dhcp_server_send_udp(
+                                server,
+                                req->message->giaddr,
+                                DHCP_PORT_SERVER,
+                                &packet->dhcp,
+                                sizeof(DHCPMessage) + optoffset);
+
+        /* when ’giaddr’ is zero, the server broadcasts any DHCPNAK messages to 0xffffffff. */
+        if (type == DHCP_NAK)
+                return dhcp_server_send_udp(
+                                server,
+                                INADDR_BROADCAST,
+                                DHCP_PORT_CLIENT,
+                                &packet->dhcp,
+                                sizeof(DHCPMessage) + optoffset);
+
+        /* If the ’giaddr’ field is zero and the ’ciaddr’ field is nonzero, then the server unicasts
+         * DHCPOFFER and DHCPACK messages to the address in ’ciaddr’. */
+        if (req->message->ciaddr != INADDR_ANY)
+                return dhcp_server_send_udp(
+                                server,
+                                req->message->ciaddr,
+                                DHCP_PORT_CLIENT,
+                                &packet->dhcp,
+                                sizeof(DHCPMessage) + optoffset);
+
+        /* If ’giaddr’ is zero and ’ciaddr’ is zero, and the broadcast bit is set, then the server
+         * broadcasts DHCPOFFER and DHCPACK messages to 0xffffffff.
+         *
+         * Note, even the broadcast flag is unset, we may not know the client hardware address (e.g.
+         * InfiniBand). In that case, we cannot unicast in the below, so need to broadcast. */
+        if (FLAGS_SET(be16toh(req->message->flags), 0x8000) ||
+            req->message->hlen == 0 || memeqzero(req->message->chaddr, req->message->hlen))
+                return dhcp_server_send_udp(
+                                server,
+                                INADDR_BROADCAST,
+                                DHCP_PORT_CLIENT,
+                                &packet->dhcp,
+                                sizeof(DHCPMessage) + optoffset);
+
+        /* If the broadcast bit is not set and ’giaddr’ is zero and ’ciaddr’ is zero, then the server
+         * unicasts DHCPOFFER and DHCPACK messages to the client’s hardware address and ’yiaddr’ address. */
+        return dhcp_server_send_unicast_raw(
+                        server,
+                        req->message->hlen,
+                        req->message->chaddr,
+                        packet,
+                        sizeof(DHCPPacket) + optoffset);
 }
 
 static int dhcp_server_send_packet(sd_dhcp_server *server,
                             DHCPRequest *req, DHCPPacket *packet,
                             int type, size_t optoffset) {
-        be32_t destination = INADDR_ANY;
-        uint16_t destination_port = DHCP_PORT_CLIENT;
         int r;
 
         assert(server);
@@ -220,40 +255,7 @@ static int dhcp_server_send_packet(sd_dhcp_server *server,
         if (r < 0)
                 return r;
 
-        /* RFC 2131 Section 4.1
-
-           If the ’giaddr’ field in a DHCP message from a client is non-zero,
-           the server sends any return messages to the ’DHCP server’ port on the
-           BOOTP relay agent whose address appears in ’giaddr’. If the ’giaddr’
-           field is zero and the ’ciaddr’ field is nonzero, then the server
-           unicasts DHCPOFFER and DHCPACK messages to the address in ’ciaddr’.
-           If ’giaddr’ is zero and ’ciaddr’ is zero, and the broadcast bit is
-           set, then the server broadcasts DHCPOFFER and DHCPACK messages to
-           0xffffffff. If the broadcast bit is not set and ’giaddr’ is zero and
-           ’ciaddr’ is zero, then the server unicasts DHCPOFFER and DHCPACK
-           messages to the client’s hardware address and ’yiaddr’ address. In
-           all cases, when ’giaddr’ is zero, the server broadcasts any DHCPNAK
-           messages to 0xffffffff.
-
-           Section 4.3.2
-
-           If ’giaddr’ is set in the DHCPREQUEST message, the client is on a
-           different subnet. The server MUST set the broadcast bit in the
-           DHCPNAK, so that the relay agent will broadcast the DHCPNAK to the
-           client, because the client may not have a correct network address
-           or subnet mask, and the client may not be answering ARP requests.
-         */
-        if (req->message->giaddr != 0) {
-                destination = req->message->giaddr;
-                destination_port = DHCP_PORT_SERVER;
-                if (type == DHCP_NAK)
-                        packet->dhcp.flags = htobe16(0x8000);
-        } else if (req->message->ciaddr != 0 && type != DHCP_NAK)
-                destination = req->message->ciaddr;
-
-        bool l2_broadcast = requested_broadcast(req->message) || type == DHCP_NAK;
-        return dhcp_server_send(server, req->message->hlen, req->message->chaddr,
-                                destination, destination_port, packet, optoffset, l2_broadcast);
+        return dhcp_server_send_message(server, req, type, packet, optoffset);
 }
 
 static int server_message_init(
