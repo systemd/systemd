@@ -1,30 +1,41 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-dhcp-server-lease.h"
 #include "sd-forward.h"
 
 #include "dhcp-client-id-internal.h"
-#include "dhcp-protocol.h"
-#include "sparse-endian.h"
+#include "dhcp-message.h"
 #include "time-util.h"
 
-typedef struct DHCPRequest {
-        /* received message */
-        DHCPMessage *message;
+typedef struct sd_dhcp_request sd_dhcp_request;
+
+struct sd_dhcp_request {
+        unsigned n_ref;
+
+        sd_dhcp_message *message; /* received message */
+        struct hw_addr_data hw_addr; /* sender hardware address, may not be set for non-ethernet interface */
+        triple_timestamp timestamp;
 
         /* options */
+        uint8_t type;
         sd_dhcp_client_id client_id;
-        size_t max_optlen;
-        be32_t server_id;
-        be32_t requested_ip;
+        sd_dhcp_client_id client_id_by_header;
+        be32_t server_address;
+        size_t max_message_size; /* maximum message size, including IP header */
         usec_t lifetime;
-        const uint8_t *agent_info_option;
-        char *hostname;
-        const uint8_t *parameter_request_list;
-        size_t parameter_request_list_len;
-        bool rapid_commit;
-        triple_timestamp timestamp;
-} DHCPRequest;
+        Set *parameter_request_list;
 
-int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, size_t length, const triple_timestamp *timestamp);
+        /* acquired data */
+        sd_dhcp_server_lease *static_lease;
+        be32_t address;
+};
+
+sd_dhcp_request* sd_dhcp_request_ref(sd_dhcp_request *p);
+sd_dhcp_request* sd_dhcp_request_unref(sd_dhcp_request *p);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp_request*, sd_dhcp_request_unref);
+
+int dhcp_request_get_lifetime_timestamp(sd_dhcp_request *req, clockid_t clock, usec_t *ret);
+
+int dhcp_server_process_message(sd_dhcp_server *server, const struct iovec *iov, const triple_timestamp *timestamp);
 int dhcp_server_setup_io_event_source(sd_dhcp_server *server);

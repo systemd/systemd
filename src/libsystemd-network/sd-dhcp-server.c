@@ -217,10 +217,18 @@ int sd_dhcp_server_detach_event(sd_dhcp_server *server) {
         return 0;
 }
 
-sd_event *sd_dhcp_server_get_event(sd_dhcp_server *server) {
+sd_event* sd_dhcp_server_get_event(sd_dhcp_server *server) {
         assert_return(server, NULL);
 
         return server->event;
+}
+
+int sd_dhcp_server_set_ip_service_type(sd_dhcp_server *server, uint8_t type) {
+        assert_return(server, -EINVAL);
+        assert_return(sd_dhcp_server_is_running(server), -EBUSY);
+
+        server->ip_service_type = type;
+        return 0;
 }
 
 int sd_dhcp_server_set_boot_server_address(sd_dhcp_server *server, const struct in_addr *address) {
@@ -327,18 +335,17 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         if (sd_dhcp_server_is_running(server))
                 return 0;
 
-        dhcp_server_update_lease_servers(server);
-
         r = dhcp_server_setup_io_event_source(server);
         if (r < 0)
                 return r;
+
+        dhcp_server_update_lease_servers(server);
 
         r = dhcp_server_load_leases(server);
         if (r < 0)
                 log_dhcp_server_errno(server, r, "Failed to load lease file %s, ignoring: %m", strna(server->lease_file));
 
         log_dhcp_server(server, "STARTED");
-
         return 0;
 }
 
