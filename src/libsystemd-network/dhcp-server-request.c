@@ -10,6 +10,7 @@
 #include "dhcp-server-request.h"
 #include "dhcp-server-send.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "hashmap.h"
 #include "iovec-util.h"
 #include "memory-util.h"
@@ -497,38 +498,88 @@ static int server_receive_message(sd_event_source *s, int fd, uint32_t revents, 
         return 0;
 }
 
+static int server_open_socket(sd_dhcp_server *server) {
+        int r;
+
+        assert(server);
+
+        _cleanup_close_ int fd = RET_NERRNO(socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
+        if (fd < 0)
+                return fd;
+
+        r = socket_bind_to_ifindex(fd, server->ifindex);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_TIMESTAMP, true);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR, true);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PRIORITY, tos_to_priority(server->ip_service_type));
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, IPPROTO_IP, IP_TOS, server->ip_service_type);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, SOL_SOCKET, SO_BROADCAST, true);
+        if (r < 0)
+                return r;
+
+        union sockaddr_union sa = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = htobe16(DHCP_PORT_SERVER),
+                .in.sin_addr.s_addr = htobe32(INADDR_ANY),
+        };
+
+        if (bind(fd, &sa.sa, sizeof(sa.in)) < 0)
+                return -errno;
+
+        return TAKE_FD(fd);
+}
+
 int dhcp_server_setup_io_event_source(sd_dhcp_server *server) {
         int r;
 
         assert(server);
         assert(server->event);
 
-        r = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
-        if (r < 0) {
-                r = -errno;
-                goto on_error;
+        _cleanup_close_ int fd_close = -EBADF;
+        int fd;
+        if (server->socket_fd >= 0)
+                /* When a socket fd is given externally, unconditionally use it and do not close the socket
+                 * even if we fail to set up the event source. */
+                fd = server->socket_fd;
+        else {
+                fd = fd_close = server_open_socket(server);
+                if (fd < 0)
+                        return fd;
         }
-        server->fd_raw = r;
 
-        r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = sd_event_add_io(server->event, &s, fd, EPOLLIN, server_receive_message, server);
         if (r < 0)
-                goto on_error;
-        server->fd = r;
+                return r;
 
-        r = sd_event_add_io(server->event, &server->receive_message,
-                            server->fd, EPOLLIN,
-                            server_receive_message, server);
+        r = sd_event_source_set_priority(s, server->event_priority);
         if (r < 0)
-                goto on_error;
+                return r;
 
-        r = sd_event_source_set_priority(server->receive_message,
-                                         server->event_priority);
-        if (r < 0)
-                goto on_error;
+        (void) sd_event_source_set_description(s, "dhcp-server-io");
 
+        if (fd_close >= 0) {
+                r = sd_event_source_set_io_fd_own(s, true);
+                if (r < 0)
+                        return r;
+                TAKE_FD(fd_close);
+        }
+
+        sd_event_source_disable_unref(server->io_event_source);
+        server->io_event_source = TAKE_PTR(s);
         return 0;
-
- on_error:
-        sd_dhcp_server_stop(server);
-        return r;
 }

@@ -29,9 +29,9 @@ typedef struct sd_dhcp_server {
 
         sd_event *event;
         int event_priority;
-        sd_event_source *receive_message;
-        int fd;
-        int fd_raw;
+        sd_event_source *io_event_source;
+        uint8_t ip_service_type;
+        int socket_fd; /* socket fd set externally, used by unit tests */
 
         int ifindex;
         char *ifname;

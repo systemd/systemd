@@ -3,6 +3,8 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
+#include <netinet/ip.h>
+
 #include "sd-dhcp-server.h"
 #include "sd-event.h"
 
@@ -99,10 +101,7 @@ int sd_dhcp_server_configure_pool(
 }
 
 int sd_dhcp_server_is_running(sd_dhcp_server *server) {
-        if (!server)
-                return false;
-
-        return !!server->receive_message;
+        return server && sd_event_source_get_enabled(server->io_event_source, /* ret= */ NULL) > 0;
 }
 
 static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
@@ -111,6 +110,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         sd_dhcp_server_stop(server);
 
         sd_event_unref(server->event);
+        safe_close(server->socket_fd);
 
         free(server->boot_server_name);
         free(server->boot_filename);
@@ -149,8 +149,8 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
 
         *server = (sd_dhcp_server) {
                 .n_ref = 1,
-                .fd_raw = -EBADF,
-                .fd = -EBADF,
+                .ip_service_type = IPTOS_CLASS_CS6,
+                .socket_fd = -EBADF,
                 .address = htobe32(INADDR_ANY),
                 .netmask = htobe32(INADDR_ANY),
                 .ifindex = ifindex,
@@ -262,17 +262,12 @@ int sd_dhcp_server_set_boot_filename(sd_dhcp_server *server, const char *filenam
 }
 
 int sd_dhcp_server_stop(sd_dhcp_server *server) {
-        bool running;
-
         if (!server)
                 return 0;
 
-        running = sd_dhcp_server_is_running(server);
+        bool running = sd_dhcp_server_is_running(server);
 
-        server->receive_message = sd_event_source_disable_unref(server->receive_message);
-
-        server->fd_raw = safe_close(server->fd_raw);
-        server->fd = safe_close(server->fd);
+        server->io_event_source = sd_event_source_disable_unref(server->io_event_source);
 
         if (running)
                 log_dhcp_server(server, "STOPPED");
@@ -327,14 +322,10 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
 
         assert_return(server, -EINVAL);
         assert_return(server->event, -EINVAL);
+        assert_return(server->address != INADDR_ANY, -EUNATCH);
 
         if (sd_dhcp_server_is_running(server))
                 return 0;
-
-        assert_return(!server->receive_message, -EBUSY);
-        assert_return(server->fd_raw < 0, -EBUSY);
-        assert_return(server->fd < 0, -EBUSY);
-        assert_return(server->address != htobe32(INADDR_ANY), -EUNATCH);
 
         dhcp_server_update_lease_servers(server);
 
