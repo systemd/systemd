@@ -195,6 +195,32 @@ EFI_STATUS file_read(
         return file_handle_read(handle, offset, size, ret, ret_size);
 }
 
+EFI_STATUS load_file_from_simple_filesystem(const EFI_DEVICE_PATH *device_path, char **file_buffer, size_t *file_size) {
+        EFI_STATUS err;
+        EFI_HANDLE device_handle;
+        EFI_DEVICE_PATH *file_dp = (EFI_DEVICE_PATH *) device_path;
+
+        assert(device_path);
+        assert(file_buffer);
+        assert(file_size);
+
+        err = BS->LocateDevicePath(MAKE_GUID_PTR(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL), &file_dp, &device_handle);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        _cleanup_file_close_ EFI_FILE *root = NULL;
+        err = open_volume(device_handle, &root);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        _cleanup_free_ char16_t *dp_str = NULL;
+        err = device_path_to_str(file_dp, &dp_str);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        return file_read(root, dp_str, 0, 0, file_buffer, file_size);
+}
+
 void set_attribute_safe(size_t attr) {
         /* Various UEFI implementations suppress color changes from a color to the same color. Often, we want
          * to force out the color change though, hence change the color here once, and then back. We simply
