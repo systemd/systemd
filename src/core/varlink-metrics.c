@@ -189,6 +189,18 @@ static int nrestarts_build_json(MetricFamilyContext *context, void *userdata) {
         return 0;
 }
 
+static int reload_count_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        assert(context);
+
+        return metric_build_send_unsigned(
+                        context,
+                        /* object= */ NULL,
+                        manager->reload_count,
+                        /* fields= */ NULL);
+}
+
 static int units_by_type_total_build_json(MetricFamilyContext *context, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         int r;
@@ -363,6 +375,12 @@ static const MetricFamily metric_family_table[] = {
                 .description = "Per unit metric: number of restarts",
                 .type = METRIC_FAMILY_TYPE_COUNTER,
                 .generate = nrestarts_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "ReloadCount",
+                .description = "Number of successful manager reloads since startup; resets across daemon-reexec",
+                .type = METRIC_FAMILY_TYPE_COUNTER,
+                .generate = reload_count_build_json,
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "StateChangeTimestamp",
