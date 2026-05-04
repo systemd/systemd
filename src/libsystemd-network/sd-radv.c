@@ -226,6 +226,12 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 return 0;
         }
 
+        if (packet->ifindex != ra->ifindex) {
+                log_radv(ra, "Received an ICMPv6 packet on interface %i, expected %i, ignoring.",
+                         packet->ifindex, ra->ifindex);
+                return 0;
+        }
+
         (void) radv_process_packet(ra, packet);
         return 0;
 }
