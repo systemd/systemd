@@ -51,8 +51,7 @@ static int server_open_raw_socket(sd_dhcp_server *server) {
 
 static int dhcp_server_send_unicast_raw(
                 sd_dhcp_server *server,
-                uint8_t hlen,
-                const uint8_t *chaddr,
+                const struct hw_addr_data *hw_addr,
                 DHCPPacket *packet,
                 size_t len) {
 
@@ -61,8 +60,7 @@ static int dhcp_server_send_unicast_raw(
         assert(server);
         assert(server->ifindex > 0);
         assert(server->address != 0);
-        assert(hlen > 0);
-        assert(chaddr);
+        assert(hw_addr);
         assert(packet);
         assert(len > sizeof(DHCPPacket));
 
@@ -95,10 +93,10 @@ static int dhcp_server_send_unicast_raw(
                 .ll.sll_family = AF_PACKET,
                 .ll.sll_protocol = htobe16(ETH_P_IP),
                 .ll.sll_ifindex = server->ifindex,
-                .ll.sll_halen = hlen,
+                .ll.sll_halen = hw_addr->length,
         };
 
-        memcpy(sa.ll.sll_addr, chaddr, hlen);
+        memcpy_safe(sa.ll.sll_addr, hw_addr->bytes, hw_addr->length);
 
         struct msghdr mh = {
                 .msg_name = &sa.sa,
@@ -205,7 +203,7 @@ static int dhcp_server_send_message(
          * Note, even the broadcast flag is unset, we may not know the client hardware address (e.g.
          * InfiniBand). In that case, we cannot unicast in the below, so need to broadcast. */
         if (FLAGS_SET(be16toh(req->message->flags), 0x8000) ||
-            req->message->hlen == 0 || memeqzero(req->message->chaddr, req->message->hlen))
+            hw_addr_is_null(&req->hw_addr))
                 return dhcp_server_send_udp(
                                 server,
                                 INADDR_BROADCAST,
@@ -217,8 +215,7 @@ static int dhcp_server_send_message(
          * unicasts DHCPOFFER and DHCPACK messages to the client’s hardware address and ’yiaddr’ address. */
         return dhcp_server_send_unicast_raw(
                         server,
-                        req->message->hlen,
-                        req->message->chaddr,
+                        &req->hw_addr,
                         packet,
                         sizeof(DHCPPacket) + optoffset);
 }
@@ -281,7 +278,7 @@ static int server_message_init(
 
         r = dhcp_message_init(&packet->dhcp, BOOTREPLY,
                               be32toh(req->message->xid),
-                              req->message->htype, req->message->hlen, req->message->chaddr,
+                              req->message->htype, req->hw_addr.length, req->hw_addr.bytes,
                               type, req->max_optlen, &optoffset);
         if (r < 0)
                 return r;
@@ -546,28 +543,23 @@ int server_send_nak_or_ignore(sd_dhcp_server *server, bool init_reboot, DHCPRequ
         return DHCP_NAK;
 }
 
-static int server_send_forcerenew(
+static int dhcp_server_send_forcerenew(
                 sd_dhcp_server *server,
-                be32_t address,
-                be32_t gateway,
-                uint8_t htype,
-                uint8_t hlen,
-                const uint8_t *chaddr) {
+                sd_dhcp_server_lease *lease) {
 
         _cleanup_free_ DHCPPacket *packet = NULL;
         size_t optoffset = 0;
         int r;
 
         assert(server);
-        assert(address != INADDR_ANY);
-        assert(chaddr);
+        assert(lease);
 
         packet = malloc0(sizeof(DHCPPacket) + DHCP_MIN_OPTIONS_SIZE);
         if (!packet)
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREPLY, 0,
-                              htype, hlen, chaddr, DHCP_FORCERENEW,
+                              lease->htype, lease->hw_addr.length, lease->hw_addr.bytes, DHCP_FORCERENEW,
                               DHCP_MIN_OPTIONS_SIZE, &optoffset);
         if (r < 0)
                 return r;
@@ -577,7 +569,7 @@ static int server_send_forcerenew(
         if (r < 0)
                 return r;
 
-        return dhcp_server_send_udp(server, address, DHCP_PORT_CLIENT,
+        return dhcp_server_send_udp(server, lease->address, DHCP_PORT_CLIENT,
                                     &packet->dhcp,
                                     sizeof(DHCPMessage) + optoffset);
 }
@@ -591,8 +583,6 @@ int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
         log_dhcp_server(server, "FORCERENEW");
 
         HASHMAP_FOREACH(lease, server->bound_leases_by_client_id)
-                RET_GATHER(r,
-                           server_send_forcerenew(server, lease->address, lease->gateway,
-                                                  lease->htype, lease->hlen, lease->chaddr));
+                RET_GATHER(r, dhcp_server_send_forcerenew(server, lease));
         return r;
 }

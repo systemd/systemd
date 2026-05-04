@@ -5,15 +5,19 @@
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-protocol.h"
+#include "ether-addr-util.h"
 #include "sparse-endian.h"
 #include "time-util.h"
 
 typedef struct DHCPRequest {
         /* received message */
         DHCPMessage *message;
+        /* sender hardware address, may not be set for non-ethernet interface */
+        struct hw_addr_data hw_addr;
 
         /* options */
         sd_dhcp_client_id client_id;
+        sd_dhcp_client_id client_id_by_header;
         size_t max_optlen;
         be32_t server_id;
         be32_t requested_ip;

@@ -55,8 +55,6 @@ static int dhcp_request_get_lifetime_timestamp(DHCPRequest *req, clockid_t clock
 }
 
 static int ensure_sane_request(sd_dhcp_server *server, DHCPRequest *req, DHCPMessage *message) {
-        int r;
-
         assert(req);
         assert(message);
 
@@ -65,41 +63,26 @@ static int ensure_sane_request(sd_dhcp_server *server, DHCPRequest *req, DHCPMes
         if (message->hlen > sizeof(message->chaddr))
                 return -EBADMSG;
 
-        /* set client id based on MAC address if client did not send an explicit one */
-        if (!sd_dhcp_client_id_is_set(&req->client_id)) {
-                if (!client_id_data_size_is_valid(message->hlen))
-                        return -EBADMSG;
+        req->hw_addr.length = req->message->hlen;
+        memcpy_safe(req->hw_addr.bytes, message->chaddr, message->hlen);
 
-                r = sd_dhcp_client_id_set(&req->client_id, /* type= */ 1, message->chaddr, message->hlen);
-                if (r < 0)
-                        return r;
-        }
+        /* Fake client ID generated from the DHCP header.
+         * The client ID type 0 and 255 are special. So do not use if htype is 0 or 255.
+         * Note, Some hardware type (e.g. Infiniband) may not set chaddr field. */
+        if (!IN_SET(req->message->htype, 0, UINT8_MAX))
+                (void) sd_dhcp_client_id_set(
+                                &req->client_id_by_header,
+                                req->message->htype,
+                                req->message->chaddr,
+                                req->message->hlen);
 
-        if (message->hlen == 0 || memeqzero(message->chaddr, message->hlen)) {
-                uint8_t type;
-                const void *data;
-                size_t size;
+        /* If Client Identifier option is unspecified, use the generated one. */
+        if (!sd_dhcp_client_id_is_set(&req->client_id))
+                req->client_id = req->client_id_by_header;
 
-                /* See RFC2131 section 4.1.1.
-                 * hlen and chaddr may not be set for non-ethernet interface.
-                 * Let's try to retrieve it from the client ID. */
-
-                if (!sd_dhcp_client_id_is_set(&req->client_id))
-                        return -EBADMSG;
-
-                r = sd_dhcp_client_id_get(&req->client_id, &type, &data, &size);
-                if (r < 0)
-                        return r;
-
-                if (type != 1)
-                        return -EBADMSG;
-
-                if (size > sizeof(message->chaddr))
-                        return -EBADMSG;
-
-                memcpy(message->chaddr, data, size);
-                message->hlen = size;
-        }
+        /* We manage bound leases by client ID. Hence, at least one of them are necessary. */
+        if (!sd_dhcp_client_id_is_set(&req->client_id))
+                return -EBADMSG;
 
         if (req->max_optlen < DHCP_MIN_OPTIONS_SIZE)
                 req->max_optlen = DHCP_MIN_OPTIONS_SIZE;

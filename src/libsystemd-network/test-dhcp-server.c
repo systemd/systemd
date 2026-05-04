@@ -152,8 +152,9 @@ TEST(dhcp_server_handle_message) {
         test.header.op = BOOTREQUEST;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
 
+        /* Neither client ID nor hardware type is set. There is no way to manage the bound lease for the request. */
         test.header.htype = 0;
-        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        ASSERT_ERROR(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), EBADMSG);
         test.header.htype = ARPHRD_ETHER;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
 
