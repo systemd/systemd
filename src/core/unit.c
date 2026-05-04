@@ -5393,15 +5393,17 @@ static void unit_modify_user_nft_set(Unit *u, bool add, NFTSetSource source, uin
         if (!c)
                 return;
 
-        if (!u->manager->nfnl) {
-                r = sd_nfnl_socket_open(&u->manager->nfnl);
-                if (r < 0)
-                        return;
-        }
-
         FOREACH_ARRAY(nft_set, c->nft_set_context.sets, c->nft_set_context.n_sets) {
                 if (nft_set->source != source)
                         continue;
+
+                if (!u->manager->nfnl) {
+                        r = sd_nfnl_socket_open(&u->manager->nfnl);
+                        if (r < 0) {
+                                log_once_errno(LOG_WARNING, r, "Failed to open NETLINK_NETFILTER socket, ignoring: %m");
+                                return;
+                        }
+                }
 
                 r = nft_set_element_modify_any(u->manager->nfnl, add, nft_set->nfproto, nft_set->table, nft_set->set, &element, sizeof(element));
                 if (r < 0)
