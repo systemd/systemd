@@ -7,6 +7,7 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "in-addr-util.h"
+#include "iovec-util.h"
 #include "net-condition.h"
 #include "netdev/macvlan.h"
 #include "netif-sriov.h"
@@ -397,11 +398,14 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_gateway = -1,
                 .dhcp_send_hostname = true,
                 .dhcp_send_release = true,
+                .dhcp_extra_options = TLV_INIT(TLV_DHCP4),
+                .dhcp_vendor_options = TLV_INIT(TLV_DHCP4_SUBOPTION),
                 .dhcp_route_metric = DHCP_ROUTE_METRIC,
                 .dhcp_use_rapid_commit = -1,
                 .dhcp_client_identifier = _DHCP_CLIENT_ID_INVALID,
                 .dhcp_route_table = RT_TABLE_MAIN,
                 .dhcp_ip_service_type = -1,
+                .dhcp_socket_priority = -1,
                 .dhcp_broadcast = -1,
                 .dhcp_ipv6_only_mode = -1,
                 .dhcp_6rd_prefix_route_type = RTN_UNREACHABLE,
@@ -429,13 +433,17 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_pd_subnet_id = -1,
                 .dhcp_pd_route_metric = DHCP6PD_ROUTE_METRIC,
 
-                .dhcp_server_bind_to_interface = true,
+                .dhcp_relay_interface_mode = _DHCP_RELAY_INTERFACE_INVALID,
+                .dhcp_relay_extra_options = TLV_INIT(TLV_DHCP4_SUBOPTION),
+
                 .dhcp_server_emit[SD_DHCP_LEASE_DNS].emit = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_NTP].emit = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_SIP].emit = true,
                 .dhcp_server_emit_router = true,
                 .dhcp_server_emit_timezone = true,
                 .dhcp_server_rapid_commit = true,
+                .dhcp_server_extra_options = TLV_INIT(TLV_DHCP4),
+                .dhcp_server_vendor_options = TLV_INIT(TLV_DHCP4_SUBOPTION),
                 .dhcp_server_persist_leases = _DHCP_SERVER_PERSIST_LEASES_INVALID,
 
                 .router_lifetime_usec = RADV_DEFAULT_ROUTER_LIFETIME_USEC,
@@ -761,9 +769,12 @@ static Network *network_free(Network *network) {
         ordered_set_free(network->route_domains);
         set_free(network->dnssec_negative_trust_anchors);
 
+        /* DHCP relay agent */
+        iovec_done(&network->dhcp_relay_circuit_id);
+        iovec_done(&network->dhcp_relay_vss);
+        tlv_done(&network->dhcp_relay_extra_options);
+
         /* DHCP server */
-        free(network->dhcp_server_relay_agent_circuit_id);
-        free(network->dhcp_server_relay_agent_remote_id);
         free(network->dhcp_server_boot_server_name);
         free(network->dhcp_server_boot_filename);
         free(network->dhcp_server_timezone);
@@ -771,8 +782,8 @@ static Network *network_free(Network *network) {
         free(network->dhcp_server_uplink_name);
         for (sd_dhcp_lease_server_type_t t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
                 free(network->dhcp_server_emit[t].addresses);
-        ordered_hashmap_free(network->dhcp_server_send_options);
-        ordered_hashmap_free(network->dhcp_server_send_vendor_options);
+        tlv_done(&network->dhcp_server_extra_options);
+        tlv_done(&network->dhcp_server_vendor_options);
         free(network->dhcp_server_local_lease_domain);
 
         /* DHCP client */
@@ -782,10 +793,10 @@ static Network *network_free(Network *network) {
         free(network->dhcp_label);
         set_free(network->dhcp_deny_listed_ip);
         set_free(network->dhcp_allow_listed_ip);
-        strv_free(network->dhcp_user_class);
+        iovw_done_free(&network->dhcp_user_class);
         set_free(network->dhcp_request_options);
-        ordered_hashmap_free(network->dhcp_client_send_options);
-        ordered_hashmap_free(network->dhcp_client_send_vendor_options);
+        tlv_done(&network->dhcp_extra_options);
+        tlv_done(&network->dhcp_vendor_options);
         free(network->dhcp_netlabel);
         nft_set_context_clear(&network->dhcp_nft_set_context);
 

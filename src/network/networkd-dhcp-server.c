@@ -7,6 +7,7 @@
 
 #include "conf-parser.h"
 #include "dhcp-protocol.h"
+#include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "dns-domain.h"
 #include "errno-util.h"
@@ -158,9 +159,6 @@ static DHCPServerPersistLeases link_get_dhcp_server_persist_leases(Link *link) {
         assert(link);
         assert(link->manager);
         assert(link->network);
-
-        if (in4_addr_is_set(&link->network->dhcp_server_relay_target))
-                return DHCP_SERVER_PERSIST_LEASES_NO; /* On relay mode. Nothing saved in the persistent storage. */
 
         if (link->network->dhcp_server_persist_leases >= 0)
                 return link->network->dhcp_server_persist_leases;
@@ -567,11 +565,9 @@ static int dhcp_server_set_domain(Link *link) {
 
 static int dhcp4_server_configure(Link *link) {
         bool acquired_uplink = false;
-        sd_dhcp_option *p;
         DHCPStaticLease *static_lease;
         Link *uplink = NULL;
         Address *address;
-        bool bind_to_interface;
         int r;
 
         assert(link);
@@ -681,19 +677,6 @@ static int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set router address for DHCP server: %m");
         }
 
-        r = sd_dhcp_server_set_relay_target(link->dhcp_server, &link->network->dhcp_server_relay_target);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to set relay target for DHCP server: %m");
-
-        bind_to_interface = sd_dhcp_server_is_in_relay_mode(link->dhcp_server) ? false : link->network->dhcp_server_bind_to_interface;
-        r = sd_dhcp_server_set_bind_to_interface(link->dhcp_server, bind_to_interface);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to set interface binding for DHCP server: %m");
-
-        r = sd_dhcp_server_set_relay_agent_information(link->dhcp_server, link->network->dhcp_server_relay_agent_circuit_id, link->network->dhcp_server_relay_agent_remote_id);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to set agent circuit/remote id for DHCP server: %m");
-
         if (link->network->dhcp_server_emit_timezone) {
                 _cleanup_free_ char *buffer = NULL;
                 const char *tz = NULL;
@@ -721,21 +704,13 @@ static int dhcp4_server_configure(Link *link) {
         else if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set domain name for DHCP server: %m");
 
-        ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_options) {
-                r = sd_dhcp_server_add_option(link->dhcp_server, p);
-                if (r == -EEXIST)
-                        continue;
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to set DHCPv4 option: %m");
-        }
+        r = dhcp_server_set_extra_options(link->dhcp_server, &link->network->dhcp_server_extra_options);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to set DHCPv4 extra options: %m");
 
-        ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_vendor_options) {
-                r = sd_dhcp_server_add_vendor_option(link->dhcp_server, p);
-                if (r == -EEXIST)
-                        continue;
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to set DHCPv4 option: %m");
-        }
+        r = dhcp_server_set_vendor_options(link->dhcp_server, &link->network->dhcp_server_vendor_options);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to set DHCPv4 vendor options: %m");
 
         HASHMAP_FOREACH(static_lease, link->network->dhcp_static_leases_by_section) {
                 r = sd_dhcp_server_set_static_lease(
