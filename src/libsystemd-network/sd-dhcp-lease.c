@@ -24,6 +24,7 @@
 #include "network-common.h"
 #include "network-internal.h"
 #include "parse-util.h"
+#include "set.h"
 #include "sort-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -1133,7 +1134,34 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         default:
-                log_debug("Ignoring DHCP option %"PRIu8" while parsing.", code);
+                if (lease->requested_options &&
+                         set_contains(lease->requested_options, UINT8_TO_PTR(code))) {
+
+                         _cleanup_free_ char *option_str = NULL;
+
+                         void *p;
+                         SET_FOREACH(p, lease->requested_options) {
+                                 log_debug(" Requested option: %u", PTR_TO_UINT8(p));
+                         }
+                         //convert to string
+                         log_debug("Parsing option %u, length %zu", code, len);
+
+                         r = dhcp_option_parse_string(option, len, &option_str);
+                         log_debug("Parse result: %d, string: %s", r, option_str ?: "NULL");
+
+                         if (r >= 0 && option_str) {
+                                 struct sd_dhcp_requested_option *req_opt = new(struct sd_dhcp_requested_option, 1);
+                                 if (!req_opt)
+                                         return -ENOMEM;
+
+                                 req_opt->tag = code;
+                                 req_opt->data = TAKE_PTR(option_str);
+
+                                 LIST_APPEND(options, lease->requested_options_data, req_opt);
+                         }
+                } else
+                        log_debug("Ignoring DHCP option %"PRIu8" while parsing.", code);
+
         }
 
         return 0;
