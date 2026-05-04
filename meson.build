@@ -1467,6 +1467,10 @@ have = get_option('repart').require(
         error_message : 'fdisk required').allowed()
 conf.set10('ENABLE_REPART', have)
 
+have = get_option('openvswitch').allowed()
+conf.set10('ENABLE_OPENVSWITCH', have)
+conf.set_quoted('OPENVSWITCH_SERVICE_NAMES', get_option('openvswitch-service-names'))
+
 default_dnssec = get_option('default-dnssec')
 if default_dnssec != 'no' and conf.get('HAVE_OPENSSL') == 0
         message('default-dnssec cannot be set to yes or allow-downgrade when openssl is disabled. Setting default-dnssec to no.')
@@ -2107,6 +2111,7 @@ subdir('src/mountfsd')
 subdir('src/mstack')
 subdir('src/mute-console')
 subdir('src/network')
+subdir('src/network/ovs-generator')
 subdir('src/notify')
 subdir('src/nspawn')
 subdir('src/nsresourced')
