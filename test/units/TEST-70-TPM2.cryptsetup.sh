@@ -223,7 +223,8 @@ Format=ext4
 CopyFiles=/tmp/dditest:/
 Encrypt=tpm2
 EOF
-    PASSWORD=passphrase systemd-repart --tpm2-device-key=/tmp/srk.pub --definitions=/tmp/dditest --empty=create --size=80M /tmp/dditest.raw --tpm2-pcrs=
+    # Use --tpm2-public-key-pcrs= to suppress auto-loading of the system PCR public key
+    PASSWORD=passphrase systemd-repart --tpm2-device-key=/tmp/srk.pub --tpm2-public-key-pcrs= --definitions=/tmp/dditest --empty=create --size=80M /tmp/dditest.raw --tpm2-pcrs=
     DEVICE="$(systemd-dissect --attach /tmp/dditest.raw)"
     udevadm wait --settle --timeout=10 "$DEVICE"p1
     systemd-cryptsetup attach dditest "$DEVICE"p1 - tpm2-device=auto,headless=yes
