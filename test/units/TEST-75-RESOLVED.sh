@@ -1262,13 +1262,13 @@ testcase_14_refuse_record_types() {
     grep -qF "127.128.0.5" "$RUN_OUT"
 
     (! run resolvectl query localhost5 --type=SRV)
-    grep -qF "DNS query type refused." "$RUN_OUT"
+    grep -qF "DNS query type refused" "$RUN_OUT"
 
     (! run resolvectl query localhost5 --type=TXT)
-    grep -qF "DNS query type refused." "$RUN_OUT"
+    grep -qF "DNS query type refused" "$RUN_OUT"
 
     (! run resolvectl query localhost5 --type=AAAA)
-    grep -qF "DNS query type refused." "$RUN_OUT"
+    grep -qF "DNS query type refused" "$RUN_OUT"
 
     run resolvectl query localhost5 --type=A
     grep -qF "127.128.0.5" "$RUN_OUT"
@@ -1308,7 +1308,7 @@ testcase_14_refuse_record_types() {
     grep -qF "does not have any RR of the requested type" "$RUN_OUT"
 
     (! run resolvectl query localhost5 --type=AAAA)
-    grep -qF "DNS query type refused." "$RUN_OUT"
+    grep -qF "DNS query type refused" "$RUN_OUT"
 
     run resolvectl service _mysvc._tcp signed.test
     grep -qF "myservice.signed.test:1234" "$RUN_OUT"
