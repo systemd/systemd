@@ -430,11 +430,15 @@ static int partition_is_luks2_integrity(int part_fd, uint64_t offset, uint64_t s
         if (sz != sizeof(header))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read LUKS header.");
 
-        if (memcmp(header.luks_magic, LUKS2_MAGIC, sizeof(header.luks_magic)) != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Partition's magic is not LUKS.");
+        if (memcmp(header.luks_magic, LUKS2_MAGIC, sizeof(header.luks_magic)) != 0) {
+                log_debug("Partition's magic is not LUKS, assuming no integrity.");
+                return 0;
+        }
 
-        if (be16toh(header.version) != 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unsupported LUKS header version: %" PRIu16 ".", be16toh(header.version));
+        if (be16toh(header.version) != 2) {
+                log_debug("Partition is LUKS v%" PRIu16 ", not LUKS2, assuming no integrity.", be16toh(header.version));
+                return 0;
+        }
 
         if (be64toh(header.hdr_len) > size)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "LUKS header length exceeds partition size.");
