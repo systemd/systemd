@@ -447,38 +447,34 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
 }
 
 static int server_receive_message(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_free_ DHCPMessage *message = NULL;
+        sd_dhcp_server *server = ASSERT_PTR(userdata);
+        int r;
+
+        ssize_t buflen = next_datagram_size_fd(fd);
+        if (ERRNO_IS_NEG_TRANSIENT(buflen) || ERRNO_IS_NEG_DISCONNECT(buflen))
+                return 0;
+        if (buflen < 0) {
+                log_dhcp_server_errno(server, buflen, "Failed to determine datagram size to read, ignoring: %m");
+                return 0;
+        }
+
+        _cleanup_free_ void *buf = malloc0(buflen);
+        if (!buf)
+                return -ENOMEM;
+
         /* This needs to be initialized with zero. See #20741.
          * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
         CMSG_BUFFER_TYPE(CMSG_SPACE_TIMEVAL +
                          CMSG_SPACE(sizeof(struct in_pktinfo))) control = {};
-        sd_dhcp_server *server = ASSERT_PTR(userdata);
-        struct iovec iov = {};
+        struct iovec iov = IOVEC_MAKE(buf, buflen);
         struct msghdr msg = {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-        ssize_t datagram_size, len;
-        int r;
 
-        datagram_size = next_datagram_size_fd(fd);
-        if (ERRNO_IS_NEG_TRANSIENT(datagram_size) || ERRNO_IS_NEG_DISCONNECT(datagram_size))
-                return 0;
-        if (datagram_size < 0) {
-                log_dhcp_server_errno(server, datagram_size, "Failed to determine datagram size to read, ignoring: %m");
-                return 0;
-        }
-
-        size_t buflen = datagram_size;
-        message = malloc0(buflen);
-        if (!message)
-                return -ENOMEM;
-
-        iov = IOVEC_MAKE(message, datagram_size);
-
-        len = recvmsg_safe(fd, &msg, 0);
+        ssize_t len = recvmsg_safe(fd, &msg, 0);
         if (ERRNO_IS_NEG_TRANSIENT(len) || ERRNO_IS_NEG_DISCONNECT(len))
                 return 0;
         if (len < 0) {
@@ -494,7 +490,7 @@ static int server_receive_message(sd_event_source *s, int fd, uint32_t revents, 
         if (info && info->ipi_ifindex != server->ifindex)
                 return 0;
 
-        r = dhcp_server_handle_message(server, message, (size_t) len, TRIPLE_TIMESTAMP_FROM_CMSG(&msg));
+        r = dhcp_server_handle_message(server, buf, (size_t) len, TRIPLE_TIMESTAMP_FROM_CMSG(&msg));
         if (r < 0)
                 log_dhcp_server_errno(server, r, "Couldn't process incoming message, ignoring: %m");
 
