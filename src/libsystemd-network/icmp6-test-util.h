@@ -2,3 +2,4 @@
 #pragma once
 
 extern int test_fd[2];
+extern int test_ifindex;
