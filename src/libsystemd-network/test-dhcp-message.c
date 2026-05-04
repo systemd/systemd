@@ -12,10 +12,13 @@
 #include "dns-packet.h"
 #include "dns-resolver-internal.h"
 #include "ether-addr-util.h"
+#include "fd-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
+#include "ip-util.h"
 #include "random-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "strv.h"
 #include "tests.h"
 
@@ -187,6 +190,92 @@ static void verify_length_prefixed_data(sd_dhcp_message *m, const struct iovec_w
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
         ASSERT_OK(dhcp_message_get_option_length_prefixed_data(m, SD_DHCP_OPTION_USER_CLASS, 1, &iovw));
         ASSERT_TRUE(iovw_equal(&iovw, expected));
+}
+
+static void verify_send_udp(sd_dhcp_message *message, uint32_t xid, const struct hw_addr_data *hw_addr) {
+        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
+
+        ASSERT_OK(dhcp_message_send_udp(
+                                  message,
+                                  socket_fd[0],
+                                  /* src_addr= */ htobe32(0xC0000201), /* 192.0.2.1 */
+                                  /* dst_addr= */ htobe32(0xC0000202), /* 192.0.2.2 */
+                                  /* dst_port= */ DHCP_PORT_CLIENT));
+
+        ssize_t buflen = ASSERT_OK_POSITIVE(next_datagram_size_fd(socket_fd[1]));
+        _cleanup_free_ void *buf = ASSERT_NOT_NULL(malloc0(buflen));
+
+        struct msghdr msg = {
+                .msg_iov = &IOVEC_MAKE(buf, buflen),
+                .msg_iovlen = 1,
+        };
+        ssize_t len = ASSERT_OK_ERRNO(recvmsg_safe(socket_fd[1], &msg, MSG_DONTWAIT));
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_parse(
+                                  &IOVEC_MAKE(buf, len),
+                                  BOOTREQUEST,
+                                  &xid,
+                                  ARPHRD_ETHER,
+                                  hw_addr,
+                                  &m));
+
+        /* Verify the received message. */
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {}, iovw2 = {};
+        ASSERT_OK(dhcp_message_build(message, &iovw));
+        ASSERT_OK(dhcp_message_build(m, &iovw2));
+        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+}
+
+static void verify_send_raw(sd_dhcp_message *message, uint32_t xid, const struct hw_addr_data *hw_addr) {
+        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
+
+        ASSERT_OK(dhcp_message_send_raw(
+                                  message,
+                                  socket_fd[0],
+                                  /* ifindex= */ 42,
+                                  /* src_addr= */ htobe32(0xC0000201), /* 192.0.2.1 */
+                                  /* src_port= */ DHCP_PORT_SERVER,
+                                  /* dst_hw_addr= */ &(struct hw_addr_data) {
+                                          .length = 6,
+                                          .ether = {{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, }},
+                                  },
+                                  /* dst_addr= */ htobe32(0xC0000202), /* 192.0.2.2 */
+                                  /* dst_port= */ DHCP_PORT_CLIENT,
+                                  /* ip_service_type= */ IPTOS_CLASS_CS6));
+
+        ssize_t buflen = ASSERT_OK_POSITIVE(next_datagram_size_fd(socket_fd[1]));
+        _cleanup_free_ void *buf = ASSERT_NOT_NULL(malloc0(buflen));
+
+        struct msghdr msg = {
+                .msg_iov = &IOVEC_MAKE(buf, buflen),
+                .msg_iovlen = 1,
+        };
+        ssize_t len = ASSERT_OK_ERRNO(recvmsg_safe(socket_fd[1], &msg, MSG_DONTWAIT));
+
+        struct iovec payload;
+        ASSERT_OK(udp_packet_verify(
+                                  &IOVEC_MAKE(buf, len),
+                                  DHCP_PORT_CLIENT,
+                                  /* checksum= */ true,
+                                  &payload));
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_parse(
+                                  &payload,
+                                  BOOTREQUEST,
+                                  &xid,
+                                  ARPHRD_ETHER,
+                                  hw_addr,
+                                  &m));
+
+        /* Verify the received message. */
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {}, iovw2 = {};
+        ASSERT_OK(dhcp_message_build(message, &iovw));
+        ASSERT_OK(dhcp_message_build(m, &iovw2));
+        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
 }
 
 TEST(dhcp_message) {
@@ -452,6 +541,10 @@ TEST(dhcp_message) {
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw3 = {};
         ASSERT_OK(dhcp_message_build(m3, &iovw3));
         ASSERT_TRUE(iovw_equal(&iovw, &iovw3));
+
+        /* send */
+        verify_send_udp(m, xid, &hw_addr);
+        verify_send_raw(m, xid, &hw_addr);
 }
 
 static void test_domains_one(size_t len, const uint8_t *data, char * const *expected) {
