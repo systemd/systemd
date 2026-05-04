@@ -701,10 +701,7 @@ static int method_list_sessions_ex(sd_bus_message *message, void *userdata, sd_b
                 if (!path)
                         return -ENOMEM;
 
-                r = session_get_idle_hint(s, &idle_ts);
-                if (r < 0)
-                        return r;
-                idle = r > 0;
+                idle = session_get_idle_hint(s, &idle_ts);
 
                 r = sd_bus_message_append(reply, "(sussussbto)",
                                           s->id,
