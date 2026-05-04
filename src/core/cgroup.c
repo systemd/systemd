@@ -1293,17 +1293,19 @@ static void unit_modify_nft_set(Unit *u, bool add) {
         if (!crt || crt->cgroup_id == 0)
                 return;
 
-        if (!u->manager->nfnl) {
-                r = sd_nfnl_socket_open(&u->manager->nfnl);
-                if (r < 0)
-                        return;
-        }
-
         CGroupContext *c = ASSERT_PTR(unit_get_cgroup_context(u));
 
         FOREACH_ARRAY(nft_set, c->nft_set_context.sets, c->nft_set_context.n_sets) {
                 if (nft_set->source != NFT_SET_SOURCE_CGROUP)
                         continue;
+
+                if (!u->manager->nfnl) {
+                        r = sd_nfnl_socket_open(&u->manager->nfnl);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to open NETLINK_NETFILTER socket, ignoring: %m");
+                                return;
+                        }
+                }
 
                 uint64_t element = crt->cgroup_id;
 
