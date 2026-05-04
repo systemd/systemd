@@ -28,6 +28,7 @@ TEST(path_pick) {
         ASSERT_OK(write_string_file_at(sub_dfd, "foo_55_x86.raw", "55 32bit", WRITE_STRING_FILE_CREATE));
         ASSERT_OK(write_string_file_at(sub_dfd, "foo_99_x86.raw", "99 32bit", WRITE_STRING_FILE_CREATE));
 
+
         /* Let's add an entry for sparc (which is a valid arch, but almost certainly not what we test
          * on). This entry should hence always be ignored */
         if (native_architecture() != ARCHITECTURE_SPARC)
@@ -46,6 +47,26 @@ TEST(path_pick) {
                 .architecture = _ARCHITECTURE_INVALID,
                 .suffix = ".raw",
         };
+
+        ASSERT_OK(write_string_file_at(sub_dfd, "pre_2.0.0~rc1.raw", "rc1", WRITE_STRING_FILE_CREATE));
+
+        filter.basename = "pre";
+
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_TRUE(S_ISREG(result.st.st_mode));
+        ASSERT_STREQ(result.version, "2.0.0~rc1");
+        ASSERT_TRUE(endswith(result.path, "/pre_2.0.0~rc1.raw"));
+        pick_result_done(&result);
+
+        ASSERT_OK(write_string_file_at(sub_dfd, "pre_2.0.0.raw", "final", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_TRUE(S_ISREG(result.st.st_mode));
+        ASSERT_STREQ(result.version, "2.0.0");
+        ASSERT_TRUE(endswith(result.path, "/pre_2.0.0.raw"));
+        pick_result_done(&result);
+
+        filter.basename = NULL;
 
         if (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64)) {
                 ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
