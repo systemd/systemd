@@ -10,9 +10,7 @@
 #include "dhcp-message.h"
 #include "dhcp-network.h"
 #include "fd-util.h"
-#include "iovec-wrapper.h"
 #include "ip-util.h"
-#include "socket-util.h"
 
 static int client_get_socket(sd_dhcp_client *client, int domain) {
         int r, d, fd;
@@ -116,39 +114,16 @@ static int client_send_raw(
                 fd_close = fd;
         }
 
-        _cleanup_(iovw_done_free) struct iovec_wrapper payload = {};
-        r = dhcp_message_build(message, &payload);
-        if (r < 0)
-                return r;
-
-        struct iphdr ip;
-        struct udphdr udp;
-        r = udp_packet_build(
+        r = dhcp_message_send_raw(
+                        message,
+                        fd,
+                        client->ifindex,
                         INADDR_ANY,
                         client->port,
+                        &client->bcast_addr,
                         INADDR_BROADCAST,
                         client->server_port,
-                        client->ip_service_type,
-                        &payload,
-                        &ip,
-                        &udp);
-        if (r < 0)
-                return r;
-
-        _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
-        r = iovw_put(&iovw, &ip, sizeof(struct iphdr));
-        if (r < 0)
-                return r;
-
-        r = iovw_put(&iovw, &udp, sizeof(struct udphdr));
-        if (r < 0)
-                return r;
-
-        r = iovw_put_iovw(&iovw, &payload);
-        if (r < 0)
-                return r;
-
-        r = dhcp_network_send_raw_socket(fd, &client->link, &iovw);
+                        client->ip_service_type);
         if (r < 0)
                 return r;
 
@@ -196,16 +171,12 @@ static int client_send_udp(
                 fd_close = fd;
         }
 
-        _cleanup_(iovw_done_free) struct iovec_wrapper payload = {};
-        r = dhcp_message_build(message, &payload);
-        if (r < 0)
-                return r;
-
-        r = dhcp_network_send_udp_socket(
+        r = dhcp_message_send_udp(
+                        message,
                         fd,
+                        INADDR_ANY,
                         client->lease->server_address,
-                        client->server_port,
-                        &payload);
+                        client->server_port);
         if (r < 0)
                 return r;
 
