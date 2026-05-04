@@ -460,7 +460,7 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
         idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, t, /* flags= */ 0, UID_INVALID, NULL);
 
         HASHMAP_FOREACH(s, m->sessions) {
-                dual_timestamp k;
+                dual_timestamp k = DUAL_TIMESTAMP_NULL;
 
                 if (!SESSION_CLASS_CAN_IDLE(s->class))
                         continue;
