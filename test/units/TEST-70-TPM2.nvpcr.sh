@@ -21,7 +21,7 @@ at_exit() {
     fi
 
     rm -rf /run/nvpcr /tmp/nvpcr
-    rm -f /var/tmp/nvpcr.raw /run/verity.d/test-79-nvpcr.crt
+    rm -f /var/tmp/nvpcr.raw /run/verity.d/test-70-nvpcr.crt /run/systemd/nvpcr/test.anchor
 }
 
 trap at_exit EXIT

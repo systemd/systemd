@@ -552,32 +552,35 @@ result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
 echo "$result" | grep '"context"' >/dev/null
 
 # Streaming with notifyJobChanges: should get intermediate state updates and a final result
+# Note: use --slurp + any() rather than 'select() -e' because in jq 1.6 (shipped on
+# CentOS 9) -e checks only the last input record's output, so a select() that filters
+# out the trailing record makes jq exit non-zero even when earlier records match.
 defer_transient_cleanup varlink-transient-test3.service
 result=$(varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-test3.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}},"notifyJobChanges":true}')
-printf '%s' "$result" | jq --seq -e 'select(.job.State == "waiting")' >/dev/null
-printf '%s' "$result" | jq --seq -e 'select(.job.Result == "done")' >/dev/null
+printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .job.State == "waiting")' >/dev/null
+printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .job.Result == "done")' >/dev/null
 
 # Fire-and-forget: --more without notify flags should return immediately with context+runtime
 defer_transient_cleanup varlink-transient-fireforget.service
 result=$(varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-fireforget.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}')
-printf '%s' "$result" | jq --seq -e 'select(.context)' >/dev/null
-printf '%s' "$result" | jq --seq -e 'select(.runtime)' >/dev/null
+printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .context)' >/dev/null
+printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .runtime)' >/dev/null
 
 # Streaming with notifyUnitChanges: should get unit state change notifications
 defer_transient_cleanup varlink-transient-unitnotify.service
 result=$(varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-unitnotify.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}},"notifyUnitChanges":true}')
-printf '%s' "$result" | jq --seq -e 'select(.runtime.ActiveState)' >/dev/null
+printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .runtime.ActiveState)' >/dev/null
 
 # Streaming with both notifyJobChanges and notifyUnitChanges
 defer_transient_cleanup varlink-transient-both.service
 result=$(varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-both.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}},"notifyJobChanges":true,"notifyUnitChanges":true}')
-printf '%s' "$result" | jq --seq -e 'select(.job.State)' >/dev/null
-printf '%s' "$result" | jq --seq -e 'select(.runtime.ActiveState)' >/dev/null
-printf '%s' "$result" | jq --seq -e 'select(.job.Result == "done")' >/dev/null
+printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .job.State)' >/dev/null
+printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .runtime.ActiveState)' >/dev/null
+printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .job.Result == "done")' >/dev/null
 
 # prepare for the error case below: create a long-running service, then try to create it again while it's active
 defer_transient_cleanup varlink-transient-exists.service
@@ -589,7 +592,7 @@ timeout 10 bash -c 'until systemctl is-active varlink-transient-exists.service; 
 defer_transient_cleanup varlink-transient-multi.service
 result=$(varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-multi.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"},{"path":"/bin/true"}]}},"notifyJobChanges":true}')
-printf '%s' "$result" | jq --seq -e 'select(.job.Result == "done")' >/dev/null
+printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .job.Result == "done")' >/dev/null
 
 # Transient service with Description and RemainAfterExit
 defer_transient_cleanup varlink-transient-desc.service
