@@ -360,6 +360,12 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
                 return 0;
         }
 
+        if (packet->ifindex != nd->ifindex) {
+                log_ndisc(nd, "Received an ICMPv6 packet on interface %i, expected %i, ignoring.",
+                          packet->ifindex, nd->ifindex);
+                return 0;
+        }
+
         r = icmp6_packet_get_type(packet);
         if (r < 0) {
                 log_ndisc_errno(nd, r, "Received an invalid ICMPv6 packet, ignoring: %m");
