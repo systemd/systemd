@@ -414,6 +414,9 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
         assert(server);
         assert(message);
 
+        if (length < sizeof(DHCPMessage))
+                return 0;
+
         if (message->op != BOOTREQUEST)
                 return 0;
 
@@ -479,9 +482,6 @@ static int server_receive_message(sd_event_source *s, int fd, uint32_t revents, 
                 log_dhcp_server_errno(server, len, "Could not receive message, ignoring: %m");
                 return 0;
         }
-
-        if ((size_t) len < sizeof(DHCPMessage))
-                return 0;
 
         /* TODO: figure out if this can be done as a filter on the socket, like for IPv6 */
         struct in_pktinfo *info = CMSG_FIND_DATA(&msg, IPPROTO_IP, IP_PKTINFO, struct in_pktinfo);
