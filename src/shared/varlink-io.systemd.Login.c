@@ -218,7 +218,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_OUTPUT(Who, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("A human-readable descriptive string of why the inhibition is taken"),
                 SD_VARLINK_DEFINE_OUTPUT(Why, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The inhibition mode, one of block, block-weak, or delay"),
+                SD_VARLINK_FIELD_COMMENT("The inhibition mode, one of block, block_weak, or delay"),
                 SD_VARLINK_DEFINE_OUTPUT(Mode, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The UID of the user taking the inhibition"),
                 SD_VARLINK_DEFINE_OUTPUT(UID, SD_VARLINK_INT, 0),
