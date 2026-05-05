@@ -210,6 +210,7 @@ def property_grammar():
              ('ID_BOARD_VERSION_IS_RUBBISH', zero_one),
              ('ID_PRODUCT_SKU_IS_RUBBISH', zero_one),
              ('ID_CHASSIS_ASSET_TAG_IS_RUBBISH', zero_one),
+             ('ID_BOARD_ASSET_TAG_IS_RUBBISH', zero_one),
              ('ID_CHASSIS', name_literal),
              ('ID_SYSFS_ATTRIBUTE_MODEL', name_literal),
              ('ID_NET_NAME_FROM_DATABASE', name_literal),
