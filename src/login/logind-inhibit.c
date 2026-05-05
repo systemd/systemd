@@ -27,8 +27,8 @@
 #include "path-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "tmpfile-util.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 
 static void inhibitor_remove_fifo(Inhibitor *i);
