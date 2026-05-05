@@ -2776,6 +2776,19 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 SET_FLAG(u->markers,
                          (1u << UNIT_MARKER_NEEDS_RELOAD)|(1u << UNIT_MARKER_NEEDS_RESTART)|(1u << UNIT_MARKER_NEEDS_STOP),
                          false);
+
+                /* When a unit becomes inactive/failed while carrying a non-running freezer state,
+                 * resolve it now. The cgroup is about to be pruned; leaving FREEZING/FROZEN/THAWING
+                 * stuck would prevent the unit from ever being started, thawed, or cleared without
+                 * rebooting PID 1. */
+                if (u->freezer_state != FREEZER_RUNNING) {
+                        FreezerState next, objective;
+
+                        unit_next_freezer_state(u, FREEZER_THAW, &next, &objective);
+                        unit_set_freezer_state(u, freezer_state_finish(next));
+                        (void) bus_unit_send_pending_freezer_message(u, /* canceled= */ true);
+                }
+
                 unit_prune_cgroup(u);
                 unit_unlink_state_files(u);
         } else if (UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
