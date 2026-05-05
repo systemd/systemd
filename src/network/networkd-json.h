@@ -8,3 +8,7 @@ int nexthops_append_json(Manager *manager, int ifindex, sd_json_variant **v);
 int routes_append_json(Manager *manager, int ifindex, sd_json_variant **v);
 int link_build_json(Link *link, sd_json_variant **ret);
 int manager_build_json(Manager *manager, sd_json_variant **ret);
+
+#if ENABLE_OPENVSWITCH
+int ovs_append_json(Link *link, sd_json_variant **v);
+#endif
