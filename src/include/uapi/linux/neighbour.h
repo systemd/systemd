@@ -85,7 +85,7 @@ enum {
  * states don't make sense and thus are ignored. Such entries don't age and
  * can roam.
  *
- * NTF_EXT_MANAGED flagged neigbor entries are managed by the kernel on behalf
+ * NTF_EXT_MANAGED flagged neighbor entries are managed by the kernel on behalf
  * of a user space control plane, and automatically refreshed so that (if
  * possible) they remain in NUD_REACHABLE state.
  *
