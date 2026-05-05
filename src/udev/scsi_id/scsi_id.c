@@ -328,10 +328,13 @@ static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, enum 
                         r = parse_page_code(opts.arg, page_code);
                         if (r < 0)
                                 return r;
-                } else
+                } else {
+                        _cleanup_free_ char *synopsis =
+                                option_get_synopsis(opts.opt, "/", /* show_metavar=*/ false);
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Option %s not supported in the config file.",
-                                               strnull(option_get_synopsis(opts.opt, "/", /* show_metavar=*/ false)));
+                                               strnull(synopsis));
+                }
 
         return 0;
 }
