@@ -670,7 +670,7 @@ acpi:AHS*:
  ID_VENDOR_FROM_DATABASE=Beijing AnHeng SecoTech Information Technology Co., Ltd.
 
 acpi:AIC*:
- ID_VENDOR_FROM_DATABASE=Arnos Insturments & Computer Systems
+ ID_VENDOR_FROM_DATABASE=Arnos Instruments & Computer Systems
 
 acpi:AIE*:
  ID_VENDOR_FROM_DATABASE=Altmann Industrieelektronik
@@ -1090,7 +1090,7 @@ acpi:AVD*:
  ID_VENDOR_FROM_DATABASE=Avid Electronics Corporation
 
 acpi:AVE*:
- ID_VENDOR_FROM_DATABASE=Add Value Enterpises (Asia) Pte Ltd
+ ID_VENDOR_FROM_DATABASE=Add Value Enterprises (Asia) Pte Ltd
 
 acpi:AVG*:
  ID_VENDOR_FROM_DATABASE=Avegant Corporation
@@ -2653,7 +2653,7 @@ acpi:ERS*:
  ID_VENDOR_FROM_DATABASE=Eizo Rugged Solutions
 
 acpi:ERT*:
- ID_VENDOR_FROM_DATABASE=Escort Insturments Corporation
+ ID_VENDOR_FROM_DATABASE=Escort Instruments Corporation
 
 acpi:ESA*:
  ID_VENDOR_FROM_DATABASE=Elbit Systems of America
@@ -2905,7 +2905,7 @@ acpi:FOV*:
  ID_VENDOR_FROM_DATABASE=FOVE INC
 
 acpi:FOX*:
- ID_VENDOR_FROM_DATABASE=HON HAI PRECISON IND.CO.,LTD.
+ ID_VENDOR_FROM_DATABASE=HON HAI PRECISION IND.CO.,LTD.
 
 acpi:FPC*:
  ID_VENDOR_FROM_DATABASE=Fingerprint Cards AB
@@ -5605,7 +5605,7 @@ acpi:PCP*:
  ID_VENDOR_FROM_DATABASE=Procomp USA Inc
 
 acpi:PCS*:
- ID_VENDOR_FROM_DATABASE=TOSHIBA PERSONAL COMPUTER SYSTEM CORPRATION
+ ID_VENDOR_FROM_DATABASE=TOSHIBA PERSONAL COMPUTER SYSTEM CORPORATION
 
 acpi:PCT*:
  ID_VENDOR_FROM_DATABASE=PC-Tel Inc
@@ -6259,7 +6259,7 @@ acpi:RUN*:
  ID_VENDOR_FROM_DATABASE=RUNCO International
 
 acpi:RUP*:
- ID_VENDOR_FROM_DATABASE=Ups Manufactoring s.r.l.
+ ID_VENDOR_FROM_DATABASE=Ups Manufacturing s.r.l.
 
 acpi:RVC*:
  ID_VENDOR_FROM_DATABASE=RSI Systems Inc
@@ -6802,7 +6802,7 @@ acpi:SSL*:
  ID_VENDOR_FROM_DATABASE=Shenzhen South-Top Computer Co., Ltd.
 
 acpi:SSP*:
- ID_VENDOR_FROM_DATABASE=Spectrum Signal Proecessing Inc
+ ID_VENDOR_FROM_DATABASE=Spectrum Signal Processing Inc
 
 acpi:SSS*:
  ID_VENDOR_FROM_DATABASE=S3 Inc
@@ -7498,7 +7498,7 @@ acpi:TXL*:
  ID_VENDOR_FROM_DATABASE=Trixel Ltd
 
 acpi:TXN*:
- ID_VENDOR_FROM_DATABASE=Texas Insturments
+ ID_VENDOR_FROM_DATABASE=Texas Instruments
 
 acpi:TXT*:
  ID_VENDOR_FROM_DATABASE=Textron Defense System

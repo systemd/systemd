@@ -1,7 +1,7 @@
 # This file is part of systemd.
 
 # Network interfaces for which only Link-Local communication (i.e. IPv4LL, …)
-# makes sense, because they almost certainy will point to another host, not an
+# makes sense, because they almost certainly will point to another host, not an
 # internet router.
 
 # (Note: matches against drivers go into 82-net-auto-link-local.rules instead)
