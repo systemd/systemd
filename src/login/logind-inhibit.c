@@ -178,6 +178,9 @@ int inhibitor_start(Inhibitor *i) {
 }
 
 void inhibitor_stop(Inhibitor *i) {
+        Manager *m = i->manager;
+        int r;
+
         assert(i);
 
         if (i->started)
@@ -194,6 +197,13 @@ void inhibitor_stop(Inhibitor *i) {
         i->started = false;
 
         bus_manager_send_inhibited_change(i);
+
+        /* Inhibitor removal may change the idle hint, so trigger immediate recalculation of idle action */
+        if (m->idle_action_event_source) {
+                r = sd_event_source_set_time(m->idle_action_event_source, now(CLOCK_MONOTONIC));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reset idle action timer after inhibitor removal: %m");
+        }
 }
 
 int inhibitor_load(Inhibitor *i) {
@@ -318,7 +328,8 @@ int inhibitor_create_fifo(Inhibitor *i) {
         }
 
         if (!i->event_source) {
-                r = sd_event_add_io(i->manager->event, &i->event_source, i->fifo_fd, 0, inhibitor_dispatch_fifo, i);
+                /* Watch the FIFO for hangup/EOF from the inhibitor client. */
+                r = sd_event_add_io(i->manager->event, &i->event_source, i->fifo_fd, EPOLLIN|EPOLLHUP, inhibitor_dispatch_fifo, i);
                 if (r < 0)
                         return r;
 
