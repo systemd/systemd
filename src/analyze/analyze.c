@@ -3,7 +3,6 @@
   Copyright © 2013 Simon Peeters
 ***/
 
-#include <getopt.h>
 #include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,11 +56,14 @@
 #include "calendarspec.h"
 #include "dissect-image.h"
 #include "extract-word.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "image-policy.h"
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
+#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -196,553 +198,455 @@ static int verb_transient_settings(int argc, char *argv[], uintptr_t _data, void
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL, *dot_link = NULL;
+        static const char *const vgroups[] = {
+                "Boot Analysis",
+                "Dependency Analysis",
+                "Configuration Files and Search Paths",
+                "Enumerate OS Concepts",
+                "Expression Evaluation",
+                "Clock & Time",
+                "Unit & Service Analysis",
+                "Executable Analysis",
+                "TPM Operations",
+        };
+
+        Table *vtables[ELEMENTSOF(vgroups)] = {};
+        CLEANUP_ELEMENTS(vtables, table_unref_array_clear);
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         pager_open(arg_pager_flags);
 
-        r = terminal_urlify_man("systemd-analyze", "1", &link);
+        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
+                r = verbs_get_help_table_group(vgroups[i], &vtables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        r = option_parser_get_help_table(&options);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        /* Not using terminal_urlify_man() for this, since we don't want the "man page" text suffix in this case. */
-        r = terminal_urlify("man:dot(1)", "dot(1)", &dot_link);
+        assert_se(ELEMENTSOF(vtables) == 9);
+        (void) table_sync_column_widths(0, options, vtables[0], vtables[1], vtables[2],
+                                        vtables[3], vtables[4], vtables[5], vtables[6],
+                                        vtables[7], vtables[8]);
+
+        help_cmdline("[OPTIONS...] COMMAND ...");
+        help_abstract("Profile systemd, show unit dependencies, check unit files.");
+
+        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
+                help_section(vgroups[i]);
+                r = table_print_or_warn(vtables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        help_section("Options");
+        r = table_print_or_warn(options);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
-               "%5$sProfile systemd, show unit dependencies, check unit files.%6$s\n"
-               "\n%3$sBoot Analysis:%4$s\n"
-               "  [time]                     Print time required to boot the machine\n"
-               "  blame                      Print list of running units ordered by\n"
-               "                             time to init\n"
-               "  critical-chain [UNIT...]   Print a tree of the time critical chain\n"
-               "                             of units\n"
-               "\n%3$sDependency Analysis:%4$s\n"
-               "  plot                       Output SVG graphic showing service\n"
-               "                             initialization\n"
-               "  dot [UNIT...]              Output dependency graph in %7$s format\n"
-               "  dump [PATTERN...]          Output state serialization of service\n"
-               "                             manager\n"
-               "\n%3$sConfiguration Files and Search Paths:%4$s\n"
-               "  cat-config NAME|PATH...    Show configuration file and drop-ins\n"
-               "  unit-files                 List files and symlinks for units\n"
-               "  unit-paths                 List load directories for units\n"
-               "\n%3$sEnumerate OS Concepts:%4$s\n"
-               "  exit-status [STATUS...]    List exit status definitions\n"
-               "  capability [CAP...]        List capability definitions\n"
-               "  syscall-filter [NAME...]   List syscalls in seccomp filters\n"
-               "  filesystems [NAME...]      List known filesystems\n"
-               "  architectures [NAME...]    List known architectures\n"
-               "  smbios11                   List strings passed via SMBIOS Type #11\n"
-               "  chid                       List local CHIDs\n"
-               "  transient-settings TYPE... List transient settings for unit TYPE\n"
-               "\n%3$sExpression Evaluation:%4$s\n"
-               "  condition CONDITION...     Evaluate conditions and asserts\n"
-               "  compare-versions VERSION1 [OP] VERSION2\n"
-               "                             Compare two version strings\n"
-               "  image-policy POLICY...     Analyze image policy string\n"
-               "\n%3$sClock & Time:%4$s\n"
-               "  calendar SPEC...           Validate repetitive calendar time\n"
-               "                             events\n"
-               "  timestamp TIMESTAMP...     Validate a timestamp\n"
-               "  timespan SPAN...           Validate a time span\n"
-               "\n%3$sUnit & Service Analysis:%4$s\n"
-               "  verify FILE...             Check unit files for correctness\n"
-               "  security [UNIT...]         Analyze security of unit\n"
-               "  fdstore SERVICE...         Show file descriptor store contents of service\n"
-               "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
-               "  unit-gdb SERVICE           Attach a debugger to the given running service\n"
-               "  unit-shell SERVICE [Command]\n"
-               "                             Run command on the namespace of the service\n"
-               "\n%3$sExecutable Analysis:%4$s\n"
-               "  inspect-elf FILE...        Parse and print ELF package metadata\n"
-               "  dlopen-metadata FILE       Parse and print ELF dlopen metadata\n"
-               "\n%3$sTPM Operations:%4$s\n"
-               "  has-tpm2                   Report whether TPM2 support is available\n"
-               "  identify-tpm2              Show TPM2 vendor information\n"
-               "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
-               "  nvpcrs [NVPCR...]          Show additional TPM2 PCRs stored in NV indexes\n"
-               "  srk [>FILE]                Write TPM2 SRK (to FILE)\n"
-               "\n%3$sOptions:%4$s\n"
-               "     --recursive-errors=MODE Control which units are verified\n"
-               "     --offline=BOOL          Perform a security review on unit file(s)\n"
-               "     --threshold=N           Exit with a non-zero status when overall\n"
-               "                             exposure level is over threshold value\n"
-               "     --security-policy=PATH  Use custom JSON security policy instead\n"
-               "                             of built-in one\n"
-               "     --json=pretty|short|off Generate JSON output of the security\n"
-               "                             analysis table, or plot's raw time data\n"
-               "     --no-pager              Do not pipe output into a pager\n"
-               "     --no-legend             Disable column headers and hints in plot\n"
-               "                             with either --table or --json=\n"
-               "     --system                Operate on system systemd instance\n"
-               "     --user                  Operate on user systemd instance\n"
-               "     --global                Operate on global user configuration\n"
-               "  -H --host=[USER@]HOST      Operate on remote host\n"
-               "  -M --machine=CONTAINER     Operate on local container\n"
-               "     --order                 Show only order in the graph\n"
-               "     --require               Show only requirement in the graph\n"
-               "     --from-pattern=GLOB     Show only origins in the graph\n"
-               "     --to-pattern=GLOB       Show only destinations in the graph\n"
-               "     --fuzz=SECONDS          Also print services which finished SECONDS\n"
-               "                             earlier than the latest in the branch\n"
-               "     --man[=BOOL]            Do [not] check for existence of man pages\n"
-               "     --generators[=BOOL]     Do [not] run unit generators\n"
-               "                             (requires privileges)\n"
-               "     --instance=NAME         Specify fallback instance name for template units\n"
-               "     --iterations=N          Show the specified number of iterations\n"
-               "     --base-time=TIMESTAMP   Calculate calendar times relative to\n"
-               "                             specified time\n"
-               "     --profile=name|PATH     Include the specified profile in the\n"
-               "                             security review of the unit(s)\n"
-               "     --unit=UNIT             Evaluate conditions and asserts of unit\n"
-               "     --table                 Output plot's raw time data as a table\n"
-               "     --scale-svg=FACTOR      Stretch x-axis of plot by FACTOR (default: 1.0)\n"
-               "     --detailed              Add more details to SVG plot,\n"
-               "                             e.g. show activation timestamps\n"
-               "  -h --help                  Show this help\n"
-               "     --version               Show package version\n"
-               "  -q --quiet                 Do not emit hints\n"
-               "     --tldr                  Skip comments and empty lines\n"
-               "     --root=PATH             Operate on an alternate filesystem root\n"
-               "     --image=PATH            Operate on disk image as filesystem root\n"
-               "     --image-policy=POLICY   Specify disk image dissection policy\n"
-               "  -m --mask                  Parse parameter as numeric capability mask\n"
-               "     --drm-device=PATH       Use this DRM device sysfs path to get EDID\n"
-               "     --debugger=DEBUGGER     Use the given debugger\n"
-               "  -A --debugger-arguments=ARGS\n"
-               "                             Pass the given arguments to the debugger\n"
-               "\nSee the %2$s for details.\n",
-               program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
-               ansi_highlight(),
-               ansi_normal(),
-               dot_link);
-
-        /* When updating this list, including descriptions, apply changes to
-         * shell-completion/bash/systemd-analyze and shell-completion/zsh/_systemd-analyze too. */
+        help_man_page_reference("systemd-analyze", "1");
 
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP_HIDDEN(help);
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_ORDER,
-                ARG_REQUIRE,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_SYSTEM,
-                ARG_USER,
-                ARG_GLOBAL,
-                ARG_DOT_FROM_PATTERN,
-                ARG_DOT_TO_PATTERN,
-                ARG_FUZZ,
-                ARG_NO_PAGER,
-                ARG_MAN,
-                ARG_GENERATORS,
-                ARG_INSTANCE,
-                ARG_ITERATIONS,
-                ARG_BASE_TIME,
-                ARG_RECURSIVE_ERRORS,
-                ARG_OFFLINE,
-                ARG_THRESHOLD,
-                ARG_SECURITY_POLICY,
-                ARG_JSON,
-                ARG_PROFILE,
-                ARG_TABLE,
-                ARG_NO_LEGEND,
-                ARG_TLDR,
-                ARG_SCALE_FACTOR_SVG,
-                ARG_DETAILED_SVG,
-                ARG_DRM_DEVICE_PATH,
-                ARG_DEBUGGER,
-        };
+/* When updating this list, including descriptions, apply changes to
+ * shell-completion/bash/systemd-analyze and shell-completion/zsh/_systemd-analyze too. */
 
-        static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'                  },
-                { "version",            no_argument,       NULL, ARG_VERSION          },
-                { "quiet",              no_argument,       NULL, 'q'                  },
-                { "order",              no_argument,       NULL, ARG_ORDER            },
-                { "require",            no_argument,       NULL, ARG_REQUIRE          },
-                { "root",               required_argument, NULL, ARG_ROOT             },
-                { "image",              required_argument, NULL, ARG_IMAGE            },
-                { "image-policy",       required_argument, NULL, ARG_IMAGE_POLICY     },
-                { "recursive-errors"  , required_argument, NULL, ARG_RECURSIVE_ERRORS },
-                { "offline",            required_argument, NULL, ARG_OFFLINE          },
-                { "threshold",          required_argument, NULL, ARG_THRESHOLD        },
-                { "security-policy",    required_argument, NULL, ARG_SECURITY_POLICY  },
-                { "system",             no_argument,       NULL, ARG_SYSTEM           },
-                { "user",               no_argument,       NULL, ARG_USER             },
-                { "global",             no_argument,       NULL, ARG_GLOBAL           },
-                { "from-pattern",       required_argument, NULL, ARG_DOT_FROM_PATTERN },
-                { "to-pattern",         required_argument, NULL, ARG_DOT_TO_PATTERN   },
-                { "fuzz",               required_argument, NULL, ARG_FUZZ             },
-                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER         },
-                { "man",                optional_argument, NULL, ARG_MAN              },
-                { "generators",         optional_argument, NULL, ARG_GENERATORS       },
-                { "instance",           required_argument, NULL, ARG_INSTANCE         },
-                { "host",               required_argument, NULL, 'H'                  },
-                { "machine",            required_argument, NULL, 'M'                  },
-                { "iterations",         required_argument, NULL, ARG_ITERATIONS       },
-                { "base-time",          required_argument, NULL, ARG_BASE_TIME        },
-                { "unit",               required_argument, NULL, 'U'                  },
-                { "json",               required_argument, NULL, ARG_JSON             },
-                { "profile",            required_argument, NULL, ARG_PROFILE          },
-                { "table",              optional_argument, NULL, ARG_TABLE            },
-                { "no-legend",          optional_argument, NULL, ARG_NO_LEGEND        },
-                { "tldr",               no_argument,       NULL, ARG_TLDR             },
-                { "mask",               no_argument,       NULL, 'm'                  },
-                { "scale-svg",          required_argument, NULL, ARG_SCALE_FACTOR_SVG },
-                { "detailed",           no_argument,       NULL, ARG_DETAILED_SVG     },
-                { "drm-device",         required_argument, NULL, ARG_DRM_DEVICE_PATH  },
-                { "debugger",           required_argument, NULL, ARG_DEBUGGER         },
-                { "debugger-arguments", required_argument, NULL, 'A'                  },
-                {}
-        };
+VERB_GROUP("Boot Analysis");
+VERB_SCOPE(, verb_time, "time", NULL, VERB_ANY, 1, VERB_DEFAULT,
+           "Print time required to boot the machine");
+VERB_SCOPE(, verb_blame, "blame", NULL, VERB_ANY, 1, 0,
+           "Print list of running units ordered by time to init");
+VERB_SCOPE(, verb_critical_chain, "critical-chain", "[UNIT...]", VERB_ANY, VERB_ANY, 0,
+           "Print a tree of the time critical chain of units");
 
-        bool reorder = false;
-        int r, c, unit_shell = -1;
+VERB_GROUP("Dependency Analysis");
+VERB_SCOPE(, verb_plot, "plot", NULL, VERB_ANY, 1, 0,
+           "Output SVG graphic showing service initialization");
+VERB_SCOPE(, verb_dot, "dot", "[UNIT...]", VERB_ANY, VERB_ANY, 0,
+           "Output dependency graph in dot(1) format");
+VERB_SCOPE(, verb_dump, "dump", "[PATTERN...]", VERB_ANY, VERB_ANY, 0,
+           "Output state serialization of service manager");
+
+VERB_GROUP("Configuration Files and Search Paths");
+VERB_SCOPE(, verb_cat_config, "cat-config", "NAME|PATH...", 2, VERB_ANY, 0,
+           "Show configuration file and drop-ins");
+VERB_SCOPE(, verb_unit_files, "unit-files", NULL, VERB_ANY, VERB_ANY, 0,
+           "List files and symlinks for units");
+VERB_SCOPE(, verb_unit_paths, "unit-paths", NULL, 1, 1, 0,
+           "List load directories for units");
+
+VERB_GROUP("Enumerate OS Concepts");
+VERB_SCOPE(, verb_exit_status, "exit-status", "[STATUS...]", VERB_ANY, VERB_ANY, 0,
+           "List exit status definitions");
+VERB_SCOPE(, verb_capabilities, "capability", "[CAP...]", VERB_ANY, VERB_ANY, 0,
+           "List capability definitions");
+VERB_SCOPE(, verb_syscall_filters, "syscall-filter", "[NAME...]", VERB_ANY, VERB_ANY, 0,
+           "List syscalls in seccomp filters");
+VERB_SCOPE(, verb_filesystems, "filesystems", "[NAME...]", VERB_ANY, VERB_ANY, 0,
+           "List known filesystems");
+VERB_SCOPE(, verb_architectures, "architectures", "[NAME...]", VERB_ANY, VERB_ANY, 0,
+           "List known architectures");
+VERB_SCOPE(, verb_smbios11, "smbios11", NULL, VERB_ANY, 1, 0,
+           "List strings passed via SMBIOS Type #11");
+VERB_SCOPE(, verb_chid, "chid", NULL, VERB_ANY, VERB_ANY, 0,
+           "List local CHIDs");
+VERB(verb_transient_settings, "transient-settings", "TYPE...", 2, VERB_ANY, 0,
+     "List transient settings for unit TYPE");
+
+VERB_GROUP("Expression Evaluation");
+VERB_SCOPE(, verb_condition, "condition", "CONDITION...", VERB_ANY, VERB_ANY, 0,
+           "Evaluate conditions and asserts");
+VERB_SCOPE(, verb_compare_versions, "compare-versions", "V1 [OP] V2", 3, 4, 0,
+           "Compare two version strings");
+VERB_SCOPE(, verb_image_policy, "image-policy", "POLICY...", 2, 2, 0,
+           "Analyze image policy string");
+
+VERB_GROUP("Clock & Time");
+VERB_SCOPE(, verb_calendar, "calendar", "SPEC...", 2, VERB_ANY, 0,
+           "Validate repetitive calendar time events");
+VERB_SCOPE(, verb_timestamp, "timestamp", "TIMESTAMP...", 2, VERB_ANY, 0,
+           "Validate a timestamp");
+VERB_SCOPE(, verb_timespan, "timespan", "SPAN...", 2, VERB_ANY, 0,
+           "Validate a time span");
+
+VERB_GROUP("Unit & Service Analysis");
+VERB_SCOPE(, verb_verify, "verify", "FILE...", 2, VERB_ANY, 0,
+           "Check unit files for correctness");
+VERB_SCOPE(, verb_security, "security", "[UNIT...]", VERB_ANY, VERB_ANY, 0,
+           "Analyze security of unit");
+VERB_SCOPE(, verb_fdstore, "fdstore", "SERVICE...", 2, VERB_ANY, 0,
+           "Show file descriptor store contents of service");
+VERB_SCOPE(, verb_malloc, "malloc", "[D-BUS SERVICE...]", VERB_ANY, VERB_ANY, 0,
+           "Dump malloc stats of a D-Bus service");
+VERB_SCOPE(, verb_unit_gdb, "unit-gdb", "SERVICE", 2, VERB_ANY, 0,
+           "Attach a debugger to the given running service");
+VERB_SCOPE(, verb_unit_shell, "unit-shell", "SERVICE [COMMAND ...]", 2, VERB_ANY, 0,
+           "Run command on the namespace of the service");
+
+VERB_GROUP("Executable Analysis");
+VERB_SCOPE(, verb_elf_inspection, "inspect-elf", "FILE...", 2, VERB_ANY, 0,
+           "Parse and print ELF package metadata");
+VERB_SCOPE(, verb_dlopen_metadata, "dlopen-metadata", "FILE", 2, 2, 0,
+           "Parse and print ELF dlopen metadata");
+
+VERB_GROUP("TPM Operations");
+VERB_SCOPE(, verb_has_tpm2, "has-tpm2", NULL, VERB_ANY, 1, 0,
+           "Report whether TPM2 support is available");
+VERB_SCOPE(, verb_identify_tpm2, "identify-tpm2", NULL, VERB_ANY, 1, 0,
+           "Show TPM2 vendor information");
+VERB_SCOPE(, verb_pcrs, "pcrs", "[PCR...]", VERB_ANY, VERB_ANY, 0,
+           "Show TPM2 PCRs and their names");
+VERB_SCOPE(, verb_nvpcrs, "nvpcrs", "[NVPCR...]", VERB_ANY, VERB_ANY, 0,
+           "Show additional TPM2 PCRs stored in NV indexes");
+VERB_SCOPE(, verb_srk, "srk", "[>FILE]", VERB_ANY, 1, 0,
+           "Write TPM2 SRK (to FILE)");
+
+/* The following are deprecated and not shown in --help. */
+VERB_SCOPE(, verb_log_control,        "log-level",         NULL, VERB_ANY, 2, 0, /* help= */ NULL);
+VERB_SCOPE(, verb_log_control,        "log-target",        NULL, VERB_ANY, 2, 0, /* help= */ NULL);
+VERB_SCOPE(, verb_log_control,        "set-log-level",     NULL, 2,        2, 0, /* help= */ NULL);
+VERB_SCOPE(, verb_log_control,        "get-log-level",     NULL, VERB_ANY, 1, 0, /* help= */ NULL);
+VERB_SCOPE(, verb_log_control,        "set-log-target",    NULL, 2,        2, 0, /* help= */ NULL);
+VERB_SCOPE(, verb_log_control,        "get-log-target",    NULL, VERB_ANY, 1, 0, /* help= */ NULL);
+VERB_SCOPE(, verb_service_watchdogs,  "service-watchdogs", NULL, VERB_ANY, 2, 0, /* help= */ NULL);
+
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+; at the beginning). */
-        optind = 0;
+        /* For "unit-shell" the switches specified after the service name are part of the commandline
+         * to execute and are not processed by us. For other verbs, we consume all options as usual.
+         * To make this work, start with mode==OPTION_PARSER_RETURN_POSITIONAL_ARGS and switch to
+         * either OPTION_PARSER_STOP_AT_FIRST_NONOPTION or OPTION_PARSER_NORMAL after we've seen
+         * the verb. */
+        OptionParser opts = { argc, argv, OPTION_PARSER_RETURN_POSITIONAL_ARGS };
+        const char *verb = NULL;
 
-        for (;;) {
-                static const char option_string[] = "-hqH:M:U:mA:";
-
-                c = getopt_long(argc, argv, option_string + reorder, options, NULL);
-                if (c < 0)
-                        break;
-
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
-                case 1: /* getopt_long() returns 1 if "-" was the first character of the option string, and a
-                         * non-option argument was discovered. */
+                OPTION_POSITIONAL:
+                        verb = opts.arg;
 
-                        assert(!reorder);
-
-                        /* We generally are fine with the fact that getopt_long() reorders the command line, and looks
-                         * for switches after the main verb. However, for "unit-shell" we really don't want that, since we
-                         * want that switches specified after the service name are passed to the program to execute,
-                         * and not processed by us. To make this possible, we'll first invoke getopt_long() with
-                         * reordering disabled (i.e. with the "-" prefix in the option string), looking for the first
-                         * non-option parameter. If it's the verb "unit-shell" we remember its position and continue
-                         * processing options. In this case, as soon as we hit the next non-option argument we found
-                         * the service name, and stop further processing. If the first non-option argument is any other
-                         * verb than "unit-shell" we switch to normal reordering mode and continue processing arguments
-                         * normally. */
-
-                        if (unit_shell >= 0) {
-                                optind--; /* don't process this argument, go one step back */
-                                goto done;
-                        }
-                        if (streq(optarg, "unit-shell"))
-                                /* Remember the position of the "unit_shell" verb, and continue processing normally. */
-                                unit_shell = optind - 1;
-                        else {
-                                int saved_optind;
-
-                                /* Ok, this is some other verb. In this case, turn on reordering again, and continue
-                                 * processing normally. */
-                                reorder = true;
-
-                                /* We changed the option string. getopt_long() only looks at it again if we invoke it
-                                 * at least once with a reset option index. Hence, let's reset the option index here,
-                                 * then invoke getopt_long() again (ignoring what it has to say, after all we most
-                                 * likely already processed it), and the bump the option index so that we read the
-                                 * intended argument again. */
-                                saved_optind = optind;
-                                optind = 0;
-                                (void) getopt_long(argc, argv, option_string + reorder, options, NULL);
-                                optind = saved_optind - 1; /* go one step back, process this argument again */
-                        }
-
+                        assert(opts.mode == OPTION_PARSER_RETURN_POSITIONAL_ARGS);
+                        if (streq(verb, "unit-shell"))
+                                opts.mode = OPTION_PARSER_STOP_AT_FIRST_NONOPTION;
+                        else
+                                opts.mode = OPTION_PARSER_NORMAL;
                         break;
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case 'q':
+                OPTION('q', "quiet", NULL, "Do not emit hints"):
                         arg_quiet = true;
                         break;
 
-                case ARG_RECURSIVE_ERRORS:
-                        if (streq(optarg, "help"))
+                OPTION_LONG("recursive-errors", "MODE", "Control which units are verified"):
+                        if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(recursive_errors, RecursiveErrors, _RECURSIVE_ERRORS_MAX);
 
-                        r = recursive_errors_from_string(optarg);
+                        r = recursive_errors_from_string(opts.arg);
                         if (r < 0)
-                                return log_error_errno(r, "Unknown mode passed to --recursive-errors='%s'.", optarg);
+                                return log_error_errno(r, "Unknown mode passed to --recursive-errors='%s'.", opts.arg);
 
                         arg_recursive_errors = r;
                         break;
 
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
+                OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
+                OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, "Operate on system systemd instance"):
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
-                case ARG_USER:
+                OPTION_LONG("user", NULL, "Operate on user systemd instance"):
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
-                case ARG_GLOBAL:
+                OPTION_LONG("global", NULL, "Operate on global user configuration"):
                         arg_runtime_scope = RUNTIME_SCOPE_GLOBAL;
                         break;
 
-                case ARG_ORDER:
+                OPTION_LONG("order", NULL, "Show only order in the graph"):
                         arg_dot = DEP_ORDER;
                         break;
 
-                case ARG_REQUIRE:
+                OPTION_LONG("require", NULL, "Show only requirement in the graph"):
                         arg_dot = DEP_REQUIRE;
                         break;
 
-                case ARG_DOT_FROM_PATTERN:
-                        if (strv_extend(&arg_dot_from_patterns, optarg) < 0)
+                OPTION_LONG("from-pattern", "GLOB", "Show only origins in the graph"):
+                        if (strv_extend(&arg_dot_from_patterns, opts.arg) < 0)
                                 return log_oom();
-
                         break;
 
-                case ARG_DOT_TO_PATTERN:
-                        if (strv_extend(&arg_dot_to_patterns, optarg) < 0)
+                OPTION_LONG("to-pattern", "GLOB", "Show only destinations in the graph"):
+                        if (strv_extend(&arg_dot_to_patterns, opts.arg) < 0)
                                 return log_oom();
-
                         break;
 
-                case ARG_FUZZ:
-                        r = parse_sec(optarg, &arg_fuzz);
+                OPTION_LONG("fuzz", "SECONDS",
+                            "Also print services which finished SECONDS earlier than the latest in the branch"):
+                        r = parse_sec(opts.arg, &arg_fuzz);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case 'H':
+                OPTION_COMMON_HOST:
                         arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
+                        arg_host = opts.arg;
                         break;
 
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                OPTION_COMMON_MACHINE:
+                        r = parse_machine_argument(opts.arg, &arg_host, &arg_transport);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_MAN:
-                        r = parse_boolean_argument("--man", optarg, &arg_man);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "man", "BOOL", "Whether to check for existence of man pages"):
+                        r = parse_boolean_argument("--man", opts.arg, &arg_man);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_GENERATORS:
-                        r = parse_boolean_argument("--generators", optarg, &arg_generators);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "generators", "BOOL",
+                                  "Whether to run unit generators (which requires privileges)"):
+                        r = parse_boolean_argument("--generators", opts.arg, &arg_generators);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_INSTANCE:
-                        arg_instance = optarg;
+                OPTION_LONG("instance", "NAME", "Specify fallback instance name for template units"):
+                        arg_instance = opts.arg;
                         break;
 
-                case ARG_OFFLINE:
-                        r = parse_boolean_argument("--offline", optarg, &arg_offline);
+                OPTION_LONG("offline", "BOOL", "Perform a security review on unit files"):
+                        r = parse_boolean_argument("--offline", opts.arg, &arg_offline);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_THRESHOLD:
-                        r = safe_atou(optarg, &arg_threshold);
+                OPTION_LONG("threshold", "N",
+                            "Exit with a non-zero status when overall exposure level is over threshold value"):
+                        r = safe_atou(opts.arg, &arg_threshold);
                         if (r < 0 || arg_threshold > 100)
-                                return log_error_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL), "Failed to parse threshold: %s", optarg);
-
+                                return log_error_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse threshold: %s", opts.arg);
                         break;
 
-                case ARG_SECURITY_POLICY:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_security_policy);
+                OPTION_LONG("security-policy", "PATH",
+                            "Use custom JSON security policy instead of built-in one"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_security_policy);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
                         break;
 
-                case ARG_ITERATIONS:
-                        r = safe_atou(optarg, &arg_iterations);
+                OPTION_LONG("iterations", "N", "Show the specified number of iterations"):
+                        r = safe_atou(opts.arg, &arg_iterations);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse iterations: %s", optarg);
+                                return log_error_errno(r, "Failed to parse iterations: %s", opts.arg);
                         break;
 
-                case ARG_BASE_TIME:
-                        r = parse_timestamp(optarg, &arg_base_time);
+                OPTION_LONG("base-time", "TIMESTAMP",
+                            "Calculate calendar times relative to specified time"):
+                        r = parse_timestamp(opts.arg, &arg_base_time);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --base-time= parameter: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --base-time= parameter: %s", opts.arg);
                         break;
 
-                case ARG_PROFILE:
-                        if (isempty(optarg))
+                OPTION_LONG("profile", "name|PATH",
+                            "Include the specified profile in the security review of the units"):
+                        if (isempty(opts.arg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Profile file name is empty");
 
-                        if (is_path(optarg)) {
-                                r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_profile);
+                        if (is_path(opts.arg)) {
+                                r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_profile);
                                 if (r < 0)
                                         return r;
                                 if (!endswith(arg_profile, ".conf"))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Profile file name must end with .conf: %s", arg_profile);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Profile file name must end with .conf: %s", arg_profile);
                         } else {
-                                r = free_and_strdup(&arg_profile, optarg);
+                                r = free_and_strdup(&arg_profile, opts.arg);
                                 if (r < 0)
                                         return log_oom();
                         }
-
                         break;
 
-                case 'U': {
+                OPTION('U', "unit", "UNIT", "Evaluate conditions and asserts of unit"): {
                         _cleanup_free_ char *mangled = NULL;
 
-                        r = unit_name_mangle(optarg, UNIT_NAME_MANGLE_WARN, &mangled);
+                        r = unit_name_mangle(opts.arg, UNIT_NAME_MANGLE_WARN, &mangled);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to mangle unit name %s: %m", optarg);
+                                return log_error_errno(r, "Failed to mangle unit name %s: %m", opts.arg);
 
                         free_and_replace(arg_unit, mangled);
                         break;
                 }
 
-                case ARG_TABLE:
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "table", NULL,
+                                  "Output plot's raw time data as a table"):
                         arg_table = true;
                         break;
 
-                case ARG_NO_LEGEND:
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "no-legend", NULL,
+                                  "Disable column headers and hints in plot with either --table or --json="):
                         arg_legend = false;
                         break;
 
-                case ARG_TLDR:
+                OPTION_LONG("tldr", NULL, "Skip comments and empty lines"):
                         arg_cat_flags = CAT_TLDR;
                         break;
 
-                case 'm':
+                OPTION('m', "mask", NULL, "Parse parameter as numeric capability mask"):
                         arg_capability = CAPABILITY_MASK;
                         break;
 
-                case ARG_SCALE_FACTOR_SVG:
-                        arg_svg_timescale = strtod(optarg, NULL);
+                OPTION_LONG("scale-svg", "FACTOR", "Stretch x-axis of plot by FACTOR (default: 1.0)"):
+                        arg_svg_timescale = strtod(opts.arg, NULL);
                         break;
 
-                case ARG_DETAILED_SVG:
+                OPTION_LONG("detailed", NULL,
+                            "Add more details to SVG plot, e.g. show activation timestamps"):
                         arg_detailed_svg = true;
                         break;
 
-                case ARG_DRM_DEVICE_PATH:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_drm_device_path);
+                OPTION_LONG("drm-device", "PATH", "Use this DRM device sysfs path to get EDID"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_drm_device_path);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_DEBUGGER:
-                        r = free_and_strdup_warn(&arg_debugger, optarg);
+                OPTION_LONG("debugger", "DEBUGGER", "Use the given debugger"):
+                        r = free_and_strdup_warn(&arg_debugger, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'A': {
+                OPTION('A', "debugger-arguments", "ARGS", "Pass the given arguments to the debugger"): {
                         _cleanup_strv_free_ char **l = NULL;
-                        r = strv_split_full(&l, optarg, WHITESPACE, EXTRACT_UNQUOTE);
+                        r = strv_split_full(&l, opts.arg, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse debugger arguments '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to parse debugger arguments '%s': %m", opts.arg);
                         strv_free_and_replace(arg_debugger_args, l);
                         break;
                 }
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
-        }
 
-done:
-        if (unit_shell >= 0) {
-                char *t;
+        _cleanup_strv_free_ char **args = strv_copy(option_parser_get_args(&opts)); /* args is [arg1, arg2, …] */
+        if (!args || strv_prepend(&args, verb) < 0)                                 /* args is now [arg0, arg1, arg2, …] */
+                return log_oom();
 
-                /* We found the "unit-shell" verb while processing the argument list. Since we turned off reordering of the
-                 * argument list initially let's readjust it now, and move the "unit-shell" verb to the back. */
-
-                optind -= 1; /* place the option index where the "unit-shell" verb will be placed */
-
-                t = argv[unit_shell];
-                for (int i = unit_shell; i < optind; i++)
-                        argv[i] = argv[i+1];
-                argv[optind] = t;
-        }
-
-        if (arg_offline && !streq_ptr(argv[optind], "security"))
+        if (arg_offline && !streq_ptr(verb, "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --offline= is only supported for security right now.");
 
-        if (arg_offline && optind >= argc - 1)
+        if (arg_offline && strv_length(args) < 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --offline= requires one or more units to perform a security review.");
 
-        if (arg_json_format_flags != SD_JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "dlopen-metadata", "plot", "fdstore", "pcrs", "nvpcrs", "architectures", "capability", "exit-status"))
+        if (arg_json_format_flags != SD_JSON_FORMAT_OFF &&
+            !STRPTR_IN_SET(verb, "security", "inspect-elf", "dlopen-metadata", "plot", "fdstore", "pcrs", "nvpcrs", "architectures", "capability", "exit-status"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --json= is only supported for security, inspect-elf, dlopen-metadata, plot, fdstore, pcrs, nvpcrs, architectures, capability, exit-status right now.");
 
-        if (arg_threshold != 100 && !streq_ptr(argv[optind], "security"))
+        if (arg_threshold != 100 && !streq_ptr(verb, "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --threshold= is only supported for security right now.");
 
-        if (arg_runtime_scope == RUNTIME_SCOPE_GLOBAL && !streq_ptr(argv[optind], "unit-paths"))
+        if (arg_runtime_scope == RUNTIME_SCOPE_GLOBAL && !streq_ptr(verb, "unit-paths"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --global only makes sense with verb unit-paths.");
 
-        if (streq_ptr(argv[optind], "cat-config") && arg_runtime_scope == RUNTIME_SCOPE_USER)
+        if (streq_ptr(verb, "cat-config") && arg_runtime_scope == RUNTIME_SCOPE_USER)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --user is not supported for cat-config right now.");
 
-        if (arg_security_policy && !streq_ptr(argv[optind], "security"))
+        if (arg_security_policy && !streq_ptr(verb, "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --security-policy= is only supported for security.");
 
-        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify", "condition", "inspect-elf", "unit-gdb")) &&
-           (!(streq_ptr(argv[optind], "security") && arg_offline)))
+        if ((arg_root || arg_image) &&
+            !STRPTR_IN_SET(verb, "cat-config", "verify", "condition", "inspect-elf", "unit-gdb") &&
+            (!(streq_ptr(verb, "security") && arg_offline)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Options --root= and --image= are only supported for cat-config, verify, condition, unit-gdb, and security when used with --offline= right now.");
 
@@ -750,84 +654,35 @@ done:
         if (arg_root && arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
-        if (arg_unit && !streq_ptr(argv[optind], "condition"))
+        if (arg_unit && !streq_ptr(verb, "condition"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --unit= is only supported for condition");
 
-        if (streq_ptr(argv[optind], "condition") && !arg_unit && optind >= argc - 1)
+        if (streq_ptr(verb, "condition") && !arg_unit && strv_length(args) < 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too few arguments for condition");
 
-        if (streq_ptr(argv[optind], "condition") && arg_unit && optind < argc - 1)
+        if (streq_ptr(verb, "condition") && arg_unit && strv_length(args) > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No conditions can be passed if --unit= is used.");
 
-        if (arg_table && !streq_ptr(argv[optind], "plot"))
+        if (arg_table && !streq_ptr(verb, "plot"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --table is only supported for plot right now.");
 
         if (arg_table && sd_json_format_enabled(arg_json_format_flags))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--table and --json= are mutually exclusive.");
 
-        if (arg_capability != CAPABILITY_LITERAL && !streq_ptr(argv[optind], "capability"))
+        if (arg_capability != CAPABILITY_LITERAL && !streq_ptr(verb, "capability"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --mask is only supported for capability.");
 
-        if (arg_drm_device_path && !streq_ptr(argv[optind], "chid"))
+        if (arg_drm_device_path && !streq_ptr(verb, "chid"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --drm-device is only supported for chid right now.");
 
+        *ret_args = TAKE_PTR(args);
         return 1; /* work to do */
 }
 
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-
-        static const Verb verbs[] = {
-                { "help",               VERB_ANY, VERB_ANY, 0,            verb_help                    },
-                { "time",               VERB_ANY, 1,        VERB_DEFAULT, verb_time                    },
-                { "blame",              VERB_ANY, 1,        0,            verb_blame                   },
-                { "critical-chain",     VERB_ANY, VERB_ANY, 0,            verb_critical_chain          },
-                { "plot",               VERB_ANY, 1,        0,            verb_plot                    },
-                { "dot",                VERB_ANY, VERB_ANY, 0,            verb_dot                     },
-                /* ↓ The following seven verbs are deprecated, from here … ↓ */
-                { "log-level",          VERB_ANY, 2,        0,  verb_log_control        },
-                { "log-target",         VERB_ANY, 2,        0,  verb_log_control        },
-                { "set-log-level",      2,        2,        0,  verb_log_control        },
-                { "get-log-level",      VERB_ANY, 1,        0,  verb_log_control        },
-                { "set-log-target",     2,        2,        0,  verb_log_control        },
-                { "get-log-target",     VERB_ANY, 1,        0,  verb_log_control        },
-                { "service-watchdogs",  VERB_ANY, 2,        0,  verb_service_watchdogs  },
-                /* ↑ … until here ↑ */
-                { "dump",               VERB_ANY, VERB_ANY, 0,  verb_dump               },
-                { "cat-config",         2,        VERB_ANY, 0,  verb_cat_config         },
-                { "unit-files",         VERB_ANY, VERB_ANY, 0,  verb_unit_files         },
-                { "unit-gdb",           2,        VERB_ANY, 0,  verb_unit_gdb           },
-                { "unit-paths",         1,        1,        0,  verb_unit_paths         },
-                { "unit-shell",         2,        VERB_ANY, 0,  verb_unit_shell         },
-                { "exit-status",        VERB_ANY, VERB_ANY, 0,  verb_exit_status        },
-                { "syscall-filter",     VERB_ANY, VERB_ANY, 0,  verb_syscall_filters    },
-                { "capability",         VERB_ANY, VERB_ANY, 0,  verb_capabilities       },
-                { "filesystems",        VERB_ANY, VERB_ANY, 0,  verb_filesystems        },
-                { "condition",          VERB_ANY, VERB_ANY, 0,  verb_condition          },
-                { "compare-versions",   3,        4,        0,  verb_compare_versions   },
-                { "verify",             2,        VERB_ANY, 0,  verb_verify             },
-                { "calendar",           2,        VERB_ANY, 0,  verb_calendar           },
-                { "timestamp",          2,        VERB_ANY, 0,  verb_timestamp          },
-                { "timespan",           2,        VERB_ANY, 0,  verb_timespan           },
-                { "security",           VERB_ANY, VERB_ANY, 0,  verb_security           },
-                { "inspect-elf",        2,        VERB_ANY, 0,  verb_elf_inspection     },
-                { "dlopen-metadata",    2,        2,        0,  verb_dlopen_metadata    },
-                { "malloc",             VERB_ANY, VERB_ANY, 0,  verb_malloc             },
-                { "fdstore",            2,        VERB_ANY, 0,  verb_fdstore            },
-                { "image-policy",       2,        2,        0,  verb_image_policy       },
-                { "has-tpm2",           VERB_ANY, 1,        0,  verb_has_tpm2           },
-                { "identify-tpm2",      VERB_ANY, 1,        0,  verb_identify_tpm2      },
-                { "pcrs",               VERB_ANY, VERB_ANY, 0,  verb_pcrs               },
-                { "nvpcrs",             VERB_ANY, VERB_ANY, 0,  verb_nvpcrs             },
-                { "srk",                VERB_ANY, 1,        0,  verb_srk                },
-                { "architectures",      VERB_ANY, VERB_ANY, 0,  verb_architectures      },
-                { "smbios11",           VERB_ANY, 1,        0,  verb_smbios11           },
-                { "chid",               VERB_ANY, VERB_ANY, 0,  verb_chid               },
-                { "transient-settings", 2,        VERB_ANY, 0,  verb_transient_settings },
-                {}
-        };
-
+        _cleanup_strv_free_ char **args = NULL;
         int r;
 
         setlocale(LC_ALL, "");
@@ -835,7 +690,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -861,7 +716,7 @@ static int run(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        return dispatch_verb(argc, argv, verbs, NULL);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

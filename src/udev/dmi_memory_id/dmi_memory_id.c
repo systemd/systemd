@@ -653,7 +653,7 @@ static int help(void) {
                 return r;
 
         help_cmdline("[OPTIONS...]");
-        help_section("Options:");
+        help_section("Options");
 
         return table_print_or_warn(options);
 }
