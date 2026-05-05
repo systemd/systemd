@@ -207,8 +207,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - download list + report updates in motd – but do not auto update
   - download list + download new version – but do not apply it
   - download list + download new version + apply it – but do not reboot
-  - download list + donwload new version + apply it + reboot
-  Other things the policy shoudl contain is when to place the reboot.
+  - download list + download new version + apply it + reboot
+  Other things the policy should contain is when to place the reboot.
   This would all decouple the updating of the package list from the application
   of it. Which is great for "countme" style stuff.
 
@@ -344,7 +344,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - add bus API to retrieve current unit file contents (i.e. implement "systemctl cat" on the bus only)
 
-- Add ConditionDirectoryNotEmpty= handle non-absoute paths as a search path or add
+- Add ConditionDirectoryNotEmpty= handle non-absolute paths as a search path or add
   ConditionConfigSearchPathNotEmpty= or different syntax? See the discussion starting at
   https://github.com/systemd/systemd/pull/15109#issuecomment-607740136.
 
@@ -1539,7 +1539,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   and stick around for the whole system runtime (i.e. root fs storage daemons,
   the bpf loader daemon discussed above, and such) are placed. maybe
   protected.slice or so? Then write docs that suggest that services like this
-  set Slice=protected.sice, RefuseManualStart=yes, RefuseManualStop=yes and a
+  set Slice=protected.slice, RefuseManualStart=yes, RefuseManualStop=yes and a
   couple of other things.
 
 - maybe add call sd_journal_set_block_timeout() or so to set SO_SNDTIMEO for
@@ -1833,7 +1833,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - oci: add support for "importctl import-oci" which implements the "OCI layout"
   spec (i.e. acquiring via local fs access), as opposed to the current
-  "importctl pull-oci" which focusses on the "OCI image spec", i.e. downloads
+  "importctl pull-oci" which focuses on the "OCI image spec", i.e. downloads
   from the web (i.e. acquiring via URLs).
 
 - oci: add support for blake hashes for layers

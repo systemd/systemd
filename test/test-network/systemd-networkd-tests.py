@@ -9332,7 +9332,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         # ipv4masklen: 8
         # 6rd-prefix: 2001:db8::/32
-        # br-addresss: 10.0.0.1
+        # br-address: 10.0.0.1
 
         start_dnsmasq('--dhcp-option=212,08:20:20:01:0d:b8:00:00:00:00:00:00:00:00:00:00:00:00:0a:00:00:01',
                       ipv4_range='10.100.100.100,10.100.100.200',
