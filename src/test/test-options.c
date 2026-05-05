@@ -818,6 +818,77 @@ TEST(option_optional_arg) {
                               NULL);
 }
 
+/* Check that we correctly implement the behaviour of
+ *   systemd-analyze -a -b unit-shell -c -d name -e -f
+ *   systemd-analyze -a -b other-verb -c -d name -e -f
+ *   systemd-analyze -a -b -c -d -e -f
+ * where '-a', '-b', '-c', '-d' are "our" options, but '-e -f' is part of the commandline
+ * for unit-shell, but not in the other cases. */
+static void test_option_parsing_stops_at_second_nonoption_one(
+                char **cmdline,
+                unsigned options_to_see,
+                unsigned verbs_to_see,
+                char **args_to_see) {
+
+        static const Option options[] = {
+                { 1, .short_code = 'a' },
+                { 2, .short_code = 'b' },
+                { 3, .short_code = 'c' },
+                { 4, .short_code = 'd' },
+                { 5, .short_code = 'e' },
+                { 6, .short_code = 'f' },
+                { 7, .long_code = "(positional)", .flags = OPTION_POSITIONAL_ENTRY },
+                {},
+        };
+
+        OptionParser opts = { strv_length(cmdline), cmdline,
+                              .mode = OPTION_PARSER_RETURN_POSITIONAL_ARGS };
+        unsigned options_seen = 0;
+        unsigned verbs_seen = 0;
+        for (int c; (c = option_parse(options, options + ELEMENTSOF(options) - 1, &opts)) != 0; ) {
+                ASSERT_OK(c);
+                ASSERT_NOT_NULL(opts.opt);
+
+                switch (opts.opt->id) {
+                case 1 ... 6:
+                        options_seen++;
+                        break;
+                case 7:
+                        verbs_seen++;
+                        ASSERT_EQ(opts.mode, (OptionParserMode) OPTION_PARSER_RETURN_POSITIONAL_ARGS);
+
+                        if (streq(opts.arg, "unit-shell"))
+                                opts.mode = OPTION_PARSER_STOP_AT_FIRST_NONOPTION;
+                        else if (streq(opts.arg, "other-verb"))
+                                opts.mode = OPTION_PARSER_NORMAL;
+                        else
+                                assert_not_reached();
+                        break;
+                default:
+                        assert_not_reached();
+                }
+        }
+
+        ASSERT_EQ(options_seen, options_to_see);
+        ASSERT_EQ(verbs_seen, verbs_to_see);
+        ASSERT_TRUE(strv_equal(option_parser_get_args(&opts), args_to_see));
+}
+
+TEST(option_parsing_stops_at_second_nonoption) {
+        test_option_parsing_stops_at_second_nonoption_one(
+                        STRV_MAKE("systemd-analyze", "-a", "-b", "unit-shell", "-c", "-d", "name", "-e", "-f"),
+                        4, 1,
+                        STRV_MAKE("name", "-e", "-f"));
+        test_option_parsing_stops_at_second_nonoption_one(
+                        STRV_MAKE("systemd-analyze", "-a", "-b", "other-verb", "-c", "-d", "name", "-e", "-f"),
+                        6, 1,
+                        STRV_MAKE("name"));
+        test_option_parsing_stops_at_second_nonoption_one(
+                        STRV_MAKE("systemd-analyze", "-a", "-b", "-c", "-d", "-e"),
+                        5, 0,
+                        STRV_EMPTY);
+}
+
 /* Test the OPTION, OPTION_LONG, OPTION_SHORT, OPTION_FULL, OPTION_GROUP macros
  * by using them in a FOREACH_OPTION switch, as they would be used in real code. */
 
