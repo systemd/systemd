@@ -8,21 +8,22 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
-#include "facts.h"
 #include "hostname-setup.h"
+#include "metrics.h"
 #include "report-basic.h"
 #include "virt.h"
 
-static int architecture_generate(FactFamilyContext *context, void *userdata) {
+static int architecture_generate(MetricFamilyContext *context, void *userdata) {
         assert(context);
 
-        return fact_build_send_string(
+        return metric_build_send_string(
                         context,
                         /* object= */ NULL,
-                        architecture_to_string(uname_architecture()));
+                        architecture_to_string(uname_architecture()),
+                        /* fields= */ NULL);
 }
 
-static int boot_id_generate(FactFamilyContext *context, void *userdata) {
+static int boot_id_generate(MetricFamilyContext *context, void *userdata) {
         sd_id128_t id;
         int r;
 
@@ -32,13 +33,14 @@ static int boot_id_generate(FactFamilyContext *context, void *userdata) {
         if (r < 0)
                 return r;
 
-        return fact_build_send_string(
+        return metric_build_send_string(
                         context,
                         /* object= */ NULL,
-                        SD_ID128_TO_STRING(id));
+                        SD_ID128_TO_STRING(id),
+                        /* fields= */ NULL);
 }
 
-static int hostname_generate(FactFamilyContext *context, void *userdata) {
+static int hostname_generate(MetricFamilyContext *context, void *userdata) {
         _cleanup_free_ char *hostname = NULL;
         int r;
 
@@ -48,26 +50,28 @@ static int hostname_generate(FactFamilyContext *context, void *userdata) {
         if (r < 0)
                 return r;
 
-        return fact_build_send_string(
+        return metric_build_send_string(
                         context,
                         /* object= */ NULL,
-                        hostname);
+                        hostname,
+                        /* fields= */ NULL);
 }
 
-static int kernel_version_generate(FactFamilyContext *context, void *userdata) {
+static int kernel_version_generate(MetricFamilyContext *context, void *userdata) {
         struct utsname u;
 
         assert(context);
 
         assert_se(uname(&u) >= 0);
 
-        return fact_build_send_string(
+        return metric_build_send_string(
                         context,
                         /* object= */ NULL,
-                        u.release);
+                        u.release,
+                        /* fields= */ NULL);
 }
 
-static int machine_id_generate(FactFamilyContext *context, void *userdata) {
+static int machine_id_generate(MetricFamilyContext *context, void *userdata) {
         sd_id128_t id;
         int r;
 
@@ -77,13 +81,14 @@ static int machine_id_generate(FactFamilyContext *context, void *userdata) {
         if (r < 0)
                 return r;
 
-        return fact_build_send_string(
+        return metric_build_send_string(
                         context,
                         /* object= */ NULL,
-                        SD_ID128_TO_STRING(id));
+                        SD_ID128_TO_STRING(id),
+                        /* fields= */ NULL);
 }
 
-static int virtualization_generate(FactFamilyContext *context, void *userdata) {
+static int virtualization_generate(MetricFamilyContext *context, void *userdata) {
         Virtualization v;
 
         assert(context);
@@ -92,51 +97,58 @@ static int virtualization_generate(FactFamilyContext *context, void *userdata) {
         if (v < 0)
                 return v;
 
-        return fact_build_send_string(
+        return metric_build_send_string(
                         context,
                         /* object= */ NULL,
-                        virtualization_to_string(v));
+                        virtualization_to_string(v),
+                        /* fields= */ NULL);
 }
 
-static const FactFamily fact_family_table[] = {
-        /* Keep facts ordered alphabetically */
+static const MetricFamily metric_family_table[] = {
+        /* Keep entries ordered alphabetically */
         {
-                .name = FACT_IO_SYSTEMD_BASIC "Architecture",
+                .name = METRIC_IO_SYSTEMD_BASIC_PREFIX "Architecture",
                 .description = "CPU architecture",
+                .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = architecture_generate,
         },
         {
-                .name = FACT_IO_SYSTEMD_BASIC "BootID",
+                .name = METRIC_IO_SYSTEMD_BASIC_PREFIX "BootID",
                 .description = "Current boot ID",
+                .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = boot_id_generate,
         },
         {
-                .name = FACT_IO_SYSTEMD_BASIC "Hostname",
+                .name = METRIC_IO_SYSTEMD_BASIC_PREFIX "Hostname",
                 .description = "System hostname",
+                .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = hostname_generate,
         },
         {
-                .name = FACT_IO_SYSTEMD_BASIC "KernelVersion",
+                .name = METRIC_IO_SYSTEMD_BASIC_PREFIX "KernelVersion",
                 .description = "Kernel version",
+                .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = kernel_version_generate,
         },
         {
-                .name = FACT_IO_SYSTEMD_BASIC "MachineID",
+                .name = METRIC_IO_SYSTEMD_BASIC_PREFIX "MachineID",
                 .description = "Machine ID",
+                .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = machine_id_generate,
         },
         {
-                .name = FACT_IO_SYSTEMD_BASIC "Virtualization",
+                .name = METRIC_IO_SYSTEMD_BASIC_PREFIX "Virtualization",
                 .description = "Virtualization type",
+                .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = virtualization_generate,
         },
         {}
 };
 
-int vl_method_describe_facts(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return facts_method_describe(fact_family_table, link, parameters, flags, userdata);
+int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return metrics_method_describe(metric_family_table, link, parameters, flags, userdata);
 }
 
-int vl_method_list_facts(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return facts_method_list(fact_family_table, link, parameters, flags, userdata);
+int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return metrics_method_list(metric_family_table, link, parameters, flags, userdata);
 }
