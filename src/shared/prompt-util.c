@@ -16,27 +16,41 @@
 #include "strv.h"
 #include "terminal-util.h"
 
+typedef struct CompletionData {
+        char **menu;      /* What to show in menu */
+        char **accepted;  /* What to accept (usually larger than the menu, but may be NULL if same) */
+} CompletionData;
+
 static int get_completions(
                 const char *key,
+                GetCompletionsFlags flags,
                 char ***ret_list,
                 void *userdata) {
 
+        CompletionData *data = ASSERT_PTR(userdata);
         int r;
 
         assert(ret_list);
 
-        if (!userdata) {
+        /* Figure out the list to operate on. We'll generally work based on the "accepted" list, if it is
+         * set. If not we'll operate with the full menu. When doing pre-selection we'll also pick the menu */
+        char **l = data->accepted && !FLAGS_SET(flags, GET_COMPLETIONS_PRESELECT) ? data->accepted : data->menu;
+
+        if (strv_isempty(l)) {
                 *ret_list = NULL;
                 return 0;
         }
 
-        _cleanup_strv_free_ char **copy = strv_copy(userdata);
+        _cleanup_strv_free_ char **copy = strv_copy(l);
         if (!copy)
                 return -ENOMEM;
 
-        r = strv_extend(&copy, "list");
-        if (r < 0)
-                return r;
+        /* Never consider "list" for preselecting an item, but do consider it when doing a regular completion */
+        if (!FLAGS_SET(flags, GET_COMPLETIONS_PRESELECT)) {
+                r = strv_extend(&copy, "list");
+                if (r < 0)
+                        return r;
+        }
 
         *ret_list = TAKE_PTR(copy);
         return 0;
@@ -45,8 +59,8 @@ static int get_completions(
 int prompt_loop(
                 const char *text,
                 Glyph emoji,
-                char **menu,        /* if non-NULL: choices to suggest */
-                char **accepted,    /* if non-NULL: choices to accept (should be a superset of 'menu') */
+                char **menu,             /* if non-NULL: choices to suggest */
+                char **accepted,         /* if non-NULL: choices to accept (should be a superset of 'menu') */
                 unsigned ellipsize_percentage,
                 size_t n_columns,
                 size_t column_width,
@@ -102,7 +116,7 @@ int prompt_loop(
                 r = ask_string_full(
                                 &p,
                                 get_completions,
-                                accepted ?: menu,
+                                &(CompletionData) { menu, accepted },
                                 "%s%s%s%s: ",
                                 emoji >= 0 ? glyph(emoji) : "",
                                 emoji >= 0 ? " " : "",

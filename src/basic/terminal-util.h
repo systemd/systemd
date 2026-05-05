@@ -88,7 +88,13 @@ int chvt(int vt);
 int read_one_char(FILE *f, char *ret, usec_t timeout, bool echo, bool *need_nl);
 int ask_char(char *ret, const char *replies, const char *fmt, ...) _printf_(3, 4);
 
-typedef int (*GetCompletionsCallback)(const char *key, char ***ret_list, void *userdata);
+typedef enum GetCompletionsFlags {
+        /* Only return the items subject to preselection: typically you want to suppress meta entries such as
+         * "list" if this flag is set, as such menu items */
+        GET_COMPLETIONS_PRESELECT = 1 << 0,
+} GetCompletionsFlags;
+
+typedef int (*GetCompletionsCallback)(const char *key, GetCompletionsFlags flags, char ***ret_list, void *userdata);
 int ask_string_full(char **ret, GetCompletionsCallback get_completions, void *userdata, const char *text, ...) _printf_(4, 5);
 #define ask_string(ret, text, ...) ask_string_full(ret, NULL, NULL, text, ##__VA_ARGS__)
 
