@@ -43,8 +43,12 @@ varlinkctl list-methods /run/systemd/report/io.systemd.Network
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.Describe {}
 
-# Make sure the service for "system facts" is enabled
+# test io.systemd.Basic Metrics
 systemctl start systemd-report-basic.socket
+varlinkctl info /run/systemd/report/io.systemd.Basic
+varlinkctl list-methods /run/systemd/report/io.systemd.Basic
+varlinkctl --more call /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {}
+varlinkctl --more call /run/systemd/report/io.systemd.Basic io.systemd.Metrics.Describe {}
 
 # Test HTTP upload (plain http)
 FAKE_SERVER=/usr/lib/systemd/tests/integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units/fake-report-server.py

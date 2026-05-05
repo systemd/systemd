@@ -4,12 +4,12 @@
 
 #include "ansi-color.h"
 #include "build.h"
-#include "facts.h"
 #include "format-table.h"
 #include "log.h"
 #include "main-func.h"
 #include "options.h"
 #include "report-basic.h"
+#include "varlink-io.systemd.Metrics.h"
 #include "varlink-util.h"
 
 static int vl_server(void) {
@@ -20,9 +20,16 @@ static int vl_server(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-        r = facts_add_to_varlink_server(vs, vl_method_list_facts, vl_method_describe_facts);
+        r = sd_varlink_server_add_interface(vs, &vl_interface_io_systemd_Metrics);
         if (r < 0)
-                return log_error_errno(r, "Failed to register Facts varlink interface: %m");
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        vs,
+                        "io.systemd.Metrics.List",     vl_method_list_metrics,
+                        "io.systemd.Metrics.Describe", vl_method_describe_metrics);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
         r = sd_varlink_server_loop_auto(vs);
         if (r < 0)
