@@ -361,7 +361,7 @@ static int fido2_is_cred_in_specific_token(
         /* According to CTAP 2.1 specification, to do pre-flight we need to set up option to false
          * with optionally pinUvAuthParam in assertion[1]. But for authenticator that doesn't support
          * user presence, once up option is present, the authenticator may return CTAP2_ERR_UNSUPPORTED_OPTION[2].
-         * So we simplely omit the option in that case.
+         * So we simply omit the option in that case.
          * Reference:
          * 1: https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-20210615.html#pre-flight
          * 2: https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorGetAssertion (in step 5)

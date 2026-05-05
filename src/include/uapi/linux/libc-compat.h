@@ -21,7 +21,7 @@
  *      e.g. #include <linux/libc-compat.h>
  *     This include must be as early as possible.
  *
- * (b) In libc-compat.h add enough code to detect that the comflicting
+ * (b) In libc-compat.h add enough code to detect that the conflicting
  *     userspace libc header has been included first.
  *
  * (c) If the userspace libc header has been included first define a set of

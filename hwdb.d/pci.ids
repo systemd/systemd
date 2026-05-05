@@ -4049,7 +4049,7 @@
 	73a5  Navi 21 [Radeon RX 6950 XT]
 # Reference
 		1002 0e3a  Radeon RX 6950 XT
-		1849 5230  Navi 21 [ASRock OC Forumla Radeon RX 6950XT]
+		1849 5230  Navi 21 [ASRock OC Formula Radeon RX 6950XT]
 		1849 5238  Navi 21 [ASRock Radeon RX 6950 XT Phantom Gaming OC]
 		1da2 441d  Navi 21 [Sapphire Nitro+ Radeon RX 6950 XT]
 		1eae 6950  Navi 21 [XFX Speedster MERC319 Radeon RX 6950 XT]
@@ -6947,7 +6947,7 @@
 	c567  82C750 [Vendetta] Host Bridge
 	c568  82C750 [Vendetta] ISA Bridge
 	c569  82C579 [Viper XPress+ Chipset]
-	c621  82C621A PCI IDE Contoller
+	c621  82C621A PCI IDE Controller
 	c700  82C700 [FireStar]
 	c701  82C700 [FireStar] Host Bridge
 	c814  82C814 [FireBridge II] Docking Stration Controller
@@ -9615,7 +9615,7 @@
 		10b5 120e  Becker & Hickl SPC-930
 		10b5 120f  Becker & Hickl SPC-150
 		10b5 1210  Becker & Hickl DPC-230
-		10b5 2455  Wessex Techology PHIL-PCI
+		10b5 2455  Wessex Technology PHIL-PCI
 		10b5 2696  Innes Corp AM Radcap card
 		10b5 2717  Innes Corp Auricon card
 		10b5 2844  Innes Corp TVS Encoder card
@@ -14084,7 +14084,7 @@
 	7038  FPGA Card XC7VX690T
 		17aa 402f  FPGA XC7VX690T-3FFG1157E
 	8019  Memory controller
-		1eec 0201  VSEC10232X Dual-port 100Gb/s Etherent PCIe
+		1eec 0201  VSEC10232X Dual-port 100Gb/s Ethernet PCIe
 	8380  Ellips ProfiXpress Profibus Master
 	8381  Ellips Santos Frame Grabber
 	9134  SmartSSD
@@ -16562,7 +16562,7 @@
 		11ab 0121  Marvell RDK-8001
 		11ab 0321  Marvell RDK-8003
 		11ab 1021  Marvell RDK-8010
-		11ab 4320  Marvell Yukon Gigabit Ethernet 10/100/1000Baset-T Constroller (Asus)
+		11ab 4320  Marvell Yukon Gigabit Ethernet 10/100/1000Baset-T Controller (Asus)
 		11ab 5021  Marvell Yukon Gigabit Ethernet 10/100/1000Base-T Controller (64 bit)
 		11ab 9521  Marvell Yukon Gigabit Ethernet 10/100/1000Base-T Controller (32 bit)
 		1458 e000  Marvell 88E8001 Gigabit Ethernet Controller (Gigabyte)
@@ -17909,7 +17909,7 @@
 	9009  DM9009 Ethernet Controller
 	9100  21x4x DEC-Tulip compatible 10/100 Ethernet
 	9102  DM9102 Fast Ethernet Controller
-# Subsystem ID is main ID reveresed.
+# Subsystem ID is main ID reversed.
 		0291 8212  DM9102A (DM9102AE, SM9102AF) Ethernet 100/10 MBit
 	9132  Ethernet 100/10 MBit
 1283  Integrated Technology Express, Inc.
@@ -21969,7 +21969,7 @@
 14ed  DATAKINETICS Ltd
 14ee  MASPRO KENKOH Corp
 14ef  CARRY Computer ENG. CO Ltd
-14f0  CANON RESEACH CENTRE FRANCE
+14f0  CANON RESEARCH CENTRE FRANCE
 14f1  Conexant Systems, Inc.
 	1002  HCF 56k Modem
 	1003  HCF 56k Modem
@@ -22419,7 +22419,7 @@
 1534  ROAD Corp
 1535  EVERGREEN Technologies Inc
 1536  ACTIS Computer
-1537  DATALEX COMMUNCATIONS
+1537  DATALEX COMMUNICATIONS
 1538  ARALION Inc
 	0303  ARS106S Ultra ATA 133/100/66 Host Controller
 1539  ATELIER INFORMATIQUES et ELECTRONIQUE ETUDES S.A.
@@ -22936,7 +22936,7 @@
 	b203  Arcus3
 	b204  OrionR
 	c2d1  BlueField DPU Family Auxiliary Communication Channel [BlueField Family]
-	c2d2  MT416842 BlueField SoC management interfac
+	c2d2  MT416842 BlueField SoC management interface
 	c2d3  MT42822 BlueField-2 SoC Management Interface
 	c2d4  MT43162 BlueField-3 Lx SoC Management Interface
 	c2d5  MT43244 BlueField-3 SoC Management Interface
@@ -27060,7 +27060,7 @@
 	9203  ZX-200 USB eXtensible Host Controller
 	9204  KX-6000/KX-6000G/KX-7000 USB3 xHCI Host Controller
 	9205  KH-40000 USB eXtensible Host Controller
-	9206  KX-7000 USB4 Contoller
+	9206  KX-7000 USB4 Controller
 	9286  ZX-D eMMC Host Controller
 	9300  ZX-100/KX-5000/KX-6000/KX-6000G/KH-40000/KX-7000 eSPI Host Controller
 	9500  KX-7000 I2S Controller
@@ -28495,7 +28495,7 @@
 1eb1  VeriSilicon Inc
 	1001  Video Accelerator
 1eb4  Quantum Nebula Microelectronics Technology Co.,Ltd.
-	3401  SSD Contoller
+	3401  SSD Controller
 1eb6  Wuxi Stars Microsystem Technology Co., Ltd
 1eb9  Senscomm Semiconductor, Inc
 	2020  SCM2625 Wi-Fi6 Network Adapter
@@ -29479,7 +29479,7 @@
 	8008  MCST USB 1.1 OHCI controller
 	800a  MCST HD Audio Controller
 	800b  MCST PATA IDE Host Controller
-	800e  MCST System Power Managment Controller
+	800e  MCST System Power Management Controller
 	8010  MCST PCIe 2.0 x4 Root Port
 	8011  MCST PCIe 2.0 x16 Root Port
 	8014  MCST MPV Controller
@@ -30762,7 +30762,7 @@
 		8086 02a4  Dual Band Wi-Fi 5(802.11ac) Wireless-AC 9462 80MHz 1x1 [Jefferson Peak]
 		8086 4070  Dual Band Wi-Fi 6(802.11ax) AX201 160MHz 2x2 [Harrison Peak]
 	02f5  Comet Lake PCH-LP SCS3
-	02f9  Comet Lake Thermal Subsytem
+	02f9  Comet Lake Thermal Subsystem
 		1028 09be  Latitude 7410
 	02fc  Comet Lake Integrated Sensor Solution
 		1028 09be  Latitude 7410
@@ -32233,7 +32233,7 @@
 		10c3 1100  SmartEther100 SC1100
 		10cf 1115  8255x-based Ethernet Adapter (10/100)
 		10cf 1143  8255x-based Ethernet Adapter (10/100)
-		110a 008b  82551QM Fast Ethernet Multifuction PCI/CardBus Controller
+		110a 008b  82551QM Fast Ethernet Multifunction PCI/CardBus Controller
 		114a 0582  PC8 onboard ethernet ETH2
 		1179 0001  8255x-based Ethernet Adapter (10/100)
 		1179 0002  PCI FastEther LAN on Docker
@@ -32934,7 +32934,7 @@
 		1bd4 006e  Ethernet Network Adapter E810-XXVAM2 for BD
 		1bd4 0083  Ethernet Network Adapter E810-XXVAM2 for lldp
 		1bd4 00a0  S252IE810
-		1eec 0102  VSE-225-41E Dual-port 10Gb/25Gb Etherent PCIe
+		1eec 0102  VSE-225-41E Dual-port 10Gb/25Gb Ethernet PCIe
 		4c52 0003  LRES1021PF Dual-port 25Gb Ethernet Server Adapter
 		4c52 3029  LRES3029PF Dual-port 25Gb Ethernet Server Adapter for OCP
 		8086 0001  Ethernet 25G 2P E810-XXV OCP
@@ -33247,7 +33247,7 @@
 	19a9  Atom Processor C3000 Series PCI Express Root Port #5
 	19aa  Atom Processor C3000 Series PCI Express Root Port #6
 	19ab  Atom Processor C3000 Series PCI Express Root Port #7
-	19ac  Atom Processor C3000 Series SMBus Contoller - Host
+	19ac  Atom Processor C3000 Series SMBus Controller - Host
 	19b0  Atom Processor C3000 Series SATA Controller 0
 	19b1  Atom Processor C3000 Series SATA Controller 0
 	19b2  Atom Processor C3000 Series SATA Controller 0
@@ -35041,12 +35041,12 @@
 		e4bf 58b1  XB1
 	266c  82801FB/FBM/FR/FW/FRW (ICH6 Family) LAN Controller
 	266d  82801FB/FBM/FR/FW/FRW (ICH6 Family) AC'97 Modem Controller
-		1025 006a  Conexant AC'97 CoDec (in Acer TravelMate 2410 serie laptop)
+		1025 006a  Conexant AC'97 CoDec (in Acer TravelMate 2410 series laptop)
 		103c 0934  Compaq nw8240/nx8220
 		103c 099c  NX6110/NC6120
 	266e  82801FB/FBM/FR/FW/FRW (ICH6 Family) AC'97 Audio Controller
 		1014 0581  ThinkPad X41 (Analog Devices AD1981B codec)
-		1025 006a  Realtek ALC 655 codec (in Acer TravelMate 2410 serie laptop)
+		1025 006a  Realtek ALC 655 codec (in Acer TravelMate 2410 series laptop)
 		1028 0177  Dimension 8400
 		1028 0179  Optiplex GX280
 		1028 0182  Latitude D610 Laptop
@@ -38336,7 +38336,7 @@
 	6f52  Xeon Processor D Family QuickData Technology Register DMA Channel 2
 	6f53  Xeon Processor D Family QuickData Technology Register DMA Channel 3
 	6f54  Xeon Processor D Family QuickAssist Technology
-	6f55  Xeon Processor D Family QuickAssist Technology Virtual Fuction
+	6f55  Xeon Processor D Family QuickAssist Technology Virtual Function
 	6f60  Xeon E7 v4/Xeon E5 v4/Xeon E3 v4/Xeon D Home Agent 1
 	6f68  Xeon E7 v4/Xeon E5 v4/Xeon E3 v4/Xeon D Target Address/Thermal/RAS
 	6f6a  Xeon E7 v4/Xeon E5 v4/Xeon E3 v4/Xeon D Channel Target Address Decoder

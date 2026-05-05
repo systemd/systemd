@@ -1124,7 +1124,7 @@ static int oci_cgroup_memory(const char *name, sd_json_variant *v, sd_json_dispa
                 { "swap",             SD_JSON_VARIANT_NUMBER,  oci_cgroup_memory_limit, offsetof(struct memory_data, swap),        0                  },
                 { "kernel",           SD_JSON_VARIANT_NUMBER,  oci_unsupported,         0,                                         SD_JSON_PERMISSIVE },
                 { "kernelTCP",        SD_JSON_VARIANT_NUMBER,  oci_unsupported,         0,                                         SD_JSON_PERMISSIVE },
-                { "swapiness",        SD_JSON_VARIANT_NUMBER,  oci_unsupported,         0,                                         SD_JSON_PERMISSIVE },
+                { "swappiness",        SD_JSON_VARIANT_NUMBER,  oci_unsupported,         0,                                         SD_JSON_PERMISSIVE },
                 { "disableOOMKiller", SD_JSON_VARIANT_BOOLEAN, oci_unsupported,         0,                                         SD_JSON_PERMISSIVE },
                 {}
         };

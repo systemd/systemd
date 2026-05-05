@@ -1276,7 +1276,7 @@ bluetooth:v01A5*
  ID_VENDOR_FROM_DATABASE=Icon Health and Fitness
 
 bluetooth:v01A6*
- ID_VENDOR_FROM_DATABASE=Wille Engineering (formely as Asandoo GmbH)
+ ID_VENDOR_FROM_DATABASE=Wille Engineering (formerly as Asandoo GmbH)
 
 bluetooth:v01A7*
  ID_VENDOR_FROM_DATABASE=ENERGOUS CORPORATION
@@ -1720,7 +1720,7 @@ bluetooth:v0239*
  ID_VENDOR_FROM_DATABASE=JIN CO, Ltd
 
 bluetooth:v023A*
- ID_VENDOR_FROM_DATABASE=Alatech Tehnology
+ ID_VENDOR_FROM_DATABASE=Alatech Technology
 
 bluetooth:v023B*
  ID_VENDOR_FROM_DATABASE=Beijing CarePulse Electronic Technology Co, Ltd
@@ -6460,7 +6460,7 @@ bluetooth:v0866*
  ID_VENDOR_FROM_DATABASE=LAONZ Co.,Ltd
 
 bluetooth:v0867*
- ID_VENDOR_FROM_DATABASE=Western Digital Techologies, Inc.
+ ID_VENDOR_FROM_DATABASE=Western Digital Technologies, Inc.
 
 bluetooth:v0868*
  ID_VENDOR_FROM_DATABASE=WIOsense GmbH & Co. KG
@@ -6568,7 +6568,7 @@ bluetooth:v088A*
  ID_VENDOR_FROM_DATABASE=sclak s.r.l.
 
 bluetooth:v088B*
- ID_VENDOR_FROM_DATABASE=Tricorder Arraay Technologies LLC
+ ID_VENDOR_FROM_DATABASE=Tricorder Array Technologies LLC
 
 bluetooth:v088C*
  ID_VENDOR_FROM_DATABASE=GB Solution co.,Ltd

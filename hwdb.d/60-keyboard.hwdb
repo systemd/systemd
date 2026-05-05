@@ -1546,8 +1546,8 @@ evdev:atkbd:dmi:bvn*:bvr*:svnMEDION*:pnP15645MD61587*:*
 
 # FID2060
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMEDION*:pn*FID2060*:*
- KEYBOARD_KEY_6b=channeldown                            # Thottle Down
- KEYBOARD_KEY_6d=channelup                              # Thottle Up
+ KEYBOARD_KEY_6b=channeldown                            # Throttle Down
+ KEYBOARD_KEY_6d=channelup                              # Throttle Up
 
 # NB-A555
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMEDIONNB:pnA555*:*
@@ -1807,7 +1807,7 @@ evdev:input:b0003v05A4p9735*
  KEYBOARD_KEY_c000a=calc
  KEYBOARD_KEY_c000b=sleep
  KEYBOARD_KEY_c0007=previoussong                        # Button with standard |<< icon
- KEYBOARD_KEY_c0008=playpause                           # Button with standad >/|| icon
+ KEYBOARD_KEY_c0008=playpause                           # Button with standard >/|| icon
  KEYBOARD_KEY_c0009=nextsong                            # Button with standard >>| icon
  KEYBOARD_KEY_c00b2=stopcd                              # Button with standard square box icon
  KEYBOARD_KEY_c0016=prog1                               # Key labeled "pf1"
@@ -1874,7 +1874,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn*:pn*:pvr*:rvnQuanta:rn30B7:rvr65.2B:*
 # RedmiBook Pro 15 2022
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnTIMI:pnRedmiBookPro152022:pvr*
  KEYBOARD_KEY_9c=enter                                  # KP_enter in the main area is wrong
- KEYBOARD_KEY_dd=rightctrl                              # Right Ctrl is preferrable over Menu
+ KEYBOARD_KEY_dd=rightctrl                              # Right Ctrl is preferable over Menu
 
 ###########################################################
 # Samsung
