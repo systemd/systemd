@@ -58,11 +58,15 @@ reap_abandoned_pids() {
 
 run_test() {
     local reload_cmd="${1:?}"
+    # If "with_pending_jobs", also create many Type=oneshot units that hang in
+    # "activating" state with a pending job, to ensure that the serialized state
+    # contains embedded "job" subsections to fully exercise the deserialization
+    local pending_jobs="${2:-}"
     local current_pid journal_warnings new_pid orig_pid pid reload_start unit warning_count
 
     echo ""
     echo "========================================="
-    echo "Testing with: systemctl $reload_cmd"
+    echo "Testing with: systemctl $reload_cmd${pending_jobs:+ ($pending_jobs)}"
     echo "========================================="
 
     cat >/run/systemd/system/legit.service <<'EOF'
@@ -93,7 +97,40 @@ EOF
         systemctl start sus-"${i}".service
     done
 
-    echo "Setup complete: 1 running legit unit, 20 running sus units"
+    if [[ "$pending_jobs" == "with_pending_jobs" ]]; then
+        echo "Creating 50 units with pending jobs..."
+        for i in $(seq -f "%02g" 1 50); do
+            cat >/run/systemd/system/stuck-"${i}".service <<'EOF'
+[Service]
+Type=oneshot
+ExecStart=/bin/sleep infinity
+TimeoutStartSec=infinity
+EOF
+        done
+        systemctl daemon-reload
+        # --no-block leaves a pending start job that stays "activating" forever,
+        # so u->job is non-NULL when serialization runs.
+        for i in $(seq -f "%02g" 1 50); do
+            systemctl --no-block start stuck-"${i}".service
+        done
+        # --no-block returns 0 as soon as the job is queued, so confirm the
+        # precondition (pending jobs actually exist) before exercising the
+        # deserialization path. Use 'systemctl show' rather than 'is-active':
+        # the latter exits non-zero for "activating", which trips pipefail.
+        for i in $(seq 1 100); do
+            if [[ "$(systemctl show -P ActiveState stuck-01.service)" == "activating" ]]; then
+                break
+            fi
+            sleep 0.1
+        done
+        if [[ "$(systemctl show -P ActiveState stuck-01.service)" != "activating" ]]; then
+            echo "ERROR: stuck-01.service did not reach activating state"
+            systemctl status stuck-01.service || true
+            return 1
+        fi
+    fi
+
+    echo "Setup complete: 1 running legit unit, 20 running sus units${pending_jobs:+, 50 stuck units with pending jobs}"
 
     orig_pid=$(systemctl show -P MainPID legit.service)
     echo "Original legit PID: $orig_pid"
@@ -218,6 +255,12 @@ cleanup_test_units() {
         systemctl stop sus-"${i}".service 2>/dev/null || true
         rm -f /run/systemd/system/sus-"${i}".service
     done
+    if [[ -e /run/systemd/system/stuck-01.service ]]; then
+        for i in $(seq -f "%02g" 1 50); do
+            systemctl stop stuck-"${i}".service 2>/dev/null || true
+            rm -f /run/systemd/system/stuck-"${i}".service
+        done
+    fi
     rm -f /run/systemd/system/legit.service
     systemctl daemon-reload
 }
@@ -227,3 +270,7 @@ trap cleanup_test_units EXIT
 run_test daemon-reload
 cleanup_test_units
 run_test daemon-reexec
+cleanup_test_units
+run_test daemon-reload with_pending_jobs
+cleanup_test_units
+run_test daemon-reexec with_pending_jobs
