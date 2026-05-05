@@ -45,7 +45,7 @@ static int help(void) {
 
         help_cmdline("[OPTIONS...] /dev/mtd[n]");
         help_abstract("Probe MTD devices.");
-        help_section("Options:");
+        help_section("Options");
 
         return table_print_or_warn(options);
 }
