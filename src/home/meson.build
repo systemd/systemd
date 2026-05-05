@@ -47,6 +47,7 @@ systemd_homed_sources += [homed_gperf_c]
 homectl_sources = files(
         'homectl-fido2.c',
         'homectl-pkcs11.c',
+        'homectl-prompts.c',
         'homectl-recovery-key.c',
         'homectl.c',
 )
