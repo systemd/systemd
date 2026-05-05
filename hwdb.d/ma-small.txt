@@ -6296,7 +6296,7 @@ ECD000-ECDFFF     (base 16)		SBS-Feintechnik GmbH & Co. KG
 70-B3-D5   (hex)		ProConnections, Inc.
 0A9000-0A9FFF     (base 16)		ProConnections, Inc.
 				239 Littleton Road
-				Westford  Massachusettes  01886
+				Westford  Massachusetts  01886
 				US
 
 70-B3-D5   (hex)		Scanvaegt Nordic A/S
@@ -7595,8 +7595,8 @@ AC8000-AC8FFF     (base 16)		Teledatics Incorporated
 				Westford  MA  01886
 				US
 
-8C-1F-64   (hex)		Kreafeuer AG, Swiss finsh
-345000-345FFF     (base 16)		Kreafeuer AG, Swiss finsh
+8C-1F-64   (hex)		Kreafeuer AG, Swiss finish
+345000-345FFF     (base 16)		Kreafeuer AG, Swiss finish
 				Bernstarsse 261
 				Heimberg  Bern  3627
 				CH
@@ -7957,7 +7957,7 @@ F20000-F20FFF     (base 16)		Thermaco Incorporated
 
 8C-1F-64   (hex)		Vinfast Trading and Production JSC
 F80000-F80FFF     (base 16)		Vinfast Trading and Production JSC
-				Dinh Vu - Cat Hai Economic Zone, Cai Hai Island, Cat Hai Sepcial Administrative Zone
+				Dinh Vu - Cat Hai Economic Zone, Cai Hai Island, Cat Hai Special Administrative Zone
 				Hai Phong  Hai Phong  180000
 				VN
 
@@ -8801,8 +8801,8 @@ ECF000-ECFFFF     (base 16)		Monnit Corporation
 				Kaysville  UT  84037
 				US
 
-8C-1F-64   (hex)		Embeddded Plus Plus
-62D000-62DFFF     (base 16)		Embeddded Plus Plus
+8C-1F-64   (hex)		Embedded Plus Plus
+62D000-62DFFF     (base 16)		Embedded Plus Plus
 				Filmbyen 23, 2. tv.
 				Aarhus C    8000
 				DK
@@ -9673,7 +9673,7 @@ CA6000-CA6FFF     (base 16)		ReliaSpeak Information Technology Co., Ltd.
 
 8C-1F-64   (hex)		ALPHA Corporation
 8E2000-8E2FFF     (base 16)		ALPHA Corporation
-				Product Development Department, Housing Hardware Devision
+				Product Development Department, Housing Hardware Division
 				Yokohama  Kanagawa  236-0004
 				JP
 
@@ -12163,7 +12163,7 @@ B74000-B74FFF     (base 16)		OnYield Inc Ltd
 
 70-B3-D5   (hex)		Hills Health Solutions
 78A000-78AFFF     (base 16)		Hills Health Solutions
-				Unit 1, Builing F, 3-29 Birnie Ave
+				Unit 1, Building F, 3-29 Birnie Ave
 				Lidcombe  New South Wales  2141
 				AU
 
@@ -14183,8 +14183,8 @@ D46000-D46FFF     (base 16)		Contineo s.r.o.
 				Bangalore  Karnataka  560071
 				IN
 
-70-B3-D5   (hex)		Gridless Power Corperation
-EA3000-EA3FFF     (base 16)		Gridless Power Corperation
+70-B3-D5   (hex)		Gridless Power Corporation
+EA3000-EA3FFF     (base 16)		Gridless Power Corporation
 				13 Fern Ave
 				Collingswood  New Jersey  08108
 				US
@@ -14393,8 +14393,8 @@ B8D000-B8DFFF     (base 16)		JungwooEng Co., Ltd
 				Anyang-si  Gyeonggi-do  431-804
 				KR
 
-70-B3-D5   (hex)		Telink Semiconductor CO, Limtied, Taiwan
-058000-058FFF     (base 16)		Telink Semiconductor CO, Limtied, Taiwan
+70-B3-D5   (hex)		Telink Semiconductor CO, Limited, Taiwan
+058000-058FFF     (base 16)		Telink Semiconductor CO, Limited, Taiwan
 				Room 1050, 10F, Bld H, YuanQu St.
 				Taipei  Taiwan  11503
 				TW
@@ -15845,8 +15845,8 @@ A75000-A75FFF     (base 16)		Procon Electronics Pty Ltd
 				Brignais    69530
 				FR
 
-8C-1F-64   (hex)		Stercom Power Soltions GmbH
-9B7000-9B7FFF     (base 16)		Stercom Power Soltions GmbH
+8C-1F-64   (hex)		Stercom Power Solutions GmbH
+9B7000-9B7FFF     (base 16)		Stercom Power Solutions GmbH
 				Ziegelstrasse 1
 				Weyarn    83629
 				DE
@@ -16802,8 +16802,8 @@ BB2000-BB2FFF     (base 16)		Grupo Epelsa S.L.
 				Yokohama  Kanagawa  220-0011
 				JP
 
-8C-1F-64   (hex)		Stercom Power Soltions GmbH
-E75000-E75FFF     (base 16)		Stercom Power Soltions GmbH
+8C-1F-64   (hex)		Stercom Power Solutions GmbH
+E75000-E75FFF     (base 16)		Stercom Power Solutions GmbH
 				Ziegelstrasse 1
 				Weyarn    83629
 				DE
@@ -19642,7 +19642,7 @@ EAD000-EADFFF     (base 16)		Cobo, Inc.
 
 70-B3-D5   (hex)		JIANGSU HORAINTEL CO.,LTD
 D8A000-D8AFFF     (base 16)		JIANGSU HORAINTEL CO.,LTD
-				32 Buidling R&D Center, No.99 Chuqiao Road
+				32 Building R&D Center, No.99 Chuqiao Road
 				ZHENJIANG   JIANGSU  212009
 				CN
 
@@ -21011,8 +21011,8 @@ F25000-F25FFF     (base 16)		JSC “Scientific Industrial Enterprise Rubin
 				Penza  Penza reg.  440000
 				RU
 
-70-B3-D5   (hex)		Shanghai Daorech Industry Developmnet Co.,Ltd
-9DC000-9DCFFF     (base 16)		Shanghai Daorech Industry Developmnet Co.,Ltd
+70-B3-D5   (hex)		Shanghai Daorech Industry Development Co.,Ltd
+9DC000-9DCFFF     (base 16)		Shanghai Daorech Industry Development Co.,Ltd
 				21F Hitech Plaza No.488 South Wu Ning Road
 				shanghai   shanghai   200042
 				CN
@@ -22087,7 +22087,7 @@ CC1000-CC1FFF     (base 16)		BEEcube Inc.
 
 70-B3-D5   (hex)		SHEN ZHEN TTK TECHNOLOGY CO,LTD
 4B9000-4B9FFF     (base 16)		SHEN ZHEN TTK TECHNOLOGY CO,LTD
-				8/F, Nan Yuan commerical Bldg,Minzhi,Long Hua town,Baoan,district,Shenzhen
+				8/F, Nan Yuan commercial Bldg,Minzhi,Long Hua town,Baoan,district,Shenzhen
 				SHEN ZHEN   GuangDong  51813
 				CN
 
@@ -24574,7 +24574,7 @@ FB6000-FB6FFF     (base 16)		Racelogic Ltd
 
 8C-1F-64   (hex)		Vinfast Trading and Production JSC
 C99000-C99FFF     (base 16)		Vinfast Trading and Production JSC
-				Dinh Vu - Cat Hai Economic Zone, Cai Hai Island, Cat Hai Sepcial Administrative Zone
+				Dinh Vu - Cat Hai Economic Zone, Cai Hai Island, Cat Hai Special Administrative Zone
 				Hai Phong  Hai Phong  180000
 				VN
 
@@ -25193,8 +25193,8 @@ E8D000-E8DFFF     (base 16)		Plura
 				Broomfield  CO  80021
 				US
 
-8C-1F-64   (hex)		Utthunga Techologies Pvt Ltd
-020000-020FFF     (base 16)		Utthunga Techologies Pvt Ltd
+8C-1F-64   (hex)		Utthunga Technologies Pvt Ltd
+020000-020FFF     (base 16)		Utthunga Technologies Pvt Ltd
 				Utthunga Technologies Pvt Ltd8, 27th Cross, Banashankari 2nd Stage
 				bangalore  Karnataka  560070
 				IN
@@ -25451,8 +25451,8 @@ C75000-C75FFF     (base 16)		Planet Innovation Products Inc.
 				Irvine  CA  92618
 				US
 
-8C-1F-64   (hex)		Shenzhen Link-All Technolgy Co., Ltd
-24C000-24CFFF     (base 16)		Shenzhen Link-All Technolgy Co., Ltd
+8C-1F-64   (hex)		Shenzhen Link-All Technology Co., Ltd
+24C000-24CFFF     (base 16)		Shenzhen Link-All Technology Co., Ltd
 				Floor 5th, Block 9th, Sunny Industrial Zone, Xili Town, Shenzhen, China
 				Shenzhen  Guangdong  518108
 				CN
@@ -27061,7 +27061,7 @@ B0E000-B0EFFF     (base 16)		Servotronix Motion Control
 
 70-B3-D5   (hex)		CYG CONTRON CO.LTD
 A8C000-A8CFFF     (base 16)		CYG CONTRON CO.LTD
-				BUILDING A.NO.11 OF THE 6TH TECHNOGY ROAD,PHASE III OF TECNOLOGY INNOVATION COAST,ZHUHAI NATIONAL HI-TECH INDUSTRIES DEVELOPMENT ZONE
+				BUILDING A.NO.11 OF THE 6TH TECHNOGY ROAD,PHASE III OF TECHNOLOGY INNOVATION COAST,ZHUHAI NATIONAL HI-TECH INDUSTRIES DEVELOPMENT ZONE
 				Zhuhai    519000
 				CN
 
@@ -32681,8 +32681,8 @@ BED000-BEDFFF     (base 16)		Genius Sports SS LLC
 				Venice  FL  34292
 				US
 
-8C-1F-64   (hex)		NAPINO CONTINENTAL VEHICLE ELCTRONICS PRIVATE LIMITED
-A27000-A27FFF     (base 16)		NAPINO CONTINENTAL VEHICLE ELCTRONICS PRIVATE LIMITED
+8C-1F-64   (hex)		NAPINO CONTINENTAL VEHICLE ELECTRONICS PRIVATE LIMITED
+A27000-A27FFF     (base 16)		NAPINO CONTINENTAL VEHICLE ELECTRONICS PRIVATE LIMITED
 				Plot No - 441, sector 8, IMT MANESAR
 				GURUGRAM  Haryana  122051
 				IN
@@ -33484,7 +33484,7 @@ D24000-D24FFF     (base 16)		R3 IoT Ltd.
 
 8C-1F-64   (hex)		Shanghai Stairmed Technology Co.,ltd
 20C000-20CFFF     (base 16)		Shanghai Stairmed Technology Co.,ltd
-				Floor 3,Unit 1,Buliding 4,No.160,Basheng Road,Pudong
+				Floor 3,Unit 1,Building 4,No.160,Basheng Road,Pudong
 				Shanghai  Shanghai  200131
 				CN
 
@@ -36340,7 +36340,7 @@ B7E000-B7EFFF     (base 16)		Elbit Systems of America
 
 70-B3-D5   (hex)		ComNav Technology Ltd.
 E3B000-E3BFFF     (base 16)		ComNav Technology Ltd.
-				Buliding 2,No. 618  Chengliu Middle  Road
+				Building 2,No. 618  Chengliu Middle  Road
 				JiaDing District  Shanghai  201801
 				CN
 
@@ -39359,8 +39359,8 @@ AC8000-AC8FFF     (base 16)		Heartland.Data Inc.
 				Neukirchen am Walde  Upper Austria  4724
 				AT
 
-70-B3-D5   (hex)		Kongsberg Intergrated Tactical Systems
-EF2000-EF2FFF     (base 16)		Kongsberg Intergrated Tactical Systems
+70-B3-D5   (hex)		Kongsberg Integrated Tactical Systems
+EF2000-EF2FFF     (base 16)		Kongsberg Integrated Tactical Systems
 				10 Pinehurst Dr
 				Bellport  New York  11713
 				US
@@ -41320,7 +41320,7 @@ A1D000-A1DFFF     (base 16)		MYIR Electronics Limited
 
 8C-1F-64   (hex)		Nortek(QingDao) Measuring Equipment Co., Ltd
 988000-988FFF     (base 16)		Nortek(QingDao) Measuring Equipment Co., Ltd
-				18A2, Yingdelong Buliding,No.15 Donghaixi Rd, Qingdao P.R.China
+				18A2, Yingdelong Building,No.15 Donghaixi Rd, Qingdao P.R.China
 				QingDao  ShanDong  266000
 				CN
 
@@ -41366,8 +41366,8 @@ A72000-A72FFF     (base 16)		First Design System Inc.
 				Amatciems  Cēsu novads  LV-4101
 				LV
 
-8C-1F-64   (hex)		NEBERO SYSTEMS PRIVATE LIMTED
-71C000-71CFFF     (base 16)		NEBERO SYSTEMS PRIVATE LIMTED
+8C-1F-64   (hex)		NEBERO SYSTEMS PRIVATE LIMITED
+71C000-71CFFF     (base 16)		NEBERO SYSTEMS PRIVATE LIMITED
 				Plot 691, Sector 82, Industrial Area, SAS Nagar
 				Mohali  Punjab  140308
 				IN

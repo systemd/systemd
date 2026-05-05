@@ -1054,7 +1054,7 @@ msgstr "Necesita autenticarse para restablecer la configuración de DNS."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
-msgstr "El servidor DCHP envía un mensaje de renovación forzada"
+msgstr "El servidor DHCP envía un mensaje de renovación forzada"
 
 #: src/network/org.freedesktop.network1.policy:144
 #, fuzzy

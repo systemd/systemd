@@ -2295,7 +2295,7 @@ usb:v03FDp0050*
  ID_MODEL_FROM_DATABASE=dfu downloader
 
 usb:v03FE*
- ID_VENDOR_FROM_DATABASE=Farallon Comunications
+ ID_VENDOR_FROM_DATABASE=Farallon Communications
 
 usb:v0400*
  ID_VENDOR_FROM_DATABASE=National Semiconductor Corp.
@@ -5058,7 +5058,7 @@ usb:v0424p0001*
  ID_MODEL_FROM_DATABASE=Integrated Hub
 
 usb:v0424p0007*
- ID_MODEL_FROM_DATABASE=ULPI Transciever [USB3320]
+ ID_MODEL_FROM_DATABASE=ULPI Transceiver [USB3320]
 
 usb:v0424p0140*
  ID_MODEL_FROM_DATABASE=LPC47M14x hub
@@ -8022,7 +8022,7 @@ usb:v0461p4E04*
  ID_MODEL_FROM_DATABASE=Lenovo Keyboard KB1021
 
 usb:v0461p4E22*
- ID_MODEL_FROM_DATABASE=Dell Mouse, 2 Buttons, Modell: MS111-P
+ ID_MODEL_FROM_DATABASE=Dell Mouse, 2 Buttons, Model: MS111-P
 
 usb:v0461p4E26*
  ID_MODEL_FROM_DATABASE=Asus wired keyboard - model KB73211
@@ -8355,7 +8355,7 @@ usb:v046Dp0838*
  ID_MODEL_FROM_DATABASE=BCC950 ConferenceCam audio
 
 usb:v046Dp0839*
- ID_MODEL_FROM_DATABASE=BCC950 ConferenceCam integated hub
+ ID_MODEL_FROM_DATABASE=BCC950 ConferenceCam integrated hub
 
 usb:v046Dp0840*
  ID_MODEL_FROM_DATABASE=QuickCam Express
@@ -15792,7 +15792,7 @@ usb:v04D8pEC72*
  ID_MODEL_FROM_DATABASE=Joystick with Rotary Switch Creative Electronics Ltd
 
 usb:v04D8pED16*
- ID_MODEL_FROM_DATABASE=BeamiRC 2.0 CNC remote controller analoge
+ ID_MODEL_FROM_DATABASE=BeamiRC 2.0 CNC remote controller analog
 
 usb:v04D8pEDB4*
  ID_MODEL_FROM_DATABASE=micro PLC (ATSAMD51G19A) [Black Brix ECU II]
@@ -27672,7 +27672,7 @@ usb:v0616*
  ID_VENDOR_FROM_DATABASE=Future Techno Designs PVT, Ltd
 
 usb:v0617*
- ID_VENDOR_FROM_DATABASE=Swiss Federal Insitute of Technology
+ ID_VENDOR_FROM_DATABASE=Swiss Federal Institute of Technology
 
 usb:v0617p000A*
  ID_MODEL_FROM_DATABASE=Thymio-II
@@ -30024,7 +30024,7 @@ usb:v06C2p0039*
  ID_MODEL_FROM_DATABASE=1-Motor PhidgetServo v3.0
 
 usb:v06C2p003A*
- ID_MODEL_FROM_DATABASE=8-Motor PhidgetAvancedServo
+ ID_MODEL_FROM_DATABASE=8-Motor PhidgetAdvancedServo
 
 usb:v06C2p0040*
  ID_MODEL_FROM_DATABASE=PhidgetInterface Kit 0-0-4
@@ -46668,7 +46668,7 @@ usb:v0EA0p2153*
  ID_MODEL_FROM_DATABASE=SD Card Reader Key
 
 usb:v0EA0p2168*
- ID_MODEL_FROM_DATABASE=Transcend JetFlash 2.0 / Astone USB Drive / Intellegent Stick 2.0
+ ID_MODEL_FROM_DATABASE=Transcend JetFlash 2.0 / Astone USB Drive / Intelligent Stick 2.0
 
 usb:v0EA0p2213*
  ID_MODEL_FROM_DATABASE=WinDroid N287 AH7N2502.013317
@@ -47439,7 +47439,7 @@ usb:v0FBB*
  ID_VENDOR_FROM_DATABASE=Bitwise Systems, Inc.
 
 usb:v0FC1*
- ID_VENDOR_FROM_DATABASE=Mitac Internatinal Corp.
+ ID_VENDOR_FROM_DATABASE=Mitac International Corp.
 
 usb:v0FC2*
  ID_VENDOR_FROM_DATABASE=Plug and Jack Industrial, Inc.
@@ -62523,13 +62523,13 @@ usb:v1D50p60AC*
  ID_MODEL_FROM_DATABASE=OpenBLT generic microcontroller (bootloader)
 
 usb:v1D50p60AD*
- ID_MODEL_FROM_DATABASE=Clasic Gamepad Adapter (NES)
+ ID_MODEL_FROM_DATABASE=Classic Gamepad Adapter (NES)
 
 usb:v1D50p60AE*
- ID_MODEL_FROM_DATABASE=Clasic Gamepad Adapter (N64)
+ ID_MODEL_FROM_DATABASE=Classic Gamepad Adapter (N64)
 
 usb:v1D50p60AF*
- ID_MODEL_FROM_DATABASE=Clasic Gamepad Adapter (DB9)
+ ID_MODEL_FROM_DATABASE=Classic Gamepad Adapter (DB9)
 
 usb:v1D50p60B0*
  ID_MODEL_FROM_DATABASE=Waterott Arduino based Clock (caterina bootloader)
@@ -63672,7 +63672,7 @@ usb:v1F9BpB0B1*
  ID_MODEL_FROM_DATABASE=UniFi VoIP Phone
 
 usb:v1FAB*
- ID_VENDOR_FROM_DATABASE=Samsung Opto-Electroncs Co., Ltd.
+ ID_VENDOR_FROM_DATABASE=Samsung Opto-Electronics Co., Ltd.
 
 usb:v1FABp104D*
  ID_MODEL_FROM_DATABASE=ES65
@@ -66228,7 +66228,7 @@ usb:v23B4p0200*
  ID_MODEL_FROM_DATABASE=DW0200 Color Camera
 
 usb:v23B4p0300*
- ID_MODEL_FROM_DATABASE=DW0300 Hight Speed Monochrome Camera
+ ID_MODEL_FROM_DATABASE=DW0300 High Speed Monochrome Camera
 
 usb:v23C7*
  ID_VENDOR_FROM_DATABASE=Gemini
@@ -66243,7 +66243,7 @@ usb:v23FCp0201*
  ID_MODEL_FROM_DATABASE=SPI-Simulyzer box for SPI data communication
 
 usb:v23FCp0202*
- ID_MODEL_FROM_DATABASE=PSI5-Simulyzer box for PSI5 (Peripheral-Sensor-Interfacs) data communication
+ ID_MODEL_FROM_DATABASE=PSI5-Simulyzer box for PSI5 (Peripheral-Sensor-Interfaces) data communication
 
 usb:v23FCp0203*
  ID_MODEL_FROM_DATABASE=SENT-Simulyzer box for SENT data communication
@@ -69420,7 +69420,7 @@ usb:v3538p0001*
  ID_MODEL_FROM_DATABASE=Travel Flash
 
 usb:v3538p0015*
- ID_MODEL_FROM_DATABASE=Mass Storge Device
+ ID_MODEL_FROM_DATABASE=Mass Storage Device
 
 usb:v3538p0022*
  ID_MODEL_FROM_DATABASE=Hi-Speed Mass Storage Device
@@ -70788,7 +70788,7 @@ usb:v6253*
  ID_VENDOR_FROM_DATABASE=TwinHan Technology Co., Ltd
 
 usb:v6253p0100*
- ID_MODEL_FROM_DATABASE=Ir reciver f. remote control
+ ID_MODEL_FROM_DATABASE=Ir receiver f. remote control
 
 usb:v636C*
  ID_VENDOR_FROM_DATABASE=CoreLogic, Inc.
