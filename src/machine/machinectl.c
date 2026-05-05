@@ -29,16 +29,19 @@
 #include "cgroup-util.h"
 #include "edit-util.h"
 #include "env-util.h"
+#include "fd-util.h"
 #include "format-ifname.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "hostname-util.h"
 #include "import-util.h"
 #include "in-addr-util.h"
+#include "json-util.h"
 #include "label-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "machine-dbus.h"
+#include "machine-util.h"
 #include "main-func.h"
 #include "nulstr-util.h"
 #include "osc-context.h"
@@ -55,6 +58,7 @@
 #include "ptyfwd.h"
 #include "runtime-scope.h"
 #include "stdio-util.h"
+#include "storage-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1338,6 +1342,120 @@ static int verb_copy_files(int argc, char *argv[], uintptr_t _data, void *userda
         return 0;
 }
 
+static int verb_bind_volume(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        int r;
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "bind-volume is only supported on the local transport.");
+
+        _cleanup_(bind_volume_freep) BindVolume *bv = NULL;
+        r = bind_volume_parse(argv[2], &bv);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse bind-volume argument '%s': %m", argv[2]);
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        /* Locate and connect to the target machine before acquiring storage, so a missing
+         * machine doesn't trigger 'create=new' side effects on the StorageProvider. */
+        _cleanup_free_ char *address = NULL;
+        r = machine_get_control_address(argv[1], &address);
+        if (r == -EOPNOTSUPP)
+                return log_error_errno(r, "Machine '%s' does not expose a varlink control socket.", argv[1]);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to machine control socket %s: %m", address);
+
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable fd passing on varlink connection: %m");
+
+        _cleanup_(storage_acquire_reply_done) StorageAcquireReply reply = STORAGE_ACQUIRE_REPLY_INIT;
+        _cleanup_free_ char *acquire_error_id = NULL;
+        r = storage_acquire_volume(arg_runtime_scope, bv, arg_ask_password, &acquire_error_id, &reply);
+        if (r < 0) {
+                if (acquire_error_id)
+                        return log_error_errno(r, "Failed to acquire storage volume '%s:%s' from provider: %s",
+                                               bv->provider, bv->volume, acquire_error_id);
+                return log_error_errno(r, "Failed to acquire storage volume '%s:%s' from provider: %m",
+                                       bv->provider, bv->volume);
+        }
+
+        int fd_index = sd_varlink_push_fd(vl, reply.fd);
+        if (fd_index < 0)
+                return log_error_errno(fd_index, "Failed to push storage fd onto varlink connection: %m");
+        TAKE_FD(reply.fd);
+
+        _cleanup_free_ char *name = strjoin(bv->provider, ":", bv->volume);
+        if (!name)
+                return log_oom();
+
+        sd_json_variant *vl_reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.MachineInstance.AddStorage",
+                        &vl_reply, &error_id,
+                        SD_JSON_BUILD_PAIR_INTEGER("fileDescriptorIndex", fd_index),
+                        SD_JSON_BUILD_PAIR_STRING("name", name),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("config", bv->config));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call io.systemd.MachineInstance.AddStorage: %m");
+        if (error_id)
+                return log_error_errno(sd_varlink_error_to_errno(error_id, vl_reply),
+                                       "AddStorage failed for '%s': %s", name, error_id);
+
+        return 0;
+}
+
+static int verb_unbind_volume(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        int r;
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "unbind-volume is only supported on the local transport.");
+
+        r = machine_storage_name_split(argv[2], /* ret_provider= */ NULL, /* ret_volume= */ NULL);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid unbind-volume name '%s', expected '<provider>:<volume>'.", argv[2]);
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        _cleanup_free_ char *address = NULL;
+        r = machine_get_control_address(argv[1], &address);
+        if (r == -EOPNOTSUPP)
+                return log_error_errno(r, "Machine '%s' does not expose a varlink control socket.", argv[1]);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to machine control socket %s: %m", address);
+
+        sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.MachineInstance.RemoveStorage",
+                        &reply, &error_id,
+                        SD_JSON_BUILD_PAIR_STRING("name", argv[2]));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call io.systemd.MachineInstance.RemoveStorage: %m");
+        if (error_id)
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply),
+                                       "RemoveStorage failed for '%s': %s", argv[2], error_id);
+
+        return 0;
+}
+
 static int verb_bind_mount(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -2606,6 +2724,8 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "login",           VERB_ANY, 2,        0,            verb_login_machine     },
                 { "shell",           VERB_ANY, VERB_ANY, 0,            verb_shell_machine     },
                 { "bind",            3,        4,        0,            verb_bind_mount        },
+                { "bind-volume",     3,        3,        0,            verb_bind_volume       },
+                { "unbind-volume",   3,        3,        0,            verb_unbind_volume     },
                 { "edit",            2,        VERB_ANY, 0,            verb_edit_settings     },
                 { "cat",             2,        VERB_ANY, 0,            verb_cat_settings      },
                 { "copy-to",         3,        4,        0,            verb_copy_files        },

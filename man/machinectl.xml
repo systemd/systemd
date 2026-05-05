@@ -358,6 +358,38 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>bind-volume</command> <replaceable>NAME</replaceable> <replaceable>SPEC</replaceable></term>
+
+        <listitem><para>Acquire a storage volume from a
+        <citerefentry><refentrytitle>storagectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        provider and attach it to the running machine. <replaceable>SPEC</replaceable> is a string of the form
+        <literal><replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable>[:<replaceable>CONFIG</replaceable>][:<replaceable>K=V</replaceable>,…]</literal>,
+        identical in grammar to the <option>--bind-volume=</option> argument of
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        <para>The attached volume is identified by the name <literal><replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable></literal>
+        and may be detached at runtime via <command>unbind-volume</command>. Currently only supported for
+        <command>systemd-vmspawn</command> machines that expose an
+        <constant>io.systemd.MachineInstance</constant> control socket.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>unbind-volume</command> <replaceable>NAME</replaceable> <replaceable>STORAGE-NAME</replaceable></term>
+
+        <listitem><para>Detach a storage volume from the running machine. <replaceable>STORAGE-NAME</replaceable>
+        is the <literal><replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable></literal>
+        identifier that was specified at <command>bind-volume</command> time. Volumes that were attached at machine
+        startup (e.g. via <option>--bind-volume=</option> on
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>)
+        cannot be detached and will fail with
+        <constant>io.systemd.MachineInstance.StorageImmutable</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>copy-to</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>] <option>--force</option></term>
 
         <listitem><para>Copies files or directories from the host
