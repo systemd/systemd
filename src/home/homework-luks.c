@@ -631,7 +631,7 @@ static int fs_validate(
                 sd_id128_t *ret_found_uuid) {
 
         _cleanup_free_ char *fstype = NULL;
-        sd_id128_t u = SD_ID128_NULL; /* avoid false maybe-unitialized warning */
+        sd_id128_t u = SD_ID128_NULL; /* avoid false maybe-uninitialized warning */
         int r;
 
         assert(dm_node);

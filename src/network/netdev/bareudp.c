@@ -49,7 +49,7 @@ static int netdev_bare_udp_verify(NetDev *netdev, const char *filename) {
 
         if (u->dest_port == 0)
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                                "%s: BareUDP DesinationPort= is not set. Ignoring.", filename);
+                                                "%s: BareUDP DestinationPort= is not set. Ignoring.", filename);
 
         if (u->iftype == _BARE_UDP_PROTOCOL_INVALID)
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
