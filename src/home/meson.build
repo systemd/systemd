@@ -47,9 +47,12 @@ systemd_homed_sources += [homed_gperf_c]
 homectl_sources = files(
         'homectl-fido2.c',
         'homectl-pkcs11.c',
-        'homectl-prompts.c',
         'homectl-recovery-key.c',
         'homectl.c',
+)
+
+homectl_extract = files(
+        'homectl-prompts.c',
 )
 
 pam_systemd_home_sources = files(
@@ -86,6 +89,7 @@ executables += [
                 'name' : 'homectl',
                 'public' : true,
                 'sources' : homectl_sources,
+                'extract' : homectl_extract,
                 'objects' : ['systemd-homed'],
                 'dependencies' : [
                         libdl,
@@ -93,6 +97,11 @@ executables += [
                         libp11kit_cflags,
                         threads,
                 ],
+        },
+        test_template + {
+                'sources' : files('test-homectl-prompts.c'),
+                'objects' : ['homectl'],
+                'type' : 'manual',
         },
         test_template + {
                 'sources' : files('test-homed-regression-31896.c'),
