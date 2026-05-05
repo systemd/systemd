@@ -3344,8 +3344,8 @@ C00000-CFFFFF     (base 16)		Thermo Process Instruments, LP
 				Frankllin  MA  02038
 				US
 
-A4-ED-43   (hex)		Wuxi Junction Infomation Technology Incorporated Company
-700000-7FFFFF     (base 16)		Wuxi Junction Infomation Technology Incorporated Company
+A4-ED-43   (hex)		Wuxi Junction Information Technology Incorporated Company
+700000-7FFFFF     (base 16)		Wuxi Junction Information Technology Incorporated Company
 				ROOM919,NO.401 XINGYUANBEILU ROAD, LIANGXI DISTRIC,WUXI CITY,JIANGSU PROVINCE
 				WuXi  Jiangsu  214000
 				CN
@@ -3418,7 +3418,7 @@ E00000-EFFFFF     (base 16)		Victorsure Limited
 
 84-89-EC   (hex)		Research Electronics International, LLC.
 100000-1FFFFF     (base 16)		Research Electronics International, LLC.
-				455 Secuity Drive
+				455 Security Drive
 				Cookeville  TN  38506
 				US
 
@@ -3814,7 +3814,7 @@ C4-FF-BC   (hex)		GSM Innovations Pty Ltd
 
 9C-43-1E   (hex)		Antailiye Technology Co.,Ltd
 000000-0FFFFF     (base 16)		Antailiye Technology Co.,Ltd
-				7/F,Zhengjiyuan Buiding,2 Road,Qianjing, Xixiang, Baoan District,Shenzhen
+				7/F,Zhengjiyuan Building,2 Road,Qianjing, Xixiang, Baoan District,Shenzhen
 				SHEN ZHEN  GUANGDONG  518000
 				CN
 
@@ -3952,7 +3952,7 @@ AC-1D-DF   (hex)		HellaStorm, Inc.
 
 74-1A-E0   (hex)		bistos.co.ltd
 C00000-CFFFFF     (base 16)		bistos.co.ltd
-				7floor, worim lions vally 5cha
+				7floor, worim lions valley 5cha
 				sungnam  kyeunggi-do  13201
 				KR
 
@@ -4324,7 +4324,7 @@ B00000-BFFFFF     (base 16)		Guang Dong He Zheng Network Technology Co.,Ltd
 
 A4-11-63   (hex)		accesso Technology Group
 900000-9FFFFF     (base 16)		accesso Technology Group
-				Unit 5, The Pavillions, Ruscombe Business Park
+				Unit 5, The Pavilions, Ruscombe Business Park
 				Twyford  Wilts  RG10 9NN
 				GB
 
@@ -4358,8 +4358,8 @@ A4-11-63   (hex)		accesso Technology Group
 				SEOUL    08389
 				KR
 
-8C-C8-F4   (hex)		SHENZHEN D-light Technolgy Limited
-600000-6FFFFF     (base 16)		SHENZHEN D-light Technolgy Limited
+8C-C8-F4   (hex)		SHENZHEN D-light Technology Limited
+600000-6FFFFF     (base 16)		SHENZHEN D-light Technology Limited
 				2302F, Block B, Wisdom Building ,Qiao xiang Road,Shahe Street, Nanshan District,
 				Shenzhen  Guangdong  518000
 				CN
@@ -5783,8 +5783,8 @@ D00000-DFFFFF     (base 16)		UNILUMIN GROUP CO., LTD.
 				Shenzhen    518109
 				CN
 
-5C-F8-38   (hex)		Shanghai Zenchant Electornics Co.,LTD
-400000-4FFFFF     (base 16)		Shanghai Zenchant Electornics Co.,LTD
+5C-F8-38   (hex)		Shanghai Zenchant Electronics Co.,LTD
+400000-4FFFFF     (base 16)		Shanghai Zenchant Electronics Co.,LTD
 				Room 1202, building a, Noble international, 908 Xiuwen Road, Minhang District
 				ShangHai  ShangHai  201199
 				CN
@@ -7543,7 +7543,7 @@ E00000-EFFFFF     (base 16)		MaiaSpace
 
 60-15-9F   (hex)		SHENZHEN DAERXIN TECHNOLOGY CO.,LTD
 600000-6FFFFF     (base 16)		SHENZHEN DAERXIN TECHNOLOGY CO.,LTD
-				1st Building West 3 /f, Daerxun Technolgy Parks, No.29 pingxin North Road,Pinghu,Longgang
+				1st Building West 3 /f, Daerxun Technology Parks, No.29 pingxin North Road,Pinghu,Longgang
 				shenzhen  guangdong  518111
 				CN
 
@@ -7837,7 +7837,7 @@ B00000-BFFFFF     (base 16)		Pulse Structural Monitoring Ltd
 
 C8-6B-BC   (hex)		HAI ROBOTICS Co.,Ltd.
 B00000-BFFFFF     (base 16)		HAI ROBOTICS Co.,Ltd.
-				Business Registration Addres:Room 201,301,401,Building B,Anluo Technology Industrial Park,Nanchang Community,Xixiang Street,Bao`an District
+				Business Registration Address:Room 201,301,401,Building B,Anluo Technology Industrial Park,Nanchang Community,Xixiang Street,Bao`an District
 				Shenzhen  Guangdong  518000
 				CN
 
@@ -8401,7 +8401,7 @@ B00000-BFFFFF     (base 16)		Beijing Superhexa Century Technology Co., Ltd.
 
 70-50-E7   (hex)		Quantumdoor Technologies, Inc.
 400000-4FFFFF     (base 16)		Quantumdoor Technologies, Inc.
-				1st Floor 108-1,Buiding5,East Districe,No.10 Xibeiwang East Road,haidian Districe,
+				1st Floor 108-1,Building 5,East Districe,No.10 Xibeiwang East Road,haidian Districe,
 				beijing    102629
 				CN
 
@@ -8755,7 +8755,7 @@ C00000-CFFFFF     (base 16)		GUANGZHOU UNIPOWER COMPUTER CO.,LTD
 
 94-C9-B7   (hex)		Zhejiang Hengjie Communication Technology Co,. Ltd.
 400000-4FFFFF     (base 16)		Zhejiang Hengjie Communication Technology Co,. Ltd.
-				East 3F 23Building, Wenzhou National University Science Park, NO. 89 FengFang road, Ouhai econmic development Zone,
+				East 3F 23Building, Wenzhou National University Science Park, NO. 89 FengFang road, Ouhai economic development Zone,
 				Wenzhou  Zhejiang  325000
 				CN
 
@@ -10135,7 +10135,7 @@ C00000-CFFFFF     (base 16)		HwaCom Systems Inc.
 
 24-15-10   (hex)		Unitronux(Shenzhen) Intelligence Technology Co.,Ltd
 A00000-AFFFFF     (base 16)		Unitronux(Shenzhen) Intelligence Technology Co.,Ltd
-				7th floor,Building 7,ZhongYunTai industy Park, Tangtou 1st Road,Bao'an District.
+				7th floor,Building 7,ZhongYunTai industry Park, Tangtou 1st Road,Bao'an District.
 				Shenzhen  Guangdong  518108
 				CN
 
@@ -11105,8 +11105,8 @@ B00000-BFFFFF     (base 16)		Popit Oy
 				osaka    541-0041
 				JP
 
-30-1F-9A   (hex)		HUNAN CHANGSHA HENGJIAN TECHNOLDGY DEVELPMENT CO.,LTD.
-A00000-AFFFFF     (base 16)		HUNAN CHANGSHA HENGJIAN TECHNOLDGY DEVELPMENT CO.,LTD.
+30-1F-9A   (hex)		HUNAN CHANGSHA HENGJIAN TECHNOLDGY DEVELOPMENT CO.,LTD.
+A00000-AFFFFF     (base 16)		HUNAN CHANGSHA HENGJIAN TECHNOLDGY DEVELOPMENT CO.,LTD.
 				Jiayun Road 209
 				Changsha  Hunan  410205
 				CN
@@ -12271,7 +12271,7 @@ E0-B6-F5   (hex)		Yuneec International（China）Co.，Ltd
 
 50-FF-99   (hex)		 SHENZHEN KINGVT ELECTRONICS CO.,LTD
 200000-2FFFFF     (base 16)		 SHENZHEN KINGVT ELECTRONICS CO.,LTD
-				 8/F,NO.100,LANGKOU INDUSTRLAL PARK,DALANG STREET,NEW LONGHUA DISTRCT,SHENZHEN,R.R.C
+				 8/F,NO.100,LANGKOU INDUSTRLAL PARK,DALANG STREET,NEW LONGHUA DISTRICT,SHENZHEN,R.R.C
 				Shenzhen    518000
 				CN
 
@@ -12628,7 +12628,7 @@ B4-37-D1   (hex)		Lezyne INC USA
 
 74-F8-DB   (hex)		Shenzhen Ruishi Information Technology Co.,Ltd.
 200000-2FFFFF     (base 16)		Shenzhen Ruishi Information Technology Co.,Ltd.
-				9G,Building A,Nanyuemingzhu Buliding,No.2322, Houhai Avenue,Nanshan District
+				9G,Building A,Nanyuemingzhu Building,No.2322, Houhai Avenue,Nanshan District
 				Shenzhen  Guangdong  518062
 				CN
 
@@ -12704,8 +12704,8 @@ E00000-EFFFFF     (base 16)		Beijing HTSmartech Co.,Ltd
 				Shenzhen  Guangdong province  518052
 				CN
 
-80-E4-DA   (hex)		Beijing Yuantel Technolgy Co.,Ltd-Shenzhen Branch
-400000-4FFFFF     (base 16)		Beijing Yuantel Technolgy Co.,Ltd-Shenzhen Branch
+80-E4-DA   (hex)		Beijing Yuantel Technology Co.,Ltd-Shenzhen Branch
+400000-4FFFFF     (base 16)		Beijing Yuantel Technology Co.,Ltd-Shenzhen Branch
 				Room502,B  BLdg, Fuan mansion
 				Shenzhen  Gangdong  518000
 				CN
@@ -12862,7 +12862,7 @@ F8-02-78   (hex)		Innodisk
 
 10-07-23   (hex)		RippleTek Tech Ltd
 000000-0FFFFF     (base 16)		RippleTek Tech Ltd
-				Tianyi Street #38 Idealisim Center Building #1 Room #705
+				Tianyi Street #38 Idealism Center Building #1 Room #705
 				Chengdu  Sichuan  610041
 				CN
 
@@ -14044,7 +14044,7 @@ BC-DF-E1   (hex)		D3 Technical Partners, LLC
 
 18-66-96   (hex)		HUNAN SONGBEN INFORMATION CO., LTD
 B00000-BFFFFF     (base 16)		HUNAN SONGBEN INFORMATION CO., LTD
-				1305 BUIDING A ZHONGJIAN PLAZA ZHENGTANGPO ROAD YUHUA DISTRICT
+				1305 BUILDING A ZHONGJIAN PLAZA ZHENGTANGPO ROAD YUHUA DISTRICT
 				CHANGSHA  HUNAN  410000
 				CN
 
@@ -14230,7 +14230,7 @@ F0-12-04   (hex)		Maple Systems. Inc.
 
 F0-12-04   (hex)		HoneyComm IoT Technology(Shenzhen)Co.,Ltd.
 B00000-BFFFFF     (base 16)		HoneyComm IoT Technology(Shenzhen)Co.,Ltd.
-				Rm 2502, Block B, Zhantao Buidling, No.1079, Mingzhi Rd, Minzhi Str, Longhua Distr
+				Rm 2502, Block B, Zhantao Building, No.1079, Mingzhi Rd, Minzhi Str, Longhua Distr
 				Shenzhen  Guangdong  518109
 				CN
 
@@ -15227,8 +15227,8 @@ D0-16-F0   (hex)		Shenzhen DOOGEE Hengtong Technology CO.,LTD
 				Shenzhen  Guangdong  518000
 				CN
 
-D0-16-F0   (hex)		wuxi high information Security Technolog
-500000-5FFFFF     (base 16)		wuxi high information Security Technolog
+D0-16-F0   (hex)		wuxi high information Security Technology
+500000-5FFFFF     (base 16)		wuxi high information Security Technology
 				9 Wuhu Boulevard,LHSIP2101
 				wuxi  jiangsu  214125
 				CN
@@ -15391,7 +15391,7 @@ C4-A5-59   (hex)		METICS
 
 84-B3-86   (hex)		ALPHA Corporation
 600000-6FFFFF     (base 16)		ALPHA Corporation
-				Product Development Department, Housing Hardware Devision
+				Product Development Department, Housing Hardware Division
 				Yokohama  Kanagawa  236-0004
 				JP
 
@@ -15904,7 +15904,7 @@ D00000-DFFFFF     (base 16)		SYMLINK CORPORATION
 
 1C-59-74   (hex)		Shenzhen Hanshine Technology Co.Ltd.
 000000-0FFFFF     (base 16)		Shenzhen Hanshine Technology Co.Ltd.
-				Buiding 2 ,row 3,number 2 industrail  zone,yulv community,Yutang street 
+				Building 2 ,row 3,number 2 industrial zone,yulv community,Yutang street 
 				Shenzhen  Guangdong  518000
 				CN
 
@@ -16400,8 +16400,8 @@ D00000-DFFFFF     (base 16)		IIYAMA CORPORATION
 				Shanghai    200120
 				CN
 
-64-33-B5   (hex)		Hometek Eletronics Co., Ltd
-A00000-AFFFFF     (base 16)		Hometek Eletronics Co., Ltd
+64-33-B5   (hex)		Hometek Electronics Co., Ltd
+A00000-AFFFFF     (base 16)		Hometek Electronics Co., Ltd
 				7F-2 No. 16,Lane 609, Section 5 Chung Hsin Rd. Sanchong District. New Taipei City Taiwan R.O.C.
 				New Taipei City  Taiwan  241
 				TW
@@ -18394,7 +18394,7 @@ A0-28-33   (hex)		IMESHX CORPORATION LIMITED
 
 9C-F6-DD   (hex)		RYEEX Technology Co.,Ltd.
 300000-3FFFFF     (base 16)		RYEEX Technology Co.,Ltd.
-				RM106,Joinin Hub,Builing J District 71,Construction Industrial Park,Xin'an Street,Bao'an, Shenzhen,China
+				RM106,Joinin Hub,Building J District 71,Construction Industrial Park,Xin'an Street,Bao'an, Shenzhen,China
 				SHENZHEN  GUANGDONG  518101
 				CN
 
@@ -18638,8 +18638,8 @@ C00000-CFFFFF     (base 16)		Inor Process AB
 				Beijing  Beijing  102206
 				CN
 
-88-5F-E8   (hex)		zhejiang yuanwang communication technolgy co.,ltd
-D00000-DFFFFF     (base 16)		zhejiang yuanwang communication technolgy co.,ltd
+88-5F-E8   (hex)		zhejiang yuanwang communication technology co.,ltd
+D00000-DFFFFF     (base 16)		zhejiang yuanwang communication technology co.,ltd
 				No. 6 of shen shi lei lu Road
 				ZhuJi  Zhejiang  311800
 				CN
@@ -18794,8 +18794,8 @@ C00000-CFFFFF     (base 16)		KyongBo Electric Co., Ltd.
 				Schweitenkirchen    85276
 				DE
 
-F8-B5-68   (hex)		Beijing Wanji Techonology Co., Ltd.
-900000-9FFFFF     (base 16)		Beijing Wanji Techonology Co., Ltd.
+F8-B5-68   (hex)		Beijing Wanji Technology Co., Ltd.
+900000-9FFFFF     (base 16)		Beijing Wanji Technology Co., Ltd.
 				NO.12 Building,Zhongguancun Software Park,Haidian District 
 				beijing  beijing  100193
 				CN
@@ -19970,8 +19970,8 @@ A00000-AFFFFF     (base 16)		RHXTune Technology Co.,Ltd
 				Beijing  Beijing  100083
 				CN
 
-80-0A-80   (hex)		Dongguan I-Chime electrinics Co.,Ltd
-100000-1FFFFF     (base 16)		Dongguan I-Chime electrinics Co.,Ltd
+80-0A-80   (hex)		Dongguan I-Chime electronics Co.,Ltd
+100000-1FFFFF     (base 16)		Dongguan I-Chime electronics Co.,Ltd
 				3/F,A/B,west of Xiangmang road,Fugang village
 				Dongguan  Guangdong  523660
 				CN
@@ -20405,9 +20405,9 @@ F8-02-78   (hex)		Witium Co., Ltd
 				Shanghai  Shanghai  201101
 				CN
 
-A4-4F-29   (hex)		Shenzhen Huadoo Bright Group Limitied
-C00000-CFFFFF     (base 16)		Shenzhen Huadoo Bright Group Limitied
-				Room 13E, Jinsong Buiding, Tai ran 4th Rood, Chegong Miao,Futian Distrct
+A4-4F-29   (hex)		Shenzhen Huadoo Bright Group Limited
+C00000-CFFFFF     (base 16)		Shenzhen Huadoo Bright Group Limited
+				Room 13E, Jinsong Building, Tai ran 4th Rood, Chegong Miao,Futian District
 				Shenzhen  Guangdong  51800
 				CN
 
@@ -21955,7 +21955,7 @@ FC-E4-98   (hex)		SM Instruments
 
 FC-E4-98   (hex)		Changzhou Leading Weighing Technology Co., Ltd
 800000-8FFFFF     (base 16)		Changzhou Leading Weighing Technology Co., Ltd
-				Builing 31, No.9 Caoxi Road, Changzhou,Jiangsu
+				Building 31, No.9 Caoxi Road, Changzhou,Jiangsu
 				Changzhou    213000
 				CN
 
@@ -23839,7 +23839,7 @@ E00000-EFFFFF     (base 16)		D.Med Technical Products GmbH
 
 98-80-BB   (hex)		RYEEX Technology Co.,Ltd.
 000000-0FFFFF     (base 16)		RYEEX Technology Co.,Ltd.
-				RM106,Joinin Hub,Builing J District 71,Construction Industrial Park,Xin'an Street,Bao'an, Shenzhen,China
+				RM106,Joinin Hub,Building J District 71,Construction Industrial Park,Xin'an Street,Bao'an, Shenzhen,China
 				SHENZHEN  GUANGDONG  518101
 				CN
 
@@ -24443,8 +24443,8 @@ E00000-EFFFFF     (base 16)		Unicom Global, Inc.
 				Taipei    11492
 				TW
 
-8C-AE-49   (hex)		Gati Information Technolog(Kunshan)Co.,Ltd.
-500000-5FFFFF     (base 16)		Gati Information Technolog(Kunshan)Co.,Ltd.
+8C-AE-49   (hex)		Gati Information Technology(Kunshan)Co.,Ltd.
+500000-5FFFFF     (base 16)		Gati Information Technology(Kunshan)Co.,Ltd.
 				2-5 / F, room 7, No. 88, Baifu Road, Economic and Technological Development Zone
 				Kunshan.  jiangsu  215300
 				CN
@@ -25649,8 +25649,8 @@ E4-4C-C7   (hex)		ACS-Solutions GmbH
 				Saarbrücken    66123
 				DE
 
-E4-4C-C7   (hex)		Telo Systems Limitd
-D00000-DFFFFF     (base 16)		Telo Systems Limitd
+E4-4C-C7   (hex)		Telo Systems Limited
+D00000-DFFFFF     (base 16)		Telo Systems Limited
 				4/F, Chuangye Building, Seven-Star Park, Yu'an 2nd Road
 				ShenZhen  GuangDong  518000
 				CN
@@ -25663,7 +25663,7 @@ D00000-DFFFFF     (base 16)		Telo Systems Limitd
 
 74-5B-C5   (hex)		SHENZHEN ATX TECHNOLOGY CO.,LTD 
 700000-7FFFFF     (base 16)		SHENZHEN ATX TECHNOLOGY CO.,LTD 
-				7/F,Zhengjiyuan Buiding,2 Road,Qianjing, Xixiang, Baoan District
+				7/F,Zhengjiyuan Building,2 Road,Qianjing, Xixiang, Baoan District
 				Shenzhen  GUANGDONG  518000
 				CN
 
@@ -25753,7 +25753,7 @@ B00000-BFFFFF     (base 16)		Library Ideas
 
 D8-86-0B   (hex)		ComNav Technology Ltd.
 D00000-DFFFFF     (base 16)		ComNav Technology Ltd.
-				Buliding 2,No. 618  Chengliu Middle  Road
+				Building 2,No. 618  Chengliu Middle  Road
 				JiaDing District  Shanghai  201801
 				CN
 
@@ -25795,7 +25795,7 @@ CC-D3-9D   (hex)		Obelisk Inc.
 
 CC-D3-9D   (hex)		Bejing Nexsec Inc.
 900000-9FFFFF     (base 16)		Bejing Nexsec Inc.
-				Floor 5, Room 5001,Buliding No.4,Fengxian Middle Road No.7
+				Floor 5, Room 5001,Building No.4,Fengxian Middle Road No.7
 				(Beike Industrial Park),Haidian District,  Beijing  100094
 				CN
 
@@ -25823,8 +25823,8 @@ CC-D3-9D   (hex)		Shenzhen Chenggu Technology Co., Ltd
 				Suzhou City  Jiangsu Province  215163
 				CN
 
-9C-69-B4   (hex)		Guangdong Hanwei intergration Co.,Ltd
-C00000-CFFFFF     (base 16)		Guangdong Hanwei intergration Co.,Ltd
+9C-69-B4   (hex)		Guangdong Hanwei integration Co.,Ltd
+C00000-CFFFFF     (base 16)		Guangdong Hanwei integration Co.,Ltd
 				Room 404,7# Hongtai Zhihui Gu, No.23 Sicheng Road
 				Guangzhou  Guangdong  510663
 				CN
@@ -25915,7 +25915,7 @@ E00000-EFFFFF     (base 16)		NC-LINK Technology Co., Ltd.
 
 0C-FE-5D   (hex)		Antailiye Technology Co.,Ltd
 600000-6FFFFF     (base 16)		Antailiye Technology Co.,Ltd
-				7/F,Zhengjiyuan Buiding,2 Road,Qianjing, Xixiang, Baoan District,Shenzhen
+				7/F,Zhengjiyuan Building,2 Road,Qianjing, Xixiang, Baoan District,Shenzhen
 				SHEN ZHEN  GUANGDONG  518000
 				CN
 
@@ -25925,8 +25925,8 @@ E00000-EFFFFF     (base 16)		NC-LINK Technology Co., Ltd.
 				Otterfing  Bayern  83624
 				DE
 
-0C-FE-5D   (hex)		Yantai Dongfang Wisdom Electic Co.,Ltd.
-400000-4FFFFF     (base 16)		Yantai Dongfang Wisdom Electic Co.,Ltd.
+0C-FE-5D   (hex)		Yantai Dongfang Wisdom Electric Co.,Ltd.
+400000-4FFFFF     (base 16)		Yantai Dongfang Wisdom Electric Co.,Ltd.
 				6 Jindu Road
 				Yantai  Shandong  264003
 				CN
@@ -26077,7 +26077,7 @@ B8-D8-12   (hex)		IPM Sales and service Co.,Ltd.
 
 30-09-F9   (hex)		ZhongLi HengFeng (Shenzhen) Technology co.,Ltd.
 E00000-EFFFFF     (base 16)		ZhongLi HengFeng (Shenzhen) Technology co.,Ltd.
-				Room 402C Donglian Buiding,Chuangye NO 2 road,Baoan
+				Room 402C Donglian Building,Chuangye NO 2 road,Baoan
 				Shenzhen  Guangdong  430000
 				CN
 
@@ -26359,7 +26359,7 @@ B00000-BFFFFF     (base 16)		JNL Technologies Inc
 
 9C-43-1E   (hex)		SuZhou Jinruiyang Information Technology CO.,LTD
 C00000-CFFFFF     (base 16)		SuZhou Jinruiyang Information Technology CO.,LTD
-				NO.1003 Room A1 Buliding Tengfei Business Park in Suzhou Industrial Park.
+				NO.1003 Room A1 Building Tengfei Business Park in Suzhou Industrial Park.
 				Suzhou  Jiangsu  215123
 				CN
 
@@ -26441,8 +26441,8 @@ EC-9F-0D   (hex)		Hesai Photonics Technology Co., Ltd
 				Shanghai  Shanghai  200010
 				CN
 
-EC-9F-0D   (hex)		Bei jing Lian Shan times Techonology Co.Ltd
-700000-7FFFFF     (base 16)		Bei jing Lian Shan times Techonology Co.Ltd
+EC-9F-0D   (hex)		Bei jing Lian Shan times Technology Co.Ltd
+700000-7FFFFF     (base 16)		Bei jing Lian Shan times Technology Co.Ltd
 				Beijing Haidian.No.2 of Yong Cheng North Road Building 1.402
 				Beijing    100094
 				CN
@@ -26609,8 +26609,8 @@ D00000-DFFFFF     (base 16)		ChengDu HuiZhong Cloud Information Technology Co., 
 				 Koishikawa, Bunkyo-ku  Tokyo  112-0002
 				JP
 
-34-00-8A   (hex)		Keruyun Technoligies(Beijing) Corporation Limited
-900000-9FFFFF     (base 16)		Keruyun Technoligies(Beijing) Corporation Limited
+34-00-8A   (hex)		Keruyun Technologies(Beijing) Corporation Limited
+900000-9FFFFF     (base 16)		Keruyun Technologies(Beijing) Corporation Limited
 				Room 405, Taibang Technical Building, High-tech south 4 road, Nanshan
 				Shenzhen  Guangdong  518000
 				CN
@@ -26867,8 +26867,8 @@ B00000-BFFFFF     (base 16)		PTYPE Co., LTD.
 				Anyang-si  Gyeonggi-do  14056
 				KR
 
-8C-C8-F4   (hex)		Beijing Xinxunxintong Eletronics Co.,Ltd
-D00000-DFFFFF     (base 16)		Beijing Xinxunxintong Eletronics Co.,Ltd
+8C-C8-F4   (hex)		Beijing Xinxunxintong Electronics Co.,Ltd
+D00000-DFFFFF     (base 16)		Beijing Xinxunxintong Electronics Co.,Ltd
 				No.9 Yingfu Road,Haidian District
 				Beijing    100192
 				CN
@@ -27685,7 +27685,7 @@ E00000-EFFFFF     (base 16)		Unitac Technology Limited
 
 88-5D-90   (hex)		Shenzhen Speedrun Technologies Co.,Ltd.
 A00000-AFFFFF     (base 16)		Shenzhen Speedrun Technologies Co.,Ltd.
-				Room 303,Builing 5, GuiYuan Garden, NO.62 Airong Road, SheKou, NanShan District
+				Room 303,Building 5, GuiYuan Garden, NO.62 Airong Road, SheKou, NanShan District
 				ShenZhen  GuangDong  518067
 				CN
 
@@ -27985,7 +27985,7 @@ A4-4F-29   (hex)		Olssen B.V.
 
 E8-18-63   (hex)		DongGuan Pengxun Electronics Technology Co., Ltd.
 300000-3FFFFF     (base 16)		DongGuan Pengxun Electronics Technology Co., Ltd.
-				10th floor, Jinhui Bussiness Building,
+				10th floor, Jinhui Business Building,
 				DongGuan City  GuangDong Province  523850
 				CN
 
@@ -27995,8 +27995,8 @@ E8-18-63   (hex)		Guangzhou Tianyi Electronics Co., Ltd
 				 Guangzhou  Guangdong,  511430,
 				CN
 
-B8-D8-12   (hex)		ZheJiang FangTai Electirc Co., Ltd
-E00000-EFFFFF     (base 16)		ZheJiang FangTai Electirc Co., Ltd
+B8-D8-12   (hex)		ZheJiang FangTai Electric Co., Ltd
+E00000-EFFFFF     (base 16)		ZheJiang FangTai Electric Co., Ltd
 				B11 Block, Science and Technology Park
 				Hangzhou  ZheJiang  310024
 				CN
@@ -28510,7 +28510,7 @@ D00000-DFFFFF     (base 16)		ShenZhen Goodtimes Technoogy CO.,LTD
 
 28-F8-C6   (hex)		PANASONIC AUTOMOTIVE SYSTEM MALAYSIA
 300000-3FFFFF     (base 16)		PANASONIC AUTOMOTIVE SYSTEM MALAYSIA
-				PLOT 10, PHASE 4PRAI INDUSTRAIL ESTATE
+				PLOT 10, PHASE 4PRAI INDUSTRIAL ESTATE
 				PRAI  PENANG  13600
 				MY
 
@@ -28684,7 +28684,7 @@ C00000-CFFFFF     (base 16)		BEIJING CUNYIN CHENGQI TECHNOLOGY CO., LTD.
 
 48-E6-63   (hex)		Hoypower Energy Co.,Ltd
 500000-5FFFFF     (base 16)		Hoypower Energy Co.,Ltd
-				Rm 126. Unit 6, Bd chuanzhilvgu devlopment center,No.788, Hongpu RD,  Shangcheng district,Hangzhou
+				Rm 126. Unit 6, Bd chuanzhilvgu development center,No.788, Hongpu RD,  Shangcheng district,Hangzhou
 				Hangzhou    310000
 				CN
 
@@ -30344,8 +30344,8 @@ F00000-FFFFFF     (base 16)		Private
 				Seoul  ??  08376
 				KR
 
-70-06-92   (hex)		Techology, LLC
-000000-0FFFFF     (base 16)		Techology, LLC
+70-06-92   (hex)		Technology, LLC
+000000-0FFFFF     (base 16)		Technology, LLC
 				2335 S Ellis St
 				Lakewood  CO  80228
 				US
@@ -31031,8 +31031,8 @@ C4-A1-0E   (hex)		XI'AN YEP TELECOM TECHNOLOGY CO.,LTD
 				Xi 'an   Shaanxi  710065
 				CN
 
-C4-A1-0E   (hex)		Hainan World Electronic Science and Techology Co.,Ltd
-600000-6FFFFF     (base 16)		Hainan World Electronic Science and Techology Co.,Ltd
+C4-A1-0E   (hex)		Hainan World Electronic Science and Technology Co.,Ltd
+600000-6FFFFF     (base 16)		Hainan World Electronic Science and Technology Co.,Ltd
 				Room 1502,15th Floor,Building 20,NO.487 Tianlin Road,Shanghai,200233 China
 				Shanghai  Shanghai  200233
 				CN
@@ -31123,7 +31123,7 @@ B00000-BFFFFF     (base 16)		Motec GmbH
 
 6C-93-08   (hex)		ZHEJIANG XIAN DA Environmental Technology Co., Ltd
 200000-2FFFFF     (base 16)		ZHEJIANG XIAN DA Environmental Technology Co., Ltd
-				Room 103,1st F,unit A,Buliding 3,No. 8,Xiyuan 1st Road,Sandun Town,Xihu District
+				Room 103,1st F,unit A,Building 3,No. 8,Xiyuan 1st Road,Sandun Town,Xihu District
 				HANGZHOU  ZHEJIANG  310000
 				CN
 
@@ -31415,8 +31415,8 @@ C00000-CFFFFF     (base 16)		FINETOOLING TECHNOLOGY(HONG KONG)CO.,LIMITED
 				HONG KONG  HONG KONG  999077
 				CN
 
-78-5E-E8   (hex)		beijing Areospace Hongda optoelectronics technology co.,ltd
-400000-4FFFFF     (base 16)		beijing Areospace Hongda optoelectronics technology co.,ltd
+78-5E-E8   (hex)		beijing Aerospace Hongda optoelectronics technology co.,ltd
+400000-4FFFFF     (base 16)		beijing Aerospace Hongda optoelectronics technology co.,ltd
 				Room 422, No.4, North Row, No.28 South Yard
 				Beijing    Dongbei Wang Village, Dongbei Wang Township, Haidian District  065599
 				CN
@@ -32075,8 +32075,8 @@ E00000-EFFFFF     (base 16)		Beijing Techao Weijia Technology Limited
 				Beijing    100101
 				CN
 
-CC-4F-5C   (hex)		Shanghai Zenchant Electornics Co.,LTD
-300000-3FFFFF     (base 16)		Shanghai Zenchant Electornics Co.,LTD
+CC-4F-5C   (hex)		Shanghai Zenchant Electronics Co.,LTD
+300000-3FFFFF     (base 16)		Shanghai Zenchant Electronics Co.,LTD
 				Room 1202, building a, Noble international, 908 Xiuwen Road, Minhang District
 				ShangHai  ShangHai  201199
 				CN
@@ -34177,7 +34177,7 @@ B00000-BFFFFF     (base 16)		Hubei Century Network Technology Co., Ltd
 
 78-D8-00   (hex)		Alango Technologies Ltd
 600000-6FFFFF     (base 16)		Alango Technologies Ltd
-				Etgar 2, Carmel Biulding 1rd floor
+				Etgar 2, Carmel Building 1rd floor
 				Tirat Carmel  Haifa  39100
 				IL
 
@@ -34943,8 +34943,8 @@ A00000-AFFFFF     (base 16)		iWave Japan, Inc.
 				11/F, Genesis, 33-35 Wong Chuk Hang Road,  Hong Kong  11111
 				HK
 
-98-6D-35   (hex)		BAYCOM OPTO-ELECTRONICS TECHNOLGY CO., LTD.
-E00000-EFFFFF     (base 16)		BAYCOM OPTO-ELECTRONICS TECHNOLGY CO., LTD.
+98-6D-35   (hex)		BAYCOM OPTO-ELECTRONICS TECHNOLOGY CO., LTD.
+E00000-EFFFFF     (base 16)		BAYCOM OPTO-ELECTRONICS TECHNOLOGY CO., LTD.
 				3F, NO.9, INDUSTRIAL EAST 9TH RD. HSINCHU SCIENCE PARK, HSIN-CHU CITY, TAIWAN, R.O.C.
 				HSIN-CHU    30075
 				TW
@@ -34963,7 +34963,7 @@ E00000-EFFFFF     (base 16)		BAYCOM OPTO-ELECTRONICS TECHNOLGY CO., LTD.
 
 7C-47-7C   (hex)		POWERLAND LIMITED
 200000-2FFFFF     (base 16)		POWERLAND LIMITED
-				7F, Buiding A2, ZhongTai Information Industry Park, DeZheng Road, ShiYan Street.
+				7F, Building A2, ZhongTai Information Industry Park, DeZheng Road, ShiYan Street.
 				ShenZhen  GuangDong  518108
 				CN
 
@@ -35125,7 +35125,7 @@ C00000-CFFFFF     (base 16)		Onion Corporation
 
 70-88-6B   (hex)		Shenzhen Coolhear Information Technology Co., Ltd.
 900000-9FFFFF     (base 16)		Shenzhen Coolhear Information Technology Co., Ltd.
-				Room 502,Building A4, Kexing Science Park, Keyuan Road, Nanshan Distrct, Shenzhen, Guangdong,
+				Room 502,Building A4, Kexing Science Park, Keyuan Road, Nanshan District, Shenzhen, Guangdong,
 				Shenzhen  Guangdong  518000
 				CN
 
@@ -36541,7 +36541,7 @@ E00000-EFFFFF     (base 16)		Elbit system EW and SIGINT Elisra ltd
 
 C4-FF-84   (hex)		AOSAISHI (HONG KONG) CO.,LIMITED
 D00000-DFFFFF     (base 16)		AOSAISHI (HONG KONG) CO.,LIMITED
-				Unit 1002, 10/F, Perfect Commercial Buliding, 20 Austin Avenue
+				Unit 1002, 10/F, Perfect Commercial Building, 20 Austin Avenue
 				Tsim Sha Tsui  Kowloon  999077
 				CN
 
@@ -36785,8 +36785,8 @@ C00000-CFFFFF     (base 16)		Rikom Technologies Sdn Bhd
 				Bucharest    011048
 				RO
 
-A4-59-D3   (hex)		VTECH Technology Corportion
-000000-0FFFFF     (base 16)		VTECH Technology Corportion
+A4-59-D3   (hex)		VTECH Technology Corporation
+000000-0FFFFF     (base 16)		VTECH Technology Corporation
 				6F-8, No.27, Sec. 3, Zhongshan N. Rd.,
 				TAIPEI  TAIWAN  104
 				TW

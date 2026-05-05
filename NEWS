@@ -3433,7 +3433,7 @@ CHANGES WITH 257:
 
         systemd-importd:
 
-        * A new generator sytemd-import-generator has been added to synthesize
+        * A new generator systemd-import-generator has been added to synthesize
           image download jobs. This provides functionality similar to
           importctl, but is configured via the kernel command line and system
           credentials. It may be used to automatically download sysext,
@@ -4610,7 +4610,7 @@ CHANGES WITH 256:
           OpenSSH 9.4 or newer.
 
         * systemd-sysext gained support for enabling system extensions in
-          mutable fashion, where a writeable upperdir is stored under
+          mutable fashion, where a writable upperdir is stored under
           /var/lib/extensions.mutable/, and a new --mutable= option to
           configure this behaviour. An "ephemeral" mode is not also supported
           where the mutable layer is configured to be a tmpfs that is
@@ -15312,7 +15312,7 @@ CHANGES WITH 231:
 
         * The InaccessableDirectories=, ReadOnlyDirectories= and
           ReadWriteDirectories= unit file settings have been renamed to
-          InaccessablePaths=, ReadOnlyPaths= and ReadWritePaths= and may now be
+          InaccessiblePaths=, ReadOnlyPaths= and ReadWritePaths= and may now be
           applied to all kinds of file nodes, and not just directories, with
           the exception of symlinks. Specifically these settings may now be
           used on block and character device nodes, UNIX sockets and FIFOS as
@@ -20923,7 +20923,7 @@ CHANGES WITH 189:
           udev_device_new_from_device_id() call.
 
         * The logic for file system namespace (ReadOnlyDirectory=,
-          ReadWriteDirectoy=, PrivateTmp=) has been reworked not to
+          ReadWriteDirectories=, PrivateTmp=) has been reworked not to
           require pivot_root() anymore. This means fewer temporary
           directories are created below /tmp for this feature.
 
