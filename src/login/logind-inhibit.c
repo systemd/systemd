@@ -180,10 +180,9 @@ int inhibitor_start(Inhibitor *i) {
 
 void inhibitor_stop(Inhibitor *i) {
         int r;
-        Manager* m;
+        Manager *m;
 
-        ASSERT_PTR(i);
-        m = i->manager;
+        m = ASSERT_PTR(i)->manager;
         ASSERT_PTR(m);
 
         if (i->started)
@@ -209,7 +208,6 @@ void inhibitor_stop(Inhibitor *i) {
                 r = sd_event_source_set_enabled(m->idle_action_event_source, SD_EVENT_ONESHOT);
                 if (r < 0)
                         log_debug_errno(r, "Failed to enable idle action once: %m");
-
         }
 }
 
