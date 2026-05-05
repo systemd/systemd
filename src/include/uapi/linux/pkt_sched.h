@@ -80,7 +80,7 @@ struct tc_estimator {
 #define TC_H_MIN_INGRESS	0xFFF2U
 #define TC_H_MIN_EGRESS		0xFFF3U
 
-/* Need to corrospond to iproute2 tc/tc_core.h "enum link_layer" */
+/* Need to correspond to iproute2 tc/tc_core.h "enum link_layer" */
 enum tc_link_layer {
 	TC_LINKLAYER_UNAWARE, /* Indicate unaware old iproute2 util */
 	TC_LINKLAYER_ETHERNET,

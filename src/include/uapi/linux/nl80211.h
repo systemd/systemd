@@ -6740,7 +6740,7 @@ enum nl80211_feature_flags {
  *      negotiation and range measurement procedure.
  *
  * @NL80211_EXT_FEATURE_BSS_COLOR: The driver supports BSS color collision
- *	detection and change announcemnts.
+ *	detection and change announcements.
  *
  * @NL80211_EXT_FEATURE_FILS_CRYPTO_OFFLOAD: Driver running in AP mode supports
  *	FILS encryption and decryption for (Re)Association Request and Response

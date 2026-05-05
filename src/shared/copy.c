@@ -652,7 +652,7 @@ static int hardlink_context_setup(
          * <= 0, because in that case we will not actually allocate the hardlink inode lookup table directory
          * on disk (we do so lazily, when the first candidate with .n_link > 1 is seen). This means, in the
          * common case where hardlinks are not used at all or only for few files the fact that we store the
-         * table on disk shouldn't matter perfomance-wise. */
+         * table on disk shouldn't matter performance-wise. */
 
         if (!FLAGS_SET(copy_flags, COPY_HARDLINKS))
                 return 0;
