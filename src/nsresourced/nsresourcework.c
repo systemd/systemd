@@ -1925,7 +1925,7 @@ static void hash_ether_addr(UserNamespaceInfo *userns_info, const char *ifname, 
         siphash24_compress_byte(0, &state); /* separator */
         siphash24_compress_string(strempty(ifname), &state);
         siphash24_compress_byte(0, &state); /* separator */
-        n = htole64(n); /* add the 'index' to the mix in an endianess-independent fashion */
+        n = htole64(n); /* add the 'index' to the mix in an endianness-independent fashion */
         siphash24_compress_typesafe(n, &state);
 
         h = htole64(siphash24_finalize(&state));
