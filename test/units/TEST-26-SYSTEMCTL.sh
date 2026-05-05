@@ -646,6 +646,16 @@ varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
 timeout 30 bash -c 'until systemctl is-active varlink-transient-wd-home.service; do sleep 0.5; done'
 systemctl show -P WorkingDirectory varlink-transient-wd-home.service | grep '^~$' >/dev/null
 
+# Exec.SetCredential: pass a credential and verify the running process can read it
+defer_transient_cleanup varlink-transient-cred.service
+CRED_VALUE_B64=$(printf 'secret-value' | base64 -w0)
+CRED_OUTPUT=$(mktemp)
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    "{\"context\":{\"ID\":\"varlink-transient-cred.service\",\"Exec\":{\"SetCredential\":[{\"id\":\"mycred\",\"value\":\"${CRED_VALUE_B64}\"}]},\"Service\":{\"Type\":\"oneshot\",\"RemainAfterExit\":true,\"ExecStart\":[{\"path\":\"/bin/sh\",\"arguments\":[\"/bin/sh\",\"-c\",\"cat \$CREDENTIALS_DIRECTORY/mycred > ${CRED_OUTPUT}\"]}]}}}"
+timeout 30 bash -c "until systemctl is-active varlink-transient-cred.service; do sleep 0.5; done"
+grep '^secret-value$' "$CRED_OUTPUT" >/dev/null
+rm -f "$CRED_OUTPUT"
+
 # Error cases: verify specific varlink error types
 set +o pipefail
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
@@ -667,6 +677,14 @@ varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
 defer_transient_cleanup varlink-transient-bad-env.service
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-bad-env.service","Exec":{"Environment":["not_an_env_var"]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
+# Invalid credential ID
+defer_transient_cleanup varlink-transient-bad-cred-id.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-bad-cred-id.service","Exec":{"SetCredential":[{"id":"bad/id","value":"YWJj"}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
+# Invalid base64 value for credential
+defer_transient_cleanup varlink-transient-bad-cred-value.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-bad-cred-value.service","Exec":{"SetCredential":[{"id":"mycred","value":"!!!not_base64!!!"}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' |& grep "io.systemd.Unit.BadUnitSetting"
 # Exec on a unit type without an exec context (.target) is rejected
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-exec.target","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false}}}}' |& grep "io.systemd.Unit.UnitTypeNotSupported"

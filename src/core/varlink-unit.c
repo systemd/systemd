@@ -10,6 +10,7 @@
 #include "dbus-job.h"
 #include "execute.h"
 #include "format-util.h"
+#include "hexdecoct.h"
 #include "install.h"
 #include "job.h"
 #include "json-util.h"
@@ -695,16 +696,31 @@ typedef struct TransientWorkingDirectory {
         bool missing_ok;
 } TransientWorkingDirectory;
 
+typedef struct TransientSetCredential {
+        const char *id;
+        const char *value_b64;
+} TransientSetCredential;
+
 typedef struct TransientExecContextParameters {
         bool working_directory_set;
         TransientWorkingDirectory working_directory;
         bool environment_set;
         char **environment;
+
+        bool set_credentials_set;
+        TransientSetCredential *set_credentials;
+        size_t n_set_credentials;
+
+        bool set_credentials_encrypted_set;
+        TransientSetCredential *set_credentials_encrypted;
+        size_t n_set_credentials_encrypted;
 } TransientExecContextParameters;
 
 static void transient_exec_context_parameters_done(TransientExecContextParameters *p) {
         assert(p);
         strv_free(p->environment);
+        free(p->set_credentials);
+        free(p->set_credentials_encrypted);
 }
 
 typedef struct TransientServiceParameters {
@@ -801,11 +817,65 @@ static int dispatch_transient_environment(const char *name, sd_json_variant *var
         return sd_json_dispatch_strv(name, variant, flags, &p->environment);
 }
 
+static int dispatch_transient_set_credential_array(
+                sd_json_variant *variant,
+                TransientSetCredential **ret_items,
+                size_t *ret_n) {
+
+        static const sd_json_dispatch_field item_dispatch[] = {
+                { "id",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(TransientSetCredential, id),        SD_JSON_MANDATORY },
+                { "value", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(TransientSetCredential, value_b64), SD_JSON_MANDATORY },
+                {}
+        };
+
+        int r;
+
+        assert(ret_items);
+        assert(ret_n);
+
+        size_t n = sd_json_variant_elements(variant);
+        if (n == 0) {
+                *ret_items = NULL;
+                *ret_n = 0;
+                return 0;
+        }
+
+        TransientSetCredential *items = new0(TransientSetCredential, n);
+        if (!items)
+                return -ENOMEM;
+
+        for (size_t i = 0; i < n; i++) {
+                r = sd_json_dispatch(sd_json_variant_by_index(variant, i), item_dispatch, /* flags= */ 0, &items[i]);
+                if (r < 0) {
+                        free(items);
+                        return r;
+                }
+        }
+
+        *ret_items = items;
+        *ret_n = n;
+        return 0;
+}
+
+static int dispatch_transient_set_credential(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+        p->set_credentials_set = true;
+        return dispatch_transient_set_credential_array(variant, &p->set_credentials, &p->n_set_credentials);
+}
+
+static int dispatch_transient_set_credential_encrypted(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+        p->set_credentials_encrypted_set = true;
+        return dispatch_transient_set_credential_array(variant, &p->set_credentials_encrypted, &p->n_set_credentials_encrypted);
+}
+
 static int dispatch_transient_exec_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         /* Key names compatible with D-Bus property names */
         static const sd_json_dispatch_field exec_dispatch[] = {
-                { "WorkingDirectory", SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory, 0, 0 },
-                { "Environment",      _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_environment,       0, 0 },
+                { "WorkingDirectory",       SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory,      0, 0 },
+                { "Environment",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_environment,            0, 0 },
+                { "SetCredential",          SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential,         0, 0 },
+                { "SetCredentialEncrypted", SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential_encrypted, 0, 0 },
                 {}
         };
 
@@ -874,6 +944,37 @@ static int transient_unit_apply_properties(Unit *u, StartTransientContextParamet
         return 0;
 }
 
+static int transient_apply_set_credentials(
+                Unit *u,
+                ExecContext *c,
+                const TransientSetCredential *items,
+                size_t n_items,
+                bool encrypted) {
+
+        int r;
+
+        assert(u);
+        assert(c);
+
+        FOREACH_ARRAY(item, items, n_items) {
+                _cleanup_free_ void *data = NULL;
+                size_t size = 0;
+                const char *err = NULL;
+
+                r = unbase64mem_full(item->value_b64, SIZE_MAX, /* secure= */ true, &data, &size);
+                if (r < 0)
+                        return log_debug_errno(r, "Credential value for '%s' is not valid base64: %m", item->id);
+
+                r = exec_context_apply_set_credential(u, c, item->id, data, size, encrypted, UNIT_RUNTIME|UNIT_PRIVATE, &err);
+                if (r == -EINVAL)
+                        return log_debug_errno(r, "%s: %s", err, item->id);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int transient_exec_context_apply_properties(Unit *u, TransientExecContextParameters *p) {
         int r;
 
@@ -881,7 +982,8 @@ static int transient_exec_context_apply_properties(Unit *u, TransientExecContext
         assert(p);
 
         /* Nothing to apply? */
-        if (!p->working_directory_set && !p->environment_set)
+        if (!p->working_directory_set && !p->environment_set &&
+            !p->set_credentials_set && !p->set_credentials_encrypted_set)
                 return 0;
 
         ExecContext *c = unit_get_exec_context(u);
@@ -913,6 +1015,18 @@ static int transient_exec_context_apply_properties(Unit *u, TransientExecContext
                 r = exec_context_apply_environment(u, c, p->environment, UNIT_RUNTIME|UNIT_PRIVATE);
                 if (r == -EINVAL)
                         return log_debug_errno(r, "Invalid Environment list.");
+                if (r < 0)
+                        return r;
+        }
+
+        if (p->set_credentials_set) {
+                r = transient_apply_set_credentials(u, c, p->set_credentials, p->n_set_credentials, /* encrypted= */ false);
+                if (r < 0)
+                        return r;
+        }
+
+        if (p->set_credentials_encrypted_set) {
+                r = transient_apply_set_credentials(u, c, p->set_credentials_encrypted, p->n_set_credentials_encrypted, /* encrypted= */ true);
                 if (r < 0)
                         return r;
         }
