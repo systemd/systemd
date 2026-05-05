@@ -849,6 +849,10 @@ EOF
     btrfs filesystem show
     helper_check_device_symlinks
     helper_check_device_units
+    # Wipe the btrfs signature from each partition first, otherwise the superblocks remain inside
+    # the disk's data area and would be discovered again as duplicate UUIDs after re-partitioning,
+    # which breaks subsequent runs of this test (e.g. after a VM reboot).
+    udevadm lock --timeout=30 --device="${devices[0]}" wipefs -a /dev/disk/by-partlabel/diskpart{1..4}
     udevadm lock --timeout=30 --device="${devices[0]}" wipefs -a "${devices[0]}"
     udevadm wait --settle --timeout=30 --removed /dev/disk/by-partlabel/diskpart{1..4}
 
@@ -866,6 +870,12 @@ EOF
     btrfs filesystem show
     helper_check_device_symlinks
     helper_check_device_units
+    # Wipe the btrfs signatures so that subsequent sections (and runs of the test, e.g. after a VM
+    # reboot) don't see the stale UUID.
+    for ((i = 0; i < ${#devices[@]}; i++)); do
+        udevadm lock --timeout=30 --device="${devices[$i]}" wipefs -a "${devices[$i]}"
+    done
+    udevadm settle --timeout=30
 
     echo "Multiple devices: using LUKS encrypted disks, data: raid1, metadata: raid1, mixed mode"
     uuid="deadbeef-dead-dead-beef-000000000003"
@@ -941,7 +951,13 @@ EOF
     sed -i "/${mpoint##*/}/d" /etc/fstab
     : >/etc/crypttab
     rm -fr "$mpoint"
+    rm -f /etc/btrfs_keyfile
     systemctl daemon-reload
+    # Wipe LUKS headers from the underlying devices, so that if the VM is rebooted the disks don't retain
+    # stale LUKS signatures that would interfere with a re-run of the test.
+    for ((i = 0; i < ${#devices[@]}; i++)); do
+        udevadm lock --timeout=30 --device="${devices[$i]}" wipefs -a "${devices[$i]}"
+    done
     udevadm settle --timeout=30
 }
 
