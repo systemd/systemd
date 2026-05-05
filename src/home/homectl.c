@@ -2837,7 +2837,7 @@ static int shell_is_ok(const char *path, void *userdata) {
                 return false;
         }
 
-        r = chase_and_access(path, /* root= */ NULL, CHASE_MUST_BE_REGULAR, X_OK, /* ret_path= */ NULL) >= 0;
+        r = chase_and_access(path, /* root= */ NULL, CHASE_MUST_BE_REGULAR, X_OK, /* ret_path= */ NULL);
         if (r == -ENOENT) {
                 log_error_errno(r, "Shell '%s' does not exist, try again.", path);
                 return false;
