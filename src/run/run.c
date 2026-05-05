@@ -166,11 +166,7 @@ static int help(void) {
         help_abstract("Run the specified command in a transient scope or service.");
 
         for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                _cleanup_free_ char *title = strjoin(groups[i] ?: "Options", ":");
-                if (!title)
-                        return log_oom();
-
-                help_section(title);
+                help_section(groups[i]);
 
                 r = table_print_or_warn(tables[i]);
                 if (r < 0)
@@ -196,7 +192,7 @@ static int help_sudo_mode(void) {
         help_cmdline("[OPTIONS...] COMMAND [ARGUMENTS...]");
         help_abstract("Elevate privileges interactively.");
 
-        help_section("Options:");
+        help_section("Options");
 
         r = table_print_or_warn(opts_table);
         if (r < 0)
