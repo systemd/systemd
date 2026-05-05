@@ -58,11 +58,20 @@ reap_abandoned_pids() {
 
 run_test() {
     local reload_cmd="${1:?}"
+    # If "with_pending_jobs", also create many Type=oneshot units that hang in
+    # "activating" state with a pending job, to ensure that the serialized state
+    # contains embedded "job" subsections to fully exercise the deserialization
+    local pending_jobs="${2:-}"
+    local n_sus=20
     local current_pid journal_warnings new_pid orig_pid pid reload_start unit warning_count
+
+    if [[ "$pending_jobs" == "with_pending_jobs" ]]; then
+        n_sus=100
+    fi
 
     echo ""
     echo "========================================="
-    echo "Testing with: systemctl $reload_cmd"
+    echo "Testing with: systemctl $reload_cmd${pending_jobs:+ ($pending_jobs)}"
     echo "========================================="
 
     cat >/run/systemd/system/legit.service <<'EOF'
@@ -71,15 +80,27 @@ Type=simple
 ExecStart=/bin/sleep infinity
 EOF
 
-    # Create 20 sus units. They must be Type=simple/running so systemd
-    # CANNOT garbage collect them. If they are dead/stopped, systemd can remove
-    # them from memory before serialization
-    echo "Creating 20 sus units..."
-    for i in $(seq -f "%02g" 1 20); do
+    # Create 100 sus units. They must be running so systemd CANNOT garbage
+    # collect them. If they are dead/stopped, systemd can remove them from
+    # memory before serialization.
+    #
+    # In with_pending_jobs mode they additionally get a pending restart job
+    # queued via 'systemctl --no-block restart' AFTER they are running, so the
+    # serialized stream contains 'job\n...\n\n' subsections AND the units have
+    # a real MainPID. The skip-desync regression in unit_deserialize_state_skip()
+    # stops at the job subsection's empty line marker, leaving the rest of the
+    # serialized stream to be consumed as garbage. If legit.service is dropped
+    # from the collected names set as a result, the alias-protection branch in
+    # manager_deserialize_one_unit() is bypassed and a sus unit's MainPID
+    # overwrites legit.service's MainPID.
+    echo "Creating $n_sus sus units..."
+    for i in $(seq -f "%03g" 1 "$n_sus"); do
         cat >/run/systemd/system/sus-"${i}".service <<'EOF'
 [Service]
 Type=simple
 ExecStart=/bin/sleep infinity
+ExecReload=/bin/sleep infinity
+TimeoutStartSec=infinity
 EOF
     done
 
@@ -89,11 +110,32 @@ EOF
     systemctl start legit.service
 
     echo "Starting sus units..."
-    for i in $(seq -f "%02g" 1 20); do
+    for i in $(seq -f "%03g" 1 "$n_sus"); do
         systemctl start sus-"${i}".service
     done
 
-    echo "Setup complete: 1 running legit unit, 20 running sus units"
+    if [[ "$pending_jobs" == "with_pending_jobs" ]]; then
+        # Queue a hanging reload job on each running sus unit. ExecReload runs
+        # 'sleep infinity', so the reload job stays in the queue forever; the
+        # unit stays active with its real MainPID, and the serialized stream
+        # contains both 'main-pid=...' and 'job\n...\n\n' subsections.
+        for i in $(seq -f "%03g" 1 "$n_sus"); do
+            systemctl --no-block reload sus-"${i}".service
+        done
+        # Make sure at least one reload job is actually queued, otherwise the
+        # serialized stream might not contain any job subsections yet.
+        for i in {1..100}; do
+            [[ -n "$(systemctl list-jobs --no-legend | grep -E '^[[:space:]]*[0-9]+ sus-' || true)" ]] && break
+            if (( i == 100 )); then
+                echo "ERROR: no sus-*.service reload jobs are pending"
+                systemctl list-jobs || true
+                return 1
+            fi
+            sleep 0.1
+        done
+    fi
+
+    echo "Setup complete: 1 running legit unit, $n_sus ${pending_jobs:+job-bearing }sus units"
 
     orig_pid=$(systemctl show -P MainPID legit.service)
     echo "Original legit PID: $orig_pid"
@@ -103,26 +145,28 @@ EOF
         return 1
     fi
 
-    # Since ordering is not deterministic we should loop 3 times to reduce
-    # false negative rate (ordering luck). With this it's roughly 0.01% chance
-    # of falsely passing. Falsely failing does not happen, though.
+    # Since ordering is not deterministic we should loop several times to
+    # reduce false negative rate (ordering luck). The skip-desync regression
+    # also depends on iteration order: legit.service must happen to be
+    # serialized right after a job-bearing unit for its name to be dropped from
+    # the collected set (which is what bypasses the alias-protection check),
+    # so multiple attempts are needed in both modes.
     for attempt in 1 2 3; do
         echo ""
         echo "--- Attempt $attempt/3 ---"
 
         unset sus_pids
         declare -A sus_pids
-        for i in $(seq -f "%02g" 1 20); do
+        for i in $(seq -f "%03g" 1 "$n_sus"); do
             pid=$(systemctl show -P MainPID sus-"${i}".service)
             if (( pid != 0 )); then
                 sus_pids["sus-${i}"]=$pid
                 abandoned_pids+=("$pid")
-                echo "sus-${i}.service PID: $pid"
             fi
         done
 
         echo "Converting sus units to symlinks -> legit.service..."
-        for i in $(seq -f "%02g" 1 20); do
+        for i in $(seq -f "%03g" 1 "$n_sus"); do
             rm -f /run/systemd/system/sus-"${i}".service
             ln -sf /run/systemd/system/legit.service /run/systemd/system/sus-"${i}".service
         done
@@ -185,12 +229,14 @@ EOF
             echo "Resetting sus units..."
 
             # We must fully reset to get independent running units again
-            for i in $(seq -f "%02g" 1 20); do
+            for i in $(seq -f "%03g" 1 "$n_sus"); do
                 rm -f /run/systemd/system/sus-"${i}".service
                 cat >/run/systemd/system/sus-"${i}".service <<'EOF'
 [Service]
 Type=simple
 ExecStart=/bin/sleep infinity
+ExecReload=/bin/sleep infinity
+TimeoutStartSec=infinity
 EOF
             done
 
@@ -198,9 +244,24 @@ EOF
 
             # Ensure they are running again (they might have been
             # abandoned/killed during the transition)
-            for i in $(seq -f "%02g" 1 20); do
+            for i in $(seq -f "%03g" 1 "$n_sus"); do
                 systemctl start sus-"${i}".service
             done
+
+            if [[ "$pending_jobs" == "with_pending_jobs" ]]; then
+                for i in $(seq -f "%03g" 1 "$n_sus"); do
+                    systemctl --no-block reload sus-"${i}".service
+                done
+                for i in {1..100}; do
+                    [[ -n "$(systemctl list-jobs --no-legend | grep -E '^[[:space:]]*[0-9]+ sus-' || true)" ]] && break
+                    if (( i == 100 )); then
+                        echo "ERROR: no sus-*.service reload jobs are pending after reset"
+                        systemctl list-jobs || true
+                        return 1
+                    fi
+                    sleep 0.1
+                done
+            fi
 
             echo "Reset complete."
         fi
@@ -214,7 +275,7 @@ EOF
 cleanup_test_units() {
     reap_abandoned_pids || true
     systemctl stop legit.service 2>/dev/null || true
-    for i in $(seq -f "%02g" 1 20); do
+    for i in $(seq -f "%03g" 1 100); do
         systemctl stop sus-"${i}".service 2>/dev/null || true
         rm -f /run/systemd/system/sus-"${i}".service
     done
@@ -227,3 +288,7 @@ trap cleanup_test_units EXIT
 run_test daemon-reload
 cleanup_test_units
 run_test daemon-reexec
+cleanup_test_units
+run_test daemon-reload with_pending_jobs
+cleanup_test_units
+run_test daemon-reexec with_pending_jobs
