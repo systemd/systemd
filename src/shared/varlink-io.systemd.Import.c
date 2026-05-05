@@ -87,7 +87,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(verify, ImageVerify, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If true, an existing image by the local name is deleted. Defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(force, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Whether to make the image read-only after downloading. Defaults ot false."),
+                SD_VARLINK_FIELD_COMMENT("Whether to make the image read-only after downloading. Defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(readOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether to keep a pristine copy of the download separate from the locally installed image. Defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(keepDownload, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),

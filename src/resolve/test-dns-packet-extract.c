@@ -400,7 +400,7 @@ TEST(packet_validate_query_too_many_questions) {
         ASSERT_ERROR(dns_packet_validate_query(packet), EBADMSG);
 }
 
-TEST(packet_validate_query_with_anwser) {
+TEST(packet_validate_query_with_answer) {
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));

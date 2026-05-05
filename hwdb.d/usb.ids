@@ -784,7 +784,7 @@
 03fd  Xilinx, Inc.
 	0008  Platform Cable USB II
 	0050  dfu downloader
-03fe  Farallon Comunications
+03fe  Farallon Communications
 0400  National Semiconductor Corp.
 	05dc  Rigol Technologies DS1000USB Oscilloscope
 	0807  Bluetooth Dongle
@@ -1705,7 +1705,7 @@
 	1237  Andromeda Hub
 0424  Microchip Technology, Inc. (formerly SMSC)
 	0001  Integrated Hub
-	0007  ULPI Transciever [USB3320]
+	0007  ULPI Transceiver [USB3320]
 	0140  LPC47M14x hub
 	0acd  Sitecom Internal Multi Memory reader/writer MD-005
 	0fdc  Floppy
@@ -2693,7 +2693,7 @@
 	4de3  HP 5-Button Optical Comfort Mouse
 	4de7  webcam
 	4e04  Lenovo Keyboard KB1021
-	4e22  Dell Mouse, 2 Buttons, Modell: MS111-P
+	4e22  Dell Mouse, 2 Buttons, Model: MS111-P
 	4e26  Asus wired keyboard - model KB73211
 	4e6f  Acer Wired Keyboard Model KBAY211
 	4e72  Acer Wired Keyboard Model KBAY211
@@ -2804,7 +2804,7 @@
 	0836  B525 HD Webcam
 	0837  BCC950 ConferenceCam
 	0838  BCC950 ConferenceCam audio
-	0839  BCC950 ConferenceCam integated hub
+	0839  BCC950 ConferenceCam integrated hub
 	0840  QuickCam Express
 	0843  Webcam C930e
 	0845  ConferenceCam CC3000e Camera
@@ -9243,7 +9243,7 @@
 0614  Bio-Rad Laboratories
 0615  Quabbin Wire & Cable Co., Inc.
 0616  Future Techno Designs PVT, Ltd
-0617  Swiss Federal Insitute of Technology
+0617  Swiss Federal Institute of Technology
 	000a  Thymio-II
 	000c  Thymio-II Wireless
 0618  MacAlly
@@ -10028,7 +10028,7 @@
 	0031  RFID reader
 	0038  4-Motor PhidgetServo v3.0
 	0039  1-Motor PhidgetServo v3.0
-	003a  8-Motor PhidgetAvancedServo
+	003a  8-Motor PhidgetAdvancedServo
 	0040  PhidgetInterface Kit 0-0-4
 	0044  PhidgetInterface Kit 0-16-16
 	0045  PhidgetInterface Kit 8-8-8
@@ -15576,7 +15576,7 @@
 0ea0  Ours Technology, Inc.
 	2126  7-in-1 Card Reader
 	2153  SD Card Reader Key
-	2168  Transcend JetFlash 2.0 / Astone USB Drive / Intellegent Stick 2.0
+	2168  Transcend JetFlash 2.0 / Astone USB Drive / Intelligent Stick 2.0
 	2213  WinDroid N287 AH7N2502.013317
 	6803  OTI-6803 Flash Disk
 	6808  OTI-6808 Flash Disk
@@ -20861,9 +20861,9 @@
 	60aa  Blinky Light Controller
 	60ab  AllPixel
 	60ac  OpenBLT generic microcontroller (bootloader)
-	60ad  Clasic Gamepad Adapter (NES)
-	60ae  Clasic Gamepad Adapter (N64)
-	60af  Clasic Gamepad Adapter (DB9)
+	60ad  Classic Gamepad Adapter (NES)
+	60ae  Classic Gamepad Adapter (N64)
+	60af  Classic Gamepad Adapter (DB9)
 	60b0  Waterott Arduino based Clock (caterina bootloader)
 	60b1  Drinkbot (processing)
 	60b2  Drinkbot (OTG-tablet support)
@@ -21244,7 +21244,7 @@
 1f9b  Ubiquiti Networks, Inc.
 	0241  AirView2-EXT
 	b0b1  UniFi VoIP Phone
-1fab  Samsung Opto-Electroncs Co., Ltd.
+1fab  Samsung Opto-Electronics Co., Ltd.
 	104d  ES65
 1fac  Franklin Wireless
 	0232  U770 3G/4G Wimax/4G LTE Modem
@@ -22101,7 +22101,7 @@
 	1021  FirstMix
 23fc  SesKion GmbH
 	0201  SPI-Simulyzer box for SPI data communication
-	0202  PSI5-Simulyzer box for PSI5 (Peripheral-Sensor-Interfacs) data communication
+	0202  PSI5-Simulyzer box for PSI5 (Peripheral-Sensor-Interfaces) data communication
 	0203  SENT-Simulyzer box for SENT data communication
 	0204  DSI-Simulyzer box for DSI3 data communication
 2405  Custom Computer Services, Inc

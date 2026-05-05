@@ -361,7 +361,7 @@ const char* ci_environment(void) {
         if (getenv("SALSA_CI_IMAGES"))
                 return (ans = "salsa-ci");
 
-        FOREACH_STRING(var, "CI", "CONTINOUS_INTEGRATION") {
+        FOREACH_STRING(var, "CI", "CONTINUOUS_INTEGRATION") {
                 /* Those vars are booleans according to Semaphore and Travis docs:
                  * https://docs.travis-ci.com/user/environment-variables/#default-environment-variables
                  * https://docs.semaphoreci.com/ci-cd-environment/environment-variables/#ci

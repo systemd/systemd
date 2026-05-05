@@ -1,7 +1,7 @@
 # This file is part of systemd.
 #
 # Database for remote controllable lights that should be accessible to the seat
-# owner, such as Bluetooth or USB lights that are used in conjuction with the
+# owner, such as Bluetooth or USB lights that are used in conjunction with the
 # computer like streaming lights.
 #
 # The lookup keys are $MODALIAS strings, see udev's hwdb builtin.

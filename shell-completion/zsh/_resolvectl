@@ -56,7 +56,7 @@
             query:"Resolve domain names, IPv4 and IPv6 addresses"
             reset-server-features:"Flushes all feature level information the resolver has learned about specific servers"
             reset-statistics:"Resets the statistics counter shown in statistics to zero"
-            revert:"Revert the per-interfce DNS configuration"
+            revert:"Revert the per-interface DNS configuration"
             service:"Resolve DNS-SD and SRV services"
             show-cache:"Show the current cache contents"
             show-server-state:"Show servers state"
