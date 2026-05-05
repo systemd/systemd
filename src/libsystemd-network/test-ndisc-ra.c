@@ -12,6 +12,7 @@
 #include "sd-radv.h"
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "icmp6-test-util.h"
 #include "in-addr-util.h"
 #include "radv-internal.h"
@@ -243,6 +244,38 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         assert_se(sd_radv_stop(ra) >= 0);
         test_stopped = true;
         return 0;
+}
+
+TEST(ra_ifindex_mismatch) {
+        static const struct nd_router_solicit rs = {
+                .nd_rs_type = ND_ROUTER_SOLICIT,
+        };
+
+        _cleanup_free_ uint8_t *buf = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
+        ssize_t buflen;
+
+        assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);
+
+        assert_se(sd_event_new(&e) >= 0);
+        assert_se(sd_radv_new(&ra) >= 0);
+        assert_se(sd_radv_attach_event(ra, e, 0) >= 0);
+        assert_se(sd_radv_set_ifindex(ra, 42) >= 0);
+        assert_se(sd_radv_start(ra) >= 0);
+
+        assert_se(sd_event_run(e, UINT64_MAX) >= 0);
+        assert_se((buflen = next_datagram_size_fd(test_fd[0])) >= 0);
+        assert_se(buf = new(uint8_t, buflen));
+        assert_se(read(test_fd[0], buf, buflen) == buflen);
+
+        test_ifindex = 43;
+        assert_se(write(test_fd[0], &rs, sizeof(rs)) == sizeof(rs));
+        assert_se(sd_event_run(e, UINT64_MAX) >= 0);
+        assert_se(next_datagram_size_fd(test_fd[0]) == -EAGAIN);
+
+        assert_se(sd_radv_stop(ra) >= 0);
+        test_fd[0] = safe_close(test_fd[0]);
 }
 
 TEST(ra) {
