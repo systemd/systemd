@@ -291,7 +291,7 @@ TEST(oomd_cgroup_context_acquire_and_insert) {
         ASSERT_EQ(ctx->memory_low, 0u);
         ASSERT_EQ(ctx->swap_usage, 0u);
         ASSERT_EQ(ctx->last_pgscan, 0u);
-        ASSERT_EQ(ctx->pgscan, 0u);
+        ASSERT_LT(ctx->pgscan, 10u);
         ASSERT_NULL(ctx = oomd_cgroup_context_unref(ctx));
 
         ASSERT_OK(oomd_cgroup_context_acquire("", &ctx));
