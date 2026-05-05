@@ -2734,8 +2734,6 @@ static int create_interactively(void) {
                         return r;
 
                 if (!strv_isempty(groups)) {
-                        strv_sort_uniq(groups);
-
                         r = sd_json_variant_set_field_strv(&arg_identity_extra, "memberOf", groups);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set memberOf field: %m");
