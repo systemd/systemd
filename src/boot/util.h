@@ -138,6 +138,7 @@ char16_t *mangle_stub_cmdline(char16_t *cmdline);
 
 EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf);
 EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, uint64_t offset, size_t size, char **ret, size_t *ret_size);
+EFI_STATUS load_file_from_simple_filesystem(const EFI_DEVICE_PATH *device_path, char **file_buffer, size_t *file_size);
 EFI_STATUS file_handle_read(EFI_FILE *handle, uint64_t offset, size_t size, char **ret, size_t *ret_size);
 
 static inline void file_closep(EFI_FILE **handle) {

@@ -128,6 +128,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- a tool that can prep credentials, put them in the ESP, for provisioning
+  systems for SBC. Should be doing what sysinstall does with the credentials,
+  and maybe even *be* sysinstall.
+
 - StorageProvider interface + storagectl
   - hook-up in systemd-nspawn
   - hook-up in systemd-vmspawn

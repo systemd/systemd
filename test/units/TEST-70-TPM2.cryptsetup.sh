@@ -31,10 +31,23 @@ tpm_check_failure_with_wrong_pin() {
 }
 
 at_exit() {
+    set +e
+
+    umount /tmp/dditest.mnt
+    systemd-cryptsetup detach test-volume
+    systemd-cryptsetup detach dditest
+
     # Evict the TPM primary key that we persisted
     if [[ -n "${PERSISTENT_HANDLE:-}" ]]; then
         tpm2_evictcontrol -c "$PERSISTENT_HANDLE"
     fi
+
+    if [[ -n "${DEVICE:-}" ]]; then
+        systemd-dissect --detach "$DEVICE"
+    fi
+
+    rm -rf /tmp/dditest /tmp/dditest.mnt
+    rm -f /tmp/dditest.raw "${IMAGE:-}" "${PRIMARY:-}" /tmp/passphrase /tmp/pcr.dat /tmp/srk.pub /tmp/srk2.pub
 }
 
 trap at_exit EXIT
@@ -210,7 +223,8 @@ Format=ext4
 CopyFiles=/tmp/dditest:/
 Encrypt=tpm2
 EOF
-    PASSWORD=passphrase systemd-repart --tpm2-device-key=/tmp/srk.pub --definitions=/tmp/dditest --empty=create --size=80M /tmp/dditest.raw --tpm2-pcrs=
+    # Use --tpm2-public-key-pcrs= to suppress auto-loading of the system PCR public key
+    PASSWORD=passphrase systemd-repart --tpm2-device-key=/tmp/srk.pub --tpm2-public-key-pcrs= --definitions=/tmp/dditest --empty=create --size=80M /tmp/dditest.raw --tpm2-pcrs=
     DEVICE="$(systemd-dissect --attach /tmp/dditest.raw)"
     udevadm wait --settle --timeout=10 "$DEVICE"p1
     systemd-cryptsetup attach dditest "$DEVICE"p1 - tpm2-device=auto,headless=yes

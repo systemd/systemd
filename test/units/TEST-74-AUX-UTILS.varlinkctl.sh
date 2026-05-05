@@ -235,13 +235,17 @@ varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"pid": {"
 # test for AutomountContext/Runtime
 automount_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "automount" and .runtime.LoadState == "loaded") .context.ID' | grep -v null | tail -n 1)
 test -n "$automount_id"
-varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"name\": \"$automount_id\"}" | jq -e '.context.Automount'
-varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"name\": \"$automount_id\"}" | jq -e '.runtime.Automount'
+# Use jq to JSON-encode the unit name as it may contain backslash escapes (e.g. \x2d) that
+# are not valid JSON escape sequences and would be rejected by varlinkctl's JSON parser.
+automount_params=$(jq -cn --arg name "$automount_id" '{name: $name}')
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$automount_params" | jq -e '.context.Automount'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$automount_params" | jq -e '.runtime.Automount'
 # test for MountContext/Runtime
 mount_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "mount" and .runtime.LoadState == "loaded") .context.ID' | grep -v null | tail -n 1)
 test -n "$mount_id"
-varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"name\": \"$mount_id\"}" | jq -e '.context.Mount'
-varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"name\": \"$mount_id\"}" | jq -e '.runtime.Mount'
+mount_params=$(jq -cn --arg name "$mount_id" '{name: $name}')
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$mount_params" | jq -e '.context.Mount'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$mount_params" | jq -e '.runtime.Mount'
 
 # test io.systemd.Metrics
 varlinkctl info /run/systemd/report/io.systemd.Manager
