@@ -1248,6 +1248,33 @@ DuplicateAddressDetection=none</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>OVSBridge=</varname></term>
+        <listitem>
+          <para>The name of the OVS bridge to attach this interface to as a system port.
+          Mutually exclusive with <varname>BatmanAdvanced=</varname>, <varname>Bridge=</varname>,
+          <varname>Bond=</varname>, <varname>VRF=</varname>, and <varname>OVSBond=</varname>.</para>
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>OVSBond=</varname></term>
+        <listitem>
+          <para>Specifies the name of an OVS bond port (configured as a
+          <filename>.netdev</filename> with <varname>Kind=ovs-port</varname> and
+          <varname>Type=bond</varname>) to add this interface to as a bond member.
+          The matched interface is attached to the bond port in OVSDB as a system-type
+          interface. Multiple <filename>.network</filename> files can reference the
+          same bond to form multi-member bonds.</para>
+
+          <para>Mutually exclusive with <varname>BatmanAdvanced=</varname>,
+          <varname>Bridge=</varname>, <varname>Bond=</varname>,
+          <varname>VRF=</varname>, and <varname>OVSBridge=</varname>.</para>
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPoIB=</varname></term>
         <term><varname>IPVLAN=</varname></term>
         <term><varname>IPVTAP=</varname></term>
@@ -6583,6 +6610,88 @@ IPv6AcceptRA=no
         </listitem>
       </varlistentry>
 
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[OVSPort] Section Options</title>
+
+    <para>The [OVSPort] section configures per-link Open vSwitch port settings when the
+    interface is attached to an OVS bridge via <varname>OVSBridge=</varname>. These
+    settings apply to the standalone Port row created for this interface; they do
+    NOT apply to bond members attached via <varname>OVSBond=</varname> (those are
+    Interface rows inside the bond's Port and inherit the bond Port's VLAN settings):</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>PVID=</varname></term>
+        <term><varname>Tag=</varname></term>
+        <listitem>
+          <para>Primary VLAN ID (0…4094) for this port: the tag implicitly assumed for
+          untagged ingress frames and (depending on <varname>VLANMode=</varname>) the
+          tag stripped from egress frames. <varname>Tag=</varname> is the legacy
+          spelling, kept as an alias of <varname>PVID=</varname>.</para>
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>VLAN=</varname></term>
+        <term><varname>Trunks=</varname></term>
+        <listitem>
+          <para>The set of VLAN IDs the port is allowed to carry as a trunk. Two
+          equivalent spellings:</para>
+          <itemizedlist>
+            <listitem><para><varname>VLAN=</varname> mirrors the kernel-bridge
+            <varname>[BridgeVLAN] VLAN=</varname>: the key may be repeated, and each
+            value may be a single VID or a <literal>N-M</literal> range:
+<programlisting>VLAN=10
+VLAN=20-30</programlisting></para></listitem>
+            <listitem><para><varname>Trunks=</varname> is the legacy spelling and
+            takes a single comma-separated list with optional ranges:
+            <literal>Trunks=10,20-30,100</literal>. Deprecated alias of
+            <varname>VLAN=</varname>; both write into the same internal storage.
+            </para></listitem>
+          </itemizedlist>
+          <para>An empty value clears the previously-accumulated set.</para>
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>VLANMode=</varname></term>
+        <listitem>
+          <para>Selects the port's VLAN treatment, mirroring
+          <command>ovs-vsctl set Port &lt;name&gt; vlan_mode=</command>:</para>
+          <itemizedlist>
+            <listitem><para><literal>access</literal> — port belongs to a single VLAN
+            (<varname>PVID=</varname>). Untagged ingress is tagged with the PVID;
+            egress strips the tag; tagged ingress is dropped. <varname>VLAN=</varname>
+            ignored.</para></listitem>
+
+            <listitem><para><literal>trunk</literal> — port carries multiple VLANs
+            from <varname>VLAN=</varname>. Tagged frames pass as-is; untagged frames
+            are dropped on ingress. <varname>PVID=</varname> ignored.</para></listitem>
+
+            <listitem><para><literal>native-tagged</literal> — like
+            <literal>trunk</literal>, but untagged ingress is tagged with
+            <varname>PVID=</varname> (which must be in <varname>VLAN=</varname>).
+            Egress keeps tags.</para></listitem>
+
+            <listitem><para><literal>native-untagged</literal> — like
+            <literal>native-tagged</literal>, but egress frames whose VLAN equals
+            <varname>PVID=</varname> are sent untagged.</para></listitem>
+
+            <listitem><para><literal>dot1q-tunnel</literal> — QinQ: port pushes an
+            outer 802.1Q tag (<varname>PVID=</varname>) onto every ingress frame
+            and strips it on egress. Inner VLAN restrictions (cvlans) are not
+            currently exposed by this section.</para></listitem>
+          </itemizedlist>
+          <para>If unset, OVS infers the mode from which keys are populated:
+          PVID-only behaves as <literal>access</literal>; VLAN-only behaves as
+          <literal>trunk</literal>; both behave as <literal>native-tagged</literal>.
+          Setting it explicitly is preferred.</para>
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
