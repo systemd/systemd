@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "device-util.h"
+#include "errno-util.h"
 #include "string-util.h"
 #include "tpm2-util.h"
 #include "udev-builtin.h"
@@ -20,6 +21,10 @@ static int builtin_tpm2_id(UdevEvent *event, int argc, char *argv[]) {
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new(dn, &c);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                log_device_debug_errno(dev, r, "Full TPM2 support is not available, skipping identification of TPM2 device '%s'.", dn);
+                return 0;
+        }
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to open device node '%s': %m", dn);
 
