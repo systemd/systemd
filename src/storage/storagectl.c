@@ -65,13 +65,13 @@ static int help(void) {
 
         (void) table_sync_column_widths(0, verbs, options);
 
-        help_section("Commands:");
+        help_section("Commands");
 
         r = table_print_or_warn(verbs);
         if (r < 0)
                 return r;
 
-        help_section("Options:");
+        help_section("Options");
 
         r = table_print_or_warn(options);
         if (r < 0)

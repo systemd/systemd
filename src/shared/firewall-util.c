@@ -1026,7 +1026,7 @@ int fw_nftables_add_masquerade(
          * Note that this doesn't protect against external sabotage such as a
          * 'while true; nft flush ruleset; done'. There is nothing that could be done about that short
          * of extending the kernel to allow tables to be owned by stystemd-networkd and making them
-         * non-deleteable except by the 'owning process'. */
+         * non-deletable except by the 'owning process'. */
 
         r = fw_nftables_init_family(nfnl, af);
         if (r < 0)

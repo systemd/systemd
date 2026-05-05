@@ -33,7 +33,7 @@ static int help(void) {
 
         help_cmdline("verify [OPTIONS] [FILE...]");
         help_abstract("Verify udev rules files.");
-        help_section("Options:");
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;

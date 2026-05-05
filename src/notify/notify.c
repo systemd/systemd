@@ -69,7 +69,7 @@ static int help(void) {
         help_cmdline("[OPTIONS...] --fork -- CMDLINE...");
         help_abstract("Notify the service manager about service status updates.");
 
-        help_section("Options:");
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;

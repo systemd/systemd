@@ -819,7 +819,7 @@ static bool tpm2_supports_tpmt_sym_def(Tpm2Context *c, const TPMT_SYM_DEF *param
         assert(c);
         assert(parameters);
 
-        /* Unfortunately, TPMT_SYM_DEF and TPMT_SYM_DEF_OBEJECT are separately defined, even though they are
+        /* Unfortunately, TPMT_SYM_DEF and TPMT_SYM_DEF_OBJECT are separately defined, even though they are
          * functionally identical. */
         TPMT_SYM_DEF_OBJECT object = {
                 .algorithm = parameters->algorithm,
@@ -5804,6 +5804,7 @@ int tpm2_unseal(Tpm2Context *c,
         int r;
 
         assert(n_blobs > 0);
+        assert(blobs);
         assert(iovec_is_valid(pubkey));
         assert(ret_secret);
 
