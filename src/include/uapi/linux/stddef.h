@@ -15,7 +15,7 @@
 #endif
 
 /**
- * __struct_group() - Create a mirrored named and anonyomous struct
+ * __struct_group() - Create a mirrored named and anonymous struct
  *
  * @TAG: The tag name for the named sub-struct (usually empty)
  * @NAME: The identifier name of the mirrored sub-struct

@@ -2489,7 +2489,7 @@ int user_record_self_changes_allowed(UserRecord *current, UserRecord *incoming) 
          *    `selfModifiableFields` fields are unset in their record.
          * 2) This user crafts a request to add the following to their record:
          *    { "memberOf": ["wheel"], "selfModifiableFields": ["memberOf", "selfModifiableFields"] }
-         * 3) We remove the `mebmerOf` and `selfModifiabileFields` fields from `incoming`
+         * 3) We remove the `memberOf` and `selfModifiabileFields` fields from `incoming`
          * 4) `current` and `incoming` compare as equal, so we let the change happen
          * 5) the user has granted themselves administrator privileges
          */

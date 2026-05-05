@@ -2144,7 +2144,7 @@ static int bus_append_protect_hostname(sd_bus_message *m, const char *field, con
         int r;
 
         /* The command-line field is called "ProtectHostname". We also accept "ProtectHostnameEx" as the
-         * field name for backward compatibility. We set ProtectHostame or ProtectHostnameEx. */
+         * field name for backward compatibility. We set ProtectHostname or ProtectHostnameEx. */
 
         r = parse_boolean(eq);
         if (r >= 0)
