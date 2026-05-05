@@ -38,7 +38,7 @@ static int help(void) {
 
         help_cmdline("[OPTIONS...] SYSFS_PATH");
         help_abstract("Identify FIDO security tokens.");
-        help_section("Options:");
+        help_section("Options");
 
         return table_print_or_warn(options);
 }

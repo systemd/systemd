@@ -47,7 +47,7 @@ void help_abstract(const char *text) {
 void help_section(const char *title) {
         assert(title);
 
-        printf("\n%s%s%s\n",
+        printf("\n%s%s:%s\n",
                ansi_underline(),
                title,
                ansi_normal());

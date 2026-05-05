@@ -45,7 +45,7 @@ static int help(void) {
         help_cmdline("lock [OPTIONS...] COMMAND");
         help_cmdline("lock [OPTIONS...] --print");
         help_abstract("Lock a block device and run a command.");
-        help_section("Options:");
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
