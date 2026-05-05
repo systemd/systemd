@@ -38,14 +38,14 @@ systemd-run --unit="$UNIT_NAME_2" --wait bash -c 'echo hello-from-varlink-test-2
 journalctl --sync
 
 # single unit filter
-varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries "{\"units\": [\"$UNIT_NAME_1\"]}" | grep -q "hello-from-varlink-test-1"
+varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries "{\"units\": [\"$UNIT_NAME_1\"]}" | grep "hello-from-varlink-test-1" >/dev/null
 (! varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries "{\"units\": [\"$UNIT_NAME_1\"]}" | grep "hello-from-varlink-test-2")
 # multi unit filter
-varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries "{\"units\": [\"$UNIT_NAME_1\", \"$UNIT_NAME_2\"]}" | grep -q "hello-from-varlink-test-1"
-varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries "{\"units\": [\"$UNIT_NAME_1\", \"$UNIT_NAME_2\"]}" | grep -q "hello-from-varlink-test-2"
+varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries "{\"units\": [\"$UNIT_NAME_1\", \"$UNIT_NAME_2\"]}" | grep "hello-from-varlink-test-1" >/dev/null
+varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries "{\"units\": [\"$UNIT_NAME_1\", \"$UNIT_NAME_2\"]}" | grep "hello-from-varlink-test-2" >/dev/null
 
 # check priority filter: priority 4 (warning) should include our warning message
-varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries '{"priority": 4, "limit": 1000}' | grep -q "varlink-test-warning"
+varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries '{"priority": 4, "limit": 1000}' | grep "varlink-test-warning" >/dev/null
 # check priority filter: priority 3 (error) should NOT include our warning (priority 4)
 (! varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries '{"priority": 3, "limit": 1000}' | grep "varlink-test-warning")
 
