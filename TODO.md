@@ -132,6 +132,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   systems for SBC. Should be doing what sysinstall does with the credentials,
   and maybe even *be* sysinstall.
 
+- make sure we always pass O_NOFOLLOW on O_CREAT
+
+- xopenat(): maybe imply O_NOFOLLOW on O_CREAT
+
 - StorageProvider interface + storagectl
   - hook-up in systemd-nspawn
   - hook-up in systemd-vmspawn
