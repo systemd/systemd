@@ -402,6 +402,23 @@ int unit_deserialize_state_skip(FILE *f) {
                 /* End marker */
                 if (isempty(line))
                         return 1;
+
+                /* A unit's serialized state may embed one or more "job" subsections (for u->job and
+                 * u->nop_job), each itself terminated by an empty line. We must consume those nested
+                 * sections fully, otherwise we'd stop at the job's end marker and treat the rest of the
+                 * unit's fields as a new top-level entry. */
+                if (streq(line, "job"))
+                        for (;;) {
+                                _cleanup_free_ char *job_line = NULL;
+
+                                r = read_stripped_line(f, LONG_LINE_MAX, &job_line);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to read serialization line: %m");
+                                if (r == 0)
+                                        return 0;
+                                if (isempty(job_line))
+                                        break;
+                        }
         }
 }
 
