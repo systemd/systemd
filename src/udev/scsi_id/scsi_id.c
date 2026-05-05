@@ -216,7 +216,7 @@ static int help(void) {
 
         help_cmdline("[OPTION...] DEVICE");
         help_abstract("SCSI device identification.");
-        help_section("Options:");
+        help_section("Options");
 
         return table_print_or_warn(options);
 }

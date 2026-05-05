@@ -113,7 +113,7 @@ static int systemctl_help(void) {
         help_cmdline("[OPTIONS...] COMMAND ...");
         help_abstract("Query or send control commands to the system manager.");
 
-        help_section("Unit Commands:");
+        help_section("Unit Commands");
         printf("  list-units [PATTERN...]             List units currently in memory\n"
                "  list-automounts [PATTERN...]        List automount units currently in memory,\n"
                "                                      ordered by path\n"
@@ -162,7 +162,7 @@ static int systemctl_help(void) {
                "  whoami [PID...]                     Return unit caller or specified PIDs are\n"
                "                                      part of\n");
 
-        help_section("Unit File Commands:");
+        help_section("Unit File Commands");
         printf("  list-unit-files [PATTERN...]        List installed unit files\n"
                "  enable [UNIT...|PATH...]            Enable one or more unit files\n"
                "  disable UNIT...                     Disable one or more unit files\n"
@@ -186,27 +186,27 @@ static int systemctl_help(void) {
                "  get-default                         Get the name of the default target\n"
                "  set-default TARGET                  Set the default target\n");
 
-        help_section("Machine Commands:");
+        help_section("Machine Commands");
         printf("  list-machines [PATTERN...]          List local containers and host\n");
 
-        help_section("Job Commands:");
+        help_section("Job Commands");
         printf("  list-jobs [PATTERN...]              List jobs\n"
                "  cancel [JOB...]                     Cancel all, one, or more jobs\n");
 
-        help_section("Environment Commands:");
+        help_section("Environment Commands");
         printf("  show-environment                    Dump environment\n"
                "  set-environment VARIABLE=VALUE...   Set one or more environment variables\n"
                "  unset-environment VARIABLE...       Unset one or more environment variables\n"
                "  import-environment VARIABLE...      Import all or some environment variables\n");
 
-        help_section("Manager State Commands:");
+        help_section("Manager State Commands");
         printf("  daemon-reload                       Reload systemd manager configuration\n"
                "  daemon-reexec                       Reexecute systemd manager\n"
                "  log-level [LEVEL]                   Get/set logging threshold for manager\n"
                "  log-target [TARGET]                 Get/set logging target for manager\n"
                "  service-watchdogs [BOOL]            Get/set service watchdog state\n");
 
-        help_section("System Commands:");
+        help_section("System Commands");
         printf("  is-system-running                   Check whether system is fully running\n"
                "  default                             Enter system default mode\n"
                "  rescue                              Enter system rescue mode\n"
@@ -226,7 +226,7 @@ static int systemctl_help(void) {
                "  suspend-then-hibernate              Suspend the system, wake after a period of\n"
                "                                      time, and hibernate\n");
 
-        help_section("Options:");
+        help_section("Options");
         printf("  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "     --system            Connect to system manager\n"

@@ -27,7 +27,7 @@ static int help(void) {
         help_cmdline("[OPTIONS...]");
         help_abstract("Report whether we are connected to an external power source.");
 
-        help_section("Options:");
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
