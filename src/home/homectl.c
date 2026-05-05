@@ -2697,7 +2697,7 @@ static int acquire_group_list(char ***ret) {
         return !!*ret;
 }
 
-static int group_completion_callback(const char *key, char ***ret_list, void *userdata) {
+static int group_completion_callback(const char *key, GetCompletionsFlags flags, char ***ret_list, void *userdata) {
         char ***available = userdata;
         int r;
 
@@ -2711,9 +2711,11 @@ static int group_completion_callback(const char *key, char ***ret_list, void *us
         if (!l)
                 return -ENOMEM;
 
-        r = strv_extend(&l, "list");
-        if (r < 0)
-                return r;
+        if (!FLAGS_SET(flags, GET_COMPLETIONS_PRESELECT)) {
+                r = strv_extend(&l, "list");
+                if (r < 0)
+                        return r;
+        }
 
         *ret_list = TAKE_PTR(l);
         return 0;
@@ -2745,10 +2747,13 @@ static int prompt_groups(const char *username, char ***ret_groups) {
                 }
 
                 _cleanup_free_ char *s = NULL;
-                r = ask_string_full(&s,
-                               group_completion_callback, &available,
-                               "%s Please enter an auxiliary group for user %s (empty to continue, \"list\" to list available groups): ",
-                               glyph(GLYPH_LABEL), username);
+                r = ask_string_full(
+                                &s,
+                                group_completion_callback,
+                                &available,
+                                "%s Please enter an auxiliary group for user %s (empty to continue, \"list\" to list available groups): ",
+                                glyph(GLYPH_LABEL),
+                                username);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user for auxiliary group: %m");
 
