@@ -941,7 +941,13 @@ EOF
     sed -i "/${mpoint##*/}/d" /etc/fstab
     : >/etc/crypttab
     rm -fr "$mpoint"
+    rm -f /etc/btrfs_keyfile
     systemctl daemon-reload
+    # Wipe LUKS headers from the underlying devices, so that if the VM is rebooted the disks don't retain
+    # stale LUKS signatures that would interfere with a re-run of the test.
+    for ((i = 0; i < ${#devices[@]}; i++)); do
+        udevadm lock --timeout=30 --device="${devices[$i]}" wipefs -a "${devices[$i]}"
+    done
     udevadm settle --timeout=30
 }
 
