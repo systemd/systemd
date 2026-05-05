@@ -1256,7 +1256,7 @@ enum bpf_perf_event_type {
 
 /* If BPF_F_ANY_ALIGNMENT is used in BPF_PROG_LOAD command, the
  * verifier will allow any alignment whatsoever.  On platforms
- * with strict alignment requirements for loads ands stores (such
+ * with strict alignment requirements for loads and stores (such
  * as sparc and mips) the verifier validates that all loads and
  * stores provably follow this requirement.  This flag turns that
  * checking and enforcement off.
@@ -6414,7 +6414,7 @@ struct bpf_xfrm_state {
  * provide backwards compatibility with existing SCHED_CLS and SCHED_ACT
  * programs.
  *
- * XDP is handled seprately, see XDP_*.
+ * XDP is handled separately, see XDP_*.
  */
 enum bpf_ret_code {
 	BPF_OK = 0,
