@@ -28,6 +28,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
+#include "time-util.h"
 #include "user-util.h"
 
 static void inhibitor_remove_fifo(Inhibitor *i);
@@ -178,6 +179,9 @@ int inhibitor_start(Inhibitor *i) {
 }
 
 void inhibitor_stop(Inhibitor *i) {
+        Manager *m = i->manager;
+        int r;
+
         assert(i);
 
         if (i->started)
@@ -194,6 +198,15 @@ void inhibitor_stop(Inhibitor *i) {
         i->started = false;
 
         bus_manager_send_inhibited_change(i);
+
+        /* Inhibitor removal may change the idle hint, so trigger immediate recalculation of idle action */
+        if (m->idle_action_event_source) {
+                r = sd_event_source_set_time(m->idle_action_event_source, now(CLOCK_MONOTONIC));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reset idle action timer after inhibitor removal: %m");
+                else
+                        log_debug("Reset idle action timer after inhibitor removal for immediate recalculation.");
+        }
 }
 
 int inhibitor_load(Inhibitor *i) {
@@ -285,6 +298,9 @@ static int inhibitor_dispatch_fifo(sd_event_source *s, int fd, uint32_t revents,
         assert(s);
         assert(fd == i->fifo_fd);
 
+        log_debug("Inhibitor %s pid=" PID_FMT " fifo=%s revents=0x%x: FIFO hangup/EOF received, stopping inhibitor.",
+                  strna(i->why), i->pid.pid, strna(i->fifo_path), revents);
+
         inhibitor_stop(i);
         inhibitor_free(i);
 
@@ -318,7 +334,11 @@ int inhibitor_create_fifo(Inhibitor *i) {
         }
 
         if (!i->event_source) {
-                r = sd_event_add_io(i->manager->event, &i->event_source, i->fifo_fd, 0, inhibitor_dispatch_fifo, i);
+                /* Watch the FIFO for hangup/EOF from the inhibitor client. */
+                log_debug("Inhibitor %s pid=" PID_FMT " fifo=%s: registering FIFO watch.",
+                          strna(i->why), i->pid.pid, strna(i->fifo_path));
+
+                r = sd_event_add_io(i->manager->event, &i->event_source, i->fifo_fd, EPOLLIN|EPOLLHUP, inhibitor_dispatch_fifo, i);
                 if (r < 0)
                         return r;
 
