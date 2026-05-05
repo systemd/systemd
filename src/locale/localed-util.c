@@ -412,7 +412,7 @@ static bool locale_encoding_is_utf8_or_unspecified(const char *locale) {
 }
 
 static int locale_gen_locale_supported(const char *locale_entry) {
-        /* Returns an error valus <= 0 if the locale-gen entry is invalid or unsupported,
+        /* Returns an error value <= 0 if the locale-gen entry is invalid or unsupported,
          * 1 in case the locale entry is valid, and -EOPNOTSUPP specifically in case
          * the distributor has not provided us with a SUPPORTED file to check
          * locale for validity. */

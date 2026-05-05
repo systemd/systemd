@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
-# Persistent timers (i.e. timers with Persitent=yes) save their last trigger timestamp to a persistent
+# Persistent timers (i.e. timers with Persistent=yes) save their last trigger timestamp to a persistent
 # storage (a stamp file), which is loaded during subsequent boots. As mentioned in the man page, such timers
 # should be still affected by RandomizedDelaySec= during boot even if they already elapsed and would be then
 # triggered immediately.

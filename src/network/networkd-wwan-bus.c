@@ -1182,7 +1182,7 @@ int manager_match_mm_signals(Manager *manager) {
                         /* install_callback= */ NULL,
                         manager);
         if (r < 0)
-                return log_error_errno(r, "Failed to request signal for IntefaceAdded");
+                return log_error_errno(r, "Failed to request signal for InterfaceAdded");
 
         r = sd_bus_match_signal_async(
                         manager->bus,
@@ -1195,7 +1195,7 @@ int manager_match_mm_signals(Manager *manager) {
                         /* install_callback= */ NULL,
                         manager);
         if (r < 0)
-                return log_error_errno(r, "Failed to request signal for IntefaceRemoved");
+                return log_error_errno(r, "Failed to request signal for InterfaceRemoved");
 
         /* N.B. We need "path_namespace" for bearers, not "path", */
         r = sd_bus_add_match_async(

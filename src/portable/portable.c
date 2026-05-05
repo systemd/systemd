@@ -2431,7 +2431,7 @@ int portable_detach(
                         portable_changes_add_with_prefix(changes, n_changes, PORTABLE_UNLINK, where, md, NULL);
         }
 
-        /* Now, also drop any image symlink or copy, for images outside of the sarch path */
+        /* Now, also drop any image symlink or copy, for images outside of the search path */
         SET_FOREACH(item, markers) {
                 _cleanup_free_ char *target = NULL;
 
