@@ -28,6 +28,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "login-util.h"
 #include "logind.h"
 #include "logind-dbus.h"
@@ -830,16 +831,15 @@ finish:
 
 static int session_dispatch_stop_on_idle(sd_event_source *source, uint64_t t, void *userdata) {
         Session *s = userdata;
-        dual_timestamp ts;
-        int r, idle;
+        dual_timestamp ts = DUAL_TIMESTAMP_NULL;
+        int r;
 
         assert(s);
 
         if (s->stopping)
                 return 0;
 
-        idle = session_get_idle_hint(s, &ts);
-        if (idle) {
+        if (session_get_idle_hint(s, &ts)) {
                 log_info("Session \"%s\" of user \"%s\" is idle, stopping.", s->id, s->user->user_record->user_name);
 
                 return session_stop(s, /* force= */ true);
@@ -1153,7 +1153,7 @@ static int get_process_ctty_atime(pid_t pid, usec_t *atime) {
         return get_tty_atime(p, atime);
 }
 
-int session_get_idle_hint(Session *s, dual_timestamp *t) {
+bool session_get_idle_hint(Session *s, dual_timestamp *t) {
         usec_t atime = 0, dtime = 0;
         int r;
 
@@ -1164,10 +1164,11 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
 
         /* Graphical sessions have an explicit idle hint */
         if (SESSION_TYPE_IS_GRAPHICAL(s->type)) {
+                if (!s->idle_hint)
+                        return false;
                 if (t)
                         *t = s->idle_hint_timestamp;
-
-                return s->idle_hint;
+                return true;
         }
 
         if (s->type == SESSION_TTY) {
@@ -1187,15 +1188,9 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
                 }
         }
 
-        if (t)
-                *t = DUAL_TIMESTAMP_NULL;
-
         return false;
 
 found_atime:
-        if (t)
-                dual_timestamp_from_realtime(t, atime);
-
         if (s->manager->idle_action_usec > 0 && s->manager->stop_idle_session_usec != USEC_INFINITY)
                 dtime = MIN(s->manager->idle_action_usec, s->manager->stop_idle_session_usec);
         else if (s->manager->idle_action_usec > 0)
@@ -1205,7 +1200,12 @@ found_atime:
         else
                 return false;
 
-        return usec_add(atime, dtime) <= now(CLOCK_REALTIME);
+        if (usec_add(atime, dtime) > now(CLOCK_REALTIME))
+                return false;
+
+        if (t)
+                dual_timestamp_from_realtime(t, atime);
+        return true;
 }
 
 int session_set_idle_hint(Session *s, bool b) {
@@ -1678,6 +1678,49 @@ bool session_is_self(const char *name) {
 
 bool session_is_auto(const char *name) {
         return streq_ptr(name, "auto");
+}
+
+int session_build_json(Session *s, sd_json_variant **ret) {
+        assert(s);
+        assert(s->user);
+        assert(ret);
+
+        dual_timestamp idle_ts;
+        bool idle = session_get_idle_hint(s, &idle_ts);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_OBJECT("context",
+                                SD_JSON_BUILD_PAIR_STRING("ID", s->id),
+                                SD_JSON_BUILD_PAIR("User",
+                                                   SD_JSON_BUILD_OBJECT(
+                                                                   SD_JSON_BUILD_PAIR_UNSIGNED("UID", s->user->user_record->uid),
+                                                                   SD_JSON_BUILD_PAIR_STRING("Name", s->user->user_record->user_name))),
+                                JSON_BUILD_PAIR_ENUM("Type", session_type_to_string(s->type)),
+                                JSON_BUILD_PAIR_ENUM("Class", session_class_to_string(s->class)),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Service", s->service),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Desktop", s->desktop),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Seat", s->seat ? s->seat->id : NULL),
+                                JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE("VTNr", s->vtnr),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("TTY", s->tty),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Display", s->display),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("Remote", s->remote),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteHost", s->remote_host),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteUser", s->remote_user),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("ExtraDeviceAccess", s->extra_device_access)),
+                        SD_JSON_BUILD_PAIR_OBJECT("runtime",
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Scope", s->scope),
+                                JSON_BUILD_PAIR_PIDREF_NON_NULL("Leader", &s->leader),
+                                SD_JSON_BUILD_PAIR_CONDITION(audit_session_is_valid(s->audit_id),
+                                                             "Audit", SD_JSON_BUILD_UNSIGNED(s->audit_id)),
+                                JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("Timestamp", &s->timestamp),
+                                JSON_BUILD_PAIR_ENUM("State", session_state_to_string(session_get_state(s))),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("Active", session_is_active(s)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("IdleHint", idle),
+                                SD_JSON_BUILD_PAIR_CONDITION(idle, "IdleSinceHint", JSON_BUILD_DUAL_TIMESTAMP(&idle_ts)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("CanIdle", SESSION_CLASS_CAN_IDLE(s->class)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("CanLock", SESSION_CLASS_CAN_LOCK(s->class)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("LockedHint", s->locked_hint)));
 }
 
 static const char* const session_state_table[_SESSION_STATE_MAX] = {
