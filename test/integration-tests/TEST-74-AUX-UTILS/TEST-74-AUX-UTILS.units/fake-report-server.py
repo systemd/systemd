@@ -35,8 +35,8 @@ class Handler(BaseHTTPRequestHandler):
 
         print(f"JSON: {s if len(s := str(data)) < 80 else s[:40] + '…' + s[-40:]}")
 
-        if "metrics" not in data and "facts" not in data:
-            self.send_error(400, "Missing 'metrics' or 'facts' field")
+        if "metrics" not in data:
+            self.send_error(400, "Missing 'metrics' field")
             return
 
         response = json.dumps({"status": "ok"}).encode()
