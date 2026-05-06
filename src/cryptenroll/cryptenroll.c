@@ -49,6 +49,7 @@ static char *arg_tpm2_device_key = NULL;
 static Tpm2PCRValue *arg_tpm2_hash_pcr_values = NULL;
 static size_t arg_tpm2_n_hash_pcr_values = 0;
 static bool arg_tpm2_pin = false;
+static bool arg_tpm2_fido2 = false;
 static char *arg_tpm2_public_key = NULL;
 static bool arg_tpm2_load_public_key = true;
 static uint32_t arg_tpm2_public_key_pcr_mask = 0;
@@ -272,6 +273,7 @@ static int help(void) {
 
 static int parse_argv(int argc, char *argv[]) {
         bool auto_public_key_pcr_mask = true, auto_pcrlock = true;
+        bool multiple_unlock_method = false, multiple_enroll_method = false;
 
         assert(argc >= 0);
         assert(argv);
@@ -324,9 +326,11 @@ static int parse_argv(int argc, char *argv[]) {
                             "Use a FIDO2 device to unlock the volume"): {
                         _cleanup_free_ char *device = NULL;
 
-                        if (arg_unlock_type != UNLOCK_PASSWORD)
+                        if (arg_unlock_type != UNLOCK_PASSWORD && arg_unlock_type != UNLOCK_TPM2)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Multiple unlock methods specified at once, refusing.");
+                        else if (arg_unlock_type == UNLOCK_TPM2)
+                                multiple_unlock_method = true;
 
                         assert(!arg_unlock_fido2_device);
 
@@ -345,9 +349,11 @@ static int parse_argv(int argc, char *argv[]) {
                             "Use a TPM2 device to unlock the volume"): {
                         _cleanup_free_ char *device = NULL;
 
-                        if (arg_unlock_type != UNLOCK_PASSWORD)
+                        if (arg_unlock_type != UNLOCK_PASSWORD && arg_unlock_type != UNLOCK_FIDO2)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Multiple unlock methods specified at once, refusing.");
+                        else if (arg_unlock_type == UNLOCK_FIDO2)
+                                multiple_unlock_method = true;
 
                         assert(!arg_unlock_tpm2_device);
 
@@ -422,9 +428,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(opts.arg, "list"))
                                 return fido2_list_devices();
 
-                        if (arg_enroll_type >= 0 || arg_fido2_device)
+                        if ((arg_enroll_type >= 0 && arg_enroll_type != ENROLL_TPM2) || arg_fido2_device)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Multiple operations specified at once, refusing.");
+                        else if (arg_enroll_type == ENROLL_TPM2)
+                                multiple_enroll_method = true;
 
                         if (!streq(opts.arg, "auto")) {
                                 device = strdup(opts.arg);
@@ -491,9 +499,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(opts.arg, "list"))
                                 return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
-                        if (arg_enroll_type >= 0 || arg_tpm2_device)
+                        if ((arg_enroll_type >= 0 && arg_enroll_type != ENROLL_FIDO2) || arg_tpm2_device)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Multiple operations specified at once, refusing.");
+                        else if (arg_enroll_type == ENROLL_FIDO2)
+                                multiple_enroll_method = true;
 
                         if (!streq(opts.arg, "auto")) {
                                 device = strdup(opts.arg);
@@ -577,6 +587,13 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_LONG("tpm2-with-fido2", "BOOL",
+                            "Whether to require a FIDO2 key to unlock the volume"):
+                        r = parse_boolean_argument("--tpm2-with-fido2=", optarg, &arg_tpm2_fido2);
+                        if (r < 0)
+                                return r;
+                        break;
                 }
 
         if (option_parser_get_n_args(&opts) > 1)
@@ -593,8 +610,25 @@ static int parse_argv(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (arg_enroll_type == ENROLL_FIDO2) {
+        if (multiple_unlock_method) {
+                log_info("Multiple unlock methods specified at once (TPM2 and FIDO2), assuming TPM2+FIDO2.");
+                arg_unlock_type= UNLOCK_TPM2;
+        }
+
+        if (multiple_enroll_method) {
+                if (arg_tpm2_fido2)
+                        arg_enroll_type = ENROLL_TPM2;
+                else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Multiple operations specified at once, refusing.");
+        }
+
+        if (arg_enroll_type == ENROLL_FIDO2 || (arg_enroll_type == ENROLL_TPM2 && arg_tpm2_fido2)) {
                 if (arg_unlock_type == UNLOCK_FIDO2 && !(arg_fido2_device && arg_unlock_fido2_device))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "When both enrolling and unlocking with FIDO2 tokens, automatic discovery is unsupported. "
+                                               "Please specify device paths for enrolling and unlocking respectively.");
+                if (arg_unlock_type == UNLOCK_TPM2 && !(arg_fido2_device && arg_unlock_fido2_device))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "When both enrolling and unlocking with FIDO2 tokens, automatic discovery is unsupported. "
                                                "Please specify device paths for enrolling and unlocking respectively.");
@@ -753,7 +787,7 @@ static int prepare_luks(
                 break;
 
         case UNLOCK_TPM2:
-                r = load_volume_key_tpm2(cd, arg_node, arg_unlock_tpm2_device, vk.iov_base, &vk.iov_len);
+                r = load_volume_key_tpm2(cd, arg_node, arg_unlock_tpm2_device, arg_unlock_fido2_device, vk.iov_base, &vk.iov_len);
                 break;
 
         default:
@@ -813,7 +847,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, &vk, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
+                slot = enroll_tpm2(cd, &vk, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, arg_tpm2_fido2, arg_fido2_device, arg_fido2_lock_with, arg_fido2_cred_alg, arg_fido2_salt_file, &slot_to_wipe);
 
                 if (slot >= 0 && slot_to_wipe >= 0) {
                         assert(slot != slot_to_wipe);
