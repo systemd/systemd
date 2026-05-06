@@ -1819,6 +1819,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_free_ void *discovered_key = NULL;
         struct iovec discovered_key_data = {};
+        Pkcs11RsaPadding rsa_padding = PKCS11_RSA_PADDING_PKCS1V15;
         int keyslot = arg_key_slot, r;
         const char *uri = NULL;
         bool use_libcryptsetup_plugin = use_token_plugins();
@@ -1829,7 +1830,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
 
         if (arg_pkcs11_uri_auto) {
                 if (!use_libcryptsetup_plugin) {
-                        r = find_pkcs11_auto_data(cd, &discovered_uri, &discovered_key, &discovered_key_size, &keyslot);
+                        r = find_pkcs11_auto_data(cd, &discovered_uri, &discovered_key, &discovered_key_size, &rsa_padding, &keyslot);
                         if (IN_SET(r, -ENOTUNIQ, -ENXIO))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                        "Automatic PKCS#11 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
@@ -1865,6 +1866,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                                         name,
                                         friendly,
                                         uri,
+                                        rsa_padding,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data,
                                         until,
