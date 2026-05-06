@@ -29,6 +29,8 @@ typedef enum JsonStreamFlags {
         JSON_STREAM_PREFER_READ             = 1u << 8,
         JSON_STREAM_PREFER_WRITE            = 1u << 9,
         JSON_STREAM_OUTPUT_BUFFER_SENSITIVE = 1u << 10,
+        JSON_STREAM_DELIMITERLESS           = 1u << 11, /* brace-framed streaming, no inter-message delimiter (OVSDB, JSON-RPC 1.0).
+                                                        * Mutually exclusive with BOUNDED_READS. */
 } JsonStreamFlags;
 
 /* What the consumer's high-level state machine is currently doing — used by the various
@@ -268,3 +270,9 @@ usec_t json_stream_get_timeout(const JsonStream *s);
 int json_stream_attach_event(JsonStream *s, sd_event *event, int64_t priority);
 void json_stream_detach_event(JsonStream *s);
 sd_event* json_stream_get_event(const JsonStream *s);
+
+/* Implementation detail of delimiterless framing — exposed only for direct unit testing
+ * by test-json-stream-delimiterless. Not part of the JsonStream consumer API.
+ * Returns 1 with *ret_consumed = byte count on a complete top-level JSON value,
+ * 0 with *ret_consumed = 0 on incomplete input, -EBADMSG on malformed leading byte. */
+int json_stream_find_message_end(const char *buf, size_t size, size_t *ret_consumed);
