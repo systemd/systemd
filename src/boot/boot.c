@@ -135,9 +135,17 @@ typedef struct BootEntry {
         unsigned profile;
 } BootEntry;
 
+/* contiguous section of >=3 entries sharing the same sort-key (only newest (& default) entry visible by default)*/
+typedef struct EntryGroup {
+        size_t start; /* Inclusive start index in config->entries[] */
+        size_t end;   /* Exclusive end index in config->entries[] */
+} EntryGroup;
+
 typedef struct {
         BootEntry **entries;
         size_t n_entries;
+        EntryGroup *groups; /* List of groups found for the entry list */
+        size_t n_groups;
         size_t idx_default;
         size_t idx_default_efivar;
         uint64_t timeout_sec; /* Actual timeout used (efi_main() override > smbios > efivar > config). */
@@ -489,6 +497,267 @@ static EFI_STATUS call_reboot_into_firmware(const BootEntry *entry, EFI_FILE *ro
         return call_reboot_system(entry, root_dir, parent_image);
 }
 
+typedef enum MenuItemKind {
+        MENU_ITEM_ENTRY, /* actual boot entry */
+        MENU_ITEM_GROUP_TOGGLE, /* entry to expand/collaps a group */
+} MenuItemKind;
+
+/* A transient visible menu row built for the current menu mode. */
+typedef struct MenuItem {
+        size_t index; /* Entry index for MENU_ITEM_ENTRY, group index for MENU_ITEM_GROUP_TOGGLE. */
+        MenuItemKind kind;
+        const char16_t *pipe; /* optional connector symbol */
+} MenuItem;
+
+static MenuItem *menu_item_append(
+                MenuItem **items,
+                size_t *n_items,
+                size_t index,
+                MenuItemKind kind,
+                const char16_t *pipe) {
+        assert(items);
+        assert(n_items);
+        assert(pipe);
+
+        if ((*n_items & 15) == 0)
+                *items = xrealloc(*items, sizeof(MenuItem) * *n_items, sizeof(MenuItem) * (*n_items + 16));
+
+        (*items)[(*n_items)++] = (MenuItem) {
+                .index = index,
+                .kind = kind,
+                .pipe = pipe,
+        };
+
+        return *items;
+}
+
+static size_t menu_default_index(const Config *config) {
+        assert(config);
+
+        if (config->idx_default_efivar < config->n_entries)
+                return config->idx_default_efivar;
+
+        return config->idx_default;
+}
+
+static void menu_item_append_plain(MenuItem **items, size_t *n_items, size_t entry_index) {
+        menu_item_append(
+                        items,
+                        n_items,
+                        entry_index,
+                        /* kind= */ MENU_ITEM_ENTRY,
+                        /* pipe= */ u"");
+}
+
+static void menu_items_append_group(
+                const Config *config,
+                size_t group_index,
+                const EntryGroup *group,
+                size_t expanded_group_idx,
+                MenuItem **items,
+                size_t *n_items) {
+        const char16_t *pipe_start, *pipe_middle, *pipe_end;
+        size_t default_idx;
+        size_t visible_default_idx = IDX_INVALID, last_visible_member = IDX_INVALID;
+        bool expanded;
+
+        assert(config);
+        assert(group);
+        assert(items);
+        assert(n_items);
+
+        expanded = group_index == expanded_group_idx;
+        pipe_start = unicode_supported() ? u"┌" : u"+";
+        pipe_middle = unicode_supported() ? u"│" : u"|";
+        pipe_end = unicode_supported() ? u"└" : u"`";
+
+        /* Collapsed groups only show the newest entry, plus the currently effective default/preferred
+         * entry if it belongs to the group and differs from the newest one. */
+        default_idx = menu_default_index(config);
+        if (default_idx < config->n_entries && default_idx != group->start)
+                for (size_t j = group->start; j < group->end; j++)
+                        if (j == default_idx) {
+                                visible_default_idx = j;
+                                break;
+                        }
+
+        for (size_t j = group->start + 1; j < group->end; j++)
+                if (j != visible_default_idx)
+                        last_visible_member = j;
+
+        menu_item_append_plain(items, n_items, group->start);
+        if (visible_default_idx != IDX_INVALID)
+                menu_item_append_plain(items, n_items, visible_default_idx);
+
+        menu_item_append(
+                        items,
+                        n_items,
+                        group_index,
+                        /* kind= */ MENU_ITEM_GROUP_TOGGLE,
+                        expanded ? pipe_start : u"");
+
+        if (expanded)
+                for (size_t j = group->start + 1; j < group->end; j++) {
+                        if (j == visible_default_idx)
+                                continue;
+
+                        menu_item_append(
+                                        items,
+                                        n_items,
+                                        j,
+                                        /* kind= */ MENU_ITEM_ENTRY,
+                                        j == last_visible_member ? pipe_end : pipe_middle);
+                }
+}
+
+static void menu_items_build(const Config *config, size_t expanded_group_idx, MenuItem **ret_items, size_t *ret_n_items) {
+        MenuItem *items = NULL;
+        size_t n_items = 0;
+        size_t group_idx = 0;
+
+        assert(config);
+        assert(ret_items);
+        assert(ret_n_items);
+
+        for (size_t i = 0; i < config->n_entries; i++) {
+                const EntryGroup *group = NULL;
+
+                /* config->groups[] is sorted by .start and contains non-overlapping runs, so we can walk it in
+                 * lockstep with config->entries[] while building visible menu rows. */
+                if (group_idx < config->n_groups && config->groups[group_idx].start == i)
+                        group = &config->groups[group_idx];
+
+                if (!group) {
+                        menu_item_append_plain(&items, &n_items, i);
+                        continue;
+                }
+
+                menu_items_append_group(config, group_idx, group, expanded_group_idx, &items, &n_items);
+                i = group->end - 1;
+                group_idx++;
+        }
+
+        *ret_items = items;
+        *ret_n_items = n_items;
+}
+
+static size_t menu_index_for_item(const MenuItem *items, size_t n_items, MenuItemKind kind, size_t index) {
+        assert(items || n_items == 0);
+
+        for (size_t i = 0; i < n_items; i++)
+                if (items[i].kind == kind && items[i].index == index)
+                        return i;
+
+        return IDX_INVALID;
+}
+
+static char16_t menu_item_key(const Config *config, const MenuItem *item) {
+        assert(config);
+        assert(item);
+
+        if (item->kind != MENU_ITEM_ENTRY)
+                return 0;
+
+        return config->entries[item->index]->key;
+}
+
+static const char16_t *menu_item_title(const Config *config, const MenuItem *item, size_t expanded_group_idx) {
+        assert(config);
+        assert(item);
+
+        if (item->kind == MENU_ITEM_ENTRY)
+                return config->entries[item->index]->title_show;
+
+        return item->index == expanded_group_idx ? u"Show Less..." : u"Show More...";
+}
+
+static size_t menu_default_highlight(const Config *config, const MenuItem *items, size_t n_items) {
+        size_t default_idx;
+        size_t i;
+
+        assert(config);
+        assert(items || n_items == 0);
+
+        default_idx = menu_default_index(config);
+        if (default_idx >= config->n_entries)
+                return IDX_INVALID;
+
+        i = menu_index_for_item(items, n_items, MENU_ITEM_ENTRY, default_idx);
+        assert(i != IDX_INVALID);
+        return i;
+}
+
+static bool menu_highlighted_entry_index(const MenuItem *items, size_t idx_highlight, size_t *ret_idx) {
+        assert(items);
+        assert(ret_idx);
+
+        if (items[idx_highlight].kind != MENU_ITEM_ENTRY)
+                return false;
+
+        *ret_idx = items[idx_highlight].index;
+        return true;
+}
+
+typedef struct MenuLayout {
+        size_t x;
+        size_t line_width;
+        size_t pipe_width;
+        size_t marker_width;
+        size_t marker_gap;
+} MenuLayout;
+
+/* print a single row in the boot menu */
+static void menu_print_item(
+                const Config *config,
+                const MenuLayout *layout,
+                const MenuItem *item,
+                size_t expanded_group_idx,
+                size_t item_index,
+                size_t default_highlight,
+                size_t y,
+                size_t attr,
+                const char16_t *blankline,
+                const char16_t *pipe) {
+        const char16_t *title;
+        size_t content_width, width, padding, print_width;
+        bool odd;
+
+        assert(config);
+        assert(layout);
+        assert(item);
+        assert(blankline);
+        assert(pipe);
+
+        print_at(layout->x, y, attr, blankline);
+
+        title = menu_item_title(config, item, expanded_group_idx);
+        content_width = layout->line_width - layout->marker_width - layout->marker_gap - layout->pipe_width;
+        width = content_width - MIN(strlen16(title), content_width);
+        padding = width / 2;
+        odd = width % 2;
+        print_width = MIN(strlen16(title), content_width - padding * 2);
+
+        assert(padding <= INT_MAX);
+        assert(print_width <= INT_MAX);
+        assert((padding + odd) <= INT_MAX);
+
+        if (!isempty(pipe))
+                print_at(layout->x + layout->marker_width + layout->marker_gap, y, attr, pipe);
+
+        if (print_width > 0) {
+                char16_t title_buf[print_width + 1];
+
+                for (size_t i = 0; i < print_width; i++)
+                        title_buf[i] = title[i];
+                title_buf[print_width] = 0;
+
+                print_at(layout->x + layout->marker_width + layout->marker_gap + layout->pipe_width + padding, y, attr, title_buf);
+        }
+
+        if (item_index == default_highlight)
+                print_at(layout->x, y, attr, unicode_supported() ? u" ►" : u"=>");
+}
+
 static bool menu_run(
                 Config *config,
                 BootEntry **chosen_entry,
@@ -498,14 +767,20 @@ static bool menu_run(
         assert(chosen_entry);
 
         EFI_STATUS err;
-        size_t visible_max = 0;
-        size_t idx_highlight = config->idx_default, idx_highlight_prev = 0;
+        size_t visible_max = 0, visible_entries = 0;
+        size_t expanded_group_idx = IDX_INVALID;
+        MenuItemKind highlighted_kind = MENU_ITEM_ENTRY;
+        size_t highlighted_index = config->idx_default;
+        size_t idx_highlight = 0, idx_highlight_prev = 0;
         size_t idx, idx_first = 0, idx_last = 0;
         bool new_mode = true, clear = true;
         bool refresh = true, highlight = false;
         size_t x_start = 0, y_start = 0, y_status = 0, x_max, y_max;
-        _cleanup_strv_free_ char16_t **lines = NULL;
+        MenuLayout layout = {};
+        _cleanup_free_ MenuItem *items = NULL;
+        size_t n_items = 0;
         _cleanup_free_ char16_t *clearline = NULL, *separator = NULL, *status = NULL;
+        const char16_t *blankrow = NULL;
         uint64_t timeout_efivar_saved = config->timeout_sec_efivar,
                 timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
         int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
@@ -535,73 +810,62 @@ static bool menu_run(
                 log_error_status(err, "Error switching console mode: %m");
         }
 
-        size_t line_width = 0, entry_padding = 3;
+        size_t entry_padding = 3;
+        layout.marker_width = unicode_supported() ? 2 : 2;
+        layout.marker_gap = 1;
         while (IN_SET(action, ACTION_CONTINUE, ACTION_FIRMWARE_SETUP)) {
                 uint64_t key;
 
                 if (new_mode) {
                         console_query_mode(&x_max, &y_max);
 
+                        items = mfree(items);
+                        n_items = 0;
+                        menu_items_build(config, expanded_group_idx, &items, &n_items);
+
                         /* account for padding+status */
                         visible_max = y_max - 2;
+                        visible_entries = n_items;
+
+                        idx_highlight = menu_index_for_item(items, n_items, highlighted_kind, highlighted_index);
+                        assert(idx_highlight != IDX_INVALID);
 
                         /* Drawing entries starts at idx_first until idx_last. We want to make
                         * sure that idx_highlight is centered, but not if we are close to the
                         * beginning/end of the entry list. Otherwise we would have a half-empty
                         * screen. */
-                        if (config->n_entries <= visible_max || idx_highlight <= visible_max / 2)
+                        if (visible_entries <= visible_max || idx_highlight <= visible_max / 2)
                                 idx_first = 0;
-                        else if (idx_highlight >= config->n_entries - (visible_max / 2))
-                                idx_first = config->n_entries - visible_max;
+                        else if (idx_highlight >= visible_entries - (visible_max / 2))
+                                idx_first = visible_entries - visible_max;
                         else
                                 idx_first = idx_highlight - (visible_max / 2);
                         idx_last = idx_first + visible_max - 1;
 
+                        layout.pipe_width = 0;
                         /* length of the longest entry */
-                        line_width = 0;
-                        for (size_t i = 0; i < config->n_entries; i++)
-                                line_width = MAX(line_width, strlen16(config->entries[i]->title_show));
-                        line_width = MIN(line_width + 2 * entry_padding, x_max);
+                        layout.line_width = 0;
+                        for (size_t i = 0; i < visible_entries; i++) {
+                                layout.pipe_width = MAX(layout.pipe_width, strlen16(items[i].pipe));
+                                layout.line_width = MAX(
+                                                layout.line_width,
+                                                strlen16(menu_item_title(config, &items[i], expanded_group_idx)));
+                        }
+                        layout.line_width = MIN(layout.line_width + layout.marker_width + layout.marker_gap + layout.pipe_width + 2 * entry_padding, x_max);
 
                         /* offsets to center the entries on the screen */
-                        x_start = (x_max - (line_width)) / 2;
-                        if (config->n_entries < visible_max)
-                                y_start = ((visible_max - config->n_entries) / 2) + 1;
+                        x_start = (x_max - (layout.line_width)) / 2;
+                        layout.x = x_start;
+                        if (visible_entries < visible_max)
+                                y_start = ((visible_max - visible_entries) / 2) + 1;
                         else
                                 y_start = 0;
 
                         /* Put status line after the entry list, but give it some breathing room. */
-                        y_status = MIN(y_start + MIN(visible_max, config->n_entries) + 1, y_max - 1);
+                        y_status = MIN(y_start + MIN(visible_max, visible_entries) + 1, y_max - 1);
 
-                        lines = strv_free(lines);
                         clearline = mfree(clearline);
                         separator = mfree(separator);
-
-                        /* menu entries title lines */
-                        lines = xnew(char16_t *, config->n_entries + 1);
-
-                        for (size_t i = 0; i < config->n_entries; i++) {
-                                size_t width = line_width - MIN(strlen16(config->entries[i]->title_show), line_width);
-                                size_t padding = width / 2;
-                                bool odd = width % 2;
-
-                                /* Make sure there is space for => */
-                                padding = MAX((size_t) 2, padding);
-
-                                size_t print_width = MIN(
-                                                strlen16(config->entries[i]->title_show),
-                                                line_width - padding * 2);
-
-                                assert((padding + 1) <= INT_MAX);
-                                assert(print_width <= INT_MAX);
-
-                                lines[i] = xasprintf(
-                                                "%*ls%.*ls%*ls",
-                                                (int) padding, u"",
-                                                (int) print_width, config->entries[i]->title_show,
-                                                odd ? (int) (padding + 1) : (int) padding, u"");
-                        }
-                        lines[config->n_entries] = NULL;
 
                         clearline = xnew(char16_t, x_max + 1);
                         separator = xnew(char16_t, x_max + 1);
@@ -611,6 +875,7 @@ static bool menu_run(
                         }
                         clearline[x_max] = 0;
                         separator[x_max] = 0;
+                        blankrow = clearline + x_max - layout.line_width;
 
                         new_mode = false;
                         clear = true;
@@ -623,30 +888,51 @@ static bool menu_run(
                 }
 
                 if (refresh) {
-                        for (size_t i = idx_first; i <= idx_last && i < config->n_entries; i++) {
-                                print_at(x_start, y_start + i - idx_first,
-                                         i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
-                                         lines[i]);
-                                if (i == config->idx_default_efivar)
-                                        print_at(x_start,
-                                                 y_start + i - idx_first,
-                                                 i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
-                                                 unicode_supported() ? u" ►" : u"=>");
+                        size_t default_highlight = menu_default_highlight(config, items, n_items);
+
+                        for (size_t i = idx_first; i <= idx_last && i < visible_entries; i++) {
+                                size_t y_item = y_start + i - idx_first;
+
+                                menu_print_item(
+                                                config,
+                                                &layout,
+                                                &items[i],
+                                                expanded_group_idx,
+                                                i,
+                                                default_highlight,
+                                                y_item,
+                                                i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
+                                                blankrow,
+                                                items[i].pipe);
                         }
                         refresh = false;
                 } else if (highlight) {
-                        print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, lines[idx_highlight_prev]);
-                        print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
-                        if (idx_highlight_prev == config->idx_default_efivar)
-                                print_at(x_start,
-                                         y_start + idx_highlight_prev - idx_first,
-                                         COLOR_ENTRY,
-                                         unicode_supported() ? u" ►" : u"=>");
-                        if (idx_highlight == config->idx_default_efivar)
-                                print_at(x_start,
-                                         y_start + idx_highlight - idx_first,
-                                         COLOR_HIGHLIGHT,
-                                         unicode_supported() ? u" ►" : u"=>");
+                        size_t default_highlight = menu_default_highlight(config, items, n_items);
+                        size_t y_prev = y_start + idx_highlight_prev - idx_first;
+                        size_t y_current = y_start + idx_highlight - idx_first;
+
+                        menu_print_item(
+                                        config,
+                                        &layout,
+                                        &items[idx_highlight_prev],
+                                        expanded_group_idx,
+                                        idx_highlight_prev,
+                                        default_highlight,
+                                        y_prev,
+                                        COLOR_ENTRY,
+                                        blankrow,
+                                        items[idx_highlight_prev].pipe);
+                        menu_print_item(
+                                        config,
+                                        &layout,
+                                        &items[idx_highlight],
+                                        expanded_group_idx,
+                                        idx_highlight,
+                                        default_highlight,
+                                        y_current,
+                                        COLOR_HIGHLIGHT,
+                                        blankrow,
+                                        items[idx_highlight].pipe);
                         highlight = false;
                 }
 
@@ -667,7 +953,7 @@ static bool menu_run(
                         ST->ConOut->OutputString(ST->ConOut, status);
                         ST->ConOut->OutputString(ST->ConOut, clearline + 1 + x + len);
 
-                        len = MIN(MAX(len, line_width) + 2 * entry_padding, x_max);
+                        len = MIN(MAX(len, layout.line_width) + 2 * entry_padding, x_max);
                         x = (x_max - len) / 2;
                         print_at(x, y_status - 1, COLOR_NORMAL, separator + x_max - len);
                 } else {
@@ -730,7 +1016,7 @@ static bool menu_run(
                 case KEYPRESS(0, SCAN_VOLUME_DOWN, 0):
                 case KEYPRESS(0, 0, 'j'):
                 case KEYPRESS(0, 0, 'J'):
-                        if (idx_highlight < config->n_entries-1)
+                        if (idx_highlight < visible_entries - 1)
                                 idx_highlight++;
                         break;
 
@@ -744,9 +1030,9 @@ static bool menu_run(
 
                 case KEYPRESS(0, SCAN_END, 0):
                 case KEYPRESS(EFI_ALT_PRESSED, 0, '>'):
-                        if (idx_highlight < config->n_entries-1) {
+                        if (idx_highlight < visible_entries - 1) {
                                 refresh = true;
-                                idx_highlight = config->n_entries-1;
+                                idx_highlight = visible_entries - 1;
                         }
                         break;
 
@@ -759,8 +1045,8 @@ static bool menu_run(
 
                 case KEYPRESS(0, SCAN_PAGE_DOWN, 0):
                         idx_highlight += visible_max;
-                        if (idx_highlight > config->n_entries-1)
-                                idx_highlight = config->n_entries-1;
+                        if (idx_highlight > visible_entries - 1)
+                                idx_highlight = visible_entries - 1;
                         break;
 
                 case KEYPRESS(0, 0, '\n'):
@@ -769,6 +1055,14 @@ static bool menu_run(
                 case KEYPRESS(0, SCAN_F3, '\r'):   /* Teclast X98+ II firmware sends malformed events */
                 case KEYPRESS(0, SCAN_RIGHT, 0):
                 case KEYPRESS(0, SCAN_SUSPEND, 0): /* Handle phones/tablets with only a power key + volume up/down rocker (and otherwise just touchscreen input) */
+                        highlighted_kind = items[idx_highlight].kind;
+                        highlighted_index = items[idx_highlight].index;
+                        if (highlighted_kind == MENU_ITEM_GROUP_TOGGLE) {
+                                expanded_group_idx = expanded_group_idx == items[idx_highlight].index ? IDX_INVALID : items[idx_highlight].index;
+                                new_mode = true;
+                                break;
+                        }
+                        idx = items[idx_highlight].index;
                         action = ACTION_RUN;
                         break;
 
@@ -788,10 +1082,17 @@ static bool menu_run(
 
                 /* Set/unset the preferred entry */
                 case KEYPRESS(0, 0, 'd'):
-                        if (config->idx_default_efivar != idx_highlight) {
+                        highlighted_kind = items[idx_highlight].kind;
+                        highlighted_index = items[idx_highlight].index;
+                        if (!menu_highlighted_entry_index(items, idx_highlight, &idx)) {
+                                status = xstrdup16(u"Entry cannot be selected as default.");
+                                break;
+                        }
+
+                        if (config->idx_default_efivar != idx) {
                                 free(config->entry_preferred_efivar);
-                                config->entry_preferred_efivar = xstrdup16(config->entries[idx_highlight]->id);
-                                config->idx_default_efivar = idx_highlight;
+                                config->entry_preferred_efivar = xstrdup16(config->entries[idx]->id);
+                                config->idx_default_efivar = idx;
                                 status = xstrdup16(u"Preferred boot entry selected.");
                         } else {
                                 config->entry_preferred_efivar = mfree(config->entry_preferred_efivar);
@@ -806,10 +1107,17 @@ static bool menu_run(
 
                 /* Set/unset the default entry */
                 case KEYPRESS(0, 0, 'D'):
-                        if (config->idx_default_efivar != idx_highlight) {
+                        highlighted_kind = items[idx_highlight].kind;
+                        highlighted_index = items[idx_highlight].index;
+                        if (!menu_highlighted_entry_index(items, idx_highlight, &idx)) {
+                                status = xstrdup16(u"Entry cannot be selected as default.");
+                                break;
+                        }
+
+                        if (config->idx_default_efivar != idx) {
                                 free(config->entry_default_efivar);
-                                config->entry_default_efivar = xstrdup16(config->entries[idx_highlight]->id);
-                                config->idx_default_efivar = idx_highlight;
+                                config->entry_default_efivar = xstrdup16(config->entries[idx]->id);
+                                config->idx_default_efivar = idx;
                                 status = xstrdup16(u"Default boot entry selected.");
                         } else {
                                 config->entry_default_efivar = mfree(config->entry_default_efivar);
@@ -834,9 +1142,16 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, 'e'):
                 case KEYPRESS(0, 0, 'E'):
+                        highlighted_kind = items[idx_highlight].kind;
+                        highlighted_index = items[idx_highlight].index;
+                        if (!menu_highlighted_entry_index(items, idx_highlight, &idx)) {
+                                status = xstrdup16(u"Entry does not support editing the command line.");
+                                break;
+                        }
+
                         /* only the options of configured entries can be edited */
                         if (!config->editor ||
-                            !LOADER_TYPE_ALLOW_EDITOR(config->entries[idx_highlight]->type)) {
+                                !LOADER_TYPE_ALLOW_EDITOR(config->entries[idx]->type)) {
                                 status = xstrdup16(u"Entry does not support editing the command line.");
                                 break;
                         }
@@ -844,9 +1159,9 @@ static bool menu_run(
                         /* Unified kernels that are signed as a whole will not accept command line options
                          * when secure boot is enabled unless there is none embedded in the image. Do not try
                          * to pretend we can edit it to only have it be ignored. */
-                        if (!LOADER_TYPE_ALLOW_EDITOR_IN_SB(config->entries[idx_highlight]->type) &&
+                        if (!LOADER_TYPE_ALLOW_EDITOR_IN_SB(config->entries[idx]->type) &&
                             secure_boot_enabled() &&
-                            config->entries[idx_highlight]->options) {
+                            config->entries[idx]->options) {
                                 status = xstrdup16(u"Entry not editable in SecureBoot mode.");
                                 break;
                         }
@@ -857,13 +1172,13 @@ static bool menu_run(
                          * Since we cannot paint the last character of the edit line, we simply start
                          * at x-offset 1 for symmetry. */
                         print_at(1, y_status, COLOR_EDIT, clearline + 2);
-                        if (line_edit(&config->entries[idx_highlight]->options, x_max - 2, y_status))
+                        if (line_edit(&config->entries[idx]->options, x_max - 2, y_status))
                                 action = ACTION_RUN;
                         print_at(1, y_status, COLOR_NORMAL, clearline + 2);
 
                         /* The options string was now edited, hence we have to pass it to the invoked
                          * binary. */
-                        config->entries[idx_highlight]->options_implied = false;
+                        config->entries[idx]->options_implied = false;
                         break;
 
                 case KEYPRESS(0, 0, 'v'):
@@ -941,8 +1256,35 @@ static bool menu_run(
                         break;
 
                 default:
-                        /* jump with a hotkey directly to a matching entry */
-                        idx = entry_lookup_key(config, idx_highlight+1, KEYCHAR(key));
+                        idx = IDX_INVALID;
+
+                        if (KEYCHAR(key) == 0)
+                                break;
+
+                        /* Number keys */
+                        if (KEYCHAR(key) >= '1' && KEYCHAR(key) <= '9') {
+                                idx = KEYCHAR(key) - '0';
+                                if (idx > n_items)
+                                        idx = n_items;
+                                idx--;
+                        } else {
+                                /* jump with a hotkey directly to a matching entry */
+                                for (size_t i = idx_highlight + 1; i < n_items; i++) {
+                                        if (menu_item_key(config, &items[i]) == KEYCHAR(key)) {
+                                                idx = i;
+                                                break;
+                                        }
+                                }
+
+                                if (idx == IDX_INVALID)
+                                        for (size_t i = 0; i <= idx_highlight && i < n_items; i++) {
+                                                if (menu_item_key(config, &items[i]) == KEYCHAR(key)) {
+                                                        idx = i;
+                                                        break;
+                                                }
+                                        }
+                        }
+
                         if (idx == IDX_INVALID)
                                 break;
                         idx_highlight = idx;
@@ -1018,7 +1360,11 @@ static bool menu_run(
                 break;
         }
 
-        *chosen_entry = config->entries[idx_highlight];
+        if (action == ACTION_RUN) {
+                assert(items[idx_highlight].kind == MENU_ITEM_ENTRY);
+                *chosen_entry = config->entries[items[idx_highlight].index];
+                idx = items[idx_highlight].index;
+        }
         clear_screen(COLOR_NORMAL);
         return action == ACTION_RUN;
 }
@@ -1782,7 +2128,10 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         /* If there's a sort key defined for *both* entries, then we do new-style ordering, i.e. by
          * sort-key/machine-id/version, with a final fallback to id. If there's no sort key for either, we do
          * old-style ordering, i.e. by id only. If one has sort key and the other does not, we put new-style
-         * before old-style. */
+         * before old-style.
+         *
+         * config_build_entry_groups() relies on entries that compare equal by sort-key remaining
+         * contiguous after sorting. Keep its grouping predicate in sync with this ordering. */
         r = CMP(!a->sort_key, !b->sort_key);
         if (r != 0) /* one is old-style, one new-style */
                 return r;
@@ -2024,6 +2373,48 @@ static void generate_boot_entry_titles(Config *config) {
 
                 _cleanup_free_ char16_t *t = config->entries[i]->title_show;
                 config->entries[i]->title_show = xasprintf("%ls (%ls)", t, config->entries[i]->id);
+        }
+}
+
+static bool boot_entry_in_same_group(const BootEntry *a, const BootEntry *b) {
+        assert(a);
+        assert(b);
+
+        if (!a->sort_key || !b->sort_key)
+                return false;
+
+        return streq16(a->sort_key, b->sort_key);
+}
+
+static void config_build_entry_groups(Config *config) {
+        assert(config);
+
+        config->groups = mfree(config->groups);
+        config->n_groups = 0;
+
+        /* This relies on boot_entry_compare() keeping entries with matching sort-key contiguous. */
+        for (size_t i = 0; i < config->n_entries; i++) {
+                size_t end = i + 1;
+
+                while (end < config->n_entries &&
+                       boot_entry_in_same_group(config->entries[i], config->entries[end]))
+                        end++;
+
+                /* We skip groups smaller than 3 since this would make the menu longer when collapsed, not shorter */
+                if (end - i >= 3) {
+                        if ((config->n_groups & 15) == 0)
+                                config->groups = xrealloc(
+                                                config->groups,
+                                                sizeof(EntryGroup) * config->n_groups,
+                                                sizeof(EntryGroup) * (config->n_groups + 16));
+
+                        config->groups[config->n_groups++] = (EntryGroup) {
+                                .start = i,
+                                .end = end,
+                        };
+                }
+
+                i = end - 1;
         }
 }
 
@@ -3124,6 +3515,7 @@ static void config_free(Config *config) {
         for (size_t i = 0; i < config->n_entries; i++)
                 boot_entry_free(config->entries[i]);
         free(config->entries);
+        free(config->groups);
         free(config->entry_default_config);
         free(config->entry_default_efivar);
         free(config->entry_preferred_config);
@@ -3383,6 +3775,9 @@ static void config_load_all_entries(
 
         /* Select entry by configured pattern or EFI LoaderDefaultEntry= variable */
         config_select_default_entry(config);
+
+        /* Group metadata is derived once from the final sorted entry list and reused by menu rendering. */
+        config_build_entry_groups(config);
 }
 
 static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI_FILE **ret_dir) {
