@@ -1382,7 +1382,7 @@ testcase_15_wait_online_dns() {
         /usr/lib/systemd/systemd-networkd-wait-online --timeout=0 --dns --interface=dns0
 
     # Wait until it blocks waiting for updated DNS config
-    timeout 30 bash -c "journalctl -b -u $unit -f | grep -q -m1 'dns0: No.*DNS server is accessible'"
+    timeout 30 bash -c "until journalctl -b -u $unit --grep 'dns0: No.*DNS server is accessible' >/dev/null 2>&1; do sleep 0.5; done"
 
     # Update the global configuration. Restart rather than reload systemd-resolved so that
     # systemd-networkd-wait-online has to re-connect to the varlink service.
