@@ -129,6 +129,7 @@ shared_sources = files(
         'loop-util.c',
         'loopback-setup.c',
         'lsm-util.c',
+        'luo-util.c',
         'machine-bind-user.c',
         'machine-credential.c',
         'machine-id-setup.c',
