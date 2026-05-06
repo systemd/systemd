@@ -562,6 +562,12 @@ static int radv_configure(Link *link) {
                         return r;
         }
 
+        if (link->network->router_captive_portal) {
+                r = sd_radv_set_captive_portal(link->radv, link->network->router_captive_portal);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not set RA captive portal: %m");
+        }
+
         return 0;
 }
 
@@ -827,6 +833,7 @@ void network_adjust_radv(Network *network) {
                 network->n_router_dns = 0;
                 network->router_dns = mfree(network->router_dns);
                 network->router_search_domains = ordered_set_free(network->router_search_domains);
+                network->router_captive_portal = mfree(network->router_captive_portal);
         }
 
         if (!FLAGS_SET(network->router_prefix_delegation, RADV_PREFIX_DELEGATION_STATIC)) {

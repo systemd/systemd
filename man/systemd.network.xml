@@ -4058,6 +4058,17 @@ ServerAddress=192.168.0.1/24</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CaptivePortal=</varname></term>
+
+        <listitem><para>Takes a URI as a string. Configures the captive portal URI to send to DHCP
+        clients via DHCP option 114 (RFC 8910). When set, DHCP clients will be informed of the
+        captive portal URI, which can be used to redirect users to a login page or similar. The URI
+        must be a valid URI string.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>BootServerAddress=</varname></term>
 
         <listitem>
@@ -4464,6 +4475,17 @@ ServerAddress=192.168.0.1/24</programlisting>
 
          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CaptivePortal=</varname></term>
+
+        <listitem><para>Takes a URI as a string. Configures the captive portal URI to include in
+        IPv6 Router Advertisements (RFC 8910). When set, hosts on the network will be informed of the
+        captive portal URI, which can be used to redirect users to a login page or similar. The URI
+        must be a valid URI string.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 
     </variablelist>
