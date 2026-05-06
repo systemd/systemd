@@ -34,6 +34,7 @@
 
 static char *arg_image_root = NULL;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
+static char *arg_keyring_override = NULL;
 static ImportFlags arg_import_flags = IMPORT_PULL_SETTINGS | IMPORT_PULL_ROOTHASH | IMPORT_PULL_ROOTHASH_SIGNATURE | IMPORT_PULL_VERITY | IMPORT_BTRFS_SUBVOL | IMPORT_BTRFS_QUOTA | IMPORT_CONVERT_QCOW2 | IMPORT_SYNC;
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
 static struct iovec arg_checksum = {};
@@ -42,6 +43,7 @@ static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_checksum, iovec_done);
 STATIC_DESTRUCTOR_REGISTER(arg_image_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_keyring_override, freep);
 
 static int normalize_local(const char *local, const char *url, char **ret) {
         _cleanup_free_ char *ll = NULL;
@@ -169,6 +171,7 @@ static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         normalized,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_TAR,
                         arg_verify,
+                        arg_keyring_override,
                         &arg_checksum);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
@@ -239,6 +242,7 @@ static int verb_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         arg_size_max,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_RAW,
                         arg_verify,
+                        arg_keyring_override,
                         &arg_checksum);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
@@ -381,6 +385,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("image-root", "PATH", "Image root directory"):
                         r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("keyring", "PATH",
+                            "Use the specified keyring for signature verification"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_keyring_override);
                         if (r < 0)
                                 return r;
                         break;

@@ -89,7 +89,7 @@ typedef struct Resource {
 
 void resource_destroy(Resource *rr);
 
-int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache);
+int resource_load_instances(Resource *rr, bool verify, const char *keyring_override /* may be NULL */, Hashmap **web_cache);
 
 Instance* resource_find_instance(Resource *rr, const char *version);
 
