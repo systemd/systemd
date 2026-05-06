@@ -444,6 +444,11 @@ foreach archspec : efi_archspecs
                 kwargs : kwargs)
 endforeach
 
+if want_tests != 'false'
+        # Needed by check_efi_alignment_py
+        pymod.find_installation('python3', required : false, modules : ['pefile'])
+endif
+
 foreach efi_elf_binary : efi_elf_binaries
         name = efi_elf_binary.name()
         name += name.startswith('systemd-boot') ? '.efi' : '.efi.stub'
