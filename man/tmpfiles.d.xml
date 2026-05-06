@@ -76,6 +76,10 @@ a     /path-or-glob/to/set/acls                -    -    -     -           POSIX
 a+    /path-or-glob/to/append/acls             -    -    -     -           POSIX ACLs
 A     /path-or-glob/to/set/acls/recursively    -    -    -     -           POSIX ACLs
 A+    /path-or-glob/to/append/acls/recursively -    -    -     -           POSIX ACLs
+k     /path-or-glob/to/set/caps                -    -    -     -           file capabilities
+k+    /path-or-glob/to/adjust/caps             -    -    -     -           file capabilities
+K     /path-or-glob/to/set/caps/recursively    -    -    -     -           file capabilities
+K+    /path-or-glob/to/adjust/caps/recursively -    -    -     -           file capabilities
 
 </programlisting>
   </refsynopsisdiv>
@@ -484,6 +488,37 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
 
           <xi:include href="version-info.xml" xpointer="v219"/></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>k</varname></term>
+          <term><varname>k+</varname></term>
+          <listitem><para>Set file capabilities, see <citerefentry
+          project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          Lines of this type accept shell-style globs in place of normal path names. Does not follow
+          symlinks.</para>
+
+          <para>The syntax follows <citerefentry
+          project='man-pages'><refentrytitle>cap_text_formats</refentrytitle><manvolnum>7</manvolnum></citerefentry>. It
+          also supports <literal>rootuid=<replaceable>INT</replaceable></literal> for the user namespace root
+          user ID.</para>
+
+          <para>If suffixed with <varname>+</varname>, current capabilities on the file that are not touched by the expression
+          will be kept. For example, if all <literal>cap_setuid</literal> capabilities need to be removed but
+          others should be kept, one can use <varname>k+</varname> with <literal>cap_setuid=</literal> or
+          <literal>cap_setuid-eip</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>K</varname></term>
+          <term><varname>K+</varname></term>
+          <listitem><para>Same as <varname>k</varname> and
+          <varname>k+</varname>, but recursive. Does not follow
+          symlinks.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
@@ -565,8 +600,8 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       <literal>-</literal>, the default is used: 0755 for directories, 0644 for all other file objects. For
       <varname>z</varname>, <varname>Z</varname> lines, if omitted or when set to <literal>-</literal>, the
       file access mode will not be modified. This parameter is ignored for <varname>x</varname>,
-      <varname>r</varname>, <varname>R</varname>, <varname>L</varname>, <varname>t</varname>, and
-      <varname>a</varname> lines.</para>
+      <varname>r</varname>, <varname>R</varname>, <varname>L</varname>, <varname>t</varname>,
+      <varname>a</varname>, and <varname>k</varname> lines.</para>
 
       <para>Optionally, if prefixed with <literal>~</literal>, the access mode is masked based on the already
       set access bits for existing file or directories: if the existing file has all executable bits unset,
@@ -707,7 +742,8 @@ d /tmp/foo/bar - - - bmA:1h -</programlisting></para>
       suffixed by a newline. For <varname>C</varname>, specifies the source file or directory. For <varname>t</varname>
       and <varname>T</varname>, determines extended attributes to be set. For <varname>a</varname> and
       <varname>A</varname>, determines ACL attributes to be set. For <varname>h</varname> and <varname>H</varname>,
-      determines the file attributes to set. Ignored for all other lines.</para>
+      determines the file attributes to set. For <varname>k</varname> and <varname>K</varname>, determines
+      file capabilities to be set. Ignored for all other lines.</para>
 
       <para>This field can contain specifiers, see below.</para>
     </refsect2>
