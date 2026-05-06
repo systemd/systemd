@@ -787,6 +787,12 @@ static int parse_argv(int argc, char *argv[]) {
                                                        bv->config, valid);
                         }
 
+                        FOREACH_ARRAY(it, arg_bind_volumes.items, arg_bind_volumes.n_items)
+                                if (streq((*it)->provider, bv->provider) && streq((*it)->volume, bv->volume))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Volume '%s:%s' specified more than once for --bind-volume=.",
+                                                               bv->provider, bv->volume);
+
                         if (!GREEDY_REALLOC(arg_bind_volumes.items, arg_bind_volumes.n_items + 1))
                                 return log_oom();
                         arg_bind_volumes.items[arg_bind_volumes.n_items++] = TAKE_PTR(bv);
