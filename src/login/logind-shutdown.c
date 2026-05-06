@@ -112,6 +112,7 @@ int manager_verify_shutdown_creds(
                                         /* good_user= */ UID_INVALID,
                                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                                         &m->polkit_registry,
+                                        /* ret_admin= */ NULL,
                                         error);
                 else
                         r = varlink_verify_polkit_async_full(
@@ -121,7 +122,8 @@ int manager_verify_shutdown_creds(
                                         /* details= */ NULL,
                                         /* good_user= */ UID_INVALID,
                                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
-                                        &m->polkit_registry);
+                                        &m->polkit_registry,
+                                        /* ret_admin= */ NULL);
 
                 if (r < 0) {
                         /* If we get -EBUSY, it means a polkit decision was made, but not for
@@ -173,6 +175,7 @@ int manager_verify_shutdown_creds(
                                         /* good_user= */ UID_INVALID,
                                         polkit_flags,
                                         &m->polkit_registry,
+                                        /* ret_admin= */ NULL,
                                         error);
                 else
                         r = varlink_verify_polkit_async_full(
@@ -182,7 +185,8 @@ int manager_verify_shutdown_creds(
                                         /* details= */ NULL,
                                         /* good_user= */ UID_INVALID,
                                         polkit_flags,
-                                        &m->polkit_registry);
+                                        &m->polkit_registry,
+                                        /* ret_admin= */ NULL);
 
                 if (r < 0)
                         return r;
@@ -199,6 +203,7 @@ int manager_verify_shutdown_creds(
                                         /* good_user= */ UID_INVALID,
                                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                                         &m->polkit_registry,
+                                        /* ret_admin= */ NULL,
                                         error);
                 else
                         r = varlink_verify_polkit_async_full(
@@ -208,7 +213,8 @@ int manager_verify_shutdown_creds(
                                         /* details= */ NULL,
                                         /* good_user= */ UID_INVALID,
                                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
-                                        &m->polkit_registry);
+                                        &m->polkit_registry,
+                                        /* ret_admin= */ NULL);
 
                 if (r < 0)
                         return r;
