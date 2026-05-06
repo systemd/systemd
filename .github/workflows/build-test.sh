@@ -156,8 +156,8 @@ if [ -n "$bpftool_dir" ]; then
 fi
 
 if [[ -n "$CUSTOM_PYTHON" ]]; then
-    # If CUSTOM_PYTHON is set we need to pull jinja2 from pip, as a local interpreter is used
-    pip3 install --user --break-system-packages jinja2
+    # If CUSTOM_PYTHON is set we need to pull dependencies from pip, as a local interpreter is used
+    pip3 install --user --break-system-packages jinja2 pefile
 fi
 
 $CC --version
