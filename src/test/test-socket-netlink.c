@@ -3,6 +3,7 @@
 #include <sys/eventfd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "missing-network.h"
 #include "socket-netlink.h"
@@ -378,6 +379,8 @@ TEST(netns_get_nsid) {
         int r;
 
         r = netns_get_nsid(-EBADF, &u);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped_errno(r, "netns_get_nsid() unavailable (sandbox restricted?)");
         assert_se(r == -ENODATA || r >= 0);
         if (r == -ENODATA)
                 log_info("Our network namespace has no NSID assigned.");
@@ -395,6 +398,10 @@ TEST(af_unix_get_qlen) {
         r = af_unix_get_qlen(unix_fd, &q);
         if (r == -ENOENT)
                 return (void) log_tests_skipped("CONFIG_UNIX_DIAG disabled");
+        /* Some restricted build sandboxes refuse NETLINK_SOCK_DIAG with
+         * -EPROTONOSUPPORT. Skip rather than abort. */
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped_errno(r, "NETLINK_SOCK_DIAG unavailable for af_unix_get_qlen()");
         ASSERT_OK(r);
         ASSERT_EQ(q, 0U);
 

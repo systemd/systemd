@@ -6,6 +6,7 @@
 #include "sd-netlink.h"
 
 #include "dns-packet.h"
+#include "errno-util.h"
 #include "netlink-internal.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-server.h"
@@ -36,11 +37,17 @@ TEST(link_process_rtnl) {
         _cleanup_(link_freep) Link *link = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *msg = NULL;
+        int r;
 
         ASSERT_OK(link_new(&manager, &link, 1));
         ASSERT_NOT_NULL(link);
 
-        ASSERT_OK(netlink_open_family(&nl, AF_INET));
+        r = netlink_open_family(&nl, AF_INET);
+        /* Some restricted build sandboxes refuse AF_NETLINK/NETLINK_ROUTE
+         * sockets with -EPROTONOSUPPORT. Skip rather than abort. */
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped_errno(r, "netlink AF_INET family unavailable");
+        ASSERT_OK(r);
         nl->protocol = NETLINK_ROUTE;
 
         ASSERT_OK(sd_rtnl_message_new_link(nl, &msg, RTM_NEWLINK, 1));
