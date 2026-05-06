@@ -42,6 +42,9 @@ SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_MIDI}=="1", TAG
 SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_AUDIO}=="1", TAG+="uaccess"
 SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_VIDEO}=="1", TAG+="uaccess"
 
+# industrial cameras using USB3 Vision
+ENV{ID_U3V_DEVICE}=="?*", TAG+="uaccess"
+
 # DRI video devices
 SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"
 {% if GROUP_RENDER_UACCESS %}
