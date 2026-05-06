@@ -321,8 +321,29 @@ conf.set10('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_
 conf.set('STATUS_UNIT_FORMAT_DEFAULT',                        'STATUS_UNIT_FORMAT_' + status_unit_format_default.to_upper())
 conf.set_quoted('STATUS_UNIT_FORMAT_DEFAULT_STR',             status_unit_format_default)
 
-conf.set('DEFAULT_TIMEOUT_SEC',                               get_option('default-timeout-sec'))
-conf.set('DEFAULT_USER_TIMEOUT_SEC',                          get_option('default-user-timeout-sec'))
+default_timeout_sec = get_option('default-timeout-sec')
+
+# Parse a multiplier string of the form "N" or "N/D" into [numerator, denominator].
+foreach mult_opt : ['default-user-timeout-multiplier', 'default-device-timeout-multiplier']
+        mult_str = get_option(mult_opt)
+        if mult_str.contains('/')
+                mult_parts = mult_str.split('/')
+                mult_numer = mult_parts[0].to_int()
+                mult_denom = mult_parts[1].to_int()
+        else
+                mult_numer = mult_str.to_int()
+                mult_denom = 1
+        endif
+        if mult_opt == 'default-user-timeout-multiplier'
+                user_timeout_sec = default_timeout_sec * mult_numer / mult_denom
+        else
+                device_timeout_sec = default_timeout_sec * mult_numer / mult_denom
+        endif
+endforeach
+
+conf.set('DEFAULT_TIMEOUT_SEC',                               default_timeout_sec)
+conf.set('DEFAULT_USER_TIMEOUT_SEC',                          user_timeout_sec)
+conf.set('DEFAULT_DEVICE_TIMEOUT_SEC',                        device_timeout_sec)
 conf.set('UPDATE_HELPER_USER_TIMEOUT_SEC',                    get_option('update-helper-user-timeout-sec'))
 
 conf.set10('ENABLE_FIRST_BOOT_FULL_PRESET',                   get_option('first-boot-full-preset'))
