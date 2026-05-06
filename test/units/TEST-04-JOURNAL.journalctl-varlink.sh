@@ -5,6 +5,26 @@ set -o pipefail
 
 VARLINK_SOCKET="/run/systemd/io.systemd.JournalAccess"
 
+# Wrapper around varlinkctl that retries up to 3 times when the server returns
+# NoEntries to avoid spurious flaky failures
+varlinkctl_get_entries() {
+    local output rc
+    for _ in 1 2 3; do
+        output="$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries "$@" 2>&1)" && rc=0 || rc=$?
+        if [[ $rc -eq 0 ]]; then
+            printf '%s\n' "$output"
+            return 0
+        fi
+        if ! grep -q 'io.systemd.JournalAccess.NoEntries' <<<"$output"; then
+            printf '%s\n' "$output" >&2
+            return $rc
+        fi
+        journalctl --sync || true
+    done
+    printf '%s\n' "$output" >&2
+    return $rc
+}
+
 # ensure the varlink basics work
 varlinkctl list-interfaces "$VARLINK_SOCKET" | grep io.systemd.JournalAccess
 varlinkctl introspect "$VARLINK_SOCKET" | grep "method GetEntries("
@@ -16,18 +36,18 @@ systemd-cat -t "$TAG" -p warning echo "varlink-test-warning"
 journalctl --sync
 
 # most basic call works
-varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries '{}' | jq --seq .
+varlinkctl_get_entries '{}' | jq --seq .
 # validate the JSON has some basic properties (similar to journalctls json output)
-varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries '{}' | jq --seq '.entry | {MESSAGE, PRIORITY, _UID}'
+varlinkctl_get_entries '{}' | jq --seq '.entry | {MESSAGE, PRIORITY, _UID}'
 
 # check that default limit works (100), we don't know how many entries we have so we just check
 # bounds
-ENTRIES=$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries '{}' | wc -l)
+ENTRIES=$(varlinkctl_get_entries '{}' | wc -l)
 test "$ENTRIES" -gt 0
 test "$ENTRIES" -le 100
 
 # check explicit limit
-ENTRIES=$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries '{"limit": 3}' | wc -l)
+ENTRIES=$(varlinkctl_get_entries '{"limit": 3}' | wc -l)
 test "$ENTRIES" -le 3
 
 # check unit filter: use transient units to get deterministic results
@@ -38,16 +58,16 @@ systemd-run --unit="$UNIT_NAME_2" --wait bash -c 'echo hello-from-varlink-test-2
 journalctl --sync
 
 # single unit filter
-SINGLE_OUTPUT="$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries "{\"units\": [\"$UNIT_NAME_1\"]}")"
+SINGLE_OUTPUT="$(varlinkctl_get_entries "{\"units\": [\"$UNIT_NAME_1\"]}")"
 grep "hello-from-varlink-test-1" >/dev/null <<<"$SINGLE_OUTPUT"
 (! grep "hello-from-varlink-test-2" >/dev/null <<<"$SINGLE_OUTPUT")
 # multi unit filter
-MULTI_OUTPUT="$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries "{\"units\": [\"$UNIT_NAME_1\", \"$UNIT_NAME_2\"]}")"
+MULTI_OUTPUT="$(varlinkctl_get_entries "{\"units\": [\"$UNIT_NAME_1\", \"$UNIT_NAME_2\"]}")"
 grep "hello-from-varlink-test-1" >/dev/null <<<"$MULTI_OUTPUT"
 grep "hello-from-varlink-test-2" >/dev/null <<<"$MULTI_OUTPUT"
 
 # check priority filter: priority 4 (warning) should include our warning message
-varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries '{"priority": 4, "limit": 1000}' | grep "varlink-test-warning" >/dev/null
+varlinkctl_get_entries '{"priority": 4, "limit": 1000}' | grep "varlink-test-warning" >/dev/null
 # check priority filter: priority 3 (error) should NOT include our warning (priority 4)
 (! varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries '{"priority": 3, "limit": 1000}' | grep "varlink-test-warning")
 
