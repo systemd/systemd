@@ -251,6 +251,80 @@ static int maybe_reload(sd_bus **bus) {
         return bus_service_manager_reload(*bus);
 }
 
+static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        r = bus_call_method(bus, bus_portable_mgr, "ListImages", &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to list images: %s", bus_error_message(&error, r));
+
+        table = table_new("name", "type", "ro", "crtime", "mtime", "usage", "state");
+        if (!table)
+                return log_oom();
+
+        r = sd_bus_message_enter_container(reply, 'a', "(ssbtttso)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                const char *name, *type, *state;
+                uint64_t crtime, mtime, usage;
+                int ro_int;
+
+                r = sd_bus_message_read(reply, "(ssbtttso)", &name, &type, &ro_int, &crtime, &mtime, &usage, &state, NULL);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = table_add_many(table,
+                                   TABLE_STRING, name,
+                                   TABLE_STRING, type,
+                                   TABLE_BOOLEAN, ro_int,
+                                   TABLE_SET_COLOR, ro_int ? ansi_highlight_red() : NULL,
+                                   TABLE_TIMESTAMP, crtime,
+                                   TABLE_TIMESTAMP, mtime,
+                                   TABLE_SIZE, usage,
+                                   TABLE_STRING, state,
+                                   TABLE_SET_COLOR, !streq(state, "detached") ? ansi_highlight_green() : NULL);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (!table_isempty(table)) {
+                r = table_set_sort(table, (size_t) 0);
+                if (r < 0)
+                        return table_log_sort_error(r);
+
+                table_set_header(table, arg_legend);
+
+                r = table_print_or_warn(table);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_legend) {
+                if (table_isempty(table))
+                        printf("No images.\n");
+                else
+                        printf("\n%zu images listed.\n", table_get_rows(table) - 1);
+        }
+
+        return 0;
+}
+
 static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd_bus_message **reply) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -960,10 +1034,6 @@ static int verb_attach_image(int argc, char *argv[], uintptr_t _data, void *user
         return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) && !arg_force ? "AttachImage" : "AttachImageWithExtensions");
 }
 
-static int verb_reattach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) && !arg_force ? "ReattachImage" : "ReattachImageWithExtensions");
-}
-
 static int verb_detach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1018,166 +1088,8 @@ static int verb_detach_image(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
-static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
-        int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
-
-        r = bus_call_method(bus, bus_portable_mgr, "ListImages", &error, &reply, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to list images: %s", bus_error_message(&error, r));
-
-        table = table_new("name", "type", "ro", "crtime", "mtime", "usage", "state");
-        if (!table)
-                return log_oom();
-
-        r = sd_bus_message_enter_container(reply, 'a', "(ssbtttso)");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        for (;;) {
-                const char *name, *type, *state;
-                uint64_t crtime, mtime, usage;
-                int ro_int;
-
-                r = sd_bus_message_read(reply, "(ssbtttso)", &name, &type, &ro_int, &crtime, &mtime, &usage, &state, NULL);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-                if (r == 0)
-                        break;
-
-                r = table_add_many(table,
-                                   TABLE_STRING, name,
-                                   TABLE_STRING, type,
-                                   TABLE_BOOLEAN, ro_int,
-                                   TABLE_SET_COLOR, ro_int ? ansi_highlight_red() : NULL,
-                                   TABLE_TIMESTAMP, crtime,
-                                   TABLE_TIMESTAMP, mtime,
-                                   TABLE_SIZE, usage,
-                                   TABLE_STRING, state,
-                                   TABLE_SET_COLOR, !streq(state, "detached") ? ansi_highlight_green() : NULL);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        if (!table_isempty(table)) {
-                r = table_set_sort(table, (size_t) 0);
-                if (r < 0)
-                        return table_log_sort_error(r);
-
-                table_set_header(table, arg_legend);
-
-                r = table_print_or_warn(table);
-                if (r < 0)
-                        return r;
-        }
-
-        if (arg_legend) {
-                if (table_isempty(table))
-                        printf("No images.\n");
-                else
-                        printf("\n%zu images listed.\n", table_get_rows(table) - 1);
-        }
-
-        return 0;
-}
-
-static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        int r, i;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
-
-        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
-
-        for (i = 1; i < argc; i++) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-
-                r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "RemoveImage");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append(m, "s", argv[i]);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                /* This is a slow operation, hence turn off any method call timeouts */
-                r = sd_bus_call(bus, m, USEC_INFINITY, &error, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Could not remove image: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
-}
-
-static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        int b = true, r;
-
-        if (argc > 2) {
-                b = parse_boolean(argv[2]);
-                if (b < 0)
-                        return log_error_errno(b, "Failed to parse boolean argument: %s", argv[2]);
-        }
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
-
-        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
-
-        r = bus_call_method(bus, bus_portable_mgr, "MarkImageReadOnly", &error, NULL, "sb", argv[1], b);
-        if (r < 0)
-                return log_error_errno(r, "Could not mark image read-only: %s", bus_error_message(&error, r));
-
-        return 0;
-}
-
-static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        uint64_t limit;
-        int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
-
-        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
-
-        if (STR_IN_SET(argv[argc-1], "-", "none", "infinity"))
-                limit = UINT64_MAX;
-        else {
-                r = parse_size(argv[argc-1], 1024, &limit);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse size: %s", argv[argc-1]);
-        }
-
-        if (argc > 2)
-                /* With two arguments changes the quota limit of the specified image */
-                r = bus_call_method(bus, bus_portable_mgr, "SetImageLimit", &error, NULL, "st", argv[1], limit);
-        else
-                /* With one argument changes the pool quota limit */
-                r = bus_call_method(bus, bus_portable_mgr, "SetPoolLimit", &error, NULL, "t", limit);
-
-        if (r < 0)
-                return log_error_errno(r, "Could not set limit: %s", bus_error_message(&error, r));
-
-        return 0;
+static int verb_reattach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) && !arg_force ? "ReattachImage" : "ReattachImageWithExtensions");
 }
 
 static int verb_is_image_attached(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -1230,6 +1142,94 @@ static int verb_is_image_attached(int argc, char *argv[], uintptr_t _data, void 
         return streq(state, "detached");
 }
 
+static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int b = true, r;
+
+        if (argc > 2) {
+                b = parse_boolean(argv[2]);
+                if (b < 0)
+                        return log_error_errno(b, "Failed to parse boolean argument: %s", argv[2]);
+        }
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = bus_call_method(bus, bus_portable_mgr, "MarkImageReadOnly", &error, NULL, "sb", argv[1], b);
+        if (r < 0)
+                return log_error_errno(r, "Could not mark image read-only: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r, i;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        for (i = 1; i < argc; i++) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+
+                r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "RemoveImage");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "s", argv[i]);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                /* This is a slow operation, hence turn off any method call timeouts */
+                r = sd_bus_call(bus, m, USEC_INFINITY, &error, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Could not remove image: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        uint64_t limit;
+        int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        if (STR_IN_SET(argv[argc-1], "-", "none", "infinity"))
+                limit = UINT64_MAX;
+        else {
+                r = parse_size(argv[argc-1], 1024, &limit);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse size: %s", argv[argc-1]);
+        }
+
+        if (argc > 2)
+                /* With two arguments changes the quota limit of the specified image */
+                r = bus_call_method(bus, bus_portable_mgr, "SetImageLimit", &error, NULL, "st", argv[1], limit);
+        else
+                /* With one argument changes the pool quota limit */
+                r = bus_call_method(bus, bus_portable_mgr, "SetPoolLimit", &error, NULL, "t", limit);
+
+        if (r < 0)
+                return log_error_errno(r, "Could not set limit: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 static int dump_profiles(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1269,14 +1269,14 @@ static int help(void) {
                "%sAttach or detach portable services from the local system.%s\n"
                "\nCommands:\n"
                "  list                        List available portable service images\n"
+               "  inspect NAME|PATH [PREFIX...]\n"
+               "                              Show details of specified portable service image\n"
                "  attach NAME|PATH [PREFIX...]\n"
                "                              Attach the specified portable service image\n"
                "  detach NAME|PATH [PREFIX...]\n"
                "                              Detach the specified portable service image\n"
                "  reattach NAME|PATH [PREFIX...]\n"
                "                              Reattach the specified portable service image\n"
-               "  inspect NAME|PATH [PREFIX...]\n"
-               "                              Show details of specified portable service image\n"
                "  is-attached NAME|PATH       Query if portable service image is attached\n"
                "  read-only NAME|PATH [BOOL]  Mark or unmark portable service image read-only\n"
                "  remove NAME|PATH...         Remove a portable service image\n"
