@@ -181,7 +181,7 @@ int inhibitor_start(Inhibitor *i) {
 void inhibitor_stop(Inhibitor *i) {
         int r;
         Manager *m;
-        assert(it);
+        assert(i);
         m = i->manager;
         assert(m);
 
