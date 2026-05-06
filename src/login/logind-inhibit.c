@@ -181,9 +181,9 @@ int inhibitor_start(Inhibitor *i) {
 void inhibitor_stop(Inhibitor *i) {
         int r;
         Manager *m;
-
-        m = ASSERT_PTR(i)->manager;
-        ASSERT_PTR(m);
+        assert(it);
+        m = i->manager;
+        assert(m);
 
         if (i->started)
                 log_debug("Inhibitor %s (%s) pid="PID_FMT" uid="UID_FMT" mode=%s stopped.",
@@ -333,7 +333,6 @@ int inhibitor_create_fifo(Inhibitor *i) {
         }
 
         if (!i->event_source) {
-                /* Watch the FIFO for hangup/EOF from the inhibitor client. */
                 r = sd_event_add_io(i->manager->event, &i->event_source, i->fifo_fd, 0, inhibitor_dispatch_fifo, i);
                 if (r < 0)
                         return r;
