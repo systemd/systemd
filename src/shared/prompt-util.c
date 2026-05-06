@@ -12,6 +12,7 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "prompt-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -234,11 +235,12 @@ int chrome_show(
 
         _cleanup_free_ char *b = NULL, *ansi_color_reverse = NULL;
         if (!bottom) {
-                _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL, *documentation_url = NULL;
+                _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL, *documentation_url = NULL, *fancy_name = NULL;
 
                 r = parse_os_release(
                                 /* root= */ NULL,
                                 "PRETTY_NAME",        &pretty_name,
+                                "FANCY_NAME",         &fancy_name,
                                 "NAME",               &os_name,
                                 "ANSI_COLOR",         &ansi_color,
                                 "ANSI_COLOR_REVERSE", &ansi_color_reverse,
@@ -258,7 +260,11 @@ int chrome_show(
                         free_and_replace(ansi_color_reverse, j);
                 }
 
-                if (asprintf(&b, "\x1B[0;%sm %s %s", c, m, ansi_color_reverse ?: ANSI_COLOR_CHROME) < 0)
+                if (use_fancy_name(unescape_fancy_name(&fancy_name)))
+                        b = asprintf_safe("\x1B[0;%sm \x1B[0m%s\x1B[0;%sm %s", c, fancy_name, c, ansi_color_reverse ?: ANSI_COLOR_CHROME);
+                else
+                        b = asprintf_safe("\x1B[0;%sm %s %s", c, m, ansi_color_reverse ?: ANSI_COLOR_CHROME);
+                if (!b)
                         return log_oom_debug();
 
                 if (documentation_url) {
