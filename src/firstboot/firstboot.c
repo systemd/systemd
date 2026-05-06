@@ -103,7 +103,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static void print_welcome(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL;
+        _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL, *fancy_name = NULL;
         static bool done = false;
         const char *pn, *ac;
         int r;
@@ -133,6 +133,7 @@ static void print_welcome(int rfd, sd_varlink **mute_console_link) {
 
         r = parse_os_release_at(rfd,
                                 "PRETTY_NAME", &pretty_name,
+                                "FANCY_NAME", &fancy_name,
                                 "NAME", &os_name,
                                 "ANSI_COLOR", &ansi_color);
         if (r < 0)
@@ -142,7 +143,9 @@ static void print_welcome(int rfd, sd_varlink **mute_console_link) {
         pn = os_release_pretty_name(pretty_name, os_name);
         ac = isempty(ansi_color) ? "0" : ansi_color;
 
-        if (colors_enabled())
+        if (use_fancy_name(unescape_fancy_name(&fancy_name)))
+                printf(ANSI_HIGHLIGHT "Welcome to " ANSI_NORMAL "%s" ANSI_HIGHLIGHT "!" ANSI_NORMAL "\n", fancy_name);
+        else if (colors_enabled())
                 printf(ANSI_HIGHLIGHT "Welcome to " ANSI_NORMAL "\x1B[%sm%s" ANSI_HIGHLIGHT "!" ANSI_NORMAL "\n", ac, pn);
         else
                 printf("Welcome to %s!\n", pn);

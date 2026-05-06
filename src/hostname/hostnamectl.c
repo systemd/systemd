@@ -23,13 +23,13 @@
 #include "log.h"
 #include "main-func.h"
 #include "options.h"
+#include "os-util.h"
 #include "parse-argument.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "runtime-scope.h"
 #include "string-util.h"
 #include "time-util.h"
-#include "utf8.h"
 #include "verbs.h"
 
 static bool arg_ask_password = true;
@@ -236,7 +236,7 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        if (!isempty(i->os_fancy_name) && (emoji_enabled() || ascii_is_valid(i->os_fancy_name)) && colors_enabled()) {
+        if (use_fancy_name(i->os_fancy_name)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Operating System",
                                    TABLE_STRING_WITH_ANSI, i->os_fancy_name,
