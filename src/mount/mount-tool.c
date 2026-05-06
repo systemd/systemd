@@ -109,7 +109,7 @@ static int parse_where(const char *input, char **ret_where) {
 }
 
 static int help(char *argv[]) {
-        _cleanup_(table_unrefp) Table *options = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *options2 = NULL;
         int r;
 
         r = option_parser_get_help_table(&options);
@@ -125,12 +125,24 @@ static int help(char *argv[]) {
                 help_cmdline("[OPTIONS...] --list");
                 help_cmdline("[OPTIONS...] --umount WHAT|WHERE...");
                 help_abstract("Establish a mount or auto-mount point.");
+
+                r = option_parser_get_help_table_group("Mount options", &options2);
+                if (r < 0)
+                        return r;
+
+                (void) table_sync_column_widths(0, options, options2);
         }
 
         help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
+
+        if (options2) {
+                r = table_print_or_warn(options2);
+                if (r < 0)
+                        return r;
+        }
 
         help_man_page_reference("systemd-mount", "1");
         return 0;
@@ -157,6 +169,32 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_COMMON_VERSION:
                         return version();
 
+                OPTION_LONG("user", NULL, "Run as user unit"):
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
+                OPTION_LONG("system", NULL, /* help= */ NULL):
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
+                OPTION_COMMON_HOST:
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = opts.arg;
+                        break;
+
+                OPTION_COMMON_MACHINE:
+                        r = parse_machine_argument(opts.arg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("canonicalize", "BOOL",
+                            "Whether to canonicalize path before operation"):
+                        r = parse_boolean_argument("--canonicalize=", opts.arg, &arg_canonicalize);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 OPTION_LONG("no-block", NULL, "Do not wait until operation finished"):
                         arg_no_block = true;
                         break;
@@ -177,28 +215,17 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         arg_ask_password = false;
                         break;
 
-                OPTION('q', "quiet", NULL, "Suppress information messages during runtime"):
+                OPTION('q', "quiet", NULL, "Suppress informational messages during runtime"):
                         arg_quiet = true;
                         break;
 
-                OPTION_LONG("user", NULL, "Run as user unit"):
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                OPTION_LONG("system", NULL, /* help= */ NULL):
-                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-                        break;
-
-                OPTION_COMMON_HOST:
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = opts.arg;
-                        break;
-
-                OPTION_COMMON_MACHINE:
-                        r = parse_machine_argument(opts.arg, &arg_host, &arg_transport);
-                        if (r < 0)
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
+                        if (r <= 0)
                                 return r;
                         break;
+
+                OPTION_GROUP("Mount options"): {}
 
                 OPTION_LONG("discover", NULL, "Discover mount device metadata"):
                         arg_discover = true;
@@ -289,19 +316,6 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION('T', "tmpfs", NULL, "Create a new tmpfs on the mount point"):
                         arg_tmpfs = true;
-                        break;
-
-                OPTION_COMMON_JSON:
-                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-                        break;
-
-                OPTION_LONG("canonicalize", "BOOL",
-                            "Controls whether to canonicalize path before operation"):
-                        r = parse_boolean_argument("--canonicalize=", opts.arg, &arg_canonicalize);
-                        if (r < 0)
-                                return r;
                         break;
                 }
 
