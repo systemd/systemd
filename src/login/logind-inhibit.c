@@ -27,6 +27,7 @@
 #include "path-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 
@@ -178,7 +179,11 @@ int inhibitor_start(Inhibitor *i) {
 }
 
 void inhibitor_stop(Inhibitor *i) {
-        assert(i);
+        int r;
+        Manager *m;
+        assert(it);
+        m = i->manager;
+        assert(m);
 
         if (i->started)
                 log_debug("Inhibitor %s (%s) pid="PID_FMT" uid="UID_FMT" mode=%s stopped.",
@@ -194,6 +199,16 @@ void inhibitor_stop(Inhibitor *i) {
         i->started = false;
 
         bus_manager_send_inhibited_change(i);
+
+        /* Inhibitor removal may change the idle hint, so trigger immediate recalculation of idle action */
+        if (m->idle_action_event_source && (i->what & INHIBIT_IDLE)) {
+                r = sd_event_source_set_time(m->idle_action_event_source, now(CLOCK_MONOTONIC));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reset idle action timer after inhibitor removal: %m");
+                r = sd_event_source_set_enabled(m->idle_action_event_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to enable idle action once: %m");
+        }
 }
 
 int inhibitor_load(Inhibitor *i) {
