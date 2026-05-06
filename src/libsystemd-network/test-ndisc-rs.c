@@ -227,11 +227,43 @@ static void test_callback_ra(sd_ndisc *nd, sd_ndisc_event_t event, void *message
         sd_event_exit(e, 0);
 }
 
+static void test_callback_count(
+                _unused_ sd_ndisc *nd,
+                sd_ndisc_event_t event,
+                _unused_ void *message,
+                void *userdata) {
+        unsigned *count = ASSERT_PTR(userdata);
+
+        if (event == SD_NDISC_EVENT_ROUTER)
+                (*count)++;
+}
+
 static int on_recv_rs(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
         assert_se(icmp6_packet_receive(fd, &packet) >= 0);
 
         return send_ra(0);
+}
+
+TEST(rs_ifindex_mismatch) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
+        unsigned count = 0;
+
+        assert_se(sd_event_new(&e) >= 0);
+        assert_se(sd_ndisc_new(&nd) >= 0);
+        assert_se(sd_ndisc_attach_event(nd, e, 0) >= 0);
+        assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
+        assert_se(sd_ndisc_set_callback(nd, test_callback_count, &count) >= 0);
+        assert_se(sd_ndisc_start(nd) >= 0);
+
+        test_ifindex = 43;
+        send_ra(0);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 0);
+        assert_se(count == 0);
+
+        assert_se(sd_ndisc_stop(nd) >= 0);
+        test_fd[1] = safe_close(test_fd[1]);
 }
 
 TEST(rs) {
