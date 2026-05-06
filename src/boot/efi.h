@@ -184,6 +184,8 @@ typedef uint64_t EFI_PHYSICAL_ADDRESS;
 #define EFI_PAGE_SIZE 4096U
 #define EFI_SIZE_TO_PAGES(s) (((s) + 0xFFFU) >> 12U)
 
+#define EFI_2_10_SYSTEM_TABLE_REVISION  ((2U << 16) | (10U))
+
 /* These are common enough to warrant forward declaration. We also give them a
  * shorter name for convenience. */
 typedef struct EFI_FILE_PROTOCOL EFI_FILE;

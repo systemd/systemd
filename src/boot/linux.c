@@ -252,7 +252,7 @@ EFI_STATUS linux_exec(
                 if (err != EFI_SUCCESS)
                         /* Only warn if the UEFI should have support in the first place (version >= 2.10) */
                         log_full(err,
-                                 ST->Hdr.Revision >= ((2U << 16) | 100U) ? LOG_WARNING : LOG_DEBUG,
+                                 ST->Hdr.Revision >= EFI_2_10_SYSTEM_TABLE_REVISION ? LOG_WARNING : LOG_DEBUG,
                                  "No EFI_MEMORY_ATTRIBUTE_PROTOCOL found, skipping NX_COMPAT support.");
         }
 
