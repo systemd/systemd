@@ -303,7 +303,7 @@ int main(int argc, char *argv[]) {
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         ASSERT_OK(manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m));
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
 
         ASSERT_OK(test_bpf_cgroup_programs(m,
                                 "single_prog.service", single_prog, ELEMENTSOF(single_prog)));
