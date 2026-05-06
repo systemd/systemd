@@ -461,6 +461,7 @@ option('gnutls', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 
        description : 'gnutls support')
 option('openssl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'openssl support')
+option('timesync-nts', type : 'feature', description : 'network time security support')
 option('p11kit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'p11kit support')
 option('libfido2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
