@@ -21,6 +21,12 @@
 #include "strv.h"
 #include "terminal-util.h"
 
+#if HAVE_SECURE_MORE_PAGER
+#define SECURE_MORE_PAGER       "more",
+#else
+#define SECURE_MORE_PAGER
+#endif /* HAVE_SECURE_MORE_PAGER */
+
 static PidRef pager_pidref = PIDREF_NULL;
 
 static int stored_stdout = -1;
@@ -236,7 +242,7 @@ void pager_open(PagerFlags flags) {
 
                 for (unsigned i = 0; i < ELEMENTSOF(pagers); i++) {
                         /* Only less, more (and our trivial fallback) implement secure mode right now. */
-                        if (use_secure_mode && !STR_IN_SET(pagers[i], "less", "more", "(built-in)"))
+                        if (use_secure_mode && !STR_IN_SET(pagers[i], "less", SECURE_MORE_PAGER "(built-in)" ))
                                 continue;
 
                         r = loop_write(exe_name_pipe[1], pagers[i], strlen(pagers[i]) + 1);

@@ -635,6 +635,12 @@ sed    = find_program('sed')
 sh     = find_program('sh')
 stat   = find_program('stat')
 
+more_pager = find_program('more',
+                      version : '>= 2.42',
+                      required : false)
+have = more_pager.found()
+conf.set10('HAVE_SECURE_MORE_PAGER', have)
+
 ln_s = ln.full_path() + ' -frsT -- "${DESTDIR:-}@0@" "${DESTDIR:-}@1@"'
 
 # If -Dxxx-path option is found, use that. Otherwise, use the default from the
