@@ -214,7 +214,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int print_welcome(sd_varlink **mute_console_link) {
-        _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL;
+        _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL, *fancy_name = NULL;
         const char *pn, *ac;
         int r;
 
@@ -229,6 +229,7 @@ static int print_welcome(sd_varlink **mute_console_link) {
         r = parse_os_release(
                         /* root= */ NULL,
                         "PRETTY_NAME", &pretty_name,
+                        "FANCY_NAME",  &fancy_name,
                         "NAME",        &os_name,
                         "ANSI_COLOR",  &ansi_color);
         if (r < 0)
@@ -238,7 +239,9 @@ static int print_welcome(sd_varlink **mute_console_link) {
         pn = os_release_pretty_name(pretty_name, os_name);
         ac = isempty(ansi_color) ? "0" : ansi_color;
 
-        if (colors_enabled())
+        if (use_fancy_name(unescape_fancy_name(&fancy_name)))
+                printf(ANSI_HIGHLIGHT "Welcome to the " ANSI_NORMAL "%s" ANSI_HIGHLIGHT " Installer!" ANSI_NORMAL "\n", fancy_name);
+        else if (colors_enabled())
                 printf(ANSI_HIGHLIGHT "Welcome to the " ANSI_NORMAL "\x1B[%sm%s" ANSI_HIGHLIGHT " Installer!" ANSI_NORMAL "\n", ac, pn);
         else
                 printf("Welcome to the %s Installer!\n", pn);

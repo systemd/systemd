@@ -3,10 +3,12 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "env-file.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
@@ -511,4 +513,42 @@ const char* os_release_pretty_name(const char *pretty_name, const char *name) {
 
         return empty_to_null(pretty_name) ?:
                 empty_to_null(name) ?: "Linux";
+}
+
+char *unescape_fancy_name(char **fancy_name) {
+        assert(fancy_name);
+
+        /* Checks if the fancy name is valid, unescapes if it is, nullifies it if not */
+
+        _cleanup_free_ char *unescaped_fancy_name = NULL;
+
+        if (isempty(*fancy_name))
+                goto clear;
+
+        if (!utf8_is_valid(*fancy_name))
+                goto clear;
+
+        /* We undo one level of C escapes on this */
+        if (cunescape(*fancy_name, /* flags= */ 0, &unescaped_fancy_name) < 0)
+                goto clear;
+
+        free_and_replace(*fancy_name, unescaped_fancy_name);
+        return *fancy_name;
+
+clear:
+        *fancy_name = mfree(*fancy_name);
+        return NULL;
+}
+
+bool use_fancy_name(const char *fancy_name) {
+
+        /* Decides whether to show the the specified fancy name */
+
+        if (isempty(fancy_name))
+                return false;
+
+        if (!colors_enabled())
+                return false;
+
+        return emoji_enabled() || ascii_is_valid(fancy_name);
 }
