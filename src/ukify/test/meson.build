@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 if want_ukify and want_tests != 'false'
+        pymod.find_installation('python3', modules : ['pefile'])
+
         have_pytest_flakes = pymod.find_installation(
                 'python3',
                 required : false,

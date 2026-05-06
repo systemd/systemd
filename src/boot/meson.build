@@ -444,6 +444,11 @@ foreach archspec : efi_archspecs
                 kwargs : kwargs)
 endforeach
 
+if want_tests != 'false'
+        # Needed by check_efi_alignment_py
+        pymod.find_installation('python3', required : false, modules : ['pefile'])
+endif
+
 foreach efi_elf_binary : efi_elf_binaries
         name = efi_elf_binary.name()
         name += name.startswith('systemd-boot') ? '.efi' : '.efi.stub'
@@ -486,10 +491,12 @@ foreach efi_elf_binary : efi_elf_binaries
                 efi_addon = [exe]
         endif
 
-        test(f'check-alignment-@name@',
-             check_efi_alignment_py,
-             args : exe,
-             suite : 'boot')
+        if want_tests != 'false'
+                test(f'check-alignment-@name@',
+                     check_efi_alignment_py,
+                     args : exe,
+                     suite : 'boot')
+        endif
 endforeach
 
 alias_target('systemd-boot', boot_targets)
