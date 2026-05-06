@@ -1613,6 +1613,14 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnGE60*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnGE70*:*
  KEYBOARD_KEY_c2=ejectcd
 
+# MSI GE76 Raider 10UG uses Fn+F3 for touchpad and Fn+F6 and Fn+F7 
+# for crosshair-mode and gaming-mode respectively but the latter 
+# two were previously not generating any keycodes under Linux
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pnGE76Raider10UG:*
+ KEYBOARD_KEY_76=touchpad_toggle
+ KEYBOARD_KEY_f3=prog2
+ KEYBOARD_KEY_8a=prog3
+
 # some MSI models generate ACPI/input events on the LNXVIDEO input devices,
 # plus some extra synthesized ones on atkbd as an echo of actually changing the
 # brightness; so ignore those atkbd ones, to avoid loops
