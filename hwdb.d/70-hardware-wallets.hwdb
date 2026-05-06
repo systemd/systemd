@@ -32,6 +32,10 @@ usb:v10C4pEA60*
 usb:v1A86p55D4*
  ID_HARDWARE_WALLET=1
 
+# Jade Plus
+usb:v303Ap4001*
+ ID_HARDWARE_WALLET=1
+
 ################
 # Coinkite Hardware Wallets
 ################
