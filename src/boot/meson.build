@@ -486,10 +486,12 @@ foreach efi_elf_binary : efi_elf_binaries
                 efi_addon = [exe]
         endif
 
-        test(f'check-alignment-@name@',
-             check_efi_alignment_py,
-             args : exe,
-             suite : 'boot')
+        if want_tests != 'false'
+                test(f'check-alignment-@name@',
+                     check_efi_alignment_py,
+                     args : exe,
+                     suite : 'boot')
+        endif
 endforeach
 
 alias_target('systemd-boot', boot_targets)
