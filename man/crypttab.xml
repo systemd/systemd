@@ -1032,6 +1032,23 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>wipe</option></term>
+        <listitem>
+          <para>
+            If specified, systemd-cryptsetup will attempt to wipe any detected filesystem or superblock signatures
+            from the unlocked device before activating it (e.g., before formatting as swap). This is useful for
+            ephemeral encrypted swap, swap pre-filled by /dev/random or similar use cases, where random data may
+            otherwise be misdetected as a filesystem signature and block activation.
+
+            <warning>
+              The wipe is performed only if the device is not already active.
+            </warning>
+          </para>
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>At early boot and when the system manager configuration is
