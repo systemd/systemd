@@ -3139,16 +3139,38 @@ static int verb_show_server_state(int argc, char *argv[], uintptr_t _data, void 
         return sd_json_variant_dump(d, arg_json_format_flags, NULL, NULL);
 }
 
-static void help_protocol_types(void) {
-        if (arg_legend)
-                puts("Known protocol types:");
-        puts("dns\n"
-             "llmnr\n"
-             "llmnr-ipv4\n"
-             "llmnr-ipv6\n"
-             "mdns\n"
-             "mdns-ipv4\n"
-             "mdns-ipv6");
+static int parse_protocol(const char *arg) {
+        if (streq(arg, "help")) {
+                if (arg_legend)
+                        puts("Known protocol types:");
+                puts("dns\n"
+                     "llmnr\n"
+                     "llmnr-ipv4\n"
+                     "llmnr-ipv6\n"
+                     "mdns\n"
+                     "mdns-ipv4\n"
+                     "mdns-ipv6");
+                return 0;
+        }
+
+        if (streq(optarg, "dns"))
+                arg_flags |= SD_RESOLVED_DNS;
+        else if (streq(optarg, "llmnr"))
+                arg_flags |= SD_RESOLVED_LLMNR;
+        else if (streq(optarg, "llmnr-ipv4"))
+                arg_flags |= SD_RESOLVED_LLMNR_IPV4;
+        else if (streq(optarg, "llmnr-ipv6"))
+                arg_flags |= SD_RESOLVED_LLMNR_IPV6;
+        else if (streq(optarg, "mdns"))
+                arg_flags |= SD_RESOLVED_MDNS;
+        else if (streq(optarg, "mdns-ipv4"))
+                arg_flags |= SD_RESOLVED_MDNS_IPV4;
+        else if (streq(optarg, "mdns-ipv6"))
+                arg_flags |= SD_RESOLVED_MDNS_IPV6;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown protocol specifier: %s", optarg);
+        return 1;
 }
 
 static void help_dns_types(void) {
@@ -3434,27 +3456,9 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'p':
-                        if (streq(optarg, "help")) {
-                                help_protocol_types();
-                                return 0;
-                        } else if (streq(optarg, "dns"))
-                                arg_flags |= SD_RESOLVED_DNS;
-                        else if (streq(optarg, "llmnr"))
-                                arg_flags |= SD_RESOLVED_LLMNR;
-                        else if (streq(optarg, "llmnr-ipv4"))
-                                arg_flags |= SD_RESOLVED_LLMNR_IPV4;
-                        else if (streq(optarg, "llmnr-ipv6"))
-                                arg_flags |= SD_RESOLVED_LLMNR_IPV6;
-                        else if (streq(optarg, "mdns"))
-                                arg_flags |= SD_RESOLVED_MDNS;
-                        else if (streq(optarg, "mdns-ipv4"))
-                                arg_flags |= SD_RESOLVED_MDNS_IPV4;
-                        else if (streq(optarg, "mdns-ipv6"))
-                                arg_flags |= SD_RESOLVED_MDNS_IPV6;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown protocol specifier: %s", optarg);
-
+                        r = parse_protocol(optarg);
+                        if (r <= 0)
+                                return r;
                         break;
 
                 case ARG_SERVICE:
@@ -3736,28 +3740,9 @@ static int native_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'p':
-                        if (streq(optarg, "help")) {
-                                help_protocol_types();
-                                return 0;
-                        } else if (streq(optarg, "dns"))
-                                arg_flags |= SD_RESOLVED_DNS;
-                        else if (streq(optarg, "llmnr"))
-                                arg_flags |= SD_RESOLVED_LLMNR;
-                        else if (streq(optarg, "llmnr-ipv4"))
-                                arg_flags |= SD_RESOLVED_LLMNR_IPV4;
-                        else if (streq(optarg, "llmnr-ipv6"))
-                                arg_flags |= SD_RESOLVED_LLMNR_IPV6;
-                        else if (streq(optarg, "mdns"))
-                                arg_flags |= SD_RESOLVED_MDNS;
-                        else if (streq(optarg, "mdns-ipv4"))
-                                arg_flags |= SD_RESOLVED_MDNS_IPV4;
-                        else if (streq(optarg, "mdns-ipv6"))
-                                arg_flags |= SD_RESOLVED_MDNS_IPV6;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown protocol specifier: %s",
-                                                       optarg);
-
+                        r = parse_protocol(optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_RAW:
