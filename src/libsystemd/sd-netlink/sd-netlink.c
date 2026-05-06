@@ -956,6 +956,8 @@ int sd_netlink_add_match(
                 case RTM_DELQDISC:
                 case RTM_NEWTCLASS:
                 case RTM_DELTCLASS:
+                case RTM_NEWTFILTER:
+                case RTM_DELTFILTER:
                         groups = tc_groups;
                         n_groups = ELEMENTSOF(tc_groups);
                         break;

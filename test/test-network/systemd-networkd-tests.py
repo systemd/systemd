@@ -5793,6 +5793,27 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'burst 123456')
         self.assertRegex(output, 'cburst 123457')
 
+    @expectedFailureIfModuleIsNotAvailable('sch_htb', 'cls_fw')
+    def test_qdisc_htb_fw_filter(self):
+        copy_network_unit('25-qdisc-htb-fifo-fw-filter.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'qdisc htb 2: root')
+        self.assertRegex(output, r'default (0x30|30)')
+
+        output = check_output('tc -d class show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'class htb 2:30 root')
+        self.assertRegex(output, 'class htb 2:31 root')
+
+        output = check_output('tc filter show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'filter parent 2: protocol ip pref 1 fw')
+        self.assertRegex(output, 'handle 0x1 classid 2:31')
+
     @expectedFailureIfModuleIsNotAvailable('sch_ingress')
     def test_qdisc_ingress(self):
         copy_network_unit('25-qdisc-clsact.network', '12-dummy.netdev',

@@ -38,6 +38,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tclass.h"
+#include "tfilter.h"
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 network_hash_ops,
@@ -312,6 +313,7 @@ int network_verify(Network *network) {
         network_drop_invalid_routing_policy_rules(network);
         network_drop_invalid_qdisc(network);
         network_drop_invalid_tclass(network);
+        network_drop_invalid_tfilter(network);
         r = sr_iov_drop_invalid_sections(UINT32_MAX, network->sr_iov_by_section);
         if (r < 0)
                 return r; /* sr_iov_drop_invalid_sections() logs internally. */
@@ -584,7 +586,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "StochasticFairBlue\0"
                         "StochasticFairnessQueueing\0"
                         "TokenBucketFilter\0"
-                        "TrivialLinkEqualizer\0",
+                        "TrivialLinkEqualizer\0"
+                        "FirewallFilter\0",
                         config_item_perf_lookup,
                         network_network_gperf_lookup,
                         CONFIG_PARSE_WARN,
@@ -853,6 +856,7 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->sr_iov_by_section);
         hashmap_free(network->qdiscs_by_section);
         hashmap_free(network->tclasses_by_section);
+        hashmap_free(network->tfilters_by_section);
 
         /* ModemManager */
         free(network->mm_apn);

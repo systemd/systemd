@@ -55,6 +55,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tclass.h"
+#include "tfilter.h"
 #include "tuntap.h"
 #include "udev-util.h"
 
@@ -413,6 +414,14 @@ static int manager_connect_rtnl(Manager *m, int fd) {
                 return r;
 
         r = netlink_add_match(m->rtnl, NULL, RTM_DELTCLASS, &manager_rtnl_process_tclass, NULL, m, "network-rtnl_process_tclass");
+        if (r < 0)
+                return r;
+
+        r = netlink_add_match(m->rtnl, NULL, RTM_NEWTFILTER, &manager_rtnl_process_tfilter, NULL, m, "network-rtnl_process_tfilter");
+        if (r < 0)
+                return r;
+
+        r = netlink_add_match(m->rtnl, NULL, RTM_DELTFILTER, &manager_rtnl_process_tfilter, NULL, m, "network-rtnl_process_tfilter");
         if (r < 0)
                 return r;
 
@@ -962,6 +971,21 @@ static int manager_enumerate_tclass(Manager *m) {
         return r;
 }
 
+static int manager_enumerate_tfilter(Manager *m) {
+        Link *link;
+        int r = 0;
+
+        assert(m);
+        assert(m->rtnl);
+
+        /* TC filter can be enumerated only per link. See tc_dump_tfilter() in net/sched/cls_api.c. */
+
+        HASHMAP_FOREACH(link, m->links_by_index)
+                RET_GATHER(r, link_enumerate_tfilter(link, 0));
+
+        return r;
+}
+
 static int manager_enumerate_addresses(Manager *m) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
@@ -1120,6 +1144,13 @@ int manager_enumerate(Manager *m) {
                 log_debug_errno(r, "Could not enumerate TClasses, ignoring: %m");
         else if (r < 0)
                 return log_error_errno(r, "Could not enumerate TClass: %m");
+
+        /* If the kernel is built without CONFIG_NET_CLS, the below will fail with -EOPNOTSUPP. */
+        r = manager_enumerate_tfilter(m);
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not enumerate TFilters, ignoring: %m");
+        else if (r < 0)
+                return log_error_errno(r, "Could not enumerate TFilter: %m");
 
         r = manager_enumerate_addresses(m);
         if (r < 0)

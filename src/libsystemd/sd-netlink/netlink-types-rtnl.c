@@ -13,6 +13,7 @@
 #include <linux/if_tunnel.h>
 #include <linux/net_namespace.h>
 #include <linux/nexthop.h>
+#include <linux/pkt_cls.h>
 #include <linux/pkt_sched.h>
 #include <linux/rtnetlink.h>
 #include <linux/veth.h>
@@ -1159,6 +1160,12 @@ static const NLAPolicy rtnl_tca_option_data_tbf_policies[] = {
         [TCA_TBF_PBURST]  = BUILD_POLICY(U32),
 };
 
+static const NLAPolicy rtnl_tca_option_data_fw_policies[] = {
+        [TCA_FW_CLASSID]  = BUILD_POLICY(U32),
+        [TCA_FW_INDEV]    = BUILD_POLICY(STRING),
+        [TCA_FW_MASK]     = BUILD_POLICY(U32),
+};
+
 static const NLAPolicySetUnionElement rtnl_tca_option_data_policy_set_union_elements[] = {
         BUILD_UNION_ELEMENT_BY_STRING("cake",     rtnl_tca_option_data_cake),
         BUILD_UNION_ELEMENT_BY_STRING("codel",    rtnl_tca_option_data_codel),
@@ -1167,6 +1174,7 @@ static const NLAPolicySetUnionElement rtnl_tca_option_data_policy_set_union_elem
         BUILD_UNION_ELEMENT_BY_STRING("fq",       rtnl_tca_option_data_fq),
         BUILD_UNION_ELEMENT_BY_STRING("fq_codel", rtnl_tca_option_data_fq_codel),
         BUILD_UNION_ELEMENT_BY_STRING("fq_pie",   rtnl_tca_option_data_fq_pie),
+        BUILD_UNION_ELEMENT_BY_STRING("fw",       rtnl_tca_option_data_fw),
         BUILD_UNION_ELEMENT_BY_STRING("gred",     rtnl_tca_option_data_gred),
         BUILD_UNION_ELEMENT_BY_STRING("hhf",      rtnl_tca_option_data_hhf),
         BUILD_UNION_ELEMENT_BY_STRING("htb",      rtnl_tca_option_data_htb),
@@ -1232,6 +1240,9 @@ static const NLAPolicy rtnl_policies[] = {
         [RTM_NEWTCLASS]    = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_tca, sizeof(struct tcmsg)),
         [RTM_DELTCLASS]    = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_tca, sizeof(struct tcmsg)),
         [RTM_GETTCLASS]    = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_tca, sizeof(struct tcmsg)),
+        [RTM_NEWTFILTER]   = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_tca, sizeof(struct tcmsg)),
+        [RTM_DELTFILTER]   = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_tca, sizeof(struct tcmsg)),
+        [RTM_GETTFILTER]   = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_tca, sizeof(struct tcmsg)),
         [RTM_NEWMDB]       = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_mdb, sizeof(struct br_port_msg)),
         [RTM_DELMDB]       = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_mdb, sizeof(struct br_port_msg)),
         [RTM_GETMDB]       = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_mdb, sizeof(struct br_port_msg)),

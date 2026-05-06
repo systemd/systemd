@@ -401,6 +401,7 @@ typedef struct Network {
         Hashmap *dhcp_static_leases_by_section;
         Hashmap *qdiscs_by_section;
         Hashmap *tclasses_by_section;
+        Hashmap *tfilters_by_section;
         OrderedHashmap *sr_iov_by_section;
 
         /* All kinds of DNS configuration */

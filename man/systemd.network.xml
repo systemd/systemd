@@ -6408,6 +6408,21 @@ ServerAddress=192.168.0.1/24</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>[FirewallFilter] Section Options</title>
+    <para>The [FirewallFilter] section manages the traffic control filter based on firewall marks (fwmark).
+    A filter is used by a classful qdisc to determine in which class a packet will be enqueued. The firewall
+    filter classifies packets based on the firewall mark (fwmark) set by iptables or nftables.</para>
+
+    <variablelist class='network-directives'>
+      <xi:include href="tc.xml" xpointer="tfilter-parent" />
+      <xi:include href="tc.xml" xpointer="tfilter-handle" />
+      <xi:include href="tc.xml" xpointer="tfilter-protocol" />
+      <xi:include href="tc.xml" xpointer="tfilter-priority" />
+      <xi:include href="tc.xml" xpointer="tfilter-flowid" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[BridgeVLAN] Section Options</title>
     <para>
       The [BridgeVLAN] section manages the VLAN ID configuration of a bridge master or enslaved device.
