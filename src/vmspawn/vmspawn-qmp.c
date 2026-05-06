@@ -730,23 +730,26 @@ static int drive_info_add_fail(DriveInfo *d, int error, const char *error_desc) 
         if (FLAGS_SET(d->state, BLOCK_DEVICE_STATE_ADD_FAILED))
                 return 0;
 
-        vmspawn_qmp_block_device_teardown(d->bridge->qmp, d->qmp_node_name, d->state);
-        d->state = BLOCK_DEVICE_STATE_ADD_FAILED;
+        /* Pin the object alive across bridge_unregister_drive() + drive_info_unref() below. */
+        _cleanup_(drive_info_unrefp) DriveInfo *ref = drive_info_ref(d);
 
-        if (bridge_unregister_drive(d->bridge, d))
-                drive_info_unref(d);
+        vmspawn_qmp_block_device_teardown(ref->bridge->qmp, ref->qmp_node_name, ref->state);
+        ref->state = BLOCK_DEVICE_STATE_ADD_FAILED;
 
-        if (d->link) {
-                (void) reply_qmp_error(d->link, error_desc, error);
-                d->link = sd_varlink_unref(d->link);
+        if (bridge_unregister_drive(ref->bridge, ref))
+                drive_info_unref(ref);
+
+        if (ref->link) {
+                (void) reply_qmp_error(ref->link, error_desc, error);
+                ref->link = sd_varlink_unref(ref->link);
                 return 0;
         }
 
         log_error_errno(error, "Block device '%s' setup failed: %s",
-                        strna(d->id), strna(error_desc));
+                        strna(ref->id), strna(error_desc));
 
         /* Boot-time (link == NULL) is always fatal — even for late-arriving ephemeral replies. */
-        return sd_event_exit(qmp_client_get_event(d->bridge->qmp), error);
+        return sd_event_exit(qmp_client_get_event(ref->bridge->qmp), error);
 }
 
 /* Rolls back the up-front registry insert on a sync error path. */
@@ -823,7 +826,7 @@ static int on_add_device_add_complete(
                 return 0;
 
         if (d->link) {
-                (void) sd_varlink_replybo(d->link, SD_JSON_BUILD_PAIR_STRING("id", d->id));
+                (void) sd_varlink_reply(d->link, NULL);
                 d->link = sd_varlink_unref(d->link);
         }
 
@@ -879,7 +882,7 @@ static int qmp_setup_scsi_controller(VmspawnQmpBridge *bridge, const char *pcie_
         return 0;
 }
 
-static int vmspawn_qmp_add_block_device(VmspawnQmpBridge *bridge, DriveInfo *drive) {
+int vmspawn_qmp_add_block_device(VmspawnQmpBridge *bridge, DriveInfo *drive) {
         int r;
 
         assert(bridge);
@@ -986,7 +989,6 @@ static int qmp_setup_regular_drive(VmspawnQmpBridge *bridge, DriveInfo *drive) {
         assert(bridge);
         assert(drive);
         assert(drive->fd >= 0);
-        assert(!drive->id);
 
         return vmspawn_qmp_add_block_device(bridge, drive);
 }
@@ -1025,7 +1027,9 @@ int vmspawn_qmp_remove_block_device(VmspawnQmpBridge *bridge, sd_varlink *link, 
 
         DriveInfo *drive = hashmap_get(bridge->block_devices, id);
         if (!drive)
-                return reply_qmp_error(link, "Unknown block device id", -ENOENT);
+                return sd_varlink_error(link, "io.systemd.MachineInstance.NoSuchStorage", NULL);
+        if (!FLAGS_SET(drive->flags, QMP_DRIVE_REMOVABLE))
+                return sd_varlink_error(link, "io.systemd.MachineInstance.StorageImmutable", NULL);
         if (!FLAGS_SET(drive->state, BLOCK_DEVICE_STATE_BLOCKDEV_ADDED))
                 return reply_qmp_error(link, "Block device add pending", -EBUSY);
         if (FLAGS_SET(drive->state, BLOCK_DEVICE_STATE_REMOVE_PENDING))

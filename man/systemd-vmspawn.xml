@@ -567,6 +567,39 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--bind-volume=<replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable>[:<replaceable>CONFIG</replaceable>][:<replaceable>K=V</replaceable>,…]</option></term>
+
+          <listitem><para>Acquire a storage volume from a
+          <citerefentry><refentrytitle>storagectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          provider and attach it to the virtual machine. <replaceable>PROVIDER</replaceable> is the
+          provider name (typically <literal>block</literal> or <literal>fs</literal>). <replaceable>VOLUME</replaceable>
+          is the volume name passed to the provider's <function>Acquire()</function> method.
+          <replaceable>CONFIG</replaceable> selects the guest device type and takes one of
+          <literal>virtio-blk</literal>, <literal>virtio-scsi</literal>, <literal>nvme</literal>, or
+          <literal>scsi-cd</literal>. If empty or omitted, defaults to <literal>virtio-blk</literal>.</para>
+
+          <para>The trailing comma-separated <replaceable>K=V</replaceable> list passes parameters to
+          <function>io.systemd.StorageProvider.Acquire()</function>: <varname>template=</varname>,
+          <varname>create=</varname> (one of <literal>any</literal>, <literal>new</literal>, <literal>open</literal>),
+          <varname>read-only=</varname> (or <varname>ro=</varname>; takes a boolean or <literal>auto</literal>),
+          <varname>size=</varname> / <varname>create-size=</varname> (size for created volumes),
+          <varname>request-as=</varname> (one of <literal>blk</literal>, <literal>reg</literal>,
+          <literal>dir</literal>; <literal>dir</literal> is rejected by vmspawn).</para>
+
+          <para>Each attached volume is identified by the name <literal><replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable></literal>.
+          Volumes attached at startup via this option cannot be detached at runtime via
+          <command>machinectl unbind-volume</command>; only volumes added at runtime via
+          <command>machinectl bind-volume</command> are removable.</para>
+
+          <para>The provider is looked up under
+          <filename>/run/systemd/io.systemd.StorageProvider/</filename> for system mode (or
+          <filename>$XDG_RUNTIME_DIR/systemd/io.systemd.StorageProvider/</filename> for user mode), matching
+          the runtime scope chosen via <option>--user</option> / <option>--system</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--bind-user=</option></term>
 
           <listitem><para>Binds the home directory of the specified user on the host into the virtual
