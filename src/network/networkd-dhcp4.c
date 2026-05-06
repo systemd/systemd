@@ -994,7 +994,8 @@ static int dhcp4_request_address(Link *link, bool announce) {
                 return log_link_warning_errno(link, r, "DHCP: failed to get broadcast address: %m");
         SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !prefixroute_by_kernel(link));
         addr->route_metric = link->network->dhcp_route_metric;
-        addr->duplicate_address_detection = link->network->dhcp_send_decline ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_NO;
+        addr->duplicate_address_detection =
+                link->network->dhcp_send_decline || in4_addr_is_link_local(&address) ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_NO;
 
         r = free_and_strdup_warn(&addr->label, link->network->dhcp_label);
         if (r < 0)

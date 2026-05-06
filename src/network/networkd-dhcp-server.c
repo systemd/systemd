@@ -81,9 +81,6 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
                         if (in4_addr_is_localhost(&address->in_addr.in))
                                 continue;
 
-                        if (in4_addr_is_link_local(&address->in_addr.in))
-                                continue;
-
                         if (in4_addr_is_set(&address->in_addr_peer.in))
                                 continue;
 
@@ -950,11 +947,11 @@ int config_parse_dhcp_server_address(
                            "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
-        if (in4_addr_is_localhost(&a.in) || in4_addr_is_link_local(&a.in)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "DHCP server address cannot be a localhost or link-local address, "
-                           "ignoring assignment: %s", rvalue);
-                return 0;
+        if (in4_addr_is_localhost(&a.in)) {
+            log_syntax(unit, LOG_WARNING, filename, line, 0,
+                       "DHCP server address cannot be a localhost address, "
+                       "ignoring assignment: %s", rvalue);
+            return 0;
         }
 
         network->dhcp_server_address_in_addr = a.in;

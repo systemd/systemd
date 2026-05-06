@@ -151,7 +151,7 @@ bool gateway_is_ready(Link *link, bool onlink, int family, const union in_addr_u
         if (!gw || !in_addr_is_set(family, gw))
                 return true;
 
-        if (family == AF_INET6 && in6_addr_is_link_local(&gw->in6))
+        if (in_addr_is_link_local(family, gw) > 0)
                 return true;
 
         SET_FOREACH(route, link->manager->routes) {
