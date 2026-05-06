@@ -72,6 +72,10 @@ All tools:
   `/etc/veritytab`. Only useful for debugging. Currently only supported by
   `systemd-veritysetup-generator`.
 
+* `$SYSTEMD_CLONETAB` — if set, use this path instead of
+  `/etc/clonetab`. Only useful for debugging. Currently only supported by
+  `systemd-clonesetup-generator`.
+
 * `$SYSTEMD_DEFAULT_HOSTNAME` — override the compiled-in fallback hostname
   (relevant in particular for the system manager and `systemd-hostnamed`).
   Must be a valid hostname (either a single label or a FQDN).
