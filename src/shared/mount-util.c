@@ -1760,15 +1760,35 @@ static int sub_mount_compare(const SubMount *a, const SubMount *b) {
         return path_compare(a->path, b->path);
 }
 
-static void sub_mount_drop(SubMount *s, size_t n) {
-        assert(s || n == 0);
+static void sub_mount_drop(SubMount *s, size_t *n) {
+        assert(n);
+        assert(s || *n == 0);
 
-        for (size_t m = 0, i = 1; i < n; i++) {
-                if (path_startswith(s[i].path, s[m].path))
+        /* Works on a sorted array and drops mounts that are covered by the preceding entry's recursive
+         * open_tree() clone. It fills the holes from the dropping by moving the remaining entries forward. */
+
+        if (*n == 0)
+                return;
+
+        size_t kept = 1;
+        for (size_t i = 1; i < *n; i++) {
+                if (path_startswith(s[i].path, s[kept - 1].path))
+                        /* Create a hole by dropping */
                         sub_mount_clear(s + i);
-                else
-                        m = i;
+                else {
+                        /* To keep this entry we move it to the first hole if there is one. */
+                        if (kept != i) {
+                                s[kept] = s[i];
+                                /* Also clear the old slot, not strictly required because we either
+                                 * overwrite the hole in this loop or it is after the reduced new length
+                                 * which we set n to before we return. */
+                                s[i] = (SubMount) { .mount_fd = -EBADF };
+                        }
+                        kept++;
+                }
         }
+
+        *n = kept;
 }
 #endif
 
@@ -1823,9 +1843,24 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                         continue;
                 }
 
-                mount_fd = RET_NERRNO(open_tree(AT_FDCWD, path, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE));
+                /* If possible on a newer kernel, use MS_PRIVATE to decouple it from the original
+                 * mount. Otherwise MNT_DETACH of the source path could propagate through and
+                 * unmount the just-moved nested children at the destination (relevant for
+                 * preserving nested mounts under sysext hierarchies). */
+                mount_fd = open_tree_attr_with_fallback(
+                                AT_FDCWD, path,
+                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE,
+                                &(struct mount_attr) { .propagation = MS_PRIVATE });
                 if (mount_fd == -ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
                         continue;
+                if (mount_fd < 0 && ERRNO_IS_NEG_NOT_SUPPORTED(mount_fd)) {
+                        /* On a kernel older than 5.12 without mount_setattr() we do the regular clone.
+                         * This means nested mounts under sysext and similar cases may get lost. */
+                        log_debug_errno(mount_fd, "open_tree_attr() not supported, retrying open_tree() without setting MS_PRIVATE: %m");
+                        mount_fd = RET_NERRNO(open_tree(AT_FDCWD, path, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE));
+                        if (mount_fd == -ENOENT)
+                                continue;
+                }
                 if (mount_fd < 0)
                         return log_debug_errno(mount_fd, "Failed to open subtree of mounted filesystem '%s': %m", path);
 
@@ -1843,7 +1878,7 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
         }
 
         typesafe_qsort(mounts, n, sub_mount_compare);
-        sub_mount_drop(mounts, n);
+        sub_mount_drop(mounts, &n);
 
         *ret_mounts = TAKE_PTR(mounts);
         *ret_n_mounts = n;
