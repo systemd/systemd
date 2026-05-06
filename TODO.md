@@ -128,6 +128,12 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- bootctl link + sysupdate integration
+  - make sysupdate call out to a special varlink dir on completion
+  - bind bootctl link socket in there, which when invoked goes to new dir in
+    /var/ where downloaded kernels+confext+sysext are dropped in (place in
+    .v/) and then does "bootctl link" on them.
+
 - a tool that can prep credentials, put them in the ESP, for provisioning
   systems for SBC. Should be doing what sysinstall does with the credentials,
   and maybe even *be* sysinstall.
