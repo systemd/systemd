@@ -1686,7 +1686,7 @@ if have and efi_arch == 'x64' and cc.links('''
         efi_cpu_family_alt = 'x86'
 endif
 
-want_ukify = pymod.find_installation('python3', required: get_option('ukify'), modules : ['pefile']).found()
+want_ukify = not get_option('ukify').disabled()
 conf.set10('ENABLE_UKIFY', want_ukify)
 
 #####################################################################
