@@ -87,7 +87,7 @@ static bool property_is_valid(const char *key, const char *value) {
          * property contains spurious characters, then the parser may be confused. Let's refuse spurious
          * properties, even if it is internal, which will not be saved to database file, for consistency. */
 
-        if (isempty(key) || !in_charset(key, ALPHANUMERICAL "_."))
+        if (isempty(key) || !in_charset(key, ALPHANUMERICAL "_.:"))
                 return false;
 
         /* an empty value means unset the property, hence that's fine. */
