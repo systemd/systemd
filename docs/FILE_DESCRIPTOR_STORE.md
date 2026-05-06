@@ -181,6 +181,39 @@ continuously).
 For further details see [Resource
 Pass-Through](https://www.freedesktop.org/software/systemd/man/latest/systemd-soft-reboot.service.html#Resource%20Pass-Through).
 
+## Kernel Live Update (kexec)
+
+On kernels that support the [Live Update
+Orchestrator](https://docs.kernel.org/userspace-api/liveupdate.html)
+(LUO), the fdstore may also be preserved across a `kexec`-based reboot into a
+new kernel. This allows updating the kernel itself without losing pinned
+resources such as serialized service state, analogous to soft reboot, but for
+the kernel.
+
+Only file descriptors that reference LUO-compatible kernel objects can be
+preserved this way. Currently the kernel supports `memfd` only for LUO, but
+more types are being worked on. Other kinds of file descriptors (sockets,
+regular files, etc.) will be dropped from the store during the kexec transition.
+
+LUO preservation of the fdstore is triggered automatically whenever a
+kexec-based reboot is initiated on an LUO-capable kernel, and is gated by a
+similar rule as soft-reboot: the service must have
+`FileDescriptorStorePreserve=yes` set, so that its fdstore remains loaded. On
+the other side of the kexec, the system manager rebuilds the mapping of fds
+back to their original service units, so that when those services are
+re-activated the fds are passed to them using the normal fdstore protocol.
+Adding a `FDNAME=…` string identifying the fd is also highly recommended,
+otherwise in case multiple fds are stored, it will be impossible to
+distinguish them, as they will all carry the default name (`stored`).
+
+Services that need to preserve additional kernel state may also create their
+own LUO sessions by opening `/dev/liveupdate` directly (see the kernel
+documentation linked above) and pushing the obtained session fd into their
+fdstore (it is recommended to use a `FDNAME=…` string, as above). systemd
+detects such fds and arranges for them to survive the kexec as well, so that
+the session, and any supported file descriptors preserved inside it, is
+handed back to the service on the other side of the reboot.
+
 ## Initrd Transitions
 
 The fdstore may also be used to pass file descriptors for resources from the
@@ -197,6 +230,27 @@ services of the same name.
 The soft reboot cycle transition and the initrd→host transition are
 semantically very similar, hence similar rules apply, and in both cases it is
 recommended to use the fdstore if pinned resources shall be passed over.
+
+## Propagation Across Manager Boundaries
+
+When a service that has `FileDescriptorStorePreserve=yes` set is itself running
+under another service manager, for example a service of the per-user manager
+(`user@.service`), or a payload running inside a
+[`systemd-nspawn`](https://www.freedesktop.org/software/systemd/man/latest/systemd-nspawn.html)
+container, fds pushed into its fdstore are automatically forwarded one level up
+the supervisor chain via the enveloping manager's `$NOTIFY_SOCKET`. This allows
+the fdstore contents of inner services to be preserved across restarts, re-execs,
+soft-reboots, etc. of the *outer* manager, even when the inner manager (or the
+container payload) is itself restarted along the way. On the way up, each fd is
+tagged with its originating unit id and the original `FDNAME=…` value, so that
+when the fds are eventually handed back down (via the regular
+`$LISTEN_FDS`/`$LISTEN_FDNAMES` protocol), each manager along the chain can
+route them back to the correct unit's fdstore. `FDSTOREREMOVE=1` notifications
+are forwarded the same way, so that explicit removals propagate all the way up too.
+
+For this to work the enveloping unit must itself enable the fdstore (i.e. set
+`FileDescriptorStoreMax=` to a sufficiently large value and
+`FileDescriptorStorePreserve=yes`).
 
 ## Debugging
 

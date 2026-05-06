@@ -43,11 +43,14 @@
 #include "emergency-action.h"
 #include "env-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "getopt-defs.h"
+#include "hash-funcs.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "id128-util.h"
@@ -64,6 +67,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "loopback-setup.h"
+#include "luo.h"
 #include "machine-id-setup.h"
 #include "main.h"
 #include "manager.h"
@@ -78,6 +82,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
@@ -153,6 +158,7 @@ static int arg_protect_system;
 static nsec_t arg_timer_slack_nsec;
 static Set* arg_syscall_archs;
 static FILE* arg_serialization;
+static FILE* arg_luo_serialization;
 static sd_id128_t arg_machine_id;
 static bool arg_machine_id_from_firmware = false;
 static EmergencyAction arg_cad_burst_action;
@@ -1760,6 +1766,13 @@ static int become_shutdown(int objective, int retval) {
         if (arg_minimum_uptime_usec != USEC_INFINITY)
                 (void) strv_extendf(&env_block, "MINIMUM_UPTIME_USEC=" USEC_FMT, arg_minimum_uptime_usec);
 
+        /* If we have a LUO serialization file, pass the fd to systemd-shutdown so it can
+         * preserve FD store entries across kexec via the kernel Live Update Orchestrator. */
+        if (arg_luo_serialization) {
+                log_debug("Passing LUO serialization fd to systemd-shutdown.");
+                (void) strv_extendf(&env_block, "SYSTEMD_LUO_SERIALIZE_FD=%i", fileno(arg_luo_serialization));
+        }
+
         (void) write_boot_or_shutdown_osc("shutdown");
 
         execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
@@ -3026,10 +3039,134 @@ static int initialize_security(
         return 0;
 }
 
-static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
+static int parse_listen_fds_env(unsigned *ret_n_fds, char ***ret_names) {
+        _cleanup_strv_free_ char **names = NULL;
+        const char *e;
+        unsigned n_fds;
+        int r;
+
+        assert(ret_n_fds);
+        assert(ret_names);
+
+        /* Parse and validate the LISTEN_PID=/LISTEN_PIDFDID=/LISTEN_FDS=/LISTEN_FDNAMES= environment
+         * variables. Returns 0 (with *ret_n_fds = 0) if the protocol is not in use or does not target
+         * us, > 0 with parsed values otherwise. */
+
+        *ret_n_fds = 0;
+        *ret_names = NULL;
+
+        e = secure_getenv("LISTEN_PID");
+        if (!e)
+                return 0;
+
+        pid_t pid;
+        r = parse_pid(e, &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse LISTEN_PID=%s: %m", e);
+        if (pid != getpid_cached()) {
+                log_debug("LISTEN_PID=%s does not match our own PID " PID_FMT ", ignoring.", e, getpid_cached());
+                return 0;
+        }
+
+        e = secure_getenv("LISTEN_PIDFDID");
+        if (e) {
+                uint64_t own_pidfdid, pidfdid;
+
+                r = safe_atou64(e, &pidfdid);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse LISTEN_PIDFDID=%s: %m", e);
+
+                if (pidfd_get_inode_id_self_cached(&own_pidfdid) >= 0 && pidfdid != own_pidfdid) {
+                        log_debug("LISTEN_PIDFDID=%s does not match our own pidfdid %" PRIu64 ", ignoring.", e, own_pidfdid);
+                        return 0;
+                }
+        }
+
+        e = secure_getenv("LISTEN_FDS");
+        if (!e)
+                return 0;
+
+        r = safe_atou(e, &n_fds);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse LISTEN_FDS= value '%s': %m", e);
+        if (n_fds == 0 || n_fds > INT_MAX - SD_LISTEN_FDS_START)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid number of fds in LISTEN_FDS= value '%s'", e);
+
+        e = secure_getenv("LISTEN_FDNAMES");
+        if (!e)
+                return 0;
+
+        r = strv_split_full(&names, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse LISTEN_FDNAMES=%s: %m", e);
+        if (strv_length(names) != (size_t) n_fds)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Mismatch between number of LISTEN_FDS= and LISTEN_FDNAMES= entries: %u vs %zu",
+                                       n_fds, strv_length(names));
+
+        *ret_n_fds = n_fds;
+        *ret_names = TAKE_PTR(names);
+        return 1;
+}
+
+DEFINE_PRIVATE_HASH_OPS_FULL(fd_to_name_hash_ops, void, trivial_hash_func, trivial_compare_func, close_fd_ptr, char, free);
+
+static int collect_listen_fds_named(FDSet *fds, Hashmap **ret_named_fds) {
+        _cleanup_hashmap_free_ Hashmap *named_fds = NULL;
+        _cleanup_strv_free_ char **names = NULL;
+        unsigned n_fds;
+        int r;
+
+        assert(fds);
+        assert(ret_named_fds);
+
+        /* Pull tagged ("unit-id|fdname") entries from the LISTEN_FDS=/LISTEN_FDNAMES= protocol out
+         * of 'fds' into a hashmap keyed by fd. The hashmap owns the fds (closed via destructor on
+         * cleanup) so any entries the dispatcher does not consume are correctly cleaned up. We key
+         * on fd (not name) because the same name can legitimately appear multiple times. */
+
+        r = parse_listen_fds_env(&n_fds, &names);
+        if (r < 0)
+                return r;
+        if (r == 0) { /* nothing to do */
+                *ret_named_fds = NULL;
+                return 0;
+        }
+
+        for (unsigned i = 0; i < n_fds; i++) {
+                int fd = SD_LISTEN_FDS_START + i;
+                const char *name = names[i];
+
+                if (!fdset_contains(fds, fd))
+                        continue;
+
+                if (!strchr(name, '|'))
+                        continue;
+
+                _cleanup_free_ char *name_dup = strdup(name);
+                if (!name_dup)
+                        return log_oom();
+
+                r = hashmap_ensure_put(&named_fds, &fd_to_name_hash_ops, FD_TO_PTR(fd), name_dup);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to insert named fd into hashmap: %m");
+                if (r == 0)
+                        continue; /* fd already inserted, cannot really happen */
+
+                TAKE_PTR(name_dup);
+
+                assert_se(fdset_remove(fds, fd) == fd);
+        }
+
+        *ret_named_fds = TAKE_PTR(named_fds);
+        return 1;
+}
+
+static int collect_fds(FDSet **ret_fds, Hashmap **ret_named_fds, const char **ret_error_message) {
         int r;
 
         assert(ret_fds);
+        assert(ret_named_fds);
         assert(ret_error_message);
 
         /* Pick up all fds passed to us. We apply a filter here: we only take the fds that have O_CLOEXEC
@@ -3050,6 +3187,8 @@ static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
 
         /* The serialization fd should have O_CLOEXEC turned on already, let's verify that we didn't pick it up here */
         assert_se(!arg_serialization || !fdset_contains(*ret_fds, fileno(arg_serialization)));
+
+        (void) collect_listen_fds_named(*ret_fds, ret_named_fds);
 
         return 0;
 }
@@ -3108,6 +3247,7 @@ int main(int argc, char *argv[]) {
                                                                           * for the two that indicate whether
                                                                           * these fields are initialized! */
         bool skip_setup, loaded_policy = false, queue_default_job = false, first_boot = false;
+        _cleanup_hashmap_free_ Hashmap *named_listen_fds = NULL;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
         usec_t before_startup, after_startup;
         static char systemd[] = "systemd";
@@ -3347,7 +3487,7 @@ int main(int argc, char *argv[]) {
                 log_close();
 
                 /* Remember open file descriptors for later deserialization */
-                r = collect_fds(&fds, &error_message);
+                r = collect_fds(&fds, &named_listen_fds, &error_message);
                 if (r < 0)
                         goto finish;
 
@@ -3422,7 +3562,7 @@ int main(int argc, char *argv[]) {
 
         before_startup = now(CLOCK_MONOTONIC);
 
-        r = manager_startup(m, arg_serialization, fds, /* root= */ NULL);
+        r = manager_startup(m, arg_serialization, fds, named_listen_fds, /* root= */ NULL);
         if (r < 0) {
                 error_message = "Failed to start up manager";
                 goto finish;
@@ -3474,6 +3614,12 @@ finish:
         if (m) {
                 arg_reboot_watchdog = manager_get_watchdog(m, WATCHDOG_REBOOT);
                 arg_kexec_watchdog = manager_get_watchdog(m, WATCHDOG_KEXEC);
+
+                /* For kexec, serialize fd stores now. Services have stopped and sent
+                 * their FDs to the store, but the manager (and its fd stores) is still alive. */
+                if (r == MANAGER_KEXEC)
+                        (void) manager_luo_serialize_fd_stores(m, &arg_luo_serialization, &fds);
+
                 m = manager_free(m);
         }
 
@@ -3491,7 +3637,13 @@ finish:
                                  &error_message); /* This only returns if reexecution failed */
 
         arg_serialization = safe_fclose(arg_serialization);
-        fds = fdset_free(fds);
+
+        /* For kexec, the FDSet and LUO serialization file must survive until become_shutdown() calls
+         * execve() (CLOEXEC is already cleared on these FDs). For all other paths, free them now. */
+        if (r != MANAGER_KEXEC) {
+                fds = fdset_free(fds);
+                arg_luo_serialization = safe_fclose(arg_luo_serialization);
+        }
 
         saved_env = strv_free(saved_env);
 
