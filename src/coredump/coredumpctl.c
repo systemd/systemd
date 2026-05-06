@@ -582,7 +582,7 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
 static int print_info(FILE *file, sd_journal *j, bool need_space) {
         _cleanup_free_ char
                 *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
-                *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
+                *sgnl = NULL, *code = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
                 *unit = NULL, *user_unit = NULL, *session = NULL,
                 *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
                 *slice = NULL, *cgroup = NULL, *owner_uid = NULL,
@@ -606,6 +606,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 RETRIEVE(d, l, "COREDUMP_UID", uid);
                 RETRIEVE(d, l, "COREDUMP_GID", gid);
                 RETRIEVE(d, l, "COREDUMP_SIGNAL", sgnl);
+                RETRIEVE(d, l, "COREDUMP_CODE", code);
                 RETRIEVE(d, l, "COREDUMP_EXE", exe);
                 RETRIEVE(d, l, "COREDUMP_COMM", comm);
                 RETRIEVE(d, l, "COREDUMP_CMDLINE", cmdline);
@@ -691,9 +692,14 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 int sig;
                 const char *name = normal_coredump ? "Signal" : "Reason";
 
-                if (normal_coredump && safe_atoi(sgnl, &sig) >= 0)
-                        fprintf(file, "        %s: %s (%s)\n", name, sgnl, signal_to_string(sig));
-                else
+                if (normal_coredump && safe_atoi(sgnl, &sig) >= 0) {
+                        fprintf(file, "        %s: %s (%s)", name, sgnl, signal_to_string(sig));
+
+                        if (code)
+                                fprintf(file, ", code %s", code);
+
+                        fputc('\n', file);
+                } else
                         fprintf(file, "        %s: %s\n", name, sgnl);
         }
 
