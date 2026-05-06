@@ -431,6 +431,20 @@ int read_one_line_file_at(int dir_fd, const char *filename, char **ret) {
         return read_line(f, LONG_LINE_MAX, ret);
 }
 
+int read_boolean_file_at(int dir_fd, const char *filename) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(filename);
+
+        r = read_one_line_file_at(dir_fd, filename, &s);
+        if (r < 0)
+                return r;
+
+        return parse_boolean(s);
+}
+
 int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_extra_nl) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *buf = NULL;
