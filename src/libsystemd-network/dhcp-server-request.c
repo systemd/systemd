@@ -200,11 +200,6 @@ static int dhcp_server_parse_message(sd_dhcp_server *server, const struct iovec 
         /* Maximum Message Size: optional */
         (void) dhcp_request_set_maximum_message_size(req);
 
-        if (req->max_message_size >= sizeof(DHCPPacket))
-                req->max_optlen = req->max_message_size - sizeof(DHCPPacket);
-        else
-                req->max_optlen = DHCP_MIN_OPTIONS_SIZE;
-
         /* Lifetime: optional */
         (void) dhcp_request_set_lifetime(req, server);
 
@@ -224,21 +219,17 @@ static int dhcp_server_ack(sd_dhcp_server *server, DHCPRequest *req) {
 
         r = dhcp_server_set_lease(server, req);
         if (r < 0)
-                return log_dhcp_server_errno(server, r, "Failed to create new lease: %m");
+                return r;
 
-        r = server_send_offer_or_ack(server, req, DHCP_ACK);
+        r = dhcp_server_send_reply(server, req, DHCP_ACK);
         if (r < 0)
-                return log_dhcp_server_errno(server, r, "Could not send ACK: %m");
-
-        log_dhcp_server(server, "ACK (0x%x)", be32toh(req->message->header.xid));
+                return r;
 
         dhcp_server_on_lease_change(server);
-        return DHCP_ACK;
+        return 0;
 }
 
 static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req) {
-        int r;
-
         assert(server);
         assert(req);
 
@@ -249,15 +240,14 @@ static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req
         log_dhcp_server(server, "DISCOVER (0x%x)", be32toh(req->message->header.xid));
 
         if (server->pool_size == 0)
-                /* no pool allocated */
-                return 0;
+                return -EADDRNOTAVAIL; /* no pool allocated */
 
         /* for now pick a random free address from the pool */
         if (static_lease) {
                 sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_lease->address));
                 if (l && l != existing_lease)
                         /* The address is already assigned to another host. Refusing. */
-                        return 0;
+                        return -EADDRINUSE;
 
                 /* Found a matching static lease. */
                 req->static_lease = static_lease;
@@ -291,20 +281,13 @@ static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req
         }
 
         if (req->address == INADDR_ANY)
-                /* no free addresses left */
-                return 0;
+                return -EADDRNOTAVAIL; /* no free addresses left */
 
         if (server->rapid_commit &&
             dhcp_message_get_option_flag(req->message, SD_DHCP_OPTION_RAPID_COMMIT) >= 0)
                 return dhcp_server_ack(server, req);
 
-        r = server_send_offer_or_ack(server, req, DHCP_OFFER);
-        if (r < 0)
-                /* this only fails on critical errors */
-                return log_dhcp_server_errno(server, r, "Could not send offer: %m");
-
-        log_dhcp_server(server, "OFFER (0x%x)", be32toh(req->message->header.xid));
-        return DHCP_OFFER;
+        return dhcp_server_send_reply(server, req, DHCP_OFFER);
 }
 
 static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req) {
@@ -317,20 +300,18 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
                 *existing_lease = hashmap_get(server->bound_leases_by_client_id, &req->client_id),
                 *static_lease = dhcp_server_get_static_lease(server, req);
 
+        const char *state;
         be32_t address;
-        bool init_reboot = false;
 
         /* see RFC 2131, section 4.3.2 */
         if (req->server_address != INADDR_ANY) {
-                log_dhcp_server(server, "REQUEST (selecting) (0x%x)",
-                                be32toh(req->message->header.xid));
+                state = "selecting";
 
-                /* SELECTING */
-                if (req->server_address != server->address)
+                if (req->server_address != server->address) /* client did not pick us */
                         return 0; /* The message is not for us. Let's silently ignore the packet. */
 
                 if (req->message->header.ciaddr != INADDR_ANY) /* this MUST be zero */
-                        return 0;
+                        return -EBADMSG;
 
                 /* this must be filled in with the yiaddr from the chosen OFFER */
                 r = dhcp_message_get_option_be32(req->message, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, &address);
@@ -341,10 +322,7 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
                         return -EBADMSG;
 
         } else if (req->message->header.ciaddr != INADDR_ANY) {
-                log_dhcp_server(server, "REQUEST (rebinding/renewing) (0x%x)",
-                                be32toh(req->message->header.xid));
-
-                /* REBINDING / RENEWING */
+                state = "rebinding/renewing";
 
                 /* this must NOT be filled */
                 if (dhcp_message_get_option_be32(req->message, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, /* ret= */ NULL) >= 0)
@@ -353,19 +331,31 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
                 address = req->message->header.ciaddr;
 
         } else {
-                log_dhcp_server(server, "REQUEST (init-reboot) (0x%x)",
-                                be32toh(req->message->header.xid));
+                state = "init-reboot";
 
-                /* INIT-REBOOT */
                 r = dhcp_message_get_option_be32(req->message, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, &address);
                 if (r < 0)
                         return r;
 
                 if (address == INADDR_ANY)
                         return -EBADMSG;
-
-                init_reboot = true;
         }
+
+        log_dhcp_server(server, "REQUEST (%s) (0x%x)", state, be32toh(req->message->header.xid));
+
+        /* Check if the requested address is already assigned to another host.
+         * - if 'l' is NULL, then the address is not assigned to any host.
+         * - if 'l' is non-NULL, and equivalent to 'existing_lease', then the address is assigned to the host.
+         * - if 'l' is non-NULL, but different from 'existing_lease', then the address is already assigned to
+         *   another host. In this case, We explicitly know that the address should not be used by the host.
+         *   Hence, we should send DHCPNAK.
+         *
+         * TODO: Maybe, we should not send DHCPNAK some cases. If the network has multiple DHCP servers, and
+         * our DB is unfortunately broken, then we may wrongly send DHCPNAK for a valid request to another
+         * server. */
+        sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
+        if (l && l != existing_lease)
+                return dhcp_server_send_reply(server, req, DHCP_NAK);
 
         /* Check if the request is consistent with the static lease. */
         if (static_lease) {
@@ -374,29 +364,30 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
 
                 if (static_lease->address != address)
                         /* The client requested an address which is different from the static lease. Refusing. */
-                        return server_send_nak_or_ignore(server, init_reboot, req);
-
-                sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
-                if (l && l != existing_lease)
-                        /* The requested address is already assigned to another host. Refusing. */
-                        return server_send_nak_or_ignore(server, init_reboot, req);
+                        return dhcp_server_send_reply(server, req, DHCP_NAK);
 
                 req->static_lease = static_lease;
                 req->address = address;
 
-                /* Found a static lease for the client ID. */
                 return dhcp_server_ack(server, req);
         }
 
         if (dhcp_server_address_is_in_pool(server, address)) {
-                /* The requested address is in the pool. */
+                /* The requested address is in the pool. In the above, we have checked the address is free or
+                 * already assigned to the host. Hence, ACK. */
                 req->address = address;
 
                 return dhcp_server_ack(server, req);
         }
 
-        /* Refuse otherwise. */
-        return server_send_nak_or_ignore(server, init_reboot, req);
+        /* If no static lease is configured for the host, and the requested address is not in our pool, then
+         * NAK the request only when the request is definitely sent to us. Otherwise, silently ignore the
+         * request. This is because, the network may have multiple DHCP servers, and the address may be
+         * managed by another server, and the request may be for that server. */
+        if (req->server_address == server->address)
+                return dhcp_server_send_reply(server, req, DHCP_NAK);
+
+        return 0;
 }
 
 static int dhcp_server_process_decline(sd_dhcp_server *server, DHCPRequest *req) {
@@ -435,14 +426,14 @@ static int dhcp_server_process_release(sd_dhcp_server *server, DHCPRequest *req)
         return 0;
 }
 
-int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, size_t length, const triple_timestamp *timestamp) {
+int dhcp_server_process_message(sd_dhcp_server *server, const struct iovec *iov, const triple_timestamp *timestamp) {
         int r;
 
         assert(server);
-        assert(message);
+        assert(iov);
 
         _cleanup_(dhcp_request_freep) DHCPRequest *req = NULL;
-        r = dhcp_server_parse_message(server, &IOVEC_MAKE(message, length), &req);
+        r = dhcp_server_parse_message(server, iov, &req);
         if (r < 0)
                 return r;
 
@@ -507,7 +498,7 @@ static int server_receive_message(sd_event_source *s, int fd, uint32_t revents, 
         if (info && info->ipi_ifindex != server->ifindex)
                 return 0;
 
-        r = dhcp_server_handle_message(server, buf, (size_t) len, TRIPLE_TIMESTAMP_FROM_CMSG(&msg));
+        r = dhcp_server_process_message(server, &IOVEC_MAKE(buf, len), TRIPLE_TIMESTAMP_FROM_CMSG(&msg));
         if (r < 0)
                 log_dhcp_server_errno(server, r, "Couldn't process incoming message, ignoring: %m");
 

@@ -7,9 +7,11 @@
 #include "alloc-util.h"
 #include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
+#include "dhcp-server-request.h"
 #include "fd-util.h"
 #include "fuzz.h"
 #include "hashmap.h"
+#include "iovec-util.h"
 #include "rm-rf.h"
 #include "tests.h"
 #include "tmpfile-util.h"
@@ -89,9 +91,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         ASSERT_OK(add_static_lease(server, 3));
         ASSERT_OK(add_static_lease(server, 4));
 
-        _cleanup_free_ uint8_t *duped = ASSERT_NOT_NULL(memdup(data, size));
         ASSERT_OK(sd_dhcp_server_start(server));
-        (void) dhcp_server_handle_message(server, (DHCPMessage*) duped, size, NULL);
+        (void) dhcp_server_process_message(server, &IOVEC_MAKE(data, size), /* timestamp= */ NULL);
 
         ASSERT_OK(dhcp_server_save_leases(server));
         server->bound_leases_by_address = hashmap_free(server->bound_leases_by_address);

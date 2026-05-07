@@ -16,7 +16,6 @@
 #include "iovec-util.h"
 #include "json-util.h"
 #include "mkdir.h"
-#include "string-util.h"
 #include "tmpfile-util.h"
 
 static sd_dhcp_server_lease* dhcp_server_lease_free(sd_dhcp_server_lease *lease) {
@@ -66,11 +65,11 @@ int dhcp_server_put_lease(sd_dhcp_server *server, sd_dhcp_server_lease *lease, b
 }
 
 int dhcp_server_set_lease(sd_dhcp_server *server, DHCPRequest *req) {
-        _cleanup_(sd_dhcp_server_lease_unrefp) sd_dhcp_server_lease *lease = NULL;
         int r;
 
         assert(server);
         assert(req);
+        assert(req->message);
         assert(req->address != INADDR_ANY);
 
         usec_t expiration;
@@ -78,9 +77,10 @@ int dhcp_server_set_lease(sd_dhcp_server *server, DHCPRequest *req) {
         if (r < 0)
                 return r;
 
-        /* If a lease for the host already exists, update it. */
-        lease = hashmap_get(server->bound_leases_by_client_id, &req->client_id);
+        _cleanup_(sd_dhcp_server_lease_unrefp) sd_dhcp_server_lease *lease =
+                hashmap_get(server->bound_leases_by_client_id, &req->client_id);
         if (lease) {
+                /* If a lease for the host already exists, update it. */
                 if (lease->address != req->address) {
                         hashmap_remove_value(server->bound_leases_by_address, UINT32_TO_PTR(lease->address), lease);
                         lease->address = req->address;
@@ -90,36 +90,34 @@ int dhcp_server_set_lease(sd_dhcp_server *server, DHCPRequest *req) {
                                 return r;
                 }
 
+                lease->htype = req->message->header.htype;
+                lease->hw_addr = req->hw_addr;
+                lease->gateway = req->message->header.giaddr;
                 lease->expiration = expiration;
+        } else {
+                /* Otherwise, add a new lease. */
+                lease = new(sd_dhcp_server_lease, 1);
+                if (!lease)
+                        return -ENOMEM;
 
-                TAKE_PTR(lease);
-                return 0;
+                *lease = (sd_dhcp_server_lease) {
+                        .n_ref = 1,
+                        .client_id = req->client_id,
+                        .htype = req->message->header.htype,
+                        .hw_addr = req->hw_addr,
+                        .address = req->address,
+                        .gateway = req->message->header.giaddr,
+                        .expiration = expiration,
+                };
+
+                r = dhcp_server_put_lease(server, lease, /* is_static= */ false);
+                if (r < 0)
+                        return r;
         }
-
-        /* Otherwise, add a new lease. */
-
-        lease = new(sd_dhcp_server_lease, 1);
-        if (!lease)
-                return -ENOMEM;
-
-        *lease = (sd_dhcp_server_lease) {
-                .n_ref = 1,
-                .address = req->address,
-                .client_id = req->client_id,
-                .htype = req->message->header.htype,
-                .gateway = req->message->header.giaddr,
-                .expiration = expiration,
-        };
-
-        lease->hw_addr = req->hw_addr;
 
         char *hostname;
         if (dhcp_message_get_option_hostname(req->message, &hostname) >= 0)
                 free_and_replace(lease->hostname, hostname);
-
-        r = dhcp_server_put_lease(server, lease, /* is_static= */ false);
-        if (r < 0)
-                return r;
 
         TAKE_PTR(lease);
         return 0;
@@ -228,7 +226,7 @@ int sd_dhcp_server_set_static_lease(
         return 0;
 }
 
-static int dhcp_server_lease_append_json(sd_dhcp_server_lease *lease, sd_json_variant **ret) {
+static int dhcp_server_lease_build_json(sd_dhcp_server_lease *lease, sd_json_variant **ret) {
         assert(lease);
         assert(ret);
 
@@ -262,7 +260,7 @@ int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, sd_json_variant
         HASHMAP_FOREACH(lease, server->bound_leases_by_client_id) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
 
-                r = dhcp_server_lease_append_json(lease, &w);
+                r = dhcp_server_lease_build_json(lease, &w);
                 if (r < 0)
                         return r;
 
@@ -294,7 +292,7 @@ int dhcp_server_static_leases_append_json(sd_dhcp_server *server, sd_json_varian
         HASHMAP_FOREACH(lease, server->static_leases_by_client_id) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
 
-                r = dhcp_server_lease_append_json(lease, &w);
+                r = dhcp_server_lease_build_json(lease, &w);
                 if (r < 0)
                         return r;
 
