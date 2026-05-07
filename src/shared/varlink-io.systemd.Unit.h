@@ -32,3 +32,4 @@ extern const sd_varlink_symbol vl_type_AutomountResult;
 extern const sd_varlink_symbol vl_type_MountResult;
 extern const sd_varlink_symbol vl_type_CollectMode;
 extern const sd_varlink_symbol vl_type_JobMode;
+extern const sd_varlink_symbol vl_type_ServiceType;
