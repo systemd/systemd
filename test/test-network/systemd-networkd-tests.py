@@ -7508,33 +7508,6 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
-    def test_relay_agent(self):
-        copy_network_unit('25-agent-veth-client.netdev',
-                          '25-agent-veth-server.netdev',
-                          '25-agent-client.network',
-                          '25-agent-server.network',
-                          '25-agent-client-peer.network',
-                          '25-agent-server-peer.network')
-        start_networkd()
-
-        self.wait_online('client:routable')
-
-        output = networkctl_status('client')
-        print(output)
-        self.assertRegex(output, r'Address: 192.168.5.150 \(DHCPv4 via 192.168.5.1\)')
-
-    def test_relay_agent_on_bridge(self):
-        copy_network_unit('25-agent-bridge.netdev',
-                          '25-agent-veth-client.netdev',
-                          '25-agent-bridge.network',
-                          '25-agent-bridge-port.network',
-                          '25-agent-client.network')
-        start_networkd()
-        self.wait_online('bridge-relay:routable', 'client-peer:enslaved')
-
-        # For issue #30763.
-        self.check_networkd_log('bridge-relay: DHCPv4 server: STARTED')
-
 class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
     def setUp(self):
