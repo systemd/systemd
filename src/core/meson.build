@@ -76,6 +76,7 @@ libcore_sources = files(
         'varlink-path.c',
         'varlink-scope.c',
         'varlink-swap.c',
+        'varlink-timer.c',
         'varlink-unit.c',
 )
 
