@@ -63,7 +63,8 @@ run_test() {
     # contains embedded "job" subsections to fully exercise the deserialization
     local pending_jobs="${2:-}"
     local n_sus=20
-    local current_pid journal_warnings new_pid orig_pid pid reload_start unit warning_count
+    local current_pid journal_warnings new_pid orig_pid p pid reload_start scope scope_cgroup unit warning_count
+    local orphan_scopes
 
     if [[ "$pending_jobs" == "with_pending_jobs" ]]; then
         n_sus=100
@@ -188,32 +189,74 @@ EOF
 
         echo "legit.service PID remains $new_pid. Attempt $attempt passed."
 
-        # Verify that all sus unit processes were abandoned (still running but no longer tracked)
-        echo "Verifying sus unit processes were abandoned..."
+        # Verify that all sus unit processes were tracked in a synthesized
+        # transient orphan scope, not abandoned.
+        echo "Verifying sus unit processes were migrated into synthesized orphan scopes..."
         for unit in "${!sus_pids[@]}"; do
             pid=${sus_pids[$unit]}
             # Process should still be running
             if ! kill -0 "$pid" 2>/dev/null; then
-                echo "ERROR: $unit process (PID $pid) was killed instead of abandoned!"
+                echo "ERROR: $unit process (PID $pid) was killed instead of being preserved!"
                 return 1
             fi
-            # But the alias should now either be inactive (MainPID=0) or resolve to legit's PID.
+            # The alias should now either be inactive (MainPID=0) or resolve to legit's PID.
             current_pid=$(systemctl show -P MainPID "${unit}.service")
             if ! (( current_pid == 0 || current_pid == new_pid )); then
                 echo "ERROR: $unit unexpectedly reports MainPID=$current_pid after aliasing!"
                 return 1
             fi
-            echo "$unit process (PID $pid) was correctly abandoned (still running, no longer tracked)"
+            echo "$unit process (PID $pid) is still running and the alias correctly does not claim it"
         done
 
-        # Check consistency between journal warnings and abandoned processes
-        echo "Checking journal for stale state warnings..."
-        journal_warnings=$(journalctl --since "$reload_start" --no-pager | grep "Skipping stale state" || true)
-        warning_count=$(echo "$journal_warnings" | grep -c "Skipping stale state" || true)
+        # Verify that synthesized orphan units exist that cover all the
+        # previously-tracked PIDs. Each preserved process must belong to a
+        # orphaned-r*.scope unit.
+        echo "Verifying synthesized orphan units are present and own the PIDs..."
+        orphan_scopes=$(systemctl list-units --all --no-legend --plain --type=scope 'orphaned-r*.scope' | awk '{print $1}')
+        if [[ -z "$orphan_scopes" ]]; then
+            echo "ERROR: No orphaned-r*.scope units were synthesized!"
+            systemctl list-units --all --no-legend --plain --type=scope || true
+            return 1
+        fi
+        echo "Found orphan scopes:"
+        echo "$orphan_scopes"
 
-        echo "Found $warning_count 'Skipping stale state' warnings"
+        # Build a set of all PIDs reported by any orphan scope (via Tasks/cgroup membership).
+        unset tracked_pids
+        declare -A tracked_pids
+        for scope in $orphan_scopes; do
+            scope_cgroup=$(systemctl show -P ControlGroup "$scope")
+            if [[ -z "$scope_cgroup" || ! -r "/sys/fs/cgroup${scope_cgroup}/cgroup.procs" ]]; then
+                # Scope may have been recorded with the original unit's cgroup path which still exists
+                echo "ERROR: Cannot read cgroup.procs for $scope at expected path /sys/fs/cgroup${scope_cgroup}/cgroup.procs"
+                return 1
+            fi
+            while read -r p; do
+                [[ -n "$p" ]] && tracked_pids[$p]=1
+            done < "/sys/fs/cgroup${scope_cgroup}/cgroup.procs"
+        done
 
-        # Extract unit names from warnings and verify they match our sus units
+        # Cross-check: every original sus PID must appear under exactly one orphan scope cgroup.
+        for unit in "${!sus_pids[@]}"; do
+            pid=${sus_pids[$unit]}
+            if [[ -z "${tracked_pids[$pid]:-}" ]]; then
+                echo "ERROR: PID $pid (from $unit) is not tracked by any synthesized orphan scope!"
+                echo "Orphan scope contents:"
+                for scope in $orphan_scopes; do
+                    echo "  $scope -> $(systemctl show -P ControlGroup "$scope")"
+                done
+                return 1
+            fi
+        done
+        echo "All ${#sus_pids[@]} sus PIDs are tracked by synthesized orphan scopes."
+
+        # Check consistency between journal warnings and synthesized scopes.
+        echo "Checking journal for 'Synthesized transient unit' warnings..."
+        journal_warnings=$(journalctl --since "$reload_start" --no-pager | grep "Synthesized transient unit" || true)
+        warning_count=$(echo "$journal_warnings" | grep -c "Synthesized transient unit" || true)
+
+        echo "Found $warning_count 'Synthesized transient unit' warnings"
+
         if (( warning_count > 0 )); then
             echo "Verifying warning consistency..."
             for unit in "${!sus_pids[@]}"; do
@@ -222,6 +265,12 @@ EOF
                 fi
             done
         fi
+
+        # Stop synthesized orphan scopes (which terminates their tracked
+        # processes) so we get a clean slate for the next iteration.
+        for scope in $orphan_scopes; do
+            systemctl stop "$scope" 2>/dev/null || true
+        done
 
         reap_abandoned_pids
 
@@ -274,13 +323,123 @@ EOF
 
 cleanup_test_units() {
     reap_abandoned_pids || true
+    # Stop any leftover synthesized orphan scopes from previous iterations.
+    # Do this in two passes since a queued stop job from the deserialized
+    # state may take a moment to dispatch and tear the scope down.
+    for scope in $(systemctl list-units --all --no-legend --plain --type=scope 'orphaned-r*.scope' 2>/dev/null | awk '{print $1}'); do
+        systemctl stop "$scope" 2>/dev/null || true
+    done
+    for scope in $(systemctl list-units --all --no-legend --plain --type=scope 'orphaned-r*.scope' 2>/dev/null | awk '{print $1}'); do
+        systemctl kill --signal=SIGKILL "$scope" 2>/dev/null || true
+        systemctl reset-failed "$scope" 2>/dev/null || true
+    done
     systemctl stop legit.service 2>/dev/null || true
+    systemctl stop hung-stop.service 2>/dev/null || true
     for i in $(seq -f "%03g" 1 100); do
         systemctl stop sus-"${i}".service 2>/dev/null || true
         rm -f /run/systemd/system/sus-"${i}".service
     done
     rm -f /run/systemd/system/legit.service
+    rm -f /run/systemd/system/hung-stop.service
     systemctl daemon-reload
+}
+
+# Verify that a JOB_STOP that was pending on the original unit at the moment of
+# serialization is preserved on the synthesized orphan scope, so the stop is
+# eventually carried out (the scope is torn down) instead of sitting around
+# forever.
+test_stop_job_preserved() {
+    local reload_cmd="${1:?}"
+    local hung_pid scope stop_jobs
+
+    echo ""
+    echo "========================================="
+    echo "Testing pending-stop preservation with: systemctl $reload_cmd"
+    echo "========================================="
+
+    # Service whose main process traps SIGTERM and never exits, so a "stop"
+    # request stays pending in the queue and remains serialized.
+    cat >/run/systemd/system/legit.service <<'EOF'
+[Service]
+Type=simple
+ExecStart=/bin/sleep infinity
+EOF
+    cat >/run/systemd/system/hung-stop.service <<'EOF'
+[Service]
+Type=simple
+ExecStart=/bin/bash -c 'trap "" TERM; while :; do sleep infinity & wait $!; done'
+TimeoutStopSec=infinity
+SendSIGKILL=no
+EOF
+
+    systemctl daemon-reload
+    systemctl start legit.service
+    systemctl start hung-stop.service
+
+    hung_pid=$(systemctl show -P MainPID hung-stop.service)
+    if (( hung_pid == 0 )); then
+        echo "ERROR: hung-stop.service did not start"
+        return 1
+    fi
+
+    # Queue a stop that will hang because the process traps SIGTERM and
+    # SendSIGKILL=no prevents escalation, so the job stays in the queue and
+    # is therefore present in the serialized state at reload time.
+    systemctl --no-block stop hung-stop.service
+    for i in {1..100}; do
+        if [[ -n "$(systemctl list-jobs --no-legend | grep -E '^[[:space:]]*[0-9]+ hung-stop\.service' || true)" ]]; then
+            break
+        fi
+        if (( i == 100 )); then
+            echo "ERROR: stop job for hung-stop.service was not queued"
+            systemctl list-jobs || true
+            return 1
+        fi
+        sleep 0.1
+    done
+
+    # Convert hung-stop.service into a symlink to legit.service: on the next
+    # reload the original unit becomes an alias of legit.service, and its
+    # serialized state (including the pending stop job) is fed into the
+    # synthesized orphaned-r*.scope orphan.
+    rm -f /run/systemd/system/hung-stop.service
+    ln -sf /run/systemd/system/legit.service /run/systemd/system/hung-stop.service
+
+    systemctl "$reload_cmd"
+
+    scope=$(systemctl list-units --all --no-legend --plain --type=scope 'orphaned-r*.scope' | awk '{print $1}' | head -n1)
+    if [[ -z "$scope" ]]; then
+        echo "ERROR: no synthesized orphan scope was created"
+        systemctl list-units --all --no-legend --plain --type=scope || true
+        return 1
+    fi
+    echo "Synthesized orphan scope: $scope"
+
+    # The pending stop job from the original unit must have been carried over
+    # to the synthesized scope, otherwise the scope (and its tracked process)
+    # are leaked across the reload. Either the job is still in the queue, or
+    # the scope already moved into stop-sigterm state.
+    stop_jobs=$(systemctl list-jobs --no-legend | grep -E "^[[:space:]]*[0-9]+ ${scope} " || true)
+    if [[ -z "$stop_jobs" ]] && [[ "$(systemctl show -P SubState "$scope")" != "stop-sigterm" ]]; then
+        echo "ERROR: stop job for original hung-stop.service was not preserved on $scope!"
+        echo "Current substate: $(systemctl show -P SubState "$scope")"
+        systemctl list-jobs || true
+        return 1
+    fi
+
+    echo "Stop job for original hung-stop.service was correctly preserved on synthesized scope $scope"
+
+    # Tear the hung scope down for the next iteration.
+    systemctl kill --signal=SIGKILL "$scope" 2>/dev/null || true
+    systemctl reset-failed "$scope" 2>/dev/null || true
+    if kill -0 "$hung_pid" 2>/dev/null; then
+        kill -KILL "$hung_pid" 2>/dev/null || true
+    fi
+
+    rm -f /run/systemd/system/hung-stop.service /run/systemd/system/legit.service
+    systemctl daemon-reload
+
+    echo "$reload_cmd stop-job preservation test passed"
 }
 
 trap cleanup_test_units EXIT
@@ -292,3 +451,7 @@ cleanup_test_units
 run_test daemon-reload with_pending_jobs
 cleanup_test_units
 run_test daemon-reexec with_pending_jobs
+cleanup_test_units
+test_stop_job_preserved daemon-reload
+cleanup_test_units
+test_stop_job_preserved daemon-reexec
