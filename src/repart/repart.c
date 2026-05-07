@@ -538,6 +538,7 @@ typedef struct Partition {
         size_t n_mountpoints;
 
         PartitionEncryptedVolume *encrypted_volume;
+        sd_json_variant *token_json; /* parsed JSON for EncryptToken=, always has "type" string field; keyslots injected at use time */
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
@@ -866,6 +867,7 @@ static Partition* partition_free(Partition *p) {
         p->n_mountpoints = 0;
 
         partition_encrypted_volume_free(p->encrypted_volume);
+        sd_json_variant_unref(p->token_json);
 
         partition_unlink_supplement(p);
 
@@ -926,6 +928,7 @@ static void partition_foreignize(Partition *p) {
         p->n_mountpoints = 0;
 
         p->encrypted_volume = partition_encrypted_volume_free(p->encrypted_volume);
+        p->token_json = sd_json_variant_unref(p->token_json);
 
         partition_unlink_supplement(p);
 }
@@ -2673,7 +2676,7 @@ static int config_parse_encrypted_volume(
         int r;
 
         if (isempty(rvalue)) {
-                p->encrypted_volume = mfree(p->encrypted_volume);
+                p->encrypted_volume = partition_encrypted_volume_free(p->encrypted_volume);
                 return 0;
         }
 
@@ -2735,6 +2738,63 @@ static int config_parse_encrypted_volume(
                 .fixate_volume_key = fixate_volume_key,
         };
 
+        return 0;
+}
+
+static int config_parse_encrypt_token(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Partition *p = ASSERT_PTR(data);
+        int r;
+
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                p->token_json = sd_json_variant_unref(p->token_json);
+                return 0;
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        if (rvalue[0] == '{') {
+                /* Full JSON object supplied — validate it parses and has a "type" string field */
+                r = sd_json_parse(rvalue, SD_JSON_PARSE_MUST_BE_OBJECT, &v, NULL, NULL);
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r,
+                                          "EncryptToken= value is not valid JSON: %s", rvalue);
+
+                sd_json_variant *type_field = sd_json_variant_by_key(v, "type");
+                if (!type_field || !sd_json_variant_is_string(type_field))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "EncryptToken= JSON object must contain a \"type\" string field.");
+
+                const char *type_str = sd_json_variant_string(type_field);
+                if (isempty(type_str) || !string_is_safe(type_str, STRING_ASCII))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "EncryptToken= JSON \"type\" field is empty or contains invalid characters.");
+        } else {
+                /* Plain type name — validate charset and build minimal JSON object */
+                if (!string_is_safe(rvalue, STRING_ASCII))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Invalid token type '%s'.", rvalue);
+
+                r = sd_json_buildo(&v,
+                                   SD_JSON_BUILD_PAIR_STRING("type", rvalue));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        json_variant_unref_and_replace(p->token_json, v);
         return 0;
 }
 
@@ -2972,6 +3032,7 @@ static int partition_read_definition(
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,        0,                                  &p->verity_hash_block_size  },
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0,                                  p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
+                { "Partition", "EncryptToken",             config_parse_encrypt_token,     0,                                  p                           },
                 { "Partition", "TPM2PCRs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
                 { "Partition", "KeyFile",                  config_parse_key_file,          0,                                  p                           },
                 { "Partition", "Integrity",                config_parse_integrity,         0,                                  &p->integrity               },
@@ -3184,6 +3245,11 @@ static int partition_read_definition(
         if (p->encrypt == ENCRYPT_OFF && p->encrypt_kdf >= 0)
                 log_syntax(NULL, LOG_WARNING, path, 1, 0,
                            "EncryptKDF= has no effect with Encrypt=off.");
+
+        if (p->token_json &&
+            !IN_SET(p->encrypt, ENCRYPT_KEY_FILE, ENCRYPT_KEY_FILE_TPM2))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "EncryptToken= requires Encrypt=key-file or Encrypt=key-file+tpm2.");
 
         if (p->encrypt != ENCRYPT_OFF && p->integrity == INTEGRITY_INLINE && p->discard > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -5429,6 +5495,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         assert(p);
         assert(p->encrypt != ENCRYPT_OFF);
 
+        assert(!p->token_json ||
+               IN_SET(p->encrypt, ENCRYPT_KEY_FILE, ENCRYPT_KEY_FILE_TPM2));
+
         r = DLOPEN_CRYPTSETUP(LOG_ERR, SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED);
         if (r < 0)
                 return r;
@@ -5616,8 +5685,29 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (r < 0)
                         return log_error_errno(r, "Failed to add LUKS2 key: %m");
 
+                int key_file_keyslot = r;
+
                 passphrase = strempty(iovec_key->iov_base);
                 passphrase_size = iovec_key->iov_len;
+
+                if (p->token_json) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v =
+                                sd_json_variant_ref(p->token_json);
+                        char keyslot_as_string[DECIMAL_STR_MAX(int)];
+
+                        xsprintf(keyslot_as_string, "%i", key_file_keyslot);
+
+                        /* Inject (or override) the keyslots field with the actual keyslot number */
+                        r = sd_json_variant_merge_objectbo(&v,
+                                        SD_JSON_BUILD_PAIR("keyslots",
+                                                SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set keyslots in LUKS2 token JSON: %m");
+
+                        r = cryptsetup_add_token_json(cd, v);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add custom LUKS2 token to header: %m");
+                }
         }
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
