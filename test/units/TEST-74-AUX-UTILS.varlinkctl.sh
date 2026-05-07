@@ -258,6 +258,13 @@ test -n "$scope_id"
 scope_params=$(jq -cn --arg name "$scope_id" '{name: $name}')
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$scope_params" | jq -e '.context.Scope'
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$scope_params" | jq -e '.runtime.Scope'
+# test for SwapContext/Runtime (swap units may not be present on all systems)
+swap_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "swap" and .runtime.LoadState == "loaded") .context.ID // empty' | tail -n 1)
+if test -n "$swap_id"; then
+    swap_params=$(jq -cn --arg name "$swap_id" '{name: $name}')
+    varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$swap_params" | jq -e '.context.Swap'
+    varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$swap_params" | jq -e '.runtime.Swap'
+fi
 
 # test io.systemd.Metrics
 varlinkctl info /run/systemd/report/io.systemd.Manager

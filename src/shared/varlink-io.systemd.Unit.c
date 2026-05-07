@@ -1041,6 +1041,46 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Result of scope operation"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Result, ScopeResult, 0));
 
+/* SwapContext
+ * https://www.freedesktop.org/software/systemd/man/latest/systemd.swap.html */
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                SwapContext,
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.swap.html#What="),
+                SD_VARLINK_DEFINE_FIELD(What, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.swap.html#Priority="),
+                SD_VARLINK_DEFINE_FIELD(Priority, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.swap.html#Options="),
+                SD_VARLINK_DEFINE_FIELD(Options, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.swap.html#TimeoutSec="),
+                SD_VARLINK_DEFINE_FIELD(TimeoutUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Activate command"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecActivate, ExecCommand, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Deactivate command"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecDeactivate, ExecCommand, SD_VARLINK_NULLABLE));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                SwapResult,
+                SD_VARLINK_DEFINE_ENUM_VALUE(success),
+                SD_VARLINK_DEFINE_ENUM_VALUE(resources),
+                SD_VARLINK_DEFINE_ENUM_VALUE(timeout),
+                SD_VARLINK_DEFINE_ENUM_VALUE(exit_code),
+                SD_VARLINK_DEFINE_ENUM_VALUE(signal),
+                SD_VARLINK_DEFINE_ENUM_VALUE(core_dump),
+                SD_VARLINK_DEFINE_ENUM_VALUE(start_limit_hit));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                SwapRuntime,
+                SD_VARLINK_FIELD_COMMENT("PID of the current swap control process"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ControlPID, ProcessId, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Result of swap operation"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Result, SwapResult, 0),
+                SD_VARLINK_FIELD_COMMENT("Result of cleaning operation"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CleanResult, SwapResult, 0),
+                SD_VARLINK_FIELD_COMMENT("Reference UID"),
+                SD_VARLINK_DEFINE_FIELD(UID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Reference GID"),
+                SD_VARLINK_DEFINE_FIELD(GID, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
 /* Service-specific types */
 
 /* Keep in sync with service_type_table[] in src/core/service.c */
@@ -1237,7 +1277,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The path context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Path, PathContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The scope context of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Scope, ScopeContext, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Scope, ScopeContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The swap context of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Swap, SwapContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ActivationDetails,
@@ -1415,7 +1457,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The path runtime of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Path, PathRuntime, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The scope runtime of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Scope, ScopeRuntime, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Scope, ScopeRuntime, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The swap runtime of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Swap, SwapRuntime, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
@@ -1586,6 +1630,9 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_ScopeContext,
                 &vl_type_ScopeResult,
                 &vl_type_ScopeRuntime,
+                &vl_type_SwapContext,
+                &vl_type_SwapResult,
+                &vl_type_SwapRuntime,
 
                 /* UnitContext enums */
                 &vl_type_CollectMode,
