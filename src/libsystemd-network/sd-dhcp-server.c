@@ -223,6 +223,14 @@ sd_event *sd_dhcp_server_get_event(sd_dhcp_server *server) {
         return server->event;
 }
 
+int sd_dhcp_server_set_ip_service_type(sd_dhcp_server *server, uint8_t type) {
+        assert_return(server, -EINVAL);
+        assert_return(sd_dhcp_server_is_running(server), -EBUSY);
+
+        server->ip_service_type = type;
+        return 0;
+}
+
 int sd_dhcp_server_set_boot_server_address(sd_dhcp_server *server, const struct in_addr *address) {
         assert_return(server, -EINVAL);
 
