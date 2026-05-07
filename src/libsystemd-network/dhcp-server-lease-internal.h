@@ -28,7 +28,7 @@ extern const struct hash_ops dhcp_server_lease_hash_ops;
 
 int dhcp_server_put_lease(sd_dhcp_server *server, sd_dhcp_server_lease *lease, bool is_static);
 
-int dhcp_server_set_lease(sd_dhcp_server *server, be32_t address, DHCPRequest *req, usec_t expiration);
+int dhcp_server_set_lease(sd_dhcp_server *server, DHCPRequest *req);
 int dhcp_server_cleanup_expired_leases(sd_dhcp_server *server);
 
 sd_dhcp_server_lease* dhcp_server_get_static_lease(sd_dhcp_server *server, const DHCPRequest *req);
