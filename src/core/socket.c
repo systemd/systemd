@@ -13,6 +13,7 @@
 #include "bpf-program.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "bus-protocol.h"
 #include "copy.h"
 #include "dbus-socket.h"
 #include "dbus-unit.h"
@@ -51,6 +52,7 @@
 #include "strv.h"
 #include "unit.h"
 #include "unit-name.h"
+#include "unit-printf.h"
 #include "user-util.h"
 
 typedef struct SocketPeer {
@@ -67,6 +69,7 @@ static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_START_PRE]        = UNIT_ACTIVATING,
         [SOCKET_START_OPEN]       = UNIT_ACTIVATING,
         [SOCKET_START_CHOWN]      = UNIT_ACTIVATING,
+        [SOCKET_START_CONNECT]    = UNIT_ACTIVATING,
         [SOCKET_START_POST]       = UNIT_ACTIVATING,
         [SOCKET_LISTENING]        = UNIT_ACTIVE,
         [SOCKET_DEFERRED]         = UNIT_ACTIVE,
@@ -83,6 +86,7 @@ static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
 
 static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
+static int socket_dispatch_dbus_filter(sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
 
 static bool SOCKET_STATE_WITH_PROCESS(SocketState state) {
         return IN_SET(state,
@@ -166,6 +170,7 @@ SocketPort* socket_port_free(SocketPort *p) {
         if (!p)
                 return NULL;
 
+        sd_bus_unref(p->dbus_client);
         sd_event_source_unref(p->event_source);
 
         socket_port_close_auxiliary_fds(p);
@@ -801,6 +806,9 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 case SOCKET_MQUEUE:
                         fprintf(f, "%sListenMessageQueue: %s\n", prefix, p->path);
                         break;
+                case SOCKET_DBUS_CLIENT:
+                        fprintf(f, "%sListenDBusClient: %s\n", prefix, p->path);
+                        break;
                 default:
                         fprintf(f, "%sListenFIFO: %s\n", prefix, p->path);
                 }
@@ -975,6 +983,7 @@ static void socket_close_fds(Socket *s) {
         LIST_FOREACH(port, p, s->ports) {
                 bool was_open = p->fd >= 0;
 
+                p->dbus_client = sd_bus_close_unref(p->dbus_client);
                 p->event_source = sd_event_source_disable_unref(p->event_source);
                 p->fd = safe_close(p->fd);
                 socket_port_close_auxiliary_fds(p);
@@ -1513,6 +1522,26 @@ static int socket_address_listen_do(
                         s->smack);
 }
 
+static int socket_dbus_client_do(
+                Socket *s,
+                const SocketAddress *address) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(s);
+        assert(address);
+
+        fd = RET_NERRNO(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0));
+        if (fd < 0)
+                return fd;
+
+        r = RET_NERRNO(connect(fd, &address->sockaddr.sa, address->size));
+        if (r < 0)
+                return r;
+
+        return TAKE_FD(fd);
+}
+
 #define log_address_error_errno(u, address, error, fmt)          \
         ({                                                       \
                 _cleanup_free_ char *_t = NULL;                  \
@@ -1521,9 +1550,17 @@ static int socket_address_listen_do(
                 log_unit_error_errno(u, error, fmt, strna(_t));  \
         })
 
-static bool fork_needed(const SocketAddress *address, Socket *s) {
+static bool fork_needed(const SocketAddress *address, SocketPort *p) {
+        Socket *s;
+
         assert(address);
-        assert(s);
+        assert(p);
+        assert(IN_SET(p->type, SOCKET_SOCKET, SOCKET_DBUS_CLIENT));
+
+        if (p->type == SOCKET_DBUS_CLIENT)
+                return true;
+
+        s = p->socket;
 
         /* Check if we need to do the cgroup or netns stuff. If not we can do things much simpler. */
 
@@ -1542,24 +1579,59 @@ static bool fork_needed(const SocketAddress *address, Socket *s) {
         return exec_needs_network_namespace(&s->exec_context);
 }
 
-static int socket_address_listen_in_cgroup(
+static int socket_port_in_cgroup(
                 Socket *s,
-                const SocketAddress *address,
+                SocketPort *p,
                 const char *label) {
 
+        _cleanup_free_ char *dbus_path_fmt = NULL;
+        const char *dbus_path = NULL;
+        SocketAddress dbus_address;
+        const SocketAddress *address;
         int r;
 
         assert(s);
-        assert(address);
+        assert(p);
 
-        /* This is a wrapper around socket_address_listen(), that forks off a helper process inside the
+        /* This is a wrapper around socket creation, that forks off a helper process inside the
          * socket's cgroup and network namespace in which the socket is actually created. This way we ensure
          * the socket is actually properly attached to the unit's cgroup for the purpose of BPF filtering and
          * such. */
 
-        if (!fork_needed(address, s)) {
+        switch (p->type) {
+        case SOCKET_SOCKET:
+                address = &p->address;
+                break;
+
+        case SOCKET_DBUS_CLIENT:
+                if (streq(p->path, "system"))
+                        dbus_path = "/run/dbus/system_bus_socket";
+                else if (streq(p->path, "user")) {
+                        r = unit_path_printf(UNIT(s), "%t/bus", &dbus_path_fmt);
+                        if (r < 0)
+                                return log_unit_error_errno(UNIT(s), r, "Failed to format user bus address: %m");
+
+                        dbus_path = dbus_path_fmt;
+                } else
+                        dbus_path = p->path;
+
+                r = socket_address_parse_unix(&dbus_address, dbus_path);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s), r, "Failed to parse dbus address (%s): %m", dbus_path);
+
+                address = &dbus_address;
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        if (!fork_needed(address, p)) {
                 /* Shortcut things... */
-                r = socket_address_listen_do(s, address, label);
+                if (dbus_path)
+                        r = socket_dbus_client_do(s, address);
+                else
+                        r = socket_address_listen_do(s, address, label);
                 if (r < 0)
                         return log_address_error_errno(UNIT(s), address, r, "Failed to create listening socket (%s): %m");
 
@@ -1626,7 +1698,10 @@ static int socket_address_listen_in_cgroup(
                                 log_unit_warning(UNIT(s), "PrivateNetwork=yes is configured, but the kernel does not support network namespaces, ignoring.");
                 }
 
-                fd = socket_address_listen_do(s, address, label);
+                if (dbus_path)
+                        fd = socket_dbus_client_do(s, address);
+                else
+                        fd = socket_address_listen_do(s, address, label);
                 if (fd < 0) {
                         log_address_error_errno(UNIT(s), address, fd, "Failed to create listening socket (%s): %m");
                         _exit(EXIT_FAILURE);
@@ -1702,7 +1777,7 @@ static int socket_open_fds(Socket *orig_s) {
                                 break;
                         }
 
-                        p->fd = socket_address_listen_in_cgroup(s, &p->address, label);
+                        p->fd = socket_port_in_cgroup(s, p, label);
                         if (p->fd < 0)
                                 return p->fd;
 
@@ -1760,6 +1835,19 @@ static int socket_open_fds(Socket *orig_s) {
                         r = usbffs_dispatch_eps(p, dfd);
                         if (r < 0)
                                 return log_unit_error_errno(UNIT(s), r, "Failed to dispatch USB FunctionFS eps: %m");
+
+                        break;
+                }
+
+                case SOCKET_DBUS_CLIENT: {
+                        const size_t n_sndbuf = 8 * 1024 * 1024;
+
+                        p->fd = socket_port_in_cgroup(s, p, NULL);
+                        if (p->fd < 0)
+                                return p->fd;
+
+                        (void) fd_increase_rxbuf(p->fd, n_sndbuf);
+                        (void) fd_inc_sndbuf(p->fd, n_sndbuf);
 
                         break;
                 }
@@ -1860,7 +1948,8 @@ static void socket_set_state(Socket *s, SocketState state) {
         old_state = s->state;
         s->state = state;
 
-        if (!SOCKET_STATE_WITH_PROCESS(state) && state != SOCKET_DEFERRED)
+        if (!SOCKET_STATE_WITH_PROCESS(state) &&
+            !IN_SET(state, SOCKET_START_CONNECT, SOCKET_DEFERRED))
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
         if (!SOCKET_STATE_WITH_PROCESS(state)) {
@@ -1875,6 +1964,7 @@ static void socket_set_state(Socket *s, SocketState state) {
         if (!IN_SET(state,
                     SOCKET_START_OPEN,
                     SOCKET_START_CHOWN,
+                    SOCKET_START_CONNECT,
                     SOCKET_START_POST,
                     SOCKET_LISTENING,
                     SOCKET_DEFERRED,
@@ -1918,11 +2008,17 @@ static int socket_coldplug(Unit *u) {
                 r = socket_arm_timer(s, /* relative= */ false, usec_add(u->state_change_timestamp.monotonic, s->timeout_usec));
                 if (r < 0)
                         return r;
+        } else if (s->deserialized_state == SOCKET_START_CONNECT) {
+
+                r = socket_arm_timer(s, /* relative= */ false, usec_add(u->state_change_timestamp.monotonic, s->timeout_usec));
+                if (r < 0)
+                        return r;
         }
 
         if (IN_SET(s->deserialized_state,
                    SOCKET_START_OPEN,
                    SOCKET_START_CHOWN,
+                   SOCKET_START_CONNECT,
                    SOCKET_START_POST,
                    SOCKET_LISTENING,
                    SOCKET_RUNNING)) {
@@ -2241,7 +2337,7 @@ static void flush_ports(Socket *s) {
 
                 if (p->type == SOCKET_MQUEUE)
                         (void) flush_mqueue(p->fd);
-                else {
+                else if (p->type != SOCKET_DBUS_CLIENT) {
                         (void) flush_accept(p->fd);
                         (void) flush_fd(p->fd);
                 }
@@ -2290,6 +2386,62 @@ static void socket_enter_start_post(Socket *s) {
                 socket_enter_listening(s);
 }
 
+static void socket_enter_start_connect(Socket *s) {
+        bool busy = false;
+        int r;
+
+        assert(s);
+        assert(IN_SET(s->state, SOCKET_START_OPEN, SOCKET_START_CHOWN));
+
+        LIST_FOREACH(port, p, s->ports) {
+                _cleanup_close_ int fd_dup = -EBADF;
+
+                if (p->fd < 0 || p->type != SOCKET_DBUS_CLIENT)
+                        continue;
+
+                assert(!p->dbus_client);
+
+                r = RET_NERRNO(fcntl(p->fd, F_DUPFD_CLOEXEC, 3));
+                if (r >= 0) {
+                        fd_dup = r;
+                        r = sd_bus_new(&p->dbus_client);
+                }
+                if (r >= 0) {
+                        r = sd_bus_set_fd(p->dbus_client, fd_dup, fd_dup);
+                        TAKE_FD(fd_dup);
+                }
+                if (r >= 0)
+                        r = sd_bus_set_description(p->dbus_client, "socket-port-dbus-client");
+                if (r >= 0)
+                        r = sd_bus_set_bus_client(p->dbus_client, 1);
+                if (r >= 0)
+                        r = sd_bus_set_connected_signal(p->dbus_client, 1);
+                if (r >= 0)
+                        r = sd_bus_add_filter(p->dbus_client, NULL, socket_dispatch_dbus_filter, p);
+                if (r >= 0)
+                        r = sd_bus_start(p->dbus_client);
+                if (r >= 0)
+                        r = sd_bus_attach_event(p->dbus_client, UNIT(s)->manager->event, EVENT_PRIORITY_IPC);
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to create dbus client: %m");
+                        return socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
+                }
+
+                busy = true;
+        }
+
+        if (busy) {
+                r = socket_arm_timer(s, /* relative= */ true, s->timeout_usec);
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
+                        return socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
+                }
+
+                socket_set_state(s, SOCKET_START_CONNECT);
+        } else
+                socket_enter_start_post(s);
+}
+
 static void socket_enter_start_chown(Socket *s) {
         int r;
 
@@ -2311,7 +2463,7 @@ static void socket_enter_start_chown(Socket *s) {
 
                 socket_set_state(s, SOCKET_START_CHOWN);
         } else
-                socket_enter_start_post(s);
+                socket_enter_start_connect(s);
 }
 
 static void socket_enter_start_open(Socket *s) {
@@ -2660,7 +2812,11 @@ static int socket_stop(Unit *u) {
                 return 0;
         }
 
-        assert(IN_SET(s->state, SOCKET_LISTENING, SOCKET_DEFERRED, SOCKET_RUNNING));
+        assert(IN_SET(s->state,
+                      SOCKET_START_CONNECT,
+                      SOCKET_LISTENING,
+                      SOCKET_DEFERRED,
+                      SOCKET_RUNNING));
 
         socket_enter_stop_pre(s, SOCKET_SUCCESS);
         return 1;
@@ -2709,6 +2865,8 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                         (void) serialize_item_format(f, "mqueue", "%i %s", copy, p->path);
                 else if (p->type == SOCKET_USB_FUNCTION)
                         (void) serialize_item_format(f, "ffs", "%i %s", copy, p->path);
+                else if (p->type == SOCKET_DBUS_CLIENT)
+                        (void) serialize_item_format(f, "dbus-client", "%i %s", copy, p->path);
                 else {
                         assert(p->type == SOCKET_FIFO);
                         (void) serialize_item_format(f, "fifo", "%i %s", copy, p->path);
@@ -2951,6 +3109,34 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 if (!found)
                         log_unit_debug(u, "No matching ffs socket found: %s", value);
 
+        } else if (streq(key, "dbus-client")) {
+                _cleanup_free_ char *fdv = NULL;
+                bool found = false;
+                int fd;
+
+                r = extract_first_word(&value, &fdv, NULL, 0);
+                if (r <= 0) {
+                        log_unit_debug(u, "Failed to parse dbus-client value: %s", value);
+                        return 0;
+                }
+
+                fd = parse_fd(fdv);
+                if (fd < 0 || !fdset_contains(fds, fd)) {
+                        log_unit_debug(u, "Invalid dbus-client value: %s", fdv);
+                        return 0;
+                }
+
+                LIST_FOREACH(port, p, s->ports)
+                        if (p->fd < 0 &&
+                            p->type == SOCKET_DBUS_CLIENT &&
+                            streq(p->path, value)) {
+                                p->fd = fdset_remove(fds, fd);
+                                found = true;
+                                break;
+                        }
+                if (!found)
+                        log_unit_debug(u, "No matching dbus-client socket found: %s", value);
+
         } else if (streq(key, "trigger-ratelimit"))
                 deserialize_ratelimit(&s->trigger_limit, key, value);
         else
@@ -3013,6 +3199,7 @@ int socket_port_to_address(const SocketPort *p, char **ret) {
                 case SOCKET_MQUEUE:
                 case SOCKET_FIFO:
                 case SOCKET_USB_FUNCTION:
+                case SOCKET_DBUS_CLIENT:
                         address = strdup(p->path);
                         if (!address)
                                 return -ENOMEM;
@@ -3066,6 +3253,9 @@ const char* socket_port_type_to_string(SocketPort *p) {
         case SOCKET_USB_FUNCTION:
                 return "USBFunction";
 
+        case SOCKET_DBUS_CLIENT:
+                return "DBusClient";
+
         default:
                 return NULL;
         }
@@ -3084,6 +3274,8 @@ SocketType socket_port_type_from_string(const char *s) {
                 return SOCKET_FIFO;
         else if (streq(s, "USBFunction"))
                 return SOCKET_USB_FUNCTION;
+        else if (streq(s, "DBusClient"))
+                return SOCKET_DBUS_CLIENT;
         else
                 return _SOCKET_TYPE_INVALID;
 }
@@ -3117,7 +3309,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         assert(p);
         assert(fd >= 0);
 
-        /* Similar to socket_address_listen_in_cgroup(), but for accept() rather than socket(): make sure that any
+        /* Similar to socket_port_in_cgroup(), but for accept() rather than socket(): make sure that any
          * connection socket is also properly associated with the cgroup. */
 
         if (!IN_SET(p->address.sockaddr.sa.sa_family, AF_INET, AF_INET6))
@@ -3288,7 +3480,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                 case SOCKET_START_CHOWN:
                         if (f == SOCKET_SUCCESS)
-                                socket_enter_start_post(s);
+                                socket_enter_start_connect(s);
                         else
                                 socket_enter_stop_pre(s, f);
                         break;
@@ -3342,6 +3534,7 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
                 break;
 
         case SOCKET_START_CHOWN:
+        case SOCKET_START_CONNECT:
         case SOCKET_START_POST:
                 log_unit_warning(UNIT(s), "Starting timed out. Stopping.");
                 socket_enter_stop_pre(s, SOCKET_FAILURE_TIMEOUT);
@@ -3405,6 +3598,94 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
                 assert_not_reached();
         }
 
+        return 0;
+}
+
+static int socket_dispatch_dbus_filter(
+                sd_bus_message *m_in,
+                void *userdata,
+                sd_bus_error *ret_error) {
+        SocketPort *p = ASSERT_PTR(userdata);
+        Socket *s = p->socket;
+        Service *service = ASSERT_PTR(SERVICE(UNIT_DEREF(s->service)));
+        uint64_t n_in, n_out;
+        bool resolved = false;
+        int r;
+
+        if (p->socket->state != SOCKET_START_CONNECT)
+                return 0;
+        if (!streq(sd_bus_message_get_sender(m_in), "org.freedesktop.DBus") &&
+            !streq(sd_bus_message_get_sender(m_in), "org.freedesktop.DBus.Local"))
+                return 0;
+
+        if (sd_bus_message_is_signal(m_in, "org.freedesktop.DBus.Local", "Connected")) {
+
+                if (service->bus_name) {
+                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+
+                        r = sd_bus_message_new_method_call(p->dbus_client,
+                                                           &m,
+                                                           "org.freedesktop.DBus",
+                                                           "/org/freedesktop/DBus",
+                                                           "org.freedesktop.DBus",
+                                                           "RequestName");
+                        if (r >= 0)
+                                r = sd_bus_message_append(m, "su", service->bus_name, BUS_NAME_DO_NOT_QUEUE);
+                        if (r >= 0)
+                                r = sd_bus_send(p->dbus_client, m, NULL);
+                        if (r < 0) {
+                                log_unit_error_errno(UNIT(p->socket), r, "Cannot send dbus message: %m");
+                                goto fail;
+                        }
+                } else
+                        resolved = true;
+
+        } else if (sd_bus_message_is_signal(m_in, "org.freedesktop.DBus", "NameAcquired")) {
+                const char *name = NULL;
+
+                sd_bus_message_read(m_in, "s", &name);
+                if (streq_ptr(name, service->bus_name))
+                        resolved = true;
+        }
+
+        /* If we did not make forward progress, wait for the next message. */
+        if (!resolved)
+                return 0;
+
+        /*
+         * Query the bus instance for its pending incoming and outgoing
+         * messages. We expect both to be 0, given that sd-bus uses 8MiB
+         * kernel buffers and always dispatches on exact message boundaries.
+         *
+         * Warn loudly if either local buffer is non-empty, since that implies
+         * data loss on activation.
+         */
+
+        r = sd_bus_get_n_queued_read(p->dbus_client, &n_in);
+        if (r >= 0)
+                r = sd_bus_get_n_queued_write(p->dbus_client, &n_out);
+        if (r < 0)
+                log_unit_warning_errno(UNIT(p->socket), r, "Cannot query dbus context: %m");
+        else if (n_in > 0 || n_out > 0)
+                log_unit_warning(UNIT(p->socket), "Insufficient socket buffers for dbus setup (I/O: %zu/%zu)", n_in, n_out);
+
+        p->dbus_client = sd_bus_unref(p->dbus_client);
+
+        /*
+         * With this port no longer being busy, check all other ports. If none
+         * are busy, we can proceed to the next state.
+         */
+
+        LIST_FOREACH(port, iter, s->ports) {
+                if (iter->type == SOCKET_DBUS_CLIENT && iter->dbus_client)
+                        return 0;
+        }
+
+        socket_enter_start_post(s);
+        return 0;
+
+fail:
+        socket_enter_stop_pre(p->socket, SOCKET_FAILURE_RESOURCES);
         return 0;
 }
 
@@ -3618,6 +3899,7 @@ static int socket_test_startable(Unit *u) {
                    SOCKET_START_PRE,
                    SOCKET_START_OPEN,
                    SOCKET_START_CHOWN,
+                   SOCKET_START_CONNECT,
                    SOCKET_START_POST))
                 return false;
 

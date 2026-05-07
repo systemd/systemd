@@ -2791,6 +2791,7 @@ static const BusProperty socket_properties[] = {
         { "ListenMessageQueue",                    bus_append_listen                             },
         { "ListenFIFO",                            bus_append_listen                             },
         { "ListenUSBFunction",                     bus_append_listen                             },
+        { "ListenDBusClient",                      bus_append_listen                             },
         {}
 };
 
