@@ -976,7 +976,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 /* Service-specific types */
 
 /* Keep in sync with service_type_table[] in src/core/service.c */
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 ServiceType,
                 SD_VARLINK_DEFINE_ENUM_VALUE(simple),
                 SD_VARLINK_DEFINE_ENUM_VALUE(exec),

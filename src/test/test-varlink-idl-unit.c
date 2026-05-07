@@ -7,6 +7,7 @@
 #include "mount.h"
 #include "numa-util.h"
 #include "process-util.h"
+#include "service.h"
 #include "tests.h"
 #include "test-varlink-idl-util.h"
 #include "unit.h"
@@ -58,6 +59,9 @@ TEST(unit_enums_idl) {
 
         /* MountRuntime enums */
         TEST_IDL_ENUM(MountResult, mount_result, vl_type_MountResult);
+
+        /* ServiceContext enums */
+        TEST_IDL_ENUM(ServiceType, service_type, vl_type_ServiceType);
 
         /* UnitContext enums */
         TEST_IDL_ENUM(CollectMode, collect_mode, vl_type_CollectMode);
