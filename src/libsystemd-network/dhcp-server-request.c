@@ -365,10 +365,12 @@ static int dhcp_server_process_decline(sd_dhcp_server *server, DHCPRequest *req,
         assert(server);
         assert(req);
 
+        if (req->server_address != server->address)
+                return 0; /* The message is not for us. Let's silently ignore the packet. */
+
+        /* TODO: make sure we don't offer this address again for a while. */
+
         log_dhcp_server(server, "DECLINE (0x%x): %s", be32toh(req->message->xid), strna(error_message));
-
-        /* TODO: make sure we don't offer this address again */
-
         return 0;
 }
 
@@ -376,19 +378,20 @@ static int dhcp_server_process_release(sd_dhcp_server *server, DHCPRequest *req)
         assert(server);
         assert(req);
 
-        log_dhcp_server(server, "RELEASE (0x%x)",
-                        be32toh(req->message->xid));
+        if (req->server_address != server->address)
+                return 0; /* The message is not for us. Let's silently ignore the packet. */
 
         sd_dhcp_server_lease *existing_lease = hashmap_get(server->bound_leases_by_client_id, &req->client_id);
         if (!existing_lease)
-                return 0;
+                return -ENOENT;
 
         if (existing_lease->address != req->message->ciaddr)
-                return 0;
+                return -EBADMSG;
 
         sd_dhcp_server_lease_unref(existing_lease);
         dhcp_server_on_lease_change(server);
 
+        log_dhcp_server(server, "RELEASE (0x%x)", be32toh(req->message->xid));
         return 0;
 }
 
