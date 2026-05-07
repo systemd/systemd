@@ -6,12 +6,12 @@
 #include <unistd.h>
 
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "io-util.h"
 #include "iovec-util.h"
 #include "json-stream.h"
 #include "list.h"
@@ -430,7 +430,7 @@ int json_stream_wait(JsonStream *s, usec_t timeout) {
                 };
         }
 
-        r = ppoll_usec(pollfd, n_poll_fd, timeout);
+        r = sd_fiber_poll(pollfd, n_poll_fd, timeout);
         if (ERRNO_IS_NEG_TRANSIENT(r))
                 /* Treat EINTR as not a timeout, but also nothing happened, and the caller gets
                  * a chance to call back into us. */

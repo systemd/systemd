@@ -127,3 +127,10 @@ typedef struct sd_resolve sd_resolve;
 typedef struct sd_resolve_query sd_resolve_query;
 
 typedef struct sd_hwdb sd_hwdb;
+
+typedef struct sd_future sd_future;
+typedef struct sd_promise sd_promise;
+
+typedef int (*sd_future_func_t)(sd_future *f);
+typedef int (*sd_fiber_func_t)(void *userdata);
+typedef void (*sd_fiber_destroy_t)(void *userdata);

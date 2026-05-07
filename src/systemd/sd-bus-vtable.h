@@ -44,6 +44,7 @@ __extension__ enum {
         SD_BUS_VTABLE_PROPERTY_EXPLICIT            = 1ULL << 7,
         SD_BUS_VTABLE_SENSITIVE                    = 1ULL << 8, /* covers both directions: method call + reply */
         SD_BUS_VTABLE_ABSOLUTE_OFFSET              = 1ULL << 9,
+        /* Bit 10 is reserved for the private SD_BUS_VTABLE_METHOD_FIBER flag (see bus-internal.h). */
         _SD_BUS_VTABLE_CAPABILITY_MASK             = 0xFFFFULL << 40
 };
 

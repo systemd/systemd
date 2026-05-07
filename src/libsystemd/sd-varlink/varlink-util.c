@@ -159,6 +159,27 @@ int varlink_many_error(Set *s, const char *error_id, sd_json_variant *parameters
         return r;
 }
 
+int varlink_server_bind_fiber(sd_varlink_server *s, const char *method, sd_varlink_method_t callback) {
+        assert_return(s, -EINVAL);
+        assert_return(method, -EINVAL);
+        assert_return(callback, -EINVAL);
+
+        return varlink_server_bind_internal(s, &s->fiber_methods, method, callback);
+}
+
+int varlink_server_bind_fiber_many_internal(sd_varlink_server *s, ...) {
+        va_list ap;
+        int r;
+
+        assert_return(s, -EINVAL);
+
+        va_start(ap, s);
+        r = varlink_server_bind_many_internal(s, &s->fiber_methods, ap);
+        va_end(ap);
+
+        return r;
+}
+
 int varlink_set_info_systemd(sd_varlink_server *server) {
         _cleanup_free_ char *product = NULL;
 

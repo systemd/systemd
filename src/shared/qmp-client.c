@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
@@ -226,19 +227,23 @@ static int qmp_extract_response_id(sd_json_variant *v, uint64_t *ret) {
         return 1;
 }
 
-/* Returns 0 on success (ret_result = "return" value), -EIO on QMP error (reterr_desc set). */
-static int qmp_parse_response(sd_json_variant *v, sd_json_variant **ret_result, const char **reterr_desc) {
+/* Returns 0 on success (ret_result = freshly reffed "return" value), -EIO on QMP error
+ * (ret_error_desc set to a freshly allocated string). Caller owns both outputs. */
+static int qmp_parse_response(sd_json_variant *v, sd_json_variant **ret_result, char **ret_error_desc) {
         const char *desc;
 
         desc = qmp_extract_error_description(v);
         if (desc) {
-                if (reterr_desc)
-                        *reterr_desc = desc;
+                if (ret_error_desc) {
+                        *ret_error_desc = strdup(desc);
+                        if (!*ret_error_desc)
+                                return -ENOMEM;
+                }
                 return -EIO;
         }
 
         if (ret_result)
-                *ret_result = sd_json_variant_by_key(v, "return");
+                *ret_result = sd_json_variant_ref(sd_json_variant_by_key(v, "return"));
         return 0;
 }
 
@@ -273,8 +278,8 @@ static int qmp_client_build_command(
 
 /* Route c->current to event callback or matching async slot. Returns 1 on dispatch. */
 static int qmp_client_dispatch(QmpClient *c) {
-        sd_json_variant *result = NULL;
-        const char *desc = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
+        _cleanup_free_ char *desc = NULL;
         uint64_t id;
         int error, r;
 
@@ -318,8 +323,8 @@ static int qmp_client_dispatch(QmpClient *c) {
         }
 
         /* Synchronous slot (no callback): leave c->current pinned so qmp_client_call() can
-         * pick up the reply and hand out borrowed pointers into it. The sync caller owns a
-         * ref on the slot and detects completion by observing slot->client turning NULL. */
+         * pick the reply up after its pump loop. The sync caller owns a ref on the slot and
+         * detects completion by observing slot->client turning NULL. */
         if (!slot->callback) {
                 qmp_slot_disconnect(slot, /* unref= */ true);
                 return 1;
@@ -574,6 +579,10 @@ static void qmp_client_clear(QmpClient *c) {
         qmp_client_detach_event(c);
         qmp_client_clear_current(c);
         json_stream_done(&c->stream);
+        /* qmp_client_handle_disconnect() above drained every entry via qmp_client_fail_pending();
+         * the set is borrow-only for non-floating slots, so set_free() can't safely run a
+         * destructor over leftovers — enforce the drain invariant instead. */
+        assert(set_isempty(c->slots));
         c->slots = set_free(c->slots);
 }
 
@@ -745,7 +754,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(QmpClientArgs*, qmp_client_args_close_fds);
 
 /* Shared send path for qmp_client_invoke() and qmp_client_call(). A NULL callback registers
  * a "synchronous" slot: dispatch_reply leaves c->current pinned on match instead of invoking
- * a callback, so qmp_client_call() can hand out borrowed pointers into the reply. If ret_slot
+ * a callback, so qmp_client_call() can pick the reply up after its pump loop. If ret_slot
  * is NULL the slot is allocated as floating (owned by c->slots); otherwise a reference is
  * handed back to the caller. */
 static int qmp_client_send(
@@ -810,21 +819,173 @@ int qmp_client_invoke(
         return qmp_client_send(c, command, args, callback, userdata, ret_slot);
 }
 
+typedef struct QmpFuture {
+        sd_promise *promise;
+        QmpSlot *slot;            /* owned, non-floating; NULL once disconnected */
+        sd_json_variant *result;
+        char *error_desc;
+} QmpFuture;
+
+static void* qmp_future_free(void *userdata) {
+        QmpFuture *f = userdata;
+        if (!f)
+                return NULL;
+
+        qmp_slot_unref(f->slot);
+        sd_json_variant_unref(f->result);
+        free(f->error_desc);
+        return mfree(f);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(QmpFuture*, qmp_future_free);
+
+static int qmp_future_cancel(void *userdata) {
+        QmpFuture *f = ASSERT_PTR(userdata);
+
+        /* Drop the pending slot so dispatch_reply won't try to fire our callback (and touch
+         * freed memory) when the reply eventually arrives. */
+        f->slot = qmp_slot_unref(f->slot);
+        return sd_promise_resolve(f->promise, -ECANCELED);
+}
+
+static const sd_future_ops qmp_call_future_ops = {
+        .free = qmp_future_free,
+        .cancel = qmp_future_cancel,
+};
+
+static int qmp_future_callback(
+                QmpClient *c,
+                sd_json_variant *result,
+                const char *desc,
+                int error,
+                void *userdata) {
+
+        QmpFuture *f = ASSERT_PTR(userdata);
+
+        if (result)
+                f->result = sd_json_variant_ref(result);
+        if (desc) {
+                f->error_desc = strdup(desc);
+                if (!f->error_desc)
+                        /* No usable reply payload to surface — propagate as transport-style
+                         * failure so suspend() / sd_future_result() see the OOM. */
+                        return sd_promise_resolve(f->promise, -ENOMEM);
+        }
+
+        /* Resolve with 0 whenever a reply landed (success or QMP-level error) so the future's
+         * result encodes only "no reply will arrive" — i.e. transport failure or cancellation.
+         * The reply payload is dispatched in future_get_qmp_reply(). */
+        return sd_promise_resolve(f->promise, (result || desc) ? 0 : error);
+}
+
+int qmp_client_call_future(
+                QmpClient *c,
+                const char *command,
+                QmpClientArgs *args,
+                sd_future **ret) {
+
+        int r;
+
+        assert(c);
+        assert(command);
+        assert(ret);
+
+        _cleanup_(qmp_future_freep) QmpFuture *impl = new0(QmpFuture, 1);
+        if (!impl)
+                return -ENOMEM;
+
+        r = qmp_client_send(c, command, args, qmp_future_callback, impl, &impl->slot);
+        if (r < 0)
+                return r;
+
+        sd_future *f;
+        r = sd_future_new(&qmp_call_future_ops, impl, &f);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(impl);
+        *ret = TAKE_PTR(f);
+        return 0;
+}
+
+/* Extract the reply from a resolved qmp_client_call_future(). On success *ret_result is a fresh
+ * reference (caller unrefs) and *ret_error_desc is a freshly allocated string (caller frees).
+ * Returns -EIO when a QMP-level error was returned but the caller passed a NULL ret_error_desc. */
+int future_get_qmp_reply(sd_future *f, sd_json_variant **ret_result, char **ret_error_desc) {
+
+        assert(f);
+        assert(sd_future_get_ops(f) == &qmp_call_future_ops);
+        assert(sd_future_state(f) == SD_FUTURE_RESOLVED);
+
+        QmpFuture *impl = ASSERT_PTR(sd_future_get_impl(f));
+
+        if (impl->error_desc && !ret_error_desc)
+                return -EIO;
+
+        if (ret_error_desc && impl->error_desc) {
+                char *desc = strdup(impl->error_desc);
+                if (!desc)
+                        return -ENOMEM;
+                *ret_error_desc = desc;
+        } else if (ret_error_desc)
+                *ret_error_desc = NULL;
+
+        if (ret_result)
+                *ret_result = sd_json_variant_ref(impl->result);
+        return 0;
+}
+
+int qmp_client_call_suspend(
+                QmpClient *c,
+                const char *command,
+                QmpClientArgs *args,
+                sd_json_variant **ret_result,
+                char **ret_error_desc) {
+
+        int r;
+
+        assert(c);
+        assert(command);
+        assert(sd_fiber_is_running());
+
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *call = NULL;
+        r = qmp_client_call_future(c, command, args, &call);
+        if (r < 0)
+                return r;
+
+        /* The call future resolves with 0 once a reply (success or QMP-level error) lands,
+         * negative on transport failure or cancellation; sd_fiber_suspend() propagates that. */
+        r = sd_fiber_suspend();
+        if (r < 0)
+                return r;
+
+        r = future_get_qmp_reply(call, ret_result, ret_error_desc);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 int qmp_client_call(
                 QmpClient *c,
                 const char *command,
                 QmpClientArgs *args,
                 sd_json_variant **ret_result,
-                const char **ret_error_desc) {
+                char **ret_error_desc) {
 
-        _cleanup_(qmp_slot_unrefp) QmpSlot *slot = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
+        _cleanup_free_ char *desc = NULL;
         int r;
 
         assert_return(c, -EINVAL);
         assert_return(command, -EINVAL);
 
-        /* Drop any reply pinned by a previous qmp_client_call() before we pin a new one. */
-        qmp_client_clear_current(c);
+        /* If we're on a fiber sharing the QMP client's event loop, use the async + suspend path so
+         * multiple concurrent qmp_client_call() invocations across fibers don't deadlock each other
+         * on the process+wait pump. */
+        if (sd_fiber_is_running() && qmp_client_get_event(c) == sd_fiber_get_event())
+                return qmp_client_call_suspend(c, command, args, ret_result, ret_error_desc);
+
+        _cleanup_(qmp_slot_unrefp) QmpSlot *slot = NULL;
 
         /* NULL callback marks this as a synchronous slot: dispatch_reply matches on id like
          * any other slot (so stray unknown-id replies still get logged and dropped), but
@@ -855,18 +1016,19 @@ int qmp_client_call(
                         return r;
         }
 
-        sd_json_variant *result = NULL;
-        const char *desc = NULL;
-        int error = qmp_parse_response(c->current, &result, &desc);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *current = TAKE_PTR(c->current);
+        r = qmp_parse_response(current, &result, &desc);
+        if (r < 0 && r != -EIO)
+                return r;
 
-        /* If caller doesn't ask for the error string, surface the error as the return code. */
-        if (!ret_error_desc && error < 0)
-                return error;
+        /* If caller doesn't ask for the error string, surface QMP errors as -EIO. */
+        if (desc && !ret_error_desc)
+                return -EIO;
 
         if (ret_result)
-                *ret_result = result;
+                *ret_result = TAKE_PTR(result);
         if (ret_error_desc)
-                *ret_error_desc = desc;
+                *ret_error_desc = TAKE_PTR(desc);
 
         return 1;
 }
