@@ -31,6 +31,7 @@ static const NamingScheme naming_schemes[] = {
         { "v258", NAMING_V258 },
         { "v259", NAMING_V259 },
         { "v260", NAMING_V260 },
+        { "v261", NAMING_V261 },
         /* … add more schemes here, as the logic to name devices is updated … */
 
         EXTRA_NET_NAMING_MAP
