@@ -6,6 +6,7 @@
 #include "kill.h"
 #include "mount.h"
 #include "numa-util.h"
+#include "path.h"
 #include "process-util.h"
 #include "tests.h"
 #include "test-varlink-idl-util.h"
@@ -58,6 +59,12 @@ TEST(unit_enums_idl) {
 
         /* MountRuntime enums */
         TEST_IDL_ENUM(MountResult, mount_result, vl_type_MountResult);
+
+        /* PathContext enums */
+        TEST_IDL_ENUM(PathType, path_type, vl_type_PathType);
+
+        /* PathRuntime enums */
+        TEST_IDL_ENUM(PathResult, path_result, vl_type_PathResult);
 
         /* UnitContext enums */
         TEST_IDL_ENUM(CollectMode, collect_mode, vl_type_CollectMode);

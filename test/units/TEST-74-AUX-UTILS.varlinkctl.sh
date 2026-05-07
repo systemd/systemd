@@ -246,6 +246,12 @@ test -n "$mount_id"
 mount_params=$(jq -cn --arg name "$mount_id" '{name: $name}')
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$mount_params" | jq -e '.context.Mount'
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$mount_params" | jq -e '.runtime.Mount'
+# test for PathContext/Runtime
+path_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "path" and .runtime.LoadState == "loaded") .context.ID' | grep -v null | tail -n 1)
+test -n "$path_id"
+path_params=$(jq -cn --arg name "$path_id" '{name: $name}')
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$path_params" | jq -e '.context.Path'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$path_params" | jq -e '.runtime.Path'
 
 # test io.systemd.Metrics
 varlinkctl info /run/systemd/report/io.systemd.Manager
