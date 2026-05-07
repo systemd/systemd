@@ -5,6 +5,7 @@
 #include "path.h"
 #include "scope.h"
 #include "swap.h"
+#include "timer.h"
 #include "ioprio-util.h"
 #include "kill.h"
 #include "mount.h"
@@ -73,6 +74,17 @@ TEST(unit_enums_idl) {
 
         /* SwapRuntime enums */
         TEST_IDL_ENUM(SwapResult, swap_result, vl_type_SwapResult);
+
+        /* TimerContext enums */
+        test_enum_to_string_name("OnActiveUSec", &vl_type_TimerBase);
+        test_enum_to_string_name("OnBootUSec", &vl_type_TimerBase);
+        test_enum_to_string_name("OnStartupUSec", &vl_type_TimerBase);
+        test_enum_to_string_name("OnUnitActiveUSec", &vl_type_TimerBase);
+        test_enum_to_string_name("OnUnitInactiveUSec", &vl_type_TimerBase);
+        test_enum_to_string_name("OnCalendar", &vl_type_TimerBase);
+
+        /* TimerRuntime enums */
+        TEST_IDL_ENUM(TimerResult, timer_result, vl_type_TimerResult);
 
         /* UnitContext enums */
         TEST_IDL_ENUM(CollectMode, collect_mode, vl_type_CollectMode);
