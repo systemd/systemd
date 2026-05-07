@@ -973,6 +973,49 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Remount command"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecRemount, ExecCommand, SD_VARLINK_NULLABLE));
 
+/* PathContext
+ * https://www.freedesktop.org/software/systemd/man/latest/systemd.path.html */
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                PathType,
+                SD_VARLINK_DEFINE_ENUM_VALUE(PathExists),
+                SD_VARLINK_DEFINE_ENUM_VALUE(PathExistsGlob),
+                SD_VARLINK_DEFINE_ENUM_VALUE(DirectoryNotEmpty),
+                SD_VARLINK_DEFINE_ENUM_VALUE(PathChanged),
+                SD_VARLINK_DEFINE_ENUM_VALUE(PathModified));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                PathSpecContext,
+                SD_VARLINK_FIELD_COMMENT("Path spec type"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(type, PathType, 0),
+                SD_VARLINK_FIELD_COMMENT("Path"),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                PathContext,
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.path.html#PathExists="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Paths, PathSpecContext, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.path.html#Unit="),
+                SD_VARLINK_DEFINE_FIELD(Unit, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.path.html#MakeDirectory="),
+                SD_VARLINK_DEFINE_FIELD(MakeDirectory, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.path.html#DirectoryMode="),
+                SD_VARLINK_DEFINE_FIELD(DirectoryMode, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.path.html#TriggerLimitIntervalSec="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(TriggerLimit, RateLimit, SD_VARLINK_NULLABLE));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                PathResult,
+                SD_VARLINK_DEFINE_ENUM_VALUE(success),
+                SD_VARLINK_DEFINE_ENUM_VALUE(resources),
+                SD_VARLINK_DEFINE_ENUM_VALUE(start_limit_hit),
+                SD_VARLINK_DEFINE_ENUM_VALUE(unit_start_limit_hit),
+                SD_VARLINK_DEFINE_ENUM_VALUE(trigger_limit_hit));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                PathRuntime,
+                SD_VARLINK_FIELD_COMMENT("Result of path operation"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Result, PathResult, 0));
+
 /* Service-specific types */
 
 /* Keep in sync with service_type_table[] in src/core/service.c */
@@ -1165,7 +1208,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The automount context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Automount, AutomountContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The mount context of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Mount, MountContext, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Mount, MountContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The path context of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Path, PathContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ActivationDetails,
@@ -1339,7 +1384,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The automount runtime of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Automount, AutomountRuntime, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The mount runtime of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Mount, MountRuntime, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Mount, MountRuntime, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The path runtime of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Path, PathRuntime, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
@@ -1501,6 +1548,11 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_MountContext,
                 &vl_type_MountResult,
                 &vl_type_MountRuntime,
+                &vl_type_PathType,
+                &vl_type_PathSpecContext,
+                &vl_type_PathContext,
+                &vl_type_PathResult,
+                &vl_type_PathRuntime,
 
                 /* UnitContext enums */
                 &vl_type_CollectMode,
