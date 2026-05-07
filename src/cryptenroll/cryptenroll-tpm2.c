@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptenroll-tpm2.h"
+#include "crypto-util.h"
 #include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
 #include "env-util.h"
@@ -195,6 +196,8 @@ int load_volume_key_tpm2(
                 size_t n_blobs = 0, n_policy_hash = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                 uint16_t pcr_bank, primary_alg;
+                uint64_t argon2id_memcost = 0;
+                uint32_t argon2id_iterations = 0, argon2id_lanes = 0;
                 TPM2Flags tpm2_flags;
                 int keyslot;
 
@@ -219,7 +222,10 @@ int load_volume_key_tpm2(
                                 &pcrlock_nv,
                                 &tpm2_flags,
                                 &keyslot,
-                                &token);
+                                &token,
+                                &argon2id_memcost,
+                                &argon2id_iterations,
+                                &argon2id_lanes);
                 if (r == -ENXIO)
                         return log_full_errno(LOG_NOTICE,
                                               SYNTHETIC_ERRNO(EAGAIN),
@@ -256,7 +262,10 @@ int load_volume_key_tpm2(
                                 /* until= */ 0,
                                 "cryptenroll.tpm2-pin",
                                 /* askpw_flags= */ 0,
-                                &decrypted_key);
+                                &decrypted_key,
+                                argon2id_memcost,
+                                argon2id_iterations,
+                                argon2id_lanes);
                 if (IN_SET(r, -EACCES, -ENOLCK))
                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed");
                 if (r != -EPERM)
@@ -301,6 +310,10 @@ int enroll_tpm2(struct crypt_device *cd,
                 const char *signature_path,
                 bool use_pin,
                 const char *pcrlock_path,
+                bool argon2id,
+                uint64_t argon2id_memcost,
+                uint32_t argon2id_iterations,
+                uint32_t argon2id_lanes,
                 int *ret_slot_to_wipe) {
 
 #if HAVE_TPM2
@@ -310,6 +323,7 @@ int enroll_tpm2(struct crypt_device *cd,
         _cleanup_(iovec_done_erase) struct iovec secret = {};
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
+        _cleanup_(erase_and_freep) void *key1 = NULL;
         ssize_t base64_encoded_size;
         int r, keyslot, slot_to_wipe = -1;
         TPM2Flags flags = 0;
@@ -332,25 +346,59 @@ int enroll_tpm2(struct crypt_device *cd,
         assert_se(node = sym_crypt_get_device_name(cd));
 
         if (use_pin) {
-                r = get_pin(&pin_str, &flags);
-                if (r < 0)
-                        return r;
+                if (argon2id) {
+                        r = get_pin(&pin_str, &flags);
+                        if (r < 0)
+                                return r;
 
-                r = crypto_random_bytes(binary_salt, sizeof(binary_salt));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to acquire random salt: %m");
+                        r = crypto_random_bytes(binary_salt, sizeof(binary_salt));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to acquire random salt: %m");
 
-                uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
-                CLEANUP_ERASE(salted_pin);
-                r = tpm2_util_pbkdf2_hmac_sha256(pin_str, strlen(pin_str), binary_salt, sizeof(binary_salt), salted_pin);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to perform PBKDF2: %m");
+                        _cleanup_(erase_and_freep) void *derived = NULL;
+                        r = kdf_argon2id_derive(
+                                        pin_str, strlen(pin_str),
+                                        binary_salt, sizeof(binary_salt),
+                                        argon2id_memcost, argon2id_iterations, argon2id_lanes,
+                                        64, &derived);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to perform Argon2id: %m");
 
-                pin_str = erase_and_free(pin_str);
-                /* re-stringify pin_str */
-                base64_encoded_size = base64mem(salted_pin, sizeof(salted_pin), &pin_str);
-                if (base64_encoded_size < 0)
-                        return log_error_errno(base64_encoded_size, "Failed to base64 encode salted pin: %m");
+                        uint8_t *derived_bytes = derived;
+
+                        /* Key1 = first 32 bytes, stored for final HKDF derivation */
+                        key1 = memdup(derived_bytes, 32);
+                        if (!key1)
+                                return log_oom();
+
+                        /* Key2 = last 32 bytes, used as TPM PIN */
+                        pin_str = erase_and_free(pin_str);
+                        ssize_t b64_size = base64mem(derived_bytes + 32, 32, &pin_str);
+                        if (b64_size < 0)
+                                return log_error_errno(b64_size, "Failed to base64 encode Key2: %m");
+
+                        flags |= TPM2_FLAGS_USE_ARGON2ID;
+                } else {
+                        r = get_pin(&pin_str, &flags);
+                        if (r < 0)
+                                return r;
+
+                        r = crypto_random_bytes(binary_salt, sizeof(binary_salt));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to acquire random salt: %m");
+
+                        uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
+                        CLEANUP_ERASE(salted_pin);
+                        r = tpm2_util_pbkdf2_hmac_sha256(pin_str, strlen(pin_str), binary_salt, sizeof(binary_salt), salted_pin);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to perform PBKDF2: %m");
+
+                        pin_str = erase_and_free(pin_str);
+                        /* re-stringify pin_str */
+                        base64_encoded_size = base64mem(salted_pin, sizeof(salted_pin), &pin_str);
+                        if (base64_encoded_size < 0)
+                                return log_error_errno(base64_encoded_size, "Failed to base64 encode salted pin: %m");
+                }
         }
 
         TPM2B_PUBLIC public = {};
@@ -570,8 +618,21 @@ int enroll_tpm2(struct crypt_device *cd,
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 seal/unseal verification failed.");
         }
 
-        /* let's base64 encode the key to use, for compat with homed (and it's easier to every type it in by keyboard, if that might end up being necessary. */
-        base64_encoded_size = base64mem(secret.iov_base, secret.iov_len, &base64_encoded);
+        if (FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID)) {
+                _cleanup_(erase_and_freep) void *final_key = NULL;
+                r = kdf_hkdf_sha256(
+                                key1, 32,
+                                secret.iov_base, secret.iov_len,
+                                "systemd-tpm2-argon2id-lock", strlen("systemd-tpm2-argon2id-lock"),
+                                32, &final_key);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to derive final volume key via HKDF: %m");
+
+                base64_encoded_size = base64mem(final_key, 32, &base64_encoded);
+        } else {
+                /* let's base64 encode the key to use, for compat with homed (and it's easier to every type it in by keyboard, if that might end up being necessary. */
+                base64_encoded_size = base64mem(secret.iov_base, secret.iov_len, &base64_encoded);
+        }
         if (base64_encoded_size < 0)
                 return log_error_errno(base64_encoded_size, "Failed to base64 encode secret key: %m");
 
@@ -604,6 +665,9 @@ int enroll_tpm2(struct crypt_device *cd,
                         &srk,
                         pcrlock_path ? &pcrlock_policy.nv_handle : NULL,
                         flags,
+                        argon2id_memcost,
+                        argon2id_iterations,
+                        argon2id_lanes,
                         &v);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");

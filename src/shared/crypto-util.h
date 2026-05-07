@@ -348,6 +348,10 @@ int kdf_ss_derive(const char *digest, const void *key, size_t key_size, const vo
 
 int kdf_kb_hmac_derive(const char *mode, const char *digest, const void *key, size_t key_size, const void *salt, size_t salt_size, const void *info, size_t info_size, const void *seed, size_t seed_size, size_t derive_size, void **ret);
 
+int kdf_argon2id_derive(const void *pass, size_t passlen, const void *salt, size_t saltlen, uint64_t memcost, uint32_t iterations, uint32_t lanes, size_t derive_size, void **ret);
+
+int kdf_hkdf_sha256(const void *key, size_t key_size, const void *salt, size_t salt_size, const void *info, size_t info_size, size_t derive_size, void **ret);
+
 int rsa_encrypt_bytes(EVP_PKEY *pkey, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
 
 int rsa_oaep_encrypt_bytes(const EVP_PKEY *pkey, const char *digest_alg, const char *label, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
