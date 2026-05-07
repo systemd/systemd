@@ -89,17 +89,19 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                         return r;
         }
 
-        uint64_t restart_ms;
-
-        if (link->network->can_restart_us == USEC_INFINITY)
-                restart_ms = 0;
-        else
-                restart_ms = DIV_ROUND_UP(link->network->can_restart_us, USEC_PER_MSEC);
-
-        log_link_debug(link, "Setting restart = %s", FORMAT_TIMESPAN(restart_ms * 1000, MSEC_PER_SEC));
-        r = sd_netlink_message_append_u32(m, IFLA_CAN_RESTART_MS, restart_ms);
-        if (r < 0)
-                return r;
+        if (link->network->can_restart_us_set) {
+                uint64_t restart_ms;
+        
+                if (link->network->can_restart_us == USEC_INFINITY)
+                        restart_ms = 0;
+                else
+                        restart_ms = DIV_ROUND_UP(link->network->can_restart_us, USEC_PER_MSEC);
+        
+                log_link_debug(link, "Setting restart = %s", FORMAT_TIMESPAN(restart_ms * 1000, MSEC_PER_SEC));
+                r = sd_netlink_message_append_u32(m, IFLA_CAN_RESTART_MS, restart_ms);
+                if (r < 0)
+                        return r;
+        }
 
         if (link->network->can_control_mode_mask != 0) {
                 struct can_ctrlmode cm = {
@@ -219,7 +221,8 @@ int config_parse_can_restart_usec(
                 void *data,
                 void *userdata) {
 
-        usec_t usec, *restart_usec = ASSERT_PTR(data);
+        Network *network = ASSERT_PTR(userdata);
+        usec_t usec;
         int r;
 
         assert(filename);
@@ -240,7 +243,8 @@ int config_parse_can_restart_usec(
                 return 0;
         }
 
-        *restart_usec = usec;
+        network->can_restart_us_set = true;
+        network->can_restart_us = usec;
         return 0;
 }
 
