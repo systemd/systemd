@@ -19,6 +19,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -1590,6 +1591,28 @@ static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 
+static int parse_from_file(const char *arg, sd_json_variant **ret) {
+        sd_json_variant *v = NULL;
+        int r;
+
+        if (!isempty(arg)) {
+                const char *fn = streq(arg, "-") ? NULL : arg;
+                unsigned line = 0;
+                r = sd_json_parse_file(
+                                fn ? NULL : stdin,
+                                fn ?: "<stdin>",
+                                SD_JSON_PARSE_MUST_BE_OBJECT | SD_JSON_PARSE_SENSITIVE,
+                                &v,
+                                &line,
+                                /* reterr_column= */ NULL);
+                if (r < 0)
+                        return log_syntax(/* unit= */ NULL, LOG_ERR, fn ?: "<stdin>", line, r, "JSON parse failure.");
+        }
+
+        *ret = v;
+        return 0;
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -1832,20 +1855,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'F': {
-                        if (isempty(optarg)) {
-                                arg_from_file = sd_json_variant_unref(arg_from_file);
-                                break;
-                        }
+                        sd_json_variant *v;
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-                        const char *fn = streq(optarg, "-") ? NULL : optarg;
-                        unsigned line = 0;
-                        r = sd_json_parse_file(fn ? NULL : stdin, fn ?: "<stdin>", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, /* reterr_column= */ NULL);
+                        r = parse_from_file(optarg, &v);
                         if (r < 0)
-                                return log_syntax(/* unit= */ NULL, LOG_ERR, fn ?: "<stdin>", line, r, "JSON parse failure.");
+                                return r;
 
-                        sd_json_variant_unref(arg_from_file);
-                        arg_from_file = TAKE_PTR(v);
+                        json_variant_unref_and_replace(arg_from_file, v);
                         break;
                 }
 
