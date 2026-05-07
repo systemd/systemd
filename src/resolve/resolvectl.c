@@ -3206,7 +3206,6 @@ static int compat_help(void) {
                "%2$sResolve domain names, IPv4 and IPv6 addresses, DNS records, and services.%3$s\n\n"
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
-               "     --no-pager             Do not pipe output into a pager\n"
                "  -4                        Resolve IPv4 addresses\n"
                "  -6                        Resolve IPv6 addresses\n"
                "  -i --interface=INTERFACE  Look on interface\n"
@@ -3221,8 +3220,6 @@ static int compat_help(void) {
                "     --cname=BOOL           Follow CNAME redirects (default: yes)\n"
                "     --search=BOOL          Use search domains for single-label names\n"
                "                                                              (default: yes)\n"
-               "     --raw[=payload|packet] Dump the answer as binary data\n"
-               "     --legend=BOOL          Print headers and additional info (default: yes)\n"
                "     --statistics           Show resolver statistics\n"
                "     --reset-statistics     Reset resolver statistics\n"
                "     --status               Show link and server status\n"
@@ -3237,6 +3234,9 @@ static int compat_help(void) {
                "     --set-dnssec=MODE      Set per-interface DNSSEC mode\n"
                "     --set-nta=DOMAIN       Set per-interface DNSSEC NTA\n"
                "     --revert               Revert per-interface configuration\n"
+               "     --raw[=payload|packet] Dump the answer as binary data\n"
+               "     --no-pager             Do not pipe output into a pager\n"
+               "     --legend=BOOL          Print headers and additional info (default: yes)\n"
                "\nSee the %4$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -3286,8 +3286,6 @@ static int native_help(void) {
                "\n%3$sOptions:%4$s\n"
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
-               "     --no-pager                Do not pipe output into a pager\n"
-               "     --no-ask-password         Do not prompt for password\n"
                "  -4                           Resolve IPv4 addresses\n"
                "  -6                           Resolve IPv6 addresses\n"
                "  -i --interface=INTERFACE     Look on interface\n"
@@ -3310,6 +3308,8 @@ static int native_help(void) {
                "     --search=BOOL             Use search domains for single-label names (default:\n"
                "                               yes)\n"
                "     --raw[=payload|packet]    Dump the answer as binary data\n"
+               "     --no-pager                Do not pipe output into a pager\n"
+               "     --no-ask-password         Do not prompt for password\n"
                "     --legend=BOOL             Print headers and additional info (default: yes)\n"
                "     --json=MODE               Output as JSON\n"
                "  -j                           Same as --json=pretty on tty, --json=short\n"
@@ -3418,6 +3418,12 @@ static int compat_parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case 'p':
+                        r = parse_protocol(optarg);
+                        if (r <= 0)
+                                return r;
+                        break;
+
                 case 't':
                         if (streq(optarg, "help")) {
                                 help_dns_types();
@@ -3449,57 +3455,8 @@ static int compat_parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_LEGEND:
-                        r = parse_boolean_argument("--legend=", optarg, &arg_legend);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'p':
-                        r = parse_protocol(optarg);
-                        if (r <= 0)
-                                return r;
-                        break;
-
                 case ARG_SERVICE:
                         arg_mode = MODE_RESOLVE_SERVICE;
-                        break;
-
-                case ARG_OPENPGP:
-                        arg_mode = MODE_RESOLVE_OPENPGP;
-                        break;
-
-                case ARG_TLSA:
-                        arg_mode = MODE_RESOLVE_TLSA;
-                        if (!optarg || service_family_is_valid(optarg))
-                                arg_service_family = optarg;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown service family \"%s\".", optarg);
-                        break;
-
-                case ARG_RAW:
-                        if (on_tty())
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
-                                                       "Refusing to write binary data to tty.");
-
-                        if (optarg == NULL || streq(optarg, "payload"))
-                                arg_raw = RAW_PAYLOAD;
-                        else if (streq(optarg, "packet"))
-                                arg_raw = RAW_PACKET;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown --raw specifier \"%s\".",
-                                                       optarg);
-
-                        arg_legend = false;
-                        break;
-
-                case ARG_CNAME:
-                        r = parse_boolean_argument("--cname=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_CNAME, r == 0);
                         break;
 
                 case ARG_SERVICE_ADDRESS:
@@ -3516,6 +3473,27 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_TXT, r == 0);
                         break;
 
+                case ARG_OPENPGP:
+                        arg_mode = MODE_RESOLVE_OPENPGP;
+                        break;
+
+                case ARG_TLSA:
+                        arg_mode = MODE_RESOLVE_TLSA;
+                        if (!optarg || service_family_is_valid(optarg))
+                                arg_service_family = optarg;
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown service family \"%s\".", optarg);
+                        break;
+
+                case ARG_CNAME:
+                        r = parse_boolean_argument("--cname=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_CNAME, r == 0);
+                        break;
+
+
                 case ARG_SEARCH:
                         r = parse_boolean_argument("--search=", optarg, NULL);
                         if (r < 0)
@@ -3531,20 +3509,16 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         arg_mode = MODE_RESET_STATISTICS;
                         break;
 
+                case ARG_STATUS:
+                        arg_mode = MODE_STATUS;
+                        break;
+
                 case ARG_FLUSH_CACHES:
                         arg_mode = MODE_FLUSH_CACHES;
                         break;
 
                 case ARG_RESET_SERVER_FEATURES:
                         arg_mode = MODE_RESET_SERVER_FEATURES;
-                        break;
-
-                case ARG_STATUS:
-                        arg_mode = MODE_STATUS;
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case ARG_SET_DNS:
@@ -3593,6 +3567,33 @@ static int compat_parse_argv(int argc, char *argv[]) {
 
                 case ARG_REVERT_LINK:
                         arg_mode = MODE_REVERT_LINK;
+                        break;
+
+                case ARG_RAW:
+                        if (on_tty())
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
+                                                       "Refusing to write binary data to tty.");
+
+                        if (optarg == NULL || streq(optarg, "payload"))
+                                arg_raw = RAW_PAYLOAD;
+                        else if (streq(optarg, "packet"))
+                                arg_raw = RAW_PACKET;
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown --raw specifier \"%s\".",
+                                                       optarg);
+
+                        arg_legend = false;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_LEGEND:
+                        r = parse_boolean_argument("--legend=", optarg, &arg_legend);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
@@ -3703,6 +3704,12 @@ static int native_parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case 'p':
+                        r = parse_protocol(optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case 't':
                         if (streq(optarg, "help")) {
                                 help_dns_types();
@@ -3733,33 +3740,18 @@ static int native_parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_LEGEND:
-                        r = parse_boolean_argument("--legend=", optarg, &arg_legend);
+                case ARG_SERVICE_ADDRESS:
+                        r = parse_boolean_argument("--service-address=", optarg, NULL);
                         if (r < 0)
                                 return r;
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_ADDRESS, r == 0);
                         break;
 
-                case 'p':
-                        r = parse_protocol(optarg);
+                case ARG_SERVICE_TXT:
+                        r = parse_boolean_argument("--service-txt=", optarg, NULL);
                         if (r < 0)
                                 return r;
-                        break;
-
-                case ARG_RAW:
-                        if (on_tty())
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
-                                                       "Refusing to write binary data to tty.");
-
-                        if (optarg == NULL || streq(optarg, "payload"))
-                                arg_raw = RAW_PAYLOAD;
-                        else if (streq(optarg, "packet"))
-                                arg_raw = RAW_PACKET;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown --raw specifier \"%s\".",
-                                                       optarg);
-
-                        arg_legend = false;
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_TXT, r == 0);
                         break;
 
                 case ARG_CNAME:
@@ -3797,6 +3789,13 @@ static int native_parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_STALE, r == 0);
                         break;
 
+                case ARG_RELAX_SINGLE_LABEL:
+                        r = parse_boolean_argument("--relax-single-label=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+                        SET_FLAG(arg_flags, SD_RESOLVED_RELAX_SINGLE_LABEL, r > 0);
+                        break;
+
                 case ARG_ZONE:
                         r = parse_boolean_argument("--zone=", optarg, NULL);
                         if (r < 0)
@@ -3818,20 +3817,6 @@ static int native_parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_NETWORK, r == 0);
                         break;
 
-                case ARG_SERVICE_ADDRESS:
-                        r = parse_boolean_argument("--service-address=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_ADDRESS, r == 0);
-                        break;
-
-                case ARG_SERVICE_TXT:
-                        r = parse_boolean_argument("--service-txt=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_TXT, r == 0);
-                        break;
-
                 case ARG_SEARCH:
                         r = parse_boolean_argument("--search=", optarg, NULL);
                         if (r < 0)
@@ -3839,11 +3824,21 @@ static int native_parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_SEARCH, r == 0);
                         break;
 
-                case ARG_RELAX_SINGLE_LABEL:
-                        r = parse_boolean_argument("--relax-single-label=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_RELAX_SINGLE_LABEL, r > 0);
+                case ARG_RAW:
+                        if (on_tty())
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
+                                                       "Refusing to write binary data to tty.");
+
+                        if (optarg == NULL || streq(optarg, "payload"))
+                                arg_raw = RAW_PAYLOAD;
+                        else if (streq(optarg, "packet"))
+                                arg_raw = RAW_PACKET;
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown --raw specifier \"%s\".",
+                                                       optarg);
+
+                        arg_legend = false;
                         break;
 
                 case ARG_NO_PAGER:
@@ -3852,6 +3847,12 @@ static int native_parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_ASK_PASSWORD:
                         arg_ask_password = false;
+                        break;
+
+                case ARG_LEGEND:
+                        r = parse_boolean_argument("--legend=", optarg, &arg_legend);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_JSON:
