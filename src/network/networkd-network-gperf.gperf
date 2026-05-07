@@ -283,7 +283,7 @@ DHCPv4.IAID,                                     config_parse_iaid,             
 DHCPv4.DUIDType,                                 config_parse_network_duid_type,                 0,                                      0
 DHCPv4.DUIDRawData,                              config_parse_network_duid_rawdata,              0,                                      0
 DHCPv4.RouteMetric,                              config_parse_dhcp_route_metric,                 AF_INET,                                0
-DHCPv4.RouteTable,                               config_parse_dhcp_or_ra_route_table,            AF_INET,                                0
+DHCPv4.RouteTable,                               config_parse_dhcp_or_ra_route_table,            NETWORK_CONFIG_SOURCE_DHCP4,                    0
 DHCPv4.UseTimezone,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_timezone)
 DHCPv4.ListenPort,                               config_parse_uint16,                            0,                                      offsetof(Network, dhcp_client_port)
 DHCPv4.ServerPort,                               config_parse_uint16,                            0,                                      offsetof(Network, dhcp_port)
@@ -332,6 +332,7 @@ DHCPv6.RapidCommit,                              config_parse_bool,             
 DHCPv6.NetLabel,                                 config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, dhcp6_netlabel)
 DHCPv6.SendRelease,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp6_send_release)
 DHCPv6.NFTSet,                                   config_parse_nft_set,                           NFT_SET_PARSE_NETWORK,                  offsetof(Network, dhcp6_nft_set_context)
+DHCPv6.RouteTable,                               config_parse_dhcp_or_ra_route_table,            NETWORK_CONFIG_SOURCE_DHCP6,                    0
 IPv6AcceptRA.UseRedirect,                        config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_redirect)
 IPv6AcceptRA.UseGateway,                         config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_gateway)
 IPv6AcceptRA.UseRoutePrefix,                     config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_route_prefix)
@@ -346,7 +347,7 @@ IPv6AcceptRA.UseHopLimit,                        config_parse_bool,             
 IPv6AcceptRA.UseReachableTime,                   config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_reachable_time)
 IPv6AcceptRA.UseRetransmissionTime,              config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_retransmission_time)
 IPv6AcceptRA.DHCPv6Client,                       config_parse_ndisc_start_dhcp6_client,          0,                                      offsetof(Network, ndisc_start_dhcp6_client)
-IPv6AcceptRA.RouteTable,                         config_parse_dhcp_or_ra_route_table,            AF_INET6,                               0
+IPv6AcceptRA.RouteTable,                         config_parse_dhcp_or_ra_route_table,            NETWORK_CONFIG_SOURCE_NDISC,                    0
 IPv6AcceptRA.RouteMetric,                        config_parse_ndisc_route_metric,                0,                                      0
 IPv6AcceptRA.QuickAck,                           config_parse_bool,                              0,                                      offsetof(Network, ndisc_quickack)
 IPv6AcceptRA.UseCaptivePortal,                   config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_captive_portal)
@@ -669,7 +670,7 @@ DHCP.IAID,                                       config_parse_iaid,             
 DHCP.DUIDType,                                   config_parse_network_duid_type,                 0,                                      0
 DHCP.DUIDRawData,                                config_parse_network_duid_rawdata,              0,                                      0
 DHCP.RouteMetric,                                config_parse_dhcp_route_metric,                 AF_UNSPEC,                              0
-DHCP.RouteTable,                                 config_parse_dhcp_or_ra_route_table,            AF_INET,                                0
+DHCP.RouteTable,                                 config_parse_dhcp_or_ra_route_table,            NETWORK_CONFIG_SOURCE_DHCP4,                    0
 DHCP.UseTimezone,                                config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_timezone)
 DHCP.ListenPort,                                 config_parse_uint16,                            0,                                      offsetof(Network, dhcp_client_port)
 DHCP.RapidCommit,                                config_parse_bool,                              0,                                      offsetof(Network, dhcp6_use_rapid_commit)
