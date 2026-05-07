@@ -340,6 +340,7 @@ typedef struct PartitionEncryptedVolume {
         char *keyfile;
         char *options;
         bool fixate_volume_key;
+        char *token_json; /* raw JSON string, always has "type" field; keyslots injected at use time */
 } PartitionEncryptedVolume;
 
 static PartitionEncryptedVolume* partition_encrypted_volume_free(PartitionEncryptedVolume *c) {
@@ -349,6 +350,7 @@ static PartitionEncryptedVolume* partition_encrypted_volume_free(PartitionEncryp
         free(c->name);
         free(c->keyfile);
         free(c->options);
+        free(c->token_json);
 
         return mfree(c);
 }
@@ -2721,6 +2723,76 @@ static int config_parse_encrypted_volume(
         return 0;
 }
 
+static int config_parse_encrypt_token(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Partition *p = ASSERT_PTR(data);
+        int r;
+
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                if (p->encrypted_volume)
+                        p->encrypted_volume->token_json = mfree(p->encrypted_volume->token_json);
+                return 0;
+        }
+
+        _cleanup_free_ char *json_string = NULL;
+
+        if (rvalue[0] == '{') {
+                /* Full JSON object supplied — validate it parses and has a "type" field */
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = sd_json_parse(rvalue, SD_JSON_PARSE_MUST_BE_OBJECT, &v, NULL, NULL);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "EncryptToken= value is not valid JSON, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                sd_json_variant *type_field = sd_json_variant_by_key(v, "type");
+                if (!type_field || !sd_json_variant_is_string(type_field)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "EncryptToken= JSON object must contain a \"type\" string field, ignoring");
+                        return 0;
+                }
+
+                json_string = strdup(rvalue);
+        } else {
+                /* Plain type name — validate charset and build minimal JSON */
+                if (!string_is_safe(rvalue, STRING_ASCII)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid token type '%s', ignoring", rvalue);
+                        return 0;
+                }
+
+                if (asprintf(&json_string, "{\"type\":\"%s\"}", rvalue) < 0)
+                        return log_oom();
+        }
+
+        if (!json_string)
+                return log_oom();
+
+        if (!p->encrypted_volume) {
+                p->encrypted_volume = new0(PartitionEncryptedVolume, 1);
+                if (!p->encrypted_volume)
+                        return log_oom();
+        }
+
+        free_and_replace(p->encrypted_volume->token_json, json_string);
+        return 0;
+}
+
 static int config_parse_tpm2_pcrs(
                 const char *unit,
                 const char *filename,
@@ -2951,6 +3023,7 @@ static int partition_read_definition(
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,        0,                                  &p->verity_hash_block_size  },
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0,                                  p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
+                { "Partition", "EncryptToken",             config_parse_encrypt_token,     0,                                  p                           },
                 { "Partition", "TPM2PCRs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
                 { "Partition", "KeyFile",                  config_parse_key_file,          0,                                  p                           },
                 { "Partition", "Integrity",                config_parse_integrity,         0,                                  &p->integrity               },
@@ -3163,6 +3236,11 @@ static int partition_read_definition(
         if (p->encrypt == ENCRYPT_OFF && p->encrypt_kdf >= 0)
                 log_syntax(NULL, LOG_WARNING, path, 1, 0,
                            "EncryptKDF= has no effect with Encrypt=off.");
+
+        if (p->encrypted_volume && p->encrypted_volume->token_json &&
+            !IN_SET(p->encrypt, ENCRYPT_KEY_FILE, ENCRYPT_KEY_FILE_TPM2))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "EncryptToken= requires Encrypt=key-file or Encrypt=key-file+tpm2.");
 
         if (p->encrypt != ENCRYPT_OFF && p->integrity == INTEGRITY_INLINE && p->discard > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -5396,6 +5474,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         assert(p);
         assert(p->encrypt != ENCRYPT_OFF);
 
+        assert(!p->encrypted_volume || !p->encrypted_volume->token_json ||
+               IN_SET(p->encrypt, ENCRYPT_KEY_FILE, ENCRYPT_KEY_FILE_TPM2));
+
         r = dlopen_cryptsetup(LOG_ERR);
         if (r < 0)
                 return r;
@@ -5583,8 +5664,33 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (r < 0)
                         return log_error_errno(r, "Failed to add LUKS2 key: %m");
 
+                int key_file_keyslot = r;
+
                 passphrase = strempty(iovec_key->iov_base);
                 passphrase_size = iovec_key->iov_len;
+
+                if (p->encrypted_volume && p->encrypted_volume->token_json) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        char keyslot_as_string[DECIMAL_STR_MAX(int)];
+
+                        r = sd_json_parse(p->encrypted_volume->token_json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse EncryptToken= JSON: %m");
+
+                        xsprintf(keyslot_as_string, "%i", key_file_keyslot);
+
+                        /* Inject (or override) the keyslots field with the actual keyslot number */
+                        r = sd_json_variant_merge_objectb(&v,
+                                        SD_JSON_BUILD_OBJECT(
+                                                SD_JSON_BUILD_PAIR("keyslots",
+                                                        SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string)))));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set keyslots in LUKS2 token JSON: %m");
+
+                        r = cryptsetup_add_token_json(cd, v);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add custom LUKS2 token to header: %m");
+                }
         }
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
