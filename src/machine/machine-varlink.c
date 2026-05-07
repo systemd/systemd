@@ -821,10 +821,10 @@ static void machine_mount_paramaters_done(MachineMountParameters *p) {
 int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineMountParameters),
-                { "source",      SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineMountParameters, src),       SD_JSON_MANDATORY },
-                { "destination", SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineMountParameters, dest),      0                 },
-                { "readOnly",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineMountParameters, read_only), 0                 },
-                { "mkdir",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineMountParameters, mkdir),     0                 },
+                { "source",      SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineMountParameters, src),       SD_JSON_MANDATORY|SD_JSON_STRICT },
+                { "destination", SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineMountParameters, dest),      SD_JSON_STRICT                   },
+                { "readOnly",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineMountParameters, read_only), 0                                },
+                { "mkdir",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineMountParameters, mkdir),     0                                },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -844,7 +844,7 @@ int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r != 0)
                 return r;
 
-        /* There is no need for extra validation since json_dispatch_const_path() does path_is_valid() and path_is_absolute(). */
+        /* There is no need for extra validation since json_dispatch_const_path() with SD_JSON_STRICT does path_is_normalized() and path_is_absolute(). */
         const char *dest = p.dest ?: p.src;
 
         Machine *machine;
@@ -931,9 +931,9 @@ static int copy_done(Operation *operation, int ret, sd_bus_error *error) {
 int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata, bool copy_from) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineCopyParameters),
-                { "source",      SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineCopyParameters, src),     SD_JSON_MANDATORY },
-                { "destination", SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineCopyParameters, dest),    0                 },
-                { "replace",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineCopyParameters, replace), 0                 },
+                { "source",      SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineCopyParameters, src),     SD_JSON_MANDATORY|SD_JSON_STRICT },
+                { "destination", SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineCopyParameters, dest),    SD_JSON_STRICT                   },
+                { "replace",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineCopyParameters, replace), 0                                },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -954,7 +954,7 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
         if (r != 0)
                 return r;
 
-        /* There is no need for extra validation since json_dispatch_const_path() does path_is_valid() and path_is_absolute(). */
+        /* There is no need for extra validation since json_dispatch_const_path() with SD_JSON_STRICT does path_is_normalized() and path_is_absolute(). */
         const char *dest = p.dest ?: p.src;
         const char *container_path = copy_from ? p.src : dest;
         const char *host_path = copy_from ? dest : p.src;
