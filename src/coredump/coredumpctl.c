@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +13,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -29,6 +29,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "help-util.h"
 #include "image-policy.h"
 #include "io-util.h"
 #include "journal-internal.h"
@@ -39,12 +40,12 @@
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
+#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -177,224 +178,166 @@ static int acquire_journal(sd_journal **ret, char **matches) {
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *verbs = NULL, *options = NULL;
         int r;
 
-        r = terminal_urlify_man("coredumpctl", "1", &link);
+        r = verbs_get_help_table(&verbs);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
-               "%5$sList or retrieve coredumps from the journal.%6$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "  list [MATCHES...]  List available coredumps (default)\n"
-               "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
-               "  dump [MATCHES...]  Print first matching coredump to stdout\n"
-               "  debug [MATCHES...] Start a debugger for the first matching coredump\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help                    Show this help\n"
-               "     --version                 Print version string\n"
-               "     --no-pager                Do not pipe output into a pager\n"
-               "     --no-legend               Do not print the column headers\n"
-               "     --json=pretty|short|off   Generate JSON output\n"
-               "     --debugger=DEBUGGER       Use the given debugger\n"
-               "  -A --debugger-arguments=ARGS Pass the given arguments to the debugger\n"
-               "  -n INT                       Show maximum number of rows\n"
-               "  -1                           Show information about most recent entry only\n"
-               "  -S --since=DATE              Only print coredumps since the date\n"
-               "  -U --until=DATE              Only print coredumps until the date\n"
-               "  -r --reverse                 Show the newest entries first\n"
-               "  -F --field=FIELD             List all values a certain field takes\n"
-               "  -o --output=FILE             Write output to FILE\n"
-               "     --file=PATH               Use journal file\n"
-               "  -D --directory=DIR           Use journal files from directory\n\n"
-               "  -q --quiet                   Do not show info messages and privilege warning\n"
-               "     --all                     Look at all journal files instead of local ones\n"
-               "     --root=PATH               Operate on an alternate filesystem root\n"
-               "     --image=PATH              Operate on disk image as filesystem root\n"
-               "     --image-policy=POLICY     Specify disk image dissection policy\n"
-               "\nSee the %2$s for details.\n",
-               program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
-               ansi_highlight(),
-               ansi_normal());
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
 
+        (void) table_sync_column_widths(0, verbs, options);
+
+        help_cmdline("[OPTIONS…] COMMAND …");
+        help_abstract("List or retrieve coredumps from the journal.");
+
+        help_section("Commands");
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        help_section("Options");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("coredumpctl", "1");
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP_HIDDEN(help);
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_JSON,
-                ARG_DEBUGGER,
-                ARG_FILE,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_ALL,
-        };
-
-        int c, r;
-
-        static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'              },
-                { "version" ,           no_argument,       NULL, ARG_VERSION      },
-                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER     },
-                { "no-legend",          no_argument,       NULL, ARG_NO_LEGEND    },
-                { "debugger",           required_argument, NULL, ARG_DEBUGGER     },
-                { "debugger-arguments", required_argument, NULL, 'A'              },
-                { "output",             required_argument, NULL, 'o'              },
-                { "field",              required_argument, NULL, 'F'              },
-                { "file",               required_argument, NULL, ARG_FILE         },
-                { "directory",          required_argument, NULL, 'D'              },
-                { "reverse",            no_argument,       NULL, 'r'              },
-                { "since",              required_argument, NULL, 'S'              },
-                { "until",              required_argument, NULL, 'U'              },
-                { "quiet",              no_argument,       NULL, 'q'              },
-                { "json",               required_argument, NULL, ARG_JSON         },
-                { "root",               required_argument, NULL, ARG_ROOT         },
-                { "image",              required_argument, NULL, ARG_IMAGE        },
-                { "image-policy",       required_argument, NULL, ARG_IMAGE_POLICY },
-                { "all",                no_argument,       NULL, ARG_ALL          },
-                {}
-        };
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
+        assert(remaining_args);
 
-        while ((c = getopt_long(argc, argv, "hA:o:F:1D:rS:U:qn:", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
-                case 'h':
+
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_NO_LEGEND:
+                OPTION_COMMON_NO_LEGEND:
                         arg_legend = false;
                         break;
 
-                case ARG_DEBUGGER:
-                        arg_debugger = optarg;
+                OPTION_LONG("debugger", "DEBUGGER", "Use the given debugger"):
+                        arg_debugger = opts.arg;
                         break;
 
-                case 'A': {
+                OPTION('A', "debugger-arguments", "…", "Pass the given arguments to the debugger"): {
                         _cleanup_strv_free_ char **l = NULL;
-                        r = strv_split_full(&l, optarg, WHITESPACE, EXTRACT_UNQUOTE);
+                        r = strv_split_full(&l, opts.arg, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse debugger arguments '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to parse debugger arguments '%s': %m", opts.arg);
                         strv_free_and_replace(arg_debugger_args, l);
                         break;
                 }
 
-                case ARG_FILE:
-                        r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
+                OPTION_LONG("file", "PATH", "Use journal file"):
+                        r = glob_extend(&arg_file, opts.arg, GLOB_NOCHECK);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add paths: %m");
                         break;
 
-                case 'o':
+                OPTION('o', "output", "FILE", "Write output to FILE"):
                         if (arg_output)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Cannot set output more than once.");
 
-                        arg_output = optarg;
+                        arg_output = opts.arg;
                         break;
 
-                case 'S':
-                        r = parse_timestamp(optarg, &arg_since);
+                OPTION('S', "since", "DATE", "Only print coredumps since the date"):
+                        r = parse_timestamp(opts.arg, &arg_since);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse timestamp '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to parse timestamp '%s': %m", opts.arg);
                         break;
 
-                case 'U':
-                        r = parse_timestamp(optarg, &arg_until);
+                OPTION('U', "until", "DATE", "Only print coredumps until the date"):
+                        r = parse_timestamp(opts.arg, &arg_until);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse timestamp '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to parse timestamp '%s': %m", opts.arg);
                         break;
 
-                case 'F':
+                OPTION('F', "field", "FIELD", "List all values a certain field takes"):
                         if (arg_field)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Cannot use --field/-F more than once.");
-                        arg_field = optarg;
+                        arg_field = opts.arg;
                         break;
 
-                case '1':
+                OPTION_SHORT('1', NULL, "Show information about most recent entry only"):
                         arg_rows_max = 1;
                         arg_reverse = true;
                         break;
 
-                case 'n': {
+                OPTION_SHORT('n', "INT", "Show at most this many rows"): {
                         unsigned n;
 
-                        r = safe_atou(optarg, &n);
+                        r = safe_atou(opts.arg, &n);
                         if (r < 0 || n < 1)
                                 return log_error_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid numeric parameter to -n: %s", optarg);
+                                                       "Invalid numeric parameter to -n: %s", opts.arg);
 
                         arg_rows_max = n;
                         break;
                 }
 
-                case 'D':
-                        arg_directory = optarg;
+                OPTION('D', "directory", "DIR", "Use journal files from directory"):
+                        arg_directory = opts.arg;
                         break;
 
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, false, &arg_root);
+                OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
+                        r = parse_path_argument(opts.arg, false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, false, &arg_image);
+                OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
+                        r = parse_path_argument(opts.arg, false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'r':
+                OPTION('r', "reverse", NULL, "Show the newest entries first"):
                         arg_reverse = true;
                         break;
 
-                case 'q':
+                OPTION('q', "quiet", NULL, "Do not show info messages and privilege warning"):
                         arg_quiet = true;
                         break;
 
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
-
                         break;
 
-                case ARG_ALL:
+                OPTION_LONG("all", NULL, "Look at all journal files instead of local ones"):
                         arg_all = true;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (arg_since != USEC_INFINITY && arg_until != USEC_INFINITY &&
@@ -405,6 +348,7 @@ static int parse_argv(int argc, char *argv[]) {
         if ((!!arg_directory + !!arg_image + !!arg_root) > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root=, --image= or -D/--directory=, the combination of these options is not supported.");
 
+        *remaining_args = option_parser_get_args(&opts);
         return 1;
 }
 
@@ -902,6 +846,10 @@ static int print_entry(
                 return print_info(stdout, j, n_found > 0);
 }
 
+VERB(verb_dump_list, "list", "[MATCHES…]", VERB_ANY, VERB_ANY, VERB_DEFAULT,
+     "List available coredumps");
+VERB(verb_dump_list, "info", "[MATCHES…]", VERB_ANY, VERB_ANY, 0,
+     "Show detailed information about one or more coredumps");
 static int verb_dump_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -1146,6 +1094,8 @@ error:
         return r;
 }
 
+VERB(verb_dump_core, "dump", "[MATCHES…]", VERB_ANY, VERB_ANY, 0,
+     "Print first matching coredump to stdout");
 static int verb_dump_core(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -1182,6 +1132,10 @@ static int verb_dump_core(int argc, char *argv[], uintptr_t _data, void *userdat
         return 0;
 }
 
+VERB(verb_run_debug, "debug", "[MATCHES…]", VERB_ANY, VERB_ANY, 0,
+     "Start a debugger for the first matching coredump");
+VERB(verb_run_debug, "gdb", "[MATCHES…]", VERB_ANY, VERB_ANY, 0,
+     /* help= */ NULL);
 static int verb_run_debug(int argc, char *argv[], uintptr_t _data, void *userdata) {
         static const struct sigaction sa = {
                 .sa_sigaction = sigterm_process_group_handler,
@@ -1372,30 +1326,16 @@ static int check_units_active(void) {
         return c;
 }
 
-static int coredumpctl_main(int argc, char *argv[]) {
-
-        static const Verb verbs[] = {
-                { "list",  VERB_ANY, VERB_ANY, VERB_DEFAULT, verb_dump_list },
-                { "info",  VERB_ANY, VERB_ANY, 0,            verb_dump_list },
-                { "dump",  VERB_ANY, VERB_ANY, 0,            verb_dump_core },
-                { "debug", VERB_ANY, VERB_ANY, 0,            verb_run_debug },
-                { "gdb",   VERB_ANY, VERB_ANY, 0,            verb_run_debug },
-                { "help",  VERB_ANY, 1,        0,            verb_help      },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
-}
-
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
+        char **args = NULL;
         int r, units_active;
 
         setlocale(LC_ALL, "");
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -1425,7 +1365,7 @@ static int run(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        r = coredumpctl_main(argc, argv);
+        r = dispatch_verb_with_args(args, NULL);
 
         if (units_active > 0)
                 printf("%s-- Notice: %d systemd-coredump@.service %s, output may be incomplete.%s\n",
