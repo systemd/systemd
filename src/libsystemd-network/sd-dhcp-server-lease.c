@@ -71,6 +71,7 @@ int dhcp_server_set_lease(sd_dhcp_server *server, DHCPRequest *req) {
 
         assert(server);
         assert(req);
+        assert(req->message);
         assert(req->address != INADDR_ANY);
 
         usec_t expiration;
@@ -106,18 +107,16 @@ int dhcp_server_set_lease(sd_dhcp_server *server, DHCPRequest *req) {
                 .n_ref = 1,
                 .address = req->address,
                 .client_id = req->client_id,
-                .htype = req->message->htype,
-                .gateway = req->message->giaddr,
+                .htype = req->message->header.htype,
+                .gateway = req->message->header.giaddr,
                 .expiration = expiration,
         };
 
         lease->hw_addr = req->hw_addr;
 
-        if (req->hostname) {
-                lease->hostname = strdup(req->hostname);
-                if (!lease->hostname)
-                        return -ENOMEM;
-        }
+        char *hostname;
+        if (dhcp_message_get_option_hostname(req->message, &hostname) >= 0)
+                free_and_replace(lease->hostname, hostname);
 
         r = dhcp_server_put_lease(server, lease, /* is_static= */ false);
         if (r < 0)
