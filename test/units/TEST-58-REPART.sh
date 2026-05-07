@@ -2385,6 +2385,90 @@ EOF
     losetup -d "$loop"
 }
 
+testcase_encrypt_token() {
+    local defs imgs loop token_json
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for EncryptToken= (plain type name) ***"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptToken=test-dummy-token
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/enctoken-plain.img"
+
+    loop="$(losetup -P --show --find "$imgs/enctoken-plain.img")"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    # Verify token type appears in the LUKS2 header dump
+    cryptsetup luksDump "${loop}p1" | grep "test-dummy-token" >/dev/null
+
+    # Verify token JSON contains the correct type and keyslot
+    token_json="$(cryptsetup token export --token-id 0 "${loop}p1")"
+    echo "$token_json" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'test-dummy-token', 'Wrong token type: {}'.format(d['type'])
+assert '0' in d.get('keyslots', []), 'keyslot 0 not referenced by token: {}'.format(d)
+"
+
+    losetup -d "$loop"
+
+    echo "*** testcase for EncryptToken= (JSON with extra fields) ***"
+
+    rm -f "$defs/root.conf"
+    tee "$defs/root.conf" <<'EOF'
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptToken={"type":"test-dummy-token","custom-key":"custom-value"}
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/enctoken-json.img"
+
+    loop="$(losetup -P --show --find "$imgs/enctoken-json.img")"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    # Verify token type appears in the LUKS2 header dump
+    cryptsetup luksDump "${loop}p1" | grep "test-dummy-token" >/dev/null
+
+    # Verify token JSON preserves extra fields and auto-populates keyslot
+    token_json="$(cryptsetup token export --token-id 0 "${loop}p1")"
+    echo "$token_json" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'test-dummy-token', 'Wrong token type: {}'.format(d['type'])
+assert d.get('custom-key') == 'custom-value', 'Extra field not preserved: {}'.format(d)
+assert '0' in d.get('keyslots', []), 'keyslot 0 not referenced by token: {}'.format(d)
+"
+
+    losetup -d "$loop"
+}
+
 testcase_fstab_crypttab_in_repart() {
     local defs imgs root volume
 
