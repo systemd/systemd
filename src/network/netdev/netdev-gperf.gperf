@@ -21,6 +21,9 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "macvlan.h"
 #include "net-condition.h"
 #include "netdev.h"
+#include "ovs-bridge.h"
+#include "ovs-port.h"
+#include "ovs-tunnel.h"
 #include "tunnel.h"
 #include "tuntap.h"
 #include "veth.h"
@@ -286,6 +289,34 @@ BatmanAdvanced.RoutingAlgorithm,          config_parse_batadv_routing_algorithm,
 IPoIB.PartitionKey,                       config_parse_ipoib_pkey,                        0,                             offsetof(IPoIB, pkey)
 IPoIB.Mode,                               config_parse_ipoib_mode,                        0,                             offsetof(IPoIB, mode)
 IPoIB.IgnoreUserspaceMulticastGroups,     config_parse_tristate,                          0,                             offsetof(IPoIB, umcast)
+OVSBridge.FailMode,                       config_parse_ovs_bridge_fail_mode,              0,                             offsetof(OVSBridge, fail_mode)
+OVSBridge.STP,                            config_parse_tristate,                          0,                             offsetof(OVSBridge, stp)
+OVSBridge.RSTP,                           config_parse_tristate,                          0,                             offsetof(OVSBridge, rstp)
+OVSBridge.MulticastSnooping,              config_parse_tristate,                          0,                             offsetof(OVSBridge, mcast_snooping)
+OVSBridge.DatapathType,                   config_parse_string,                            CONFIG_PARSE_STRING_SAFE,      offsetof(OVSBridge, datapath_type)
+OVSBridge.Protocols,                      config_parse_strv,                              0,                             offsetof(OVSBridge, protocols)
+OVSBridge.DatapathID,                     config_parse_string,                            CONFIG_PARSE_STRING_SAFE,      offsetof(OVSBridge, datapath_id)
+OVSPort.Bridge,                           config_parse_ifname,                            0,                             offsetof(OVSPort, bridge)
+OVSPort.Type,                             config_parse_ovs_port_type,                     0,                             0
+OVSPort.Tag,                              config_parse_vlanid,                            0,                             offsetof(OVSPort, tag)
+OVSPort.PVID,                             config_parse_vlanid,                            0,                             offsetof(OVSPort, tag)
+OVSPort.VLANMode,                         config_parse_string,                            CONFIG_PARSE_STRING_SAFE,      offsetof(OVSPort, vlan_mode)
+OVSPort.VLAN,                             config_parse_bridge_vlan_id_range,              0,                             offsetof(OVSPort, vlan_bitmap)
+OVSPort.Trunks,                           config_parse_ovs_trunks,                        0,                             offsetof(OVSPort, vlan_bitmap)
+OVSPort.PeerPort,                         config_parse_ifname,                            0,                             offsetof(OVSPort, peer_port)
+OVSPort.LACP,                             config_parse_string,                            CONFIG_PARSE_STRING_SAFE,      offsetof(OVSPort, lacp)
+OVSPort.BondMode,                         config_parse_string,                            CONFIG_PARSE_STRING_SAFE,      offsetof(OVSPort, bond_mode)
+OVSPort.BondUpDelaySec,                   config_parse_sec,                               0,                             offsetof(OVSPort, bond_updelay)
+OVSPort.BondDownDelaySec,                 config_parse_sec,                               0,                             offsetof(OVSPort, bond_downdelay)
+OVSTunnel.Bridge,                         config_parse_ifname,                            0,                             offsetof(OVSTunnel, bridge)
+OVSTunnel.Type,                           config_parse_ovs_tunnel_type,                   0,                             0
+OVSTunnel.Remote,                         config_parse_ovs_tunnel_address,                0,                             0
+OVSTunnel.Local,                          config_parse_ovs_tunnel_address,                0,                             0
+OVSTunnel.Key,                            config_parse_ovs_tunnel_key,                    0,                             0
+OVSTunnel.DestinationPort,                config_parse_ip_port,                           0,                             offsetof(OVSTunnel, destination_port)
+OVSTunnel.TOS,                            config_parse_uint8,                             0,                             offsetof(OVSTunnel, tos)
+OVSTunnel.TTL,                            config_parse_uint8,                             0,                             offsetof(OVSTunnel, ttl)
+OVSTunnel.DontFragment,                   config_parse_tristate,                          0,                             offsetof(OVSTunnel, dont_fragment)
 WLAN.PhysicalDevice,                      config_parse_wiphy,                             0,                             0
 WLAN.Type,                                config_parse_wlan_iftype,                       0,                             offsetof(WLan, iftype)
 WLAN.WDS,                                 config_parse_tristate,                          0,                             offsetof(WLan, wds)

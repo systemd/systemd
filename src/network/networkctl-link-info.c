@@ -30,6 +30,11 @@ LinkInfo* link_info_array_free(LinkInfo *array) {
                 free(array[i].ssid);
                 free(array[i].qdisc);
                 strv_free(array[i].alternative_names);
+                free(array[i].ovs_bridge);
+                free(array[i].ovs_bond);
+                free(array[i].ovs_port_type);
+                free(array[i].ovs_fail_mode);
+                strv_free(array[i].ovs_interfaces);
         }
 
         return mfree(array);
@@ -306,6 +311,32 @@ static int acquire_link_bitrates(LinkInfo *link) {
         return 0;
 }
 
+static int acquire_link_ovs_info(LinkInfo *link) {
+        int r;
+
+        assert(link);
+
+        sd_json_variant *v;
+        r = json_variant_find_object(link->description, STRV_MAKE("Interface"), &v);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "OVSBridge",     SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(LinkInfo, ovs_bridge),     0 },
+                { "OVSBond",       SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(LinkInfo, ovs_bond),       0 },
+                { "OVSPortType",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(LinkInfo, ovs_port_type),  0 },
+                { "OVSFailMode",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(LinkInfo, ovs_fail_mode),  0 },
+                { "OVSInterfaces", SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,   offsetof(LinkInfo, ovs_interfaces), 0 },
+                {}
+        };
+
+        return sd_json_dispatch(v, dispatch_table,
+                                SD_JSON_LOG | SD_JSON_WARNING | SD_JSON_ALLOW_EXTENSIONS,
+                                link);
+}
+
 static void acquire_ether_link_info(int *fd, LinkInfo *link) {
         assert(fd);
         assert(link);
@@ -401,6 +432,7 @@ int acquire_link_info(sd_varlink *vl, sd_netlink *rtnl, char * const *patterns, 
                 if (vl)
                         (void) acquire_link_description(vl, links[c].ifindex, &links[c].description);
                 (void) acquire_link_bitrates(&links[c]);
+                (void) acquire_link_ovs_info(&links[c]);
 
                 c++;
         }

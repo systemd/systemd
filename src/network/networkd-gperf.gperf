@@ -48,3 +48,5 @@ DHCPServer.PersistLeases,                config_parse_dhcp_server_persist_leases
 /* Deprecated */
 DHCP.DUIDType,                           config_parse_manager_duid_type,          0,                                                         0
 DHCP.DUIDRawData,                        config_parse_manager_duid_rawdata,       0,                                                         0
+OVS.Socket,                              config_parse_path,                       0,                                                         offsetof(Manager, ovs_socket_path)
+OVS.ClearDatabaseOnBoot,                 config_parse_bool,                       0,                                                         offsetof(Manager, ovs_clear_on_boot)
