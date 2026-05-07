@@ -65,21 +65,25 @@ int dhcp_server_put_lease(sd_dhcp_server *server, sd_dhcp_server_lease *lease, b
         return 0;
 }
 
-int dhcp_server_set_lease(sd_dhcp_server *server, be32_t address, DHCPRequest *req, usec_t expiration) {
+int dhcp_server_set_lease(sd_dhcp_server *server, DHCPRequest *req) {
         _cleanup_(sd_dhcp_server_lease_unrefp) sd_dhcp_server_lease *lease = NULL;
         int r;
 
         assert(server);
-        assert(address != 0);
         assert(req);
-        assert(expiration != 0);
+        assert(req->address != INADDR_ANY);
+
+        usec_t expiration;
+        r = dhcp_request_get_lifetime_timestamp(req, CLOCK_BOOTTIME, &expiration);
+        if (r < 0)
+                return r;
 
         /* If a lease for the host already exists, update it. */
         lease = hashmap_get(server->bound_leases_by_client_id, &req->client_id);
         if (lease) {
-                if (lease->address != address) {
+                if (lease->address != req->address) {
                         hashmap_remove_value(server->bound_leases_by_address, UINT32_TO_PTR(lease->address), lease);
-                        lease->address = address;
+                        lease->address = req->address;
 
                         r = hashmap_ensure_put(&server->bound_leases_by_address, NULL, UINT32_TO_PTR(lease->address), lease);
                         if (r < 0)
@@ -100,7 +104,7 @@ int dhcp_server_set_lease(sd_dhcp_server *server, be32_t address, DHCPRequest *r
 
         *lease = (sd_dhcp_server_lease) {
                 .n_ref = 1,
-                .address = address,
+                .address = req->address,
                 .client_id = req->client_id,
                 .htype = req->message->htype,
                 .gateway = req->message->giaddr,

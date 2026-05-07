@@ -298,7 +298,6 @@ static int dhcp_server_append_static_hostname(
                 size_t *offset,
                 DHCPRequest *req) {
 
-        sd_dhcp_server_lease *static_lease;
         int r;
 
         assert(server);
@@ -306,11 +305,10 @@ static int dhcp_server_append_static_hostname(
         assert(offset);
         assert(req);
 
-        static_lease = dhcp_server_get_static_lease(server, req);
-        if (!static_lease || !static_lease->hostname)
+        if (!req->static_lease || !req->static_lease->hostname)
                 return 0;
 
-        if (dns_name_is_single_label(static_lease->hostname))
+        if (dns_name_is_single_label(req->static_lease->hostname))
                 /* Option 12 */
                 return dhcp_option_append(
                                 &packet->dhcp,
@@ -318,8 +316,8 @@ static int dhcp_server_append_static_hostname(
                                 offset,
                                 /* overload= */ 0,
                                 SD_DHCP_OPTION_HOST_NAME,
-                                strlen(static_lease->hostname),
-                                static_lease->hostname);
+                                strlen(req->static_lease->hostname),
+                                req->static_lease->hostname);
 
 
         /* Option 81 */
@@ -334,7 +332,7 @@ static int dhcp_server_append_static_hostname(
         buffer[1] = 255;
         buffer[2] = 255;
 
-        r = dns_name_to_wire_format(static_lease->hostname, buffer + 3, sizeof(buffer) - 3, false);
+        r = dns_name_to_wire_format(req->static_lease->hostname, buffer + 3, sizeof(buffer) - 3, false);
         if (r < 0)
                 return log_dhcp_server_errno(server, r, "Failed to encode FQDN for static lease: %m");
         if (r > DHCP_MAX_FQDN_LENGTH)
@@ -362,7 +360,6 @@ static bool dhcp_request_contains(DHCPRequest *req, uint8_t option) {
 int server_send_offer_or_ack(
                 sd_dhcp_server *server,
                 DHCPRequest *req,
-                be32_t address,
                 uint8_t type) {
 
         static const uint8_t option_map[_SD_DHCP_LEASE_SERVER_TYPE_MAX] = {
@@ -387,7 +384,7 @@ int server_send_offer_or_ack(
         if (r < 0)
                 return r;
 
-        packet->dhcp.yiaddr = address;
+        packet->dhcp.yiaddr = req->address;
         packet->dhcp.siaddr = server->boot_server_address.s_addr;
 
         lease_time = usec_to_be32_sec(req->lifetime);
