@@ -753,6 +753,41 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>EncryptToken=</varname></term>
+
+        <listitem><para>Takes either a LUKS2 token type name (a short ASCII string, e.g.
+        <literal>tdx-kbs</literal>) or a full JSON object. If set, after creating the LUKS2 keyslot for the
+        partition a token JSON object is written to the LUKS2 header, bound to the newly-created keyslot.
+        </para>
+
+        <para>When a plain type name is given, the token JSON has the form
+        <literal>{"type":"&lt;name&gt;","keyslots":["0"]}</literal>, equivalent to running:</para>
+
+        <programlisting>cryptsetup token import /dev/... &lt;&lt;&lt; '{"type":"&lt;name&gt;","keyslots":["0"]}'</programlisting>
+
+        <para>When a full JSON object is given, it must contain a <literal>type</literal> field. The
+        <literal>keyslots</literal> field is always set (or overridden) to the newly-created keyslot, so it
+        need not be supplied. This form allows passing token-plugin-specific metadata, for example:</para>
+
+        <programlisting>EncryptToken={"type":"tdx-kbs","trustee.kbs.url":"http://kbs-service:8080"}</programlisting>
+
+        <para>This is useful when a custom LUKS2 token plugin (installed as
+        <filename>libcryptsetup-token-&lt;name&gt;.so</filename>) should be recorded in the LUKS2 header at
+        provisioning time, so that <command>systemd-cryptsetup</command> can discover and invoke the plugin
+        automatically at boot without any additional configuration steps.</para>
+
+        <para>This option requires <varname>Encrypt=key-file</varname> or
+        <varname>Encrypt=key-file+tpm2</varname>, as those are the only modes where
+        <command>systemd-repart</command> directly manages keyslot creation. The matching token-handler
+        plugin and any key-acquisition service must be installed separately; this option only writes the
+        token metadata to the LUKS2 header.</para>
+
+        <para>This option has no effect if the partition already exists.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Verity=</varname></term>
 
         <listitem><para>Takes one of <literal>off</literal>, <literal>data</literal>,
