@@ -922,10 +922,13 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         if (!dual_timestamp_is_set(&s->timestamp))
                 dual_timestamp_now(&s->timestamp);
 
+        /* Must be set before seat_read_active_vt(); the activation it
+         * triggers reaches seat_triggered_uevents_done() synchronously
+         * and gates session_device_resume_all() on s->started. */
+        s->started = true;
+
         if (s->seat)
                 seat_read_active_vt(s->seat);
-
-        s->started = true;
 
         user_elect_display(s->user);
 
