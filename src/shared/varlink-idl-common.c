@@ -99,6 +99,12 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(kill));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
+                OOMPolicy,
+                SD_VARLINK_DEFINE_ENUM_VALUE(continue),
+                SD_VARLINK_DEFINE_ENUM_VALUE(stop),
+                SD_VARLINK_DEFINE_ENUM_VALUE(kill));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 EmergencyAction,
                 SD_VARLINK_DEFINE_ENUM_VALUE(none),
                 SD_VARLINK_DEFINE_ENUM_VALUE(exit),
