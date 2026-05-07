@@ -12,4 +12,5 @@ extern const sd_varlink_symbol vl_type_ExecCommand;
 extern const sd_varlink_symbol vl_type_ExecOutputType;
 extern const sd_varlink_symbol vl_type_CGroupPressureWatch;
 extern const sd_varlink_symbol vl_type_ManagedOOMMode;
+extern const sd_varlink_symbol vl_type_OOMPolicy;
 extern const sd_varlink_symbol vl_type_EmergencyAction;
