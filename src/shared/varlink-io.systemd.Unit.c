@@ -1016,6 +1016,31 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Result of path operation"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Result, PathResult, 0));
 
+/* ScopeContext
+ * https://www.freedesktop.org/software/systemd/man/latest/systemd.scope.html */
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ScopeContext,
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.scope.html#OOMPolicy="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(OOMPolicy, OOMPolicy, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.scope.html#RuntimeMaxSec="),
+                SD_VARLINK_DEFINE_FIELD(RuntimeMaxUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.scope.html#RuntimeRandomizedExtraSec="),
+                SD_VARLINK_DEFINE_FIELD(RuntimeRandomizedExtraUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.scope.html#TimeoutStopSec="),
+                SD_VARLINK_DEFINE_FIELD(TimeoutStopUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                ScopeResult,
+                SD_VARLINK_DEFINE_ENUM_VALUE(success),
+                SD_VARLINK_DEFINE_ENUM_VALUE(resources),
+                SD_VARLINK_DEFINE_ENUM_VALUE(timeout),
+                SD_VARLINK_DEFINE_ENUM_VALUE(oom_kill));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ScopeRuntime,
+                SD_VARLINK_FIELD_COMMENT("Result of scope operation"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Result, ScopeResult, 0));
+
 /* Service-specific types */
 
 /* Keep in sync with service_type_table[] in src/core/service.c */
@@ -1210,7 +1235,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The mount context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Mount, MountContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The path context of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Path, PathContext, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Path, PathContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The scope context of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Scope, ScopeContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ActivationDetails,
@@ -1386,7 +1413,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The mount runtime of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Mount, MountRuntime, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The path runtime of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Path, PathRuntime, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Path, PathRuntime, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The scope runtime of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Scope, ScopeRuntime, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
@@ -1553,6 +1582,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_PathContext,
                 &vl_type_PathResult,
                 &vl_type_PathRuntime,
+                &vl_type_OOMPolicy,
+                &vl_type_ScopeContext,
+                &vl_type_ScopeResult,
+                &vl_type_ScopeRuntime,
 
                 /* UnitContext enums */
                 &vl_type_CollectMode,
