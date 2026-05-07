@@ -6,9 +6,13 @@
 #include "kill.h"
 #include "mount.h"
 #include "numa-util.h"
+#include "path.h"
 #include "process-util.h"
+#include "scope.h"
+#include "swap.h"
 #include "tests.h"
 #include "test-varlink-idl-util.h"
+#include "timer.h"
 #include "unit.h"
 #include "varlink-idl-common.h"
 #include "varlink-io.systemd.Unit.h"
@@ -58,6 +62,29 @@ TEST(unit_enums_idl) {
 
         /* MountRuntime enums */
         TEST_IDL_ENUM(MountResult, mount_result, vl_type_MountResult);
+
+        /* PathContext enums */
+        TEST_IDL_ENUM(PathType, path_type, vl_type_PathType);
+
+        /* PathRuntime enums */
+        TEST_IDL_ENUM(PathResult, path_result, vl_type_PathResult);
+
+        /* ScopeRuntime enums */
+        TEST_IDL_ENUM(ScopeResult, scope_result, vl_type_ScopeResult);
+
+        /* SwapRuntime enums */
+        TEST_IDL_ENUM(SwapResult, swap_result, vl_type_SwapResult);
+
+        /* TimerContext enums */
+        test_enum_to_string_name("OnActiveUSec", &vl_type_TimerBase);
+        test_enum_to_string_name("OnBootUSec", &vl_type_TimerBase);
+        test_enum_to_string_name("OnStartupUSec", &vl_type_TimerBase);
+        test_enum_to_string_name("OnUnitActiveUSec", &vl_type_TimerBase);
+        test_enum_to_string_name("OnUnitInactiveUSec", &vl_type_TimerBase);
+        test_enum_to_string_name("OnCalendar", &vl_type_TimerBase);
+
+        /* TimerRuntime enums */
+        TEST_IDL_ENUM(TimerResult, timer_result, vl_type_TimerResult);
 
         /* UnitContext enums */
         TEST_IDL_ENUM(CollectMode, collect_mode, vl_type_CollectMode);
