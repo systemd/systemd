@@ -1081,6 +1081,70 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Reference GID"),
                 SD_VARLINK_DEFINE_FIELD(GID, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
+/* TimerContext
+ * https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html */
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                TimerBase,
+                SD_VARLINK_DEFINE_ENUM_VALUE(OnActiveUSec),
+                SD_VARLINK_DEFINE_ENUM_VALUE(OnBootUSec),
+                SD_VARLINK_DEFINE_ENUM_VALUE(OnStartupUSec),
+                SD_VARLINK_DEFINE_ENUM_VALUE(OnUnitActiveUSec),
+                SD_VARLINK_DEFINE_ENUM_VALUE(OnUnitInactiveUSec),
+                SD_VARLINK_DEFINE_ENUM_VALUE(OnCalendar));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                TimerSpec,
+                SD_VARLINK_FIELD_COMMENT("Timer base type"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(base, TimerBase, 0),
+                SD_VARLINK_FIELD_COMMENT("Timer value in microseconds (for monotonic timers)"),
+                SD_VARLINK_DEFINE_FIELD(usec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Calendar specification string (for calendar timers)"),
+                SD_VARLINK_DEFINE_FIELD(calendar, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                TimerContext,
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#OnActiveSec="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Timers, TimerSpec, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#Unit="),
+                SD_VARLINK_DEFINE_FIELD(Unit, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#OnClockChange="),
+                SD_VARLINK_DEFINE_FIELD(OnClockChange, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#OnClockChange="),
+                SD_VARLINK_DEFINE_FIELD(OnTimezoneChange, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#AccuracySec="),
+                SD_VARLINK_DEFINE_FIELD(AccuracyUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#RandomizedDelaySec="),
+                SD_VARLINK_DEFINE_FIELD(RandomizedDelayUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#RandomizedOffsetSec="),
+                SD_VARLINK_DEFINE_FIELD(RandomizedOffsetUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#FixedRandomDelay="),
+                SD_VARLINK_DEFINE_FIELD(FixedRandomDelay, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#Persistent="),
+                SD_VARLINK_DEFINE_FIELD(Persistent, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#WakeSystem="),
+                SD_VARLINK_DEFINE_FIELD(WakeSystem, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#RemainAfterElapse="),
+                SD_VARLINK_DEFINE_FIELD(RemainAfterElapse, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.timer.html#DeferReactivation="),
+                SD_VARLINK_DEFINE_FIELD(DeferReactivation, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                TimerResult,
+                SD_VARLINK_DEFINE_ENUM_VALUE(success),
+                SD_VARLINK_DEFINE_ENUM_VALUE(resources),
+                SD_VARLINK_DEFINE_ENUM_VALUE(start_limit_hit));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                TimerRuntime,
+                SD_VARLINK_FIELD_COMMENT("Result of timer operation"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Result, TimerResult, 0),
+                SD_VARLINK_FIELD_COMMENT("Next elapse time in realtime clock"),
+                SD_VARLINK_DEFINE_FIELD(NextElapseUSecRealtime, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Next elapse time in monotonic clock"),
+                SD_VARLINK_DEFINE_FIELD(NextElapseUSecMonotonic, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Last time the timer triggered"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LastTriggerUSec, Timestamp, SD_VARLINK_NULLABLE));
+
 /* Service-specific types */
 
 /* Keep in sync with service_type_table[] in src/core/service.c */
@@ -1279,7 +1343,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The scope context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Scope, ScopeContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The swap context of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Swap, SwapContext, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Swap, SwapContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The timer context of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Timer, TimerContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ActivationDetails,
@@ -1459,7 +1525,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The scope runtime of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Scope, ScopeRuntime, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The swap runtime of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Swap, SwapRuntime, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Swap, SwapRuntime, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The timer runtime of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Timer, TimerRuntime, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
@@ -1633,6 +1701,11 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_SwapContext,
                 &vl_type_SwapResult,
                 &vl_type_SwapRuntime,
+                &vl_type_TimerBase,
+                &vl_type_TimerSpec,
+                &vl_type_TimerContext,
+                &vl_type_TimerResult,
+                &vl_type_TimerRuntime,
 
                 /* UnitContext enums */
                 &vl_type_CollectMode,
