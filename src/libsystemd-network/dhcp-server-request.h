@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-dhcp-server-lease.h"
+
 #include "dhcp-client-id-internal.h"
 #include "dhcp-protocol.h"
 #include "ether-addr-util.h"
@@ -16,10 +18,11 @@ typedef struct DHCPRequest {
         triple_timestamp timestamp;
 
         /* options */
+        uint8_t type;
         sd_dhcp_client_id client_id;
         sd_dhcp_client_id client_id_by_header;
         size_t max_optlen;
-        be32_t server_id;
+        be32_t server_address;
         be32_t requested_ip;
         usec_t lifetime;
         const uint8_t *agent_info_option;
@@ -27,6 +30,10 @@ typedef struct DHCPRequest {
         const uint8_t *parameter_request_list;
         size_t parameter_request_list_len;
         bool rapid_commit;
+
+        /* acquired data */
+        sd_dhcp_server_lease *static_lease;
+        be32_t address;
 } DHCPRequest;
 
 int dhcp_request_get_lifetime_timestamp(DHCPRequest *req, clockid_t clock, usec_t *ret);
