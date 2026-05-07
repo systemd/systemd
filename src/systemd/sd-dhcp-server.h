@@ -53,6 +53,7 @@ int sd_dhcp_server_start(sd_dhcp_server *server);
 int sd_dhcp_server_stop(sd_dhcp_server *server);
 
 int sd_dhcp_server_configure_pool(sd_dhcp_server *server, const struct in_addr *address, unsigned char prefixlen, uint32_t offset, uint32_t size);
+int sd_dhcp_server_set_ip_service_type(sd_dhcp_server *server, uint8_t type);
 
 int sd_dhcp_server_set_boot_server_address(sd_dhcp_server *server, const struct in_addr *address);
 int sd_dhcp_server_set_boot_server_name(sd_dhcp_server *server, const char *name);
