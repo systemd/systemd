@@ -113,7 +113,7 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
                 break;
         case SD_DHCP_OPTION_SERVER_IDENTIFIER:
                 if (len == 4)
-                        memcpy(&req->server_id, option, sizeof(be32_t));
+                        memcpy(&req->server_address, option, sizeof(be32_t));
 
                 break;
         case SD_DHCP_OPTION_CLIENT_IDENTIFIER:
@@ -170,7 +170,7 @@ static int dhcp_server_parse_message(sd_dhcp_server *server, DHCPMessage *messag
         r = dhcp_option_parse(message, length, parse_request, req, &error_message);
         if (r < 0)
                 return r;
-        int type = r;
+        req->type = r;
 
         r = ensure_sane_request(server, req, message);
         if (r < 0)
@@ -178,26 +178,21 @@ static int dhcp_server_parse_message(sd_dhcp_server *server, DHCPMessage *messag
 
         *ret = TAKE_PTR(req);
         *ret_error_message = TAKE_PTR(error_message);
-        return type;
+        return 0;
 }
 
-static int dhcp_server_ack(sd_dhcp_server *server, DHCPRequest *req, be32_t address) {
-        usec_t expiration;
+static int dhcp_server_ack(sd_dhcp_server *server, DHCPRequest *req) {
         int r;
 
         assert(server);
         assert(req);
-        assert(address != 0);
+        assert(req->address != INADDR_ANY);
 
-        r = dhcp_request_get_lifetime_timestamp(req, CLOCK_BOOTTIME, &expiration);
-        if (r < 0)
-                return r;
-
-        r = dhcp_server_set_lease(server, address, req, expiration);
+        r = dhcp_server_set_lease(server, req);
         if (r < 0)
                 return log_dhcp_server_errno(server, r, "Failed to create new lease: %m");
 
-        r = server_send_offer_or_ack(server, req, address, DHCP_ACK);
+        r = server_send_offer_or_ack(server, req, DHCP_ACK);
         if (r < 0)
                 return log_dhcp_server_errno(server, r, "Could not send ACK: %m");
 
@@ -224,8 +219,6 @@ static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req
                 /* no pool allocated */
                 return 0;
 
-        be32_t address = INADDR_ANY;
-
         /* for now pick a random free address from the pool */
         if (static_lease) {
                 sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_lease->address));
@@ -234,12 +227,13 @@ static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req
                         return 0;
 
                 /* Found a matching static lease. */
-                address = static_lease->address;
+                req->static_lease = static_lease;
+                req->address =static_lease->address;
 
         } else if (existing_lease && dhcp_server_address_is_in_pool(server, existing_lease->address))
 
                 /* If we previously assigned an address to the host, then reuse it. */
-                address = existing_lease->address;
+                req->address = existing_lease->address;
 
         else {
                 struct siphash state;
@@ -258,20 +252,20 @@ static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req
                 for (unsigned i = 0; i < server->pool_size; i++) {
                         be32_t a = server->subnet | htobe32(server->pool_offset + (hash + i) % server->pool_size);
                         if (dhcp_server_address_available(server, a)) {
-                                address = a;
+                                req->address = a;
                                 break;
                         }
                 }
         }
 
-        if (address == INADDR_ANY)
+        if (req->address == INADDR_ANY)
                 /* no free addresses left */
                 return 0;
 
         if (server->rapid_commit && req->rapid_commit)
-                return dhcp_server_ack(server, req, address);
+                return dhcp_server_ack(server, req);
 
-        r = server_send_offer_or_ack(server, req, address, DHCP_OFFER);
+        r = server_send_offer_or_ack(server, req, DHCP_OFFER);
         if (r < 0)
                 /* this only fails on critical errors */
                 return log_dhcp_server_errno(server, r, "Could not send offer: %m");
@@ -293,12 +287,12 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
 
         /* see RFC 2131, section 4.3.2 */
 
-        if (req->server_id != 0) {
+        if (req->server_address != INADDR_ANY) {
                 log_dhcp_server(server, "REQUEST (selecting) (0x%x)",
                                 be32toh(req->message->xid));
 
                 /* SELECTING */
-                if (req->server_id != server->address)
+                if (req->server_address != server->address)
                         /* client did not pick us */
                         return 0;
 
@@ -349,13 +343,19 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
                         /* The requested address is already assigned to another host. Refusing. */
                         return server_send_nak_or_ignore(server, init_reboot, req);
 
+                req->static_lease = static_lease;
+                req->address = address;
+
                 /* Found a static lease for the client ID. */
-                return dhcp_server_ack(server, req, address);
+                return dhcp_server_ack(server, req);
         }
 
-        if (dhcp_server_address_is_in_pool(server, address))
+        if (dhcp_server_address_is_in_pool(server, address)) {
                 /* The requested address is in the pool. */
-                return dhcp_server_ack(server, req, address);
+                req->address = address;
+
+                return dhcp_server_ack(server, req);
+        }
 
         /* Refuse otherwise. */
         return server_send_nak_or_ignore(server, init_reboot, req);
@@ -409,7 +409,6 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
         r = dhcp_server_parse_message(server, message, length, &req, &error_message);
         if (r < 0)
                 return r;
-        int type = r;
 
         dhcp_request_set_timestamp(req, timestamp);
 
@@ -417,7 +416,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
         if (r < 0)
                 return r;
 
-        switch (type) {
+        switch (req->type) {
         case DHCP_DISCOVER:
                 return dhcp_server_process_discover(server, req);
         case DHCP_REQUEST:
