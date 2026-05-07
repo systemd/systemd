@@ -33,5 +33,6 @@ extern const sd_varlink_symbol vl_type_MountResult;
 extern const sd_varlink_symbol vl_type_PathType;
 extern const sd_varlink_symbol vl_type_PathResult;
 extern const sd_varlink_symbol vl_type_ScopeResult;
+extern const sd_varlink_symbol vl_type_SwapResult;
 extern const sd_varlink_symbol vl_type_CollectMode;
 extern const sd_varlink_symbol vl_type_JobMode;
