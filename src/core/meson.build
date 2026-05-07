@@ -75,6 +75,7 @@ libcore_sources = files(
         'varlink-mount.c',
         'varlink-path.c',
         'varlink-scope.c',
+        'varlink-swap.c',
         'varlink-unit.c',
 )
 
