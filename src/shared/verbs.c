@@ -200,9 +200,9 @@ int _verbs_get_help_table(
                 r = table_add_cell_stringf(table, NULL, "  %s%s%s%s%s",
                                            is_default ? "[" : "",
                                            verb->verb,
-                                           is_default ? "]" : "",
                                            verb->argspec ? " " : "",
-                                           strempty(verb->argspec));
+                                           strempty(verb->argspec),
+                                           is_default ? "]" : "");
                 if (r < 0)
                         return table_log_add_error(r);
 
