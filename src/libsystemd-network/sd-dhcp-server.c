@@ -104,7 +104,7 @@ int sd_dhcp_server_is_running(sd_dhcp_server *server) {
         return server && sd_event_source_get_enabled(server->io_event_source, /* ret= */ NULL) > 0;
 }
 
-static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
+static sd_dhcp_server* dhcp_server_free(sd_dhcp_server *server) {
         assert(server);
 
         sd_dhcp_server_stop(server);
@@ -217,7 +217,7 @@ int sd_dhcp_server_detach_event(sd_dhcp_server *server) {
         return 0;
 }
 
-sd_event *sd_dhcp_server_get_event(sd_dhcp_server *server) {
+sd_event* sd_dhcp_server_get_event(sd_dhcp_server *server) {
         assert_return(server, NULL);
 
         return server->event;
