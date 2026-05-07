@@ -4,7 +4,7 @@
 #include "sd-dhcp-server-lease.h"
 
 #include "dhcp-client-id-internal.h"
-#include "dhcp-protocol.h"
+#include "dhcp-message.h"
 #include "ether-addr-util.h"
 #include "sd-forward.h"
 #include "sparse-endian.h"
@@ -12,7 +12,7 @@
 
 typedef struct DHCPRequest {
         /* received message */
-        DHCPMessage *message;
+        sd_dhcp_message *message;
         /* sender hardware address, may not be set for non-ethernet interface */
         struct hw_addr_data hw_addr;
         triple_timestamp timestamp;
@@ -22,14 +22,10 @@ typedef struct DHCPRequest {
         sd_dhcp_client_id client_id;
         sd_dhcp_client_id client_id_by_header;
         size_t max_optlen;
+        size_t max_message_size; /* maximum message size, including IP header */
         be32_t server_address;
-        be32_t requested_ip;
         usec_t lifetime;
-        const uint8_t *agent_info_option;
-        char *hostname;
-        const uint8_t *parameter_request_list;
-        size_t parameter_request_list_len;
-        bool rapid_commit;
+        Set *parameter_request_list;
 
         /* acquired data */
         sd_dhcp_server_lease *static_lease;

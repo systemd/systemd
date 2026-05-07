@@ -15,6 +15,7 @@
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
+#include "set.h"
 #include "socket-util.h"
 
 static int server_open_raw_socket(sd_dhcp_server *server) {
@@ -170,10 +171,10 @@ static int dhcp_server_send_message(
         /* If the ’giaddr’ field in a DHCP message from a client is non-zero, the server sends any
          * return messages to the ’DHCP server’ port on the BOOTP relay agent whose address appears
          * in ’giaddr’. */
-        if (req->message->giaddr != INADDR_ANY)
+        if (req->message->header.giaddr != INADDR_ANY)
                 return dhcp_server_send_udp(
                                 server,
-                                req->message->giaddr,
+                                req->message->header.giaddr,
                                 DHCP_PORT_SERVER,
                                 &packet->dhcp,
                                 sizeof(DHCPMessage) + optoffset);
@@ -189,10 +190,10 @@ static int dhcp_server_send_message(
 
         /* If the ’giaddr’ field is zero and the ’ciaddr’ field is nonzero, then the server unicasts
          * DHCPOFFER and DHCPACK messages to the address in ’ciaddr’. */
-        if (req->message->ciaddr != INADDR_ANY)
+        if (req->message->header.ciaddr != INADDR_ANY)
                 return dhcp_server_send_udp(
                                 server,
-                                req->message->ciaddr,
+                                req->message->header.ciaddr,
                                 DHCP_PORT_CLIENT,
                                 &packet->dhcp,
                                 sizeof(DHCPMessage) + optoffset);
@@ -202,7 +203,7 @@ static int dhcp_server_send_message(
          *
          * Note, even the broadcast flag is unset, we may not know the client hardware address (e.g.
          * InfiniBand). In that case, we cannot unicast in the below, so need to broadcast. */
-        if (FLAGS_SET(be16toh(req->message->flags), 0x8000) ||
+        if (FLAGS_SET(be16toh(req->message->header.flags), 0x8000) ||
             hw_addr_is_null(&req->hw_addr))
                 return dhcp_server_send_udp(
                                 server,
@@ -238,14 +239,12 @@ static int dhcp_server_send_packet(sd_dhcp_server *server,
         if (r < 0)
                 return r;
 
-        if (req->agent_info_option) {
-                size_t opt_full_length = *(req->agent_info_option + 1) + 2;
-                /* there must be space left for SD_DHCP_OPTION_END */
-                if (optoffset + opt_full_length < req->max_optlen) {
-                        memcpy(packet->dhcp.options + optoffset, req->agent_info_option, opt_full_length);
-                        optoffset += opt_full_length;
-                }
-        }
+        _cleanup_(iovec_done) struct iovec iov = {};
+        if (dhcp_message_get_option_alloc(req->message, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION, &iov) >= 0 &&
+            iov.iov_len <= UINT8_MAX)
+                (void) dhcp_option_append(&packet->dhcp, req->max_optlen, &optoffset, 0,
+                                          SD_DHCP_OPTION_RELAY_AGENT_INFORMATION,
+                                          iov.iov_len, iov.iov_base);
 
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &optoffset, 0,
                                SD_DHCP_OPTION_END, 0, NULL);
@@ -277,14 +276,14 @@ static int server_message_init(
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREPLY,
-                              be32toh(req->message->xid),
-                              req->message->htype, req->hw_addr.length, req->hw_addr.bytes,
+                              be32toh(req->message->header.xid),
+                              req->message->header.htype, req->hw_addr.length, req->hw_addr.bytes,
                               type, req->max_optlen, &optoffset);
         if (r < 0)
                 return r;
 
-        packet->dhcp.flags = req->message->flags;
-        packet->dhcp.giaddr = req->message->giaddr;
+        packet->dhcp.flags = req->message->header.flags;
+        packet->dhcp.giaddr = req->message->header.giaddr;
 
         *ret_optoffset = optoffset;
         *ret = TAKE_PTR(packet);
@@ -346,15 +345,6 @@ static int dhcp_server_append_static_hostname(
                         SD_DHCP_OPTION_FQDN,
                         3 + r,
                         buffer);
-}
-
-static bool dhcp_request_contains(DHCPRequest *req, uint8_t option) {
-        assert(req);
-
-        if (!req->parameter_request_list)
-                return false;
-
-        return memchr(req->parameter_request_list, option, req->parameter_request_list_len);
 }
 
 int server_send_offer_or_ack(
@@ -459,7 +449,7 @@ int server_send_offer_or_ack(
         /* RFC 8925 section 3.3. DHCPv4 Server Behavior
          * The server MUST NOT include the IPv6-Only Preferred option in the DHCPOFFER or DHCPACK message if
          * the option was not present in the Parameter Request List sent by the client. */
-        if (dhcp_request_contains(req, SD_DHCP_OPTION_IPV6_ONLY_PREFERRED) &&
+        if (set_contains(req->parameter_request_list, UINT_TO_PTR(SD_DHCP_OPTION_IPV6_ONLY_PREFERRED)) &&
             server->ipv6_only_preferred_usec > 0) {
                 be32_t sec = usec_to_be32_sec(server->ipv6_only_preferred_usec);
 
@@ -500,7 +490,9 @@ int server_send_offer_or_ack(
                         return r;
         }
 
-        if (server->rapid_commit && req->rapid_commit && type == DHCP_ACK) {
+        if (type == DHCP_ACK &&
+            server->rapid_commit &&
+            dhcp_message_get_option_flag(req->message, SD_DHCP_OPTION_RAPID_COMMIT) >= 0) {
                 r = dhcp_option_append(
                                 &packet->dhcp, req->max_optlen, &offset, 0,
                                 SD_DHCP_OPTION_RAPID_COMMIT,
@@ -536,7 +528,7 @@ int server_send_nak_or_ignore(sd_dhcp_server *server, bool init_reboot, DHCPRequ
         if (r < 0)
                 return log_dhcp_server_errno(server, r, "Could not send NAK message: %m");
 
-        log_dhcp_server(server, "NAK (0x%x)", be32toh(req->message->xid));
+        log_dhcp_server(server, "NAK (0x%x)", be32toh(req->message->header.xid));
         return DHCP_NAK;
 }
 
