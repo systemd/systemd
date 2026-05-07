@@ -281,6 +281,16 @@
     generally ignored. This includes names that start with a <literal>.</literal> or
     end with a <literal>.ignore</literal>.</para>
 
+    <para>When unit aliasing is introduced during reload/reexec (e.g., converting
+    <filename>b.service</filename> to a symlink pointing to <filename>a.service</filename>), the running
+    state of the canonical unit (<filename>a.service</filename>) is preserved. The old serialized state
+    of the now-aliased unit is migrated to a new stub orphaned unit to prevent stale data from
+    corrupting the canonical unit's live state. Dependencies referencing the alias name are automatically
+    resolved to the canonical unit, and the dependency graph is rebuilt from unit files, ensuring
+    consistency. If the now-aliased unit had resources such as running processes, they will now be tracked
+    under the new orphaned unit. Once all resources are gone (e.g. all processes have exited) the orphaned
+    unit will be garbage collected automatically.</para>
+
     <para>The unit file format is covered by the
     <ulink url="https://systemd.io/PORTABILITY_AND_STABILITY/">Interface
     Portability and Stability Promise</ulink>.</para>
