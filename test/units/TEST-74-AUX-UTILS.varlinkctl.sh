@@ -265,6 +265,12 @@ if test -n "$swap_id"; then
     varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$swap_params" | jq -e '.context.Swap'
     varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$swap_params" | jq -e '.runtime.Swap'
 fi
+# test for TimerContext/Runtime
+timer_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "timer" and .runtime.LoadState == "loaded") .context.ID' | grep -v null | tail -n 1)
+test -n "$timer_id"
+timer_params=$(jq -cn --arg name "$timer_id" '{name: $name}')
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$timer_params" | jq -e '.context.Timer'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$timer_params" | jq -e '.runtime.Timer'
 
 # test io.systemd.Metrics
 varlinkctl info /run/systemd/report/io.systemd.Manager
