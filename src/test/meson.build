@@ -491,6 +491,9 @@ executables += [
                 'conditions' : ['ENABLE_UTMP'],
         },
         core_test_template + {
+                'sources' : files('test-varlink-idl-job.c'),
+        },
+        core_test_template + {
                 'sources' : files('test-varlink-idl-unit.c'),
         },
         core_test_template + {
