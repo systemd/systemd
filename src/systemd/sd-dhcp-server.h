@@ -41,7 +41,7 @@ _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server);
 
 int sd_dhcp_server_attach_event(sd_dhcp_server *server, sd_event *event, int64_t priority);
 int sd_dhcp_server_detach_event(sd_dhcp_server *server);
-sd_event *sd_dhcp_server_get_event(sd_dhcp_server *server);
+sd_event* sd_dhcp_server_get_event(sd_dhcp_server *server);
 
 typedef void (*sd_dhcp_server_callback_t)(sd_dhcp_server *server, uint64_t event, void *userdata);
 
