@@ -13,6 +13,7 @@
 #include "swap.h"
 #include "tests.h"
 #include "test-varlink-idl-util.h"
+#include "timer.h"
 #include "unit.h"
 #include "varlink-idl-common.h"
 #include "varlink-io.systemd.Unit.h"
@@ -77,6 +78,16 @@ TEST(unit_enums_idl) {
 
         /* SwapRuntime enums */
         TEST_IDL_ENUM(SwapResult, swap_result, vl_type_SwapResult);
+
+        /* TimerContext enums */
+        for (TimerBase b = 0; b < _TIMER_BASE_MAX; b++) {
+                _cleanup_free_ char *s = timer_base_to_usec_string(b);
+                assert_se(s);
+                test_enum_to_string_name(s, &vl_type_TimerBase);
+        }
+
+        /* TimerRuntime enums */
+        TEST_IDL_ENUM(TimerResult, timer_result, vl_type_TimerResult);
 
         /* UnitContext enums */
         TEST_IDL_ENUM(CollectMode, collect_mode, vl_type_CollectMode);
