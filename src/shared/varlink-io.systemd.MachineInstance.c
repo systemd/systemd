@@ -39,6 +39,13 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Unique storage name '<provider>:<volume>' to detach"),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                ReplaceStorage,
+                SD_VARLINK_FIELD_COMMENT("Index of the attached file descriptor for the new backing storage"),
+                SD_VARLINK_DEFINE_INPUT(fileDescriptorIndex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Identifier of the existing binding whose backing is being replaced (as supplied to AddStorage)"),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0));
+
 static SD_VARLINK_DEFINE_ERROR(NotConnected);
 static SD_VARLINK_DEFINE_ERROR(NotSupported);
 static SD_VARLINK_DEFINE_ERROR(NoSuchStorage);
@@ -68,6 +75,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_AddStorage,
                 SD_VARLINK_SYMBOL_COMMENT("Detach a previously-attached storage volume from the running machine"),
                 &vl_method_RemoveStorage,
+                SD_VARLINK_SYMBOL_COMMENT("Replace the backing of a previously-attached storage volume in place"),
+                &vl_method_ReplaceStorage,
                 SD_VARLINK_SYMBOL_COMMENT("The connection to the machine backend is not available"),
                 &vl_error_NotConnected,
                 SD_VARLINK_SYMBOL_COMMENT("The requested operation is not supported"),
