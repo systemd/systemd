@@ -35,5 +35,8 @@ int bus_message_append_secret(sd_bus_message *m, UserRecord *secret);
  * operations permit a *very* long timeout */
 #define HOME_SLOW_BUS_CALL_TIMEOUT_USEC (2*USEC_PER_MINUTE)
 
+/* Retry to deactivate home directories again and again every 15s until it works */
+#define HOME_RETRY_DEACTIVATE_USEC (15U * USEC_PER_SEC)
+
 const char* home_record_dir(void);
 const char* home_system_blob_dir(void);
