@@ -1148,11 +1148,13 @@ static int verb_ssh_authorized_keys(int argc, char *argv[], uintptr_t _data, voi
                 /* Make similar restrictions on the chain command as OpenSSH itself makes on the primary command. */
                 if (!path_is_absolute(argv[2]))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Chain invocation of ssh-authorized-keys commands requires an absolute binary path argument.");
+                                               "Chain invocation of ssh-authorized-keys commands requires an absolute program path (got '%s').",
+                                               argv[2]);
 
                 if (!path_is_normalized(argv[2]))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Chain invocation of ssh-authorized-keys commands requires an normalized binary path argument.");
+                                               "Chain invocation of ssh-authorized-keys commands requires an normalized program path (got '%s'.",
+                                               argv[2]);
 
                 chain_invocation = argv + 2;
         } else {
@@ -1628,9 +1630,10 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 arg_services = l;
         }
 
-        OptionParser opts = { argc, argv };
+        OptionParser opts = { argc, argv, OPTION_PARSER_RETURN_POSITIONAL_ARGS };
+        _cleanup_strv_free_ char **args = NULL;
 
-        FOREACH_OPTION_OR_RETURN(c, &opts)
+        FOREACH_OPTION_OR_RETURN(c, &opts) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -1733,6 +1736,12 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         arg_chain = true;
                         break;
 
+                OPTION_POSITIONAL:
+                        r = strv_extend(&args, opts.arg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
                 OPTION_LONG("uid-min", "ID", "Filter by minimum UID/GID (default 0)"):
                         r = parse_uid(opts.arg, &arg_uid_min);
                         if (r < 0)
@@ -1811,6 +1820,15 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 }
                 }
 
+                /* When --chain was seen, stop parsing switches after the second positional argument:
+                 * [OPTS0…, VERB, OPTS1…, USERNAME, OPTS2…, COMMAND, OPTS3…]
+                 * We shall parse OPTS0, OPTS1, OPTS2, but OPTS3 are for COMMAND.
+                 * --chain can be anywhere in OPTS0, OPTS1, OPTS2, or first in OPTS3.
+                 */
+                if (arg_chain && strv_length(args) >= 3)
+                        opts.state = OPTION_PARSER_DONE;
+        }
+
         if (arg_uid_min > arg_uid_max)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Minimum UID/GID " UID_FMT " is above maximum UID/GID " UID_FMT ", refusing.",
@@ -1823,12 +1841,16 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         if (arg_from_file)
                 arg_boundaries = false;
 
-        *remaining_args = option_parser_get_args(&opts);
+        /* We gathered some positional args in 'args' ourselves. Append the remaining ones. */
+        if (strv_extend_strv(&args, option_parser_get_args(&opts), /* filter_duplicates= */ false) < 0)
+                return log_oom();
+
+        *remaining_args = TAKE_PTR(args);
         return 1;
 }
 
 static int run(int argc, char *argv[]) {
-        char **args = NULL;
+        _cleanup_strv_free_ char **args = NULL;
         int r;
 
         log_setup();
