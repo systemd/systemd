@@ -38,6 +38,7 @@ DLSYM_PROTOTYPE(bpf_map_delete_elem) = NULL;
 DLSYM_PROTOTYPE(bpf_map_get_fd_by_id) = NULL;
 DLSYM_PROTOTYPE(bpf_map_lookup_elem) = NULL;
 DLSYM_PROTOTYPE(bpf_map_update_elem) = NULL;
+DLSYM_PROTOTYPE(bpf_obj_get_info_by_fd) = NULL;
 DLSYM_PROTOTYPE(bpf_object__attach_skeleton) = NULL;
 DLSYM_PROTOTYPE(bpf_object__destroy_skeleton) = NULL;
 DLSYM_PROTOTYPE(bpf_object__detach_skeleton) = NULL;
@@ -154,6 +155,7 @@ int dlopen_bpf(int log_level) {
                         DLSYM_ARG(bpf_map_get_fd_by_id),
                         DLSYM_ARG(bpf_map_lookup_elem),
                         DLSYM_ARG(bpf_map_update_elem),
+                        DLSYM_ARG(bpf_obj_get_info_by_fd),
                         DLSYM_ARG(bpf_object__attach_skeleton),
                         DLSYM_ARG(bpf_object__destroy_skeleton),
                         DLSYM_ARG(bpf_object__detach_skeleton),
