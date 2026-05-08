@@ -776,7 +776,7 @@ d /tmp/foo/bar - - - bmA:1h -</programlisting></para>
             <row>
               <entry><literal>%t</literal></entry>
               <entry>System or user runtime directory</entry>
-              <entry>In <option>--user</option> mode, this is the same <varname>$XDG_RUNTIME_DIR</varname>, and <filename>/run/</filename> otherwise.</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_RUNTIME_DIR</varname>, and <filename>/run/</filename> otherwise.</entry>
             </row>
             <xi:include href="standard-specifiers.xml" xpointer="T"/>
             <row>
