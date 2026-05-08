@@ -7,6 +7,7 @@ libcore_sources = files(
         'bpf-firewall.c',
         'bpf-foreign.c',
         'bpf-restrict-fs.c',
+        'bpf-restrict-fsaccess.c',
         'bpf-restrict-ifaces.c',
         'bpf-socket-bind.c',
         'bpf-bind-iface.c',
@@ -80,6 +81,14 @@ if conf.get('BPF_FRAMEWORK') == 1
         foreach name : ['socket-bind', 'restrict-fs', 'restrict-ifaces', 'bind-iface']
                 libcore_sources += bpf_programs_by_name[name]
         endforeach
+endif
+
+# restrict-fsaccess uses vmlinux.h, so it is only built when HAVE_VMLINUX_H is
+# set (which implies BPF_FRAMEWORK). On systems without BTF / bpftool / a
+# provided vmlinux.h the skeleton isn't generated and bpf_programs_by_name
+# doesn't carry this entry.
+if conf.get('HAVE_VMLINUX_H') == 1
+        libcore_sources += bpf_programs_by_name['restrict-fsaccess']
 endif
 
 sources += libcore_sources

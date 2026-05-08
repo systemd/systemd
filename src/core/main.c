@@ -22,6 +22,7 @@
 #include "apparmor-setup.h"
 #include "architecture.h"
 #include "argv-util.h"
+#include "bpf-restrict-fsaccess.h"
 #include "build.h"
 #include "bus-error.h"
 #include "capability-util.h"
@@ -150,6 +151,7 @@ static char **arg_manager_environment;
 static uint64_t arg_capability_bounding_set;
 static bool arg_no_new_privs;
 static int arg_protect_system;
+static RestrictFileSystemAccess arg_restrict_filesystem_access;
 static nsec_t arg_timer_slack_nsec;
 static Set* arg_syscall_archs;
 static FILE* arg_serialization;
@@ -566,6 +568,17 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
                 }
 
+        } else if (proc_cmdline_key_streq(key, "systemd.restrict_filesystem_access")) {
+
+                if (value) {
+                        r = restrict_filesystem_access_from_string(value);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse systemd.restrict_filesystem_access= argument '%s', ignoring: %m", value);
+                        else
+                                arg_restrict_filesystem_access = r;
+                } else
+                        arg_restrict_filesystem_access = RESTRICT_FILESYSTEM_ACCESS_EXEC;
+
         } else if (streq(key, "quiet") && !value) {
 
                 if (arg_show_status == _SHOW_STATUS_INVALID)
@@ -717,6 +730,29 @@ static int config_parse_protect_system_pid1(
         return 0;
 }
 
+static int config_parse_restrict_filesystem_access(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        RestrictFileSystemAccess *v = ASSERT_PTR(data);
+        RestrictFileSystemAccess re;
+
+        re = restrict_filesystem_access_from_string(rvalue);
+        if (re < 0)
+                return log_syntax_parse_error(unit, filename, line, re, lvalue, rvalue);
+
+        *v = re;
+        return 0;
+}
+
 static int config_parse_crash_reboot(
                 const char *unit,
                 const char *filename,
@@ -774,6 +810,7 @@ static int parse_config_file(void) {
                 { "Manager", "CapabilityBoundingSet",             config_parse_capability_set,        0,                        &arg_capability_bounding_set                           },
                 { "Manager", "NoNewPrivileges",                   config_parse_bool,                  0,                        &arg_no_new_privs                                      },
                 { "Manager", "ProtectSystem",                     config_parse_protect_system_pid1,   0,                        &arg_protect_system                                    },
+                { "Manager", "RestrictFileSystemAccess",         config_parse_restrict_filesystem_access, 0,                   &arg_restrict_filesystem_access                         },
 #if HAVE_SECCOMP
                 { "Manager", "SystemCallArchitectures",           config_parse_syscall_archs,         0,                        &arg_syscall_archs                                     },
 #else
@@ -925,6 +962,7 @@ static void set_manager_settings(Manager *m) {
 
         manager_set_show_status(m, arg_show_status, "command line");
         m->status_unit_format = arg_status_unit_format;
+        m->restrict_filesystem_access = arg_restrict_filesystem_access;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1246,6 +1284,16 @@ static int prepare_reexecute(
         /* Make sure nothing is really destructed when we shut down */
         m->n_reloading++;
         bus_manager_send_reloading(m, true);
+
+        /* Only close the initramfs trust window when actually switching root.
+         * During a plain daemon-reexec in the initrd, PID1 still needs to
+         * execv() itself from the initramfs — clearing trust here would cause
+         * the BPF bprm_check_security hook to deny the exec. */
+        if (switching_root) {
+                r = bpf_restrict_fsaccess_close_initramfs_trust(m);
+                if (r < 0)
+                        return r;
+        }
 
         r = manager_open_serialization(m, &f);
         if (r < 0)
@@ -2834,6 +2882,7 @@ static void reset_arguments(void) {
         arg_capability_bounding_set = CAP_MASK_ALL;
         arg_no_new_privs = false;
         arg_protect_system = -1;
+        arg_restrict_filesystem_access = RESTRICT_FILESYSTEM_ACCESS_NO;
         arg_timer_slack_nsec = NSEC_INFINITY;
 
         arg_syscall_archs = set_free(arg_syscall_archs);
