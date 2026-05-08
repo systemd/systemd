@@ -20,6 +20,13 @@ export PAGER=cat
 # Disable use of special glyphs such as →
 export SYSTEMD_UTF8=0
 
+# Sanitizer runs are significantly slower, so give udevadm wait 3 times longer timeouts
+if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
+    UDEVADM_WAIT_TIMEOUT=180
+else
+    UDEVADM_WAIT_TIMEOUT=60
+fi
+
 seed=750b6cd5c4ae4012a15e7be3c29e6a47
 
 esp_guid=C12A7328-F81F-11D2-BA4B-00A0C93EC93B
@@ -378,7 +385,7 @@ $imgs/zzz7 : start=     6291416, size=      131072, type=3B8F8425-20E0-4F3B-907F
     fi
 
     loop="$(losetup -P --show --find "$imgs/zzz")"
-    udevadm wait --timeout=60 --settle "${loop:?}p7"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p7"
 
     volume="test-repart-$RANDOM"
 
@@ -1012,7 +1019,7 @@ EOF
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs' ; losetup -d '$loop'" RETURN ERR
 
-    udevadm wait --timeout=60 --settle "${loop:?}p1" "${loop:?}p2"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1" "${loop:?}p2"
 
     # Check that the verity block sizes are as expected
     veritysetup dump "${loop}p2" | grep 'Data block size:' | grep '4096' >/dev/null
@@ -1072,7 +1079,7 @@ EOF
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs' ; losetup -d '$loop'" RETURN ERR
 
-    udevadm wait --timeout=60 --settle "${loop:?}p1" "${loop:?}p2"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1" "${loop:?}p2"
 
     output=$(sfdisk -J "$loop")
 
@@ -1154,7 +1161,7 @@ EOF
     fi
 
     loop=$(losetup -P --show -f "$imgs/zzz")
-    udevadm wait --timeout=60 --settle "${loop:?}p1" "${loop:?}p2"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1" "${loop:?}p2"
 
     # Test that /usr/def did not end up in the root partition but other files did.
     mkdir "$imgs/mnt"
@@ -1379,7 +1386,7 @@ EOF
 
     truncate -s 100m "$imgs/$sector.img"
     loop=$(losetup -b "$sector" -P --show -f "$imgs/$sector.img" )
-    udevadm wait --timeout=60 --settle "${loop:?}"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}"
 
     systemd-repart --offline="$OFFLINE" \
                    --pretty=yes \
@@ -1762,7 +1769,7 @@ EOF
     # shellcheck disable=SC2064
     trap "umount '$imgs/mount' 2>/dev/null || true; losetup -d '$loop' 2>/dev/null || true; rm -rf '$defs' '$imgs'" RETURN
     echo "Loop device: $loop"
-    udevadm wait --timeout=60 --settle "${loop:?}p1"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
 
     mkdir -p "$imgs/mount"
     mount -t btrfs "${loop:?}p1" "$imgs/mount"
