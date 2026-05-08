@@ -60,7 +60,9 @@ wait_for_start() {
 
 wait_for_stop() {
     timeout 30 bash -c "while systemctl -q is-active '$UNIT_NAME.service'; do sleep .5; done"
-    assert_eq "$(systemctl show "$UNIT_NAME.socket" -P SubState)" "listening"
+    # The socket's SubState transitions from 'running' to 'listening' shortly after the triggered
+    # service becomes inactive, so wait for that transition instead of checking once and racing.
+    timeout 30 bash -c "until [[ \$(systemctl show '$UNIT_NAME.socket' -P SubState) == 'listening' ]]; do sleep .5; done"
 }
 
 # DeferTrigger=no: job mode replace
