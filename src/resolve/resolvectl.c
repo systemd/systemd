@@ -1251,8 +1251,7 @@ static int status_json_filter_links(sd_json_variant **configuration, char **link
                         return r;
         }
 
-        JSON_VARIANT_REPLACE(*configuration, TAKE_PTR(v));
-        return 0;
+        return json_variant_unref_and_replace(*configuration, v);
 }
 
 static int status_json_filter_fields(sd_json_variant **configuration, StatusMode mode) {
@@ -1281,8 +1280,7 @@ static int status_json_filter_fields(sd_json_variant **configuration, StatusMode
                         return r;
         }
 
-        JSON_VARIANT_REPLACE(*configuration, TAKE_PTR(v));
-        return 0;
+        return json_variant_unref_and_replace(*configuration, v);
 }
 
 static int format_dns_server_one(DNSConfiguration *configuration, DNSServer *s, char **ret) {

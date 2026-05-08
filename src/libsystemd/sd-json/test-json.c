@@ -548,8 +548,7 @@ TEST(depth) {
 
                 assert_se(r >= 0);
 
-                sd_json_variant_unref(v);
-                v = TAKE_PTR(w);
+                json_variant_unref_and_replace(v, w);
         }
 
         sd_json_variant_dump(v, 0, stdout, NULL);
