@@ -319,6 +319,10 @@ bpf_programs = [
                 'condition' : 'BPF_FRAMEWORK',
         },
         {
+                'source' : files('restrict-fsaccess.bpf.c'),
+                'condition' : 'BPF_FRAMEWORK',
+        },
+        {
                 'source' : files('restrict-fs.bpf.c'),
                 'condition' : 'BPF_FRAMEWORK',
         },
