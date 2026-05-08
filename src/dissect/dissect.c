@@ -70,6 +70,7 @@ static enum {
         ACTION_DETACH,
         ACTION_LIST,
         ACTION_MTREE,
+        ACTION_MANIFEST,
         ACTION_WITH,
         ACTION_COPY_FROM,
         ACTION_COPY_TO,
@@ -150,6 +151,7 @@ static int help(void) {
                "%1$s [OPTIONS...] --detach PATH\n"
                "%1$s [OPTIONS...] --list IMAGE\n"
                "%1$s [OPTIONS...] --mtree IMAGE\n"
+               "%1$s [OPTIONS...] --manifest IMAGE\n"
                "%1$s [OPTIONS...] --with IMAGE [COMMAND…]\n"
                "%1$s [OPTIONS...] --copy-from IMAGE PATH [TARGET]\n"
                "%1$s [OPTIONS...] --copy-to IMAGE [SOURCE] PATH\n"
@@ -478,6 +480,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_flags |= DISSECT_IMAGE_READ_ONLY;
                         break;
 
+                OPTION_LONG("manifest", NULL, "Show UAPI.16 manifest of OS image"):
+                        arg_action = ACTION_MANIFEST;
+                        arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                        break;
+
                 OPTION_FULL(OPTION_STOPS_PARSING, /* sc= */ 0, "with", NULL, "Mount, run command, unmount"):
                         arg_action = ACTION_WITH;
                         break;
@@ -581,6 +588,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         case ACTION_LIST:
         case ACTION_MTREE:
+        case ACTION_MANIFEST:
                 if (strv_length(args) != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file or directory path as only argument.");
@@ -1328,13 +1336,90 @@ static int mtree_print_item(
         return RECURSE_DIR_CONTINUE;
 }
 
-static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopDevice *d, int userns_fd) {
+static int manifest_print_item(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
+        _cleanup_free_ char *escaped = NULL;
+        int r;
+
+        if (!IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY))
+                return RECURSE_DIR_CONTINUE;
+
+        bool is_root = isempty(path);
+
+        /* We ignore this to avoid input is output cycles */
+        if (!is_root && (streq(path, "Uapi16Manifest") || startswith(path, "Uapi16Manifest.")))
+                return RECURSE_DIR_CONTINUE;
+
+        _cleanup_free_ char *data = NULL;
+        uint8_t hash[SHA256_DIGEST_SIZE];
+        uint64_t size = UINT64_MAX;
+        bool have_size = false, have_hash = false;
+
+        /* Generates a UAPI.16 Manifest of the directory tree */
+
+        if (FLAGS_SET(sx->stx_mask, STATX_TYPE))
+                switch (sx->stx_mode & S_IFMT) {
+
+                case S_IFREG:
+                        size = sx->stx_size;
+                        have_size = true;
+
+                        r = get_file_sha256(inode_fd, hash);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to calculate file SHA256 sum for '%s', ignoring: %m", path);
+                        else
+                                have_hash = true;
+                        break;
+
+
+                case S_IFLNK:
+                        r = readlinkat_malloc(inode_fd, "", &data);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to read symlink '%s', ignoring: %m", path);
+                        else {
+                                size = strlen(data);
+                                have_size = true;
+                        }
+                }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        r = sd_json_buildo(
+                        &j,
+                        SD_JSON_BUILD_PAIR_CONDITION(is_root, "mediaType", JSON_BUILD_CONST_STRING("application/vnd.uapi.16.manifest")),
+                        SD_JSON_BUILD_PAIR_CONDITION(!is_root, "name", SD_JSON_BUILD_STRING(path)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!is_root && FLAGS_SET(sx->stx_mask, STATX_TYPE) && !S_ISREG(sx->stx_mode), "type", SD_JSON_BUILD_STRING(inode_type_to_string(sx->stx_mode))),
+                        SD_JSON_BUILD_PAIR_CONDITION(have_size, "size", SD_JSON_BUILD_UNSIGNED(size)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!data, "contents", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("literal", SD_JSON_BUILD_BASE64(data, size))))),
+                        SD_JSON_BUILD_PAIR_CONDITION(have_hash, "sha256", SD_JSON_BUILD_HEX(hash, sizeof(hash))),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(sx->stx_mask, STATX_TYPE) && (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode)), "major", SD_JSON_BUILD_UNSIGNED(sx->stx_rdev_major)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(sx->stx_mask, STATX_TYPE) && (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode)), "minor", SD_JSON_BUILD_UNSIGNED(sx->stx_rdev_minor)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(sx->stx_mask, STATX_TYPE|STATX_MODE) && !S_ISLNK(sx->stx_mode), "mode", SD_JSON_BUILD_UNSIGNED(sx->stx_mode & 07777)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(sx->stx_mask, STATX_UID), "uid", SD_JSON_BUILD_UNSIGNED(sx->stx_uid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(sx->stx_mask, STATX_GID), "gid", SD_JSON_BUILD_UNSIGNED(sx->stx_gid)));
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_dump(j, arg_json_format_flags | SD_JSON_FORMAT_SEQ, stdout, /* prefix= */ NULL);
+        if (r < 0)
+                return r;
+
+        return RECURSE_DIR_CONTINUE;
+}
+
+static int action_list_or_mtree_or_manifest_or_copy_or_make_archive(DissectedImage *m, LoopDevice *d, int userns_fd) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_free_ char *t = NULL;
         const char *root;
         int r;
 
-        assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_MAKE_ARCHIVE, ACTION_SHIFT));
+        assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_MANIFEST, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_MAKE_ARCHIVE, ACTION_SHIFT));
 
         /* Determine whether to copy ownership:
          * --copy-ownership=yes: always try to preserve ownership
@@ -1535,7 +1620,8 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
         }
 
         case ACTION_LIST:
-        case ACTION_MTREE: {
+        case ACTION_MTREE:
+        case ACTION_MANIFEST: {
                 _cleanup_close_ int dfd = -EBADF;
 
                 dfd = open(root, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
@@ -1548,6 +1634,8 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                         r = recurse_dir(dfd, NULL, 0, UINT_MAX, RECURSE_DIR_SORT, list_print_item, NULL);
                 else if (arg_action == ACTION_MTREE)
                         r = recurse_dir(dfd, ".", STATX_TYPE|STATX_MODE|STATX_UID|STATX_GID|STATX_SIZE, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL, mtree_print_item, NULL);
+                else if (arg_action == ACTION_MANIFEST)
+                        r = recurse_dir(dfd, /* path= */ NULL, STATX_TYPE|STATX_MODE|STATX_UID|STATX_GID|STATX_SIZE, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL, manifest_print_item, NULL);
                 else
                         assert_not_reached();
                 if (r < 0)
@@ -2145,11 +2233,12 @@ static int run(int argc, char *argv[]) {
 
         case ACTION_LIST:
         case ACTION_MTREE:
+        case ACTION_MANIFEST:
         case ACTION_COPY_FROM:
         case ACTION_COPY_TO:
         case ACTION_MAKE_ARCHIVE:
         case ACTION_SHIFT:
-                return action_list_or_mtree_or_copy_or_make_archive(m, d, userns_fd);
+                return action_list_or_mtree_or_manifest_or_copy_or_make_archive(m, d, userns_fd);
 
         case ACTION_WITH:
                 return action_with(m, d);
