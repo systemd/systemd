@@ -629,7 +629,10 @@ units = [
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
           'symlinks' : ['sysinit.target.wants/'],
         },
-        { 'file' : 'systemd-report-basic.socket' },
+        {
+          'file' : 'systemd-report-basic.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
         { 'file' : 'systemd-report-basic@.service.in' },
         {
           'file' : 'systemd-tpm2-clear.service.in',
