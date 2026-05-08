@@ -149,9 +149,6 @@ int raw_pull_new(
                 .offset = UINT64_MAX,
         };
 
-        p->glue->on_finished = pull_job_curl_on_finished;
-        p->glue->userdata = p;
-
         *ret = TAKE_PTR(p);
 
         return 0;
