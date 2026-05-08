@@ -47,3 +47,4 @@ bool bpf_restrict_fsaccess_supported(void);
 int bpf_restrict_fsaccess_setup(Manager *m);
 
 int bpf_restrict_fsaccess_close_initramfs_trust(Manager *m);
+int bpf_restrict_fsaccess_serialize(Manager *m, FILE *f, FDSet *fds);
