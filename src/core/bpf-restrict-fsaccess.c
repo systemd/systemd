@@ -76,7 +76,7 @@ assert_cc(offsetof(struct restrict_fsaccess_bss, protected_map_id_bss) ==
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = (obj)->links.restrict_fsaccess_bpf_guard,                  \
 }
 
-static bool dm_verity_require_signatures(void) {
+bool dm_verity_require_signatures(void) {
         _cleanup_free_ char *val = NULL;
         int r;
 
@@ -454,6 +454,10 @@ int bpf_restrict_fsaccess_serialize(Manager *m, FILE *f, FDSet *fds) {
 }
 
 #else /* ! BPF_FRAMEWORK */
+
+bool dm_verity_require_signatures(void) {
+        return false;
+}
 
 bool bpf_restrict_fsaccess_supported(void) {
         return false;
