@@ -852,16 +852,16 @@ $ systemd-vmspawn --image=image.raw
     </example>
 
     <example>
-      <title>Import and run a Fedora &fedora_latest_version; Cloud image using machinectl</title>
+      <title>Import and run a Fedora &fedora_latest_version; Cloud image using importctl</title>
 
       <programlisting>
 $ curl -L \
-       -O https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz \
+       -O https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-&fedora_latest_version;-&fedora_cloud_release;.x86_64.qcow2 \
        -O https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-&fedora_latest_version;-&fedora_cloud_release;-x86_64-CHECKSUM \
        -O https://fedoraproject.org/fedora.gpg
 $ gpgv --keyring ./fedora.gpg Fedora-Cloud-&fedora_latest_version;-&fedora_cloud_release;-x86_64-CHECKSUM
 $ sha256sum -c Fedora-Cloud-&fedora_latest_version;-&fedora_cloud_release;-x86_64-CHECKSUM
-# machinectl import-raw Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz fedora-&fedora_latest_version;-cloud
+# importctl import-raw -m Fedora-Cloud-Base-Generic-&fedora_latest_version;-&fedora_cloud_release;.x86_64.qcow2 fedora-&fedora_latest_version;-cloud
 # systemd-vmspawn -M fedora-&fedora_latest_version;-cloud
 </programlisting>
     </example>
