@@ -98,4 +98,4 @@ int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease);
 int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const sd_dhcp_client_id *client_id);
 
 #define dhcp_lease_unref_and_replace(a, b)                              \
-        unref_and_replace_full(a, b, sd_dhcp_lease_ref, sd_dhcp_lease_unref)
+        free_and_replace_full(a, b, sd_dhcp_lease_unref)

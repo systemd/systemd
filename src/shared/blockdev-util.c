@@ -207,7 +207,7 @@ int block_device_new_from_fd(int fd, BlockDeviceLookupFlags flags, sd_device **r
 
                 r = block_device_get_originating(dev_whole_disk, &dev_origin, /* recursive= */ false);
                 if (r >= 0)
-                        device_unref_and_replace(dev, dev_origin);
+                        device_unref_and_replace_new_ref(dev, dev_origin);
                 else if (r != -ENOENT)
                         return r;
         }

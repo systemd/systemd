@@ -2281,7 +2281,7 @@ sd_event* sd_dhcp_client_get_event(sd_dhcp_client *client) {
 int sd_dhcp_client_attach_device(sd_dhcp_client *client, sd_device *dev) {
         assert_return(client, -EINVAL);
 
-        return device_unref_and_replace(client->dev, dev);
+        return device_unref_and_replace_new_ref(client->dev, dev);
 }
 
 static sd_dhcp_client* dhcp_client_free(sd_dhcp_client *client) {

@@ -2374,8 +2374,7 @@ static int remove_self_modifiable_json_fields_common(UserRecord *current, sd_jso
                         return r;
         }
 
-        JSON_VARIANT_REPLACE(*target, TAKE_PTR(v));
-        return 0;
+        return json_variant_unref_and_replace(*target, v);
 }
 
 static int remove_self_modifiable_json_fields(UserRecord *current, UserRecord *h, sd_json_variant **ret) {
@@ -2460,8 +2459,7 @@ static int remove_self_modifiable_json_fields(UserRecord *current, UserRecord *h
                         return r;
         }
 
-        JSON_VARIANT_REPLACE(*ret, TAKE_PTR(v));
-        return 0;
+        return json_variant_unref_and_replace(*ret, v);
 }
 
 int user_record_self_changes_allowed(UserRecord *current, UserRecord *incoming) {
