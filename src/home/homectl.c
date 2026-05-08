@@ -1038,8 +1038,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to allocate new perMachine array: %m");
 
-                        sd_json_variant_unref(per_machine);
-                        per_machine = TAKE_PTR(npm);
+                        json_variant_unref_and_replace(per_machine, npm);
                 } else {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *positive = sd_json_variant_ref(arg_identity_extra_this_machine),
                                 *negative = sd_json_variant_ref(arg_identity_extra_other_machines);
@@ -1122,10 +1121,7 @@ static int apply_identity_changes(sd_json_variant **_v) {
                 }
         }
 
-        sd_json_variant_unref(*_v);
-        *_v = TAKE_PTR(v);
-
-        return 0;
+        return json_variant_unref_and_replace(*_v, v);
 }
 
 static int add_disposition(sd_json_variant **v) {
