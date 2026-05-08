@@ -9,8 +9,11 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "hostname-setup.h"
+#include "log.h"
 #include "metrics.h"
+#include "os-util.h"
 #include "report-basic.h"
+#include "strv.h"
 #include "virt.h"
 
 static int architecture_generate(MetricFamilyContext *context, void *userdata) {
@@ -88,6 +91,33 @@ static int machine_id_generate(MetricFamilyContext *context, void *userdata) {
                         /* fields= */ NULL);
 }
 
+static int os_release_generate(MetricFamilyContext *context, void *userdata) {
+        _cleanup_strv_free_ char **pairs = NULL;
+        int r;
+
+        assert(context);
+
+        r = load_os_release_pairs(/* root= */ NULL, &pairs);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to load os-release, ignoring: %m");
+                return 0;
+        }
+
+        STRV_FOREACH_PAIR(k, v, pairs) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+
+                r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("field", *k));
+                if (r < 0)
+                        return r;
+
+                r = metric_build_send_string(context, /* object= */ NULL, *v, fields);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int virtualization_generate(MetricFamilyContext *context, void *userdata) {
         Virtualization v;
 
@@ -135,6 +165,12 @@ static const MetricFamily metric_family_table[] = {
                 .description = "Machine ID",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = machine_id_generate,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_BASIC_PREFIX "OSRelease",
+                .description = "Operating system identification (from os-release)",
+                .type = METRIC_FAMILY_TYPE_STRING,
+                .generate = os_release_generate,
         },
         {
                 .name = METRIC_IO_SYSTEMD_BASIC_PREFIX "Virtualization",
