@@ -76,9 +76,10 @@ typedef enum QmpDriveFlags {
 } QmpDriveFlags;
 
 typedef enum BlockDeviceStateFlags {
-        BLOCK_DEVICE_STATE_BLOCKDEV_ADDED = 1u << 0,
-        BLOCK_DEVICE_STATE_ADD_FAILED     = 1u << 1,  /* first error fired; suppress cascades */
-        BLOCK_DEVICE_STATE_REMOVE_PENDING = 1u << 2,  /* device_del in flight; reject concurrent removes */
+        BLOCK_DEVICE_STATE_BLOCKDEV_ADDED  = 1u << 0,
+        BLOCK_DEVICE_STATE_ADD_FAILED      = 1u << 1,  /* first error fired; suppress cascades */
+        BLOCK_DEVICE_STATE_REMOVE_PENDING  = 1u << 2,  /* device_del in flight; reject concurrent removes */
+        BLOCK_DEVICE_STATE_FILE_NODE_ADDED = 1u << 3,  /* blockdev-add(file) succeeded; teardown must del it */
 } BlockDeviceStateFlags;
 
 /* Ref-counted; each of the four add-stage QMP slots holds one ref.
@@ -105,7 +106,10 @@ typedef struct DriveInfo {
         uint64_t counter;          /* internal N used in qmp_node_name / qmp_device_id */
         char *qmp_node_name;       /* "vmspawn-<counter>-storage" */
         char *qmp_device_id;       /* "vmspawn-<counter>-disk" */
+        char *qmp_file_node_name;  /* "vmspawn-<counter>-file-<gen>" — current file-level node */
+        uint64_t file_generation;  /* monotonically bumped per replace ATTEMPT */
         char *fdset_path;          /* "/dev/fdset/N" */
+        uint64_t fdset_id;         /* numeric id matching fdset_path */
         int pcie_port_idx;         /* hotplug port idx held by this drive; -1 once committed or unused */
         BlockDeviceStateFlags state;
         sd_varlink *link;          /* ref'd iff hotplug */

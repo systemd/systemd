@@ -102,6 +102,7 @@ static DriveInfo* drive_info_free(DriveInfo *d) {
         free(d->id);
         free(d->qmp_node_name);
         free(d->qmp_device_id);
+        free(d->qmp_file_node_name);
         free(d->fdset_path);
         sd_varlink_unref(d->link);
         safe_close(d->fd);
@@ -324,43 +325,6 @@ static int qmp_build_device_add(const DriveInfo *drive, sd_json_variant **ret) {
                                         "bus", SD_JSON_BUILD_STRING(drive->pcie_port)));
 }
 
-/* Inline form: one blockdev-add creates format+file; one blockdev-del tears
- * down the whole tree. Used for regular boot drives and hotplug. */
-static int qmp_build_blockdev_add_inline(
-                const char *node_name,
-                const char *format,
-                const char *filename,
-                const char *file_driver,
-                QmpDriveFlags flags,
-                VmspawnQmpFeatureFlags features,
-                sd_json_variant **ret) {
-
-        bool use_io_uring = FLAGS_SET(features, VMSPAWN_QMP_FEATURE_IO_URING);
-        bool use_discard_no_unref = FLAGS_SET(flags, QMP_DRIVE_DISCARD_NO_UNREF);
-
-        assert(node_name);
-        assert(format);
-        assert(filename);
-        assert(file_driver);
-        assert(ret);
-
-        return sd_json_buildo(
-                        ret,
-                        SD_JSON_BUILD_PAIR_STRING("node-name", node_name),
-                        SD_JSON_BUILD_PAIR_STRING("driver", format),
-                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, QMP_DRIVE_READ_ONLY), "read-only", SD_JSON_BUILD_BOOLEAN(true)),
-                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, QMP_DRIVE_DISCARD), "discard", JSON_BUILD_CONST_STRING("unmap")),
-                        SD_JSON_BUILD_PAIR_CONDITION(use_discard_no_unref, "discard-no-unref", SD_JSON_BUILD_BOOLEAN(true)),
-                        SD_JSON_BUILD_PAIR("file", SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR_STRING("driver", file_driver),
-                                        SD_JSON_BUILD_PAIR_STRING("filename", filename),
-                                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, QMP_DRIVE_READ_ONLY), "read-only", SD_JSON_BUILD_BOOLEAN(true)),
-                                        SD_JSON_BUILD_PAIR_CONDITION(use_io_uring, "aio", JSON_BUILD_CONST_STRING("io_uring")),
-                                        SD_JSON_BUILD_PAIR("cache", SD_JSON_BUILD_OBJECT(
-                                                        SD_JSON_BUILD_PAIR_BOOLEAN("direct", false),
-                                                        SD_JSON_BUILD_PAIR_BOOLEAN("no-flush", FLAGS_SET(flags, QMP_DRIVE_NO_FLUSH)))))));
-}
-
 /* Issue blockdev-add for a file node. */
 static int qmp_add_file_node(QmpClient *qmp, const QmpFileNodeParams *p) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
@@ -424,8 +388,8 @@ static int get_image_virtual_size(int fd, const char *format, bool is_block_devi
 /* Forward declarations — on_ephemeral_create_concluded routes failures through
  * the shared block-device add callbacks defined further below. */
 static int drive_info_add_fail(DriveInfo *d, int error, const char *error_desc);
-static int on_add_blockdev_stage(QmpClient *client, sd_json_variant *result,
-                                 const char *error_desc, int error, void *userdata);
+static int on_add_format_node_stage(QmpClient *client, sd_json_variant *result,
+                                    const char *error_desc, int error, void *userdata);
 static int on_add_device_add_complete(QmpClient *client, sd_json_variant *result,
                                       const char *error_desc, int error, void *userdata);
 
@@ -474,7 +438,7 @@ static int on_ephemeral_create_concluded(QmpClient *qmp, void *userdata) {
 
         slot_ref = drive_info_ref(drive);
         r = qmp_client_invoke(qmp, /* ret_slot= */ NULL, "blockdev-add", QMP_CLIENT_ARGS(fmt_args),
-                              on_add_blockdev_stage, slot_ref);
+                              on_add_format_node_stage, slot_ref);
         if (r < 0)
                 return drive_info_add_fail(drive, r, NULL);
         TAKE_PTR(slot_ref);
@@ -670,19 +634,29 @@ static int reply_qmp_error(sd_varlink *link, const char *error_desc, int error) 
 }
 
 /* After the pipelined remove-fd at add time, QEMU auto-frees the fdset when
- * raw_close (during blockdev-del) releases the last dup. So teardown only
- * needs to fire blockdev-del. */
-static void vmspawn_qmp_block_device_teardown(QmpClient *client, const char *qmp_node_name, BlockDeviceStateFlags stages) {
+ * raw_close (during blockdev-del) releases the last dup. Teardown deletes the
+ * format node first, then the file node — order matters because the format
+ * node holds a strong reference to its `file` child, which would block a
+ * file-first del with "Node X is busy: node is used as 'file' of Y". */
+static void vmspawn_qmp_block_device_teardown(QmpClient *client,
+                                              const char *qmp_node_name,
+                                              const char *qmp_file_node_name,
+                                              BlockDeviceStateFlags stages) {
         assert(client);
-        assert(qmp_node_name);
 
-        if (!FLAGS_SET(stages, BLOCK_DEVICE_STATE_BLOCKDEV_ADDED))
-                return;
+        if (FLAGS_SET(stages, BLOCK_DEVICE_STATE_BLOCKDEV_ADDED) && qmp_node_name) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
+                if (sd_json_buildo(&args, SD_JSON_BUILD_PAIR_STRING("node-name", qmp_node_name)) >= 0)
+                        (void) qmp_client_invoke(client, /* ret_slot= */ NULL, "blockdev-del", QMP_CLIENT_ARGS(args),
+                                                 on_qmp_complete, (void*) "teardown blockdev-del format");
+        }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
-        if (sd_json_buildo(&args, SD_JSON_BUILD_PAIR_STRING("node-name", qmp_node_name)) >= 0)
-                (void) qmp_client_invoke(client, /* ret_slot= */ NULL, "blockdev-del", QMP_CLIENT_ARGS(args),
-                                         on_qmp_complete, (void*) "teardown blockdev-del");
+        if (FLAGS_SET(stages, BLOCK_DEVICE_STATE_FILE_NODE_ADDED) && qmp_file_node_name) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
+                if (sd_json_buildo(&args, SD_JSON_BUILD_PAIR_STRING("node-name", qmp_file_node_name)) >= 0)
+                        (void) qmp_client_invoke(client, /* ret_slot= */ NULL, "blockdev-del", QMP_CLIENT_ARGS(args),
+                                                 on_qmp_complete, (void*) "teardown blockdev-del file");
+        }
 }
 
 /* Insert into the owning primary map and the non-owning qmp_device_id view. On
@@ -733,7 +707,8 @@ static int drive_info_add_fail(DriveInfo *d, int error, const char *error_desc) 
         /* Pin the object alive across bridge_unregister_drive() + drive_info_unref() below. */
         _cleanup_(drive_info_unrefp) DriveInfo *ref = drive_info_ref(d);
 
-        vmspawn_qmp_block_device_teardown(ref->bridge->qmp, ref->qmp_node_name, ref->state);
+        vmspawn_qmp_block_device_teardown(ref->bridge->qmp, ref->qmp_node_name,
+                                          ref->qmp_file_node_name, ref->state);
         ref->state = BLOCK_DEVICE_STATE_ADD_FAILED;
 
         if (bridge_unregister_drive(ref->bridge, ref))
@@ -782,7 +757,7 @@ static int on_add_observe_stage(
         return 0;
 }
 
-static int on_add_blockdev_stage(
+static int on_add_file_node_stage(
                 QmpClient *client,
                 sd_json_variant *result,
                 const char *error_desc,
@@ -795,11 +770,41 @@ static int on_add_blockdev_stage(
         if (error < 0)
                 return drive_info_add_fail(d, error, error_desc);
 
-        /* A sync error after blockdev-add was queued may have marked the chain FAILED.
-         * The blockdev node we just created is orphaned — tear it down retroactively
-         * and don't claim BLOCKDEV_ADDED on a drive that's already been unregistered. */
+        /* A sync error after blockdev-add(file) was queued may have marked the
+         * chain FAILED. The file node we just created is orphaned — tear it
+         * down retroactively. */
+        if (FLAGS_SET(d->state, BLOCK_DEVICE_STATE_ADD_FAILED)) {
+                vmspawn_qmp_block_device_teardown(d->bridge->qmp,
+                                                  /* qmp_node_name= */ NULL,
+                                                  d->qmp_file_node_name,
+                                                  BLOCK_DEVICE_STATE_FILE_NODE_ADDED);
+                return 0;
+        }
+
+        d->state |= BLOCK_DEVICE_STATE_FILE_NODE_ADDED;
+        return 0;
+}
+
+static int on_add_format_node_stage(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        _cleanup_(drive_info_unrefp) DriveInfo *d = ASSERT_PTR(userdata);
+        assert(client);
+
+        if (error < 0)
+                return drive_info_add_fail(d, error, error_desc);
+
+        /* A sync error after blockdev-add(format) was queued may have marked
+         * the chain FAILED. The format node we just created is orphaned —
+         * tear it down retroactively. The file node was already torn down by
+         * drive_info_add_fail at original failure time. */
         if (FLAGS_SET(d->state, BLOCK_DEVICE_STATE_ADD_FAILED)) {
                 vmspawn_qmp_block_device_teardown(d->bridge->qmp, d->qmp_node_name,
+                                                  /* qmp_file_node_name= */ NULL,
                                                   BLOCK_DEVICE_STATE_BLOCKDEV_ADDED);
                 return 0;
         }
@@ -901,6 +906,10 @@ int vmspawn_qmp_add_block_device(VmspawnQmpBridge *bridge, DriveInfo *drive) {
                 return log_oom();
         if (asprintf(&drive->qmp_device_id, "vmspawn-%" PRIu64 "-disk", drive->counter) < 0)
                 return log_oom();
+        drive->file_generation = 0;
+        if (asprintf(&drive->qmp_file_node_name, "vmspawn-%" PRIu64 "-file-%" PRIu64,
+                     drive->counter, drive->file_generation) < 0)
+                return log_oom();
         /* Auto-assigned user ids reuse qmp_device_id. */
         if (!drive->id) {
                 drive->id = strdup(drive->qmp_device_id);
@@ -939,32 +948,58 @@ int vmspawn_qmp_add_block_device(VmspawnQmpBridge *bridge, DriveInfo *drive) {
                 bridge->scsi_controller_created = true;
         }
 
-        uint64_t fdset_id;
         slot_ref = drive_info_ref(drive);
         r = qmp_fdset_add(bridge->qmp, TAKE_FD(drive->fd),
-                          on_add_observe_stage, slot_ref, &drive->fdset_path, &fdset_id);
+                          on_add_observe_stage, slot_ref, &drive->fdset_path, &drive->fdset_id);
         if (r < 0)
                 return r;
         TAKE_PTR(slot_ref);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *blockdev_args = NULL;
-        r = qmp_build_blockdev_add_inline(
-                        drive->qmp_node_name, drive->format, drive->fdset_path,
-                        FLAGS_SET(drive->flags, QMP_DRIVE_BLOCK_DEVICE) ? "host_device" : "file",
-                        drive->flags, bridge->features, &blockdev_args);
+        /* Build flags for the file-level node: RO and NO_FLUSH from the drive
+         * plus IO_URING from the bridge feature probe. */
+        QmpDriveFlags file_flags = drive->flags & (QMP_DRIVE_READ_ONLY|QMP_DRIVE_NO_FLUSH);
+        if (FLAGS_SET(bridge->features, VMSPAWN_QMP_FEATURE_IO_URING))
+                file_flags |= QMP_DRIVE_IO_URING;
+
+        QmpFileNodeParams file_params = {
+                .node_name = drive->qmp_file_node_name,
+                .filename  = drive->fdset_path,
+                .driver    = FLAGS_SET(drive->flags, QMP_DRIVE_BLOCK_DEVICE) ? "host_device" : "file",
+                .flags     = file_flags,
+        };
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *file_args = NULL;
+        r = qmp_build_blockdev_add_file(&file_params, &file_args);
         if (r < 0)
                 return r;
 
         slot_ref = drive_info_ref(drive);
-        r = qmp_client_invoke(bridge->qmp, /* ret_slot= */ NULL, "blockdev-add", QMP_CLIENT_ARGS(blockdev_args),
-                              on_add_blockdev_stage, slot_ref);
+        r = qmp_client_invoke(bridge->qmp, /* ret_slot= */ NULL, "blockdev-add", QMP_CLIENT_ARGS(file_args),
+                              on_add_file_node_stage, slot_ref);
         if (r < 0)
                 return r;
         TAKE_PTR(slot_ref);
 
-        /* Release the monitor's original fd; the blockdev-add above took a dup. */
+        QmpFormatNodeParams format_params = {
+                .node_name      = drive->qmp_node_name,
+                .format         = drive->format,
+                .file_node_name = drive->qmp_file_node_name,
+                .flags          = drive->flags,
+        };
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *format_args = NULL;
+        r = qmp_build_blockdev_add_format(&format_params, &format_args);
+        if (r < 0)
+                return r;
+
         slot_ref = drive_info_ref(drive);
-        r = qmp_fdset_remove(bridge->qmp, fdset_id, on_add_observe_stage, slot_ref);
+        r = qmp_client_invoke(bridge->qmp, /* ret_slot= */ NULL, "blockdev-add", QMP_CLIENT_ARGS(format_args),
+                              on_add_format_node_stage, slot_ref);
+        if (r < 0)
+                return r;
+        TAKE_PTR(slot_ref);
+
+        /* Release the monitor's original fd; blockdev-add(file) above took a dup. */
+        slot_ref = drive_info_ref(drive);
+        r = qmp_fdset_remove(bridge->qmp, drive->fdset_id, on_add_observe_stage, slot_ref);
         if (r < 0)
                 return r;
         TAKE_PTR(slot_ref);
@@ -1071,7 +1106,8 @@ int vmspawn_qmp_dispatch_device_deleted(VmspawnQmpBridge *bridge, sd_json_varian
         if (!drive)
                 return 0;
 
-        vmspawn_qmp_block_device_teardown(bridge->qmp, drive->qmp_node_name, drive->state);
+        vmspawn_qmp_block_device_teardown(bridge->qmp, drive->qmp_node_name,
+                                          drive->qmp_file_node_name, drive->state);
 
         assert_se(bridge_unregister_drive(bridge, drive) == drive);
         drive_info_unref(drive);
