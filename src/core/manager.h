@@ -3,6 +3,7 @@
 
 #include "sd-event.h"
 
+#include "bpf-restrict-fsaccess.h"
 #include "cgroup.h"
 #include "common-signal.h"
 #include "execute.h"
@@ -478,6 +479,16 @@ typedef struct Manager {
 
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;
+
+        /* Reference to RestrictFileSystemAccess= BPF LSM program */
+        RestrictFileSystemAccess restrict_filesystem_access;
+
+        /* Raw BPF FDs extracted from the skeleton after attach. The kernel
+         * reference chain (link FD -> bpf_link -> bpf_prog -> bpf_map) keeps
+         * programs attached and map data alive. The .bss map FD is used for
+         * targeted writes (clearing initramfs_s_dev after switch_root). */
+        int restrict_fsaccess_link_fds[_RESTRICT_FILESYSTEM_ACCESS_LINK_MAX];
+        int restrict_fsaccess_bss_map_fd;
 
         /* Allow users to configure a rate limit for Reload()/Reexecute() operations */
         RateLimit reload_reexec_ratelimit;
