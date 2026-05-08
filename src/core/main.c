@@ -568,6 +568,17 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
                 }
 
+        } else if (proc_cmdline_key_streq(key, "systemd.restrict_filesystem_access")) {
+
+                if (value) {
+                        r = restrict_filesystem_access_from_string(value);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse systemd.restrict_filesystem_access= argument '%s', ignoring: %m", value);
+                        else
+                                arg_restrict_filesystem_access = r;
+                } else
+                        arg_restrict_filesystem_access = RESTRICT_FILESYSTEM_ACCESS_EXEC;
+
         } else if (streq(key, "quiet") && !value) {
 
                 if (arg_show_status == _SHOW_STATUS_INVALID)
