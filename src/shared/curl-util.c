@@ -12,6 +12,7 @@
 #include "dlfcn-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -29,16 +30,89 @@ DLSYM_PROTOTYPE(curl_easy_strerror) = NULL;
 DLSYM_PROTOTYPE(curl_easy_header) = NULL;
 #endif
 DLSYM_PROTOTYPE(curl_getdate) = NULL;
-DLSYM_PROTOTYPE(curl_multi_add_handle) = NULL;
-DLSYM_PROTOTYPE(curl_multi_assign) = NULL;
-DLSYM_PROTOTYPE(curl_multi_cleanup) = NULL;
-DLSYM_PROTOTYPE(curl_multi_info_read) = NULL;
-DLSYM_PROTOTYPE(curl_multi_init) = NULL;
-DLSYM_PROTOTYPE(curl_multi_remove_handle) = NULL;
-DLSYM_PROTOTYPE(curl_multi_setopt) = NULL;
-DLSYM_PROTOTYPE(curl_multi_socket_action) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_add_handle) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_assign) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_cleanup) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_info_read) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_init) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_remove_handle) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_setopt) = NULL;
+static DLSYM_PROTOTYPE(curl_multi_socket_action) = NULL;
 DLSYM_PROTOTYPE(curl_slist_append) = NULL;
 DLSYM_PROTOTYPE(curl_slist_free_all) = NULL;
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(CURLM*, sym_curl_multi_cleanup, curl_multi_cleanupp, NULL);
+
+struct CurlGlue {
+        unsigned n_ref;
+        sd_event *event;
+        CURLM *curl;
+        sd_event_source *timer;
+        Hashmap *ios;
+        sd_event_source *defer;
+        Set *slots;             /* CurlSlot* — back-pointer set; floating slots are kept alive here */
+};
+
+struct CurlSlot {
+        unsigned n_ref;
+        CurlGlue *glue;         /* NULL once disconnected (callback fired, cancelled, or glue died) */
+        CURL *easy;             /* owned; cleared once the easy handle has been freed */
+        bool floating;
+        curl_finished_t callback;
+        void *userdata;
+};
+
+static void curl_slot_disconnect(CurlSlot *slot, bool unref) {
+        assert(slot);
+
+        /* Tear down the slot's connection to the glue: pull the easy handle out of the multi,
+         * curl_easy_cleanup() it, and remove the slot from the glue's lookup set. Floating
+         * slots are owned by that set, so on disconnect we drop the implicit ref (when
+         * unref=true; the recursive call from curl_slot_free passes false to avoid infinite
+         * recursion). Non-floating slots release the back-ref they held on the glue.
+         *
+         * Idempotent: once slot->glue is NULL, subsequent calls are no-ops. */
+
+        if (!slot->glue)
+                return;
+
+        CurlGlue *glue = slot->glue;
+
+        if (slot->easy) {
+                if (glue->curl)
+                        (void) sym_curl_multi_remove_handle(glue->curl, slot->easy);
+                sym_curl_easy_cleanup(slot->easy);
+                slot->easy = NULL;
+        }
+
+        set_remove(glue->slots, slot);
+        slot->glue = NULL;
+
+        if (!slot->floating)
+                curl_glue_unref(glue);
+        else if (unref)
+                curl_slot_unref(slot);
+}
+
+static CurlSlot* curl_slot_free(CurlSlot *slot) {
+        if (!slot)
+                return NULL;
+
+        curl_slot_disconnect(slot, /* unref= */ false);
+        return mfree(slot);
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(CurlSlot, curl_slot, curl_slot_free);
+
+CURL* curl_slot_get_easy(CurlSlot *slot) {
+        assert(slot);
+        return slot->easy;
+}
+
+CurlGlue* curl_slot_get_glue(CurlSlot *slot) {
+        assert(slot);
+        return slot->glue;
+}
 
 static void curl_glue_check_finished(CurlGlue *g) {
         int r;
@@ -58,8 +132,27 @@ static void curl_glue_check_finished(CurlGlue *g) {
         if (!msg)
                 return;
 
-        if (msg->msg == CURLMSG_DONE && g->on_finished)
-                g->on_finished(g, msg->easy_handle, msg->data.result);
+        if (msg->msg == CURLMSG_DONE) {
+                CURL *easy = msg->easy_handle;
+                CURLcode code = msg->data.result;
+                CurlSlot *slot = NULL;
+
+                if (sym_curl_easy_getinfo(easy, CURLINFO_PRIVATE, (char**) &slot) == CURLE_OK && slot) {
+                        /* Pin the slot across the callback: a floating slot's only
+                         * reference is the one held via the glue's slots set, and
+                         * disconnect drops it. */
+                        curl_slot_ref(slot);
+
+                        if (slot->callback) {
+                                r = slot->callback(slot, easy, code, slot->userdata);
+                                if (r < 0)
+                                        log_debug_errno(r, "Curl finished callback returned error, ignoring: %m");
+                        }
+
+                        curl_slot_disconnect(slot, /* unref= */ true);
+                        curl_slot_unref(slot);
+                }
+        }
 
         /* This is a queue, process another item soon, but do so in a later event loop iteration. */
         (void) sd_event_source_set_enabled(g->defer, SD_EVENT_ONESHOT);
@@ -210,11 +303,21 @@ static int curl_glue_on_defer(sd_event_source *s, void *userdata) {
         return 0;
 }
 
-CurlGlue *curl_glue_unref(CurlGlue *g) {
+static CurlGlue* curl_glue_free(CurlGlue *g) {
         sd_event_source *io;
+        CurlSlot *slot;
 
         if (!g)
                 return NULL;
+
+        /* Drain any slots still hanging off us. By construction only floating slots can
+         * be here: connected non-floating slots hold a glue back-ref, so glue's last ref
+         * couldn't have dropped while one was attached. disconnect(unref=true) does the
+         * floating slot's free as part of its work. set_steal_first() pops up front so
+         * forward progress doesn't depend on disconnect's internal set_remove(). */
+        while ((slot = set_steal_first(g->slots)))
+                curl_slot_disconnect(slot, /* unref= */ true);
+        g->slots = set_free(g->slots);
 
         if (g->curl)
                 sym_curl_multi_cleanup(g->curl);
@@ -229,6 +332,8 @@ CurlGlue *curl_glue_unref(CurlGlue *g) {
         sd_event_unref(g->event);
         return mfree(g);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(CurlGlue, curl_glue, curl_glue_free);
 
 int curl_glue_new(CurlGlue **glue, sd_event *event) {
         _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
@@ -259,6 +364,7 @@ int curl_glue_new(CurlGlue **glue, sd_event *event) {
                 return -ENOMEM;
 
         *g = (CurlGlue) {
+                .n_ref = 1,
                 .event = TAKE_PTR(e),
                 .curl = TAKE_PTR(c),
         };
@@ -286,7 +392,7 @@ int curl_glue_new(CurlGlue **glue, sd_event *event) {
         return 0;
 }
 
-int curl_glue_make(CURL **ret, const char *url, void *userdata) {
+int curl_glue_make(CURL **ret, const char *url) {
         _cleanup_(curl_easy_cleanupp) CURL *c = NULL;
         const char *useragent;
         int r;
@@ -306,9 +412,6 @@ int curl_glue_make(CURL **ret, const char *url, void *userdata) {
                 (void) sym_curl_easy_setopt(c, CURLOPT_VERBOSE, 1L);
 
         if (sym_curl_easy_setopt(c, CURLOPT_URL, url) != CURLE_OK)
-                return -EIO;
-
-        if (sym_curl_easy_setopt(c, CURLOPT_PRIVATE, userdata) != CURLE_OK)
                 return -EIO;
 
         useragent = strjoina(program_invocation_short_name, "/" GIT_VERSION);
@@ -340,26 +443,61 @@ int curl_glue_make(CURL **ret, const char *url, void *userdata) {
         return 0;
 }
 
-int curl_glue_add(CurlGlue *g, CURL *c) {
-        assert(g);
-        assert(c);
+int curl_glue_perform_async(
+                CurlGlue *g,
+                CURL *easy,
+                curl_finished_t cb,
+                void *userdata,
+                CurlSlot **ret_slot) {
 
-        if (sym_curl_multi_add_handle(g->curl, c) != CURLM_OK)
+        int r;
+
+        assert(g);
+        assert(easy);
+
+        _cleanup_(curl_slot_unrefp) CurlSlot *slot = new(CurlSlot, 1);
+        if (!slot)
+                return -ENOMEM;
+
+        *slot = (CurlSlot) {
+                .n_ref = 1,
+                .glue = NULL,    /* wired up below, after we've committed to the multi */
+                .easy = easy,
+                .floating = !ret_slot,
+                .callback = cb,
+                .userdata = userdata,
+        };
+
+        r = set_ensure_put(&g->slots, &trivial_hash_ops, slot);
+        if (r < 0)
+                return r;
+        assert(r > 0);
+
+        if (sym_curl_multi_add_handle(g->curl, easy) != CURLM_OK) {
+                set_remove(g->slots, slot);
                 return -EIO;
+        }
 
+        /* Stash the slot pointer on the easy handle so curl_glue_check_finished() can recover
+         * it on completion. Set this only after we've fully committed to the multi, so that
+         * error paths above don't leave a dangling pointer on the easy handle. */
+        if (sym_curl_easy_setopt(easy, CURLOPT_PRIVATE, slot) != CURLE_OK) {
+                sym_curl_multi_remove_handle(g->curl, easy);
+                set_remove(g->slots, slot);
+                return -EIO;
+        }
+
+        slot->glue = g;
+        if (!slot->floating)
+                curl_glue_ref(g);
+
+        /* Transfer the slot's single reference: to the caller for non-floating slots, or to
+         * the glue's slot set (implicitly, until disconnect drops it) for floating ones. */
+        if (ret_slot)
+                *ret_slot = slot;
+
+        TAKE_PTR(slot);
         return 0;
-}
-
-void curl_glue_remove_and_free(CurlGlue *g, CURL *c) {
-        assert(g);
-
-        if (!c)
-                return;
-
-        if (g->curl)
-                sym_curl_multi_remove_handle(g->curl, c);
-
-        sym_curl_easy_cleanup(c);
 }
 
 struct curl_slist *curl_slist_new(const char *first, ...) {

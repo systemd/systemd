@@ -195,9 +195,6 @@ int oci_pull_new(
                 .userns_fd = -EBADF,
         };
 
-        i->glue->on_finished = pull_job_curl_on_finished;
-        i->glue->userdata = i;
-
         *ret = TAKE_PTR(i);
 
         return 0;
