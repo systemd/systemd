@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+#include <sys/stat.h>
+
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -7,6 +10,7 @@
 #include "log.h"
 #include "path-util.h"
 #include "qmp-client.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "varlink-io.systemd.MachineInstance.h"
@@ -239,6 +243,62 @@ static int vl_method_remove_storage(sd_varlink *link, sd_json_variant *parameter
                 return sd_varlink_error_invalid_parameter_name(link, "name");
 
         return vmspawn_qmp_remove_block_device(ctx->bridge, link, p.name);
+}
+
+static int vl_method_replace_storage(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        VmspawnVarlinkContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                int fd_index;
+                const char *name;
+        } p = {
+                .fd_index = -1,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "fileDescriptorIndex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          voffsetof(p, fd_index), SD_JSON_MANDATORY },
+                { "name",                SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, name),     SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (isempty(p.name))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        if (p.fd_index < 0)
+                return sd_varlink_error_invalid_parameter_name(link, "fileDescriptorIndex");
+
+        _cleanup_close_ int fd = sd_varlink_take_fd(link, p.fd_index);
+        if (fd < 0)
+                return sd_varlink_error_errno(link, fd);
+
+        struct stat st;
+        if (fstat(fd, &st) < 0)
+                return sd_varlink_error_errno(link, -errno);
+        r = stat_verify_regular_or_block(&st);
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
+
+        int oflags = fcntl(fd, F_GETFL);
+        if (oflags < 0)
+                return sd_varlink_error_errno(link, -errno);
+        if (FLAGS_SET(oflags, O_PATH))
+                return sd_varlink_error_errno(link, -EBADF);
+        if ((oflags & O_ACCMODE_STRICT) == O_WRONLY)
+                return sd_varlink_error_errno(link, -EBADF);
+
+        QmpDriveFlags fd_flags = 0;
+        if (S_ISBLK(st.st_mode))
+                fd_flags |= QMP_DRIVE_BLOCK_DEVICE;
+        if ((oflags & O_ACCMODE_STRICT) == O_RDONLY)
+                fd_flags |= QMP_DRIVE_READ_ONLY;
+
+        return vmspawn_qmp_replace_block_device(ctx->bridge, link, p.name, TAKE_FD(fd), fd_flags);
+        /* Async reply via on_replace_old_blockdev_del_complete or replace_fail. */
 }
 
 static int vl_method_subscribe_events(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -478,7 +538,8 @@ int vmspawn_varlink_setup(
                         "io.systemd.MachineInstance.Describe",          vl_method_describe,
                         "io.systemd.MachineInstance.SubscribeEvents",   vl_method_subscribe_events,
                         "io.systemd.MachineInstance.AddStorage",        vl_method_add_storage,
-                        "io.systemd.MachineInstance.RemoveStorage",     vl_method_remove_storage);
+                        "io.systemd.MachineInstance.RemoveStorage",     vl_method_remove_storage,
+                        "io.systemd.MachineInstance.ReplaceStorage",    vl_method_replace_storage);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind varlink methods: %m");
 
