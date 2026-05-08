@@ -551,6 +551,7 @@ static bool hash_table_is_valid(uint64_t offset, uint64_t size, uint64_t header_
 
 static int journal_file_verify_header(JournalFile *f) {
         uint64_t arena_size, header_size;
+        int r;
 
         assert(f);
         assert(f->header);
@@ -590,8 +591,19 @@ static int journal_file_verify_header(JournalFile *f) {
 
         arena_size = le64toh(READ_NOW(f->header->arena_size));
 
-        if (UINT64_MAX - header_size < arena_size || header_size + arena_size > (uint64_t) f->last_stat.st_size)
+        if (UINT64_MAX - header_size < arena_size)
                 return -ENODATA;
+        if (header_size + arena_size > (uint64_t) f->last_stat.st_size) {
+                /* The cached stat may be older than the header read above. The writer extends the file
+                 * before bumping arena_size, so refreshing the stat once and re-checking should be
+                 * sufficient to tell a transient race apart from actual corruption. */
+                r = journal_file_fstat(f);
+                if (r < 0)
+                        return r;
+
+                if (header_size + arena_size > (uint64_t) f->last_stat.st_size)
+                        return -ENODATA;
+        }
 
         uint64_t tail_object_offset = le64toh(f->header->tail_object_offset);
         if (!offset_is_valid(tail_object_offset, header_size, UINT64_MAX))
@@ -694,7 +706,6 @@ static int journal_file_verify_header(JournalFile *f) {
         if (journal_file_writable(f)) {
                 sd_id128_t machine_id;
                 uint8_t state;
-                int r;
 
                 r = sd_id128_get_machine(&machine_id);
                 if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r)) /* Gracefully handle the machine ID not being initialized yet */
