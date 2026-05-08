@@ -9,7 +9,9 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "hostname-setup.h"
+#include "log.h"
 #include "metrics.h"
+#include "os-util.h"
 #include "report-basic.h"
 #include "virt.h"
 
@@ -98,6 +100,68 @@ static int machine_id_generate(const MetricFamily *mf, sd_varlink *link, void *u
                         /* fields= */ NULL);
 }
 
+static int os_release_generate(const MetricFamily mf[static 12], sd_varlink *link, void *userdata) {
+        char* values[13] = {};
+        CLEANUP_ELEMENTS(values, free_many_charp);
+        int r;
+
+        assert(mf && mf->name);
+        assert(link);
+
+        r = parse_os_release(NULL,
+                             "PRETTY_NAME",   &values[0],
+                             "NAME",          &values[1],
+                             "ID",            &values[2],
+                             "CPE_NAME",      &values[3],
+                             "VARIANT_ID",    &values[4],
+                             "VERSION_ID",    &values[5],
+                             "BUILD_ID",      &values[6],
+                             "IMAGE_VERSION", &values[7],
+                             "IMAGE_ID",      &values[8],
+                             "SUPPORT_END",   &values[9],
+                             "EXPERIMENT",    &values[10],
+                             "SYSEXT_LEVEL",  &values[12],
+                             "CONTEXT_LEVEL", &values[12]);
+        if (r < 0)
+                return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to read os-release file, ignoring: %m");
+
+        static const char* fields[] = {
+                "NAME",
+                "ID",
+                "CPE_NAME",
+                "VARIANT_ID",
+                "VERSION_ID",
+                "BUILD_ID",
+                "IMAGE_VERSION",
+                "IMAGE_ID",
+                "SUPPORT_END",
+                "EXPERIMENT",
+                "SYSEXT_LEVEL",
+                "CONTEXT_LEVEL",
+        };
+        assert_cc(1 + ELEMENTSOF(fields)== ELEMENTSOF(values));
+
+        for (size_t i = 0; i < ELEMENTSOF(fields); i++) {
+                const char *v = values[i + 1];
+                if (i == 0 && values[0])
+                        v = values[0];  /* Prefer PRETTY_NAME to NAME */
+
+                if (v) {
+                        r = metric_build_send_string(
+                                        mf + i,
+                                        link,
+                                        /* object= */ NULL,
+                                        v,
+                                        /* fields= */ NULL);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
 static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         assert(mf && mf->name);
         assert(link);
@@ -113,6 +177,14 @@ static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, voi
                         virtualization_to_string(v),
                         /* fields= */ NULL);
 }
+
+#define OS_RELEASE_STANDARD_FIELD(name)                                 \
+        {                                                               \
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "OSRelease." name,       \
+                "Operating system identification (" name " field from os-release)", \
+                METRIC_FAMILY_TYPE_STRING,                              \
+                NULL,                                                   \
+        }
 
 static const MetricFamily metric_family_table[] = {
         /* Keep entries ordered alphabetically */
@@ -146,6 +218,24 @@ static const MetricFamily metric_family_table[] = {
                 METRIC_FAMILY_TYPE_STRING,
                 machine_id_generate,
         },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "OSRelease.NAME",
+                "Operating system human-readable name (PRETTY_NAME or NAME field from os-release)",
+                METRIC_FAMILY_TYPE_STRING,
+                os_release_generate,
+        },
+        OS_RELEASE_STANDARD_FIELD("ID"),
+        OS_RELEASE_STANDARD_FIELD("CPE_NAME"),
+        OS_RELEASE_STANDARD_FIELD("VARIANT_ID"),
+        OS_RELEASE_STANDARD_FIELD("VERSION_ID"),
+        OS_RELEASE_STANDARD_FIELD("BUILD_ID"),
+        OS_RELEASE_STANDARD_FIELD("IMAGE_VERSION"),
+        OS_RELEASE_STANDARD_FIELD("IMAGE_ID"),
+        OS_RELEASE_STANDARD_FIELD("SUPPORT_END"),
+        OS_RELEASE_STANDARD_FIELD("EXPERIMENT"),
+        OS_RELEASE_STANDARD_FIELD("SYSEXT_LEVEL"),
+        OS_RELEASE_STANDARD_FIELD("CONTEXT_LEVEL"),
+        /* Keep those ^ in sync with os_release_generate. */
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "Virtualization",
                 "Virtualization type",
