@@ -469,7 +469,7 @@ int manager_udev_process_wiphy(Manager *m, sd_device *device, sd_device_action_t
                 return 0;
         }
 
-        return device_unref_and_replace(w->dev, action == SD_DEVICE_REMOVE ? NULL : device);
+        return device_unref_and_replace_new_ref(w->dev, action == SD_DEVICE_REMOVE ? NULL : device);
 }
 
 int manager_udev_process_rfkill(Manager *m, sd_device *device, sd_device_action_t action) {
@@ -501,5 +501,5 @@ int manager_udev_process_rfkill(Manager *m, sd_device *device, sd_device_action_
                 return 0;
         }
 
-        return device_unref_and_replace(w->rfkill, action == SD_DEVICE_REMOVE ? NULL : device);
+        return device_unref_and_replace_new_ref(w->rfkill, action == SD_DEVICE_REMOVE ? NULL : device);
 }
