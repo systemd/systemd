@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-json.h"
+
 #include "forward.h"
 #include "sha256.h"
 
@@ -9,6 +11,7 @@
 typedef enum ManifestFormat {
         MANIFEST_FORMAT_LIST,       /* A simple list of file names, one per line */
         MANIFEST_FORMAT_MTREE,      /* BSD mtree(8) */
+        MANIFEST_FORMAT_UAPI16,     /* UAPI.16 Manifest */
         _MANIFEST_FORMAT_MAX,
         _MANIFEST_FORMAT_INVALID = -EINVAL,
 } ManifestFormat;
@@ -26,7 +29,9 @@ typedef enum ManifestField {
         MANIFEST_FIELD_HARDLINK   = 1 << 7, /* Hardlink grouping information (only UAPI.16 supports this) */
         MANIFEST_FIELD_MTIME      = 1 << 8, /* Modification time (not in the default set, opt-in) */
         MANIFEST_FIELD_USER_XATTR = 1 << 9, /* Extended attributes in the "user." namespace (only UAPI.16) */
-        _MANIFEST_FIELD_ALL       = (1 << 10) - 1,
+        MANIFEST_FIELD_USER_NAME  = 1 << 10, /* Owning user name, resolved via the host's user database (opt-in) */
+        MANIFEST_FIELD_GROUP_NAME = 1 << 11, /* Owning group name, resolved via the host's user database (opt-in) */
+        _MANIFEST_FIELD_ALL       = (1 << 12) - 1,
         /* What systemd-dissect --mtree/--manifest have always generated. */
         _MANIFEST_FIELD_DEFAULT   = MANIFEST_FIELD_MODE|MANIFEST_FIELD_UID|MANIFEST_FIELD_GID|MANIFEST_FIELD_SIZE|
                                     MANIFEST_FIELD_HASH|MANIFEST_FIELD_SYMLINK|MANIFEST_FIELD_DEVICE|MANIFEST_FIELD_HARDLINK|
@@ -39,12 +44,28 @@ typedef struct ManifestContext {
         ManifestField fields;
         FILE *output;           /* not owned */
         bool color;
+
+        /* Track how many inodes we skipped because not representable in this manifest format */
+        uint64_t n_skipped;
+
+        /* Caches of resolved user/group names, keyed by UID/GID, "" if not resolvable */
+        Hashmap *user_names;
+        Hashmap *group_names;
+
+        /* Hardlink database fields (only UAPI.16) */
+        int db_fd;
+        char *db_path;
+        uint64_t counter;
+
+        sd_json_format_flags_t json_format_flags;
 } ManifestContext;
 
 #define MANIFEST_CONTEXT_NULL                              \
         (const ManifestContext) {                          \
                 .format = _MANIFEST_FORMAT_INVALID,        \
                 .fields = _MANIFEST_FIELD_DEFAULT,         \
+                .db_fd = -EBADF,                           \
+                .json_format_flags = SD_JSON_FORMAT_OFF,   \
         }
 
 void manifest_context_done(ManifestContext *c);

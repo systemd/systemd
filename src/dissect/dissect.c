@@ -23,7 +23,6 @@
 #include "dissect-image.h"
 #include "env-util.h"
 #include "errno-util.h"
-#include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -70,6 +69,7 @@ static enum {
         ACTION_DETACH,
         ACTION_LIST,
         ACTION_MTREE,
+        ACTION_UAPI16,
         ACTION_WITH,
         ACTION_COPY_FROM,
         ACTION_COPY_TO,
@@ -134,6 +134,7 @@ COMMAND(
                "--detach PATH\0"
                "--list IMAGE\0"
                "--mtree IMAGE\0"
+               "--uapi16 IMAGE\0"
                "--with IMAGE [COMMAND…]\0"
                "--copy-from IMAGE PATH [TARGET]\0"
                "--copy-to IMAGE [SOURCE] PATH\0"
@@ -451,6 +452,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_flags |= DISSECT_IMAGE_READ_ONLY;
                         break;
 
+                OPTION_LONG("uapi16", NULL, "Show UAPI.16 manifest of OS image"):
+                        arg_action = ACTION_UAPI16;
+                        arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                        break;
+
                 OPTION_FULL(OPTION_STOPS_PARSING, /* sc= */ 0, "with", NULL, "Mount, run command, unmount"):
                         arg_action = ACTION_WITH;
                         break;
@@ -554,6 +560,15 @@ static int parse_argv(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
                 break;
+
+
+        case ACTION_UAPI16:
+                /* UAPI.16 is always JSON, hence default to a good JSON mode. We turn on color, but not
+                 * pretty alignment, so that each file is in one row */
+                if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+                        arg_json_format_flags = SD_JSON_FORMAT_COLOR_AUTO;
+
+                _fallthrough_;
 
         case ACTION_LIST:
         case ACTION_MTREE:
@@ -1141,14 +1156,13 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
 
         return 0;
 }
-
-static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopDevice *d, int userns_fd) {
+static int action_manifest_or_copy_or_make_archive(DissectedImage *m, LoopDevice *d, int userns_fd) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_free_ char *t = NULL;
         const char *root;
         int r;
 
-        assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_MAKE_ARCHIVE, ACTION_SHIFT));
+        assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_UAPI16, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_MAKE_ARCHIVE, ACTION_SHIFT));
 
         /* Determine whether to copy ownership:
          * --copy-ownership=yes: always try to preserve ownership
@@ -1353,7 +1367,8 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
         }
 
         case ACTION_LIST:
-        case ACTION_MTREE: {
+        case ACTION_MTREE:
+        case ACTION_UAPI16: {
                 _cleanup_close_ int dfd = -EBADF;
 
                 dfd = open(root, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
@@ -1365,12 +1380,19 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 _cleanup_(manifest_context_done) ManifestContext mc = MANIFEST_CONTEXT_NULL;
                 mc.color = colors_enabled();
                 mc.format = (arg_action == ACTION_LIST) ? MANIFEST_FORMAT_LIST :
-                                                          MANIFEST_FORMAT_MTREE;
+                           (arg_action == ACTION_MTREE) ? MANIFEST_FORMAT_MTREE :
+                                                          MANIFEST_FORMAT_UAPI16;
                 SET_FLAG(mc.fields, MANIFEST_FIELD_HASH, arg_mtree_hash);
+                mc.json_format_flags = arg_json_format_flags;
 
                 r = manifest_make(&mc, dfd);
                 if (r < 0)
                         return r;
+
+                if (mc.n_skipped > 0) {
+                        log_error("%" PRIu64 " entries skipped, as they were not representable in the manifest.", mc.n_skipped);
+                        return -EUCLEAN;
+                }
 
                 return 0;
         }
@@ -1997,11 +2019,12 @@ static int run(int argc, char *argv[]) {
 
         case ACTION_LIST:
         case ACTION_MTREE:
+        case ACTION_UAPI16:
         case ACTION_COPY_FROM:
         case ACTION_COPY_TO:
         case ACTION_MAKE_ARCHIVE:
         case ACTION_SHIFT:
-                return action_list_or_mtree_or_copy_or_make_archive(m, d, userns_fd);
+                return action_manifest_or_copy_or_make_archive(m, d, userns_fd);
 
         case ACTION_WITH:
                 return action_with(m, d);
