@@ -63,9 +63,13 @@ assert_cc(offsetof(struct restrict_fsaccess_bss, protected_map_id_verity) ==
 assert_cc(offsetof(struct restrict_fsaccess_bss, protected_map_id_bss) ==
           offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0]), protected_map_id_bss));
 
-/* Build the skeleton links array indexed by the link enum. */
+/* Build the skeleton links array indexed by the link enum.
+ * For BDEV_SETINTEGRITY, use whichever variant was loaded (full or compat).
+ * This compat logic can be removed once the kernel baseline includes
+ * 1271a40eeafa ("bpf: Allow access to const void pointer arguments"). */
 #define RESTRICT_FSACCESS_LINKS(obj) {                                                                      \
-        [RESTRICT_FILESYSTEM_ACCESS_LINK_BDEV_SETINTEGRITY] = (obj)->links.restrict_fsaccess_bdev_setintegrity,          \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BDEV_SETINTEGRITY] = (obj)->links.restrict_fsaccess_bdev_setintegrity ?:        \
+                                                 (obj)->links.restrict_fsaccess_bdev_setintegrity_compat,   \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BDEV_FREE]         = (obj)->links.restrict_fsaccess_bdev_free,                  \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CHECK]        = (obj)->links.restrict_fsaccess_bprm_check,                 \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_FILE]         = (obj)->links.restrict_fsaccess_mmap_file,                  \
@@ -114,6 +118,11 @@ static int prepare_restrict_fsaccess_bpf(struct restrict_fsaccess_bpf **ret) {
 
         assert(ret);
 
+        /* Try the preferred version first — it reads the const void *value
+         * argument for defense-in-depth. On kernels before v6.16 (missing
+         * 1271a40eeafa) the verifier rejects loads from const void * context
+         * arguments, so we fall back to the _compat variant that only reads
+         * the size argument via raw ctx access. */
         obj = restrict_fsaccess_bpf__open();
         if (!obj)
                 return log_error_errno(errno, "bpf-restrict-fsaccess: Failed to open BPF object: %m");
@@ -122,10 +131,37 @@ static int prepare_restrict_fsaccess_bpf(struct restrict_fsaccess_bpf **ret) {
         if (r < 0)
                 return log_error_errno(r, "bpf-restrict-fsaccess: Failed to size hash table: %m");
 
+        r = sym_bpf_program__set_autoload(obj->progs.restrict_fsaccess_bdev_setintegrity_compat, false);
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to disable compat program: %m");
+
+        r = restrict_fsaccess_bpf__load(obj);
+        if (r >= 0) {
+                log_debug("bpf-restrict-fsaccess: Loaded with full const void * access.");
+                *ret = TAKE_PTR(obj);
+                return 0;
+        }
+
+        log_debug_errno(r, "bpf-restrict-fsaccess: Full version failed to load (%m), trying compat variant.");
+        obj = restrict_fsaccess_bpf_free(obj);
+
+        obj = restrict_fsaccess_bpf__open();
+        if (!obj)
+                return log_error_errno(errno, "bpf-restrict-fsaccess: Failed to reopen BPF object: %m");
+
+        r = sym_bpf_map__set_max_entries(obj->maps.verity_devices, DMVERITY_DEVICES_MAX);
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to size hash table: %m");
+
+        r = sym_bpf_program__set_autoload(obj->progs.restrict_fsaccess_bdev_setintegrity, false);
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to disable full program: %m");
+
         r = restrict_fsaccess_bpf__load(obj);
         if (r < 0)
-                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to load BPF object: %m");
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to load BPF object (compat): %m");
 
+        log_debug("bpf-restrict-fsaccess: Loaded with compat bdev_setintegrity.");
         *ret = TAKE_PTR(obj);
         return 0;
 }
