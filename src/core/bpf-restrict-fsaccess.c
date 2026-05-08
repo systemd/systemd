@@ -31,6 +31,10 @@ const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCESS_LINK_
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CHECK]        = "restrict-fsaccess-bprm-check-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_FILE]         = "restrict-fsaccess-mmap-file-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_FILE_MPROTECT]     = "restrict-fsaccess-file-mprotect-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_PTRACE_GUARD]      = "restrict-fsaccess-ptrace-guard-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_MAP_GUARD]     = "restrict-fsaccess-bpf-map-guard-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = "restrict-fsaccess-bpf-prog-guard-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = "restrict-fsaccess-bpf-guard-link",
 };
 
 #if BPF_FRAMEWORK
@@ -45,8 +49,19 @@ static struct restrict_fsaccess_bpf *restrict_fsaccess_bpf_free(struct restrict_
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct restrict_fsaccess_bpf *, restrict_fsaccess_bpf_free);
 
-/* Verify that restrict_fsaccess_bss matches the skeleton's .bss layout */
+/* Verify that restrict_fsaccess_bss matches the skeleton's .bss layout. The sizeof
+ * check catches field additions/removals; the offsetof checks catch field
+ * reordering. Field order in restrict_fsaccess_bss must match the BPF global
+ * declaration order in restrict-fsaccess.bpf.c — this is what bpftool uses for the
+ * generated struct. The read-modify-write in restrict_fsaccess_clear_initramfs_trust()
+ * depends on this layout. */
 assert_cc(sizeof(struct restrict_fsaccess_bss) == sizeof_field(struct restrict_fsaccess_bpf, bss[0]));
+assert_cc(offsetof(struct restrict_fsaccess_bss, initramfs_s_dev) ==
+          offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initramfs_s_dev));
+assert_cc(offsetof(struct restrict_fsaccess_bss, protected_map_id_verity) ==
+          offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0]), protected_map_id_verity));
+assert_cc(offsetof(struct restrict_fsaccess_bss, protected_map_id_bss) ==
+          offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0]), protected_map_id_bss));
 
 /* Build the skeleton links array indexed by the link enum. */
 #define RESTRICT_FSACCESS_LINKS(obj) {                                                                      \
@@ -55,6 +70,10 @@ assert_cc(sizeof(struct restrict_fsaccess_bss) == sizeof_field(struct restrict_f
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CHECK]        = (obj)->links.restrict_fsaccess_bprm_check,                 \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_FILE]         = (obj)->links.restrict_fsaccess_mmap_file,                  \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_FILE_MPROTECT]     = (obj)->links.restrict_fsaccess_file_mprotect,              \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_PTRACE_GUARD]      = (obj)->links.restrict_fsaccess_ptrace_guard,               \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_MAP_GUARD]     = (obj)->links.restrict_fsaccess_bpf_map_guard,              \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = (obj)->links.restrict_fsaccess_bpf_prog_guard,             \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = (obj)->links.restrict_fsaccess_bpf_guard,                  \
 }
 
 static bool dm_verity_require_signatures(void) {
@@ -232,6 +251,43 @@ static int bpf_get_link_ids(int fd, uint32_t *ret_link_id, uint32_t *ret_prog_id
         return 0;
 }
 
+/* Populate guard globals with kernel-assigned IDs so the guard hooks block
+ * non-PID1 access to our maps/progs/links via the bpf() syscall. */
+int bpf_restrict_fsaccess_populate_guard(struct restrict_fsaccess_bpf *obj) {
+        int r;
+
+        assert(obj);
+
+        struct bpf_link *links[] = RESTRICT_FSACCESS_LINKS(obj);
+        assert_cc(ELEMENTSOF(links) == _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX);
+
+        /* Map IDs */
+        r = bpf_get_map_id(sym_bpf_map__fd(obj->maps.verity_devices), &obj->bss->protected_map_id_verity);
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to get verity_devices map ID: %m");
+
+        r = bpf_get_map_id(sym_bpf_map__fd(obj->maps.bss), &obj->bss->protected_map_id_bss);
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to get .bss map ID: %m");
+
+        /* Link and program IDs (each link knows its associated program) */
+        FOREACH_ELEMENT(link, links) {
+                size_t idx = link - links;
+
+                r = bpf_get_link_ids(sym_bpf_link__fd(*link),
+                                     &obj->bss->protected_link_ids[idx],
+                                     &obj->bss->protected_prog_ids[idx]);
+                if (r < 0)
+                        return log_error_errno(r, "bpf-restrict-fsaccess: Failed to get link/prog IDs for %s: %m",
+                                               restrict_fsaccess_link_names[idx]);
+        }
+
+        log_info("bpf-restrict-fsaccess: Guard globals populated (verity_map=%u, bss_map=%u)",
+                 (unsigned) obj->bss->protected_map_id_verity,
+                 (unsigned) obj->bss->protected_map_id_bss);
+        return 0;
+}
+
 /* Validate that deserialized FDs actually reference our LSM BPF links. A
  * corrupted serialization file could leave FDs pointing at arbitrary kernel
  * objects; a stale FD could point at a BPF link of an entirely different type
@@ -344,12 +400,18 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
 
         log_info("bpf-restrict-fsaccess: LSM BPF programs attached");
 
+        /* Now that all programs are attached, populate the guard's globals with
+         * the kernel-assigned IDs of our maps, programs, and links. From this
+         * point on, non-PID1 processes cannot obtain FDs to our BPF objects. */
+        r = bpf_restrict_fsaccess_populate_guard(obj);
+        if (r < 0)
+                return r;
+
         /* Extract owned FDs from the skeleton. These keep the kernel BPF objects
          * alive after the skeleton is destroyed. Destroying the skeleton unmaps
-         * the .bss page from our address space so no BPF state is reachable via
-         * /proc/1/mem. */
+         * the .bss page from our address space so no BPF state (guard globals,
+         * map IDs, initramfs_s_dev) is reachable via /proc/1/mem. */
         struct bpf_link *links[] = RESTRICT_FSACCESS_LINKS(obj);
-
         FOREACH_ELEMENT(link, links) {
                 size_t idx = link - links;
 
@@ -416,6 +478,10 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
 
         return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                  "bpf-restrict-fsaccess: RestrictFileSystemAccess= requested but BPF framework is not compiled in.");
+}
+
+int bpf_restrict_fsaccess_populate_guard(struct restrict_fsaccess_bpf *obj) {
+        return 0;
 }
 
 int bpf_restrict_fsaccess_close_initramfs_trust(Manager *m) {
