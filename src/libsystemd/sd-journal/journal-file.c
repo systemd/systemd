@@ -564,7 +564,7 @@ static int journal_file_verify_header(JournalFile *f) {
         if (warn_wrong_flags(f, false))
                 return -EPROTONOSUPPORT;
 
-        /* When open for writing we refuse to open files with compatible flags, too. */
+        /* When open for writing we refuse to open files with incompatible flags, too. */
         if (journal_file_writable(f) && warn_wrong_flags(f, true))
                 return -EPROTONOSUPPORT;
 
