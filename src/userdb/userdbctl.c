@@ -1894,7 +1894,8 @@ static int run(int argc, char *argv[]) {
                 if (!e)
                         return log_oom();
 
-                if (setenv("SYSTEMD_ONLY_USERDB", e, true) < 0)
+                r = RET_NERRNO(setenv("SYSTEMD_ONLY_USERDB", e, true));
+                if (r < 0)
                         return log_error_errno(r, "Failed to set $SYSTEMD_ONLY_USERDB: %m");
 
                 log_info("Enabled services: %s", e);
