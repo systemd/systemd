@@ -117,7 +117,7 @@ static int property_get_idle_hint(
         assert(bus);
         assert(reply);
 
-        return sd_bus_message_append(reply, "b", session_get_idle_hint(s, /* dual_timestamp= */ NULL));
+        return sd_bus_message_append(reply, "b", session_get_idle_hint(s, /* t= */ NULL));
 }
 
 static int property_get_can_idle(
