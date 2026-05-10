@@ -6,7 +6,7 @@
 #include "sd-event.h"
 #include "sd-json.h"
 
-#include "dhcp-client-internal.h"
+#include "dhcp-client-internal.h"  /* IWYU pragma: keep */
 #include "dhcp-lease-internal.h"
 #include "dhcp-message.h"
 #include "fd-util.h"
