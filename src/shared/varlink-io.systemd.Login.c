@@ -230,9 +230,60 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Runtime information of the seat"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, SeatRuntime, 0));
 
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                InhibitMode,
+                SD_VARLINK_FIELD_COMMENT("Hard inhibition; blocks the operation entirely"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(block),
+                SD_VARLINK_FIELD_COMMENT("Weak hard inhibition; like block, but the user who set it can override it without polkit authorization"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(block_weak),
+                SD_VARLINK_FIELD_COMMENT("Soft inhibition; delays the operation but ultimately permits it"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(delay));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                InhibitWhat,
+                SD_VARLINK_DEFINE_ENUM_VALUE(shutdown),
+                SD_VARLINK_DEFINE_ENUM_VALUE(sleep),
+                SD_VARLINK_DEFINE_ENUM_VALUE(idle),
+                SD_VARLINK_DEFINE_ENUM_VALUE(handle_power_key),
+                SD_VARLINK_DEFINE_ENUM_VALUE(handle_suspend_key),
+                SD_VARLINK_DEFINE_ENUM_VALUE(handle_hibernate_key),
+                SD_VARLINK_DEFINE_ENUM_VALUE(handle_lid_switch),
+                SD_VARLINK_DEFINE_ENUM_VALUE(handle_reboot_key));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                InhibitorContext,
+                SD_VARLINK_FIELD_COMMENT("The inhibitor identifier"),
+                SD_VARLINK_DEFINE_FIELD(Id, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("What is being inhibited"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(What, InhibitWhat, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("A human-readable descriptive string of who is taking the inhibition"),
+                SD_VARLINK_DEFINE_FIELD(Who, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("A human-readable descriptive string of why the inhibition is taken"),
+                SD_VARLINK_DEFINE_FIELD(Why, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The inhibition mode"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Mode, InhibitMode, 0),
+                SD_VARLINK_FIELD_COMMENT("The UID of the user taking the inhibition"),
+                SD_VARLINK_DEFINE_FIELD(UID, SD_VARLINK_INT, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                InhibitorRuntime,
+                SD_VARLINK_FIELD_COMMENT("The PID of the process taking the inhibition"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(PID, ProcessId, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The inhibitor timestamps"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Since, Timestamp, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                ListInhibitors,
+                SD_VARLINK_REQUIRES_MORE,
+                SD_VARLINK_FIELD_COMMENT("Configuration of the inhibitor"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, InhibitorContext, 0),
+                SD_VARLINK_FIELD_COMMENT("Runtime information of the inhibitor"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, InhibitorRuntime, 0));
+
 static SD_VARLINK_DEFINE_ERROR(NoSuchSession);
 static SD_VARLINK_DEFINE_ERROR(NoSuchUser);
 static SD_VARLINK_DEFINE_ERROR(NoSuchSeat);
+static SD_VARLINK_DEFINE_ERROR(NoSuchInhibitor);
 static SD_VARLINK_DEFINE_ERROR(AlreadySessionMember);
 static SD_VARLINK_DEFINE_ERROR(VirtualTerminalAlreadyTaken);
 static SD_VARLINK_DEFINE_ERROR(TooManySessions);
@@ -259,26 +310,38 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_CreateSession,
                 SD_VARLINK_SYMBOL_COMMENT("Releases an existing session. Currently, will be refused unless originating from the session to release itself."),
                 &vl_method_ReleaseSession,
-                SD_VARLINK_SYMBOL_COMMENT("Lists current sessions. If an ID or PID filter is provided, returns the single matching session; otherwise streams all current sessions (requires the 'more' flag)."),
+                SD_VARLINK_SYMBOL_COMMENT("Lists current sessions. If an Id or PID filter is provided, returns the single matching session; otherwise streams all current sessions (requires the 'more' flag)."),
                 &vl_method_ListSessions,
                 SD_VARLINK_SYMBOL_COMMENT("Configuration aspects of a user"),
                 &vl_type_UserContext,
                 SD_VARLINK_SYMBOL_COMMENT("Runtime state and dynamic information of a user"),
                 &vl_type_UserRuntime,
-                SD_VARLINK_SYMBOL_COMMENT("Lists current users. If a UID or PID filter is provided, returns the single matching user; otherwise streams all current users (requires the 'more' flag). If called with no parameters and no 'more' flag, resolves to the caller's user."),
+                SD_VARLINK_SYMBOL_COMMENT("Lists current users. If a UID or PID filter is provided, returns the single matching user; otherwise streams all current users (requires the 'more' flag)."),
                 &vl_method_ListUsers,
                 SD_VARLINK_SYMBOL_COMMENT("Configuration aspects of a seat"),
                 &vl_type_SeatContext,
                 SD_VARLINK_SYMBOL_COMMENT("Runtime state and dynamic information of a seat"),
                 &vl_type_SeatRuntime,
-                SD_VARLINK_SYMBOL_COMMENT("Lists current seats. If an Id filter is provided (or the caller has a session), returns the single matching seat; otherwise streams all current seats (requires the 'more' flag). If called with no parameters and no 'more' flag, resolves to the caller's seat."),
+                SD_VARLINK_SYMBOL_COMMENT("Lists current seats. If an Id filter is provided, returns the single matching seat; otherwise streams all current seats (requires the 'more' flag)."),
                 &vl_method_ListSeats,
+                SD_VARLINK_SYMBOL_COMMENT("Inhibition mode"),
+                &vl_type_InhibitMode,
+                SD_VARLINK_SYMBOL_COMMENT("Operations that can be inhibited"),
+                &vl_type_InhibitWhat,
+                SD_VARLINK_SYMBOL_COMMENT("Configuration aspects of an inhibitor"),
+                &vl_type_InhibitorContext,
+                SD_VARLINK_SYMBOL_COMMENT("Runtime state and dynamic information of an inhibitor"),
+                &vl_type_InhibitorRuntime,
+                SD_VARLINK_SYMBOL_COMMENT("Lists all current inhibitors."),
+                &vl_method_ListInhibitors,
                 SD_VARLINK_SYMBOL_COMMENT("No session by this name found"),
                 &vl_error_NoSuchSession,
                 SD_VARLINK_SYMBOL_COMMENT("No seat by this name found"),
                 &vl_error_NoSuchSeat,
                 SD_VARLINK_SYMBOL_COMMENT("No user by this UID found"),
                 &vl_error_NoSuchUser,
+                SD_VARLINK_SYMBOL_COMMENT("No inhibitor found"),
+                &vl_error_NoSuchInhibitor,
                 SD_VARLINK_SYMBOL_COMMENT("Process already member of a session"),
                 &vl_error_AlreadySessionMember,
                 SD_VARLINK_SYMBOL_COMMENT("The specified virtual terminal (VT) is already taken by another session"),
