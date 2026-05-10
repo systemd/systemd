@@ -200,11 +200,6 @@ static int dhcp_server_parse_message(sd_dhcp_server *server, const struct iovec 
         /* Maximum Message Size: optional */
         (void) dhcp_request_set_maximum_message_size(req);
 
-        if (req->max_message_size >= sizeof(DHCPPacket))
-                req->max_optlen = req->max_message_size - sizeof(DHCPPacket);
-        else
-                req->max_optlen = DHCP_MIN_OPTIONS_SIZE;
-
         /* Lifetime: optional */
         (void) dhcp_request_set_lifetime(req, server);
 
