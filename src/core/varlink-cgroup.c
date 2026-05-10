@@ -275,6 +275,7 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_BOOLEAN("MemoryZSwapWriteback", c->memory_zswap_writeback),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("AllowedMemoryNodes", cpuset_build_json, &c->cpuset_mems),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("StartupAllowedMemoryNodes", cpuset_build_json, &c->startup_cpuset_mems),
+                        JSON_BUILD_PAIR_ENUM("CPUSetPartition", cpuset_partition_to_string(c->cpuset_partition)),
 
                         /* Process Accounting and Control */
                         SD_JSON_BUILD_PAIR_BOOLEAN("TasksAccounting", c->tasks_accounting),
