@@ -14,6 +14,7 @@
 #include "login-util.h"
 #include "logind.h"
 #include "logind-dbus.h"
+#include "logind-inhibit.h"
 #include "logind-seat.h"
 #include "logind-session.h"
 #include "logind-shutdown.h"
@@ -672,6 +673,40 @@ static int vl_method_list_seats(sd_varlink *link, sd_json_variant *parameters, s
         return 0;
 }
 
+static int vl_method_list_inhibitors(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        /* IDL uses SD_VARLINK_REQUIRES_MORE, so the framework rejects non-more calls before this handler. */
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        /* Required for multi-reply streaming: sd_varlink_reply() only stashes the previous reply (for
+         * the 'continues' flag machinery) when v->sentinel is set. Pass NULL to send an empty reply
+         * (not an error) when the inhibitor hashmap is empty — this method has no point-lookup, so an
+         * empty list is a valid result, not a "not found" failure. */
+        r = sd_varlink_set_sentinel(link, /* error_id= */ NULL);
+        if (r < 0)
+                return r;
+
+        Inhibitor *inhibitor;
+        HASHMAP_FOREACH(inhibitor, m->inhibitors) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = inhibitor_build_json(inhibitor, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_varlink_reply(link, v);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int vl_method_release_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -847,6 +882,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.ListSessions",     vl_method_list_sessions,
                         "io.systemd.Login.ListUsers",        vl_method_list_users,
                         "io.systemd.Login.ListSeats",        vl_method_list_seats,
+                        "io.systemd.Login.ListInhibitors",   vl_method_list_inhibitors,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);

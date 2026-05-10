@@ -5,5 +5,7 @@
 
 extern const sd_varlink_symbol vl_type_SessionType;
 extern const sd_varlink_symbol vl_type_SessionClass;
+extern const sd_varlink_symbol vl_type_InhibitMode;
+extern const sd_varlink_symbol vl_type_InhibitWhat;
 
 extern const sd_varlink_interface vl_interface_io_systemd_Login;
