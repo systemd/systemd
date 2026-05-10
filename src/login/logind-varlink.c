@@ -459,6 +459,133 @@ static int vl_method_list_sessions(sd_varlink *link, sd_json_variant *parameters
         return 0;
 }
 
+static int manager_varlink_get_user_by_uid_or_pidref(
+                Manager *m,
+                uid_t uid,
+                const PidRef *pidref,
+                User **ret) {
+
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        /* Resolves a user by UID and/or PID. At least one filter must be set. If both are set they must
+         * reference the same user, otherwise -ESRCH is returned. Returns -ESRCH on "not found". Returns
+         * negative errno on other failures. */
+
+        User *by_uid = NULL;
+        if (uid_is_valid(uid)) {
+                by_uid = hashmap_get(m->users, UID_TO_PTR(uid));
+                if (!by_uid)
+                        return -ESRCH;
+        }
+
+        User *by_pid = NULL;
+        if (pidref && pidref_is_set(pidref)) {
+                uid_t pid_uid;
+                r = cg_pidref_get_owner_uid(pidref, &pid_uid);
+                if (r < 0) {
+                        if (!IN_SET(r, -ENXIO, -ENOENT))
+                                return log_debug_errno(r, "Failed to acquire owning UID of PID " PID_FMT ": %m", pidref->pid);
+                        /* -ENXIO: PID not in a user-N.slice cgroup (e.g. PID 1).
+                         * -ENOENT: cgroup gone (process terminated).
+                         * Translate to -ESRCH so the caller maps to the NoSuchUser sentinel. */
+                        return -ESRCH;
+                }
+
+                by_pid = hashmap_get(m->users, UID_TO_PTR(pid_uid));
+                if (!by_pid)
+                        return -ESRCH;
+        }
+
+        if (by_uid && by_pid && by_uid != by_pid)
+                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH),
+                                       "Search by UID " UID_FMT " and PID " PID_FMT " resulted in two different users",
+                                       uid, pidref->pid);
+
+        assert(by_uid || by_pid);
+
+        *ret = by_uid ?: by_pid;
+        return 0;
+}
+
+static int emit_user_reply(sd_varlink *link, User *user) {
+        assert(link);
+        assert(user);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r = user_build_json(user, &v);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, v);
+}
+
+typedef struct ListUsersParameters {
+        uid_t uid;
+        PidRef pidref;
+} ListUsersParameters;
+
+static void list_users_parameters_done(ListUsersParameters *p) {
+        assert(p);
+        pidref_done(&p->pidref);
+}
+
+static int vl_method_list_users(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "UID", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid, offsetof(ListUsersParameters, uid),    0 },
+                { "PID", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,     offsetof(ListUsersParameters, pidref), 0 },
+                {}
+        };
+
+        _cleanup_(list_users_parameters_done) ListUsersParameters p = {
+                .uid = UID_INVALID,
+                .pidref = PIDREF_NULL,
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* Unique-key path: UID and/or PID provided. Single reply or NoSuchUser. */
+        if (uid_is_valid(p.uid) || pidref_is_set(&p.pidref)) {
+                r = sd_varlink_set_sentinel(link, "io.systemd.Login.NoSuchUser");
+                if (r < 0)
+                        return r;
+
+                User *user;
+                r = manager_varlink_get_user_by_uid_or_pidref(m, p.uid, &p.pidref, &user);
+                if (r == -ESRCH)
+                        return 0; /* triggers NoSuchUser sentinel */
+                if (r < 0)
+                        return r;
+
+                return emit_user_reply(link, user);
+        }
+
+        /* Streaming path: no filter. Full list, requires 'more' flag. */
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
+
+        /* Empty hashmap is a valid empty stream, not "not found" — see vl_method_list_inhibitors. */
+        r = sd_varlink_set_sentinel(link, /* error_id= */ NULL);
+        if (r < 0)
+                return r;
+
+        User *user;
+        HASHMAP_FOREACH(user, m->users) {
+                r = emit_user_reply(link, user);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int vl_method_release_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -627,6 +754,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.CreateSession",    vl_method_create_session,
                         "io.systemd.Login.ReleaseSession",   vl_method_release_session,
                         "io.systemd.Login.ListSessions",     vl_method_list_sessions,
+                        "io.systemd.Login.ListUsers",        vl_method_list_users,
                         "io.systemd.Shutdown.PowerOff",      vl_method_power_off,
                         "io.systemd.Shutdown.Reboot",        vl_method_reboot,
                         "io.systemd.Shutdown.Halt",          vl_method_halt,
