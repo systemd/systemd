@@ -422,7 +422,7 @@ static int dhcp_server_process_release(sd_dhcp_server *server, DHCPRequest *req)
         return 0;
 }
 
-int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, size_t length, const triple_timestamp *timestamp) {
+int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, size_t length, struct msghdr *mh) {
         int r;
 
         assert(server);
@@ -433,7 +433,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
         if (r < 0)
                 return r;
 
-        dhcp_request_set_timestamp(req, timestamp);
+        dhcp_request_set_timestamp(req, mh ? TRIPLE_TIMESTAMP_FROM_CMSG(mh) : NULL);
+        req->pktinfo = mh ? CMSG_FIND_DATA(mh, IPPROTO_IP, IP_PKTINFO, struct in_pktinfo) : NULL;
 
         r = dhcp_server_cleanup_expired_leases(server);
         if (r < 0)
@@ -489,12 +490,7 @@ static int server_receive_message(sd_event_source *s, int fd, uint32_t revents, 
                 return 0;
         }
 
-        /* TODO: figure out if this can be done as a filter on the socket, like for IPv6 */
-        struct in_pktinfo *info = CMSG_FIND_DATA(&msg, IPPROTO_IP, IP_PKTINFO, struct in_pktinfo);
-        if (info && info->ipi_ifindex != server->ifindex)
-                return 0;
-
-        r = dhcp_server_handle_message(server, buf, (size_t) len, TRIPLE_TIMESTAMP_FROM_CMSG(&msg));
+        r = dhcp_server_handle_message(server, buf, (size_t) len, &msg);
         if (r < 0)
                 log_dhcp_server_errno(server, r, "Couldn't process incoming message, ignoring: %m");
 
