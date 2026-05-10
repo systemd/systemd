@@ -21,7 +21,6 @@ typedef struct DHCPRequest {
         uint8_t type;
         sd_dhcp_client_id client_id;
         sd_dhcp_client_id client_id_by_header;
-        size_t max_optlen;
         size_t max_message_size; /* maximum message size, including IP header */
         be32_t server_address;
         usec_t lifetime;
