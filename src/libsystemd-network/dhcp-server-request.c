@@ -224,21 +224,17 @@ static int dhcp_server_ack(sd_dhcp_server *server, DHCPRequest *req) {
 
         r = dhcp_server_set_lease(server, req);
         if (r < 0)
-                return log_dhcp_server_errno(server, r, "Failed to create new lease: %m");
+                return r;
 
-        r = server_send_offer_or_ack(server, req, DHCP_ACK);
+        r = dhcp_server_send_reply(server, req, DHCP_ACK);
         if (r < 0)
-                return log_dhcp_server_errno(server, r, "Could not send ACK: %m");
-
-        log_dhcp_server(server, "ACK (0x%x)", be32toh(req->message->header.xid));
+                return r;
 
         dhcp_server_on_lease_change(server);
-        return DHCP_ACK;
+        return r;
 }
 
 static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req) {
-        int r;
-
         assert(server);
         assert(req);
 
@@ -298,13 +294,7 @@ static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req
             dhcp_message_get_option_flag(req->message, SD_DHCP_OPTION_RAPID_COMMIT) >= 0)
                 return dhcp_server_ack(server, req);
 
-        r = server_send_offer_or_ack(server, req, DHCP_OFFER);
-        if (r < 0)
-                /* this only fails on critical errors */
-                return log_dhcp_server_errno(server, r, "Could not send offer: %m");
-
-        log_dhcp_server(server, "OFFER (0x%x)", be32toh(req->message->header.xid));
-        return DHCP_OFFER;
+        return dhcp_server_send_reply(server, req, DHCP_OFFER);
 }
 
 static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req) {
@@ -374,12 +364,12 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
 
                 if (static_lease->address != address)
                         /* The client requested an address which is different from the static lease. Refusing. */
-                        return server_send_nak_or_ignore(server, init_reboot, req);
+                        return init_reboot ? dhcp_server_send_reply(server, req, DHCP_NAK) : 0;
 
                 sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
                 if (l && l != existing_lease)
                         /* The requested address is already assigned to another host. Refusing. */
-                        return server_send_nak_or_ignore(server, init_reboot, req);
+                        return init_reboot ? dhcp_server_send_reply(server, req, DHCP_NAK) : 0;
 
                 req->static_lease = static_lease;
                 req->address = address;
@@ -395,7 +385,10 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
         }
 
         /* Refuse otherwise. */
-        return server_send_nak_or_ignore(server, init_reboot, req);
+        if (init_reboot)
+                return dhcp_server_send_reply(server, req, DHCP_NAK);
+
+        return 0;
 }
 
 static int dhcp_server_process_decline(sd_dhcp_server *server, DHCPRequest *req) {
