@@ -10,12 +10,15 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-id128.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "event-future.h"
 #include "event-source.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "glyph-util.h"
@@ -473,9 +476,6 @@ _public_ sd_event* sd_event_unref(sd_event *e) {
 
         return event_free(e);
 }
-
-#define PROTECT_EVENT(e)                                                \
-        _unused_ _cleanup_(sd_event_unrefp) sd_event *_ref = sd_event_ref(e);
 
 _public_ sd_event_source* sd_event_source_disable_unref(sd_event_source *s) {
         int r;
@@ -4942,6 +4942,13 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         assert_return(!event_origin_changed(e), -ECHILD);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(e->state == SD_EVENT_INITIAL, -EBUSY);
+
+        /* When running on a fiber, delegate to the suspending implementation. Note that the
+         * profile_delays accounting below is intentionally skipped on that path: the suspending variant
+         * drives the event loop via sd_event_prepare()/sd_event_wait()/sd_event_dispatch() itself, which
+         * are the same primitives profile_delays tracks when called directly. */
+        if (sd_fiber_is_running())
+                return event_run_suspend(e, timeout);
 
         if (e->profile_delays && e->last_run_usec != 0) {
                 usec_t this_run;

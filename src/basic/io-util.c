@@ -1,14 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <poll.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/epoll.h>          /* IWYU pragma: keep */
 #include <time.h>
 #include <unistd.h>
 
 #include "errno-util.h"
+#include "fiber-ops.h"
 #include "io-util.h"
 #include "time-util.h"
+
+/* EPOLL_POLL_COMMON_MASK in io-util.h treats POLL* and EPOLL* as interchangeable; verify it. */
+assert_cc((uint32_t) POLLIN    == EPOLLIN);
+assert_cc((uint32_t) POLLOUT   == EPOLLOUT);
+assert_cc((uint32_t) POLLERR   == EPOLLERR);
+assert_cc((uint32_t) POLLHUP   == EPOLLHUP);
+assert_cc((uint32_t) POLLPRI   == EPOLLPRI);
+assert_cc((uint32_t) POLLRDHUP == EPOLLRDHUP);
 
 int flush_fd(int fd) {
         int count = 0;
@@ -60,25 +71,44 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
         if (nbytes > (size_t) SSIZE_MAX)
                 return -EINVAL;
 
+        /* do_poll == false means "don't wait, return what we have if EAGAIN". If the fd is already
+         * non-blocking, read() can't block the thread, so the non-fiber path satisfies that semantic
+         * correctly even from a fiber. Only use the fiber path when the fd is blocking (where read()
+         * would otherwise block the entire event loop). */
+        int flags = 0;
+        if (fiber_ops_is_set() && !do_poll) {
+                flags = fcntl(fd, F_GETFL);
+                if (flags < 0)
+                        return -errno;
+        }
+
         do {
                 ssize_t k;
 
-                k = read(fd, p, nbytes);
-                if (k < 0) {
-                        if (errno == EINTR)
-                                continue;
+                if (fiber_ops_is_set() && !FLAGS_SET(flags, O_NONBLOCK)) {
+                        /* On a fiber the read op suspends on EAGAIN until data is available, so we don't
+                         * need a separate poll step or the do_poll knob. */
+                        k = fiber_ops_read(fd, p, nbytes);
+                        if (k < 0)
+                                return n > 0 ? n : k;
+                } else {
+                        k = read(fd, p, nbytes);
+                        if (k < 0) {
+                                if (errno == EINTR)
+                                        continue;
 
-                        if (errno == EAGAIN && do_poll) {
+                                if (errno == EAGAIN && do_poll) {
 
-                                /* We knowingly ignore any return value here,
-                                 * and expect that any error/EOF is reported
-                                 * via read() */
+                                        /* We knowingly ignore any return value here,
+                                         * and expect that any error/EOF is reported
+                                         * via read() */
 
-                                (void) fd_wait_for_event(fd, POLLIN, USEC_INFINITY);
-                                continue;
+                                        (void) fd_wait_for_event(fd, POLLIN, USEC_INFINITY);
+                                        continue;
+                                }
+
+                                return n > 0 ? n : -errno;
                         }
-
-                        return n > 0 ? n : -errno;
                 }
 
                 if (k == 0)
@@ -126,6 +156,37 @@ int loop_write_full(int fd, const void *buf, size_t nbytes, usec_t timeout) {
                         return -EINVAL;
 
                 p = buf;
+        }
+
+        /* timeout == 0 means "don't wait, return -EAGAIN if not ready". If the fd is already
+         * non-blocking, write() can't block the thread, so the non-fiber path satisfies that
+         * semantic correctly even from a fiber. Only use the fiber path when the fd is blocking
+         * (where write() would otherwise block the entire event loop). */
+        int flags = 0;
+        if (fiber_ops_is_set() && timeout == 0) {
+                flags = fcntl(fd, F_GETFL);
+                if (flags < 0)
+                        return -errno;
+        }
+
+        if (fiber_ops_is_set() && !FLAGS_SET(flags, O_NONBLOCK)) {
+                /* On a fiber the write op suspends on EAGAIN until the fd is writable; honor the
+                 * caller's timeout via a deadline scope. */
+                FIBER_OPS_TIMEOUT(timestamp_is_set(timeout) ? timeout : USEC_INFINITY);
+
+                while (nbytes > 0) {
+                        ssize_t k = fiber_ops_write(fd, p, nbytes);
+                        if (k < 0)
+                                return (int) k;
+                        if (_unlikely_(nbytes > 0 && k == 0)) /* Can't really happen */
+                                return -EIO;
+
+                        assert((size_t) k <= nbytes);
+                        p += k;
+                        nbytes -= k;
+                }
+
+                return 0;
         }
 
         /* When timeout is 0 or USEC_INFINITY this is not used. But we initialize it to a sensible value. */
@@ -211,11 +272,9 @@ int ppoll_usec_full(struct pollfd *fds, size_t n_fds, usec_t timeout, const sigs
         if (n_fds == 0 && timeout == 0)
                 return 0;
 
-        r = ppoll(fds, n_fds, timeout == USEC_INFINITY ? NULL : TIMESPEC_STORE(timeout), ss);
-        if (r < 0)
-                return -errno;
-        if (r == 0)
-                return 0;
+        r = fiber_ops_ppoll(fds, n_fds, timeout == USEC_INFINITY ? NULL : TIMESPEC_STORE(timeout), ss);
+        if (r <= 0)
+                return r;
 
         for (size_t i = 0, n = r; i < n_fds && n > 0; i++) {
                 if (fds[i].revents == 0)
