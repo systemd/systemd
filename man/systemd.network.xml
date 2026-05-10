@@ -436,6 +436,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DHCPRelay=</varname></term>
+        <listitem>
+          <para>Takes one of <literal>upstream</literal> or <literal>downstream</literal>. When specified,
+          the host acts as a DHCP relay agent. If set to <literal>upstream</literal>, the interface behaves
+          as an upstream interface of the DHCP relay agent. When set to <literal>downstream</literal>, the
+          interface behaves as a downstream interface of the DHCP relay agent. To make the DHCP relay agent
+          work, at least one upstream interface and one downstream interface are configured on the host.
+          This requires <varname>ServerAddress=</varname> in the [DHCPRelay] section to be configured in
+          <filename>networkd.conf</filename>. If <varname>ServerAddress=</varname> is not configured, this
+          setting is ignored. See
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for more details about <varname>ServerAddress=</varname> and other host-wide settings.
+          Also, further per-interface settings can be configured in [DHCPRelay] section.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DHCPServer=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to <literal>yes</literal>, DHCPv4 server will be started.
@@ -3846,6 +3865,97 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <literal>ipv6_addr</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[DHCPRelay] Section Options</title>
+    <para>The [DHCPRelay] section contains per-interface settings for the DHCP relay agent. The settings in
+    this section are only used when <varname>DHCPRelay=</varname> in [Network] section is enabled.</para>
+
+    <variablelist class='network-directives'>
+
+      <varlistentry>
+        <term><varname>AgentAddress=</varname></term>
+        <listitem>
+          <para>The specified address is used for the source IP of forwarded packets sent to the upstream
+          DHCP server. Also, the address is set to Server Identifier Override sub-option and Link Selection
+          sub-option of Relay Agent Information option, which is appended to DHCP messages forwarded to the
+          upstream DHCP server. Defaults to unset, and automatically picks a statically configured IPv4
+          address in the .network file.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>GatewayAddress=</varname></term>
+        <listitem>
+          <para>The specified address is set to the <literal>giaddr</literal> field of DHCP message header
+          when the DHCP message is forwarded to the upstream DHCP server. This is used only when
+          <varname>DHCPRelay=downstream</varname>, and ignored otherwise. Defaults to unset, and used the
+          same address specified with <varname>AgentAddress=</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CircuitId=</varname></term>
+        <listitem>
+          <para>Specifies the circuit ID of the downstream interface. This is set as the Circuit ID
+          sub-option of the Relay Agent Information option in the forwarded DHCP message. Takes a data type
+          and data separated with a colon
+          (<literal><replaceable>type</replaceable>:<replaceable>value</replaceable></literal>). The type
+          takes one of <literal>uint8</literal>, <literal>uint16</literal>, <literal>uint32</literal>,
+          <literal>ipv4address</literal>, <literal>ipv6address</literal>, or <literal>string</literal>.
+          Special characters in the data string may be escaped using
+          <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style escapes</ulink>.
+          If unset, the name of the interface will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>VirtualSubnetSelection=</varname></term>
+        <listitem>
+          <para>Specifies a unique identifier used by the DHCP server to select the downstream subnet
+          independently of giaddr. This is set to Virtual Subnet Selection sub-option of Relay Agent
+          Information option in the forwarded DHCP message. Takes a value in the same format as
+          <varname>CircuitId=</varname>. Defaults to unset, and the sub-option is not set.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ExtraOption=</varname></term>
+        <listitem>
+          <para>Specifies an extra sub-option of the Relay Agent Information option, which is appended to
+          DHCP messages forwarded to the upstream DHCP server. Takes a sub-option code, data type, and data
+          separated with a colon
+          (<literal><replaceable>code</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
+          The code is an integer in 1…254. See <varname>CircuitId=</varname> in the above for the acceptable
+          type and data. This setting can be specified multiple times. When an empty string is specified,
+          all previous assignments are cleared. Defaults to unset, and no extra sub-option will be appended.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>InterfacePriority=</varname></term>
+        <listitem>
+          <para>Specifies the priority of the upstream interface. Takes an integer value. When the host has
+          multiple upstream interfaces, the upstream interface with the highest (largest) priority will be
+          used for forwarding DHCP messages to the upstream DHCP server. When multiple interfaces have the
+          same priority, which interface is used is unspecified. Defaults to zero.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
         </listitem>
       </varlistentry>
     </variablelist>
