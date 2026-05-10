@@ -296,6 +296,46 @@ static int device_new_from_syspath(sd_device **ret, const char *syspath, bool st
         return 0;
 }
 
+int device_new_from_sysfs_path(sd_device **ret, const char *syspath) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        int r;
+
+        assert_return(ret, -EINVAL);
+        assert_return(syspath, -EINVAL);
+
+        r = device_new_aux(&device);
+        if (r < 0)
+                return r;
+
+        r = device_set_syspath(device, syspath, /* verify= */ false);
+        if (r < 0)
+                return r;
+
+        if (path_startswith(device->syspath, "/sys/devices/")) {
+                char *uevent;
+
+                uevent = strjoina(device->syspath, "/uevent");
+                if (access(uevent, F_OK) < 0) {
+                        if (errno == ENOENT || errno == ENOTDIR)
+                                return log_trace_errno(SYNTHETIC_ERRNO(ENODEV),
+                                                       "sd-device: the uevent file \"%s\" does not exist.", uevent);
+
+                        return log_debug_errno(errno, "sd-device: cannot find uevent file for %s: %m", device->syspath);
+                }
+        } else {
+                struct stat st;
+
+                if (stat(device->syspath, &st) < 0)
+                        return log_debug_errno(errno, "sd-device: failed to check if syspath \"%s\" is a directory: %m", syspath);
+                if (!S_ISDIR(st.st_mode))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
+                                               "sd-device: the syspath \"%s\" is not a directory.", syspath);
+        }
+
+        *ret = TAKE_PTR(device);
+        return 0;
+}
+
 _public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
         return device_new_from_syspath(ret, syspath, /* strict= */ true);
 }
@@ -1154,7 +1194,7 @@ static int device_new_from_child(sd_device **ret, sd_device *child) {
                 if (path_equal(p, "/sys"))
                         return -ENODEV;
 
-                r = sd_device_new_from_syspath(ret, p);
+                r = device_new_from_sysfs_path(ret, p);
                 if (r != -ENODEV)
                         return r;
 
@@ -2488,6 +2528,7 @@ static int device_get_cached_sysattr_value(sd_device *device, const char *key, c
 }
 
 int device_chase(sd_device *device, const char *path, ChaseFlags flags, char **ret_resolved, int *ret_fd) {
+        bool direct_sysfs_attr = false;
         int r;
 
         assert(device);
@@ -2504,6 +2545,8 @@ int device_chase(sd_device *device, const char *path, ChaseFlags flags, char **r
          * calling chase(). Otherwise, we cannot set/get attributes of parent or sibling devices. */
         _cleanup_free_ char *prefixed = NULL;
         if (FLAGS_SET(flags, CHASE_PREFIX_ROOT) || !path_is_absolute(path)) {
+                direct_sysfs_attr = !FLAGS_SET(flags, CHASE_NONEXISTENT) && !path_is_absolute(path) && path_is_safe(path);
+
                 prefixed = path_join(syspath, path);
                 if (!prefixed)
                         return -ENOMEM;
@@ -2513,9 +2556,19 @@ int device_chase(sd_device *device, const char *path, ChaseFlags flags, char **r
 
         _cleanup_free_ char *resolved = NULL;
         _cleanup_close_ int fd = -EBADF;
-        r = chase(path, /* root= */ NULL, CHASE_NO_AUTOFS | flags, &resolved, ret_fd ? &fd : NULL);
-        if (r < 0)
-                return r;
+        if (direct_sysfs_attr) {
+                fd = open(path, O_PATH|O_CLOEXEC|(FLAGS_SET(flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
+                if (fd < 0)
+                        return -errno;
+
+                resolved = strdup(path);
+                if (!resolved)
+                        return -ENOMEM;
+        } else {
+                r = chase(path, /* root= */ NULL, CHASE_NO_AUTOFS | flags, &resolved, ret_fd ? &fd : NULL);
+                if (r < 0)
+                        return r;
+        }
 
         /* Refuse to reading/writing files outside of sysfs. */
         if (!path_startswith(resolved, "/sys/"))

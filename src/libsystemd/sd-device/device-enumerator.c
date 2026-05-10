@@ -7,9 +7,11 @@
 #include "alloc-util.h"
 #include "device-enumerator-private.h"
 #include "device-filter.h"
+#include "device-internal.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "set.h"
@@ -697,6 +699,71 @@ static bool relevant_sysfs_subdir(const struct dirent *de) {
         return IN_SET(de->d_type, DT_DIR, DT_LNK);
 }
 
+static int sysfs_resolve_link(const char *dir_path, const char *target, char **ret) {
+        _cleanup_free_ char *base = NULL, *path = NULL;
+
+        assert(dir_path);
+        assert(target);
+        assert(ret);
+
+        if (path_is_absolute(target)) {
+                if (!path_startswith(target, "/sys/"))
+                        return -ENODEV;
+
+                path = strdup(target);
+                if (!path)
+                        return -ENOMEM;
+
+                *ret = TAKE_PTR(path);
+                return 0;
+        }
+
+        base = strdup(dir_path);
+        if (!base)
+                return -ENOMEM;
+
+        delete_trailing_chars(base, "/");
+
+        for (;;) {
+                _cleanup_free_ char *parent = NULL;
+                const char *p;
+
+                p = startswith(target, "./");
+                if (p) {
+                        target = p;
+                        continue;
+                }
+
+                p = startswith(target, "../");
+                if (p) {
+                        int r;
+
+                        r = path_extract_directory(base, &parent);
+                        if (r < 0)
+                                return r;
+
+                        free_and_replace(base, parent);
+                        target = p;
+                        continue;
+                }
+
+                break;
+        }
+
+        if (!path_is_safe(target))
+                return -EINVAL;
+
+        path = path_join(base, target);
+        if (!path)
+                return -ENOMEM;
+
+        if (!path_startswith(path, "/sys/"))
+                return -ENODEV;
+
+        *ret = TAKE_PTR(path);
+        return 0;
+}
+
 static int enumerator_scan_dir_and_add_devices(
                 sd_device_enumerator *enumerator,
                 const char *basedir,
@@ -729,7 +796,9 @@ static int enumerator_scan_dir_and_add_devices(
 
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+                _cleanup_free_ char *resolved = NULL, *link_syspath = NULL;
                 char syspath[strlen(path) + 1 + strlen(de->d_name) + 1];
+                const char *device_path = syspath;
 
                 if (!relevant_sysfs_subdir(de))
                         continue;
@@ -739,7 +808,27 @@ static int enumerator_scan_dir_and_add_devices(
 
                 (void) sprintf(syspath, "%s%s", path, de->d_name);
 
-                k = sd_device_new_from_syspath(&device, syspath);
+                if (de->d_type == DT_LNK) {
+                        k = readlinkat_malloc(dirfd(dir), de->d_name, &resolved);
+                        if (k < 0) {
+                                if (k != -ENOENT)
+                                        r = k;
+
+                                continue;
+                        }
+
+                        k = sysfs_resolve_link(path, resolved, &link_syspath);
+                        if (k < 0) {
+                                if (k != -ENODEV)
+                                        r = k;
+
+                                continue;
+                        }
+
+                        device_path = link_syspath;
+                }
+
+                k = device_new_from_sysfs_path(&device, device_path);
                 if (k < 0) {
                         if (k != -ENODEV)
                                 /* this is necessarily racey, so ignore missing devices */
