@@ -505,14 +505,14 @@ static int dhcp_server_process_release(sd_dhcp_server *server, DHCPRequest *req)
         return 0;
 }
 
-int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, size_t length, struct msghdr *mh) {
+int dhcp_server_process_message(sd_dhcp_server *server, const struct iovec *iov, struct msghdr *mh) {
         int r;
 
         assert(server);
-        assert(message);
+        assert(iov);
 
         _cleanup_(dhcp_request_freep) DHCPRequest *req = NULL;
-        r = dhcp_server_parse_message(server, &IOVEC_MAKE(message, length), &req);
+        r = dhcp_server_parse_message(server, iov, &req);
         if (r < 0)
                 return r;
 
@@ -573,7 +573,7 @@ static int server_receive_message(sd_event_source *s, int fd, uint32_t revents, 
                 return 0;
         }
 
-        r = dhcp_server_handle_message(server, buf, (size_t) len, &msg);
+        r = dhcp_server_process_message(server, &IOVEC_MAKE(buf, len), &msg);
         if (r < 0)
                 log_dhcp_server_errno(server, r, "Couldn't process incoming message, ignoring: %m");
 
