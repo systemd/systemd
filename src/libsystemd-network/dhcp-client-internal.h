@@ -4,28 +4,13 @@
 #include "sd-dhcp-client.h"
 
 #include "dhcp-client-id-internal.h"
+#include "dhcp-protocol.h"
 #include "ether-addr-util.h"
 #include "iovec-wrapper.h"
 #include "network-common.h"
 #include "sd-forward.h"
 #include "socket-util.h"
 #include "tlv-util.h"
-
-typedef enum DHCPState {
-        DHCP_STATE_STOPPED,
-        DHCP_STATE_INIT,
-        DHCP_STATE_SELECTING,
-        DHCP_STATE_INIT_REBOOT,
-        DHCP_STATE_REBOOTING,
-        DHCP_STATE_REQUESTING,
-        DHCP_STATE_BOUND,
-        DHCP_STATE_RENEWING,
-        DHCP_STATE_REBINDING,
-        _DHCP_STATE_MAX,
-        _DHCP_STATE_INVALID                     = -EINVAL,
-} DHCPState;
-
-DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_state, DHCPState);
 
 struct sd_dhcp_client {
         unsigned n_ref;
