@@ -117,6 +117,11 @@ TEST(cgroup_properties) {
                         "StartupAllowedMemoryNodes=0",
                         "StartupAllowedMemoryNodes=1-3",
 
+                        "CPUSetPartition=member",
+                        "CPUSetPartition=root",
+                        "CPUSetPartition=isolated",
+                        "CPUSetPartition=",
+
                         "DisableControllers=cpu",
                         "DisableControllers=    "
                         " cpu cpuacct cpuset io blkio memory devices pids bpf-firewall bpf-devices     "
