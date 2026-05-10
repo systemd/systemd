@@ -138,3 +138,19 @@ enum {
 };
 
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_option_code, int);
+
+typedef enum DHCPState {
+        DHCP_STATE_STOPPED,
+        DHCP_STATE_INIT,
+        DHCP_STATE_SELECTING,
+        DHCP_STATE_INIT_REBOOT,
+        DHCP_STATE_REBOOTING,
+        DHCP_STATE_REQUESTING,
+        DHCP_STATE_BOUND,
+        DHCP_STATE_RENEWING,
+        DHCP_STATE_REBINDING,
+        _DHCP_STATE_MAX,
+        _DHCP_STATE_INVALID                     = -EINVAL,
+} DHCPState;
+
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_state, DHCPState);
