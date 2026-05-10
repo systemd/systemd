@@ -261,6 +261,12 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The device permissions"),
                 SD_VARLINK_DEFINE_FIELD(permissions, SD_VARLINK_STRING, 0));
 
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                CPUSetPartition,
+                SD_VARLINK_DEFINE_ENUM_VALUE(member),
+                SD_VARLINK_DEFINE_ENUM_VALUE(root),
+                SD_VARLINK_DEFINE_ENUM_VALUE(isolated));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 CGroupContext,
 
@@ -281,6 +287,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(AllowedCPUs, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#AllowedCPUs="),
                 SD_VARLINK_DEFINE_FIELD(StartupAllowedCPUs, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#CPUSetPartition="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CPUSetPartition, CPUSetPartition, SD_VARLINK_NULLABLE),
 
                 /* Memory Accounting and Control
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Memory%20Accounting%20and%20Control */
@@ -1443,6 +1451,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_CGroupContext,
                 SD_VARLINK_SYMBOL_COMMENT("CGroup runtime of a unit"),
                 &vl_type_CGroupRuntime,
+                &vl_type_CPUSetPartition,
 
                 /* ExecContext */
                 &vl_type_ExecInputType,
