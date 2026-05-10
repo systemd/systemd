@@ -619,6 +619,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
 
 static int parse_core(
                 int fd,
+                const char *executable,
                 const char *root,
                 char **ret,
                 sd_json_variant **ret_package_metadata,
@@ -667,7 +668,7 @@ static int parse_core(
                 log_warning("Compiled without dwfl_set_sysroot() support, ignoring provided root directory.");
 #endif
 
-        if (sym_dwfl_core_file_report(c.dwfl, c.elf, NULL) < 0)
+        if (sym_dwfl_core_file_report(c.dwfl, c.elf, executable) < 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_core_file_report() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
         if (sym_dwfl_report_end(c.dwfl, NULL, NULL) != 0)
@@ -734,7 +735,7 @@ static int parse_elf(
         if (elf_header.e_type == ET_CORE) {
                 _cleanup_free_ char *out = NULL;
 
-                r = parse_core(fd, root, ret ? &out : NULL, &package_metadata, &dlopen_metadata);
+                r = parse_core(fd, executable, root, ret ? &out : NULL, &package_metadata, &dlopen_metadata);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to inspect core file: %m");
 
