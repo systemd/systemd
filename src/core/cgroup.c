@@ -178,6 +178,8 @@ void cgroup_context_init(CGroupContext *c) {
 
                 .tasks_max = CGROUP_TASKS_MAX_UNSET,
 
+                .cpuset_partition = _CPUSET_PARTITION_INVALID,
+
                 .moom_swap = MANAGED_OOM_AUTO,
                 .moom_mem_pressure = MANAGED_OOM_AUTO,
                 .moom_preference = MANAGED_OOM_PREFERENCE_NONE,
@@ -508,6 +510,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sStartupAllowedCPUs: %s\n"
                 "%sAllowedMemoryNodes: %s\n"
                 "%sStartupAllowedMemoryNodes: %s\n"
+                "%sCPUSetPartition: %s\n"
                 "%sIOWeight: %" PRIu64 "\n"
                 "%sStartupIOWeight: %" PRIu64 "\n"
                 "%sMemoryMin: %" PRIu64 "%s\n"
@@ -546,6 +549,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, strempty(startup_cpuset_cpus),
                 prefix, strempty(cpuset_mems),
                 prefix, strempty(startup_cpuset_mems),
+                prefix, strna(cpuset_partition_to_string(c->cpuset_partition)),
                 prefix, c->io_weight,
                 prefix, c->startup_io_weight,
                 prefix, c->memory_min, format_cgroup_memory_limit_comparison(u, "MemoryMin", cda, sizeof(cda)),
@@ -1132,6 +1136,53 @@ static void cgroup_apply_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
         (void) set_attribute_and_warn(u, name, buf);
 }
 
+static int cgroup_cpuset_partition_invalid(const char *partition) {
+        _cleanup_free_ char *part_str = NULL, *invalid = NULL;
+        int r;
+
+        assert(partition);
+
+        /* An invalid line looks like <partition> invalid (<reason>) */
+        r = extract_many_words(&partition, /* separators= */ NULL, /* flags= */ 0, &part_str, &invalid);
+        if (r < 0)
+                return r;
+        if (r < 2)
+                return false;
+
+        return streq_ptr(invalid, "invalid");
+}
+
+static void cgroup_apply_cpuset_partition(Unit *u, const char *name, const char *partition) {
+        _cleanup_free_ char *buf = NULL;
+        CGroupRuntime *crt;
+        int r;
+
+        assert(u);
+        assert(name);
+        assert(partition);
+
+        if (set_attribute_and_warn(u, name, partition) < 0)
+                return;
+
+        /* We are writing and then reading back, crt is already checked while writing */
+        crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
+
+        r = cg_get_attribute(crt->cgroup_path, name, &buf);
+        if (r < 0) {
+                log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to read back '%s' attribute on '%s' as '%.*s': %m",
+                                    name, empty_to_root(crt->cgroup_path), (int) strcspn(partition, NEWLINE), partition);
+                return;
+        }
+
+        r = cgroup_cpuset_partition_invalid(buf);
+        if (r < 0)
+                log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to read back '%s' attribute on '%s' as '%.*s': %m",
+                                    name, empty_to_root(crt->cgroup_path), (int) strcspn(partition, NEWLINE), partition);
+        else if (r)
+                log_unit_warning(u, "Failed to set '%s' attribute on '%s' to '%.*s': %s",
+                                 name, empty_to_root(crt->cgroup_path), (int) strcspn(partition, NEWLINE), partition, buf);
+}
+
 static bool cgroup_context_has_io_config(CGroupContext *c) {
         assert(c);
 
@@ -1464,6 +1515,9 @@ static void cgroup_context_apply(
         if ((apply_mask & CGROUP_MASK_CPUSET) && !is_local_root) {
                 cgroup_apply_cpuset(u, cgroup_context_allowed_cpus(c, state), "cpuset.cpus");
                 cgroup_apply_cpuset(u, cgroup_context_allowed_mems(c, state), "cpuset.mems");
+
+                if (c->cpuset_partition >= 0)
+                        cgroup_apply_cpuset_partition(u, "cpuset.cpus.partition", cpuset_partition_to_string(c->cpuset_partition));
         }
 
         /* The 'io' controller attributes are not exported on the host's root cgroup (being a pure cgroup v2
@@ -4581,6 +4635,14 @@ static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] =
 };
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_device_policy, CGroupDevicePolicy);
+
+static const char* const cpuset_partition_table[_CPUSET_PARTITION_MAX] = {
+        [CPUSET_PARTITION_MEMBER]   = "member",
+        [CPUSET_PARTITION_ROOT]     = "root",
+        [CPUSET_PARTITION_ISOLATED] = "isolated",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(cpuset_partition, CPUSetPartition);
 
 static const char* const cgroup_pressure_watch_table[_CGROUP_PRESSURE_WATCH_MAX] = {
         [CGROUP_PRESSURE_WATCH_NO]   = "no",

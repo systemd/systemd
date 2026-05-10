@@ -121,6 +121,12 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        if (c->cpuset_partition >= 0) {
+                r = serialize_item(f, "exec-cgroup-context-cpuset-partition", cpuset_partition_to_string(c->cpuset_partition));
+                if (r < 0)
+                        return r;
+        }
+
         if (c->io_weight != CGROUP_WEIGHT_INVALID) {
                 r = serialize_item_format(f, "exec-cgroup-context-io-weight", "%" PRIu64, c->io_weight);
                 if (r < 0)
@@ -513,6 +519,10 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         r = parse_cpu_set(val, &c->startup_cpuset_mems);
                         if (r < 0)
                                 return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-cpuset-partition="))) {
+                        c->cpuset_partition = cpuset_partition_from_string(val);
+                        if (c->cpuset_partition < 0)
+                                return -EINVAL;
                 } else if ((val = startswith(l, "exec-cgroup-context-io-weight="))) {
                         r = safe_atou64(val, &c->io_weight);
                         if (r < 0)
