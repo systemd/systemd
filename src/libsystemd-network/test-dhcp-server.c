@@ -218,11 +218,11 @@ TEST(dhcp_server_handle_message) {
         /* request neither bound nor static address */
         test.option_type.type = DHCP_REQUEST;
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 29);
-        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_NAK);
 
         /* request the currently assigned address */
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 30);
-        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_NAK);
 
         /* request the new static address */
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 31);
@@ -252,12 +252,12 @@ TEST(dhcp_server_handle_message) {
         /* request address reserved for static lease (unmatching client ID) */
         test.option_client_id.id[6] = 'H';
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 42);
-        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_NAK);
 
         /* request unmatching address */
         test.option_client_id.id[6] = 'G';
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 41);
-        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_NAK);
 
         /* request matching address */
         test.option_client_id.id[6] = 'G';
