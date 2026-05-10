@@ -1,0 +1,11 @@
+[NetDev]
+Name=tun0
+Kind=ovs-tunnel
+
+[OVSTunnel]
+Bridge=br0
+Type=vxlan
+Remote=10.0.0.2
+Key=42
+DestinationPort=4789
+TTL=64
