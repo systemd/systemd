@@ -30,6 +30,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "help-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
 #include "json-util.h"
@@ -49,6 +50,7 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "recurse-dir.h"
+#include "rm-rf.h"
 #include "runtime-scope.h"
 #include "sha256.h"
 #include "shift-uid.h"
@@ -70,6 +72,7 @@ static enum {
         ACTION_DETACH,
         ACTION_LIST,
         ACTION_MTREE,
+        ACTION_MANIFEST,
         ACTION_WITH,
         ACTION_COPY_FROM,
         ACTION_COPY_TO,
@@ -122,16 +125,11 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_filter, image_filter_freep);
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *commands = NULL;
         int r;
 
         pager_open(arg_pager_flags);
 
-        r = terminal_urlify_man("systemd-dissect", "1", &link);
-        if (r < 0)
-                return log_oom();
-
+        _cleanup_(table_unrefp) Table *options = NULL, *commands = NULL;
         r = option_parser_get_help_table(&options);
         if (r < 0)
                 return r;
@@ -143,39 +141,35 @@ static int help(void) {
         /* Make the 1st column same width in both tables */
         (void) table_sync_column_widths(0, options, commands);
 
-        printf("%1$s [OPTIONS...] IMAGE\n"
-               "%1$s [OPTIONS...] --mount IMAGE PATH\n"
-               "%1$s [OPTIONS...] --umount PATH\n"
-               "%1$s [OPTIONS...] --attach IMAGE\n"
-               "%1$s [OPTIONS...] --detach PATH\n"
-               "%1$s [OPTIONS...] --list IMAGE\n"
-               "%1$s [OPTIONS...] --mtree IMAGE\n"
-               "%1$s [OPTIONS...] --with IMAGE [COMMAND…]\n"
-               "%1$s [OPTIONS...] --copy-from IMAGE PATH [TARGET]\n"
-               "%1$s [OPTIONS...] --copy-to IMAGE [SOURCE] PATH\n"
-               "%1$s [OPTIONS...] --make-archive IMAGE [TARGET]\n"
-               "%1$s [OPTIONS...] --discover\n"
-               "%1$s [OPTIONS...] --validate IMAGE\n"
-               "%1$s [OPTIONS...] --shift IMAGE UIDBASE\n"
-               "\n%2$sDissect a Discoverable Disk Image (DDI).%3$s\n"
-               "\n%4$sOptions:%5$s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] IMAGE");
+        help_cmdline("[OPTIONS...] --mount IMAGE PATH");
+        help_cmdline("[OPTIONS...] --umount PATH");
+        help_cmdline("[OPTIONS...] --attach IMAGE");
+        help_cmdline("[OPTIONS...] --detach PATH");
+        help_cmdline("[OPTIONS...] --list IMAGE");
+        help_cmdline("[OPTIONS...] --mtree IMAGE");
+        help_cmdline("[OPTIONS...] --manifest IMAGE");
+        help_cmdline("[OPTIONS...] --with IMAGE [COMMAND…]");
+        help_cmdline("[OPTIONS...] --copy-from IMAGE PATH [TARGET]");
+        help_cmdline("[OPTIONS...] --copy-to IMAGE [SOURCE] PATH");
+        help_cmdline("[OPTIONS...] --make-archive IMAGE [TARGET]");
+        help_cmdline("[OPTIONS...] --discover");
+        help_cmdline("[OPTIONS...] --validate IMAGE");
+        help_cmdline("[OPTIONS...] --shift IMAGE UIDBASE");
 
+        help_abstract("Dissect a Discoverable Disk Image (DDI).");
+
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\n%sCommands:%s\n", ansi_underline(), ansi_normal());
-
+        help_section("Commands");
         r = table_print_or_warn(commands);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-dissect", "1");
         return 0;
 }
 
@@ -478,6 +472,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_flags |= DISSECT_IMAGE_READ_ONLY;
                         break;
 
+                OPTION_LONG("manifest", NULL, "Show UAPI.16 manifest of OS image"):
+                        arg_action = ACTION_MANIFEST;
+                        arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                        break;
+
                 OPTION_FULL(OPTION_STOPS_PARSING, /* sc= */ 0, "with", NULL, "Mount, run command, unmount"):
                         arg_action = ACTION_WITH;
                         break;
@@ -581,6 +580,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         case ACTION_LIST:
         case ACTION_MTREE:
+        case ACTION_MANIFEST:
                 if (strv_length(args) != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file or directory path as only argument.");
@@ -1328,13 +1328,208 @@ static int mtree_print_item(
         return RECURSE_DIR_CONTINUE;
 }
 
-static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopDevice *d, int userns_fd) {
+typedef struct HardlinkData {
+        int db_fd;
+        char *db_path;
+        uint64_t counter;
+} HardlinkData;
+
+static void hardlink_data_done(HardlinkData *hd) {
+        assert(hd);
+
+        if (hd->db_fd >= 0)
+                (void) rm_rf_children(TAKE_FD(hd->db_fd), REMOVE_PHYSICAL, /* root_dev= */ NULL);
+
+        if (hd->db_path)
+                hd->db_path = rmdir_and_free(hd->db_path);
+}
+
+static int manifest_print_item(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
+        HardlinkData *hd = ASSERT_PTR(userdata);
+        int r;
+
+        /* Generates a UAPI.16 Manifest of the directory tree */
+
+        if (!IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY))
+                return RECURSE_DIR_CONTINUE;
+
+        bool is_root = isempty(path);
+
+        /* We ignore this to avoid input is output cycles */
+        if (!is_root && (streq(path, "Uapi16Manifest") || startswith(path, "Uapi16Manifest.")))
+                return RECURSE_DIR_CONTINUE;
+
+        _cleanup_free_ char *data = NULL;
+        uint8_t hash[SHA256_DIGEST_SIZE];
+        uint64_t size = UINT64_MAX;
+        bool have_size = false, have_hash = false;
+        const char* type = NULL;
+        uint64_t hardlink_counter = 0;
+
+        if (FLAGS_SET(sx->stx_mask, STATX_NLINK|STATX_TYPE) && !S_ISDIR(sx->stx_mask) && sx->stx_nlink > 1) {
+
+                /* This is a hardlinked inode, apparently. Let's figure out its inode token */
+
+                bool is_empty = false;
+                if (hd->db_fd < 0) {
+                        assert(!hd->db_path);
+
+                        hd->db_fd = mkdtemp_open(/* template= */ NULL, O_NONBLOCK, &hd->db_path);
+                        if (hd->db_fd < 0)
+                                return log_error_errno(hd->db_fd, "Failed to create temporary directory: %m");
+
+                        is_empty = true;
+                }
+
+                _cleanup_free_ struct file_handle *handle = NULL;
+                uint64_t unique_mnt_id = 0;
+                int mnt_id = 0;
+                r = name_to_handle_at_try_fid(inode_fd, /* path= */ NULL, &handle, &mnt_id, &unique_mnt_id, AT_EMPTY_PATH);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire FID of path: %m");
+
+                struct sha256_ctx ctx;
+                sha256_init_ctx(&ctx);
+                sha256_process_bytes(&handle->handle_bytes, sizeof(handle->handle_bytes), &ctx);
+                sha256_process_bytes(&handle->handle_type, sizeof(handle->handle_type), &ctx);
+                sha256_process_bytes(&handle->f_handle, handle->handle_bytes, &ctx);
+                sha256_process_bytes(&mnt_id, sizeof(mnt_id), &ctx);
+                sha256_process_bytes(&unique_mnt_id, sizeof(unique_mnt_id), &ctx);
+
+                uint8_t fid_hash[SHA256_DIGEST_SIZE];
+                sha256_finish_ctx(&ctx, fid_hash);
+
+                _cleanup_free_ char *fhs = hexmem(fid_hash, sizeof(fid_hash));
+                if (!fhs)
+                        return log_oom();
+
+                _cleanup_free_ char *slt = NULL;
+                r = is_empty ? -ENOENT : readlinkat_malloc(hd->db_fd, fhs, &slt);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                return log_error_errno(r, "Failed to symlink '%s': %m", fhs);
+
+                        if (hd->counter >= UINT64_MAX)
+                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Hardlink overflow.");
+
+                        hardlink_counter = ++hd->counter;
+
+                        slt = asprintf_safe("%" PRIu64, hardlink_counter);
+                        if (!slt)
+                                return log_oom();
+
+                        if (S_ISREG(sx->stx_mode)) {
+                                r = get_file_sha256(inode_fd, hash);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to calculate file SHA256 sum for '%s', ignoring: %m", path);
+                                else {
+                                        _cleanup_free_ char *hs = hexmem(hash, sizeof(hash));
+                                        if (!hs)
+                                                return log_oom();
+
+                                        if (!strextend(&slt, ":", hs))
+                                                return log_oom();
+
+                                        have_hash = true;
+                                }
+                        }
+
+                        if (symlinkat(slt, hd->db_fd, fhs) < 0)
+                                return log_error_errno(errno, "Failed to create symlink '%s': %m", fhs);
+                } else {
+                        char *colon = strchr(slt, ':');
+
+                        if (colon) {
+                                _cleanup_free_ void *unhexxed = NULL;
+                                size_t unhexxed_size = 0;
+                                r = unhexmem(colon +1, &unhexxed, &unhexxed_size);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to unhex file hash: %m");
+                                if (unhexxed_size != sizeof(hash))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Malformed hash entry: %m");
+
+                                memcpy(hash, unhexxed, unhexxed_size);
+                                have_hash = true;
+                                *colon = 0;
+                        }
+
+                        r = safe_atou64(slt, &hardlink_counter);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to decode hardlink counter: %m");
+                }
+        }
+
+        if (FLAGS_SET(sx->stx_mask, STATX_TYPE)) {
+                switch (sx->stx_mode & S_IFMT) {
+
+                case S_IFREG:
+                        size = sx->stx_size;
+                        have_size = true;
+
+                        if (!have_hash) {
+                                r = get_file_sha256(inode_fd, hash);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to calculate file SHA256 sum for '%s', ignoring: %m", path);
+                                else
+                                        have_hash = true;
+                        }
+
+                        break;
+
+                case S_IFLNK:
+                        r = readlinkat_malloc(inode_fd, "", &data);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to read symlink '%s', ignoring: %m", path);
+                        else {
+                                size = strlen(data);
+                                have_size = true;
+                        }
+                }
+
+                /* Suppress the type on the top-level entry and on regular files. */
+                type = !is_root && !S_ISREG(sx->stx_mode) ? inode_type_to_string(sx->stx_mode) : NULL;
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        r = sd_json_buildo(
+                        &j,
+                        SD_JSON_BUILD_PAIR_CONDITION(is_root, "mediaType", JSON_BUILD_CONST_STRING("application/vnd.uapi.16.manifest")),
+                        SD_JSON_BUILD_PAIR_CONDITION(!is_root, "name", SD_JSON_BUILD_STRING(path)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!type, "type", SD_JSON_BUILD_STRING(type)),
+                        SD_JSON_BUILD_PAIR_CONDITION(have_size, "size", SD_JSON_BUILD_UNSIGNED(size)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!data, "contents", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("literal", SD_JSON_BUILD_BASE64(data, size))))),
+                        SD_JSON_BUILD_PAIR_CONDITION(have_hash, "sha256", SD_JSON_BUILD_HEX(hash, sizeof(hash))),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(sx->stx_mask, STATX_TYPE) && (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode)), "major", SD_JSON_BUILD_UNSIGNED(sx->stx_rdev_major)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(sx->stx_mask, STATX_TYPE) && (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode)), "minor", SD_JSON_BUILD_UNSIGNED(sx->stx_rdev_minor)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(sx->stx_mask, STATX_TYPE|STATX_MODE) && !S_ISLNK(sx->stx_mode), "mode", SD_JSON_BUILD_UNSIGNED(sx->stx_mode & 07777)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(sx->stx_mask, STATX_UID), "uid", SD_JSON_BUILD_UNSIGNED(sx->stx_uid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(sx->stx_mask, STATX_GID), "gid", SD_JSON_BUILD_UNSIGNED(sx->stx_gid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(hardlink_counter > 0, "inodeToken", SD_JSON_BUILD_UNSIGNED(hardlink_counter)));
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_dump(j, arg_json_format_flags | SD_JSON_FORMAT_SEQ | SD_JSON_FORMAT_FLUSH, stdout, /* prefix= */ NULL);
+        if (r < 0)
+                return r;
+
+        return RECURSE_DIR_CONTINUE;
+}
+
+static int action_list_or_mtree_or_manifest_or_copy_or_make_archive(DissectedImage *m, LoopDevice *d, int userns_fd) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_free_ char *t = NULL;
         const char *root;
         int r;
 
-        assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_MAKE_ARCHIVE, ACTION_SHIFT));
+        assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_MANIFEST, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_MAKE_ARCHIVE, ACTION_SHIFT));
 
         /* Determine whether to copy ownership:
          * --copy-ownership=yes: always try to preserve ownership
@@ -1535,7 +1730,8 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
         }
 
         case ACTION_LIST:
-        case ACTION_MTREE: {
+        case ACTION_MTREE:
+        case ACTION_MANIFEST: {
                 _cleanup_close_ int dfd = -EBADF;
 
                 dfd = open(root, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
@@ -1548,7 +1744,18 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                         r = recurse_dir(dfd, NULL, 0, UINT_MAX, RECURSE_DIR_SORT, list_print_item, NULL);
                 else if (arg_action == ACTION_MTREE)
                         r = recurse_dir(dfd, ".", STATX_TYPE|STATX_MODE|STATX_UID|STATX_GID|STATX_SIZE, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL, mtree_print_item, NULL);
-                else
+                else if (arg_action == ACTION_MANIFEST) {
+                        _cleanup_(hardlink_data_done) HardlinkData hd = {
+                                .db_fd = -EBADF,
+                        };
+                        r = recurse_dir(dfd,
+                                        /* path= */ NULL,
+                                        STATX_TYPE|STATX_MODE|STATX_UID|STATX_GID|STATX_SIZE|STATX_NLINK,
+                                        /* n_depth_max= */ UINT_MAX,
+                                        RECURSE_DIR_SORT|RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL,
+                                        manifest_print_item,
+                                        &hd);
+                } else
                         assert_not_reached();
                 if (r < 0)
                         return log_error_errno(r, "Failed to list image: %m");
@@ -2145,11 +2352,12 @@ static int run(int argc, char *argv[]) {
 
         case ACTION_LIST:
         case ACTION_MTREE:
+        case ACTION_MANIFEST:
         case ACTION_COPY_FROM:
         case ACTION_COPY_TO:
         case ACTION_MAKE_ARCHIVE:
         case ACTION_SHIFT:
-                return action_list_or_mtree_or_copy_or_make_archive(m, d, userns_fd);
+                return action_list_or_mtree_or_manifest_or_copy_or_make_archive(m, d, userns_fd);
 
         case ACTION_WITH:
                 return action_with(m, d);
