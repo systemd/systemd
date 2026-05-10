@@ -6,11 +6,13 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "errno-util.h"
 #include "libudev-device-internal.h"
 #include "libudev-list-internal.h"
+#include "path-util.h"
 
 /**
  * SECTION:libudev-device
@@ -242,7 +244,10 @@ _public_ struct udev_device* udev_device_new_from_syspath(struct udev *udev, con
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
-        r = sd_device_new_from_syspath(&device, syspath);
+        if (path_startswith(syspath, "/sys/devices/"))
+                r = device_new_from_sysfs_path(&device, syspath);
+        else
+                r = sd_device_new_from_syspath(&device, syspath);
         if (r < 0)
                 return_with_errno(NULL, r);
 
