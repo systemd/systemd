@@ -1153,14 +1153,18 @@ static int get_process_ctty_atime(pid_t pid, usec_t *atime) {
         return get_tty_atime(p, atime);
 }
 
-int session_get_idle_hint(Session *s, dual_timestamp *t) {
+bool session_get_idle_hint(Session *s, dual_timestamp *t) {
         usec_t atime = 0, dtime = 0;
         int r;
 
         assert(s);
 
-        if (!SESSION_CLASS_CAN_IDLE(s->class))
+        if (!SESSION_CLASS_CAN_IDLE(s->class)) {
+                if (t)
+                        *t = DUAL_TIMESTAMP_NULL;
+
                 return false;
+        }
 
         /* Graphical sessions have an explicit idle hint */
         if (SESSION_TYPE_IS_GRAPHICAL(s->type)) {
@@ -1189,7 +1193,6 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
 
         if (t)
                 *t = DUAL_TIMESTAMP_NULL;
-
         return false;
 
 found_atime:
