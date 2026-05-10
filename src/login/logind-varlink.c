@@ -310,7 +310,7 @@ static int vl_method_release_session(sd_varlink *link, sd_json_variant *paramete
 
         struct {
                 const char *id;
-        } p;
+        } p = {};
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "Id", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id), 0 },
