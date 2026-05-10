@@ -80,6 +80,8 @@ bool manager_is_inhibited(
                 uid_t uid_to_ignore,
                 Inhibitor **ret_offending);
 
+int inhibitor_build_json(Inhibitor *i, sd_json_variant **ret);
+
 static inline bool inhibit_what_is_valid(InhibitWhat w) {
         return w > 0 && w < _INHIBIT_WHAT_MAX;
 }
