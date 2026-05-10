@@ -806,7 +806,7 @@ teardown_varlink() (
 )
 
 testcase_varlink() {
-    local session uid session_out user_out
+    local session uid session_out user_out seat_out self_err
 
     if [[ ! -c /dev/tty2 ]]; then
         echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
@@ -821,6 +821,7 @@ testcase_varlink() {
     varlinkctl introspect "$VARLINK_SOCKET"
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSessions" >/dev/null
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListUsers" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSeats" >/dev/null
 
     : "--- Setup test session ---"
     create_session
@@ -920,6 +921,39 @@ testcase_varlink() {
     : "--- ListUsers: streaming path ---"
     varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListUsers '{}' | grep "logind-test-user" >/dev/null
     test "$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListUsers '{}' | wc -l)" -ge 2
+
+    : "--- ListSeats: ID filter (single reply) ---"
+    local seat_out
+    seat_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListSeats '{"ID":"seat0"}')
+    echo "$seat_out" | jq -e '.context.ID == "seat0"' >/dev/null
+    echo "$seat_out" | jq -e '.runtime.CanTTY == true' >/dev/null
+    # Sessions is a flat array of session id strings.
+    echo "$seat_out" | jq -e ".runtime.Sessions[] | select(. == \"$session\")" >/dev/null
+
+    # nonexistent seat
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListSeats '{"ID":"seat-nonexistent"}')
+
+    : "--- ListSeats: empty input without --more must require --more ---"
+    # The caller-seat fallback was removed; no filter + no --more = EXPECTED_MORE.
+    local empty_seats_err
+    empty_seats_err=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListSeats '{}' 2>&1 || true)
+    echo "$empty_seats_err" | grep "'more' flag" >/dev/null
+    systemctl is-active systemd-logind.service >/dev/null
+
+    : "--- ListSeats: self/auto from session-less context yields NoSuchSeat ---"
+    # self/auto still resolves via peer session; running as root outside any session
+    # has no peer session, so we must get NoSuchSeat (not NoSuchSession leaked from
+    # the lookup helper).
+    local self_err
+    for id_arg in '{"ID":"self"}' '{"ID":"auto"}'; do
+        self_err=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListSeats "$id_arg" 2>&1 || true)
+        echo "$self_err" | grep NoSuchSeat >/dev/null
+        (! echo "$self_err" | grep NoSuchSession >/dev/null)
+    done
+
+    : "--- ListSeats: streaming path ---"
+    varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSeats '{}' | grep "seat0" >/dev/null
+    test "$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSeats '{}' | wc -l)" -ge 1
 
     : "--- ReleaseSession: NULL ID resolves to caller's session ---"
     # A caller with a logind session calling ReleaseSession '{}' (no ID) must
