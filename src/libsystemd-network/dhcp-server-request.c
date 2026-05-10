@@ -248,7 +248,7 @@ static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req
                 sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_lease->address));
                 if (l && l != existing_lease)
                         /* The address is already assigned to another host. Refusing. */
-                        return 0;
+                        return -EADDRINUSE;
 
                 /* Found a matching static lease. */
                 req->static_lease = static_lease;
@@ -282,8 +282,7 @@ static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req
         }
 
         if (req->address == INADDR_ANY)
-                /* no free addresses left */
-                return 0;
+                return -EADDRNOTAVAIL; /* no free addresses left */
 
         if (server->rapid_commit &&
             dhcp_message_get_option_flag(req->message, SD_DHCP_OPTION_RAPID_COMMIT) >= 0)
@@ -315,7 +314,7 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
                         return 0; /* The message is not for us. Let's silently ignore the packet. */
 
                 if (req->message->header.ciaddr != INADDR_ANY) /* this MUST be zero */
-                        return 0;
+                        return -EBADMSG;
 
                 /* this must be filled in with the yiaddr from the chosen OFFER */
                 r = dhcp_message_get_option_be32(req->message, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, &address);
