@@ -5,9 +5,7 @@
 
 #include "dhcp-server-request.h"
 
-int server_send_offer_or_ack(
+int dhcp_server_send_reply(
                 sd_dhcp_server *server,
                 DHCPRequest *req,
                 uint8_t type);
-
-int server_send_nak_or_ignore(sd_dhcp_server *server, bool init_reboot, DHCPRequest *req);
