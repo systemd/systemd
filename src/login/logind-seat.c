@@ -773,7 +773,7 @@ bool seat_can_graphical(Seat *s) {
         return seat_has_master_device(s);
 }
 
-int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
+bool seat_get_idle_hint(Seat *s, dual_timestamp *t) {
         bool idle_hint = true;
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
 
@@ -781,12 +781,9 @@ int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
 
         LIST_FOREACH(sessions_by_seat, session, s->sessions) {
                 dual_timestamp k;
-                int ih;
+                bool ih;
 
                 ih = session_get_idle_hint(session, &k);
-                if (ih < 0)
-                        return ih;
-
                 if (!ih) {
                         if (!idle_hint) {
                                 if (k.monotonic > ts.monotonic)
@@ -796,7 +793,6 @@ int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
                                 ts = k;
                         }
                 } else if (idle_hint) {
-
                         if (k.monotonic > ts.monotonic)
                                 ts = k;
                 }
