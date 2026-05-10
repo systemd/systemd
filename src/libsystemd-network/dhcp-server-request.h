@@ -5,7 +5,6 @@
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
-#include "dhcp-protocol.h"
 #include "ether-addr-util.h"
 #include "sd-forward.h"
 #include "sparse-endian.h"
@@ -36,5 +35,5 @@ typedef struct DHCPRequest {
 
 int dhcp_request_get_lifetime_timestamp(DHCPRequest *req, clockid_t clock, usec_t *ret);
 
-int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, size_t length, struct msghdr *mh);
+int dhcp_server_process_message(sd_dhcp_server *server, const struct iovec *iov, struct msghdr *mh);
 int dhcp_server_setup_io_event_source(sd_dhcp_server *server);
