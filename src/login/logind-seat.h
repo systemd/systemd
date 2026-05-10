@@ -64,6 +64,8 @@ int seat_stop_sessions(Seat *s, bool force);
 bool seat_may_gc(Seat *s, bool drop_not_started);
 void seat_add_to_gc_queue(Seat *s);
 
+int seat_build_json(Seat *s, sd_json_variant **ret);
+
 bool seat_name_is_valid(const char *name);
 bool seat_is_self(const char *name);
 bool seat_is_auto(const char *name);
