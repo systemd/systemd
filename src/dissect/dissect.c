@@ -29,6 +29,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "help-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
 #include "json-util.h"
@@ -123,16 +124,11 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_filter, image_filter_freep);
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *commands = NULL;
         int r;
 
         pager_open(arg_pager_flags);
 
-        r = terminal_urlify_man("systemd-dissect", "1", &link);
-        if (r < 0)
-                return log_oom();
-
+        _cleanup_(table_unrefp) Table *options = NULL, *commands = NULL;
         r = option_parser_get_help_table_ns("systemd-dissect", &options);
         if (r < 0)
                 return r;
@@ -144,40 +140,35 @@ static int help(void) {
         /* Make the 1st column same width in both tables */
         (void) table_sync_column_widths(0, options, commands);
 
-        printf("%1$s [OPTIONS...] IMAGE\n"
-               "%1$s [OPTIONS...] --mount IMAGE PATH\n"
-               "%1$s [OPTIONS...] --umount PATH\n"
-               "%1$s [OPTIONS...] --attach IMAGE\n"
-               "%1$s [OPTIONS...] --detach PATH\n"
-               "%1$s [OPTIONS...] --list IMAGE\n"
-               "%1$s [OPTIONS...] --mtree IMAGE\n"
-               "%1$s [OPTIONS...] --manifest IMAGE\n"
-               "%1$s [OPTIONS...] --with IMAGE [COMMAND…]\n"
-               "%1$s [OPTIONS...] --copy-from IMAGE PATH [TARGET]\n"
-               "%1$s [OPTIONS...] --copy-to IMAGE [SOURCE] PATH\n"
-               "%1$s [OPTIONS...] --make-archive IMAGE [TARGET]\n"
-               "%1$s [OPTIONS...] --discover\n"
-               "%1$s [OPTIONS...] --validate IMAGE\n"
-               "%1$s [OPTIONS...] --shift IMAGE UIDBASE\n"
-               "\n%2$sDissect a Discoverable Disk Image (DDI).%3$s\n"
-               "\n%4$sOptions:%5$s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
+        help_cmdline("[OPTIONS...] IMAGE");
+        help_cmdline("[OPTIONS...] --mount IMAGE PATH");
+        help_cmdline("[OPTIONS...] --umount PATH");
+        help_cmdline("[OPTIONS...] --attach IMAGE");
+        help_cmdline("[OPTIONS...] --detach PATH");
+        help_cmdline("[OPTIONS...] --list IMAGE");
+        help_cmdline("[OPTIONS...] --mtree IMAGE");
+        help_cmdline("[OPTIONS...] --manifest IMAGE");
+        help_cmdline("[OPTIONS...] --with IMAGE [COMMAND…]");
+        help_cmdline("[OPTIONS...] --copy-from IMAGE PATH [TARGET]");
+        help_cmdline("[OPTIONS...] --copy-to IMAGE [SOURCE] PATH");
+        help_cmdline("[OPTIONS...] --make-archive IMAGE [TARGET]");
+        help_cmdline("[OPTIONS...] --discover");
+        help_cmdline("[OPTIONS...] --validate IMAGE");
+        help_cmdline("[OPTIONS...] --shift IMAGE UIDBASE");
 
+        help_abstract("Dissect a Discoverable Disk Image (DDI).");
+
+        help_section("Options");
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
-        printf("\n%sCommands:%s\n", ansi_underline(), ansi_normal());
-
+        help_section("Commands");
         r = table_print_or_warn(commands);
         if (r < 0)
                 return r;
 
-        printf("\nSee the %s for details.\n", link);
+        help_man_page_reference("systemd-dissect", "1");
         return 0;
 }
 
