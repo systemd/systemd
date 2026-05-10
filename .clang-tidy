@@ -70,6 +70,7 @@ CheckOptions:
     ^getmntent$,mnt_table_next_fs(),libmount parser should be used instead
 '
   misc-header-include-cycle.IgnoredFilesList: 'glib-2.0'
+RemovedArgs: ['-fwide-exec-charset=UCS2', '-maccumulate-outgoing-args']
 WarningsAsErrors: '*'
 ExcludeHeaderFilterRegex: 'blkid\.h|gmessages\.h|gstring\.h'
 HeaderFileExtensions:
