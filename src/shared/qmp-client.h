@@ -68,15 +68,43 @@ int qmp_client_invoke(
                 qmp_command_callback_t callback,
                 void *userdata);
 
-/* Synchronous send + receive. Pumps the event loop until the reply arrives. *ret_result and
- * *ret_error_desc are borrowed pointers into the last reply, valid until the next
- * qmp_client_call(). Same contract as sd_varlink_call(). */
+/* Synchronous send + receive. Pumps the event loop until the reply arrives. On success
+ * *ret_result is a fresh reference (caller unrefs) and *ret_error_desc is a freshly allocated
+ * string (caller frees) — multiple concurrent calls on the same client therefore don't
+ * invalidate each other's outputs. */
 int qmp_client_call(
                 QmpClient *client,
                 const char *command,
                 QmpClientArgs *args,
                 sd_json_variant **ret_result,
-                const char **ret_error_desc);
+                char **ret_error_desc);
+
+/* Issue a QMP command asynchronously and return an sd_future that resolves when the reply
+ * arrives. sd_future_result(f) is 0 once a reply has landed (success or QMP-level error;
+ * use future_get_qmp_reply() to retrieve the result/error_desc), or a negative errno on
+ * transport failure or cancellation. */
+int qmp_client_call_future(
+                QmpClient *client,
+                const char *command,
+                QmpClientArgs *args,
+                sd_future **ret);
+
+/* Extract the reply from a resolved qmp_client_call_future(). On success *ret_result is a fresh
+ * reference (caller unrefs) and *ret_error_desc is a freshly allocated string (caller frees). */
+int future_get_qmp_reply(
+                sd_future *f,
+                sd_json_variant **ret_result,
+                char **ret_error_desc);
+
+/* Fiber-suspending variant of qmp_client_call(): only valid on a fiber whose event loop matches
+ * the client's. Same ownership contract as qmp_client_call(): on success *ret_result is a fresh
+ * reference (caller unrefs) and *ret_error_desc is a freshly allocated string (caller frees). */
+int qmp_client_call_suspend(
+                QmpClient *client,
+                const char *command,
+                QmpClientArgs *args,
+                sd_json_variant **ret_result,
+                char **ret_error_desc);
 
 void qmp_client_bind_event(QmpClient *c, qmp_event_callback_t callback, void *userdata);
 void qmp_client_bind_disconnect(QmpClient *c, qmp_disconnect_callback_t callback, void *userdata);

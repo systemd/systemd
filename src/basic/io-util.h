@@ -1,7 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <sys/epoll.h>
+
 #include "basic-forward.h"
+
+/* The intersection of poll() and epoll_wait() event masks. Linux defines POLL* and EPOLL* with the
+ * same numeric values for these — see the assert_cc()s in io-util.c — so this mask can be used
+ * interchangeably as a `revents` (poll) or `events` (epoll) bitset. */
+#define EPOLL_POLL_COMMON_MASK \
+        (EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP | EPOLLPRI | EPOLLRDHUP)
 
 int flush_fd(int fd);
 
