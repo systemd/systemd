@@ -1116,6 +1116,7 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
         Manager *m = ASSERT_PTR(userdata);
         struct dual_timestamp since;
         usec_t n, elapse;
+        bool idle;
         int r;
 
         if (m->idle_action == HANDLE_IGNORE ||
@@ -1124,8 +1125,8 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
 
         n = now(CLOCK_MONOTONIC);
 
-        r = manager_get_idle_hint(m, &since);
-        if (r <= 0) {
+        idle = manager_get_idle_hint(m, &since);
+        if (!idle) {
                 /* Not idle. Let's check if after a timeout it might be idle then. */
                 elapse = n + m->idle_action_usec;
                 m->was_idle = false;
