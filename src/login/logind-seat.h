@@ -55,7 +55,7 @@ bool seat_can_tty(Seat *s);
 bool seat_has_master_device(Seat *s);
 bool seat_can_graphical(Seat *s);
 
-int seat_get_idle_hint(Seat *s, dual_timestamp *t);
+bool seat_get_idle_hint(Seat *s, dual_timestamp *t);
 
 int seat_start(Seat *s);
 int seat_stop(Seat *s, bool force);
@@ -63,6 +63,8 @@ int seat_stop_sessions(Seat *s, bool force);
 
 bool seat_may_gc(Seat *s, bool drop_not_started);
 void seat_add_to_gc_queue(Seat *s);
+
+int seat_build_json(Seat *s, sd_json_variant **ret);
 
 bool seat_name_is_valid(const char *name);
 bool seat_is_self(const char *name);

@@ -504,6 +504,10 @@ executables += [
                 'objects' : ['systemd-machined'],
         },
         test_template + {
+                'sources' : files('test-varlink-idl-login.c'),
+                'objects' : ['systemd-logind'],
+        },
+        test_template + {
                 'sources' : files('test-watchdog.c'),
                 'type' : 'unsafe',
         },
