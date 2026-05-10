@@ -290,6 +290,65 @@ static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req
         return dhcp_server_send_reply(server, req, DHCP_OFFER);
 }
 
+static int server_guess_client_state(sd_dhcp_server *server, DHCPRequest *req) {
+        int r;
+
+        assert(server);
+        assert(req);
+        assert(req->message);
+
+        /* This guesses the client is in the renewing or rebinding state.
+         *
+         * If giaddr is zero, then there is no relay agent between the client and us. In that case, a
+         * DHCPREQUEST sent to a unicast destination address implies the client is in RENEWING state, while a
+         * broadcast destination address implies REBINDING state. Note, if packet destination information is
+         * unavailable, we conservatively assume REBINDING.
+         *
+         * If giaddr is non-zero, then there is a relay agent. The relay forwards packets to us using unicast
+         * transport, so the outer IPv4 destination address no longer reflects whether the original client
+         * message was broadcast or unicast. If the message contains the Relay Agent Information option with
+         * Relay Agent Flags suboption, then we can know if the original message is unicast or broadcast. If
+         * the message does not have the option, then we assume the client is in the rebinding state. */
+
+        if (req->message->header.giaddr == INADDR_ANY) {
+                if (!req->pktinfo)
+                        return DHCP_STATE_REBINDING;
+
+                /* 255.255.255.255 ? */
+                if (req->pktinfo->ipi_addr.s_addr == INADDR_BROADCAST)
+                        return DHCP_STATE_REBINDING;
+
+                /* subnet-directed broadcast, e.g., 192.0.2.0/24 -> 192.0.2.255 ? */
+                if (req->pktinfo->ipi_addr.s_addr == (server->subnet | ~server->netmask))
+                        return DHCP_STATE_REBINDING;
+
+                /* unicast, hence renewing. */
+                return DHCP_STATE_RENEWING;
+        }
+
+        _cleanup_(tlv_unrefp) TLV *agent_info = NULL;
+        r = dhcp_message_get_option_sub_tlv(
+                        req->message,
+                        SD_DHCP_OPTION_RELAY_AGENT_INFORMATION,
+                        TLV_DHCP4_SUBOPTION,
+                        &agent_info);
+        if (r == -ENODATA)
+                return DHCP_STATE_REBINDING;
+        if (r < 0)
+                return r;
+
+        struct iovec iov = {};
+        r = tlv_get_full(agent_info, SD_DHCP_RELAY_AGENT_FLAGS, sizeof(uint8_t), &iov);
+        if (r == -ENODATA)
+                return DHCP_STATE_REBINDING;
+        if (r < 0)
+                return r;
+
+        assert(iov.iov_len == sizeof(uint8_t));
+        uint8_t flags = *(const uint8_t*) iov.iov_base;
+        return FLAGS_SET(flags, DHCP_RELAY_AGENT_FLAG_UNICAST) ? DHCP_STATE_RENEWING : DHCP_STATE_REBINDING;
+}
+
 static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req) {
         int r;
 
@@ -300,15 +359,13 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
                 *existing_lease = hashmap_get(server->bound_leases_by_client_id, &req->client_id),
                 *static_lease = dhcp_server_get_static_lease(server, req);
 
+        DHCPState state;
         be32_t address;
-        bool init_reboot = false;
 
         /* see RFC 2131, section 4.3.2 */
         if (req->server_address != INADDR_ANY) {
-                log_dhcp_server(server, "REQUEST (selecting) (0x%x)",
-                                be32toh(req->message->header.xid));
+                state = DHCP_STATE_SELECTING;
 
-                /* SELECTING */
                 if (req->server_address != server->address)
                         return 0; /* The message is not for us. Let's silently ignore the packet. */
 
@@ -324,10 +381,10 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
                         return -EBADMSG;
 
         } else if (req->message->header.ciaddr != INADDR_ANY) {
-                log_dhcp_server(server, "REQUEST (rebinding/renewing) (0x%x)",
-                                be32toh(req->message->header.xid));
-
-                /* REBINDING / RENEWING */
+                r = server_guess_client_state(server, req);
+                if (r < 0)
+                        return r;
+                state = r;
 
                 /* this must NOT be filled */
                 if (dhcp_message_get_option_be32(req->message, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, /* ret= */ NULL) >= 0)
@@ -336,19 +393,51 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
                 address = req->message->header.ciaddr;
 
         } else {
-                log_dhcp_server(server, "REQUEST (init-reboot) (0x%x)",
-                                be32toh(req->message->header.xid));
+                state = DHCP_STATE_INIT_REBOOT;
 
-                /* INIT-REBOOT */
                 r = dhcp_message_get_option_be32(req->message, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, &address);
                 if (r < 0)
                         return r;
 
                 if (address == INADDR_ANY)
                         return -EBADMSG;
-
-                init_reboot = true;
         }
+
+        log_dhcp_server(server, "REQUEST (%s) (0x%x)", dhcp_state_to_string(state), be32toh(req->message->header.xid));
+
+        /* In the below, when we found some inconsistency with the bound lease or static lease, we send
+         * DHCPNAK if the client is in the selecting, renewing, or init-reboot state. Otherwise, i.e.,
+         * if in the rebinding state, we silently ignore the message. This is because, the network may have
+         * multiple DHCP servers, and the address may be managed by another server, and the request may be
+         * for that server.
+         *
+         * On selecting:
+         * We have already verified the message has matching server identifier, hence we have responsibility
+         * to manage the request, hence we should aggressively reply DHCPNAK.
+         *
+         * On renewing:
+         * The message is sent directly to us using unicast transport, so replying with DHCPNAK is unlikely
+         * to interfere with another server.
+         *
+         * On rebinding:
+         * The message is sent using broadcast delivery, hence if the network has multiple DHCP servers, then
+         * another server may reply DHCPACK. We should not disturb their process. Hence, silently ignore the
+         * message.
+         *
+         * On init-reboot:
+         * Even though the message is broadcast, for faster rebooting, we should aggressively reply DHCPNAK.
+         * Even if this is unnecessarily aggressive, the client will soon enter the usual DISCOVER -> REQUEST
+         * cycle, so that should not cause any big issues. */
+        bool send_nak = IN_SET(state, DHCP_STATE_SELECTING, DHCP_STATE_RENEWING, DHCP_STATE_INIT_REBOOT);
+
+        /* Check if the requested address is already assigned to another host.
+         * - if 'l' is NULL, then the address is not assigned to any host.
+         * - if 'l' is non-NULL, and equivalent to 'existing_lease', then the address is assigned to the host.
+         * - if 'l' is non-NULL, but different from 'existing_lease', then the address is already assigned to
+         *   another host. In this case, we explicitly know that the address should not be used by the host. */
+        sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
+        if (l && l != existing_lease)
+                return send_nak ? dhcp_server_send_reply(server, req, DHCP_NAK) : 0;
 
         /* Check if the request is consistent with the static lease. */
         if (static_lease) {
@@ -357,12 +446,7 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
 
                 if (static_lease->address != address)
                         /* The client requested an address which is different from the static lease. Refusing. */
-                        return init_reboot ? dhcp_server_send_reply(server, req, DHCP_NAK) : 0;
-
-                sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
-                if (l && l != existing_lease)
-                        /* The requested address is already assigned to another host. Refusing. */
-                        return init_reboot ? dhcp_server_send_reply(server, req, DHCP_NAK) : 0;
+                        return send_nak ? dhcp_server_send_reply(server, req, DHCP_NAK) : 0;
 
                 req->static_lease = static_lease;
                 req->address = address;
@@ -371,14 +455,15 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
         }
 
         if (dhcp_server_address_is_in_pool(server, address)) {
-                /* The requested address is in the pool. */
+                /* The requested address is in the pool. In the above, we have checked the address is free or
+                 * already assigned to the host. Hence, ACK. */
                 req->address = address;
 
                 return dhcp_server_ack(server, req);
         }
 
-        /* Refuse otherwise. */
-        if (init_reboot)
+        /* No static lease is configured for the host, and the requested address is not in our pool. Refusing. */
+        if (send_nak)
                 return dhcp_server_send_reply(server, req, DHCP_NAK);
 
         return 0;
