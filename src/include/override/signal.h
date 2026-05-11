@@ -3,5 +3,52 @@
 
 #include_next <signal.h>        /* IWYU pragma: export */
 
+#ifndef ILL_BADIADDR
+#define ILL_BADIADDR 9
+#endif
+
+#ifndef FPE_FLTUNK
+#define FPE_FLTUNK 14
+#endif
+
+#ifndef FPE_CONDTRAP
+#define FPE_CONDTRAP 15
+#endif
+
+#ifndef SEGV_ACCADI
+#define SEGV_ACCADI 5
+#endif
+
+#ifndef SEGV_ADIDERR
+#define SEGV_ADIDERR 6
+#endif
+
+#ifndef SEGV_ADIPERR
+#define SEGV_ADIPERR 7
+#endif
+
+/* Defined since glibc-2.39. */
+#ifndef SEGV_CPERR
+#define SEGV_CPERR 10
+#endif
+
+#ifndef SI_DETHREAD
+#define SI_DETHREAD -7
+#endif
+
+/* Defined since glibc-2.43. */
+#ifndef TRAP_PERF
+#define TRAP_PERF 6
+#endif
+
+/* Defined since glibc-2.33. */
+#ifndef SYS_SECCOMP
+#define SYS_SECCOMP 1
+#endif
+
+#ifndef SYS_USER_DISPATCH
+#define SYS_USER_DISPATCH 2
+#endif
+
 int rt_tgsigqueueinfo_shim(pid_t tgid, pid_t tid, int sig, siginfo_t *info);
 #define rt_tgsigqueueinfo rt_tgsigqueueinfo_shim
