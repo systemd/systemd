@@ -344,15 +344,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn*BenQ*:pn*Joybook*R22*:*
 # Clevo
 ###########################################################
 
-# Clevo PA70ES (Avell C73)
-# The ITE keyboard controller firmware (version 0xAB83) is shared with
-# the X+ piccolo. The piccolo rule (below) matches by input device ID
-# and remaps KP_Enter to Enter since the piccolo has no numpad and its
-# main Enter sends the wrong scan code. The PA70ES has a real numpad,
-# so the remap breaks KP_Enter. This restores the correct mapping.
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnNotebook:pnPA70ES:*
- KEYBOARD_KEY_9c=kpenter
-
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnNotebook:pnW65_67SZ:*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_a2=!playpause
@@ -2228,7 +2219,7 @@ evdev:atkbd:dmi:bvnTIMI*:bvr*:bd*:svnTIMI*:pnMiNoteBookPro*:*
 ###########################################################
 
 # X+ piccolo series 81X (Intel N305, possibly more)
-evdev:input:b0011v0001p0001eAB83*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnX-Plus.tech:pnX+ Piccolo:*
  KEYBOARD_KEY_9c=enter                                  # KP_enter in the main area is wrong
 
 ###########################################################
