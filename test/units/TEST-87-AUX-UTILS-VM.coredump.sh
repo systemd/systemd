@@ -157,7 +157,7 @@ coredumpctl -F COREDUMP_TID
 
 # If COREDUMP_CODE= is present, check that the expected code is SI_USER (0).
 if coredumpctl -F COREDUMP_CODE | grep "^0$" >/dev/null; then
-    coredumpctl info "$CORE_TEST_BIN" | grep "Signal: .*code 0" >/dev/null
+    coredumpctl info "$CORE_TEST_BIN" | grep --fixed-strings "Signal: 5 (TRAP) si_code: SI_USER" >/dev/null
 fi
 
 coredumpctl debug --debugger=/bin/true "$CORE_TEST_BIN"
