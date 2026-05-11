@@ -278,7 +278,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         goto success;
                 }
 
-                _dir_fd = open("/", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+                _dir_fd = open("/", O_DIRECTORY|O_PATH|O_CLOEXEC);
                 if (_dir_fd < 0)
                         return -errno;
 
