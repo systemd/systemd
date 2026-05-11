@@ -144,6 +144,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_pid_file);
 CONFIG_PARSER_PROTOTYPE(config_parse_exit_status);
 CONFIG_PARSER_PROTOTYPE(config_parse_disable_controllers);
 CONFIG_PARSER_PROTOTYPE(config_parse_oom_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_managed_oom_rules);
 CONFIG_PARSER_PROTOTYPE(config_parse_numa_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_numa_mask);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_filter_bpf_progs);
