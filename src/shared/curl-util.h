@@ -33,8 +33,8 @@ extern DLSYM_PROTOTYPE(curl_slist_free_all);
 typedef int (*curl_finished_t)(CurlSlot *slot, CURL *curl, CURLcode code, void *userdata);
 
 int curl_glue_new(CurlGlue **glue, sd_event *event);
-CurlGlue* curl_glue_ref(CurlGlue *glue);
-CurlGlue* curl_glue_unref(CurlGlue *glue);
+CurlGlue* curl_glue_ref(CurlGlue *p);
+CurlGlue* curl_glue_unref(CurlGlue *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(CurlGlue*, curl_glue_unref);
 
@@ -62,8 +62,8 @@ int curl_glue_perform_async(
 CURL* curl_slot_get_easy(CurlSlot *slot);
 CurlGlue* curl_slot_get_glue(CurlSlot *slot);
 
-CurlSlot* curl_slot_ref(CurlSlot *slot);
-CurlSlot* curl_slot_unref(CurlSlot *slot);
+CurlSlot* curl_slot_ref(CurlSlot *p);
+CurlSlot* curl_slot_unref(CurlSlot *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(CurlSlot*, curl_slot_unref);
 
