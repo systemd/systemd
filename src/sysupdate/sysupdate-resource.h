@@ -2,6 +2,7 @@
 #pragma once
 
 #include "gpt.h"
+#include "manifest-util.h"
 #include "sysupdate-forward.h"
 
 typedef enum ResourceType {
@@ -78,6 +79,7 @@ typedef struct Resource {
         char **patterns;
         GptPartitionType partition_type;
         bool partition_type_set;
+        ManifestFormat manifest_format;  /* Only MANIFEST_FORMAT_SHA256SUMS for now */
 
         /* All instances of this resource we found */
         Instance **instances;

@@ -50,6 +50,11 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The path is relative to the directory specified with --transfer-source= on the systemd-sysupdate command line, see PathRelativeTo=explicit in sysupdate.d(5)."),
                 SD_VARLINK_DEFINE_ENUM_VALUE(explicit));
 
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                ManifestFormat,
+                SD_VARLINK_FIELD_COMMENT("A SHA256SUMS file, see ManifestFormat=sha256sums in sysupdate.d(5)."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(sha256sums));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 TransferSource,
                 SD_VARLINK_FIELD_COMMENT("The resource type of the source, see Type= in the [Source] section of sysupdate.d(5)."),
@@ -59,7 +64,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("What the path is relative to, see PathRelativeTo= in the [Source] section of sysupdate.d(5). If unset, the path is relative to the root directory."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(pathRelativeTo, PathRelativeTo, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Patterns to match the source against, see MatchPattern= in the [Source] section of sysupdate.d(5). No specifier expansion is applied."),
-                SD_VARLINK_DEFINE_FIELD(matchPattern, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+                SD_VARLINK_DEFINE_FIELD(matchPattern, SD_VARLINK_STRING, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("The format of the manifest file listing the available source files, see ManifestFormat= in the [Source] section of sysupdate.d(5). If unset, defaults to 'sha256sums'."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(manifestFormat, ManifestFormat, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 TransferTarget,
@@ -173,6 +180,8 @@ SD_VARLINK_DEFINE_INTERFACE_FULL(
                 &vl_type_ResourceType,
                 SD_VARLINK_SYMBOL_COMMENT("What a resource path is relative to."),
                 &vl_type_PathRelativeTo,
+                SD_VARLINK_SYMBOL_COMMENT("The format of a manifest file listing the source files of a transfer."),
+                &vl_type_ManifestFormat,
                 SD_VARLINK_SYMBOL_COMMENT("The source of a transfer, mirroring the [Source] section of sysupdate.d(5)."),
                 &vl_type_TransferSource,
                 SD_VARLINK_SYMBOL_COMMENT("The target of a transfer, mirroring the [Target] section of sysupdate.d(5)."),
