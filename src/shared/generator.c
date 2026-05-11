@@ -817,6 +817,8 @@ int generator_hook_up_quotacheck(
 
         if (isempty(fstype) || streq(fstype, "auto"))
                 return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Couldn't determine filesystem type for %s, quota cannot be activated", what);
+        if (fstype_has_internal_quota(fstype))
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "%s handles quotas internally, skipping quotacheck/quotaon setup for %s", fstype, what);
         if (!fstype_needs_quota(fstype))
                 return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Quota was requested for %s, but not supported, ignoring: %s", what, fstype);
 
