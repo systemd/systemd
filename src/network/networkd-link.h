@@ -140,6 +140,7 @@ typedef struct Link {
         bool sr_iov_configured:1;
         bool activated:1;
         bool master_set:1;
+        bool ovs_master_warning_logged:1;
         bool stacked_netdevs_created:1;
         bool bridge_vlan_set:1;
         bool bearer_configured:1;

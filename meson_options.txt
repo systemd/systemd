@@ -104,6 +104,10 @@ option('binfmt', type : 'boolean',
        description : 'support for custom binary formats')
 option('repart', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install the systemd-repart tool')
+option('openvswitch', type : 'feature',
+       description : 'Open vSwitch support in systemd-networkd (direct OVSDB JSON-RPC client)')
+option('openvswitch-service-names', type : 'string', value : 'openvswitch.service',
+       description : 'space-separated list of OVS service unit names used by systemd-network-ovs-generator for After= and Wants= drop-ins. Default: openvswitch.service (RHEL/Fedora/ALT/SUSE). Debian/Ubuntu: openvswitch-switch.service. Arch: ovs-vswitchd.service.')
 option('sysupdate', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install the systemd-sysupdate tool')
 option('sysupdated', type: 'combo', value : 'auto',

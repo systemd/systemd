@@ -44,6 +44,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "qdisc.h"
 #include "socket-util.h"
 #include "tclass.h"
+#include "vlan-util.h"
 
 #include "cake.h"
 #include "codel.h"
@@ -120,6 +121,8 @@ Network.BatmanAdvanced,                          config_parse_ifname,           
 Network.Bond,                                    config_parse_ifname,                            0,                                      offsetof(Network, bond_name)
 Network.Bridge,                                  config_parse_ifname,                            0,                                      offsetof(Network, bridge_name)
 Network.VRF,                                     config_parse_ifname,                            0,                                      offsetof(Network, vrf_name)
+Network.OVSBridge,                               config_parse_ifname,                            0,                                      offsetof(Network, ovs_bridge_name)
+Network.OVSBond,                                 config_parse_ifname,                            0,                                      offsetof(Network, ovs_bond_name)
 Network.IPoIB,                                   config_parse_stacked_netdev,                    NETDEV_KIND_IPOIB,                      offsetof(Network, stacked_netdev_names)
 Network.IPVLAN,                                  config_parse_stacked_netdev,                    NETDEV_KIND_IPVLAN,                     offsetof(Network, stacked_netdev_names)
 Network.IPVTAP,                                  config_parse_stacked_netdev,                    NETDEV_KIND_IPVTAP,                     offsetof(Network, stacked_netdev_names)
@@ -417,6 +420,11 @@ Bridge.MulticastRouter,                          config_parse_multicast_router, 
 Bridge.Locked,                                   config_parse_tristate,                          0,                                      offsetof(Network, bridge_locked)
 Bridge.MACAuthenticationBypass,                  config_parse_tristate,                          0,                                      offsetof(Network, bridge_mac_authentication_bypass)
 Bridge.VLANTunnel,                               config_parse_tristate,                          0,                                      offsetof(Network, bridge_vlan_tunnel)
+OVSPort.Tag,                                     config_parse_vlanid,                            0,                                      offsetof(Network, ovs_port_tag)
+OVSPort.PVID,                                    config_parse_vlanid,                            0,                                      offsetof(Network, ovs_port_tag)
+OVSPort.VLANMode,                                config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, ovs_port_vlan_mode)
+OVSPort.VLAN,                                    config_parse_bridge_vlan_id_range,              0,                                      offsetof(Network, ovs_port_vlan_bitmap)
+OVSPort.Trunks,                                  config_parse_ovs_trunks,                        0,                                      offsetof(Network, ovs_port_vlan_bitmap)
 BridgeFDB.MACAddress,                            config_parse_fdb_hwaddr,                        0,                                      0
 BridgeFDB.VLANId,                                config_parse_fdb_vlan_id,                       0,                                      0
 BridgeFDB.Destination,                           config_parse_fdb_destination,                   0,                                      0
