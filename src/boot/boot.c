@@ -3266,6 +3266,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_TYPE1_UKI |
                 EFI_LOADER_FEATURE_TYPE1_UKI_URL |
                 EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS |
+                EFI_LOADER_FEATURE_KEYBOARD_LAYOUT |
                 0;
 
         assert(loaded_image);

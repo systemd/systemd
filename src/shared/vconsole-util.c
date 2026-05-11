@@ -578,6 +578,83 @@ int find_language_fallback(const char *lang, char **ret) {
         }
 }
 
+int find_vconsole_keymap_for_bcp47(const char *tag, char **ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *fallback = NULL;
+        const char *map;
+        int r;
+
+        /* Look up a vconsole keymap by RFC 4646 / BCP 47 language tag (e.g. "de-DE") using the optional
+         * sixth column of /usr/share/systemd/kbd-model-map. That column lists comma-separated tags the
+         * row matches. An exact (case-insensitive) tag match returns immediately; if no exact match
+         * exists, the first row whose tag matches the input's primary subtag wins. Returns 1 on match,
+         * 0 otherwise. */
+
+        assert(tag);
+        assert(ret);
+
+        if (isempty(tag)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        size_t primary_len = strcspn(tag, "-");
+        if (primary_len == 0) {
+                *ret = NULL;
+                return 0;
+        }
+
+        map = systemd_kbd_model_map();
+        f = fopen(map, "re");
+        if (!f)
+                return -errno;
+
+        for (unsigned n = 0;;) {
+                _cleanup_strv_free_ char **a = NULL, **tags = NULL;
+
+                r = read_next_mapping(map, 5, UINT_MAX, f, &n, &a);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                /* The BCP 47 tag list is the optional 6th column. "-" / empty means "no tags". */
+                if (strv_length(a) < 6 || isempty(a[5]) || streq(a[5], "-"))
+                        continue;
+
+                r = strv_split_full(&tags, a[5], ",", /* flags= */ 0);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(t, tags) {
+                        if (strcaseeq(*t, tag)) {
+                                log_debug("Found vconsole keymap '%s' for BCP 47 tag '%s' (exact match).",
+                                          a[0], tag);
+
+                                r = strdup_to(ret, a[0]);
+                                if (r < 0)
+                                        return r;
+
+                                return 1;
+                        }
+                        if (!fallback && strlen(*t) == primary_len && !strchr(*t, '-') && strncaseeq(*t, tag, primary_len)) {
+                                fallback = strdup(a[0]);
+                                if (!fallback)
+                                        return -ENOMEM;
+                        }
+                }
+        }
+
+        if (!fallback) {
+                *ret = NULL;
+                return 0;
+        }
+
+        log_debug("Found vconsole keymap '%s' for BCP 47 tag '%s' (primary subtag match).", fallback, tag);
+        *ret = TAKE_PTR(fallback);
+        return 1;
+}
+
 int vconsole_serialize(const VCContext *vc, const X11Context *xc, char ***env) {
         int r;
 
