@@ -2965,9 +2965,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
 
                 r = qemu_config_section(config_file, "chardev", "vdagent",
-                                        "backend", "spicevmc",
-                                        "debug", "0",
-                                        "name", "vdagent");
+                                        "backend", "qemu-vdagent",
+                                        "clipboard", "on",
+                                        "debug", "0");
                 if (r < 0)
                         return r;
 
