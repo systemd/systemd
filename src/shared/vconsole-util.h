@@ -39,4 +39,6 @@ typedef int (*X11VerifyCallback)(const X11Context *xc);
 int vconsole_convert_to_x11(const VCContext *vc, X11VerifyCallback verify, X11Context *ret);
 int x11_convert_to_vconsole(const X11Context *xc, VCContext *ret);
 
+int find_vconsole_keymap_for_bcp47(const char *tag, char **ret);
+
 int vconsole_serialize(const VCContext *vc, const X11Context *xc, char ***env);
