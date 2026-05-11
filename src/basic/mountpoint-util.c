@@ -385,6 +385,17 @@ bool fstype_needs_quota(const char *fstype) {
                           "f2fs");
 }
 
+bool fstype_has_internal_quota(const char *fstype) {
+        /* These filesystems have built-in quota support and do not need
+         * external quotacheck/quotaon services - see the "nothing needed"
+         * entries in fstype_needs_quota() above. */
+        return STR_IN_SET(fstype,
+                          "xfs",
+                          "gfs2",
+                          "ocfs2",
+                          "btrfs");
+}
+
 bool fstype_is_api_vfs(const char *fstype) {
         assert(fstype);
 
