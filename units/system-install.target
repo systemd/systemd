@@ -10,6 +10,6 @@
 [Unit]
 Description=System Installer
 Documentation=man:systemd-sysinstall(8)
-Requires=sysinit.target
-After=sysinit.target
+Requires=basic.target
+After=basic.target
 AllowIsolate=yes
