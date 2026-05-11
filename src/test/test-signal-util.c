@@ -103,6 +103,14 @@ TEST(signal_from_string) {
         test_signal_from_string_number("-2", -ERANGE);
 }
 
+TEST(signal_code_to_string) {
+        assert_se(streq_ptr(signal_code_to_string(SIGSEGV, SEGV_MAPERR), "SEGV_MAPERR"));
+        assert_se(streq_ptr(signal_code_to_string(SIGILL, ILL_ILLOPC), "ILL_ILLOPC"));
+        assert_se(streq_ptr(signal_code_to_string(SIGCHLD, CLD_CONTINUED), "continued"));
+        assert_se(streq_ptr(signal_code_to_string(SIGABRT, SI_TKILL), "SI_TKILL"));
+        assert_se(streq_ptr(signal_code_to_string(SIGABRT, SI_USER), "SI_USER"));
+}
+
 TEST(block_signals) {
         assert_se(signal_is_blocked(SIGUSR1) == 0);
         assert_se(signal_is_blocked(SIGALRM) == 0);
