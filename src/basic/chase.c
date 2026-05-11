@@ -50,6 +50,81 @@ static int chase_statx(int fd, struct statx *ret) {
                         ret);
 }
 
+static int chase_openat2(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags) {
+        /* Open the target of a chase operation via openat2(), translating the relevant ChaseFlags into
+         * RESOLVE_* and O_* flags and verifying MUST_BE_REGULAR/SOCKET via fstat after the open. Returns
+         * -EOPNOTSUPP when openat2() is unavailable (older kernels) or blocked by a seccomp filter
+         * (notably systemd's own filter, which returns ENOSYS to force programs onto the openat()
+         * fallback path) — the verdict is cached in a static so subsequent calls in the same process
+         * skip the syscall entirely. */
+
+        static bool can_openat2 = true;
+        int r;
+
+        assert(path);
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+
+        if (!can_openat2)
+                return -EOPNOTSUPP;
+
+        _cleanup_close_ int dir_fd_local = -EBADF;
+        if (dir_fd == XAT_FDROOT) {
+                if (path_is_absolute(path))
+                        dir_fd = AT_FDCWD;
+                else {
+                        dir_fd_local = open("/", O_CLOEXEC|O_DIRECTORY|O_PATH);
+                        if (dir_fd_local < 0)
+                                return -errno;
+                        dir_fd = dir_fd_local;
+                }
+        }
+
+        struct open_how how = {
+                .flags = O_PATH|O_CLOEXEC,
+        };
+        if (FLAGS_SET(chase_flags, CHASE_NOFOLLOW))
+                how.flags |= O_NOFOLLOW;
+        if (FLAGS_SET(chase_flags, CHASE_MUST_BE_DIRECTORY))
+                how.flags |= O_DIRECTORY;
+        if (root_fd != XAT_FDROOT)
+                how.resolve |= RESOLVE_IN_ROOT;
+        if (FLAGS_SET(chase_flags, CHASE_PROHIBIT_SYMLINKS))
+                how.resolve |= RESOLVE_NO_SYMLINKS;
+
+        _cleanup_close_ int fd = openat2(dir_fd, path, &how, sizeof(how));
+        if (fd < 0) {
+                /* ENOSYS: kernel too old or seccomp filter (systemd's filter returns ENOSYS).
+                 * EPERM: some sandboxes block openat2 with EPERM instead. Cache and fall back. */
+                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EPERM) {
+                        can_openat2 = false;
+                        return -EOPNOTSUPP;
+                }
+                /* EAGAIN: with RESOLVE_IN_ROOT the kernel returns this when a ".." component
+                 * (typically from following a symlink like /etc/os-release → ../usr/lib/os-release)
+                 * is processed and the global mount_lock or rename_lock seqcount changed during
+                 * the walk. Any mount activity anywhere in the system bumps mount_lock, so this
+                 * fires reliably while we're still setting up a mount tree. Fall back to the
+                 * regular chase loop, which handles root boundaries without openat2(). Don't
+                 * cache this — the condition is per-call, not a kernel/sandbox capability. */
+                if (errno == EAGAIN)
+                        return -EOPNOTSUPP;
+                return -errno;
+        }
+
+        if (FLAGS_SET(chase_flags, CHASE_MUST_BE_REGULAR)) {
+                r = fd_verify_regular(fd);
+                if (r < 0)
+                        return r;
+        }
+        if (FLAGS_SET(chase_flags, CHASE_MUST_BE_SOCKET)) {
+                r = fd_verify_socket(fd);
+                if (r < 0)
+                        return r;
+        }
+
+        return TAKE_FD(fd);
+}
+
 static int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, XOpenFlags xopen_flags) {
         /* Wrapper around xopenat_full() that translates CHASE_NOFOLLOW, CHASE_MUST_BE_* and
          * CHASE_TRIGGER_AUTOFS into their xopenat_full() counterparts. Used by shortcuts that want to open
@@ -261,6 +336,29 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
         /* If multiple flags are set now, fail immediately */
         if (FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY) + FLAGS_SET(flags, CHASE_MUST_BE_REGULAR) + FLAGS_SET(flags, CHASE_MUST_BE_SOCKET) > 1)
                 return -EBADSLT;
+
+        /* openat2() can handle everything the regular shortcut handles, plus a real root boundary (via
+         * RESOLVE_IN_ROOT) and CHASE_PROHIBIT_SYMLINKS (via RESOLVE_NO_SYMLINKS). It cannot trigger
+         * automounts on O_PATH fds though, so leave that case to chase_xopenat() below. RESOLVE_IN_ROOT
+         * also requires the dirfd to be the root, so we only take this path when dir_fd has been
+         * normalized to root_fd already. */
+        if (!ret_path &&
+            (flags & (CHASE_NO_SHORTCUT_MASK & ~CHASE_PROHIBIT_SYMLINKS)) == 0 &&
+            !FLAGS_SET(flags, CHASE_TRIGGER_AUTOFS) &&
+            (root_fd == XAT_FDROOT || dir_fd == root_fd)) {
+
+                r = chase_openat2(root_fd, dir_fd, path, flags);
+                if (r >= 0) {
+                        if (ret_fd)
+                                *ret_fd = r;
+                        else
+                                safe_close(r);
+
+                        return 1;
+                }
+                if (r != -EOPNOTSUPP)
+                        return r;
+        }
 
         if (root_fd == XAT_FDROOT && !ret_path && (flags & CHASE_NO_SHORTCUT_MASK) == 0) {
                 /* Shortcut the common case where we don't have a real root boundary and no fancy features
