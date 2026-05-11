@@ -117,6 +117,25 @@ EOF
 }
 
 for a in crc32c crc32 xxhash64 sha1 sha256; do
+    # dm-integrity uses crypto_alloc_shash() which triggers request_module()
+    # for the underlying hash algorithm when needed. That auto-load has been
+    # observed to fail flakily in some test environments, leading to errors
+    # like:
+    #   kernel: device-mapper: table: NNN:N: integrity: Invalid internal hash (-ENOENT)
+    #   integritysetup: Cannot format integrity for device /dev/loopN.
+    # Try to load the kernel module ahead of time to avoid that. Failure is
+    # acceptable here: the algorithm might be built-in (no module to load) or
+    # genuinely unsupported, in which case the next check will skip it.
+    modprobe -q "crypto-$a" || :
+
+    # Some algorithms are not supported on certain platforms (e.g. crc32 is
+    # missing on Alpine/postmarketOS). Skip them at runtime to avoid spurious
+    # failures.
+    if ! grep -q -E "^name\s+: $a\$" /proc/crypto; then
+        echo "Algorithm '$a' is not supported on this system, skipping."
+        continue
+    fi
+
     test_one "$a" 0
     test_one "$a" 1
 done
