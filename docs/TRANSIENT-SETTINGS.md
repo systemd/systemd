@@ -307,6 +307,7 @@ All cgroup/resource control settings are available for transient units
 ✓ StartupAllowedCPUs=
 ✓ AllowedMemoryNodes=
 ✓ StartupAllowedMemoryNodes=
+✓ CPUSetPartition=
 ✓ DisableControllers=
 ✓ Delegate=
 ✓ MemoryMin=
