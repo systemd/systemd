@@ -96,6 +96,20 @@
   </refsect1>
 
   <refsect1>
+    <title>Firmware-provided keyboard layout</title>
+
+    <para>If the boot loader reports the firmware-configured keyboard layout via the
+    <varname>LoaderKeyboardLayout</varname> EFI variable (see the
+    <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>),
+    <command>systemd-vconsole-setup</command> uses it as the lowest-priority fallback for the
+    keymap. The RFC 4646 / BCP 47 language tag reported by the firmware (e.g. <literal>de-DE</literal>) is
+    matched against the optional sixth column of <filename>/usr/share/systemd/kbd-model-map</filename>,
+    which lists the language tags each virtual-console keymap covers. Credentials,
+    <filename>/etc/vconsole.conf</filename>, and kernel command line options all override this
+    firmware-provided default.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
