@@ -1619,13 +1619,17 @@ int connect_unix_path(int fd, int dir_fd, const char *path) {
         _cleanup_close_ int inode_fd = -EBADF;
 
         assert(fd >= 0);
-        assert(dir_fd == AT_FDCWD || dir_fd >= 0);
+        assert(IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT) || dir_fd >= 0);
 
         /* Connects to the specified AF_UNIX socket in the file system. Works around the 108 byte size limit
          * in sockaddr_un, by going via O_PATH if needed. This hence works for any kind of path. */
 
-        if (!path)
+        if (!path) {
+                if (dir_fd < 0)
+                        return -EISDIR;
+
                 return connect_unix_inode(fd, dir_fd); /* If no path is specified, then dir_fd refers to the socket inode to connect to. */
+        }
 
         /* Refuse zero length path early, to make sure AF_UNIX stack won't mistake this for an abstract
          * namespace path, since first char is NUL */
@@ -1640,7 +1644,14 @@ int connect_unix_path(int fd, int dir_fd, const char *path) {
          * exist. If the path is too long, we also need to take the indirect route, since we can't fit this
          * into a sockaddr_un directly. */
 
-        inode_fd = openat(dir_fd, path, O_PATH|O_CLOEXEC);
+        if (dir_fd == XAT_FDROOT) {
+                _cleanup_free_ char *j = strjoin("/", path);
+                if (!j)
+                        return -ENOMEM;
+
+                inode_fd = open(j, O_PATH|O_CLOEXEC);
+        } else
+                inode_fd = openat(dir_fd, path, O_PATH|O_CLOEXEC);
         if (inode_fd < 0)
                 return -errno;
 
