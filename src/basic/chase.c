@@ -139,11 +139,11 @@ static int log_prohibited_symlink(int fd, ChaseFlags flags) {
         assert(fd >= 0);
 
         if (!FLAGS_SET(flags, CHASE_WARN))
-                return -EREMCHG;
+                return -ELOOP;
 
         (void) fd_get_path(fd, &n1);
 
-        return log_warning_errno(SYNTHETIC_ERRNO(EREMCHG),
+        return log_warning_errno(SYNTHETIC_ERRNO(ELOOP),
                                  "Detected symlink where no symlink is allowed at '%s', refusing.",
                                  strna(n1));
 }
