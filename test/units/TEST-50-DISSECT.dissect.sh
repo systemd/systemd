@@ -1102,6 +1102,124 @@ systemd-run --wait --pipe --same-root-dir -p ExecStartPre=true true
 systemd-dissect --mtree /tmp/img >/dev/null
 systemd-dissect --list /tmp/img >/dev/null
 
+# Test --manifest: exercise every inode type as well as hardlinks
+MANIFEST_ROOT=$(mktemp -d /tmp/manifest-test.XXXXXX)
+
+# Regular file (with content), empty regular file, directory + nested file
+echo -n "hello world" >"$MANIFEST_ROOT/regular.txt"
+: >"$MANIFEST_ROOT/empty.txt"
+mkdir "$MANIFEST_ROOT/subdir"
+echo -n "nested" >"$MANIFEST_ROOT/subdir/nested.txt"
+# Symlink with a non-trivial relative target
+ln -s regular.txt "$MANIFEST_ROOT/symlink"
+# FIFO, char device (/dev/null = 1,3), block device (loop0 = 7,0)
+mkfifo "$MANIFEST_ROOT/fifo"
+mknod "$MANIFEST_ROOT/chardev" c 1 3
+mknod "$MANIFEST_ROOT/blockdev" b 7 0
+# Hardlinked pair of regular files (same inode, nlink=2)
+echo -n "hardlinked content" >"$MANIFEST_ROOT/hardlink_a"
+ln "$MANIFEST_ROOT/hardlink_a" "$MANIFEST_ROOT/hardlink_b"
+# Unix socket — bind() it with python3 if available (process exits, file persists)
+HAVE_SOCKET=0
+if command -v python3 >/dev/null 2>&1; then
+    python3 -c "import socket,sys; s=socket.socket(socket.AF_UNIX); s.bind(sys.argv[1])" "$MANIFEST_ROOT/socket"
+    HAVE_SOCKET=1
+fi
+# Predictable permissions for mode assertions
+chmod 0644 "$MANIFEST_ROOT/regular.txt" "$MANIFEST_ROOT/empty.txt" \
+           "$MANIFEST_ROOT/subdir/nested.txt" "$MANIFEST_ROOT/hardlink_a"
+chmod 0755 "$MANIFEST_ROOT/subdir"
+chmod 0600 "$MANIFEST_ROOT/fifo"
+chmod 0666 "$MANIFEST_ROOT/chardev" "$MANIFEST_ROOT/blockdev"
+
+# Capture the JSON-seq stream and convert to JSON-Lines for jq filtering. Each
+# record is already on its own line in compact form, so stripping the RS (0x1E)
+# byte gives us a valid JSON-Lines stream.
+systemd-dissect --manifest "$MANIFEST_ROOT" >"$MANIFEST_ROOT.seq"
+tr -d '\036' <"$MANIFEST_ROOT.seq" >"$MANIFEST_ROOT.jsonl"
+test -s "$MANIFEST_ROOT.jsonl"
+
+# Helper: emit the entry whose "name" matches $1 (root entry has no name)
+get_entry() { jq -c --arg n "$1" 'select(.name == $n)' <"$MANIFEST_ROOT.jsonl"; }
+
+# Root entry is the first record, has mediaType and no name
+head -n1 "$MANIFEST_ROOT.jsonl" | \
+    jq -e '.mediaType == "application/vnd.uapi.16.manifest" and (has("name") | not)' >/dev/null
+
+# Regular file: no "type" field, has size, sha256 matches sha256sum(1), mode is 0644
+ENTRY=$(get_entry regular.txt)
+test "$(jq 'has("type")' <<<"$ENTRY")" = "false"
+test "$(jq -r '.size' <<<"$ENTRY")" = "11"
+EXPECTED_SHA=$(sha256sum "$MANIFEST_ROOT/regular.txt" | awk '{print $1}')
+test "$(jq -r '.sha256' <<<"$ENTRY")" = "$EXPECTED_SHA"
+test "$(printf '%o' "$(jq -r '.mode' <<<"$ENTRY")")" = "644"
+# A non-hardlinked entry must not have an inodeToken
+test "$(jq 'has("inodeToken")' <<<"$ENTRY")" = "false"
+
+# Empty file: size 0, sha256 of the empty input
+ENTRY=$(get_entry empty.txt)
+test "$(jq -r '.size' <<<"$ENTRY")" = "0"
+test "$(jq -r '.sha256' <<<"$ENTRY")" = \
+    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+# Directory
+ENTRY=$(get_entry subdir)
+test "$(jq -r '.type' <<<"$ENTRY")" = "dir"
+test "$(printf '%o' "$(jq -r '.mode' <<<"$ENTRY")")" = "755"
+
+# Nested file uses '/' as path separator
+ENTRY=$(get_entry subdir/nested.txt)
+test "$(jq -r '.size' <<<"$ENTRY")" = "6"
+test "$(jq 'has("sha256")' <<<"$ENTRY")" = "true"
+
+# Symlink: type=lnk, size = strlen(target), contents carries base64 of target,
+# and there is no "mode" field for symlinks
+ENTRY=$(get_entry symlink)
+test "$(jq -r '.type' <<<"$ENTRY")" = "lnk"
+test "$(jq -r '.size' <<<"$ENTRY")" = "11"
+test "$(jq -r '.contents[0].literal' <<<"$ENTRY")" = "$(printf 'regular.txt' | base64 -w0)"
+test "$(jq 'has("mode")' <<<"$ENTRY")" = "false"
+
+# FIFO
+ENTRY=$(get_entry fifo)
+test "$(jq -r '.type' <<<"$ENTRY")" = "fifo"
+test "$(printf '%o' "$(jq -r '.mode' <<<"$ENTRY")")" = "600"
+
+# Char device with major/minor
+ENTRY=$(get_entry chardev)
+test "$(jq -r '.type' <<<"$ENTRY")" = "chr"
+test "$(jq -r '.major' <<<"$ENTRY")" = "1"
+test "$(jq -r '.minor' <<<"$ENTRY")" = "3"
+
+# Block device with major/minor
+ENTRY=$(get_entry blockdev)
+test "$(jq -r '.type' <<<"$ENTRY")" = "blk"
+test "$(jq -r '.major' <<<"$ENTRY")" = "7"
+test "$(jq -r '.minor' <<<"$ENTRY")" = "0"
+
+# Unix socket (only if we managed to create one)
+if [[ "$HAVE_SOCKET" -eq 1 ]]; then
+    ENTRY=$(get_entry socket)
+    test "$(jq -r '.type' <<<"$ENTRY")" = "sock"
+fi
+
+# Hardlinks: both members carry an inodeToken > 0, with matching token and sha256
+TOKEN_A=$(get_entry hardlink_a | jq -r '.inodeToken')
+TOKEN_B=$(get_entry hardlink_b | jq -r '.inodeToken')
+test "$TOKEN_A" != "null"
+test "$TOKEN_A" != "0"
+test "$TOKEN_A" = "$TOKEN_B"
+test "$(get_entry hardlink_a | jq -r '.sha256')" = "$(get_entry hardlink_b | jq -r '.sha256')"
+
+# --manifest output must be stable for the same directory tree
+systemd-dissect --manifest "$MANIFEST_ROOT" >"$MANIFEST_ROOT.seq2"
+cmp "$MANIFEST_ROOT.seq" "$MANIFEST_ROOT.seq2"
+
+# --manifest also works against a dissected image (uses the same code path)
+systemd-dissect --manifest "$MINIMAL_IMAGE.raw" >/dev/null
+
+rm -rf "$MANIFEST_ROOT" "$MANIFEST_ROOT.seq" "$MANIFEST_ROOT.seq2" "$MANIFEST_ROOT.jsonl"
+
 read -r SHA256SUM1 _ < <(systemd-dissect --copy-from /tmp/img etc/os-release | sha256sum)
 test "$SHA256SUM1" != ""
 
