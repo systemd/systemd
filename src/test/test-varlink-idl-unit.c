@@ -6,10 +6,14 @@
 #include "kill.h"
 #include "mount.h"
 #include "numa-util.h"
+#include "path.h"
 #include "process-util.h"
+#include "scope.h"
 #include "service.h"
+#include "swap.h"
 #include "tests.h"
 #include "test-varlink-idl-util.h"
+#include "timer.h"
 #include "unit.h"
 #include "varlink-idl-common.h"
 #include "varlink-io.systemd.Unit.h"
@@ -62,6 +66,28 @@ TEST(unit_enums_idl) {
 
         /* ServiceContext enums */
         TEST_IDL_ENUM(ServiceType, service_type, vl_type_ServiceType);
+
+        /* PathContext enums */
+        TEST_IDL_ENUM(PathType, path_type, vl_type_PathType);
+
+        /* PathRuntime enums */
+        TEST_IDL_ENUM(PathResult, path_result, vl_type_PathResult);
+
+        /* ScopeRuntime enums */
+        TEST_IDL_ENUM(ScopeResult, scope_result, vl_type_ScopeResult);
+
+        /* SwapRuntime enums */
+        TEST_IDL_ENUM(SwapResult, swap_result, vl_type_SwapResult);
+
+        /* TimerContext enums */
+        for (TimerBase b = 0; b < _TIMER_BASE_MAX; b++) {
+                _cleanup_free_ char *s = timer_base_to_usec_string(b);
+                assert_se(s);
+                test_enum_to_string_name(s, &vl_type_TimerBase);
+        }
+
+        /* TimerRuntime enums */
+        TEST_IDL_ENUM(TimerResult, timer_result, vl_type_TimerResult);
 
         /* UnitContext enums */
         TEST_IDL_ENUM(CollectMode, collect_mode, vl_type_CollectMode);
