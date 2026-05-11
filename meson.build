@@ -593,6 +593,7 @@ foreach ident : [
         ['mount_setattr',     '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['move_mount',        '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['open_tree',         '''#include <sys/mount.h>'''],    # since glibc-2.36
+        ['openat2',           '''#include <fcntl.h>'''],        # since glibc-2.42
         ['pidfd_open',        '''#include <sys/pidfd.h>'''],    # since glibc-2.36
         ['pidfd_send_signal', '''#include <sys/pidfd.h>'''],    # since glibc-2.36
         ['pidfd_spawn',       '''#include <spawn.h>'''],        # since glibc-2.39
