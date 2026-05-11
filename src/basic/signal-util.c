@@ -223,6 +223,155 @@ int signal_from_string(const char *s) {
         return -EINVAL;
 }
 
+static const char *const siginfo_code_table[] = {
+        [SI_USER] = "SI_USER",
+        [SI_KERNEL] = "SI_KERNEL",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(siginfo_code, int);
+
+/* Negative si_code values need to be turned into positive ones here,
+ * string_table_lookup_to_string only accepts positive values. */
+static const char *const siginfo_code_negative_table[] = {
+        [-SI_ASYNCNL] = "SI_ASYNCNL",
+#ifdef SI_DETHREAD
+        [-SI_DETHREAD] = "SI_DETHREAD",
+#endif
+        [-SI_TKILL] = "SI_TKILL",
+        [-SI_SIGIO] = "SI_SIGIO",
+        [-SI_ASYNCIO] = "SI_ASYNCIO",
+        [-SI_MESGQ] = "SI_MESGQ",
+        [-SI_TIMER] = "SI_TIMER",
+        [-SI_QUEUE] = "SI_QUEUE",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(siginfo_code_negative, int);
+
+static const char *const sigill_code_table[] = {
+        [ILL_ILLOPC] = "ILL_ILLOPC",
+        [ILL_ILLOPN] = "ILL_ILLOPN",
+        [ILL_ILLADR] = "ILL_ILLADR",
+        [ILL_ILLTRP] = "ILL_ILLTRP",
+        [ILL_PRVOPC] = "ILL_PRVOPC",
+        [ILL_PRVREG] = "ILL_PRVREG",
+        [ILL_COPROC] = "ILL_COPROC",
+        [ILL_BADSTK] = "ILL_BADSTK",
+#ifdef ILL_BADIADDR
+        [ILL_BADIADDR] = "ILL_BADIADDR",
+#endif
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(sigill_code, int);
+
+static const char *const sigfpe_code_table[] = {
+        [FPE_INTDIV] = "FPE_INTDIV",
+        [FPE_INTOVF] = "FPE_INTOVF",
+        [FPE_FLTDIV] = "FPE_FLTDIV",
+        [FPE_FLTOVF] = "FPE_FLTOVF",
+        [FPE_FLTUND] = "FPE_FLTUND",
+        [FPE_FLTRES] = "FPE_FLTRES",
+        [FPE_FLTINV] = "FPE_FLTINV",
+        [FPE_FLTSUB] = "FPE_FLTSUB",
+#ifdef FPE_FLTUNK
+        [FPE_FLTUNK] = "FPE_FLTUNK",
+#endif
+#ifdef FPE_CONDTRAP
+        [FPE_CONDTRAP] = "FPE_CONDTRAP",
+#endif
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(sigfpe_code, int);
+
+static const char *const sigsegv_code_table[] = {
+        [SEGV_MAPERR] = "SEGV_MAPERR",
+        [SEGV_ACCERR] = "SEGV_ACCERR",
+        [SEGV_BNDERR] = "SEGV_BNDERR",
+#ifdef SEGV_PKUERR
+        [SEGV_PKUERR] = "SEGV_PKUERR",
+#endif
+#ifdef SEGV_ACCADI
+        [SEGV_ACCADI] = "SEGV_ACCADI",
+#endif
+#ifdef SEGV_ADIDERR
+        [SEGV_ADIDERR] = "SEGV_ADIDERR",
+#endif
+#ifdef SEGV_ADIPERR
+        [SEGV_ADIPERR] = "SEGV_ADIPERR",
+#endif
+#ifdef SEGV_MTEAERR
+        [SEGV_MTEAERR] = "SEGV_MTEAERR",
+#endif
+#ifdef SEGV_MTESERR
+        [SEGV_MTESERR] = "SEGV_MTESERR",
+#endif
+#ifdef SEGV_CPERR
+        [SEGV_CPERR] = "SEGV_CPERR",
+#endif
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(sigsegv_code, int);
+
+static const char *const sigbus_code_table[] = {
+        [BUS_ADRALN] = "BUS_ADRALN",
+        [BUS_ADRERR] = "BUS_ADRERR",
+        [BUS_OBJERR] = "BUS_OBJERR",
+        [BUS_MCEERR_AR] = "BUS_MCEERR_AR",
+        [BUS_MCEERR_AO] = "BUS_MCEERR_AO",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(sigbus_code, int);
+
+static const char *const sigtrap_code_table[] = {
+        [TRAP_BRKPT] = "TRAP_BRKPT",
+        [TRAP_TRACE] = "TRAP_TRACE",
+        [TRAP_BRANCH] = "TRAP_BRANCH",
+        [TRAP_HWBKPT] = "TRAP_HWBKPT",
+        [TRAP_UNK] = "TRAP_UNK",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(sigtrap_code, int);
+
+/* sigchld_code_table is already defined in src/basic/process-util.c, no need
+ * to repeat the values here. */
+
+static const char *const sigpoll_code_table[] = {
+        [POLL_IN] = "POLL_IN",
+        [POLL_OUT] = "POLL_OUT",
+        [POLL_MSG] = "POLL_MSG",
+        [POLL_ERR] = "POLL_ERR",
+        [POLL_PRI] = "POLL_PRI",
+        [POLL_HUP] = "POLL_HUP",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(sigpoll_code, int);
+
+const char* signal_code_to_string(int signo, int code) {
+        const char *s;
+
+        s = code < 0 ? siginfo_code_negative_to_string(-code) : siginfo_code_to_string(code);
+        if (s)
+                return s;
+
+        switch (signo) {
+        case SIGILL:
+                return sigill_code_to_string(code);
+        case SIGFPE:
+                return sigfpe_code_to_string(code);
+        case SIGSEGV:
+                return sigsegv_code_to_string(code);
+        case SIGBUS:
+                return sigbus_code_to_string(code);
+        case SIGTRAP:
+                return sigtrap_code_to_string(code);
+        case SIGCHLD:
+                return sigchld_code_to_string(code);
+        case SIGPOLL:
+                return sigpoll_code_to_string(code);
+        default:
+                return NULL;
+        }
+}
+
 void nop_signal_handler(int sig) {
         /* nothing here */
 }
