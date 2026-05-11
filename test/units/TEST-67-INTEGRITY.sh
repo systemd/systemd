@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -euxo pipefail
 
-. /etc/os-release
-
 DM_NAME="integrity_test"
 DM_NODE="/dev/mapper/${DM_NAME}"
 DM_SERVICE="systemd-integritysetup@${DM_NAME}.service"
@@ -119,16 +117,23 @@ EOF
 }
 
 for a in crc32c crc32 xxhash64 sha1 sha256; do
-    if [[ "$a" == crc32 && "${ID_LIKE:-}" == alpine ]]; then
-        # crc32 is not supported on alpine/postmarketos ??
-        # --------
-        # [   22.419458] TEST-67-INTEGRITY.sh[3085]: + integritysetup format /dev/loop0 --batch-mode -I crc32 ''
-        # [   22.433168] kernel: device-mapper: table: 253:0: integrity: Invalid internal hash (-ENOENT)
-        # [   22.433220] TEST-67-INTEGRITY.sh[3475]: device-mapper: reload ioctl on temporary-cryptsetup-6b3b80ef-6854-4102-8239-6360f15af0c3 (253:0) failed: No such file or directory
-        # [   22.433220] TEST-67-INTEGRITY.sh[3475]: Cannot format integrity for device /dev/loop0.
-        # [   22.433835] kernel: device-mapper: ioctl: error adding target to table
-        # --------
-        continue;
+    # dm-integrity uses crypto_alloc_shash() which triggers request_module()
+    # for the underlying hash algorithm when needed. That auto-load has been
+    # observed to fail flakily in some test environments, leading to errors
+    # like:
+    #   kernel: device-mapper: table: NNN:N: integrity: Invalid internal hash (-ENOENT)
+    #   integritysetup: Cannot format integrity for device /dev/loopN.
+    # Try to load the kernel module ahead of time to avoid that. Failure is
+    # acceptable here: the algorithm might be built-in (no module to load) or
+    # genuinely unsupported, in which case the next check will skip it.
+    modprobe -q "crypto-$a" || :
+
+    # Some algorithms are not supported on certain platforms (e.g. crc32 is
+    # missing on Alpine/postmarketOS). Skip them at runtime to avoid spurious
+    # failures.
+    if ! grep -q -E "^name\s+: $a\$" /proc/crypto; then
+        echo "Algorithm '$a' is not supported on this system, skipping."
+        continue
     fi
 
     test_one "$a" 0
