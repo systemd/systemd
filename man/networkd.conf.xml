@@ -394,6 +394,68 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>[DHCPRelay] Section Options</title>
+    <para>The [DHCPRelay] section contains host-wide settings for the DHCP relay agent.</para>
+
+    <variablelist class='network-directives'>
+
+      <varlistentry>
+        <term><varname>ServerAddress=</varname></term>
+        <listitem>
+          <para>Specifies the IPv4 address of the upstream DHCP server. This is mandatory to make the host
+          acts as a DHCP relay agent.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>OverrideServerIdentifier=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. When enabled, the Server Identifier Override sub-option and Relay
+          Agent Flags sub-option of Relay Agent option will be appended to the DHCP message forwarded to the
+          upstream DHCP server. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RemoteId=</varname></term>
+        <listitem>
+          <para>Specifies the remote ID, which is typically used by DHCP servers to determine the DHCP relay
+          agent. Takes a data type and data separated with a colon
+          (<literal><replaceable>type</replaceable>:<replaceable>value</replaceable></literal>). The type
+          takes one of <literal>uint8</literal>, <literal>uint16</literal>, <literal>uint32</literal>,
+          <literal>ipv4address</literal>, <literal>ipv6address</literal>, or <literal>string</literal>.
+          Special characters in the data string may be escaped using
+          <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style escapes</ulink>.
+          If unset, a UUID generated from the local machine ID will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ExtraOption=</varname></term>
+        <listitem>
+          <para>Specifies an extra sub-option of Relay Agent option, which is appended to DHCP messages
+          forwarded to the upstream DHCP server. Takes a sub-option code, data type, and data separated with
+          a colon
+          (<literal><replaceable>code</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
+          The code is an integer in 1…254. See <varname>RemoteId=</varname> in the above for the acceptable
+          type and data. This setting can be specified multiple times. When an empty string is specified,
+          all previous assignments are cleared. Defaults to unset, and no extra sub-option will be appended.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[DHCPServer] Section Options</title>
 
     <para>This section configures the default setting of the DHCP server. The following options are available
