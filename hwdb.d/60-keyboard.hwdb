@@ -2228,7 +2228,7 @@ evdev:atkbd:dmi:bvnTIMI*:bvr*:bd*:svnTIMI*:pnMiNoteBookPro*:*
 ###########################################################
 
 # X+ piccolo series 81X (Intel N305, possibly more)
-evdev:input:b0011v0001p0001eAB83*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnX-Plus.tech:pnX+ Piccolo:*
  KEYBOARD_KEY_9c=enter                                  # KP_enter in the main area is wrong
 
 ###########################################################
