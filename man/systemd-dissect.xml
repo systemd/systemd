@@ -45,6 +45,9 @@
       <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--mtree</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--manifest</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
       <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--with</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="opt" rep="repeat"><replaceable>COMMAND</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -255,6 +258,26 @@
         complicates reproducibility.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--manifest</option></term>
+
+        <listitem><para>Generates a file manifest of the specified disk image or directory, following the
+        <ulink url="https://uapi-group.org/specifications/specs/manifest_format/">UAPI.16 Manifest
+        Format</ulink>. The output is a JSON-SEQ sequence as per
+        <ulink url="https://datatracker.ietf.org/doc/html/rfc7464">RFC 7464</ulink>, with one record per
+        directory entry, describing the directory tree along with file types, sizes, ownership and access
+        modes, SHA256 content digests for regular files, and inode tokens to capture hardlink
+        relationships. Like <option>--mtree</option> this
+        is useful for comparing image contents in detail, but in a structured JSON-based format intended for
+        reproducible artifact descriptions. Note that some inode metadata (such as extended attributes, file
+        system capabilities, MAC labels,
+        <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        file flags and timestamps) is currently not included in the output. Additional fields might be added
+        in the future.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 
       <varlistentry>
