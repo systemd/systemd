@@ -43,4 +43,4 @@ dual_timestamp* event_dual_timestamp_now(sd_event *e, dual_timestamp *ts);
 
 void event_source_unref_many(sd_event_source **array, size_t n);
 
-int event_forward_signals(sd_event *e, sd_event_source *child, const int *signals, size_t n_signals, sd_event_source ***ret_sources, size_t *ret_n_sources);
+int event_forward_signals(sd_event *e, PidRef *pidref, const int *signals, size_t n_signals, sd_event_source ***ret_sources, size_t *ret_n_sources);
