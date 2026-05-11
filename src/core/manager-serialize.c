@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "bpf-restrict-fsaccess.h"
 #include "dbus.h"
 #include "dynamic-user.h"
 #include "fd-util.h"
@@ -177,6 +178,10 @@ int manager_serialize(
                 return r;
 
         r = varlink_server_serialize(m->metrics_varlink_server, "metrics", f, fds);
+        if (r < 0)
+                return r;
+
+        r = bpf_restrict_fsaccess_serialize(m, f, fds);
         if (r < 0)
                 return r;
 
@@ -384,6 +389,38 @@ static void manager_deserialize_uid_refs_one(Manager *m, const char *value) {
 
 static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
         manager_deserialize_uid_refs_one_internal(&m->gid_refs, value);
+}
+
+static void deserialize_restrict_fsaccess(Manager *m, const char *l, FDSet *fds) {
+        const char *val;
+        int fd;
+
+        FOREACH_ELEMENT(name, restrict_fsaccess_link_names) {
+                val = startswith(l, *name);
+                if (!val)
+                        continue;
+                val = startswith(val, "=");
+                if (!val)
+                        continue;
+                fd = deserialize_fd(fds, val);
+                if (fd < 0) {
+                        log_warning_errno(fd, "bpf-restrict-fsaccess: Failed to deserialize FD for %s: %m", *name);
+                        return;
+                }
+                close_and_replace(m->restrict_fsaccess_link_fds[name - restrict_fsaccess_link_names], fd);
+                return;
+        }
+
+        val = startswith(l, "restrict-fsaccess-bss-map=");
+        if (!val)
+                return;
+
+        fd = deserialize_fd(fds, val);
+        if (fd < 0) {
+                log_warning_errno(fd, "bpf-restrict-fsaccess: Failed to deserialize FD for .bss map: %m");
+                return;
+        }
+        close_and_replace(m->restrict_fsaccess_bss_map_fd, fd);
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
@@ -616,7 +653,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         else
                                 (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
 
-                } else if ((val = startswith(l, "dump-ratelimit=")))
+                } else if (startswith(l, "restrict-fsaccess-"))
+                        deserialize_restrict_fsaccess(m, l, fds);
+                else if ((val = startswith(l, "dump-ratelimit=")))
                         deserialize_ratelimit(&m->dump_ratelimit, "dump-ratelimit", val);
                 else if ((val = startswith(l, "reload-reexec-ratelimit=")))
                         deserialize_ratelimit(&m->reload_reexec_ratelimit, "reload-reexec-ratelimit", val);
