@@ -143,6 +143,8 @@ Variables will be listed below using the Linux efivarfs naming,
   * `1 << 18` → The boot loader reports active TPM2 PCR banks in the
                 EFI variable `LoaderTpm2ActivePcrBanks-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
   * `1 << 19` → The boot loader supports the `LoaderEntryPreferred` variable when set.
+  * `1 << 20` → The boot loader reports the firmware-configured keyboard layout in the
+                EFI variable `LoaderKeyboardLayout-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
 
 * The EFI variable `LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains binary random data,
@@ -170,6 +172,17 @@ Variables will be listed below using the Linux efivarfs naming,
   contains a hexadecimal string representation of a bitmask with values defined by
   the TCG EFI ProtocolSpecification for TPM 2.0 as `EFI_TCG2_BOOT_HASH_ALG_*`.
   If no TPM2 support or no active banks were detected, will be set to `0`.
+
+* The EFI variable `LoaderKeyboardLayout-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
+  contains the RFC 4646 (BCP 47) language tag of the currently-active keyboard
+  layout as reported by the UEFI HII database (e.g. `en-US`, `de-DE`).
+  It is formatted as a NUL-terminated UTF-16 string.
+  The boot loader sets this variable from the layout returned by
+  `EFI_HII_DATABASE_PROTOCOL.GetKeyboardLayout()`,
+  if that protocol is implemented by the firmware.
+  Userspace (notably `systemd-vconsole-setup`)
+  uses this as a lowest-priority fallback keyboard layout
+  when no explicit configuration is provided.
 
 If `LoaderTimeInitUSec` and `LoaderTimeExecUSec` are set, `systemd-analyze`
 will include them in its boot-time analysis.  If `LoaderDevicePartUUID` is set,

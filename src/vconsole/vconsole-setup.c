@@ -15,6 +15,7 @@
 
 #include "alloc-util.h"
 #include "creds-util.h"
+#include "efivars.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -30,6 +31,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "vconsole-util.h"
 
 typedef struct Context {
         char *keymap;
@@ -70,6 +72,34 @@ static void context_merge_config(
         context_merge(dst, src, src_compat, font);
         context_merge(dst, src, src_compat, font_map);
         context_merge(dst, src, src_compat, font_unimap);
+}
+
+static int context_read_efi(Context *c) {
+        _cleanup_(context_done) Context v = {};
+        _cleanup_free_ char *tag = NULL;
+        int r;
+
+        assert(c);
+
+        if (!is_efi_boot())
+                return 0;
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderKeyboardLayout"), &tag);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read LoaderKeyboardLayout EFI variable, ignoring: %m");
+
+        r = find_vconsole_keymap_for_bcp47(tag, &v.keymap);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to look up vconsole keymap for firmware tag '%s', ignoring: %m", tag);
+        if (r == 0) {
+                log_debug("No vconsole keymap matches firmware-provided keyboard layout '%s', ignoring.", tag);
+                return 0;
+        }
+
+        context_merge_config(c, &v, /* src_compat= */ NULL);
+        return 0;
 }
 
 static int context_read_creds(Context *c) {
@@ -144,10 +174,13 @@ static int context_read_proc_cmdline(Context *c) {
 static void context_load_config(Context *c) {
         assert(c);
 
-        /* Load data from credentials (lowest priority) */
+        /* Pick up the firmware-provided keyboard layout if any (lowest priority) */
+        (void) context_read_efi(c);
+
+        /* Load data from credentials */
         (void) context_read_creds(c);
 
-        /* Load data from configuration file (middle priority) */
+        /* Load data from configuration file */
         (void) context_read_env(c);
 
         /* Let the kernel command line override /etc/vconsole.conf (highest priority) */
