@@ -361,6 +361,7 @@ static int resource_load_from_blockdev(Resource *rr) {
 }
 
 static int download_manifest(
+                ManifestFormat manifest_format,
                 const char *url,
                 bool verify_signature,
                 char **ret_buffer,
@@ -372,6 +373,7 @@ static int download_manifest(
         size_t size = 0;
         int r;
 
+        assert(manifest_format == MANIFEST_FORMAT_SHA256SUMS);
         assert(url);
         assert(ret_buffer);
         assert(ret_size);
@@ -532,7 +534,7 @@ static int resource_load_from_web(
         } else {
                 log_debug("Manifest web cache miss for %s.", rr->path);
 
-                r = download_manifest(rr->path, verify, &buf, &manifest_size);
+                r = download_manifest(rr->manifest_format, rr->path, verify, &buf, &manifest_size);
                 if (r < 0)
                         return r;
 

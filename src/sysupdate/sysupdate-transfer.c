@@ -95,7 +95,9 @@ Transfer* transfer_new(Context *ctx) {
 
         *t = (Transfer) {
                 .source.type = _RESOURCE_TYPE_INVALID,
+                .source.manifest_format = MANIFEST_FORMAT_SHA256SUMS,
                 .target.type = _RESOURCE_TYPE_INVALID,
+                .target.manifest_format = _MANIFEST_FORMAT_INVALID,
                 .remove_temporary = -1,
                 .mode = MODE_INVALID,
                 .tries_left = UINT64_MAX,
@@ -394,6 +396,7 @@ static int config_parse_resource_path(
 }
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_type, resource_type, ResourceType);
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_manifest_format, manifest_format, ManifestFormat);
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_resource_path_relto, path_relative_to, PathRelativeTo,
                                              PATH_RELATIVE_TO_ROOT);
@@ -608,6 +611,11 @@ static int transfer_finalize(Transfer *t, const char *origin, unsigned line, Has
                                                   "Source path is not a valid HTTP, HTTPS, file, or provider URL: %s", t->source.path);
         }
 
+        if (t->source.manifest_format != MANIFEST_FORMAT_SHA256SUMS)
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Manifest format '%s' not supported for source specifications, refusing.",
+                                  manifest_format_to_string(t->source.manifest_format));
+
         if (strv_isempty(t->source.patterns))
                 return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
                                   "Source specification lacks MatchPattern=.");
@@ -674,6 +682,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 { "Source",      "Path",                    config_parse_resource_path,                0,                    &t->source                  },
                 { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->source.path_relative_to },
                 { "Source",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_SOURCE, &t->source.patterns         },
+                { "Source",      "ManifestFormat",          config_parse_resource_manifest_format,     0,                    &t->source.manifest_format  },
                 { "Target",      "Type",                    config_parse_resource_type,                0,                    &t->target.type             },
                 { "Target",      "Path",                    config_parse_resource_path,                0,                    &t->target                  },
                 { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->target.path_relative_to },
