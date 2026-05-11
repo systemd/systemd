@@ -57,6 +57,10 @@ varlinkctl list-methods /run/systemd/report/io.systemd.Basic
 varlinkctl --more call /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.Basic io.systemd.Metrics.Describe {}
 
+id1="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {} | jq --seq -r 'select(.name == "io.systemd.Basic.OSRelease.ID") | .value')"
+id2="$(. /etc/os-release; echo "$ID")"
+[ "$id1" = "$id2" ]
+
 # Test HTTP upload (plain http)
 FAKE_SERVER=/usr/lib/systemd/tests/integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units/fake-report-server.py
 CERTDIR=$(mktemp -d)
