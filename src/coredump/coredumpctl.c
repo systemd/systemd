@@ -695,8 +695,17 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 if (normal_coredump && safe_atoi(sgnl, &sig) >= 0) {
                         fprintf(file, "        %s: %s (%s)", name, sgnl, signal_to_string(sig));
 
-                        if (code)
-                                fprintf(file, ", code %s", code);
+                        if (code) {
+                                int n;
+                                const char *s;
+
+                                if (safe_atoi(code, &n) >= 0)
+                                        s = signal_code_to_string(sig, n);
+                                else
+                                        s = NULL;
+
+                                fprintf(file, " si_code: %s", s ?: code);
+                        }
 
                         fputc('\n', file);
                 } else
