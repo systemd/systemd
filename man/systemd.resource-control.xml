@@ -521,6 +521,28 @@ CPUWeight=20   DisableControllers=cpu              /          \
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>CPUSetPartition=</varname></term>
+
+        <listitem>
+          <para>Sets the <option>cpuset</option> partition type for the executed processes. Takes one
+          of <literal>member</literal>, <literal>root</literal>, or <literal>isolated</literal>. This setting
+          controls the <literal>cpuset.cpus.partition</literal> cgroup attribute.</para>
+
+          <para>When set to <literal>member</literal>, the cpuset operates in normal mode.
+          <literal>root</literal> creates a partition root, which can further divide CPUs among child cgroups.
+          <literal>isolated</literal> provides full CPU isolation, useful for real-time workloads that
+          require dedicated CPU resources without interference from other processes.
+          Defaults to the kernel default, which is <literal>member</literal>. For more details about this
+          control group attribute, see <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">
+          Control Groups v2</ulink>.</para>
+
+          <para>This setting requires <varname>AllowedCPUs=</varname> to also be set.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
 
     </refsect2><refsect2><title>Process Accounting and Control</title>
