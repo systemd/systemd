@@ -13,92 +13,102 @@
 #include "report-basic.h"
 #include "virt.h"
 
-static int architecture_generate(MetricFamilyContext *context, void *userdata) {
-        assert(context);
+static int architecture_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        assert(mf && mf->name);
+        assert(link);
 
         return metric_build_send_string(
-                        context,
+                        mf,
+                        link,
                         /* object= */ NULL,
                         architecture_to_string(uname_architecture()),
                         /* fields= */ NULL);
 }
 
-static int boot_id_generate(MetricFamilyContext *context, void *userdata) {
+static int boot_id_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         sd_id128_t id;
         int r;
 
-        assert(context);
+        assert(mf && mf->name);
+        assert(link);
 
         r = sd_id128_get_boot(&id);
         if (r < 0)
                 return r;
 
         return metric_build_send_string(
-                        context,
+                        mf,
+                        link,
                         /* object= */ NULL,
                         SD_ID128_TO_STRING(id),
                         /* fields= */ NULL);
 }
 
-static int hostname_generate(MetricFamilyContext *context, void *userdata) {
+static int hostname_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         _cleanup_free_ char *hostname = NULL;
         int r;
 
-        assert(context);
+        assert(mf && mf->name);
+        assert(link);
 
         r = gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST | GET_HOSTNAME_FALLBACK_DEFAULT, &hostname);
         if (r < 0)
                 return r;
 
         return metric_build_send_string(
-                        context,
+                        mf,
+                        link,
                         /* object= */ NULL,
                         hostname,
                         /* fields= */ NULL);
 }
 
-static int kernel_version_generate(MetricFamilyContext *context, void *userdata) {
+static int kernel_version_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         struct utsname u;
 
-        assert(context);
+        assert(mf && mf->name);
+        assert(link);
 
         assert_se(uname(&u) >= 0);
 
         return metric_build_send_string(
-                        context,
+                        mf,
+                        link,
                         /* object= */ NULL,
                         u.release,
                         /* fields= */ NULL);
 }
 
-static int machine_id_generate(MetricFamilyContext *context, void *userdata) {
+static int machine_id_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         sd_id128_t id;
         int r;
 
-        assert(context);
+        assert(mf && mf->name);
+        assert(link);
 
         r = sd_id128_get_machine(&id);
         if (r < 0)
                 return r;
 
         return metric_build_send_string(
-                        context,
+                        mf,
+                        link,
                         /* object= */ NULL,
                         SD_ID128_TO_STRING(id),
                         /* fields= */ NULL);
 }
 
-static int virtualization_generate(MetricFamilyContext *context, void *userdata) {
-        Virtualization v;
+static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        assert(mf && mf->name);
+        assert(link);
 
-        assert(context);
-
-        v = detect_virtualization();
+        Virtualization v = detect_virtualization();
         if (v < 0)
                 return v;
 
         return metric_build_send_string(
-                        context,
+                        mf,
+                        link,
                         /* object= */ NULL,
                         virtualization_to_string(v),
                         /* fields= */ NULL);
@@ -107,39 +117,39 @@ static int virtualization_generate(MetricFamilyContext *context, void *userdata)
 static const MetricFamily metric_family_table[] = {
         /* Keep entries ordered alphabetically */
         {
-                .name = METRIC_IO_SYSTEMD_BASIC_PREFIX "Architecture",
-                .description = "CPU architecture",
-                .type = METRIC_FAMILY_TYPE_STRING,
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "Architecture",
+                "CPU architecture",
+                METRIC_FAMILY_TYPE_STRING,
                 .generate = architecture_generate,
         },
         {
-                .name = METRIC_IO_SYSTEMD_BASIC_PREFIX "BootID",
-                .description = "Current boot ID",
-                .type = METRIC_FAMILY_TYPE_STRING,
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "BootID",
+                "Current boot ID",
+                METRIC_FAMILY_TYPE_STRING,
                 .generate = boot_id_generate,
         },
         {
-                .name = METRIC_IO_SYSTEMD_BASIC_PREFIX "Hostname",
-                .description = "System hostname",
-                .type = METRIC_FAMILY_TYPE_STRING,
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "Hostname",
+                "System hostname",
+                METRIC_FAMILY_TYPE_STRING,
                 .generate = hostname_generate,
         },
         {
-                .name = METRIC_IO_SYSTEMD_BASIC_PREFIX "KernelVersion",
-                .description = "Kernel version",
-                .type = METRIC_FAMILY_TYPE_STRING,
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "KernelVersion",
+                "Kernel version",
+                METRIC_FAMILY_TYPE_STRING,
                 .generate = kernel_version_generate,
         },
         {
-                .name = METRIC_IO_SYSTEMD_BASIC_PREFIX "MachineID",
-                .description = "Machine ID",
-                .type = METRIC_FAMILY_TYPE_STRING,
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "MachineID",
+                "Machine ID",
+                METRIC_FAMILY_TYPE_STRING,
                 .generate = machine_id_generate,
         },
         {
-                .name = METRIC_IO_SYSTEMD_BASIC_PREFIX "Virtualization",
-                .description = "Virtualization type",
-                .type = METRIC_FAMILY_TYPE_STRING,
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "Virtualization",
+                "Virtualization type",
+                METRIC_FAMILY_TYPE_STRING,
                 .generate = virtualization_generate,
         },
         {}
