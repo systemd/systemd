@@ -2,6 +2,7 @@
 
 libc_wrapper_sources = files(
         'bpf.c',
+        'fcntl.c',
         'ioprio.c',
         'kcmp.c',
         'kexec.c',
