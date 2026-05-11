@@ -69,6 +69,15 @@ CHANGES WITH 261 in spe:
           each successfully completed daemon-reload. It is not preserved
           across daemon-reexec.
 
+        * The manager exposes a new LastReloadUSec property on its D-Bus
+          and Varlink interfaces (org.freedesktop.systemd1.Manager and
+          io.systemd.Manager respectively), and as a metric on
+          io.systemd.Metrics. It reports the duration of the most recently
+          completed daemon-reload, in microseconds, covering the full
+          reload window (serialization through coldplug). Before the first
+          reload the value is reported as UINT64_MAX over D-Bus and
+          omitted from Varlink Describe; the metric emits no entry.
+
         Changes in systemd-sysext/systemd-confext:
 
         * New initrd services systemd-sysext-sysroot.service and

@@ -918,6 +918,8 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 .watchdog_overridden[WATCHDOG_KEXEC] = USEC_INFINITY,
                 .watchdog_overridden[WATCHDOG_PRETIMEOUT] = USEC_INFINITY,
 
+                .last_reload_usec = USEC_INFINITY,
+
                 .show_status_overridden = _SHOW_STATUS_INVALID,
 
                 .notify_fd = -EBADF,
@@ -3628,6 +3630,8 @@ int manager_reload(Manager *m) {
 
         assert(m);
 
+        usec_t reload_start_usec = now(CLOCK_MONOTONIC);
+
         r = manager_open_serialization(m, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create serialization file: %m");
@@ -3710,6 +3714,9 @@ int manager_reload(Manager *m) {
         manager_ready(m);
 
         m->send_reloading_done = true;
+
+        m->last_reload_usec = usec_sub_unsigned(now(CLOCK_MONOTONIC), reload_start_usec);
+
         return 0;
 }
 

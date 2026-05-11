@@ -196,7 +196,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Encodes how many soft-reboots were successfully completed"),
                 SD_VARLINK_DEFINE_FIELD(SoftRebootsCount, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Number of successfully completed configuration reloads"),
-                SD_VARLINK_DEFINE_FIELD(ReloadCount, SD_VARLINK_INT, 0));
+                SD_VARLINK_DEFINE_FIELD(ReloadCount, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Microsecond duration of the most recent successful reload; absent until first reload"),
+                SD_VARLINK_DEFINE_FIELD(LastReloadUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,
