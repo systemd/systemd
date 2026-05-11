@@ -21,6 +21,9 @@ systemd_networkd_extract_sources = files(
         'netdev/netdev-util.c',
         'netdev/netdev.c',
         'netdev/nlmon.c',
+        'netdev/ovs-bridge.c',
+        'netdev/ovs-port.c',
+        'netdev/ovs-tunnel.c',
         'netdev/tunnel.c',
         'netdev/tuntap.c',
         'netdev/vcan.c',
@@ -141,6 +144,10 @@ networkctl_sources = files(
 
 networkd_network_gperf_gperf = files('networkd-network-gperf.gperf')
 networkd_netdev_gperf_gperf = files('netdev/netdev-gperf.gperf')
+
+if conf.get('ENABLE_OPENVSWITCH') == 1
+        systemd_networkd_extract_sources += files('networkd-ovs.c')
+endif
 
 networkd_gperf_c = custom_target(
         input : 'networkd-gperf.gperf',
