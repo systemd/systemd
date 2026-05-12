@@ -4,8 +4,10 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#if !HAVE_BPF
-int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
+#undef bpf
+extern typeof(bpf_shim) bpf __attribute__((weak));
+int bpf_shim(int cmd, union bpf_attr *attr, size_t size) {
+        if (bpf)
+                return bpf(cmd, attr, size);
         return syscall(__NR_bpf, cmd, attr, size);
 }
-#endif

@@ -6,11 +6,9 @@
 
 /* Supported since kernel v3.17 (cb1052581e2bddd6096544f3f944f4e7fdad4c4f).
  * Not available on all architectures. */
-#if HAVE_KEXEC_FILE_LOAD || defined __NR_kexec_file_load
-#  if !HAVE_KEXEC_FILE_LOAD
-int missing_kexec_file_load(int kernel_fd, int initrd_fd, unsigned long cmdline_len, const char *cmdline, unsigned long flags);
-#    define kexec_file_load missing_kexec_file_load
-#  endif
+#ifdef __NR_kexec_file_load
+int kexec_file_load_shim(int kernel_fd, int initrd_fd, unsigned long cmdline_len, const char *cmdline, unsigned long flags);
+#  define kexec_file_load kexec_file_load_shim
 #  define HAVE_KEXEC_FILE_LOAD_SYSCALL 1
 #else
 #  define HAVE_KEXEC_FILE_LOAD_SYSCALL 0
