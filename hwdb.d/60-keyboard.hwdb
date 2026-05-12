@@ -2186,6 +2186,7 @@ evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:bd*:svnVIOS:pnLTH17:*
 # Wareus B15 (8AD5A)
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnWareus*:pnB15*:*
  KEYBOARD_KEY_55=fn
+ KEYBOARD_KEY_c1=f21
 
 ###########################################################
 # WeiHeng
