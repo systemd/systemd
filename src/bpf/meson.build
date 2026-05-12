@@ -320,7 +320,8 @@ bpf_programs = [
         },
         {
                 'source' : files('restrict-fsaccess.bpf.c'),
-                'condition' : 'BPF_FRAMEWORK',
+                'condition' : 'HAVE_VMLINUX_H',
+                'depends' : vmlinux_h_dependency,
         },
         {
                 'source' : files('restrict-fs.bpf.c'),

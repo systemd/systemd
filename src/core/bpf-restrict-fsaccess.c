@@ -37,7 +37,7 @@ const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCESS_LINK_
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = "restrict-fsaccess-bpf-guard-link",
 };
 
-#if BPF_FRAMEWORK
+#if BPF_FRAMEWORK && HAVE_VMLINUX_H
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
 #include "restrict-fsaccess-skel.h"
@@ -502,7 +502,7 @@ int bpf_restrict_fsaccess_serialize(Manager *m, FILE *f, FDSet *fds) {
         return 0;
 }
 
-#else /* ! BPF_FRAMEWORK */
+#else /* ! BPF_FRAMEWORK || ! HAVE_VMLINUX_H */
 
 bool dm_verity_require_signatures(void) {
         return false;

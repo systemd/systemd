@@ -20,70 +20,22 @@
  *   - file_mprotect:          blocks W->X transitions from untrusted sources
  */
 
-#include <errno.h>
-#include <linux/bpf.h>
-#include <linux/types.h>
-#include <stddef.h>
-#include <stdint.h>
+/* offsetof/container_of from <linux/stddef.h> (pulled in by vmlinux.h) clash
+ * with libbpf's CO-RE-aware versions. Same dance as userns-restrict.bpf.c. */
+#undef offsetof
+#undef container_of
+
+#include "vmlinux.h"
+
+#include <errno.h>                  /* IWYU pragma: keep */
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 
+/* Kernel macros, not BTF types — vmlinux.h doesn't carry CPP macros. */
 #define PROT_EXEC          0x4
 #define VM_EXEC            0x00000004
 #define PTRACE_MODE_ATTACH 0x02
-
-/* Mirrors enum lsm_integrity_type from include/linux/security.h.
- * Values must match the kernel — verified against v6.x+.
- * Only LSM_INT_DMVERITY_SIG_VALID is used; the rest are listed for completeness. */
-enum lsm_integrity_type {
-        LSM_INT_DMVERITY_SIG_VALID = 0,
-        LSM_INT_DMVERITY_ROOTHASH = 1,
-        LSM_INT_FSVERITY_BUILTINSIG_VALID = 2,
-};
-
-/* CO-RE type definitions — only the fields we access */
-struct block_device {
-        __u32 bd_dev;
-} __attribute__((preserve_access_index));
-
-struct super_block {
-        __u32 s_dev;
-} __attribute__((preserve_access_index));
-
-struct inode {
-        struct super_block *i_sb;
-} __attribute__((preserve_access_index));
-
-struct file {
-        struct inode *f_inode;
-} __attribute__((preserve_access_index));
-
-struct linux_binprm {
-        struct file *file;
-} __attribute__((preserve_access_index));
-
-struct vm_area_struct {
-        unsigned long vm_flags;
-        struct file *vm_file;
-} __attribute__((preserve_access_index));
-
-struct task_struct {
-        int tgid;
-} __attribute__((preserve_access_index));
-
-/* CO-RE types for self-protection guard hooks (kernel-internal, not UAPI) */
-struct bpf_map {
-        __u32 id;
-} __attribute__((preserve_access_index));
-
-struct bpf_prog_aux {
-        __u32 id;
-} __attribute__((preserve_access_index));
-
-struct bpf_prog {
-        struct bpf_prog_aux *aux;
-} __attribute__((preserve_access_index));
 
 /* ---- Maps ---- */
 

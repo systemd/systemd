@@ -91,7 +91,7 @@ static int do_mprotect_exec(const char *path) {
         return 0;
 }
 
-#if BPF_FRAMEWORK
+#if BPF_FRAMEWORK && HAVE_VMLINUX_H
 #include "bpf-dlopen.h"
 #include "restrict-fsaccess-skel.h"
 
@@ -234,7 +234,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
 }
 
-#else /* ! BPF_FRAMEWORK */
+#else /* ! BPF_FRAMEWORK || ! HAVE_VMLINUX_H */
 
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
