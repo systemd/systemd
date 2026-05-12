@@ -173,6 +173,21 @@ static int unit_load_state_build_json(MetricFamilyContext *context, void *userda
         return 0;
 }
 
+static int last_reload_usec_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        assert(context);
+
+        if (manager->last_reload_usec == USEC_INFINITY)
+                return 0;
+
+        return metric_build_send_unsigned(
+                        context,
+                        /* object= */ NULL,
+                        manager->last_reload_usec,
+                        /* fields= */ NULL);
+}
+
 static int nrestarts_build_json(MetricFamilyContext *context, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         int r;
@@ -369,6 +384,12 @@ static const MetricFamily metric_family_table[] = {
                 .description = "Number of jobs currently queued",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
                 .generate = jobs_queued_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "LastReloadUSec",
+                .description = "Microsecond duration of the most recent successful manager reload; absent until first reload",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = last_reload_usec_build_json,
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "NRestarts",

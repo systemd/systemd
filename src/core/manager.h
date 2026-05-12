@@ -499,6 +499,10 @@ typedef struct Manager {
         /* The number of successfully completed configuration reloads. */
         uint64_t reload_count;
 
+        /* Wall-clock (CLOCK_MONOTONIC) duration of the last successful reload, in microseconds.
+         * USEC_INFINITY means no reload has completed yet. */
+        usec_t last_reload_usec;
+
         /* Original ambient capabilities when we were initialized */
         uint64_t saved_ambient_set;
 } Manager;
