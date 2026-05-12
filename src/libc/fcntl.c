@@ -4,8 +4,10 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#if !HAVE_OPENAT2
+#undef openat2
+extern typeof(missing_openat2) openat2 __attribute__((weak));
 int missing_openat2(int dfd, const char *filename, const struct open_how *how, size_t usize) {
+        if (openat2)
+                return openat2(dfd, filename, how, usize);
         return syscall(__NR_openat2, dfd, filename, how, usize);
 }
-#endif

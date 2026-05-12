@@ -4,8 +4,10 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#if !HAVE_RT_TGSIGQUEUEINFO
+#undef rt_tgsigqueueinfo
+extern typeof(missing_rt_tgsigqueueinfo) rt_tgsigqueueinfo __attribute__((weak));
 int missing_rt_tgsigqueueinfo(pid_t tgid, pid_t tid, int sig, siginfo_t *info) {
+        if (rt_tgsigqueueinfo)
+                return rt_tgsigqueueinfo(tgid, tid, sig, info);
         return syscall(__NR_rt_tgsigqueueinfo, tgid, tid, sig, info);
 }
-#endif

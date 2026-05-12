@@ -4,14 +4,18 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
-#if !HAVE_SETXATTRAT
+#undef setxattrat
+extern typeof(missing_setxattrat) setxattrat __attribute__((weak));
 int missing_setxattrat(int fd, const char *path, int at_flags, const char *name, const struct xattr_args *args, size_t size) {
+        if (setxattrat)
+                return setxattrat(fd, path, at_flags, name, args, size);
         return syscall(__NR_setxattrat, fd, path, at_flags, name, args, size);
 }
-#endif
 
-#if !HAVE_REMOVEXATTRAT
+#undef removexattrat
+extern typeof(missing_removexattrat) removexattrat __attribute__((weak));
 int missing_removexattrat(int fd, const char *path, int at_flags, const char *name) {
+        if (removexattrat)
+                return removexattrat(fd, path, at_flags, name);
         return syscall(__NR_removexattrat, fd, path, at_flags, name);
 }
-#endif

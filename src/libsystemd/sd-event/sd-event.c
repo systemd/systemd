@@ -4623,27 +4623,27 @@ pending:
         return r;
 }
 
+/* epoll_pwait2() was added to Linux 5.11 (2021-02-14) and to glibc in 2.35 (2022-02-03). In contrast to
+ * other syscalls we don't bother with our own fallback syscall wrappers on old libcs, since this is not
+ * that obvious to implement given the libc and kernel definitions differ in the last argument. Moreover,
+ * the only reason to use it is the more accurate timeouts (which is not a biggie), let's hence rely on
+ * glibc's definitions, made weakly referenced so the binary loads on older glibc runtimes too, and
+ * fallback to epoll_pwait() when that's missing at runtime. */
+DISABLE_WARNING_REDUNDANT_DECLS;
+extern typeof(epoll_pwait2) epoll_pwait2 __attribute__((weak)); /* NOLINT(readability-redundant-declaration) */
+REENABLE_WARNING;
+
 static int epoll_wait_usec(
                 int fd,
                 struct epoll_event *events,
                 int maxevents,
                 usec_t timeout) {
 
-        int msec;
+        static bool epoll_pwait2_absent = false;
+        int r, msec;
         /* A wrapper that uses epoll_pwait2() if available, and falls back to epoll_wait() if not. */
 
-#if HAVE_EPOLL_PWAIT2
-        static bool epoll_pwait2_absent = false;
-        int r;
-
-        /* epoll_pwait2() was added to Linux 5.11 (2021-02-14) and to glibc in 2.35 (2022-02-03). In contrast
-         * to other syscalls we don't bother with our own fallback syscall wrappers on old libcs, since this
-         * is not that obvious to implement given the libc and kernel definitions differ in the last
-         * argument. Moreover, the only reason to use it is the more accurate timeouts (which is not a
-         * biggie), let's hence rely on glibc's definitions, and fallback to epoll_pwait() when that's
-         * missing. */
-
-        if (!epoll_pwait2_absent && timeout != USEC_INFINITY) {
+        if (epoll_pwait2 && !epoll_pwait2_absent && timeout != USEC_INFINITY) {
                 r = epoll_pwait2(fd,
                                  events,
                                  maxevents,
@@ -4657,7 +4657,6 @@ static int epoll_wait_usec(
 
                 epoll_pwait2_absent = true;
         }
-#endif
 
         if (timeout == USEC_INFINITY)
                 msec = -1;

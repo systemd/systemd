@@ -28,5 +28,8 @@ libc_wrapper_static = static_library(
         include_directories : system_includes,
         implicit_include_directories : false,
         dependencies : [userspace],
-        c_args : ['-fvisibility=default'],
+        # The shims deliberately redeclare libc syscall wrappers as weak references so call sites can do
+        # runtime fallback. Suppress the redundant-decl warning, and the -Waddress warning that strict
+        # builds fire on `if (foo)` against a weak symbol redeclared after glibc's strong declaration.
+        c_args : ['-fvisibility=default', '-Wno-redundant-decls', '-Wno-address'],
         build_by_default : false)
