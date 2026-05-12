@@ -563,7 +563,7 @@
         <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         </para>
 
-        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 
       <varlistentry>
