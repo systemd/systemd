@@ -51,7 +51,8 @@ varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.Describe {}
 
 # test io.systemd.Basic Metrics
-[[ "$(systemctl is-enabled systemd-report-basic.socket)" == enabled ]]
+# ensure the socket is running, as some distros don't enable it by default
+systemctl start systemd-report-basic.socket
 varlinkctl info /run/systemd/report/io.systemd.Basic
 varlinkctl list-methods /run/systemd/report/io.systemd.Basic
 varlinkctl --more call /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {}
