@@ -42,6 +42,7 @@ libcore_sources = files(
         'kill.c',
         'load-dropin.c',
         'load-fragment.c',
+        'luo.c',
         'manager-dump.c',
         'manager-serialize.c',
         'manager.c',
