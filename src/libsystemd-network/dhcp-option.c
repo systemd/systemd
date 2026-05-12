@@ -11,9 +11,7 @@
 #include "dns-domain.h"
 #include "hostname-util.h"
 #include "memory-util.h"
-#include "ordered-set.h"
 #include "string-util.h"
-#include "strv.h"
 #include "utf8.h"
 
 /* Append type-length value structure to the options buffer */
@@ -58,43 +56,6 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 *offset += 1;
                 break;
 
-        case SD_DHCP_OPTION_USER_CLASS: {
-                /* When called with raw data (optlen > 0), e.g. from SendOption=, append as a plain TLV.
-                 * The structured handling below expects optval to be a strv. */
-                if (optlen > 0)
-                        return dhcp_option_append_tlv(options, size, offset, code, optlen, optval);
-
-                size_t total = 0;
-
-                if (strv_isempty((char **) optval))
-                        return -EINVAL;
-
-                STRV_FOREACH(s, (const char* const*) optval) {
-                        size_t len = strlen(*s);
-
-                        if (len > 255 || len == 0)
-                                return -EINVAL;
-
-                        total += 1 + len;
-                }
-
-                if (*offset + 2 + total > size)
-                        return -ENOBUFS;
-
-                options[*offset] = code;
-                options[*offset + 1] = total;
-                *offset += 2;
-
-                STRV_FOREACH(s, (const char* const*) optval) {
-                        size_t len = strlen(*s);
-
-                        options[*offset] = len;
-                        memcpy(&options[*offset + 1], *s, len);
-                        *offset += 1 + len;
-                }
-
-                break;
-        }
         case SD_DHCP_OPTION_SIP_SERVER:
                 if (*offset + 3 + optlen > size)
                         return -ENOBUFS;
@@ -107,33 +68,6 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 *offset += 3 + optlen;
 
                 break;
-        case SD_DHCP_OPTION_VENDOR_SPECIFIC: {
-                /* When called with raw data (optlen > 0), e.g. from SendOption=, append as a plain TLV.
-                 * The structured handling below expects optval to be an OrderedSet*. */
-                if (optlen > 0)
-                        return dhcp_option_append_tlv(options, size, offset, code, optlen, optval);
-
-                OrderedSet *s = (OrderedSet *) optval;
-                struct sd_dhcp_option *p;
-                size_t l = 0;
-
-                ORDERED_SET_FOREACH(p, s)
-                        l += p->length + 2;
-
-                if (*offset + l + 2 > size)
-                        return -ENOBUFS;
-
-                options[*offset] = code;
-                options[*offset + 1] = l;
-                *offset += 2;
-
-                ORDERED_SET_FOREACH(p, s) {
-                        r = dhcp_option_append_tlv(options, size, offset, p->option, p->length, p->data);
-                        if (r < 0)
-                                return r;
-                }
-                break;
-        }
         case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION: {
                 /* When called with raw data (optlen > 0), e.g. from SendOption=, append as a plain TLV.
                  * The structured handling below expects optval to be an sd_dhcp_server*. */
@@ -462,43 +396,3 @@ int dhcp_option_parse_hostname(const uint8_t *option, size_t len, char **ret) {
         *ret = TAKE_PTR(hostname);
         return 0;
 }
-
-static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *i) {
-        if (!i)
-                return NULL;
-
-        free(i->data);
-        return mfree(i);
-}
-
-int sd_dhcp_option_new(uint8_t option, const void *data, size_t length, sd_dhcp_option **ret) {
-        assert_return(ret, -EINVAL);
-        assert_return(length == 0 || data, -EINVAL);
-
-        _cleanup_free_ void *q = memdup(data, length);
-        if (!q)
-                return -ENOMEM;
-
-        sd_dhcp_option *p = new(sd_dhcp_option, 1);
-        if (!p)
-                return -ENOMEM;
-
-        *p = (sd_dhcp_option) {
-                .n_ref = 1,
-                .option = option,
-                .length = length,
-                .data = TAKE_PTR(q),
-        };
-
-        *ret = TAKE_PTR(p);
-        return 0;
-}
-
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_option, sd_dhcp_option, dhcp_option_free);
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
-                dhcp_option_hash_ops,
-                void,
-                trivial_hash_func,
-                trivial_compare_func,
-                sd_dhcp_option,
-                sd_dhcp_option_unref);
