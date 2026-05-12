@@ -2132,6 +2132,97 @@ EOF
     losetup -d "$loop"
 }
 
+testcase_block_device_replace() {
+    if [[ "$OFFLINE" == "yes" ]]; then
+        return 0
+    fi
+
+    if ! command -v btrfs >/dev/null; then
+        echo "btrfs not found, skipping."
+        return 0
+    fi
+
+    if ! command -v mkfs.btrfs >/dev/null; then
+        echo "mkfs.btrfs not found, skipping."
+        return 0
+    fi
+
+    local defs imgs btrfs_mntpoint_plain btrfs_mntpoint_encrypted
+    local loop loop_btrfs_plain loop_btrfs_encrypted
+    local encrypted_device
+
+    btrfs_mntpoint_plain="$(mktemp --directory "/tmp/test-repart.btrfs-mntpoint-plain.XXXXXXXXXX")"
+    btrfs_mntpoint_encrypted="$(mktemp --directory "/tmp/test-repart.btrfs-mntpoint-encrypted.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' '$btrfs_mntpoint_plain' '$btrfs_mntpoint_encrypted'" RETURN
+    chmod 0755 "$defs"
+
+    truncate --size 500M "${imgs}/btrfs-plain"
+    mkfs.btrfs "${imgs}/btrfs-plain"
+    loop_btrfs_plain="$(losetup --show --find "$imgs/btrfs-plain")"
+    # shellcheck disable=SC2064
+    trap "losetup -d '${loop_btrfs_plain}'; rm -rf '$defs' '$imgs' '$btrfs_mntpoint_plain' '$btrfs_mntpoint_encrypted'" RETURN
+
+    mount "${loop_btrfs_plain}" "${btrfs_mntpoint_plain}"
+    echo tada >"${btrfs_mntpoint_plain}/magic-plain"
+
+    # shellcheck disable=SC2064
+    trap "umount '${btrfs_mntpoint_plain}'; losetup -d '${loop_btrfs_plain}'; rm -rf '$defs' '$imgs' '$btrfs_mntpoint_plain' '$btrfs_mntpoint_encrypted'" RETURN
+
+    truncate --size 500M "${imgs}/btrfs-encrypted"
+    mkfs.btrfs "${imgs}/btrfs-encrypted"
+    loop_btrfs_encrypted="$(losetup --show --find "$imgs/btrfs-encrypted")"
+    # shellcheck disable=SC2064
+    trap "losetup -d '${loop_btrfs_encrypted}'; umount '${btrfs_mntpoint_plain}'; losetup -d '${loop_btrfs_plain}'; rm -rf '$defs' '$imgs' '$btrfs_mntpoint_plain' '$btrfs_mntpoint_encrypted'" RETURN
+
+    mount "${loop_btrfs_encrypted}" "${btrfs_mntpoint_encrypted}"
+    echo tada >"${btrfs_mntpoint_encrypted}/magic-encrypted"
+
+    # shellcheck disable=SC2064
+    trap "umount '${btrfs_mntpoint_encrypted}'; losetup -d '${loop_btrfs_encrypted}'; umount '${btrfs_mntpoint_plain}'; losetup -d '${loop_btrfs_plain}'; rm -rf '$defs' '$imgs' '$btrfs_mntpoint_plain' '$btrfs_mntpoint_encrypted'" RETURN
+
+    truncate --size 2G "${imgs}/img"
+
+    tee "$defs/01-plain.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=plain
+BlockDeviceReplace=${btrfs_mntpoint_plain}
+EOF
+
+    tee "$defs/02-encrypted.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=encrypted
+Encrypt=key-file
+BlockDeviceReplace=${btrfs_mntpoint_encrypted}
+VolumeName=btrfs-replace-encrypted
+EOF
+
+    loop="$(losetup -P --show --find "${imgs}/img")"
+    # shellcheck disable=SC2064
+    trap "umount '${btrfs_mntpoint_encrypted}'; cryptsetup close btrfs-replace-encrypted || true; losetup -d '${loop_btrfs_encrypted}'; umount '${btrfs_mntpoint_plain}'; losetup -d '${loop_btrfs_plain}'; losetup -d '${loop}'; rm -rf '$defs' '$imgs' '$btrfs_mntpoint_plain' '$btrfs_mntpoint_encrypted'" RETURN
+
+    touch "${imgs}/empty-password"
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=require \
+                   --key-file="${imgs}/empty-password" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   "${loop}"
+
+    assert_eq "$(findmnt "${btrfs_mntpoint_plain}" -o SOURCE -n)" "${loop}p1"
+    assert_eq "$(findmnt "${btrfs_mntpoint_encrypted}" -o SOURCE -n)" "/dev/mapper/btrfs-replace-encrypted"
+    encrypted_device="/sys/dev/block/$(dmsetup table /dev/mapper/btrfs-replace-encrypted | cut -d" " -f7)"
+    assert_eq "$(udevadm info --query=property --property=DEVNAME --value "${encrypted_device}")" "${loop}p2"
+    grep -q tada "${btrfs_mntpoint_plain}/magic-plain"
+    grep -q tada "${btrfs_mntpoint_encrypted}/magic-encrypted"
+}
+
 OFFLINE="yes"
 run_testcases
 

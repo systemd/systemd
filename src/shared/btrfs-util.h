@@ -49,7 +49,10 @@ static inline int btrfs_is_subvol(const char *path) {
         return btrfs_is_subvol_at(AT_FDCWD, path);
 }
 
-int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret);
+int btrfs_get_block_device_at_full(int dir_fd, const char *path, uint64_t *ret_devid, char **ret_path, dev_t *ret);
+static inline int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
+        return btrfs_get_block_device_at_full(dir_fd, path, NULL, NULL, ret);
+}
 static inline int btrfs_get_block_device(const char *path, dev_t *ret) {
         return btrfs_get_block_device_at(AT_FDCWD, path, ret);
 }
@@ -133,3 +136,6 @@ bool btrfs_might_be_subvol(const struct stat *st) _pure_;
 int btrfs_forget_device(const char *path);
 
 int btrfs_get_file_physical_offset_fd(int fd, uint64_t *ret);
+
+int btrfs_replace(int fdmntpnt, uint64_t device_id, const char *target);
+int btrfs_resize_max(int fdmntpnt, uint64_t devid);
