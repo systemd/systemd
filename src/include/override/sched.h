@@ -51,10 +51,8 @@ int __clone2(int (*fn)(void *), void *stack_base, size_t stack_size, int flags, 
 
 /* Defined since glibc-2.41.
  * Supported since kernel 3.14 (e6cfc0295c7d51b008999a8b13a44fb43f8685ea). */
-#if !HAVE_SCHED_SETATTR
-int missing_sched_setattr(pid_t pid, struct sched_attr *attr, unsigned flags);
-#  define sched_setattr missing_sched_setattr
-#endif
+int sched_setattr_shim(pid_t pid, struct sched_attr *attr, unsigned flags);
+#define sched_setattr sched_setattr_shim
 
 /* f0e1a0643a59bf1f922fa209cec86a170b784f3f (6.12),
  * defined in sched.h in glibc since glibc-2.41. */

@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+---
+InheritParentConfig: true
+# Disabled because the libc shims deliberately redeclare libc syscall wrappers as weak references when
+# glibc's headers already declare them, so call sites can do runtime fallback. The corresponding
+# -Wredundant-decls compiler warning is suppressed via c_args in src/libc/meson.build.
+Checks: '-readability-redundant-declaration'
+...

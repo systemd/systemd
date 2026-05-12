@@ -4,8 +4,10 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#if !HAVE_FCHMODAT2
-int missing_fchmodat2(int dirfd, const char *path, mode_t mode, int flags) {
+#undef fchmodat2
+extern typeof(fchmodat2_shim) fchmodat2 __attribute__((weak));
+int fchmodat2_shim(int dirfd, const char *path, mode_t mode, int flags) {
+        if (fchmodat2)
+                return fchmodat2(dirfd, path, mode, flags);
         return syscall(__NR_fchmodat2, dirfd, path, mode, flags);
 }
-#endif
