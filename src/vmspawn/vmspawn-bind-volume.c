@@ -124,6 +124,14 @@ int vmspawn_bind_volume_attach_fd(
         if (r < 0)
                 return r;
 
+        int oflags = fcntl(owned_fd, F_GETFL);
+        if (oflags < 0)
+                return -errno;
+        if (FLAGS_SET(oflags, O_PATH))
+                return -EBADF;
+        if ((oflags & O_ACCMODE_STRICT) == O_WRONLY)
+                return -EBADF;
+
         _cleanup_(drive_info_unrefp) DriveInfo *d = drive_info_new();
         if (!d)
                 return -ENOMEM;
@@ -134,10 +142,6 @@ int vmspawn_bind_volume_attach_fd(
         d->path = strdup(name);
         if (!d->id || !d->disk_driver || !d->format || !d->path)
                 return -ENOMEM;
-
-        int oflags = fcntl(owned_fd, F_GETFL);
-        if (oflags < 0)
-                return -errno;
 
         d->disk_type = dt;
         d->fd = TAKE_FD(owned_fd);
