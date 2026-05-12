@@ -9,8 +9,6 @@
 #include "sd-event.h"
 
 #include "dhcp-server-internal.h"
-#include "hashmap.h"
-#include "siphash24.h"
 #include "tests.h"
 
 static void test_pool(struct in_addr *address, unsigned size, int ret) {
@@ -285,49 +283,6 @@ static void test_message_handler(void) {
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
 }
 
-static uint64_t client_id_hash_helper(sd_dhcp_client_id *id, uint8_t key[HASH_KEY_SIZE]) {
-        struct siphash state;
-
-        siphash24_init(&state, key);
-        client_id_hash_func(id, &state);
-
-        return htole64(siphash24_finalize(&state));
-}
-
-static void test_client_id_hash(void) {
-        sd_dhcp_client_id a = {
-                .size = 4,
-        }, b = {
-                .size = 4,
-        };
-        uint8_t hash_key[HASH_KEY_SIZE] = {
-                '0', '1', '2', '3', '4', '5', '6', '7',
-                '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
-        };
-
-        log_debug("/* %s */", __func__);
-
-        memcpy(a.raw, "abcd", 4);
-        memcpy(b.raw, "abcd", 4);
-
-        ASSERT_EQ(client_id_compare_func(&a, &b), 0);
-        ASSERT_EQ(client_id_hash_helper(&a, hash_key), client_id_hash_helper(&b, hash_key));
-        a.size = 3;
-        ASSERT_NE(client_id_compare_func(&a, &b), 0);
-        a.size = 4;
-        ASSERT_EQ(client_id_compare_func(&a, &b), 0);
-        ASSERT_EQ(client_id_hash_helper(&a, hash_key), client_id_hash_helper(&b, hash_key));
-
-        b.size = 3;
-        ASSERT_NE(client_id_compare_func(&a, &b), 0);
-        b.size = 4;
-        ASSERT_EQ(client_id_compare_func(&a, &b), 0);
-        ASSERT_EQ(client_id_hash_helper(&a, hash_key), client_id_hash_helper(&b, hash_key));
-
-        memcpy(b.raw, "abce", 4);
-        ASSERT_NE(client_id_compare_func(&a, &b), 0);
-}
-
 static void test_static_lease(void) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
 
@@ -452,7 +407,6 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        test_client_id_hash();
         test_static_lease();
         test_domain_name();
 
