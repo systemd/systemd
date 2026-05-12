@@ -13,6 +13,7 @@
 #include "sd-forward.h"
 #include "sparse-endian.h"
 #include "time-util.h"
+#include "tlv-util.h"
 
 /* RFC 8925 - IPv6-Only Preferred Option for DHCPv4 3.4.
  * MIN_V6ONLY_WAIT: The lower boundary for V6ONLY_WAIT. Value: 300 seconds */
@@ -48,6 +49,13 @@ struct DHCPMessage {
 
 typedef struct DHCPMessage DHCPMessage;
 assert_cc(sizeof(DHCPMessageHeader) == offsetof(DHCPMessage, options));
+
+struct sd_dhcp_message {
+        unsigned n_ref;
+
+        DHCPMessageHeader header;
+        TLV options;
+};
 
 struct DHCPPacket {
         struct iphdr ip;
