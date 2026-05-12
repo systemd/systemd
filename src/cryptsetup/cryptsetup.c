@@ -608,7 +608,6 @@ static int parse_one_option(const char *option) {
                         log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
 
         } else if ((val = startswith(option, "link-volume-key="))) {
-#if HAVE_CRYPT_SET_KEYRING_TO_LINK
                 _cleanup_free_ char *keyring = NULL, *key_type = NULL, *key_description = NULL;
                 const char *sep;
 
@@ -657,9 +656,6 @@ static int parse_one_option(const char *option) {
                 free_and_replace(arg_link_keyring, keyring);
                 free_and_replace(arg_link_key_type, key_type);
                 free_and_replace(arg_link_key_description, key_description);
-#else
-                log_error("Build lacks libcryptsetup support for linking volume keys in user specified kernel keyrings upon device activation, ignoring: %s", option);
-#endif
         } else if ((val = startswith(option, "fixate-volume-key="))) {
                 r = free_and_strdup(&arg_fixate_volume_key, val);
                 if (r < 0)
@@ -2688,14 +2684,14 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 if (r < 0)
                         return log_error_errno(r, "Failed to load LUKS superblock on device %s: %m", sym_crypt_get_device_name(cd));
 
-/* since cryptsetup 2.7.0 (Jan 2024) */
-#if HAVE_CRYPT_SET_KEYRING_TO_LINK
+                /* since cryptsetup 2.7.0 (Jan 2024) */
                 if (arg_link_key_description) {
                         r = sym_crypt_set_keyring_to_link(cd, arg_link_key_description, NULL, arg_link_key_type, arg_link_keyring);
-                        if (r < 0)
+                        if (r == -ENOSYS)
+                                log_warning("Loaded libcryptsetup does not support linking volume keys in user specified kernel keyrings upon device activation, ignoring.");
+                        else if (r < 0)
                                 log_warning_errno(r, "Failed to set keyring or key description to link volume key in, ignoring: %m");
                 }
-#endif
 
                 if (arg_header) {
                         r = sym_crypt_set_data_device(cd, source);
