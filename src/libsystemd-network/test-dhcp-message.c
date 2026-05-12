@@ -6,6 +6,9 @@
 #include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
 #include "dhcp-protocol.h"
+#include "dhcp-route.h"
+#include "dns-packet.h"
+#include "dns-resolver-internal.h"
 #include "ether-addr-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
@@ -68,7 +71,8 @@ static void verify_address(sd_dhcp_message *m, const struct in_addr *expected) {
 
 static void verify_addresses(
                 sd_dhcp_message *m,
-                size_t n_ntp, const struct in_addr *ntp) {
+                size_t n_ntp, const struct in_addr *ntp,
+                size_t n_sip, const struct in_addr *sip) {
 
         struct in_addr a;
         ASSERT_OK(dhcp_message_get_option_be32(m, SD_DHCP_OPTION_NTP_SERVER, &a.s_addr));
@@ -81,6 +85,14 @@ static void verify_addresses(
         ASSERT_OK(dhcp_message_get_option_addresses(m, SD_DHCP_OPTION_NTP_SERVER, &n, &addrs));
         ASSERT_EQ(n, n_ntp);
         ASSERT_EQ(memcmp(addrs, ntp, sizeof(struct in_addr) * n), 0);
+
+        ASSERT_ERROR(dhcp_message_get_option_be32(m, SD_DHCP_OPTION_SIP_SERVER, NULL), ENODATA);
+        ASSERT_ERROR(dhcp_message_get_option_address(m, SD_DHCP_OPTION_SIP_SERVER, NULL), ENODATA);
+
+        addrs = mfree(addrs);
+        ASSERT_OK(dhcp_message_get_option_addresses(m, SD_DHCP_OPTION_SIP_SERVER, &n, &addrs));
+        ASSERT_EQ(n, n_sip);
+        ASSERT_EQ(memcmp(addrs, sip, sizeof(struct in_addr) * n), 0);
 }
 
 static void verify_string(sd_dhcp_message *m, const char *expected) {
@@ -94,6 +106,47 @@ static void verify_multiple_strings(sd_dhcp_message *m, char * const *expected) 
         ASSERT_OK(dhcp_message_get_option_string(m, SD_DHCP_OPTION_ROOT_PATH, &s));
         _cleanup_free_ char *joined = ASSERT_NOT_NULL(strv_join(expected, /* separator= */ ""));
         ASSERT_STREQ(s, joined);
+}
+
+static void verify_routes(sd_dhcp_message *m, size_t n_expected, const sd_dhcp_route *expected) {
+        uint8_t code;
+        FOREACH_ARGUMENT(code,
+                         SD_DHCP_OPTION_STATIC_ROUTE,
+                         SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,
+                         SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE) {
+
+                _cleanup_free_ sd_dhcp_route *routes = NULL;
+                size_t n;
+                ASSERT_OK(dhcp_message_get_option_routes(m, code, &n, &routes));
+                ASSERT_EQ(n, n_expected);
+                for (size_t i = 0; i < n; i++) {
+                        ASSERT_EQ(routes[i].dst_addr.s_addr, expected[i].dst_addr.s_addr);
+                        ASSERT_EQ(routes[i].gw_addr.s_addr, expected[i].gw_addr.s_addr);
+                        ASSERT_EQ(routes[i].dst_prefixlen, expected[i].dst_prefixlen);
+                }
+        }
+}
+
+static void verify_6rd(
+                sd_dhcp_message *m,
+                uint8_t expected_ipv4masklen,
+                uint8_t expected_prefixlen,
+                const struct in6_addr *expected_prefix,
+                size_t expected_n_br_addresses,
+                const struct in_addr *expected_br_addresses) {
+
+        uint8_t ipv4masklen, prefixlen;
+        struct in6_addr prefix;
+        size_t n_br_addresses;
+        _cleanup_free_ struct in_addr *br_addresses = NULL;
+
+        ASSERT_OK(dhcp_message_get_option_6rd(m, NULL, NULL, NULL, NULL, NULL));
+        ASSERT_OK(dhcp_message_get_option_6rd(m, &ipv4masklen, &prefixlen, &prefix, &n_br_addresses, &br_addresses));
+        ASSERT_EQ(ipv4masklen, expected_ipv4masklen);
+        ASSERT_EQ(prefixlen, expected_prefixlen);
+        ASSERT_TRUE(in6_addr_equal(&prefix, expected_prefix));
+        ASSERT_EQ(n_br_addresses, expected_n_br_addresses);
+        ASSERT_EQ(memcmp(br_addresses, expected_br_addresses, sizeof(struct in_addr) * n_br_addresses), 0);
 }
 
 static void verify_client_id(sd_dhcp_message *m, const sd_dhcp_client_id *expected) {
@@ -112,6 +165,26 @@ static void verify_hostname(sd_dhcp_message *m, const char *expected) {
         _cleanup_free_ char *s = NULL;
         ASSERT_OK(dhcp_message_get_option_hostname(m, &s));
         ASSERT_STREQ(s, expected);
+}
+
+static void verify_sub_tlv(sd_dhcp_message *m, TLV *expected) {
+        _cleanup_(tlv_unrefp) TLV *tlv = NULL;
+        ASSERT_OK(dhcp_message_get_option_sub_tlv(
+                                  m,
+                                  SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION,
+                                  TLV_DHCP4_SUBOPTION,
+                                  &tlv));
+
+        _cleanup_(iovec_done) struct iovec iov = {}, iov_expected = {};
+        ASSERT_OK(tlv_build(tlv, &iov));
+        ASSERT_OK(tlv_build(expected, &iov_expected));
+        ASSERT_TRUE(iovec_equal(&iov, &iov_expected));
+}
+
+static void verify_length_prefixed_data(sd_dhcp_message *m, const struct iovec_wrapper *expected) {
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+        ASSERT_OK(dhcp_message_get_option_length_prefixed_data(m, SD_DHCP_OPTION_USER_CLASS, 1, &iovw));
+        ASSERT_TRUE(iovw_equal(&iovw, expected));
 }
 
 TEST(dhcp_message) {
@@ -140,6 +213,43 @@ TEST(dhcp_message) {
                 { .s_addr = htobe32(0xC0000204) },
         };
 
+        /* 192.0.2.17 - 20 */
+        struct in_addr sip[4] = {
+                { .s_addr = htobe32(0xC0000211) },
+                { .s_addr = htobe32(0xC0000212) },
+                { .s_addr = htobe32(0xC0000213) },
+                { .s_addr = htobe32(0xC0000214) },
+        };
+
+        struct sd_dhcp_route routes[3] = {
+                { /* class A: 10.0.0.0/8 -> 192.0.2.33 */
+                        .dst_addr = { .s_addr = htobe32(0x0A000000) },
+                        .gw_addr  = { .s_addr = htobe32(0xC0000221) },
+                        .dst_prefixlen = 8,
+                },
+                { /* class B: 172.16.0.0/16 -> 192.0.2.34 */
+                        .dst_addr = { .s_addr = htobe32(0xAC100000) },
+                        .gw_addr  = { .s_addr = htobe32(0xC0000222) },
+                        .dst_prefixlen = 16,
+                },
+                { /* class C: 192.168.0.0/24 -> 192.0.2.35 */
+                        .dst_addr = { .s_addr = htobe32(0xC0A80000) },
+                        .gw_addr  = { .s_addr = htobe32(0xC0000223) },
+                        .dst_prefixlen = 24,
+                },
+        };
+
+        uint8_t sixrd_ipv4masklen = 24;
+        uint8_t sixrd_prefixlen = 64;
+        struct in6_addr sixrd_prefix = {
+                .s6_addr = { 0x20, 0x01, 0x0d, 0xb8, },
+        };
+        struct in_addr sixrd_br_addresses[3] = {
+                { .s_addr = htobe32(0xC0000231) },
+                { .s_addr = htobe32(0xC0000232) },
+                { .s_addr = htobe32(0xC0000233) },
+        };
+
         sd_dhcp_client_id id = {
                 .raw = { 1, 3, 3, 3, 3, 3, 3, },
                 .size = 7,
@@ -152,6 +262,23 @@ TEST(dhcp_message) {
         const char *hostname = "test-node.example.com";
         const char *vendor_class = "hogehoge";
         char **root_path = STRV_MAKE("/path/to/root", "/hogehoge/foofoo");
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper user_class = {}, user_class_1 = {}, user_class_2 = {};
+        FOREACH_STRING(s, "hoge", "foo", "bar") {
+                ASSERT_OK(iovw_extend(&user_class, s, strlen(s)));
+                ASSERT_OK(iovw_extend(&user_class_1, s, strlen(s)));
+        }
+        FOREACH_STRING(s, "aaa", "bbb", "ccc") {
+                ASSERT_OK(iovw_extend(&user_class, s, strlen(s)));
+                ASSERT_OK(iovw_extend(&user_class_2, s, strlen(s)));
+        }
+
+        _cleanup_(tlv_done) TLV vendor = TLV_INIT(TLV_DHCP4_SUBOPTION);
+        for (unsigned i = 0; i < 3; i++) {
+                uint8_t buf[255];
+                memset(buf, 42 + i, sizeof(buf));
+                ASSERT_OK(tlv_append(&vendor, i + 1, 255, buf));
+        }
 
         ASSERT_OK(dhcp_message_init_header(
                                   m,
@@ -205,7 +332,10 @@ TEST(dhcp_message) {
         /* multiple addresses */
         ASSERT_OK(dhcp_message_append_option_address(m, SD_DHCP_OPTION_NTP_SERVER, &ntp[0]));
         ASSERT_OK(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_NTP_SERVER, ELEMENTSOF(ntp) - 1, ntp + 1));
-        verify_addresses(m, ELEMENTSOF(ntp), ntp);
+        ASSERT_OK(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_SIP_SERVER, ELEMENTSOF(sip), sip));
+        ASSERT_ERROR(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_SIP_SERVER, ELEMENTSOF(sip), sip), EEXIST);
+        ASSERT_OK(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_SIP_SERVER, 0, NULL));
+        verify_addresses(m, ELEMENTSOF(ntp), ntp, ELEMENTSOF(sip), sip);
 
         /* string */
         ASSERT_ERROR(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, NULL), ENODATA);
@@ -219,6 +349,22 @@ TEST(dhcp_message) {
         dhcp_message_remove_option(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER);
         ASSERT_OK(dhcp_message_append_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, vendor_class));
         verify_string(m, vendor_class);
+
+        /* routes */
+        ASSERT_OK(dhcp_message_append_option_routes(m, SD_DHCP_OPTION_STATIC_ROUTE, ELEMENTSOF(routes), routes));
+        ASSERT_OK(dhcp_message_append_option_routes(m, SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE, ELEMENTSOF(routes), routes));
+        ASSERT_OK(dhcp_message_append_option_routes(m, SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE, ELEMENTSOF(routes), routes));
+        verify_routes(m, ELEMENTSOF(routes), routes);
+
+        /* 6rd */
+        ASSERT_ERROR(dhcp_message_append_option_6rd(m, 33, sixrd_prefixlen, &sixrd_prefix, 1, sixrd_br_addresses), EINVAL);
+        ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, 127, &sixrd_prefix, 1, sixrd_br_addresses), EINVAL);
+        ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, 0, sixrd_br_addresses), EINVAL);
+        ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, SIZE_MAX, sixrd_br_addresses), ENOBUFS);
+        ASSERT_OK(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, 1, sixrd_br_addresses));
+        ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, 1, sixrd_br_addresses), EEXIST);
+        ASSERT_OK(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_6RD, ELEMENTSOF(sixrd_br_addresses) - 1, sixrd_br_addresses + 1));
+        verify_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, ELEMENTSOF(sixrd_br_addresses), sixrd_br_addresses);
 
         /* client ID */
         ASSERT_OK(dhcp_message_append_option_client_id(m, &id));
@@ -242,6 +388,16 @@ TEST(dhcp_message) {
         dhcp_message_remove_option(m, SD_DHCP_OPTION_FQDN);
         ASSERT_OK(dhcp_message_append_option_hostname(m, /* flags= */ 0, /* is_client= */ false, hostname));
         verify_hostname(m, hostname);
+
+        /* vendor specific */
+        ASSERT_OK(dhcp_message_append_option_sub_tlv(m, SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION, &vendor));
+        ASSERT_ERROR(dhcp_message_append_option_sub_tlv(m, SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION, &vendor), EEXIST);
+        verify_sub_tlv(m, &vendor);
+
+        /* user class */
+        ASSERT_OK(dhcp_message_append_option_length_prefixed_data(m, SD_DHCP_OPTION_USER_CLASS, 1, &user_class_1));
+        ASSERT_OK(dhcp_message_append_option_length_prefixed_data(m, SD_DHCP_OPTION_USER_CLASS, 1, &user_class_2));
+        verify_length_prefixed_data(m, &user_class);
 
         /* build and parse */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
@@ -269,16 +425,348 @@ TEST(dhcp_message) {
         verify_u16(m2, 512);
         verify_sec(m2, lease_time);
         verify_address(m2, &addr);
-        verify_addresses(m2, ELEMENTSOF(ntp), ntp);
+        verify_addresses(m2, ELEMENTSOF(ntp), ntp, ELEMENTSOF(sip), sip);
         verify_string(m2, vendor_class);
+        verify_routes(m2, ELEMENTSOF(routes), routes);
+        verify_6rd(m2, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, ELEMENTSOF(sixrd_br_addresses), sixrd_br_addresses);
         verify_client_id(m2, &id);
         verify_prl(m2, prl);
         verify_hostname(m2, hostname);
+        verify_sub_tlv(m2, &vendor);
+        verify_length_prefixed_data(m2, &user_class);
 
         /* build again, and verify the packet */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw2 = {};
         ASSERT_OK(dhcp_message_build(m2, &iovw2));
         ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+}
+
+static void test_domains_one(size_t len, const uint8_t *data, char * const *expected) {
+        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, len, data));
+        ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_DOMAIN_SEARCH, &strv));
+        ASSERT_TRUE(strv_equal(strv, expected));
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH);
+        strv = strv_free(strv);
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, len / 2, data));
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, len - len / 2, data + len / 2));
+        ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_DOMAIN_SEARCH, &strv));
+        ASSERT_TRUE(strv_equal(strv, expected));
+
+        strv = strv_free(strv);
+
+        _cleanup_free_ uint8_t *sip = new(uint8_t, len + 1);
+        sip[0] = 0;
+        memcpy(sip + 1, data, len);
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_SIP_SERVER, len + 1, sip));
+        ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_SIP_SERVER, &strv));
+        ASSERT_TRUE(strv_equal(strv, expected));
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_SIP_SERVER);
+        strv = strv_free(strv);
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_SIP_SERVER, (len + 1) / 2, sip));
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_SIP_SERVER, len + 1 - (len + 1) / 2, sip + (len + 1) / 2));
+        ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_SIP_SERVER, &strv));
+        ASSERT_TRUE(strv_equal(strv, expected));
+}
+
+static void test_domains_fail(size_t len, const uint8_t *data) {
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH, len, data));
+        ASSERT_ERROR(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_DOMAIN_SEARCH, /* ret= */ NULL), EBADMSG);
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_DOMAIN_SEARCH);
+
+        _cleanup_free_ uint8_t *sip = new(uint8_t, len + 1);
+        sip[0] = 0;
+        memcpy(sip + 1, data, len);
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_SIP_SERVER, len + 1, sip));
+        ASSERT_ERROR(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_SIP_SERVER, /* ret= */ NULL), EBADMSG);
+}
+
+TEST(domains) {
+        /* simple */
+        static uint8_t simple[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                4, 'h', 'o', 'g', 'e',
+                3, 'f', 'o', 'o',
+                0,
+        };
+        test_domains_one(ELEMENTSOF(simple), simple,
+                         STRV_MAKE("example.com", "hoge.foo"));
+
+        /* compressed */
+        static uint8_t compressed[] = {
+                4, 'h', 'o', 'g', 'e',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                3, 'f', 'o', 'o',
+                0xc0, 5,
+                3, 'b', 'a', 'r',
+                0xc0, 18,
+                3, 'b', 'a', 'z',
+                0xc0, 0,
+        };
+        test_domains_one(ELEMENTSOF(compressed), compressed,
+                         STRV_MAKE("hoge.example.com", "foo.example.com", "bar.foo.example.com", "baz.hoge.example.com"));
+
+        /* invalid pointer */
+        static uint8_t invalid[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                3, 'f', 'o', 'o',
+                0xc0, 0xff,
+        };
+        test_domains_fail(ELEMENTSOF(invalid), invalid);
+
+        /* forward pointer */
+        static uint8_t forward[] = {
+                4, 'h', 'o', 'g', 'e',
+                0xc0, 11,
+                3, 'f', 'o', 'o',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+        };
+        test_domains_fail(ELEMENTSOF(forward), forward);
+
+        /* infinite loop */
+        static uint8_t loop1[] = {
+                0xc0, 0x00,
+        };
+        test_domains_fail(ELEMENTSOF(loop1), loop1);
+
+        static uint8_t loop2[] = {
+                0xc0, 0x02,
+                0xc0, 0x00,
+        };
+        test_domains_fail(ELEMENTSOF(loop2), loop2);
+
+        static uint8_t loop3[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                0xc0, 0x00,
+        };
+        test_domains_fail(ELEMENTSOF(loop3), loop3);
+
+        /* unterminated */
+        static uint8_t unterminated[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+        };
+        test_domains_fail(ELEMENTSOF(unterminated), unterminated);
+
+        /* truncated label */
+        static uint8_t truncated[] = {
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o',
+        };
+        test_domains_fail(ELEMENTSOF(truncated), truncated);
+}
+
+TEST(dnr) {
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+
+        sd_dns_resolver *resolvers = NULL;
+        size_t n_resolvers = 0;
+        CLEANUP_ARRAY(resolvers, n_resolvers, dns_resolver_free_array);
+
+        static uint8_t data[] = {
+                /* Instance 1 */
+                /* length */
+                0, 78,
+                /* priority */
+                0, 1,
+                /* authentication domain name */
+                22,
+                8, 'r', 'e', 's', 'o', 'l', 'v', 'e', 'r',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                /* addresses */
+                8,
+                192, 0, 2, 1,
+                192, 0, 2, 2,
+                /* service parameters */
+                /* ALPN */
+                0, DNS_SVC_PARAM_KEY_ALPN,
+                0, 14,
+                2, 'h', '2',
+                2, 'h', '3',
+                3, 'd', 'o', 't',
+                3, 'd', 'o', 'q',
+                /* port */
+                0, DNS_SVC_PARAM_KEY_PORT,
+                0, 2,
+                0, 42,
+                /* DoH path*/
+                0, DNS_SVC_PARAM_KEY_DOHPATH,
+                0, 16,
+                '/', 'd', 'n', 's', '-', 'q', 'u', 'e', 'r', 'y', '{', '?', 'd', 'n', 's', '}',
+
+                /* Instance 2 */
+                /* length */
+                0, 44,
+                /* priority */
+                0, 2,
+                /* authentication domain name */
+                22,
+                8, 'h', 'o', 'g', 'e', 'h', 'o', 'g', 'e',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                /* addresses */
+                4,
+                192, 0, 2, 3,
+                /* service parameters */
+                /* ALPN */
+                0, DNS_SVC_PARAM_KEY_ALPN,
+                0, 4,
+                3, 'd', 'o', 't',
+                /* port */
+                0, DNS_SVC_PARAM_KEY_PORT,
+                0, 2,
+                0, 33,
+
+                /* Instance 3 (no address, ignored) */
+                /* length */
+                0, 20,
+                /* priority */
+                0, 3,
+                /* authentication domain name */
+                17,
+                3, 'f', 'o', 'o',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+
+                /* Instance 4 (unknown alpn, ignored) */
+                /* length */
+                0, 37,
+                /* priority */
+                0, 4,
+                /* authentication domain name */
+                20,
+                6, 'b', 'a', 'r', 'b', 'a', 'z',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                /* addresses */
+                4,
+                192, 0, 2, 4,
+                /* service parameters */
+                /* ALPN */
+                0, DNS_SVC_PARAM_KEY_ALPN,
+                0, 5,
+                4, 'h', 'o', 'g', 'e',
+        };
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_V4_DNR, ELEMENTSOF(data), data));
+        ASSERT_OK(dhcp_message_get_option_dnr(m, &n_resolvers, &resolvers));
+        ASSERT_EQ(n_resolvers, 2u);
+
+        ASSERT_EQ(resolvers[0].priority, 1u);
+        ASSERT_STREQ(resolvers[0].auth_name, "resolver.example.com");
+        ASSERT_EQ(resolvers[0].family, AF_INET);
+        ASSERT_EQ(resolvers[0].n_addrs, 2u);
+        ASSERT_STREQ(IN_ADDR_TO_STRING(resolvers[0].family, &resolvers[0].addrs[0]), "192.0.2.1");
+        ASSERT_STREQ(IN_ADDR_TO_STRING(resolvers[0].family, &resolvers[0].addrs[1]), "192.0.2.2");
+        ASSERT_EQ(resolvers[0].transports, SD_DNS_ALPN_HTTP_2_TLS | SD_DNS_ALPN_HTTP_3 | SD_DNS_ALPN_DOT | SD_DNS_ALPN_DOQ);
+        ASSERT_EQ(resolvers[0].port, 42u);
+        ASSERT_STREQ(resolvers[0].dohpath, "/dns-query{?dns}");
+
+        ASSERT_EQ(resolvers[1].priority, 2u);
+        ASSERT_STREQ(resolvers[1].auth_name, "hogehoge.example.com");
+        ASSERT_EQ(resolvers[1].family, AF_INET);
+        ASSERT_EQ(resolvers[1].n_addrs, 1u);
+        ASSERT_STREQ(IN_ADDR_TO_STRING(resolvers[1].family, &resolvers[1].addrs[0]), "192.0.2.3");
+        ASSERT_EQ(resolvers[1].transports, SD_DNS_ALPN_DOT);
+        ASSERT_EQ(resolvers[1].port, 33u);
+        ASSERT_NULL(resolvers[1].dohpath);
+
+        /* missing DoH path */
+        static uint8_t invalid[] = {
+                /* length */
+                0, 35,
+                /* priority */
+                0, 5,
+                /* authentication domain name */
+                20,
+                6, 'b', 'a', 'r', 'b', 'a', 'z',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                /* addresses */
+                4,
+                192, 0, 2, 5,
+                /* service parameters */
+                /* ALPN */
+                0, DNS_SVC_PARAM_KEY_ALPN,
+                0, 3,
+                2, 'h', '2',
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_V4_DNR, ELEMENTSOF(invalid), invalid));
+        ASSERT_ERROR(dhcp_message_get_option_dnr(m, NULL, NULL), EBADMSG);
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_V4_DNR);
+
+        /* missing ALPN */
+        static uint8_t invalid2[] = {
+                /* length */
+                0, 28,
+                /* priority */
+                0, 6,
+                /* authentication domain name */
+                20,
+                6, 'b', 'a', 'r', 'b', 'a', 'z',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o', 'm',
+                0,
+                /* addresses */
+                4,
+                192, 0, 2, 6,
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_V4_DNR, ELEMENTSOF(invalid2), invalid2));
+        ASSERT_ERROR(dhcp_message_get_option_dnr(m, NULL, NULL), EBADMSG);
+
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_V4_DNR);
+
+        /* truncated domain name */
+        static uint8_t invalid3[] = {
+                /* length */
+                0, 34,
+                /* priority */
+                0, 7,
+                /* authentication domain name */
+                18,
+                6, 'b', 'a', 'r', 'b', 'a', 'z',
+                7, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                3, 'c', 'o',
+                /* addresses */
+                4,
+                192, 0, 2, 7,
+                /* service parameters */
+                /* ALPN */
+                0, DNS_SVC_PARAM_KEY_ALPN,
+                0, 4,
+                3, 'd', 'o', 't',
+        };
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_V4_DNR, ELEMENTSOF(invalid3), invalid3));
+        ASSERT_ERROR(dhcp_message_get_option_dnr(m, NULL, NULL), EMSGSIZE);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
