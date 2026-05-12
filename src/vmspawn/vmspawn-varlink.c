@@ -197,7 +197,7 @@ static int vl_method_add_storage(sd_varlink *link, sd_json_variant *parameters, 
         if (r != 0)
                 return r;
 
-        if (machine_storage_name_split(p.name, /* ret_provider= */ NULL, /* ret_volume= */ NULL) < 0)
+        if (isempty(p.name))
                 return sd_varlink_error_invalid_parameter_name(link, "name");
 
         if (disk_type_from_bind_volume_config(p.config) < 0)
@@ -239,7 +239,7 @@ static int vl_method_remove_storage(sd_varlink *link, sd_json_variant *parameter
         if (r != 0)
                 return r;
 
-        if (machine_storage_name_split(p.name, /* ret_provider= */ NULL, /* ret_volume= */ NULL) < 0)
+        if (isempty(p.name))
                 return sd_varlink_error_invalid_parameter_name(link, "name");
 
         return vmspawn_qmp_remove_block_device(ctx->bridge, link, p.name);
