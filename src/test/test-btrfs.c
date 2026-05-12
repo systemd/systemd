@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 
 #include "btrfs-util.h"
+#include "chattr-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"

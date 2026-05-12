@@ -2,6 +2,7 @@
 
 libc_wrapper_sources = files(
         'bpf.c',
+        'epoll.c',
         'fcntl.c',
         'ioprio.c',
         'kcmp.c',
@@ -13,6 +14,7 @@ libc_wrapper_sources = files(
         'quota.c',
         'sched.c',
         'signal.c',
+        'spawn.c',
         'stat.c',
         'unistd.c',
         'xattr.c',
