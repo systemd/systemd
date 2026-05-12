@@ -29,14 +29,14 @@ static SD_VARLINK_DEFINE_METHOD(
                 AddStorage,
                 SD_VARLINK_FIELD_COMMENT("Index of the attached file descriptor for the storage volume"),
                 SD_VARLINK_DEFINE_INPUT(fileDescriptorIndex, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("Unique storage name of the form '<provider>:<volume>' identifying this binding for later removal"),
+                SD_VARLINK_FIELD_COMMENT("Caller-supplied identifier for this binding (any non-empty string; machinectl uses '<provider>:<volume>' from the StorageProvider, but the form is not required)"),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Backend-specific configuration"),
                 SD_VARLINK_DEFINE_INPUT(config, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 RemoveStorage,
-                SD_VARLINK_FIELD_COMMENT("Unique storage name '<provider>:<volume>' to detach"),
+                SD_VARLINK_FIELD_COMMENT("Identifier of the binding to detach (as supplied to AddStorage)"),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0));
 
 static SD_VARLINK_DEFINE_METHOD(
