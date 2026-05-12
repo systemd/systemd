@@ -11,12 +11,12 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "dhcp-option.h"
 #include "dhcp6-option.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "hexdecoct.h"
 #include "in-addr-prefix-util.h"
+#include "iovec-util.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-link.h"
@@ -636,7 +636,52 @@ int config_parse_iaid(
         return 0;
 }
 
-int config_parse_dhcp_user_or_vendor_class(
+int config_parse_dhcp4_user_class(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct iovec_wrapper *iovw = ASSERT_PTR(data);
+        int r;
+
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                iovw_done_free(iovw);
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *w = NULL;
+
+                r = extract_first_word(&p, &w, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+                if (r == 0)
+                        return 0;
+
+                size_t len = strlen(w);
+                if (len > UINT8_MAX || len == 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "The length of the %s entry '%s' is not in the range 1…255, ignoring.", lvalue, w);
+                        continue;
+                }
+
+                r = iovw_consume(iovw, TAKE_PTR(w), len);
+                if (r < 0)
+                        return log_oom();
+        }
+}
+
+int config_parse_dhcp6_user_or_vendor_class(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -653,7 +698,6 @@ int config_parse_dhcp_user_or_vendor_class(
 
         assert(lvalue);
         assert(rvalue);
-        assert(IN_SET(ltype, AF_INET, AF_INET6));
 
         if (isempty(rvalue)) {
                 *l = strv_free(*l);
@@ -662,32 +706,18 @@ int config_parse_dhcp_user_or_vendor_class(
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL;
-                size_t len;
 
                 r = extract_first_word(&p, &w, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to split user classes option, ignoring: %s", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
                         return 0;
 
-                len = strlen(w);
-                if (ltype == AF_INET) {
-                        if (len > UINT8_MAX || len == 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                           "%s length is not in the range 1…255, ignoring.", w);
-                                continue;
-                        }
-                } else {
-                        if (len > UINT16_MAX || len == 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                           "%s length is not in the range 1…65535, ignoring.", w);
-                                continue;
-                        }
+                size_t len = strlen(w);
+                if (len > UINT16_MAX || len == 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "The length of the %s entry '%s' is not in the range 1…65535, ignoring.", lvalue, w);
+                        continue;
                 }
 
                 r = strv_consume(l, TAKE_PTR(w));
@@ -696,7 +726,7 @@ int config_parse_dhcp_user_or_vendor_class(
         }
 }
 
-int config_parse_dhcp_send_option(
+int config_parse_dhcp6_send_option(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -708,17 +738,15 @@ int config_parse_dhcp_send_option(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *opt4 = NULL;
         _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *opt6 = NULL;
-        _unused_ _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *old4 = NULL;
         _unused_ _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *old6 = NULL;
         uint32_t uint32_data, enterprise_identifier = 0;
         _cleanup_free_ char *word = NULL, *q = NULL;
-        OrderedHashmap **options = ASSERT_PTR(data);
+        OrderedHashmap **dhcp6_options = ASSERT_PTR(data);
         uint16_t u16, uint16_data;
         union in_addr_union addr;
         DHCPOptionDataType type;
-        uint8_t u8, uint8_data;
+        uint8_t uint8_data;
         const void *udata;
         const char *p;
         ssize_t sz;
@@ -729,12 +757,12 @@ int config_parse_dhcp_send_option(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                *options = ordered_hashmap_free(*options);
+                *dhcp6_options = ordered_hashmap_free(*dhcp6_options);
                 return 0;
         }
 
         p = rvalue;
-        if (ltype == AF_INET6 && streq(lvalue, "SendVendorOption")) {
+        if (streq(lvalue, "SendVendorOption")) {
                 r = extract_first_word(&p, &word, ":", 0);
                 if (r == -ENOMEM)
                         return log_oom();
@@ -762,30 +790,16 @@ int config_parse_dhcp_send_option(
                 return 0;
         }
 
-        if (ltype == AF_INET6) {
-                r = safe_atou16(word, &u16);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid DHCP option, ignoring assignment: %s", rvalue);
-                         return 0;
-                }
-                if (u16 < 1 || u16 >= UINT16_MAX) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Invalid DHCP option, valid range is 1-65535, ignoring assignment: %s", rvalue);
-                        return 0;
-                }
-        } else {
-                r = safe_atou8(word, &u8);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid DHCP option, ignoring assignment: %s", rvalue);
-                         return 0;
-                }
-                if (u8 < 1 || u8 >= UINT8_MAX) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Invalid DHCP option, valid range is 1-254, ignoring assignment: %s", rvalue);
-                        return 0;
-                }
+        r = safe_atou16(word, &u16);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid DHCP option, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+        if (u16 < 1 || u16 >= UINT16_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid DHCP option, valid range is 1-65535, ignoring assignment: %s", rvalue);
+                return 0;
         }
 
         word = mfree(word);
@@ -887,49 +901,193 @@ int config_parse_dhcp_send_option(
                 return -EINVAL;
         }
 
-        if (ltype == AF_INET6) {
-                r = sd_dhcp6_option_new(u16, udata, sz, enterprise_identifier, &opt6);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
-                        return 0;
-                }
-
-                r = ordered_hashmap_ensure_allocated(options, &dhcp6_option_hash_ops);
-                if (r < 0)
-                        return log_oom();
-
-                /* Overwrite existing option */
-                old6 = ordered_hashmap_get(*options, UINT_TO_PTR(u16));
-                r = ordered_hashmap_replace(*options, UINT_TO_PTR(u16), opt6);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
-                        return 0;
-                }
-                TAKE_PTR(opt6);
-        } else {
-                r = sd_dhcp_option_new(u8, udata, sz, &opt4);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
-                        return 0;
-                }
-
-                r = ordered_hashmap_ensure_allocated(options, &dhcp_option_hash_ops);
-                if (r < 0)
-                        return log_oom();
-
-                /* Overwrite existing option */
-                old4 = ordered_hashmap_get(*options, UINT_TO_PTR(u8));
-                r = ordered_hashmap_replace(*options, UINT_TO_PTR(u8), opt4);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
-                        return 0;
-                }
-                TAKE_PTR(opt4);
+        r = sd_dhcp6_option_new(u16, udata, sz, enterprise_identifier, &opt6);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
+                return 0;
         }
+
+        r = ordered_hashmap_ensure_allocated(dhcp6_options, &dhcp6_option_hash_ops);
+        if (r < 0)
+                return log_oom();
+
+        /* Overwrite existing option */
+        old6 = ordered_hashmap_get(*dhcp6_options, UINT_TO_PTR(u16));
+        r = ordered_hashmap_replace(*dhcp6_options, UINT_TO_PTR(u16), opt6);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
+                return 0;
+        }
+        TAKE_PTR(opt6);
+
+        return 0;
+}
+
+int config_parse_dhcp_option(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct iovec *iov = ASSERT_PTR(data);
+        bool check_length = ltype;
+        int r;
+
+        if (isempty(rvalue)) {
+                iovec_done(iov);
+                return 0;
+        }
+
+        _cleanup_free_ char *word = NULL;
+        const char *p = rvalue;
+        r = extract_first_word(&p, &word, ":", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0 || isempty(p))
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        DHCPOptionDataType type = dhcp_option_data_type_from_string(word);
+        if (type < 0)
+                return log_syntax_parse_error(unit, filename, line, type, lvalue, rvalue);
+
+        switch (type) {
+        case DHCP_OPTION_DATA_UINT8:{
+                uint8_t u;
+
+                r = safe_atou8(p, &u);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+                r = iovec_done_and_memdup(iov, &IOVEC_MAKE(&u, sizeof(u)));
+                if (r < 0)
+                        return log_oom();
+
+                return 1;
+        }
+        case DHCP_OPTION_DATA_UINT16:{
+                uint16_t u;
+
+                r = safe_atou16(p, &u);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+                u = htobe16(u);
+                r = iovec_done_and_memdup(iov, &IOVEC_MAKE(&u, sizeof(u)));
+                if (r < 0)
+                        return log_oom();
+
+                return 1;
+        }
+        case DHCP_OPTION_DATA_UINT32: {
+                uint32_t u;
+
+                r = safe_atou32(p, &u);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+                u = htobe32(u);
+                r = iovec_done_and_memdup(iov, &IOVEC_MAKE(&u, sizeof(u)));
+                if (r < 0)
+                        return log_oom();
+
+                return 1;
+        }
+        case DHCP_OPTION_DATA_IPV4ADDRESS: {
+                union in_addr_union a;
+
+                r = in_addr_from_string(AF_INET, p, &a);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+                r = iovec_done_and_memdup(iov, &IOVEC_MAKE(&a.in, sizeof(a.in)));
+                if (r < 0)
+                        return log_oom();
+
+                return 1;
+        }
+        case DHCP_OPTION_DATA_IPV6ADDRESS: {
+                union in_addr_union a;
+
+                r = in_addr_from_string(AF_INET6, p, &a);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+                r = iovec_done_and_memdup(iov, &IOVEC_MAKE(&a.in6, sizeof(a.in6)));
+                if (r < 0)
+                        return log_oom();
+
+                return 1;
+        }
+        case DHCP_OPTION_DATA_STRING: {
+                _cleanup_free_ char *s = NULL;
+                ssize_t sz = cunescape(p, UNESCAPE_ACCEPT_NUL, &s);
+                if (sz < 0)
+                        return log_syntax_parse_error(unit, filename, line, sz, lvalue, rvalue);
+                if (check_length && sz > UINT8_MAX)
+                        return log_syntax_parse_error(unit, filename, line, 0, lvalue, rvalue);
+
+                iovec_done(iov);
+                *iov = IOVEC_MAKE(TAKE_PTR(s), sz);
+                return 1;
+        }
+        default:
+                return -EINVAL;
+        }
+}
+
+int config_parse_dhcp_option_tlv(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        TLV *options = ASSERT_PTR(data);
+        int r;
+
+        if (isempty(rvalue)) {
+                tlv_done(options);
+                return 0;
+        }
+
+        _cleanup_free_ char *word = NULL;
+        const char *p = rvalue;
+        r = extract_first_word(&p, &word, ":", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0 || isempty(p))
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        uint8_t code;
+        r = safe_atou8(word, &code);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+        if (code < 1 || code >= UINT8_MAX)
+                return log_syntax_parse_error(unit, filename, line, 0, lvalue, rvalue);
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = config_parse_dhcp_option(unit, filename, line, section, section_line, lvalue, ltype, p, &iov, userdata);
+        if (r <= 0)
+                return r;
+
+        r = tlv_append_iov(options, code, &iov);
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to store '%s=%s', ignoring assignment: %m", lvalue, rvalue);
+
         return 0;
 }
 
