@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <pthread.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -11,6 +12,7 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "json-util.h"
@@ -1043,6 +1045,100 @@ TEST(execute_directory) {
                                        execute_dir_reply,
                                        &reply_count));
         ASSERT_EQ(reply_count, count_before);
+}
+
+#define CTRUNC_N_FDS 64U
+
+static int method_ctrunc(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* Peek the first fd the client supposedly sent. With SCM_RIGHTS truncated by the kernel
+         * because the receiver hit RLIMIT_NOFILE, sd_varlink_peek_fd() returns -ENXIO once we
+         * walk past the last successfully installed fd. We're forcing the missing-fd case here,
+         * so we expect to fail and let varlink translate -ENXIO into io.systemd.System for the
+         * peer. */
+        int fd = sd_varlink_peek_fd(link, CTRUNC_N_FDS - 1);
+        if (fd < 0)
+                return fd;
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_INTEGER("ok", 1));
+}
+
+static int reply_ctrunc(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        /* We expect a clean system error back rather than a hanging connection: the server
+         * dropped the truncated fds and our handler surfaced -ENXIO, which varlink wraps as
+         * io.systemd.System. */
+        ASSERT_STREQ(error_id, SD_VARLINK_ERROR_SYSTEM);
+        ASSERT_ERROR(sd_varlink_error_to_errno(error_id, parameters), ENXIO);
+
+        ASSERT_OK(sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS));
+        return 0;
+}
+
+TEST(ctrunc) {
+        int r;
+        
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.CTrunc", method_ctrunc));
+
+        int connfd[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
+        ASSERT_OK(sd_varlink_set_allow_fd_passing_input(c, true));
+        ASSERT_OK(sd_varlink_set_allow_fd_passing_output(c, true));
+        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_ctrunc));
+
+        /* Open a batch of memfds we'll attach to the call. We push duplicates so the originals
+         * keep occupying fd table slots after the stream sends and closes the dup'd copies,
+         * making the receiver hit RLIMIT_NOFILE when it tries to install the incoming fds. */
+        int originals[CTRUNC_N_FDS];
+        for (size_t i = 0; i < CTRUNC_N_FDS; i++)
+                originals[i] = -EBADF;
+        CLEANUP_ELEMENTS(originals, close_many_unset);
+
+        for (size_t i = 0; i < CTRUNC_N_FDS; i++) {
+                originals[i] = ASSERT_OK(memfd_new_and_seal_string("ctrunc", "x"));
+                ASSERT_OK_EQ(sd_varlink_push_dup_fd(c, originals[i]), (int) i);
+        }
+
+        /* Constrain RLIMIT_NOFILE so the server can't install every received fd. The kernel
+         * will then drop the remaining fds from the SCM_RIGHTS message and set MSG_CTRUNC,
+         * which is precisely what an LSM denial (or a real fd-table-full peer) looks like to
+         * the receive side. Pick the new limit slightly above our current open-fd count so
+         * the kernel can install only a handful of received fds before failing the rest. */
+        struct rlimit orig_rl;
+        ASSERT_OK_ERRNO(getrlimit(RLIMIT_NOFILE, &orig_rl));
+
+        size_t n_open = 0;
+        _cleanup_closedir_ DIR *d = ASSERT_NOT_NULL(opendir("/proc/self/fd"));
+        FOREACH_DIRENT_ALL(de, d, break)
+                if (!dot_or_dot_dot(de->d_name))
+                        n_open++;
+
+        /* n_open currently includes the CTRUNC_N_FDS dup'd fds that the stream will close once
+         * the message has been sent. After the send, we'll be back down to n_open - CTRUNC_N_FDS
+         * fds. Set the limit just slightly above that, so the kernel can install only a handful
+         * of the CTRUNC_N_FDS incoming fds before failing the rest with MSG_CTRUNC. */
+        ASSERT_GT(n_open, CTRUNC_N_FDS);
+        struct rlimit new_rl = {
+                .rlim_cur = n_open - CTRUNC_N_FDS + 8,
+                .rlim_max = orig_rl.rlim_max,
+        };
+        ASSERT_OK_ERRNO(setrlimit(RLIMIT_NOFILE, &new_rl));
+
+        r = sd_varlink_invoke(c, "io.test.CTrunc", /* parameters= */ NULL);
+        if (r >= 0)
+                r = sd_event_loop(e);
+
+        ASSERT_OK_ERRNO(setrlimit(RLIMIT_NOFILE, &orig_rl));
+        ASSERT_OK(r);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
