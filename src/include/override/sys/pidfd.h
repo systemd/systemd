@@ -2,7 +2,7 @@
 #pragma once
 
 /* since glibc-2.36 */
-#if HAVE_PIDFD_OPEN
+#if __has_include_next(<sys/pidfd.h>)
 #include_next <sys/pidfd.h>     /* IWYU pragma: export */
 #endif
 
@@ -12,17 +12,13 @@
 
 /* Defined since glibc-2.36.
  * Supported since kernel v5.3 (7615d9e1780e26e0178c93c55b73309a5dc093d7). */
-#if !HAVE_PIDFD_OPEN
 int missing_pidfd_open(pid_t pid, unsigned flags);
-#  define pidfd_open missing_pidfd_open
-#endif
+#define pidfd_open missing_pidfd_open
 
 /* Defined since glibc-2.36.
  * Supported since kernel v5.1 (3eb39f47934f9d5a3027fe00d906a45fe3a15fad). */
-#if !HAVE_PIDFD_SEND_SIGNAL
 int missing_pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags);
-#  define pidfd_send_signal missing_pidfd_send_signal
-#endif
+#define pidfd_send_signal missing_pidfd_send_signal
 
 /* since glibc-2.41 */
 #ifndef PIDFS_IOCTL_MAGIC

@@ -468,7 +468,9 @@ static int maybe_remove_external_coredump(
 }
 
 static int acquire_pid_mount_tree_fd(const CoredumpConfig *config, CoredumpContext *context) {
-#if HAVE_DWFL_SET_SYSROOT
+        if (!dlopen_dw_has_dwfl_set_sysroot())
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "dwfl_set_sysroot() is not supported.");
+
         _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, fd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int r;
@@ -533,10 +535,6 @@ static int acquire_pid_mount_tree_fd(const CoredumpConfig *config, CoredumpConte
 
         context->mount_tree_fd = TAKE_FD(fd);
         return 0;
-#else
-        /* Don't bother preparing environment if we can't pass it to libdwfl. */
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "dwfl_set_sysroot() is not supported.");
-#endif
 }
 
 static int attach_mount_tree(const CoredumpConfig *config, CoredumpContext *context) {
