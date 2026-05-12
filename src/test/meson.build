@@ -256,11 +256,6 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-btrfs.c'),
-                'type' : 'manual',
-        },
-        test_template + {
-                'sources' : files('test-btrfs-physical-offset.c'),
-                'type' : 'manual',
         },
         test_template + {
                 'sources' : files('test-chase-manual.c'),
