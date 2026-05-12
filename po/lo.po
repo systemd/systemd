@@ -1,0 +1,1238 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the systemd package.
+# Bone NI <bounkirdni@gmail.com>, 2026.
+msgid ""
+msgstr ""
+"Project-Id-Version: systemd\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-06 03:46+0900\n"
+"PO-Revision-Date: 2026-05-12 06:16+0000\n"
+"Last-Translator: Bone NI <bounkirdni@gmail.com>\n"
+"Language-Team: Lao <https://translate.fedoraproject.org/projects/systemd/"
+"main/lo/>\n"
+"Language: lo\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Weblate 5.17.1\n"
+
+#: src/core/org.freedesktop.systemd1.policy.in:22
+msgid "Send passphrase back to system"
+msgstr "ສົ່ງລະຫັດຜ່ານກັບຄືນຫາລະບົບ"
+
+#: src/core/org.freedesktop.systemd1.policy.in:23
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອສົ່ງລະຫັດຜ່ານທີ່ປ້ອນເຂົ້າກັບຄືນຫາລະບົບ."
+
+#: src/core/org.freedesktop.systemd1.policy.in:33
+msgid "Manage system services or other units"
+msgstr "ຈັດການບໍລິການຂອງລະບົບ ຫຼື ໜ່ວຍງານອື່ນໆ"
+
+#: src/core/org.freedesktop.systemd1.policy.in:34
+msgid "Authentication is required to manage system services or other units."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈັດການບໍລິການຂອງລະບົບ ຫຼື ໜ່ວຍງານອື່ນໆ."
+
+#: src/core/org.freedesktop.systemd1.policy.in:43
+msgid "Manage system service or unit files"
+msgstr "ຈັດການບໍລິການຂອງລະບົບ ຫຼື ໄຟລ໌ໜ່ວຍງານ"
+
+#: src/core/org.freedesktop.systemd1.policy.in:44
+msgid "Authentication is required to manage system service or unit files."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈັດການບໍລິການຂອງລະບົບ ຫຼື ໄຟລ໌ໜ່ວຍງານ."
+
+#: src/core/org.freedesktop.systemd1.policy.in:54
+msgid "Set or unset system and service manager environment variables"
+msgstr "ຕັ້ງຄ່າ ຫຼື ຍົກເລີກຕົວປ່ຽນສະພາບແວດລ້ອມຂອງລະບົບ ແລະ ຕົວຈັດການບໍລິການ"
+
+#: src/core/org.freedesktop.systemd1.policy.in:55
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າ ຫຼື ຍົກເລີກຕົວປ່ຽນສະພາບແວດລ້ອມຂອງລະບົບ ແລະ ຕົວຈັດການບໍລິການ."
+
+#: src/core/org.freedesktop.systemd1.policy.in:64
+msgid "Reload the systemd state"
+msgstr "ໂຫລດສະຖານະ systemd ຄືນໃໝ່"
+
+#: src/core/org.freedesktop.systemd1.policy.in:65
+msgid "Authentication is required to reload the systemd state."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໂຫລດສະຖານະ systemd ຄືນໃໝ່."
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr "ບັນທຶກສະຖານະ systemd ໂດຍບໍ່ມີການຈຳກັດອັດຕາ"
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອບັນທຶກສະຖານະ systemd ໂດຍບໍ່ມີການຈຳກັດອັດຕາ."
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr "ສ້າງພື້ນທີ່ໂຮມ"
+
+#: src/home/org.freedesktop.home1.policy:14
+msgid "Authentication is required to create a user's home area."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອສ້າງພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr "ລຶບພື້ນທີ່ໂຮມ"
+
+#: src/home/org.freedesktop.home1.policy:24
+msgid "Authentication is required to remove a user's home area."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອລຶບພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr "ກວດສອບຂໍ້ມູນປະຈຳຕົວຂອງພື້ນທີ່ໂຮມ"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອກວດສອບຂໍ້ມູນປະຈຳຕົວຂອງພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr "ອັບເດດພື້ນທີ່ໂຮມ"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required to update a user's home area."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອອັບເດດພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Update your home area"
+msgstr "ອັບເດດພື້ນທີ່ໂຮມຂອງທ່ານ"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to update your home area."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອອັບເດດພື້ນທີ່ໂຮມຂອງທ່ານ."
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Resize a home area"
+msgstr "ປັບຂະໜາດພື້ນທີ່ໂຮມ"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid "Authentication is required to resize a user's home area."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອປັບຂະໜາດພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້."
+
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Change password of a home area"
+msgstr "ປ່ຽນລະຫັດຜ່ານຂອງພື້ນທີ່ໂຮມ"
+
+#: src/home/org.freedesktop.home1.policy:74
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອປ່ຽນລະຫັດຜ່ານຂອງພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້."
+
+#: src/home/org.freedesktop.home1.policy:83
+msgid "Activate a home area"
+msgstr "ເປີດໃຊ້ງານພື້ນທີ່ໂຮມ"
+
+#: src/home/org.freedesktop.home1.policy:84
+msgid "Authentication is required to activate a user's home area."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເປີດໃຊ້ງານພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້."
+
+#: src/home/org.freedesktop.home1.policy:93
+msgid "Manage Home Directory Signing Keys"
+msgstr "ຈັດການຄີການລົງລາຍເຊັນຂອງໂຟນເດີໂຮມ"
+
+#: src/home/org.freedesktop.home1.policy:94
+msgid "Authentication is required to manage signing keys for home directories."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈັດການຄີການລົງລາຍເຊັນສຳລັບໂຟນເດີໂຮມ."
+
+#: src/home/pam_systemd_home.c:330
+#, c-format
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
+msgstr ""
+"ພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້ %s ບໍ່ມີຢູ່ໃນຕອນນີ້, ກະລຸນາສຽບອຸປະກອນເກັບຂໍ້ມູນທີ່ຈຳເປັນ ຫຼື ລະບົບໄຟລ໌ສຳຮອງ."
+
+#: src/home/pam_systemd_home.c:335
+#, c-format
+msgid "Too frequent login attempts for user %s, try again later."
+msgstr ""
+"ມີການພະຍາຍາມເຂົ້າສູ່ລະບົບສຳລັບຜູ້ໃຊ້ %s ຫຼາຍເກີນໄປ, ກະລຸນາລອງໃໝ່ພາຍຫຼັງ."
+
+#: src/home/pam_systemd_home.c:347
+msgid "Password: "
+msgstr "ລະຫັດຜ່ານ: "
+
+#: src/home/pam_systemd_home.c:349
+#, c-format
+msgid "Password incorrect or not sufficient for authentication of user %s."
+msgstr "ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ ຫຼື ບໍ່ພຽງພໍສຳລັບການຢືນຢັນຕົວຕົນຂອງຜູ້ໃຊ້ %s."
+
+#: src/home/pam_systemd_home.c:350
+msgid "Sorry, try again: "
+msgstr "ຂໍອະໄພ, ກະລຸນາລອງໃໝ່: "
+
+#: src/home/pam_systemd_home.c:372
+msgid "Recovery key: "
+msgstr "ລະຫັດກູ້ຄືນ: "
+
+#: src/home/pam_systemd_home.c:374
+#, c-format
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
+msgstr ""
+"ລະຫັດຜ່ານ/ລະຫັດກູ້ຄືນ ບໍ່ຖືກຕ້ອງ ຫຼື ບໍ່ພຽງພໍສຳລັບການຢືນຢັນຕົວຕົນຂອງຜູ້ໃຊ້ %s."
+
+#: src/home/pam_systemd_home.c:375
+msgid "Sorry, reenter recovery key: "
+msgstr "ຂໍອະໄພ, ກະລຸນາປ້ອນລະຫັດກູ້ຄືນໃໝ່: "
+
+#: src/home/pam_systemd_home.c:395
+#, c-format
+msgid "Security token of user %s not inserted."
+msgstr "ບໍ່ໄດ້ສຽບໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s."
+
+#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
+msgid "Try again with password: "
+msgstr "ລອງໃໝ່ດ້ວຍລະຫັດຜ່ານ: "
+
+#: src/home/pam_systemd_home.c:398
+#, c-format
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
+msgstr ""
+"ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ ຫຼື ບໍ່ພຽງພໍ, ແລະ ບໍ່ໄດ້ສຽບໂທເຄັນຄວາມປອດໄພທີ່ຕັ້ງຄ່າໄວ້ຂອງຜູ້ໃຊ້ %s."
+
+#: src/home/pam_systemd_home.c:418
+msgid "Security token PIN: "
+msgstr "ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພ: "
+
+#: src/home/pam_systemd_home.c:435
+#, c-format
+msgid "Please authenticate physically on security token of user %s."
+msgstr "ກະລຸນາຢືນຢັນຕົວຕົນດ້ວຍຕົນເອງທີ່ໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s."
+
+#: src/home/pam_systemd_home.c:446
+#, c-format
+msgid "Please confirm presence on security token of user %s."
+msgstr "ກະລຸນາຢືນຢັນການມີຕົວຕົນຢູ່ທີ່ໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s."
+
+#: src/home/pam_systemd_home.c:457
+#, c-format
+msgid "Please verify user on security token of user %s."
+msgstr "ກະລຸນາກວດສອບຜູ້ໃຊ້ຢູ່ທີ່ໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s."
+
+#: src/home/pam_systemd_home.c:466
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
+msgstr ""
+"ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຖືກລັອກ, ກະລຸນາປົດລັອກກ່ອນ. (ຄຳແນະນຳ: ການຖອດອອກແລ້ວສຽບເຂົ້າໃ"
+"ໝ່ອາດຊ່ວຍໄດ້.)"
+
+#: src/home/pam_systemd_home.c:474
+#, c-format
+msgid "Security token PIN incorrect for user %s."
+msgstr "ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພບໍ່ຖືກຕ້ອງສຳລັບຜູ້ໃຊ້ %s."
+
+#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
+#: src/home/pam_systemd_home.c:513
+msgid "Sorry, retry security token PIN: "
+msgstr "ຂໍອະໄພ, ລອງປ້ອນ PIN ຂອງໂທເຄັນຄວາມປອດໄພໃໝ່: "
+
+#: src/home/pam_systemd_home.c:493
+#, c-format
+msgid "Security token PIN of user %s incorrect (only a few tries left!)"
+msgstr ""
+"ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s ບໍ່ຖືກຕ້ອງ (ເຫຼືອການພະຍາຍາມອີກບໍ່ເທົ່າໃດຄັ້ງ!)"
+
+#: src/home/pam_systemd_home.c:512
+#, c-format
+msgid "Security token PIN of user %s incorrect (only one try left!)"
+msgstr ""
+"ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s ບໍ່ຖືກຕ້ອງ (ເຫຼືອການພະຍາຍາມອີກພຽງຄັ້ງດຽວ!)"
+
+#: src/home/pam_systemd_home.c:679
+#, c-format
+msgid "Home of user %s is currently not active, please log in locally first."
+msgstr ""
+"ພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້ %s ຍັງບໍ່ທັນເປີດໃຊ້ງານ, ກະລຸນາເຂົ້າສູ່ລະບົບໂດຍກົງຢູ່ເຄື່ອງກ່ອນ."
+
+#: src/home/pam_systemd_home.c:681
+#, c-format
+msgid "Home of user %s is currently locked, please unlock locally first."
+msgstr "ພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້ %s ຖືກລັອກຢູ່, ກະລຸນາປົດລັອກໂດຍກົງຢູ່ເຄື່ອງກ່ອນ."
+
+#: src/home/pam_systemd_home.c:715
+#, c-format
+msgid "Too many unsuccessful login attempts for user %s, refusing."
+msgstr "ມີການພະຍາຍາມເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດຫຼາຍເກີນໄປສຳລັບຜູ້ໃຊ້ %s, ຂໍປະຕິເສດ."
+
+#: src/home/pam_systemd_home.c:1012
+msgid "User record is blocked, prohibiting access."
+msgstr "ຂໍ້ມູນຜູ້ໃຊ້ຖືກບລັອກ, ຫ້າມເຂົ້າເຖິງ."
+
+#: src/home/pam_systemd_home.c:1016
+msgid "User record is not valid yet, prohibiting access."
+msgstr "ຂໍ້ມູນຜູ້ໃຊ້ຍັງບໍ່ທັນມີຜົນໃຊ້ງານ, ຫ້າມເຂົ້າເຖິງ."
+
+#: src/home/pam_systemd_home.c:1020
+msgid "User record is not valid anymore, prohibiting access."
+msgstr "ຂໍ້ມູນຜູ້ໃຊ້ບໍ່ມີຜົນໃຊ້ງານອີກຕໍ່ໄປ, ຫ້າມເຂົ້າເຖິງ."
+
+#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
+msgid "User record not valid, prohibiting access."
+msgstr "ຂໍ້ມູນຜູ້ໃຊ້ບໍ່ຖືກຕ້ອງ, ຫ້າມເຂົ້າເຖິງ."
+
+#: src/home/pam_systemd_home.c:1035
+#, c-format
+msgid "Too many logins, try again in %s."
+msgstr "ເຂົ້າສູ່ລະບົບຫຼາຍເກີນໄປ, ລອງໃໝ່ໃນອີກ %s."
+
+#: src/home/pam_systemd_home.c:1046
+msgid "Password change required."
+msgstr "ຈຳເປັນຕ້ອງປ່ຽນລະຫັດຜ່ານ."
+
+#: src/home/pam_systemd_home.c:1050
+msgid "Password expired, change required."
+msgstr "ລະຫັດຜ່ານໝົດອາຍຸ, ຈຳເປັນຕ້ອງປ່ຽນໃໝ່."
+
+#: src/home/pam_systemd_home.c:1056
+msgid "Password is expired, but can't change, refusing login."
+msgstr "ລະຫັດຜ່ານໝົດອາຍຸ ແຕ່ບໍ່ສາມາດປ່ຽນໄດ້, ຂໍປະຕິເສດການເຂົ້າສູ່ລະບົບ."
+
+#: src/home/pam_systemd_home.c:1060
+msgid "Password will expire soon, please change."
+msgstr "ລະຫັດຜ່ານຈະໝົດອາຍຸໃນໄວໆນີ້, ກະລຸນາປ່ຽນໃໝ່."
+
+#: src/hostname/org.freedesktop.hostname1.policy:20
+msgid "Set hostname"
+msgstr "ຕັ້ງຊື່ໂຮສ (hostname)"
+
+#: src/hostname/org.freedesktop.hostname1.policy:21
+msgid "Authentication is required to set the local hostname."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຊື່ໂຮສຂອງເຄື່ອງນີ້."
+
+#: src/hostname/org.freedesktop.hostname1.policy:30
+msgid "Set static hostname"
+msgstr "ຕັ້ງຊື່ໂຮສແບບຄົງທີ່"
+
+#: src/hostname/org.freedesktop.hostname1.policy:31
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຊື່ໂຮສແບບຄົງທີ່ ແລະ ຊື່ໂຮສແບບອ່ານງ່າຍ (pretty hostname)."
+
+#: src/hostname/org.freedesktop.hostname1.policy:41
+msgid "Set machine information"
+msgstr "ຕັ້ງຂໍ້ມູນຂອງເຄື່ອງ"
+
+#: src/hostname/org.freedesktop.hostname1.policy:42
+msgid "Authentication is required to set local machine information."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຂໍ້ມູນຂອງເຄື່ອງນີ້."
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "ດຶງຂໍ້ມູນ UUID ຂອງຜະລິດຕະພັນ"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອດຶງຂໍ້ມູນ UUID ຂອງຜະລິດຕະພັນ."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr "ດຶງໝາຍເລກຊີຣຽວຂອງຮາດແວ"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+msgid "Authentication is required to get hardware serial number."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອດຶງໝາຍເລກຊີຣຽວຂອງຮາດແວ."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+msgid "Get system description"
+msgstr "ດຶງຄຳອະທິບາຍລະບົບ"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+msgid "Authentication is required to get system description."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອດຶງຄຳອະທິບາຍລະບົບ."
+
+#: src/import/org.freedesktop.import1.policy:22
+msgid "Import a disk image"
+msgstr "ນຳເຂົ້າອິເມຈຂອງດິສກ໌"
+
+#: src/import/org.freedesktop.import1.policy:23
+msgid "Authentication is required to import an image."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອນຳເຂົ້າອິເມຈ."
+
+#: src/import/org.freedesktop.import1.policy:32
+msgid "Export a disk image"
+msgstr "ສົ່ງອອກອິເມຈຂອງດິສກ໌"
+
+#: src/import/org.freedesktop.import1.policy:33
+msgid "Authentication is required to export disk image."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອສົ່ງອອກອິເມຈຂອງດິສກ໌."
+
+#: src/import/org.freedesktop.import1.policy:42
+msgid "Download a disk image"
+msgstr "ດາວໂຫລດອິເມຈຂອງດິສກ໌"
+
+#: src/import/org.freedesktop.import1.policy:43
+msgid "Authentication is required to download a disk image."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອດາວໂຫລດອິເມຈຂອງດິສກ໌."
+
+#: src/import/org.freedesktop.import1.policy:52
+msgid "Cancel transfer of a disk image"
+msgstr "ຍົກເລີກການໂອນຖ່າຍອິເມຈຂອງດິສກ໌"
+
+#: src/import/org.freedesktop.import1.policy:53
+msgid ""
+"Authentication is required to cancel the ongoing transfer of a disk image."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຍົກເລີກການໂອນຖ່າຍອິເມຈຂອງດິສກ໌ທີ່ກຳລັງດຳເນີນການຢູ່."
+
+#: src/locale/org.freedesktop.locale1.policy:22
+msgid "Set system locale"
+msgstr "ຕັ້ງຄ່າທ້ອງຖິ່ນ (locale) ຂອງລະບົບ"
+
+#: src/locale/org.freedesktop.locale1.policy:23
+msgid "Authentication is required to set the system locale."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າທ້ອງຖິ່ນຂອງລະບົບ."
+
+#: src/locale/org.freedesktop.locale1.policy:33
+msgid "Set system keyboard settings"
+msgstr "ຕັ້ງຄ່າແປ້ນພິມຂອງລະບົບ"
+
+#: src/locale/org.freedesktop.locale1.policy:34
+msgid "Authentication is required to set the system keyboard settings."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າແປ້ນພິມຂອງລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:22
+msgid "Allow applications to inhibit system shutdown"
+msgstr "ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນລະງັບການປິດລະບົບ"
+
+#: src/login/org.freedesktop.login1.policy:23
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການປິດລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:33
+msgid "Allow applications to delay system shutdown"
+msgstr "ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນປະວິງເວລາການປິດລະບົບ"
+
+#: src/login/org.freedesktop.login1.policy:34
+msgid "Authentication is required for an application to delay system shutdown."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນປະວິງເວລາການປິດລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:44
+msgid "Allow applications to inhibit system sleep"
+msgstr "ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນລະງັບການພັກເຄື່ອງ"
+
+#: src/login/org.freedesktop.login1.policy:45
+msgid "Authentication is required for an application to inhibit system sleep."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການພັກເຄື່ອງ."
+
+#: src/login/org.freedesktop.login1.policy:55
+msgid "Allow applications to delay system sleep"
+msgstr "ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນປະວິງເວລາການພັກເຄື່ອງ"
+
+#: src/login/org.freedesktop.login1.policy:56
+msgid "Authentication is required for an application to delay system sleep."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນປະວິງເວລາການພັກເຄື່ອງ."
+
+#: src/login/org.freedesktop.login1.policy:65
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr "ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນລະງັບການພັກເຄື່ອງອັດຕະໂນມັດ"
+
+#: src/login/org.freedesktop.login1.policy:66
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການພັກເຄື່ອງອັດຕະໂນມັດ."
+
+#: src/login/org.freedesktop.login1.policy:75
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr "ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມເປີດປິດ (power key) ຂອງລະບົບ"
+
+#: src/login/org.freedesktop.login1.policy:76
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມເປີດປິດຂອງລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:86
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr ""
+"ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມພັກເຄື່ອງ (suspend key) ຂອງລະບົບ"
+
+#: src/login/org.freedesktop.login1.policy:87
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມພັກເຄື່ອງຂອງລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:97
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr "ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມຈຳສີນ (hibernate key) ຂອງລະບົບ"
+
+#: src/login/org.freedesktop.login1.policy:98
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມຈຳສີນຂອງລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:107
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr "ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການສະວິດຝາປິດ (lid switch) ຂອງລະບົບ"
+
+#: src/login/org.freedesktop.login1.policy:108
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການສະວິດຝາປິດຂອງລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:117
+msgid "Allow applications to inhibit system handling of the reboot key"
+msgstr "ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມຣີບູດຂອງລະບົບ"
+
+#: src/login/org.freedesktop.login1.policy:118
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມຣີບູດຂອງລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:128
+msgid "Allow non-logged-in user to run programs"
+msgstr "ອະນຸຍາດໃຫ້ຜູ້ໃຊ້ທີ່ບໍ່ໄດ້ເຂົ້າສູ່ລະບົບສາມາດຮັນໂປຣແກຣມໄດ້"
+
+#: src/login/org.freedesktop.login1.policy:129
+msgid "Explicit request is required to run programs as a non-logged-in user."
+msgstr ""
+"ຕ້ອງມີການຮ້ອງຂໍຢ່າງຊັດເຈນເພື່ອຮັນໂປຣແກຣມໃນນາມຜູ້ໃຊ້ທີ່ບໍ່ໄດ້ເຂົ້າສູ່ລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:138
+msgid "Allow non-logged-in users to run programs"
+msgstr "ອະນຸຍາດໃຫ້ບັນດາຜູ້ໃຊ້ທີ່ບໍ່ໄດ້ເຂົ້າສູ່ລະບົບສາມາດຮັນໂປຣແກຣມໄດ້"
+
+#: src/login/org.freedesktop.login1.policy:139
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຮັນໂປຣແກຣມໃນນາມຜູ້ໃຊ້ທີ່ບໍ່ໄດ້ເຂົ້າສູ່ລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:148
+msgid "Allow attaching devices to seats"
+msgstr "ອະນຸຍາດໃຫ້ເຊື່ອມຕໍ່ອຸປະກອນເຂົ້າກັບບ່ອນນັ່ງ (seats)"
+
+#: src/login/org.freedesktop.login1.policy:149
+msgid "Authentication is required to attach a device to a seat."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເຊື່ອມຕໍ່ອຸປະກອນເຂົ້າກັບບ່ອນນັ່ງ."
+
+#: src/login/org.freedesktop.login1.policy:159
+msgid "Flush device to seat attachments"
+msgstr "ລ້າງການເຊື່ອມຕໍ່ອຸປະກອນກັບບ່ອນນັ່ງ"
+
+#: src/login/org.freedesktop.login1.policy:160
+msgid "Authentication is required to reset how devices are attached to seats."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າການເຊື່ອມຕໍ່ອຸປະກອນກັບບ່ອນນັ່ງຄືນໃໝ່."
+
+#: src/login/org.freedesktop.login1.policy:169
+msgid "Power off the system"
+msgstr "ປິດລະບົບ"
+
+#: src/login/org.freedesktop.login1.policy:170
+msgid "Authentication is required to power off the system."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອປິດລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:180
+msgid "Power off the system while other users are logged in"
+msgstr "ປິດລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່"
+
+#: src/login/org.freedesktop.login1.policy:181
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອປິດລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
+
+#: src/login/org.freedesktop.login1.policy:191
+msgid "Power off the system while an application is inhibiting this"
+msgstr "ປິດລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການປິດໄວ້"
+
+#: src/login/org.freedesktop.login1.policy:192
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອປິດລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການປິດໄວ້."
+
+#: src/login/org.freedesktop.login1.policy:202
+msgid "Reboot the system"
+msgstr "ຣີບູດລະບົບ"
+
+#: src/login/org.freedesktop.login1.policy:203
+msgid "Authentication is required to reboot the system."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຣີບູດລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:213
+msgid "Reboot the system while other users are logged in"
+msgstr "ຣີບູດລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່"
+
+#: src/login/org.freedesktop.login1.policy:214
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຣີບູດລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
+
+#: src/login/org.freedesktop.login1.policy:224
+msgid "Reboot the system while an application is inhibiting this"
+msgstr "ຣີບູດລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການຣີບູດໄວ້"
+
+#: src/login/org.freedesktop.login1.policy:225
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຣີບູດລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການຣີບູດໄວ້."
+
+#: src/login/org.freedesktop.login1.policy:235
+msgid "Halt the system"
+msgstr "ຢຸດລະບົບ (Halt)"
+
+#: src/login/org.freedesktop.login1.policy:236
+msgid "Authentication is required to halt the system."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຢຸດລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:246
+msgid "Halt the system while other users are logged in"
+msgstr "ຢຸດລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່"
+
+#: src/login/org.freedesktop.login1.policy:247
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຢຸດລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
+
+#: src/login/org.freedesktop.login1.policy:257
+msgid "Halt the system while an application is inhibiting this"
+msgstr "ຢຸດລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການຢຸດໄວ້"
+
+#: src/login/org.freedesktop.login1.policy:258
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຢຸດລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການຢຸດໄວ້."
+
+#: src/login/org.freedesktop.login1.policy:268
+msgid "Suspend the system"
+msgstr "ພັກລະບົບ (Suspend)"
+
+#: src/login/org.freedesktop.login1.policy:269
+msgid "Authentication is required to suspend the system."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອພັກລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:278
+msgid "Suspend the system while other users are logged in"
+msgstr "ພັກລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່"
+
+#: src/login/org.freedesktop.login1.policy:279
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອພັກລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
+
+#: src/login/org.freedesktop.login1.policy:289
+msgid "Suspend the system while an application is inhibiting this"
+msgstr "ພັກລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການພັກໄວ້"
+
+#: src/login/org.freedesktop.login1.policy:290
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອພັກລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການພັກໄວ້."
+
+#: src/login/org.freedesktop.login1.policy:300
+msgid "Hibernate the system"
+msgstr "ຈຳສີນລະບົບ (Hibernate)"
+
+#: src/login/org.freedesktop.login1.policy:301
+msgid "Authentication is required to hibernate the system."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈຳສີນລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:310
+msgid "Hibernate the system while other users are logged in"
+msgstr "ຈຳສີນລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່"
+
+#: src/login/org.freedesktop.login1.policy:311
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈຳສີນລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
+
+#: src/login/org.freedesktop.login1.policy:321
+msgid "Hibernate the system while an application is inhibiting this"
+msgstr "ຈຳສີນລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການຈຳສີນໄວ້"
+
+#: src/login/org.freedesktop.login1.policy:322
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈຳສີນລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການຈຳສີນໄວ້."
+
+#: src/login/org.freedesktop.login1.policy:332
+msgid "Manage active sessions, users and seats"
+msgstr "ຈັດການເຊສຊັນທີ່ເປີດຢູ່, ຜູ້ໃຊ້ ແລະ ບ່ອນນັ່ງ"
+
+#: src/login/org.freedesktop.login1.policy:333
+msgid "Authentication is required to manage active sessions, users and seats."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈັດການເຊສຊັນທີ່ເປີດຢູ່, ຜູ້ໃຊ້ ແລະ ບ່ອນນັ່ງ."
+
+#: src/login/org.freedesktop.login1.policy:342
+msgid "Lock or unlock active sessions"
+msgstr "ລັອກ ຫຼື ປົດລັອກເຊສຊັນທີ່ເປີດຢູ່"
+
+#: src/login/org.freedesktop.login1.policy:343
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອລັອກ ຫຼື ປົດລັອກເຊສຊັນທີ່ເປີດຢູ່."
+
+#: src/login/org.freedesktop.login1.policy:352
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr "ຕັ້ງ \"ເຫດຜົນ\" ການຣີບູດໃນເຄີນເນລ"
+
+#: src/login/org.freedesktop.login1.policy:353
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງ \"ເຫດຜົນ\" ການຣີບູດໃນເຄີນເນລ."
+
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the firmware to boot to setup interface"
+msgstr "ແຈ້ງໃຫ້ເຟີມແວບູດເຂົ້າສູ່ໜ້າການຕັ້ງຄ່າ"
+
+#: src/login/org.freedesktop.login1.policy:364
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອແຈ້ງໃຫ້ເຟີມແວບູດເຂົ້າສູ່ໜ້າການຕັ້ງຄ່າ."
+
+#: src/login/org.freedesktop.login1.policy:374
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr "ແຈ້ງໃຫ້ບູດໂຫລດເດີບູດເຂົ້າສູ່ເມນູຂອງບູດໂຫລດເດີ"
+
+#: src/login/org.freedesktop.login1.policy:375
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອແຈ້ງໃຫ້ບູດໂຫລດເດີບູດເຂົ້າສູ່ເມນູຂອງບູດໂຫລດເດີ."
+
+#: src/login/org.freedesktop.login1.policy:385
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr "ແຈ້ງໃຫ້ບູດໂຫລດເດີບູດເຂົ້າສູ່ລາຍການທີ່ກຳນົດ"
+
+#: src/login/org.freedesktop.login1.policy:386
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອແຈ້ງໃຫ້ບູດໂຫລດເດີບູດເຂົ້າສູ່ລາຍການຂອງບູດໂຫລດເດີທີ່ກຳນົດໄວ້."
+
+#: src/login/org.freedesktop.login1.policy:396
+msgid "Set a wall message"
+msgstr "ຕັ້ງຂໍ້ຄວາມແຈ້ງເຕືອນລະບົບ (wall message)"
+
+#: src/login/org.freedesktop.login1.policy:397
+msgid "Authentication is required to set a wall message."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຂໍ້ຄວາມແຈ້ງເຕືອນລະບົບ."
+
+#: src/login/org.freedesktop.login1.policy:406
+msgid "Change Session"
+msgstr "ປ່ຽນເຊສຊັນ"
+
+#: src/login/org.freedesktop.login1.policy:407
+msgid "Authentication is required to change the virtual terminal."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອປ່ຽນເທີມີນໍສະເໝືອນ (virtual terminal)."
+
+#: src/machine/org.freedesktop.machine1.policy:22
+msgid "Log into a local container"
+msgstr "ເຂົ້າສູ່ລະບົບຄອນເທນເນີພາຍໃນເຄື່ອງ"
+
+#: src/machine/org.freedesktop.machine1.policy:23
+msgid "Authentication is required to log into a local container."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເຂົ້າສູ່ລະບົບຄອນເທນເນີພາຍໃນເຄື່ອງ."
+
+#: src/machine/org.freedesktop.machine1.policy:32
+msgid "Log into the local host"
+msgstr "ເຂົ້າສູ່ລະບົບໂຮສພາຍໃນເຄື່ອງ"
+
+#: src/machine/org.freedesktop.machine1.policy:33
+msgid "Authentication is required to log into the local host."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເຂົ້າສູ່ລະບົບໂຮສພາຍໃນເຄື່ອງ."
+
+#: src/machine/org.freedesktop.machine1.policy:42
+msgid "Acquire a shell in a local container"
+msgstr "ຂໍໃຊ້ເຊວ (shell) ໃນຄອນເທນເນີພາຍໃນເຄື່ອງ"
+
+#: src/machine/org.freedesktop.machine1.policy:43
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຂໍໃຊ້ເຊວໃນຄອນເທນເນີພາຍໃນເຄື່ອງ."
+
+#: src/machine/org.freedesktop.machine1.policy:53
+msgid "Acquire a shell on the local host"
+msgstr "ຂໍໃຊ້ເຊວໃນໂຮສພາຍໃນເຄື່ອງ"
+
+#: src/machine/org.freedesktop.machine1.policy:54
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຂໍໃຊ້ເຊວໃນໂຮສພາຍໃນເຄື່ອງ."
+
+#: src/machine/org.freedesktop.machine1.policy:64
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "ຂໍໃຊ້ pseudo TTY ໃນຄອນເທນເນີພາຍໃນເຄື່ອງ"
+
+#: src/machine/org.freedesktop.machine1.policy:65
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຂໍໃຊ້ pseudo TTY ໃນຄອນເທນເນີພາຍໃນເຄື່ອງ."
+
+#: src/machine/org.freedesktop.machine1.policy:74
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "ຂໍໃຊ້ pseudo TTY ໃນໂຮສພາຍໃນເຄື່ອງ"
+
+#: src/machine/org.freedesktop.machine1.policy:75
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຂໍໃຊ້ pseudo TTY ໃນໂຮສພາຍໃນເຄື່ອງ."
+
+#: src/machine/org.freedesktop.machine1.policy:84
+msgid "Manage local virtual machines and containers"
+msgstr "ຈັດການເຄື່ອງສະເໝືອນ ແລະ ຄອນເທນເນີພາຍໃນເຄື່ອງ"
+
+#: src/machine/org.freedesktop.machine1.policy:85
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈັດການເຄື່ອງສະເໝືອນ ແລະ ຄອນເທນເນີພາຍໃນເຄື່ອງ."
+
+#: src/machine/org.freedesktop.machine1.policy:95
+msgid "Create a local virtual machine or container"
+msgstr "ສ້າງເຄື່ອງສະເໝືອນ ຫຼື ຄອນເທນເນີພາຍໃນເຄື່ອງ"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອສ້າງເຄື່ອງສະເໝືອນ ຫຼື ຄອນເທນເນີພາຍໃນເຄື່ອງ."
+
+#: src/machine/org.freedesktop.machine1.policy:106
+msgid "Register a local virtual machine or container"
+msgstr "ລົງທະບຽນເຄື່ອງສະເໝືອນ ຫຼື ຄອນເທນເນີພາຍໃນເຄື່ອງ"
+
+#: src/machine/org.freedesktop.machine1.policy:107
+msgid ""
+"Authentication is required to register a local virtual machine or container."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອລົງທະບຽນເຄື່ອງສະເໝືອນ ຫຼື ຄອນເທນເນີພາຍໃນເຄື່ອງ."
+
+#: src/machine/org.freedesktop.machine1.policy:116
+msgid "Manage local virtual machine and container images"
+msgstr "ຈັດການອິເມຈຂອງເຄື່ອງສະເໝືອນ ແລະ ຄອນເທນເນີພາຍໃນເຄື່ອງ"
+
+#: src/machine/org.freedesktop.machine1.policy:117
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈັດການອິເມຈຂອງເຄື່ອງສະເໝືອນ ແລະ ຄອນເທນເນີພາຍໃນເຄື່ອງ."
+
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr "ຕັ້ງຄ່າເຊີບເວີ NTP"
+
+#: src/network/org.freedesktop.network1.policy:23
+msgid "Authentication is required to set NTP servers."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າເຊີບເວີ NTP."
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+msgid "Set DNS servers"
+msgstr "ຕັ້ງຄ່າເຊີບເວີ DNS"
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+msgid "Authentication is required to set DNS servers."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າເຊີບເວີ DNS."
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr "ຕັ້ງຄ່າໂດເມນ"
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+msgid "Authentication is required to set domains."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າໂດເມນ."
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr "ຕັ້ງຄ່າເສັ້ນທາງຫຼັກ (default route)"
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+msgid "Authentication is required to set default route."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າເສັ້ນທາງຫຼັກ."
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr "ເປີດ/ປິດໃຊ້ງານ LLMNR"
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເປີດ ຫຼື ປິດໃຊ້ງານ LLMNR."
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr "ເປີດ/ປິດໃຊ້ງານ multicast DNS"
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເປີດ ຫຼື ປິດໃຊ້ງານ multicast DNS."
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr "ເປີດ/ປິດໃຊ້ງານ DNS over TLS"
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເປີດ ຫຼື ປິດໃຊ້ງານ DNS over TLS."
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr "ເປີດ/ປິດໃຊ້ງານ DNSSEC"
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເປີດ ຫຼື ປິດໃຊ້ງານ DNSSEC."
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr "ຕັ້ງຄ່າ DNSSEC Negative Trust Anchors"
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າ DNSSEC Negative Trust Anchors."
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr "ຄືນຄ່າການຕັ້ງຄ່າ NTP"
+
+#: src/network/org.freedesktop.network1.policy:122
+msgid "Authentication is required to reset NTP settings."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າ NTP ຄືນໃໝ່."
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr "ຄືນຄ່າການຕັ້ງຄ່າ DNS"
+
+#: src/network/org.freedesktop.network1.policy:133
+msgid "Authentication is required to reset DNS settings."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າ DNS ຄືນໃໝ່."
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr "ເຊີບເວີ DHCP ສົ່ງຂໍ້ຄວາມບັງຄັບຕໍ່ອາຍຸ (force renew)"
+
+#: src/network/org.freedesktop.network1.policy:144
+msgid ""
+"Authentication is required to send a force renew message from the DHCP "
+"server."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອສົ່ງຂໍ້ຄວາມບັງຄັບຕໍ່ອາຍຸຈາກເຊີບເວີ DHCP."
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Renew dynamic addresses"
+msgstr "ຕໍ່ອາຍຸທີ່ຢູ່ແບບໄດນາມິກ"
+
+#: src/network/org.freedesktop.network1.policy:155
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕໍ່ອາຍຸທີ່ຢູ່ແບບໄດນາມິກ."
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reload network settings"
+msgstr "ໂຫລດການຕັ້ງຄ່າເຄືອຂ່າຍຄືນໃໝ່"
+
+#: src/network/org.freedesktop.network1.policy:166
+msgid "Authentication is required to reload network settings."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໂຫລດການຕັ້ງຄ່າເຄືອຂ່າຍຄືນໃໝ່."
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr "ຕັ້ງຄ່າອິນເຕີເຟດເຄືອຂ່າຍໃໝ່"
+
+#: src/network/org.freedesktop.network1.policy:177
+msgid "Authentication is required to reconfigure network interface."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າອິນເຕີເຟດເຄືອຂ່າຍໃໝ່."
+
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr "ລະບຸວ່າບ່ອນເກັບຂໍ້ມູນຖາວອນສຳລັບ systemd-networkd ສາມາດໃຊ້ງານໄດ້ຫຼືບໍ່"
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອລະບຸວ່າບ່ອນເກັບຂໍ້ມູນຖາວອນສຳລັບ systemd-networkd ສາມາດໃຊ້ງານໄດ້ຫຼືບໍ່."
+
+#: src/network/org.freedesktop.network1.policy:198
+msgid "Manage network links"
+msgstr "ຈັດການການເຊື່ອມຕໍ່ເຄືອຂ່າຍ (network links)"
+
+#: src/network/org.freedesktop.network1.policy:199
+msgid "Authentication is required to manage network links."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈັດການການເຊື່ອມຕໍ່ເຄືອຂ່າຍ."
+
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr "ກວດສອບອິເມຈບໍລິການແບບພົກພາ (portable service)"
+
+#: src/portable/org.freedesktop.portable1.policy:14
+msgid "Authentication is required to inspect a portable service image."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອກວດສອບອິເມຈບໍລິການແບບພົກພາ."
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr "ເຊື່ອມຕໍ່ ຫຼື ຕັດການເຊື່ອມຕໍ່ອິເມຈບໍລິການແບບພົກພາ"
+
+#: src/portable/org.freedesktop.portable1.policy:24
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເຊື່ອມຕໍ່ ຫຼື ຕັດການເຊື່ອມຕໍ່ອິເມຈບໍລິການແບບພົກພາ."
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr "ລຶບ ຫຼື ແກ້ໄຂອິເມຈບໍລິການແບບພົກພາ"
+
+#: src/portable/org.freedesktop.portable1.policy:35
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອລຶບ ຫຼື ແກ້ໄຂອິເມຈບໍລິການແບບພົກພາ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:22
+msgid "Register a DNS-SD service"
+msgstr "ລົງທະບຽນບໍລິການ DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:23
+msgid "Authentication is required to register a DNS-SD service."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອລົງທະບຽນບໍລິການ DNS-SD."
+
+#: src/resolve/org.freedesktop.resolve1.policy:33
+msgid "Unregister a DNS-SD service"
+msgstr "ຍົກເລີກການລົງທະບຽນບໍລິການ DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:34
+msgid "Authentication is required to unregister a DNS-SD service."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຍົກເລີກການລົງທະບຽນບໍລິການ DNS-SD."
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr "ຄືນຄ່າການຕັ້ງຄ່າການແປງຊື່ (name resolution)"
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+msgid "Authentication is required to reset name resolution settings."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າການແປງຊື່ຄືນໃໝ່."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr "ຕິດຕາມຜົນການສອບຖາມ (query results)"
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+msgid "Authentication is required to subscribe query results."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕິດຕາມຜົນການສອບຖາມ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Subscribe to DNS configuration"
+msgstr "ຕິດຕາມການຕັ້ງຄ່າ DNS"
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+msgid "Authentication is required to subscribe to DNS configuration."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕິດຕາມການຕັ້ງຄ່າ DNS."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump cache"
+msgstr "ບັນທຶກແຄຊ໌ (Dump cache)"
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+msgid "Authentication is required to dump cache."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອບັນທຶກແຄຊ໌."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump server state"
+msgstr "ບັນທຶກສະຖານະເຊີບເວີ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+msgid "Authentication is required to dump server state."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອບັນທຶກສະຖານະເຊີບເວີ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Dump statistics"
+msgstr "ບັນທຶກສະຖິຕິ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+msgid "Authentication is required to dump statistics."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອບັນທຶກສະຖິຕິ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:198
+msgid "Reset statistics"
+msgstr "ຕັ້ງຄ່າສະຖິຕິຄືນໃໝ່"
+
+#: src/resolve/org.freedesktop.resolve1.policy:199
+msgid "Authentication is required to reset statistics."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄ່າສະຖິຕິຄືນໃໝ່."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr "ກວດສອບການອັບເດດລະບົບ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+msgid "Authentication is required to check for system updates."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອກວດສອບການອັບເດດລະບົບ."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr "ຕິດຕັ້ງການອັບເດດລະບົບ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+msgid "Authentication is required to install system updates."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕິດຕັ້ງການອັບເດດລະບົບ."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr "ຕິດຕັ້ງລະບົບເວີຊັນສະເພາະ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອອັບເດດລະບົບເປັນເວີຊັນສະເພາະ (ເຊິ່ງອາດຈະເປັນເວີຊັນເກົ່າ)."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr "ລ້າງການອັບເດດລະບົບເກົ່າ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+msgid "Authentication is required to cleanup old system updates."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອລ້າງການອັບເດດລະບົບເກົ່າ."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr "ຈັດການຄຸນສົມບັດເສີມ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+msgid "Authentication is required to manage optional features."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈັດການຄຸນສົມບັດເສີມ."
+
+#: src/timedate/org.freedesktop.timedate1.policy:22
+msgid "Set system time"
+msgstr "ຕັ້ງເວລາຂອງລະບົບ"
+
+#: src/timedate/org.freedesktop.timedate1.policy:23
+msgid "Authentication is required to set the system time."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງເວລາຂອງລະບົບ."
+
+#: src/timedate/org.freedesktop.timedate1.policy:33
+msgid "Set system timezone"
+msgstr "ຕັ້ງເຂດເວລາຂອງລະບົບ"
+
+#: src/timedate/org.freedesktop.timedate1.policy:34
+msgid "Authentication is required to set the system timezone."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງເຂດເວລາຂອງລະບົບ."
+
+#: src/timedate/org.freedesktop.timedate1.policy:43
+msgid "Set RTC to local timezone or UTC"
+msgstr "ຕັ້ງ RTC ເປັນເຂດເວລາທ້ອງຖິ່ນ ຫຼື UTC"
+
+#: src/timedate/org.freedesktop.timedate1.policy:44
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຄວບຄຸມວ່າຈະໃຫ້ RTC ເກັບເວລາທ້ອງຖິ່ນ ຫຼື ເວລາ UTC."
+
+#: src/timedate/org.freedesktop.timedate1.policy:53
+msgid "Turn network time synchronization on or off"
+msgstr "ເປີດ ຫຼື ປິດການຊິງໂຄຣໄນເວລາຜ່ານເຄືອຂ່າຍ"
+
+#: src/timedate/org.freedesktop.timedate1.policy:54
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຄວບຄຸມວ່າຈະໃຫ້ເປີດໃຊ້ການຊິງໂຄຣໄນເວລາຜ່ານເຄືອຂ່າຍຫຼືບໍ່."
+
+#: src/core/dbus-unit.c:372
+msgid "Authentication is required to start '$(unit)'."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເລີ່ມ '$(unit)'."
+
+#: src/core/dbus-unit.c:373
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຢຸດ '$(unit)'."
+
+#: src/core/dbus-unit.c:374
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໂຫລດ '$(unit)' ຄືນໃໝ່."
+
+#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເລີ່ມ '$(unit)' ໃໝ່."
+
+#: src/core/dbus-unit.c:568
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອສົ່ງສັນຍານ UNIX ໄປຫາໂພຣເຊສຂອງ '$(unit)'."
+
+#: src/core/dbus-unit.c:621
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"subgroup of '$(unit)'."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອສົ່ງສັນຍານ UNIX ໄປຫາໂພຣເຊສຂອງກຸ່ມຍ່ອຍຂອງ '$(unit)'."
+
+#: src/core/dbus-unit.c:649
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງສະຖານະ \"ຫຼົ້ມເຫຼວ\" (failed) ຂອງ '$(unit)' ຄືນໃໝ່."
+
+#: src/core/dbus-unit.c:679
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄຸນສົມບັດ (properties) ຂອງ '$(unit)'."
+
+#: src/core/dbus-unit.c:776
+msgid ""
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
+msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອລຶບໄຟລ໌ ແລະ ໂຟນເດີທີ່ກ່ຽວຂ້ອງກັບ '$(unit)'."
+
+#: src/core/dbus-unit.c:813
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອແຊ່ແຂງ (freeze) ຫຼື ປົດແຊ່ແຂງ (thaw) ໂພຣເຊສຂອງໜ່ວຍງານ '$(unit)'."
