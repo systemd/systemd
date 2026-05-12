@@ -206,8 +206,7 @@ int copy_bytes_full(
         if ((copy_flags & COPY_REFLINK)) {
                 off_t foffset;
 
-                /* In reflink mode we need to know where the current file offset is, but if we just seeked to
-                 * 0 anyway, we can suppress that. */
+                /* In reflink mode, we need to know the current file offset, unless we already sought to 0 anyway. */
                 foffset = FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE) ? 0 : lseek(fdf, 0, SEEK_CUR);
                 if (foffset >= 0) {
                         off_t toffset;
