@@ -37,6 +37,7 @@ libsystemd_network_sources = files(
         'sd-ndisc-router.c',
         'sd-ndisc-router-solicit.c',
         'sd-radv.c',
+        'tlv-util.c',
 )
 
 sources += libsystemd_network_sources
@@ -112,6 +113,9 @@ executables += [
         },
         network_test_template + {
                 'sources' : files('test-sd-dhcp-lease.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-tlv-util.c'),
         },
         network_fuzz_template + {
                 'sources' : files('fuzz-dhcp-client.c'),
