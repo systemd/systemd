@@ -1124,7 +1124,7 @@ static void cgroup_apply_cpu_quota(Unit *u, usec_t quota, usec_t period) {
         (void) set_attribute_and_warn(u, "cpu.max", buf);
 }
 
-static void cgroup_apply_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
+static void cgroup_apply_cpuset(Unit *u, const char *name, const CPUSet *cpus) {
         _cleanup_free_ char *buf = NULL;
 
         buf = cpu_set_to_range_string(cpus);
@@ -1513,8 +1513,8 @@ static void cgroup_context_apply(
         }
 
         if ((apply_mask & CGROUP_MASK_CPUSET) && !is_local_root) {
-                cgroup_apply_cpuset(u, cgroup_context_allowed_cpus(c, state), "cpuset.cpus");
-                cgroup_apply_cpuset(u, cgroup_context_allowed_mems(c, state), "cpuset.mems");
+                cgroup_apply_cpuset(u, "cpuset.cpus", cgroup_context_allowed_cpus(c, state));
+                cgroup_apply_cpuset(u, "cpuset.mems", cgroup_context_allowed_mems(c, state));
 
                 if (c->cpuset_partition >= 0)
                         cgroup_apply_cpuset_partition(u, "cpuset.cpus.partition", cpuset_partition_to_string(c->cpuset_partition));
