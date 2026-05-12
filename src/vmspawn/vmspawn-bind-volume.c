@@ -138,6 +138,10 @@ int vmspawn_bind_volume_attach_fd(
         int oflags = fcntl(owned_fd, F_GETFL);
         if (oflags < 0)
                 return -errno;
+        if (FLAGS_SET(oflags, O_PATH))
+                return -EBADF;
+        if ((oflags & O_ACCMODE_STRICT) == O_WRONLY)
+                return -EBADF;
 
         d->disk_type = dt;
         d->fd = TAKE_FD(owned_fd);
