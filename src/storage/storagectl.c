@@ -433,11 +433,11 @@ static int parse_argv(int argc, char *argv[], char ***args) {
                         arg_ask_password = false;
                         break;
 
-                OPTION_LONG("system", NULL, "Operate in system mode"):
+                OPTION_COMMON_SYSTEM:
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
-                OPTION_LONG("user", NULL, "Operate in user mode"):
+                OPTION_COMMON_USER:
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
                 }
