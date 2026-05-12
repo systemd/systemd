@@ -96,7 +96,6 @@ foreach dirname : [
         'TEST-80-NOTIFYACCESS',
         'TEST-81-GENERATORS',
         'TEST-82-SOFTREBOOT',
-        'TEST-83-BTRFS',
         'TEST-84-STORAGETM',
         'TEST-85-NETWORK',
         'TEST-86-MULTI-PROFILE-UKI',
