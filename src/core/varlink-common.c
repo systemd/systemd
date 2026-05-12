@@ -136,3 +136,26 @@ int exec_command_build_json(sd_json_variant **ret, const char *name, void *userd
                         SD_JSON_BUILD_PAIR_BOOLEAN("noEnvExpand", FLAGS_SET(cmd->flags, EXEC_COMMAND_NO_ENV_EXPAND)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("viaShell", FLAGS_SET(cmd->flags, EXEC_COMMAND_VIA_SHELL)));
 }
+
+int exec_command_list_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ExecCommand *list = userdata;
+        int r;
+
+        assert(ret);
+
+        LIST_FOREACH(command, c, list) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
+
+                r = exec_command_build_json(&entry, /* name= */ NULL, c);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&v, entry);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
