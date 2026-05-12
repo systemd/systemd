@@ -4,14 +4,18 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#if !HAVE_SET_MEMPOLICY
+#undef set_mempolicy
+extern typeof(missing_set_mempolicy) set_mempolicy __attribute__((weak));
 int missing_set_mempolicy(int mode, const unsigned long *nodemask, unsigned long maxnode) {
+        if (set_mempolicy)
+                return set_mempolicy(mode, nodemask, maxnode);
         return syscall(__NR_set_mempolicy, mode, nodemask, maxnode);
 }
-#endif
 
-#if !HAVE_GET_MEMPOLICY
+#undef get_mempolicy
+extern typeof(missing_get_mempolicy) get_mempolicy __attribute__((weak));
 int missing_get_mempolicy(int *mode, unsigned long *nodemask, unsigned long maxnode, void *addr, unsigned long flags) {
+        if (get_mempolicy)
+                return get_mempolicy(mode, nodemask, maxnode, addr, flags);
         return syscall(__NR_get_mempolicy, mode, nodemask, maxnode, addr, flags);
 }
-#endif
