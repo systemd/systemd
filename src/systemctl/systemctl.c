@@ -89,6 +89,7 @@ bool arg_marked = false;
 const char *arg_drop_in = NULL;
 ImagePolicy *arg_image_policy = NULL;
 char *arg_kill_subgroup = NULL;
+bool arg_no_state = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
@@ -445,6 +446,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_WHEN,
                 ARG_STDIN,
                 ARG_KILL_SUBGROUP,
+                ARG_NO_STATE,
         };
 
         static const struct option options[] = {
@@ -516,6 +518,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "when",                required_argument, NULL, ARG_WHEN                },
                 { "stdin",               no_argument,       NULL, ARG_STDIN               },
                 { "kill-subgroup",       required_argument, NULL, ARG_KILL_SUBGROUP       },
+                { "no-state",            no_argument,       NULL, ARG_NO_STATE            },
                 {}
         };
 
@@ -1055,6 +1058,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         free_and_replace(arg_kill_subgroup, p);
                         break;
                 }
+
+                case ARG_NO_STATE:
+                        arg_no_state = true;
+                        break;
 
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */
