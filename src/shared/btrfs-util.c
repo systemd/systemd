@@ -891,8 +891,9 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
         if (r == 0) /* Not a btrfs subvolume */
                 return -ENOTTY;
 
-        /* Before we try anything, let's see if 'user_subvol_rm_allowed' is enabled and we can just remove
-         * the dir directly */
+        /* Before we try anything, attempt VFS rmdir(). For an empty subvolume btrfs_rmdir dispatches
+         * to btrfs_delete_subvolume; for the non-empty case it returns ENOTEMPTY and we fall through
+         * to the destroy ioctl below. */
         if (unlinkat(fd, subvolume, AT_REMOVEDIR) >= 0)
                 goto finish;
 
@@ -902,15 +903,29 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
                         return r;
         }
 
-        /* First, try to remove the subvolume. If it happens to be
-         * already empty, this will just work. */
+        /* Try the destroy ioctl. Unlike unlinkat() above, this drops the entire subvolume tree, so
+         * regular files inside don't matter; it only returns ENOTEMPTY when there are nested
+         * subvolumes (BTRFS_ROOT_REF_KEY entries), which we then handle below. */
         strncpy(vol_args.name, subvolume, sizeof(vol_args.name)-1);
-        if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &vol_args) >= 0)
-                goto finish;
+        for (;;) {
+                if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &vol_args) >= 0)
+                        goto finish;
+
+                /* Without CAP_SYS_ADMIN the kernel runs an inode_permission(MAY_WRITE) check against
+                 * the subvolume root, which btrfs_permission() rejects with EROFS for a read-only
+                 * subvolume. Clear the RDONLY flag and retry. */
+                if (errno != EROFS || made_writable)
+                        break;
+
+                r = btrfs_subvol_set_read_only_fd(subvol_fd, false);
+                if (r < 0)
+                        return r;
+                made_writable = true;
+        }
         if (!(flags & BTRFS_REMOVE_RECURSIVE) || errno != ENOTEMPTY)
                 return -errno;
 
-        /* OK, the subvolume is not empty, let's look for child subvolumes, and remove them, first.
+        /* OK, there are nested subvolumes — enumerate and recurse into them, then retry.
          * BTRFS_IOC_GET_SUBVOL_ROOTREF and BTRFS_IOC_INO_LOOKUP_USER (kernel 4.18+) enumerate child
          * subvolumes without requiring CAP_SYS_ADMIN in the initial user namespace, unlike the older
          * BTRFS_IOC_TREE_SEARCH ioctl. */
