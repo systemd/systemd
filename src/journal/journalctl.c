@@ -835,34 +835,13 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         arg_action = ACTION_SYNC;
                         break;
 
-                OPTION_LONG("smart-relinquish-var", NULL,
-                            "Similar, but NOP if log directory is on root mount"): {
-                        int root_mnt_id, log_mnt_id;
-
-                        /* Try to be smart about relinquishing access to /var/log/journal/ during shutdown:
-                         * if it's on the same mount as the root file system there's no point in
-                         * relinquishing access and we can leave journald write to it until the very last
-                         * moment. */
-
-                        r = path_get_mnt_id("/", &root_mnt_id);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to get root mount ID, ignoring: %m");
-                        else {
-                                r = path_get_mnt_id("/var/log/journal/", &log_mnt_id);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to get journal directory mount ID, ignoring: %m");
-                                else if (root_mnt_id == log_mnt_id) {
-                                        log_debug("/var/log/journal/ is on root file system, not relinquishing access to /var.");
-                                        return 0;
-                                } else
-                                        log_debug("/var/log/journal/ is not on the root file system, relinquishing access to it.");
-                        }
-
-                        _fallthrough_;
-                }
-
                 OPTION_LONG("relinquish-var", NULL, "Stop logging to disk, log to temporary file system"):
                         arg_action = ACTION_RELINQUISH_VAR;
+                        break;
+
+                OPTION_LONG("smart-relinquish-var", NULL,
+                            "Similar, but NOP if log directory is on root mount"):
+                        arg_action = ACTION_SMART_RELINQUISH_VAR;
                         break;
 
                 OPTION_LONG("flush", NULL, "Flush all journal data from /run into /var"):
@@ -1074,6 +1053,31 @@ static int run(int argc, char *argv[]) {
 
         case ACTION_FLUSH:
                 return action_flush_to_var();
+
+        case ACTION_SMART_RELINQUISH_VAR: {
+                int root_mnt_id, log_mnt_id;
+
+                /* Try to be smart about relinquishing access to /var/log/journal/ during shutdown:
+                 * if it's on the same mount as the root file system there's no point in
+                 * relinquishing access and we can leave journald write to it until the very last
+                 * moment. */
+
+                r = path_get_mnt_id("/", &root_mnt_id);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get root mount ID, ignoring: %m");
+                else {
+                        r = path_get_mnt_id("/var/log/journal/", &log_mnt_id);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to get journal directory mount ID, ignoring: %m");
+                        else if (root_mnt_id == log_mnt_id) {
+                                log_debug("/var/log/journal/ is on root file system, not relinquishing access to /var.");
+                                return 0;
+                        } else
+                                log_debug("/var/log/journal/ is not on the root file system, relinquishing access to it.");
+                }
+
+                _fallthrough_;
+        }
 
         case ACTION_RELINQUISH_VAR:
                 return action_relinquish_var();
