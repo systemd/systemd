@@ -527,55 +527,44 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION('p', "priority", "RANGE", "Show entries within the specified priority range"): {
-                        const char *dots;
 
-                        dots = strstr(opts.arg, "..");
+                        const char *dots = strstr(opts.arg, "..");
                         if (dots) {
-                                _cleanup_free_ char *a = NULL;
-                                int from, to, i;
-
                                 /* a range */
-                                a = strndup(opts.arg, dots - opts.arg);
+                                _cleanup_free_ char *a = strndup(opts.arg, dots - opts.arg);
                                 if (!a)
                                         return log_oom();
 
-                                from = log_level_from_string(a);
-                                to = log_level_from_string(dots + 2);
+                                int from = log_level_from_string(a),
+                                      to = log_level_from_string(dots + 2);
 
                                 if (from < 0 || to < 0)
                                         return log_error_errno(from < 0 ? from : to,
                                                                "Failed to parse log level range %s", opts.arg);
 
                                 arg_priorities = 0;
-
-                                if (from < to) {
-                                        for (i = from; i <= to; i++)
+                                if (from < to)
+                                        for (int i = from; i <= to; i++)
                                                 arg_priorities |= 1 << i;
-                                } else {
-                                        for (i = to; i <= from; i++)
+                                else
+                                        for (int i = to; i <= from; i++)
                                                 arg_priorities |= 1 << i;
-                                }
 
                         } else {
-                                int p, i;
-
-                                p = log_level_from_string(opts.arg);
+                                int p = log_level_from_string(opts.arg);
                                 if (p < 0)
                                         return log_error_errno(p, "Unknown log level %s", opts.arg);
 
                                 arg_priorities = 0;
-
-                                for (i = 0; i <= p; i++)
+                                for (int i = 0; i <= p; i++)
                                         arg_priorities |= 1 << i;
                         }
 
                         break;
                 }
 
-                OPTION_LONG("facility", "FACILITY…", "Show entries with the specified facilities"): {
-                        const char *p;
-
-                        for (p = opts.arg;;) {
+                OPTION_LONG("facility", "FACILITY…", "Show entries with the specified facilities"):
+                        for (const char *p = opts.arg;;) {
                                 _cleanup_free_ char *fac = NULL;
                                 int num;
 
@@ -599,7 +588,6 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         }
 
                         break;
-                }
 
                 OPTION('g', "grep", "PATTERN", "Show entries with MESSAGE matching PATTERN"):
                         r = free_and_strdup_warn(&arg_pattern, opts.arg);
