@@ -4,14 +4,18 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#if !HAVE_PIDFD_OPEN
+#undef pidfd_open
+extern typeof(missing_pidfd_open) pidfd_open __attribute__((weak));
 int missing_pidfd_open(pid_t pid, unsigned flags) {
+        if (pidfd_open)
+                return pidfd_open(pid, flags);
         return syscall(__NR_pidfd_open, pid, flags);
 }
-#endif
 
-#if !HAVE_PIDFD_SEND_SIGNAL
+#undef pidfd_send_signal
+extern typeof(missing_pidfd_send_signal) pidfd_send_signal __attribute__((weak));
 int missing_pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags) {
+        if (pidfd_send_signal)
+                return pidfd_send_signal(fd, sig, info, flags);
         return syscall(__NR_pidfd_send_signal, fd, sig, info, flags);
 }
-#endif

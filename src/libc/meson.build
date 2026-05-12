@@ -28,5 +28,7 @@ libc_wrapper_static = static_library(
         include_directories : system_includes,
         implicit_include_directories : false,
         dependencies : [userspace],
-        c_args : ['-fvisibility=default'],
+        # The shims deliberately redeclare libc syscall wrappers so we can mark them weak; suppress the
+        # warning for the whole target rather than scattering #pragma across each .c file.
+        c_args : ['-fvisibility=default', '-Wno-redundant-decls'],
         build_by_default : false)

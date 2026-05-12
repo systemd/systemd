@@ -4,8 +4,12 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#if !HAVE_KEXEC_FILE_LOAD && defined __NR_kexec_file_load
+#ifdef __NR_kexec_file_load
+#undef kexec_file_load
+extern typeof(missing_kexec_file_load) kexec_file_load __attribute__((weak));
 int missing_kexec_file_load(int kernel_fd, int initrd_fd, unsigned long cmdline_len, const char *cmdline, unsigned long flags) {
+        if (kexec_file_load)
+                return kexec_file_load(kernel_fd, initrd_fd, cmdline_len, cmdline, flags);
         return syscall(__NR_kexec_file_load, kernel_fd, initrd_fd, cmdline_len, cmdline, flags);
 }
 #endif

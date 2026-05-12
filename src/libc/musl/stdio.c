@@ -6,11 +6,13 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#if !HAVE_RENAMEAT2
+#undef renameat2
+extern typeof(missing_renameat2) renameat2 __attribute__((weak));
 int missing_renameat2(int __oldfd, const char *__old, int __newfd, const char *__new, unsigned __flags) {
+        if (renameat2)
+                return renameat2(__oldfd, __old, __newfd, __new, __flags);
         return syscall(__NR_renameat2, __oldfd, __old, __newfd, __new, __flags);
 }
-#endif
 
 #define DEFINE_PUT(func)                                         \
         int func##_check_writable(int c, FILE *stream) {         \
