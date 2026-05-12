@@ -1171,7 +1171,7 @@ static void mount_enter_mounting(Mount *m) {
          * couldn't support that reasonably: the mounts in /proc/self/mountinfo would not be recognizable to
          * us anymore. */
         fd = chase_and_open_parent(m->where, /* root= */ NULL, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_TRIGGER_AUTOFS, &fn);
-        if (fd == -EREMCHG) {
+        if (fd == -ELOOP) {
                 r = unit_log_noncanonical_mount_path(UNIT(m), m->where);
                 goto fail;
         }
