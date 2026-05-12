@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <locale.h>
 
 #include "sd-journal.h"
@@ -9,7 +8,9 @@
 #include "build.h"
 #include "dissect-image.h"
 #include "extract-word.h"
+#include "format-table.h"
 #include "glob-util.h"
+#include "help-util.h"
 #include "id128-print.h"
 #include "image-policy.h"
 #include "journalctl.h"
@@ -24,12 +25,12 @@
 #include "main-func.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "options.h"
 #include "output-mode.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "pcre2-util.h"
-#include "pretty-print.h"
 #include "runtime-scope.h"
 #include "set.h"
 #include "static-destruct.h"
@@ -229,106 +230,42 @@ static int help_facilities(void) {
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
+        static const char *const groups[] = {
+                "Source Options",
+                "Filtering Options",
+                "Output Control Options",
+                "Pager Control Options",
+                "Forward Secure Sealing (FSS) Options",
+                "Commands",
+        };
+
+        Table *tables[ELEMENTSOF(groups)] = {};
+        CLEANUP_ELEMENTS(tables, table_unref_array_clear);
         int r;
 
         pager_open(arg_pager_flags);
 
-        r = terminal_urlify_man("journalctl", "1", &link);
-        if (r < 0)
-                return log_oom();
+        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
+                r = option_parser_get_help_table_full("journalctl", groups[i], &tables[i]);
+                if (r < 0)
+                        return r;
+        }
 
-        printf("%1$s [OPTIONS...] [MATCHES...]\n\n"
-               "%5$sQuery the journal.%6$s\n\n"
-               "%3$sSource Options:%4$s\n"
-               "     --system                Show the system journal\n"
-               "     --user                  Show the user journal for the current user\n"
-               "  -M --machine=CONTAINER     Operate on local container\n"
-               "  -m --merge                 Show entries from all available journals\n"
-               "  -D --directory=PATH        Show journal files from directory\n"
-               "  -i --file=PATH             Show journal file\n"
-               "     --root=PATH             Operate on an alternate filesystem root\n"
-               "     --image=PATH            Operate on disk image as filesystem root\n"
-               "     --image-policy=POLICY   Specify disk image dissection policy\n"
-               "     --namespace=NAMESPACE   Show journal data from specified journal namespace\n"
-               "\n%3$sFiltering Options:%4$s\n"
-               "  -S --since=DATE            Show entries not older than the specified date\n"
-               "  -U --until=DATE            Show entries not newer than the specified date\n"
-               "  -c --cursor=CURSOR         Show entries starting at the specified cursor\n"
-               "     --after-cursor=CURSOR   Show entries after the specified cursor\n"
-               "     --cursor-file=FILE      Show entries after cursor in FILE and update FILE\n"
-               "  -b --boot[=ID]             Show current boot or the specified boot\n"
-               "  -u --unit=UNIT             Show logs from the specified unit\n"
-               "     --user-unit=UNIT        Show logs from the specified user unit\n"
-               "     --invocation=ID         Show logs from the matching invocation ID\n"
-               "  -I                         Show logs from the latest invocation of unit\n"
-               "  -t --identifier=STRING     Show entries with the specified syslog identifier\n"
-               "  -T --exclude-identifier=STRING\n"
-               "                             Hide entries with the specified syslog identifier\n"
-               "  -p --priority=RANGE        Show entries within the specified priority range\n"
-               "     --facility=FACILITY...  Show entries with the specified facilities\n"
-               "  -g --grep=PATTERN          Show entries with MESSAGE matching PATTERN\n"
-               "     --case-sensitive[=BOOL] Force case sensitive or insensitive matching\n"
-               "  -k --dmesg                 Show kernel message log from the current boot\n"
-               "\n%3$sOutput Control Options:%4$s\n"
-               "  -o --output=STRING         Change journal output mode (short, short-precise,\n"
-               "                               short-iso, short-iso-precise, short-full,\n"
-               "                               short-monotonic, short-unix, verbose, export,\n"
-               "                               json, json-pretty, json-sse, json-seq, cat,\n"
-               "                               with-unit)\n"
-               "     --output-fields=LIST    Select fields to print in verbose/export/json modes\n"
-               "  -n --lines[=[+]INTEGER]    Number of journal entries to show\n"
-               "  -r --reverse               Show the newest entries first\n"
-               "     --show-cursor           Print the cursor after all the entries\n"
-               "     --utc                   Express time in Coordinated Universal Time (UTC)\n"
-               "  -x --catalog               Add message explanations where available\n"
-               "  -W --no-hostname           Suppress output of hostname field\n"
-               "     --no-full               Ellipsize fields\n"
-               "  -a --all                   Show all fields, including long and unprintable\n"
-               "  -f --follow                Follow the journal\n"
-               "     --no-tail               Show all lines, even in follow mode\n"
-               "     --truncate-newline      Truncate entries by first newline character\n"
-               "  -q --quiet                 Do not show info messages and privilege warning\n"
-               "     --synchronize-on-exit=BOOL\n"
-               "                             Wait for Journal synchronization before exiting\n"
-               "\n%3$sPager Control Options:%4$s\n"
-               "     --no-pager              Do not pipe output into a pager\n"
-               "  -e --pager-end             Immediately jump to the end in the pager\n"
-               "\n%3$sForward Secure Sealing (FSS) Options:%4$s\n"
-               "     --interval=TIME         Time interval for changing the FSS sealing key\n"
-               "     --verify-key=KEY        Specify FSS verification key\n"
-               "     --force                 Override of the FSS key pair with --setup-keys\n"
-               "\n%3$sCommands:%4$s\n"
-               "  -h --help                  Show this help text\n"
-               "     --version               Show package version\n"
-               "  -N --fields                List all field names currently used\n"
-               "  -F --field=FIELD           List all values that a specified field takes\n"
-               "     --list-boots            Show terse information about recorded boots\n"
-               "     --list-invocations      Show invocation IDs of specified unit\n"
-               "     --list-namespaces       Show list of journal namespaces\n"
-               "     --disk-usage            Show total disk usage of all journal files\n"
-               "     --vacuum-size=BYTES     Reduce disk usage below specified size\n"
-               "     --vacuum-files=INT      Leave only the specified number of journal files\n"
-               "     --vacuum-time=TIME      Remove journal files older than specified time\n"
-               "     --verify                Verify journal file consistency\n"
-               "     --sync                  Synchronize unwritten journal messages to disk\n"
-               "     --relinquish-var        Stop logging to disk, log to temporary file system\n"
-               "     --smart-relinquish-var  Similar, but NOP if log directory is on root mount\n"
-               "     --flush                 Flush all journal data from /run into /var\n"
-               "     --rotate                Request immediate rotation of the journal files\n"
-               "     --header                Show journal header information\n"
-               "     --list-catalog          Show all message IDs in the catalog\n"
-               "     --dump-catalog          Show entries in the message catalog\n"
-               "     --update-catalog        Update the message catalog database\n"
-               "     --setup-keys            Generate a new FSS key pair\n"
-               "\nSee the %2$s for details.\n",
-               program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
-               ansi_highlight(),
-               ansi_normal());
+        assert_se(ELEMENTSOF(tables) == 6);
+        (void) table_sync_column_widths(0, tables[0], tables[1], tables[2],
+                                        tables[3], tables[4], tables[5]);
 
+        help_cmdline("[OPTIONS…] [MATCHES…]");
+        help_abstract("Query the journal.");
+
+        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
+                help_section(groups[i]);
+                r = table_print_or_warn(tables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        help_man_page_reference("journalctl", "1");
         return 0;
 }
 
@@ -355,134 +292,12 @@ static int vl_server(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_FULL,
-                ARG_NO_TAIL,
-                ARG_NEW_ID128,
-                ARG_THIS_BOOT,
-                ARG_LIST_BOOTS,
-                ARG_LIST_INVOCATIONS,
-                ARG_USER,
-                ARG_SYSTEM,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_HEADER,
-                ARG_FACILITY,
-                ARG_SETUP_KEYS,
-                ARG_INTERVAL,
-                ARG_VERIFY,
-                ARG_VERIFY_KEY,
-                ARG_DISK_USAGE,
-                ARG_AFTER_CURSOR,
-                ARG_CURSOR_FILE,
-                ARG_SHOW_CURSOR,
-                ARG_USER_UNIT,
-                ARG_INVOCATION,
-                ARG_LIST_CATALOG,
-                ARG_DUMP_CATALOG,
-                ARG_UPDATE_CATALOG,
-                ARG_FORCE,
-                ARG_CASE_SENSITIVE,
-                ARG_UTC,
-                ARG_SYNC,
-                ARG_FLUSH,
-                ARG_RELINQUISH_VAR,
-                ARG_SMART_RELINQUISH_VAR,
-                ARG_ROTATE,
-                ARG_TRUNCATE_NEWLINE,
-                ARG_VACUUM_SIZE,
-                ARG_VACUUM_FILES,
-                ARG_VACUUM_TIME,
-                ARG_OUTPUT_FIELDS,
-                ARG_NAMESPACE,
-                ARG_LIST_NAMESPACES,
-                ARG_SYNCHRONIZE_ON_EXIT,
-        };
-
-        static const struct option options[] = {
-                { "help",                 no_argument,       NULL, 'h'                      },
-                { "version" ,             no_argument,       NULL, ARG_VERSION              },
-                { "no-pager",             no_argument,       NULL, ARG_NO_PAGER             },
-                { "pager-end",            no_argument,       NULL, 'e'                      },
-                { "follow",               no_argument,       NULL, 'f'                      },
-                { "force",                no_argument,       NULL, ARG_FORCE                },
-                { "output",               required_argument, NULL, 'o'                      },
-                { "all",                  no_argument,       NULL, 'a'                      },
-                { "full",                 no_argument,       NULL, 'l'                      },
-                { "no-full",              no_argument,       NULL, ARG_NO_FULL              },
-                { "lines",                optional_argument, NULL, 'n'                      },
-                { "truncate-newline",     no_argument,       NULL, ARG_TRUNCATE_NEWLINE     },
-                { "no-tail",              no_argument,       NULL, ARG_NO_TAIL              },
-                { "new-id128",            no_argument,       NULL, ARG_NEW_ID128            }, /* deprecated */
-                { "quiet",                no_argument,       NULL, 'q'                      },
-                { "merge",                no_argument,       NULL, 'm'                      },
-                { "this-boot",            no_argument,       NULL, ARG_THIS_BOOT            }, /* deprecated */
-                { "boot",                 optional_argument, NULL, 'b'                      },
-                { "list-boots",           no_argument,       NULL, ARG_LIST_BOOTS           },
-                { "list-invocations",     no_argument,       NULL, ARG_LIST_INVOCATIONS     },
-                { "dmesg",                no_argument,       NULL, 'k'                      },
-                { "system",               no_argument,       NULL, ARG_SYSTEM               },
-                { "user",                 no_argument,       NULL, ARG_USER                 },
-                { "directory",            required_argument, NULL, 'D'                      },
-                { "file",                 required_argument, NULL, 'i'                      },
-                { "root",                 required_argument, NULL, ARG_ROOT                 },
-                { "image",                required_argument, NULL, ARG_IMAGE                },
-                { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
-                { "header",               no_argument,       NULL, ARG_HEADER               },
-                { "identifier",           required_argument, NULL, 't'                      },
-                { "exclude-identifier",   required_argument, NULL, 'T'                      },
-                { "priority",             required_argument, NULL, 'p'                      },
-                { "facility",             required_argument, NULL, ARG_FACILITY             },
-                { "grep",                 required_argument, NULL, 'g'                      },
-                { "case-sensitive",       optional_argument, NULL, ARG_CASE_SENSITIVE       },
-                { "setup-keys",           no_argument,       NULL, ARG_SETUP_KEYS           },
-                { "interval",             required_argument, NULL, ARG_INTERVAL             },
-                { "verify",               no_argument,       NULL, ARG_VERIFY               },
-                { "verify-key",           required_argument, NULL, ARG_VERIFY_KEY           },
-                { "disk-usage",           no_argument,       NULL, ARG_DISK_USAGE           },
-                { "cursor",               required_argument, NULL, 'c'                      },
-                { "cursor-file",          required_argument, NULL, ARG_CURSOR_FILE          },
-                { "after-cursor",         required_argument, NULL, ARG_AFTER_CURSOR         },
-                { "show-cursor",          no_argument,       NULL, ARG_SHOW_CURSOR          },
-                { "since",                required_argument, NULL, 'S'                      },
-                { "until",                required_argument, NULL, 'U'                      },
-                { "unit",                 required_argument, NULL, 'u'                      },
-                { "user-unit",            required_argument, NULL, ARG_USER_UNIT            },
-                { "invocation",           required_argument, NULL, ARG_INVOCATION           },
-                { "field",                required_argument, NULL, 'F'                      },
-                { "fields",               no_argument,       NULL, 'N'                      },
-                { "catalog",              no_argument,       NULL, 'x'                      },
-                { "list-catalog",         no_argument,       NULL, ARG_LIST_CATALOG         },
-                { "dump-catalog",         no_argument,       NULL, ARG_DUMP_CATALOG         },
-                { "update-catalog",       no_argument,       NULL, ARG_UPDATE_CATALOG       },
-                { "reverse",              no_argument,       NULL, 'r'                      },
-                { "machine",              required_argument, NULL, 'M'                      },
-                { "utc",                  no_argument,       NULL, ARG_UTC                  },
-                { "flush",                no_argument,       NULL, ARG_FLUSH                },
-                { "relinquish-var",       no_argument,       NULL, ARG_RELINQUISH_VAR       },
-                { "smart-relinquish-var", no_argument,       NULL, ARG_SMART_RELINQUISH_VAR },
-                { "sync",                 no_argument,       NULL, ARG_SYNC                 },
-                { "rotate",               no_argument,       NULL, ARG_ROTATE               },
-                { "vacuum-size",          required_argument, NULL, ARG_VACUUM_SIZE          },
-                { "vacuum-files",         required_argument, NULL, ARG_VACUUM_FILES         },
-                { "vacuum-time",          required_argument, NULL, ARG_VACUUM_TIME          },
-                { "no-hostname",          no_argument,       NULL, 'W'                      },
-                { "output-fields",        required_argument, NULL, ARG_OUTPUT_FIELDS        },
-                { "namespace",            required_argument, NULL, ARG_NAMESPACE            },
-                { "list-namespaces",      no_argument,       NULL, ARG_LIST_NAMESPACES      },
-                { "synchronize-on-exit",  required_argument, NULL, ARG_SYNCHRONIZE_ON_EXIT  },
-                {}
-        };
-
-        int c, r;
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
+        assert(remaining_args);
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
@@ -490,387 +305,272 @@ static int parse_argv(int argc, char *argv[]) {
         if (r > 0) {
                 arg_varlink = true;
 
-                static const struct option varlink_options[] = {
-                        { "system", no_argument, NULL, ARG_SYSTEM },
-                        { "user",   no_argument, NULL, ARG_USER   },
-                        {}
-                };
+                OptionParser opts = { argc, argv, .namespace = "journalctl-varlink" };
 
-                while ((c = getopt_long(argc, argv, "", varlink_options, NULL)) >= 0)
-
+                FOREACH_OPTION_OR_RETURN(c, &opts)
                         switch (c) {
 
-                        case ARG_SYSTEM:
+                        OPTION_NAMESPACE("journalctl-varlink"): {}
+
+                        OPTION_COMMON_SYSTEM:
                                 arg_varlink_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                                 break;
 
-                        case ARG_USER:
+                        OPTION_COMMON_USER:
                                 arg_varlink_runtime_scope = RUNTIME_SCOPE_USER;
                                 break;
-
-                        case '?':
-                                return -EINVAL;
-
-                        default:
-                                assert_not_reached();
                         }
 
                 if (arg_varlink_runtime_scope < 0)
                         return log_error_errno(arg_varlink_runtime_scope, "Cannot run in Varlink mode with no runtime scope specified.");
 
+                if (option_parser_get_n_args(&opts) > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No arguments expected in Varlink mode.");
+
+                *remaining_args = NULL;
                 return 1;
         }
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:T:u:INF:xrM:i:W", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv, .namespace = "journalctl" };
 
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
-                case 'h':
-                        return help();
+                OPTION_NAMESPACE("journalctl"): {}
 
-                case ARG_VERSION:
-                        return version();
+                OPTION_GROUP("Source Options"): {}
 
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case 'e':
-                        arg_pager_flags |= PAGER_JUMP_TO_END;
-                        break;
-
-                case 'f':
-                        arg_follow = true;
-                        break;
-
-                case 'o':
-                        if (streq(optarg, "help"))
-                                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
-
-                        arg_output = output_mode_from_string(optarg);
-                        if (arg_output < 0)
-                                return log_error_errno(arg_output, "Unknown output format '%s'.", optarg);
-
-                        if (IN_SET(arg_output, OUTPUT_EXPORT, OUTPUT_JSON, OUTPUT_JSON_PRETTY, OUTPUT_JSON_SSE, OUTPUT_JSON_SEQ, OUTPUT_CAT))
-                                arg_quiet = true;
-
-                        if (OUTPUT_MODE_IS_JSON(arg_output))
-                                arg_json_format_flags = output_mode_to_json_format_flags(arg_output) | SD_JSON_FORMAT_COLOR_AUTO;
-                        else
-                                arg_json_format_flags = SD_JSON_FORMAT_OFF;
-
-                        break;
-
-                case 'l':
-                        arg_full = true;
-                        break;
-
-                case ARG_NO_FULL:
-                        arg_full = false;
-                        break;
-
-                case 'a':
-                        arg_all = true;
-                        break;
-
-                case 'n':
-                        r = parse_lines(optarg ?: argv[optind], !optarg);
-                        if (r < 0)
-                                return r;
-                        if (r > 0 && !optarg)
-                                optind++;
-
-                        break;
-
-                case ARG_NO_TAIL:
-                        arg_no_tail = true;
-                        break;
-
-                case ARG_TRUNCATE_NEWLINE:
-                        arg_truncate_newline = true;
-                        break;
-
-                case ARG_NEW_ID128:
-                        arg_action = ACTION_NEW_ID128;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case 'm':
-                        arg_merge = true;
-                        break;
-
-                case ARG_THIS_BOOT:
-                        arg_boot = true;
-                        arg_boot_id = SD_ID128_NULL;
-                        arg_boot_offset = 0;
-                        break;
-
-                case 'b':
-                        arg_boot = true;
-                        arg_boot_id = SD_ID128_NULL;
-                        arg_boot_offset = 0;
-
-                        if (optarg) {
-                                r = parse_id_descriptor(optarg, &arg_boot_id, &arg_boot_offset);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse boot descriptor '%s'", optarg);
-
-                                arg_boot = r;
-
-                        } else if (optind < argc) {
-                                /* Hmm, no argument? Maybe the next word on the command line is supposed to be the
-                                 * argument? Let's see if there is one and is parsable as a boot descriptor... */
-                                r = parse_id_descriptor(argv[optind], &arg_boot_id, &arg_boot_offset);
-                                if (r >= 0) {
-                                        arg_boot = r;
-                                        optind++;
-                                }
-                        }
-                        break;
-
-                case ARG_LIST_BOOTS:
-                        arg_action = ACTION_LIST_BOOTS;
-                        break;
-
-                case ARG_LIST_INVOCATIONS:
-                        arg_action = ACTION_LIST_INVOCATIONS;
-                        break;
-
-                case 'k':
-                        arg_dmesg = true;
-                        break;
-
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, "Show the system journal"):
                         arg_journal_type |= SD_JOURNAL_SYSTEM;
                         break;
 
-                case ARG_USER:
+                OPTION_LONG("user", NULL, "Show the user journal for the current user"):
                         arg_journal_type |= SD_JOURNAL_CURRENT_USER;
                         break;
 
-                case 'M':
-                        r = free_and_strdup_warn(&arg_machine, optarg);
+                OPTION_COMMON_MACHINE:
+                        r = free_and_strdup_warn(&arg_machine, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NAMESPACE:
-                        if (streq(optarg, "*")) {
-                                arg_namespace_flags = SD_JOURNAL_ALL_NAMESPACES;
-                                arg_namespace = mfree(arg_namespace);
-                        } else if (startswith(optarg, "+")) {
-                                arg_namespace_flags = SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE;
-                                r = free_and_strdup_warn(&arg_namespace, optarg + 1);
-                                if (r < 0)
-                                        return r;
-                        } else if (isempty(optarg)) {
-                                arg_namespace_flags = 0;
-                                arg_namespace = mfree(arg_namespace);
-                        } else {
-                                arg_namespace_flags = 0;
-                                r = free_and_strdup_warn(&arg_namespace, optarg);
-                                if (r < 0)
-                                        return r;
-                        }
+                OPTION('m', "merge", NULL, "Show entries from all available journals"):
+                        arg_merge = true;
                         break;
 
-                case ARG_LIST_NAMESPACES:
-                        arg_action = ACTION_LIST_NAMESPACES;
-                        break;
-
-                case 'D':
-                        r = free_and_strdup_warn(&arg_directory, optarg);
+                OPTION('D', "directory", "PATH", "Show journal files from directory"):
+                        r = free_and_strdup_warn(&arg_directory, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'i':
-                        if (streq(optarg, "-"))
+                OPTION('i', "file", "PATH", "Show journal file"):
+                        if (streq(opts.arg, "-"))
                                 /* An undocumented feature: we can read journal files from STDIN. We don't document
                                  * this though, since after all we only support this for mmap-able, seekable files, and
                                  * not for example pipes which are probably the primary use case for reading things from
                                  * STDIN. To avoid confusion we hence don't document this feature. */
                                 arg_file_stdin = true;
                         else {
-                                r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
+                                r = glob_extend(&arg_file, opts.arg, GLOB_NOCHECK);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to add paths: %m");
                         }
                         break;
 
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
+                OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
+                OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                OPTION_LONG("image-policy", "POLICY", "Specify disk image dissection policy"):
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'c':
-                        r = free_and_strdup_warn(&arg_cursor, optarg);
+                OPTION_LONG("namespace", "NAMESPACE",
+                            "Show journal data from specified journal namespace"):
+                        if (streq(opts.arg, "*")) {
+                                arg_namespace_flags = SD_JOURNAL_ALL_NAMESPACES;
+                                arg_namespace = mfree(arg_namespace);
+                        } else if (startswith(opts.arg, "+")) {
+                                arg_namespace_flags = SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE;
+                                r = free_and_strdup_warn(&arg_namespace, opts.arg + 1);
+                                if (r < 0)
+                                        return r;
+                        } else if (isempty(opts.arg)) {
+                                arg_namespace_flags = 0;
+                                arg_namespace = mfree(arg_namespace);
+                        } else {
+                                arg_namespace_flags = 0;
+                                r = free_and_strdup_warn(&arg_namespace, opts.arg);
+                                if (r < 0)
+                                        return r;
+                        }
+                        break;
+
+                OPTION_GROUP("Filtering Options"): {}
+
+                OPTION('S', "since", "DATE", "Show entries not older than the specified date"):
+                        r = parse_timestamp(opts.arg, &arg_since);
                         if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_CURSOR_FILE:
-                        r = free_and_strdup_warn(&arg_cursor_file, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_AFTER_CURSOR:
-                        r = free_and_strdup_warn(&arg_after_cursor, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_SHOW_CURSOR:
-                        arg_show_cursor = true;
-                        break;
-
-                case ARG_HEADER:
-                        arg_action = ACTION_PRINT_HEADER;
-                        break;
-
-                case ARG_VERIFY:
-                        arg_action = ACTION_VERIFY;
-                        break;
-
-                case ARG_DISK_USAGE:
-                        arg_action = ACTION_DISK_USAGE;
-                        break;
-
-                case ARG_VACUUM_SIZE:
-                        r = parse_size(optarg, 1024, &arg_vacuum_size);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse vacuum size: %s", optarg);
-
-                        arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
-                        break;
-
-                case ARG_VACUUM_FILES:
-                        r = safe_atou64(optarg, &arg_vacuum_n_files);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse vacuum files: %s", optarg);
-
-                        arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
-                        break;
-
-                case ARG_VACUUM_TIME:
-                        r = parse_sec(optarg, &arg_vacuum_time);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse vacuum time: %s", optarg);
-
-                        arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
-                        break;
-
-#if HAVE_GCRYPT
-                case ARG_FORCE:
-                        arg_force = true;
-                        break;
-
-                case ARG_SETUP_KEYS:
-                        arg_action = ACTION_SETUP_KEYS;
-                        break;
-
-                case ARG_VERIFY_KEY:
-                        erase_and_free(arg_verify_key);
-                        arg_verify_key = strdup(optarg);
-                        if (!arg_verify_key)
-                                return log_oom();
-
-                        /* Use memset not explicit_bzero() or similar so this doesn't look confusing
-                         * in ps or htop output. */
-                        memset(optarg, 'x', strlen(optarg));
-
-                        arg_action = ACTION_VERIFY;
-                        arg_merge = false;
-                        break;
-
-                case ARG_INTERVAL:
-                        r = parse_sec(optarg, &arg_interval);
-                        if (r < 0 || arg_interval <= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse sealing key change interval: %s", optarg);
+                                                       "Failed to parse timestamp: %s", opts.arg);
+                        arg_since_set = true;
                         break;
-#else
-                case ARG_SETUP_KEYS:
-                case ARG_VERIFY_KEY:
-                case ARG_INTERVAL:
-                case ARG_FORCE:
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Compiled without forward-secure sealing support.");
-#endif
 
-                case 'p': {
-                        const char *dots;
+                OPTION('U', "until", "DATE", "Show entries not newer than the specified date"):
+                        r = parse_timestamp(opts.arg, &arg_until);
+                        if (r < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse timestamp: %s", opts.arg);
+                        arg_until_set = true;
+                        break;
 
-                        dots = strstr(optarg, "..");
+                OPTION('c', "cursor", "CURSOR", "Show entries starting at the specified cursor"):
+                        r = free_and_strdup_warn(&arg_cursor, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("after-cursor", "CURSOR", "Show entries after the specified cursor"):
+                        r = free_and_strdup_warn(&arg_after_cursor, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("cursor-file", "FILE", "Show entries after cursor in FILE and update FILE"):
+                        r = free_and_strdup_warn(&arg_cursor_file, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("this-boot", NULL, /* help= */ NULL):
+                        arg_boot = true;
+                        arg_boot_id = SD_ID128_NULL;
+                        arg_boot_offset = 0;
+                        break;
+
+                OPTION_FULL(OPTION_OPTIONAL_ARG, 'b', "boot", "ID",
+                            "Show current boot or the specified boot"):
+                        arg_boot = true;
+                        arg_boot_id = SD_ID128_NULL;
+                        arg_boot_offset = 0;
+
+                        if (opts.arg) {
+                                r = parse_id_descriptor(opts.arg, &arg_boot_id, &arg_boot_offset);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse boot descriptor '%s'", opts.arg);
+
+                                arg_boot = r;
+
+                        } else {
+                                /* Hmm, no argument? Maybe the next word on the command line is supposed to
+                                 * be the argument? Let's see if there is one and is parsable as a boot
+                                 * descriptor… */
+                                char *peek = option_parser_peek_next_arg(&opts);
+                                if (peek) {
+                                        r = parse_id_descriptor(peek, &arg_boot_id, &arg_boot_offset);
+                                        if (r >= 0) {
+                                                arg_boot = r;
+                                                (void) option_parser_consume_next_arg(&opts);
+                                        }
+                                }
+                        }
+                        break;
+
+                OPTION('u', "unit", "UNIT", "Show logs from the specified unit"):
+                        r = strv_extend(&arg_system_units, opts.arg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
+                OPTION_LONG("user-unit", "UNIT", "Show logs from the specified user unit"):
+                        r = strv_extend(&arg_user_units, opts.arg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
+                OPTION_LONG("invocation", "ID", "Show logs from the matching invocation ID"):
+                        r = parse_id_descriptor(opts.arg, &arg_invocation_id, &arg_invocation_offset);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse invocation descriptor: %s", opts.arg);
+                        arg_invocation = r;
+                        break;
+
+                OPTION_SHORT('I', NULL, "Show logs from the latest invocation of unit"):
+                        /* Equivalent to --invocation=0 */
+                        arg_invocation = true;
+                        arg_invocation_id = SD_ID128_NULL;
+                        arg_invocation_offset = 0;
+                        break;
+
+                OPTION('t', "identifier", "ID", "Show entries with the specified syslog identifier"):
+                        r = strv_extend(&arg_syslog_identifier, opts.arg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
+                OPTION('T', "exclude-identifier", "ID",
+                       "Hide entries with the specified syslog identifier"):
+                        r = strv_extend(&arg_exclude_identifier, opts.arg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
+                OPTION('p', "priority", "RANGE", "Show entries within the specified priority range"): {
+
+                        const char *dots = strstr(opts.arg, "..");
                         if (dots) {
-                                _cleanup_free_ char *a = NULL;
-                                int from, to, i;
-
                                 /* a range */
-                                a = strndup(optarg, dots - optarg);
+                                _cleanup_free_ char *a = strndup(opts.arg, dots - opts.arg);
                                 if (!a)
                                         return log_oom();
 
-                                from = log_level_from_string(a);
-                                to = log_level_from_string(dots + 2);
+                                int from = log_level_from_string(a),
+                                      to = log_level_from_string(dots + 2);
 
                                 if (from < 0 || to < 0)
                                         return log_error_errno(from < 0 ? from : to,
-                                                               "Failed to parse log level range %s", optarg);
+                                                               "Failed to parse log level range %s", opts.arg);
 
                                 arg_priorities = 0;
-
-                                if (from < to) {
-                                        for (i = from; i <= to; i++)
+                                if (from < to)
+                                        for (int i = from; i <= to; i++)
                                                 arg_priorities |= 1 << i;
-                                } else {
-                                        for (i = to; i <= from; i++)
+                                else
+                                        for (int i = to; i <= from; i++)
                                                 arg_priorities |= 1 << i;
-                                }
 
                         } else {
-                                int p, i;
-
-                                p = log_level_from_string(optarg);
+                                int p = log_level_from_string(opts.arg);
                                 if (p < 0)
-                                        return log_error_errno(p, "Unknown log level %s", optarg);
+                                        return log_error_errno(p, "Unknown log level %s", opts.arg);
 
                                 arg_priorities = 0;
-
-                                for (i = 0; i <= p; i++)
+                                for (int i = 0; i <= p; i++)
                                         arg_priorities |= 1 << i;
                         }
 
                         break;
                 }
 
-                case ARG_FACILITY: {
-                        const char *p;
-
-                        for (p = optarg;;) {
+                OPTION_LONG("facility", "FACILITY…", "Show entries with the specified facilities"):
+                        for (const char *p = opts.arg;;) {
                                 _cleanup_free_ char *fac = NULL;
                                 int num;
 
                                 r = extract_first_word(&p, &fac, ",", 0);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse facilities: %s", optarg);
+                                        return log_error_errno(r, "Failed to parse facilities: %s", opts.arg);
                                 if (r == 0)
                                         break;
 
@@ -888,163 +588,56 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         break;
-                }
 
-                case 'g':
-                        r = free_and_strdup_warn(&arg_pattern, optarg);
+                OPTION('g', "grep", "PATTERN", "Show entries with MESSAGE matching PATTERN"):
+                        r = free_and_strdup_warn(&arg_pattern, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CASE_SENSITIVE:
-                        if (optarg) {
-                                r = parse_boolean(optarg);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "case-sensitive", "BOOL",
+                                  "Force case sensitive or insensitive matching"):
+                        if (opts.arg) {
+                                r = parse_boolean(opts.arg);
                                 if (r < 0)
-                                        return log_error_errno(r, "Bad --case-sensitive= argument \"%s\": %m", optarg);
+                                        return log_error_errno(r, "Bad --case-sensitive= argument \"%s\": %m", opts.arg);
                                 arg_case = r ? PATTERN_COMPILE_CASE_SENSITIVE : PATTERN_COMPILE_CASE_INSENSITIVE;
                         } else
                                 arg_case = PATTERN_COMPILE_CASE_SENSITIVE;
 
                         break;
 
-                case 'S':
-                        r = parse_timestamp(optarg, &arg_since);
-                        if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse timestamp: %s", optarg);
-                        arg_since_set = true;
+                OPTION('k', "dmesg", NULL, "Show kernel message log from the current boot"):
+                        arg_dmesg = true;
                         break;
 
-                case 'U':
-                        r = parse_timestamp(optarg, &arg_until);
-                        if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse timestamp: %s", optarg);
-                        arg_until_set = true;
+                OPTION_GROUP("Output Control Options"): {}
+
+                OPTION('o', "output", "STRING",
+                       "Change journal output mode (short, short-precise, short-iso, short-iso-precise, "
+                       "short-full, short-monotonic, short-unix, verbose, export, json, json-pretty, "
+                       "json-sse, json-seq, cat, with-unit)"):
+                        if (streq(opts.arg, "help"))
+                                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
+
+                        arg_output = output_mode_from_string(opts.arg);
+                        if (arg_output < 0)
+                                return log_error_errno(arg_output, "Unknown output format '%s'.", opts.arg);
+
+                        if (IN_SET(arg_output, OUTPUT_EXPORT, OUTPUT_JSON, OUTPUT_JSON_PRETTY, OUTPUT_JSON_SSE, OUTPUT_JSON_SEQ, OUTPUT_CAT))
+                                arg_quiet = true;
+
+                        if (OUTPUT_MODE_IS_JSON(arg_output))
+                                arg_json_format_flags = output_mode_to_json_format_flags(arg_output) | SD_JSON_FORMAT_COLOR_AUTO;
+                        else
+                                arg_json_format_flags = SD_JSON_FORMAT_OFF;
+
                         break;
 
-                case 't':
-                        r = strv_extend(&arg_syslog_identifier, optarg);
-                        if (r < 0)
-                                return log_oom();
-                        break;
-
-                case 'T':
-                        r = strv_extend(&arg_exclude_identifier, optarg);
-                        if (r < 0)
-                                return log_oom();
-                        break;
-
-                case 'u':
-                        r = strv_extend(&arg_system_units, optarg);
-                        if (r < 0)
-                                return log_oom();
-                        break;
-
-                case ARG_USER_UNIT:
-                        r = strv_extend(&arg_user_units, optarg);
-                        if (r < 0)
-                                return log_oom();
-                        break;
-
-                case ARG_INVOCATION:
-                        r = parse_id_descriptor(optarg, &arg_invocation_id, &arg_invocation_offset);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse invocation descriptor: %s", optarg);
-                        arg_invocation = r;
-                        break;
-
-                case 'I':
-                        /* Equivalent to --invocation=0 */
-                        arg_invocation = true;
-                        arg_invocation_id = SD_ID128_NULL;
-                        arg_invocation_offset = 0;
-                        break;
-
-                case 'F':
-                        arg_action = ACTION_LIST_FIELDS;
-                        r = free_and_strdup_warn(&arg_field, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'N':
-                        arg_action = ACTION_LIST_FIELD_NAMES;
-                        break;
-
-                case 'W':
-                        arg_no_hostname = true;
-                        break;
-
-                case 'x':
-                        arg_catalog = true;
-                        break;
-
-                case ARG_LIST_CATALOG:
-                        arg_action = ACTION_LIST_CATALOG;
-                        break;
-
-                case ARG_DUMP_CATALOG:
-                        arg_action = ACTION_DUMP_CATALOG;
-                        break;
-
-                case ARG_UPDATE_CATALOG:
-                        arg_action = ACTION_UPDATE_CATALOG;
-                        break;
-
-                case 'r':
-                        arg_reverse = true;
-                        break;
-
-                case ARG_UTC:
-                        arg_utc = true;
-                        break;
-
-                case ARG_FLUSH:
-                        arg_action = ACTION_FLUSH;
-                        break;
-
-                case ARG_SMART_RELINQUISH_VAR: {
-                        int root_mnt_id, log_mnt_id;
-
-                        /* Try to be smart about relinquishing access to /var/log/journal/ during shutdown:
-                         * if it's on the same mount as the root file system there's no point in
-                         * relinquishing access and we can leave journald write to it until the very last
-                         * moment. */
-
-                        r = path_get_mnt_id("/", &root_mnt_id);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to get root mount ID, ignoring: %m");
-                        else {
-                                r = path_get_mnt_id("/var/log/journal/", &log_mnt_id);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to get journal directory mount ID, ignoring: %m");
-                                else if (root_mnt_id == log_mnt_id) {
-                                        log_debug("/var/log/journal/ is on root file system, not relinquishing access to /var.");
-                                        return 0;
-                                } else
-                                        log_debug("/var/log/journal/ is not on the root file system, relinquishing access to it.");
-                        }
-
-                        _fallthrough_;
-                }
-
-                case ARG_RELINQUISH_VAR:
-                        arg_action = ACTION_RELINQUISH_VAR;
-                        break;
-
-                case ARG_ROTATE:
-                        arg_action = arg_action == ACTION_VACUUM ? ACTION_ROTATE_AND_VACUUM : ACTION_ROTATE;
-                        break;
-
-                case ARG_SYNC:
-                        arg_action = ACTION_SYNC;
-                        break;
-
-                case ARG_OUTPUT_FIELDS: {
+                OPTION_LONG("output-fields", "LIST", "Select fields to print in verbose/export/json modes"): {
                         _cleanup_strv_free_ char **v = NULL;
 
-                        v = strv_split(optarg, ",");
+                        v = strv_split(opts.arg, ",");
                         if (!v)
                                 return log_oom();
 
@@ -1055,19 +648,242 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_SYNCHRONIZE_ON_EXIT:
-                        r = parse_boolean_argument("--synchronize-on-exit", optarg, &arg_synchronize_on_exit);
+                OPTION_FULL(OPTION_OPTIONAL_ARG, 'n', "lines", "[+]INTEGER",
+                            "Number of journal entries to show"): {
+                        const char *p = opts.arg ?: option_parser_peek_next_arg(&opts);
+
+                        r = parse_lines(p, /* graceful= */ !opts.arg);
                         if (r < 0)
                                 return r;
+                        if (r > 0 && !opts.arg)
+                                (void) option_parser_consume_next_arg(&opts);
 
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
+
+                OPTION('r', "reverse", NULL, "Show the newest entries first"):
+                        arg_reverse = true;
+                        break;
+
+                OPTION_LONG("show-cursor", NULL, "Print the cursor after all the entries"):
+                        arg_show_cursor = true;
+                        break;
+
+                OPTION_LONG("utc", NULL, "Express time in Coordinated Universal Time (UTC)"):
+                        arg_utc = true;
+                        break;
+
+                OPTION('x', "catalog", NULL, "Add message explanations where available"):
+                        arg_catalog = true;
+                        break;
+
+                OPTION('W', "no-hostname", NULL, "Suppress output of hostname field"):
+                        arg_no_hostname = true;
+                        break;
+
+                OPTION('l', "full", NULL, /* help= */ NULL):
+                        arg_full = true;
+                        break;
+
+                OPTION_LONG("no-full", NULL, "Ellipsize fields"):
+                        arg_full = false;
+                        break;
+
+                OPTION('a', "all", NULL, "Show all fields, including long and unprintable"):
+                        arg_all = true;
+                        break;
+
+                OPTION('f', "follow", NULL, "Follow the journal"):
+                        arg_follow = true;
+                        break;
+
+                OPTION_LONG("no-tail", NULL, "Show all lines, even in follow mode"):
+                        arg_no_tail = true;
+                        break;
+
+                OPTION_LONG("truncate-newline", NULL, "Truncate entries by first newline character"):
+                        arg_truncate_newline = true;
+                        break;
+
+                OPTION('q', "quiet", NULL, "Do not show info messages and privilege warning"):
+                        arg_quiet = true;
+                        break;
+
+                OPTION_LONG("synchronize-on-exit", "BOOL",
+                            "Wait for Journal synchronization before exiting"):
+                        r = parse_boolean_argument("--synchronize-on-exit", opts.arg, &arg_synchronize_on_exit);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_GROUP("Pager Control Options"): {}
+
+                OPTION_COMMON_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                OPTION('e', "pager-end", NULL, "Immediately jump to the end in the pager"):
+                        arg_pager_flags |= PAGER_JUMP_TO_END;
+                        break;
+
+                OPTION_GROUP("Forward Secure Sealing (FSS) Options"): {}
+
+                OPTION_LONG("interval", "TIME", "Time interval for changing the FSS sealing key"):
+#if HAVE_GCRYPT
+                        r = parse_sec(opts.arg, &arg_interval);
+                        if (r < 0 || arg_interval <= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse sealing key change interval: %s", opts.arg);
+                        break;
+#else
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Compiled without forward-secure sealing support.");
+#endif
+
+                OPTION_LONG("verify-key", "KEY", "Specify FSS verification key"):
+#if HAVE_GCRYPT
+                        erase_and_free(arg_verify_key);
+                        arg_verify_key = strdup(opts.arg);
+                        if (!arg_verify_key)
+                                return log_oom();
+
+                        /* Use memset not explicit_bzero() or similar so this doesn't look confusing
+                         * in ps or htop output. We need to cast away the const to do this. */
+                        memset((char*) opts.arg, 'x', strlen(opts.arg));
+
+                        arg_action = ACTION_VERIFY;
+                        arg_merge = false;
+                        break;
+#else
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Compiled without forward-secure sealing support.");
+#endif
+
+                OPTION_LONG("force", NULL, "Override of the FSS key pair with --setup-keys"):
+#if HAVE_GCRYPT
+                        arg_force = true;
+                        break;
+#else
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Compiled without forward-secure sealing support.");
+#endif
+
+                OPTION_GROUP("Commands"): {}
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION('N', "fields", NULL, "List all field names currently used"):
+                        arg_action = ACTION_LIST_FIELD_NAMES;
+                        break;
+
+                OPTION('F', "field", "FIELD", "List all values that a specified field takes"):
+                        arg_action = ACTION_LIST_FIELDS;
+                        r = free_and_strdup_warn(&arg_field, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("list-boots", NULL, "Show terse information about recorded boots"):
+                        arg_action = ACTION_LIST_BOOTS;
+                        break;
+
+                OPTION_LONG("list-invocations", NULL, "Show invocation IDs of specified unit"):
+                        arg_action = ACTION_LIST_INVOCATIONS;
+                        break;
+
+                OPTION_LONG("list-namespaces", NULL, "Show list of journal namespaces"):
+                        arg_action = ACTION_LIST_NAMESPACES;
+                        break;
+
+                OPTION_LONG("disk-usage", NULL, "Show total disk usage of all journal files"):
+                        arg_action = ACTION_DISK_USAGE;
+                        break;
+
+                OPTION_LONG("vacuum-size", "BYTES", "Reduce disk usage below specified size"):
+                        r = parse_size(opts.arg, 1024, &arg_vacuum_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse vacuum size: %s", opts.arg);
+
+                        arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
+                        break;
+
+                OPTION_LONG("vacuum-files", "INT", "Leave only the specified number of journal files"):
+                        r = safe_atou64(opts.arg, &arg_vacuum_n_files);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse vacuum files: %s", opts.arg);
+
+                        arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
+                        break;
+
+                OPTION_LONG("vacuum-time", "TIME", "Remove journal files older than specified time"):
+                        r = parse_sec(opts.arg, &arg_vacuum_time);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse vacuum time: %s", opts.arg);
+
+                        arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
+                        break;
+
+                OPTION_LONG("verify", NULL, "Verify journal file consistency"):
+                        arg_action = ACTION_VERIFY;
+                        break;
+
+                OPTION_LONG("sync", NULL, "Synchronize unwritten journal messages to disk"):
+                        arg_action = ACTION_SYNC;
+                        break;
+
+                OPTION_LONG("relinquish-var", NULL, "Stop logging to disk, log to temporary file system"):
+                        arg_action = ACTION_RELINQUISH_VAR;
+                        break;
+
+                OPTION_LONG("smart-relinquish-var", NULL,
+                            "Similar, but NOP if log directory is on root mount"):
+                        arg_action = ACTION_SMART_RELINQUISH_VAR;
+                        break;
+
+                OPTION_LONG("flush", NULL, "Flush all journal data from /run into /var"):
+                        arg_action = ACTION_FLUSH;
+                        break;
+
+                OPTION_LONG("rotate", NULL, "Request immediate rotation of the journal files"):
+                        arg_action = arg_action == ACTION_VACUUM ? ACTION_ROTATE_AND_VACUUM : ACTION_ROTATE;
+                        break;
+
+                OPTION_LONG("header", NULL, "Show journal header information"):
+                        arg_action = ACTION_PRINT_HEADER;
+                        break;
+
+                OPTION_LONG("list-catalog", NULL, "Show all message IDs in the catalog"):
+                        arg_action = ACTION_LIST_CATALOG;
+                        break;
+
+                OPTION_LONG("dump-catalog", NULL, "Show entries in the message catalog"):
+                        arg_action = ACTION_DUMP_CATALOG;
+                        break;
+
+                OPTION_LONG("update-catalog", NULL, "Update the message catalog database"):
+                        arg_action = ACTION_UPDATE_CATALOG;
+                        break;
+
+                OPTION_LONG("setup-keys", NULL, "Generate a new FSS key pair"):
+#if HAVE_GCRYPT
+                        arg_action = ACTION_SETUP_KEYS;
+                        break;
+#else
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Compiled without forward-secure sealing support.");
+#endif
+
+                OPTION_LONG("new-id128", NULL, /* help= */ NULL):
+                        arg_action = ACTION_NEW_ID128;
+                        break;
+                }
+
+        char **args = option_parser_get_args(&opts);
+        size_t n_args = option_parser_get_n_args(&opts);
 
         if (arg_no_tail)
                 arg_lines = ARG_LINES_ALL;
@@ -1109,10 +925,10 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--lines=+N is unsupported when --reverse or --follow is specified.");
 
-        if (!IN_SET(arg_action, ACTION_SHOW, ACTION_DUMP_CATALOG, ACTION_LIST_CATALOG) && optind < argc)
+        if (!IN_SET(arg_action, ACTION_SHOW, ACTION_DUMP_CATALOG, ACTION_LIST_CATALOG) && n_args > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extraneous arguments starting with '%s'",
-                                       argv[optind]);
+                                       args[0]);
 
         if ((arg_boot || arg_action == ACTION_LIST_BOOTS) && arg_merge)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1146,6 +962,11 @@ static int parse_argv(int argc, char *argv[]) {
         if (!arg_follow)
                 arg_journal_additional_open_flags = SD_JOURNAL_ASSUME_IMMUTABLE;
 
+        args = strv_copy(args);
+        if (!args)
+                return log_oom();
+
+        *remaining_args = args;
         return 1;
 }
 
@@ -1158,16 +979,12 @@ static int run(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
         if (arg_varlink)
                 return vl_server();
-
-        r = strv_copy_unless_empty(strv_skip(argv, optind), &args);
-        if (r < 0)
-                return log_oom();
 
         if (arg_image) {
                 assert(!arg_root);
@@ -1236,6 +1053,31 @@ static int run(int argc, char *argv[]) {
 
         case ACTION_FLUSH:
                 return action_flush_to_var();
+
+        case ACTION_SMART_RELINQUISH_VAR: {
+                int root_mnt_id, log_mnt_id;
+
+                /* Try to be smart about relinquishing access to /var/log/journal/ during shutdown:
+                 * if it's on the same mount as the root file system there's no point in
+                 * relinquishing access and we can leave journald write to it until the very last
+                 * moment. */
+
+                r = path_get_mnt_id("/", &root_mnt_id);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get root mount ID, ignoring: %m");
+                else {
+                        r = path_get_mnt_id("/var/log/journal/", &log_mnt_id);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to get journal directory mount ID, ignoring: %m");
+                        else if (root_mnt_id == log_mnt_id) {
+                                log_debug("/var/log/journal/ is on root file system, not relinquishing access to /var.");
+                                return 0;
+                        } else
+                                log_debug("/var/log/journal/ is not on the root file system, relinquishing access to it.");
+                }
+
+                _fallthrough_;
+        }
 
         case ACTION_RELINQUISH_VAR:
                 return action_relinquish_var();

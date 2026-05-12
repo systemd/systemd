@@ -124,6 +124,12 @@ typedef struct Option {
 #define OPTION_COMMON_MACHINE                                           \
         OPTION('M', "machine", "CONTAINER", "Operate on local container")
 
+#define OPTION_COMMON_SYSTEM                                            \
+        OPTION_LONG("system", NULL, "Operate in system mode")
+
+#define OPTION_COMMON_USER                                              \
+        OPTION_LONG("user", NULL, "Operate in per-user mode")
+
 #define OPTION_COMMON_JSON                                              \
         OPTION_LONG("json", "FORMAT", "Generate JSON output (pretty, short, or off)")
 
