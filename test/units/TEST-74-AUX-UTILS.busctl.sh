@@ -43,6 +43,12 @@ busctl call --json=short \
 busctl call -j \
             org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.DBus.Properties \
             GetAll s "org.freedesktop.systemd1.Manager" | jq -c
+# Do the same with D-Bus' org.freedesktop.DBus.Debug.Stats interface which also provides some
+# complex signatures that caused issues during the JSON conversion in the past
+# See: https://github.com/systemd/systemd/issues/32904
+busctl call --json=pretty \
+            org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.Debug.Stats \
+            GetStats | jq -c
 busctl call --verbose --timeout=60 --expect-reply=yes \
             org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
             ListUnitsByPatterns asas 1 "active" 2 "systemd-*.socket" "*.mount"
