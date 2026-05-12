@@ -27,7 +27,5 @@
 
 /* Defined since glibc-2.42.
  * Supported since kernel v5.6 (fddb5d430ad9fa91b49b1d34d0202ffe2fa0e179). */
-#if !HAVE_OPENAT2
-int missing_openat2(int dfd, const char *filename, const struct open_how *how, size_t usize);
-#  define openat2 missing_openat2
-#endif
+int openat2_shim(int dfd, const char *filename, const struct open_how *how, size_t usize);
+#define openat2 openat2_shim
