@@ -541,6 +541,13 @@
         early boot) are permitted to execute. Execution from tmpfs, procfs, sysfs, unsigned dm-verity devices,
         and anonymous executable memory mappings is denied.</para>
 
+        <para>This setting is intended as one component of an image-based, fully verified system, where the
+        whole boot chain (firmware, kernel image, kernel command line, initramfs) is measured and attested.
+        On a general-purpose system without such guarantees it does not provide a meaningful security
+        boundary on its own: an attacker with sufficient privilege to edit
+        <filename>system.conf</filename>, modify the kernel command line, or kexec into an unsigned kernel
+        can disable or bypass the policy.</para>
+
         <para>The enforcement hooks block <function>execve()</function> of untrusted binaries
         (<literal>bprm_check_security</literal>), <constant>PROT_EXEC</constant> memory mappings including
         shared libraries (<literal>mmap_file</literal>), and write-to-execute transitions such as JIT
@@ -550,6 +557,8 @@
         signed dm-verity devices, because the BPF program sees the overlay filesystem's anonymous device
         number rather than the underlying block device. Multi-device filesystems such as btrfs are similarly
         unsupported.</para>
+
+        <para>Note that without further measures to secure the system kexec can be used to circumvent this.</para>
 
         <para>This requires the kernel to be booted with <literal>dm_verity.require_signatures=1</literal>
         on the kernel command line and with BPF LSM enabled (<literal>lsm=...,bpf</literal>). If either
