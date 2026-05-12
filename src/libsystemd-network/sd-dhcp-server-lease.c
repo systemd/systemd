@@ -237,7 +237,7 @@ int sd_dhcp_server_set_static_lease(
         return 0;
 }
 
-static int dhcp_server_lease_append_json(sd_dhcp_server_lease *lease, sd_json_variant **ret) {
+static int dhcp_server_lease_build_json(sd_dhcp_server_lease *lease, sd_json_variant **ret) {
         assert(lease);
         assert(ret);
 
@@ -271,7 +271,7 @@ int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, sd_json_variant
         HASHMAP_FOREACH(lease, server->bound_leases_by_client_id) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
 
-                r = dhcp_server_lease_append_json(lease, &w);
+                r = dhcp_server_lease_build_json(lease, &w);
                 if (r < 0)
                         return r;
 
@@ -303,7 +303,7 @@ int dhcp_server_static_leases_append_json(sd_dhcp_server *server, sd_json_varian
         HASHMAP_FOREACH(lease, server->static_leases_by_client_id) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
 
-                r = dhcp_server_lease_append_json(lease, &w);
+                r = dhcp_server_lease_build_json(lease, &w);
                 if (r < 0)
                         return r;
 

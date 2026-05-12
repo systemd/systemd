@@ -69,7 +69,7 @@ int sd_dhcp_lease_get_broadcast(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        if (!lease->have_broadcast)
+        if (lease->broadcast == INADDR_ANY)
                 return -ENODATA;
 
         addr->s_addr = lease->broadcast;
@@ -259,7 +259,7 @@ int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        if (!lease->have_subnet_mask)
+        if (lease->subnet_mask == INADDR_ANY)
                 return -ENODATA;
 
         addr->s_addr = lease->subnet_mask;
@@ -920,16 +920,12 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 r = lease_parse_be32(option, len, &lease->subnet_mask);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse subnet mask, ignoring: %m");
-                else
-                        lease->have_subnet_mask = true;
                 break;
 
         case SD_DHCP_OPTION_BROADCAST:
                 r = lease_parse_be32(option, len, &lease->broadcast);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse broadcast address, ignoring: %m");
-                else
-                        lease->have_broadcast = true;
                 break;
 
         case SD_DHCP_OPTION_ROUTER:
@@ -1579,8 +1575,6 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 r = inet_pton(AF_INET, netmask, &lease->subnet_mask);
                 if (r <= 0)
                         log_debug("Failed to parse netmask %s, ignoring.", netmask);
-                else
-                        lease->have_subnet_mask = true;
         }
 
         if (server_address) {
@@ -1599,8 +1593,6 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 r = inet_pton(AF_INET, broadcast, &lease->broadcast);
                 if (r <= 0)
                         log_debug("Failed to parse broadcast address %s, ignoring.", broadcast);
-                else
-                        lease->have_broadcast = true;
         }
 
         if (dns) {
@@ -1759,7 +1751,7 @@ int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease) {
 
         assert(lease);
 
-        if (lease->have_subnet_mask)
+        if (lease->subnet_mask != INADDR_ANY)
                 return 0;
 
         if (lease->address == 0)
@@ -1773,7 +1765,6 @@ int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease) {
                 return r;
 
         lease->subnet_mask = mask.s_addr;
-        lease->have_subnet_mask = true;
 
         return 0;
 }

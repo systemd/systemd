@@ -40,11 +40,7 @@ struct sd_dhcp_lease {
         be32_t address;
         be32_t server_address;
         be32_t next_server;
-
-        bool have_subnet_mask;
         be32_t subnet_mask;
-
-        bool have_broadcast;
         be32_t broadcast;
 
         struct in_addr *router;

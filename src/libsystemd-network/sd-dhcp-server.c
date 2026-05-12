@@ -119,7 +119,7 @@ int sd_dhcp_server_is_in_relay_mode(sd_dhcp_server *server) {
         return in4_addr_is_set(&server->relay_target);
 }
 
-static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
+static sd_dhcp_server* dhcp_server_free(sd_dhcp_server *server) {
         assert(server);
 
         sd_dhcp_server_stop(server);
@@ -236,7 +236,7 @@ int sd_dhcp_server_detach_event(sd_dhcp_server *server) {
         return 0;
 }
 
-sd_event *sd_dhcp_server_get_event(sd_dhcp_server *server) {
+sd_event* sd_dhcp_server_get_event(sd_dhcp_server *server) {
         assert_return(server, NULL);
 
         return server->event;

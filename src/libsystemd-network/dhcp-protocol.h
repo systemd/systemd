@@ -124,4 +124,9 @@ enum {
         DHCP_FQDN_FLAG_N = (1 << 3),
 };
 
+/* For SD_DHCP_RELAY_AGENT_FLAGS sub-option. */
+enum {
+        DHCP_RELAY_AGENT_FLAG_UNICAST = 1 << 0,
+};
+
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_option_code, int);
