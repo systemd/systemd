@@ -110,6 +110,13 @@ sensor:modalias:acpi:BMA250E:*:dmi:*:svnAcer:*:rnAigner:*       # Iconia Tab 8W 
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
+# Advan
+#########################################
+
+sensor:modalias:acpi:NSA2513:*:dmi*:svnADVAN*:pn1301:*          # Evo-X 13 (Intel N150)
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
 # Aquarius
 #########################################
 
