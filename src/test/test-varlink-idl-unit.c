@@ -10,6 +10,7 @@
 #include "process-util.h"
 #include "scope.h"
 #include "service.h"
+#include "socket.h"
 #include "swap.h"
 #include "tests.h"
 #include "test-varlink-idl-util.h"
@@ -75,6 +76,14 @@ TEST(unit_enums_idl) {
 
         /* ScopeRuntime enums */
         TEST_IDL_ENUM(ScopeResult, scope_result, vl_type_ScopeResult);
+
+        /* SocketContext enums */
+        TEST_IDL_ENUM(SocketAddressBindIPv6Only, socket_address_bind_ipv6_only, vl_type_SocketBindIPv6Only);
+        TEST_IDL_ENUM(SocketTimestamping, socket_timestamping, vl_type_SocketTimestamping);
+        TEST_IDL_ENUM(SocketDeferTrigger, socket_defer_trigger, vl_type_SocketDeferTrigger);
+
+        /* SocketRuntime enums */
+        TEST_IDL_ENUM(SocketResult, socket_result, vl_type_SocketResult);
 
         /* SwapRuntime enums */
         TEST_IDL_ENUM(SwapResult, swap_result, vl_type_SwapResult);

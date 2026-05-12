@@ -31,6 +31,7 @@
 #include "varlink-mount.h"
 #include "varlink-path.h"
 #include "varlink-scope.h"
+#include "varlink-socket.h"
 #include "varlink-swap.h"
 #include "varlink-timer.h"
 #include "varlink-unit.h"
@@ -146,6 +147,7 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                 [UNIT_PATH]      = path_context_build_json,
                 [UNIT_SCOPE]     = scope_context_build_json,
                 [UNIT_SERVICE]   = service_context_build_json,
+                [UNIT_SOCKET]    = socket_context_build_json,
                 [UNIT_SWAP]      = swap_context_build_json,
                 [UNIT_TIMER]     = timer_context_build_json,
         };
@@ -315,6 +317,7 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
                 [UNIT_MOUNT]     = mount_runtime_build_json,
                 [UNIT_PATH]      = path_runtime_build_json,
                 [UNIT_SCOPE]     = scope_runtime_build_json,
+                [UNIT_SOCKET]    = socket_runtime_build_json,
                 [UNIT_SWAP]      = swap_runtime_build_json,
                 [UNIT_TIMER]     = timer_runtime_build_json,
         };
