@@ -15,14 +15,9 @@
 
 static int vl_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *vs = NULL;
-        _cleanup_(cgroup_context_freep) CGroupContext *ctx = NULL;
         int r;
 
-        ctx = new0(CGroupContext, 1);
-        if (!ctx)
-                return log_oom();
-
-        r = varlink_server_new(&vs, SD_VARLINK_SERVER_INHERIT_USERDATA, ctx);
+        r = varlink_server_new(&vs, SD_VARLINK_SERVER_INHERIT_USERDATA, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
