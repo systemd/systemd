@@ -1352,7 +1352,7 @@ fallback:
         return 0;
 }
 
-static int install_variables(
+static int install_boot_option(
                 InstallContext *c,
                 const char *path) {
 
@@ -1632,7 +1632,7 @@ static int run_install(InstallContext *c) {
         }
 
         char *path = strjoina("/EFI/systemd/systemd-boot", arch, ".efi");
-        return install_variables(c, path);
+        return install_boot_option(c, path);
 }
 
 int verb_install(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -1810,7 +1810,7 @@ static int remove_binaries(InstallContext *c) {
         return RET_GATHER(r, remove_boot_efi(c));
 }
 
-static int remove_variables(sd_id128_t uuid, const char *path, bool in_order) {
+static int remove_boot_option(sd_id128_t uuid, const char *path, bool in_order) {
         uint16_t slot;
         int r;
 
@@ -1926,7 +1926,7 @@ int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 
         char *path = strjoina("/EFI/systemd/systemd-boot", get_efi_arch(), ".efi");
-        RET_GATHER(r, remove_variables(c.esp_uuid, path, /* in_order= */ true));
+        RET_GATHER(r, remove_boot_option(c.esp_uuid, path, /* in_order= */ true));
         return RET_GATHER(r, remove_loader_variables());
 }
 
