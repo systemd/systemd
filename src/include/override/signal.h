@@ -3,7 +3,5 @@
 
 #include_next <signal.h>        /* IWYU pragma: export */
 
-#if !HAVE_RT_TGSIGQUEUEINFO
 int missing_rt_tgsigqueueinfo(pid_t tgid, pid_t tid, int sig, siginfo_t *info);
-#  define rt_tgsigqueueinfo missing_rt_tgsigqueueinfo
-#endif
+#define rt_tgsigqueueinfo missing_rt_tgsigqueueinfo

@@ -43,9 +43,7 @@ extern DLSYM_PROTOTYPE(crypt_resume_by_volume_key);
 extern DLSYM_PROTOTYPE(crypt_set_data_device);
 extern DLSYM_PROTOTYPE(crypt_set_data_offset);
 extern DLSYM_PROTOTYPE(crypt_set_debug_level);
-#if HAVE_CRYPT_SET_KEYRING_TO_LINK
 extern DLSYM_PROTOTYPE(crypt_set_keyring_to_link);
-#endif
 extern DLSYM_PROTOTYPE(crypt_set_log_callback);
 extern DLSYM_PROTOTYPE(crypt_set_metadata_size);
 extern DLSYM_PROTOTYPE(crypt_set_pbkdf_type);
@@ -55,9 +53,7 @@ extern DLSYM_PROTOTYPE(crypt_token_external_path);
 extern DLSYM_PROTOTYPE(crypt_token_json_get);
 extern DLSYM_PROTOTYPE(crypt_token_json_set);
 extern DLSYM_PROTOTYPE(crypt_token_max);
-#if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
 extern DLSYM_PROTOTYPE(crypt_token_set_external_path);
-#endif
 extern DLSYM_PROTOTYPE(crypt_token_status);
 extern DLSYM_PROTOTYPE(crypt_volume_key_get);
 extern DLSYM_PROTOTYPE(crypt_volume_key_keyring);
