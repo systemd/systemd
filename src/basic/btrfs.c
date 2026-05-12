@@ -8,6 +8,7 @@
 #include "btrfs.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "path-util.h"
 #include "string-util.h"
 
@@ -47,7 +48,7 @@ int btrfs_subvol_make(int dir_fd, const char *path) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
         assert(!isempty(path));
 
         r = extract_subvolume_name(path, &subvolume);
@@ -55,24 +56,16 @@ int btrfs_subvol_make(int dir_fd, const char *path) {
                 return r;
 
         r = path_extract_directory(path, &parent);
-        if (r < 0) {
-                if (r != -EDESTADDRREQ) /* Propagate error, unless only a filename was specified, which is OK */
-                        return r;
+        if (r < 0 && r != -EDESTADDRREQ) /* Propagate error, unless only a filename was specified, which is OK */
+                return r;
 
-                dir_fd = fd_reopen_condition(dir_fd, O_CLOEXEC, O_PATH, &fd); /* drop O_PATH if it is set */
-                if (dir_fd < 0)
-                        return dir_fd;
-        } else {
-                fd = openat(dir_fd, parent, O_DIRECTORY|O_RDONLY|O_CLOEXEC, 0);
-                if (fd < 0)
-                        return -errno;
-
-                dir_fd = fd;
-        }
+        fd = xopenat(dir_fd, parent ?: ".", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
 
         strncpy(args.name, subvolume, sizeof(args.name)-1);
 
-        return RET_NERRNO(ioctl(dir_fd, BTRFS_IOC_SUBVOL_CREATE, &args));
+        return RET_NERRNO(ioctl(fd, BTRFS_IOC_SUBVOL_CREATE, &args));
 }
 
 int btrfs_subvol_make_fallback(int dir_fd, const char *path, mode_t mode) {
