@@ -4,8 +4,11 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#if !HAVE_QUOTACTL_FD
+#undef quotactl_fd
+extern typeof(missing_quotactl_fd) quotactl_fd;
+#pragma weak quotactl_fd
 int missing_quotactl_fd(int fd, int cmd, int id, void *addr) {
+        if (quotactl_fd)
+                return quotactl_fd(fd, cmd, id, addr);
         return syscall(__NR_quotactl_fd, fd, cmd, id, addr);
 }
-#endif
