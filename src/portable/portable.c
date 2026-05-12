@@ -97,8 +97,10 @@ static bool unit_match(const char *unit, char **matches) {
 
 static PortableMetadata *portable_metadata_new(const char *name, const char *path, const char *selinux_label, int fd) {
         PortableMetadata *m;
+        size_t name_len;
 
-        m = malloc0(offsetof(PortableMetadata, name) + strlen(name) + 1);
+        name_len = strlen(name);
+        m = malloc0(offsetof(PortableMetadata, name) + name_len + 1);
         if (!m)
                 return NULL;
 
@@ -118,7 +120,7 @@ static PortableMetadata *portable_metadata_new(const char *name, const char *pat
                 }
         }
 
-        strcpy(m->name, name);
+        memcpy(m->name, name, name_len + 1);
         m->fd = fd;
 
         return TAKE_PTR(m);
