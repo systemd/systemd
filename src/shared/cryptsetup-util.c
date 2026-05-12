@@ -55,9 +55,18 @@ DLSYM_PROTOTYPE(crypt_resume_by_volume_key) = NULL;
 DLSYM_PROTOTYPE(crypt_set_data_device) = NULL;
 DLSYM_PROTOTYPE(crypt_set_data_offset) = NULL;
 DLSYM_PROTOTYPE(crypt_set_debug_level) = NULL;
-#if HAVE_CRYPT_SET_KEYRING_TO_LINK
+/* Available since libcryptsetup 2.7. Always redeclare so DLSYM_PROTOTYPE's typeof() resolves on older
+ * headers; suppress the warning when newer libcryptsetup already declared it. */
+DISABLE_WARNING_REDUNDANT_DECLS;
+/* NOLINTBEGIN(readability-redundant-declaration) */
+extern int crypt_set_keyring_to_link(struct crypt_device *cd,
+                                     const char *key_description,
+                                     const char *old_key_description,
+                                     const char *key_type_desc,
+                                     const char *keyring_to_link_vk);
+/* NOLINTEND(readability-redundant-declaration) */
+REENABLE_WARNING;
 DLSYM_PROTOTYPE(crypt_set_keyring_to_link) = NULL;
-#endif
 DLSYM_PROTOTYPE(crypt_set_log_callback) = NULL;
 DLSYM_PROTOTYPE(crypt_set_metadata_size) = NULL;
 DLSYM_PROTOTYPE(crypt_set_pbkdf_type) = NULL;
@@ -67,9 +76,11 @@ DLSYM_PROTOTYPE(crypt_token_external_path) = NULL;
 DLSYM_PROTOTYPE(crypt_token_json_get) = NULL;
 DLSYM_PROTOTYPE(crypt_token_json_set) = NULL;
 DLSYM_PROTOTYPE(crypt_token_max) = NULL;
-#if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
+/* Available since libcryptsetup 2.7. */
+DISABLE_WARNING_REDUNDANT_DECLS;
+extern int crypt_token_set_external_path(const char *path); /* NOLINT(readability-redundant-declaration) */
+REENABLE_WARNING;
 DLSYM_PROTOTYPE(crypt_token_set_external_path) = NULL;
-#endif
 DLSYM_PROTOTYPE(crypt_token_status) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_get) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_keyring) = NULL;
@@ -318,9 +329,6 @@ int dlopen_cryptsetup(int log_level) {
                         DLSYM_ARG(crypt_set_data_device),
                         DLSYM_ARG(crypt_set_data_offset),
                         DLSYM_ARG(crypt_set_debug_level),
-#if HAVE_CRYPT_SET_KEYRING_TO_LINK
-                        DLSYM_ARG(crypt_set_keyring_to_link),
-#endif
                         DLSYM_ARG(crypt_set_log_callback),
                         DLSYM_ARG(crypt_set_metadata_size),
                         DLSYM_ARG(crypt_set_pbkdf_type),
@@ -330,9 +338,6 @@ int dlopen_cryptsetup(int log_level) {
                         DLSYM_ARG(crypt_token_json_get),
                         DLSYM_ARG(crypt_token_json_set),
                         DLSYM_ARG(crypt_token_max),
-#if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
-                        DLSYM_ARG(crypt_token_set_external_path),
-#endif
                         DLSYM_ARG(crypt_token_status),
                         DLSYM_ARG(crypt_volume_key_get),
                         DLSYM_ARG(crypt_volume_key_keyring),
@@ -340,6 +345,11 @@ int dlopen_cryptsetup(int log_level) {
                         DLSYM_ARG(crypt_get_integrity_info));
         if (r <= 0)
                 return r;
+
+        /* Optional symbols: present in libcryptsetup 2.7+ only. NULL means feature is unavailable; call
+         * sites check the pointer before invoking. */
+        DLSYM_OPTIONAL(cryptsetup_dl, crypt_set_keyring_to_link);
+        DLSYM_OPTIONAL(cryptsetup_dl, crypt_token_set_external_path);
 
         /* Redirect the default logging calls of libcryptsetup to our own logging infra. (Note that
          * libcryptsetup also maintains per-"struct crypt_device" log functions, which we'll also set
@@ -350,13 +360,12 @@ int dlopen_cryptsetup(int log_level) {
 
         const char *e = secure_getenv("SYSTEMD_CRYPTSETUP_TOKEN_PATH");
         if (e) {
-#if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
-                r = sym_crypt_token_set_external_path(e);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to set the libcryptsetup external token path to '%s', ignoring: %m", e);
-#else
-                log_debug("libcryptsetup version does not support setting the external token path, not setting it to '%s'.", e);
-#endif
+                if (sym_crypt_token_set_external_path) {
+                        r = sym_crypt_token_set_external_path(e);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to set the libcryptsetup external token path to '%s', ignoring: %m", e);
+                } else
+                        log_debug("Loaded libcryptsetup does not support setting the external token path, not setting it to '%s'.", e);
         }
 
         return 1;

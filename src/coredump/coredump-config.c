@@ -2,6 +2,7 @@
 
 #include "conf-parser.h"
 #include "coredump-config.h"
+#include "elf-util.h"
 #include "format-util.h"
 #include "journal-def.h"
 #include "log.h"
@@ -45,12 +46,10 @@ int coredump_parse_config(CoredumpConfig *config) {
                 config->journal_size_max = JOURNAL_SIZE_MAX;
         }
 
-#if !HAVE_DWFL_SET_SYSROOT
-        if (config->enter_namespace) {
+        if (config->enter_namespace && !dlopen_dw_has_dwfl_set_sysroot()) {
                 log_warning("EnterNamespace= is enabled but libdw does not support dwfl_set_sysroot(), disabling.");
                 config->enter_namespace = false;
         }
-#endif
 
         log_debug("Selected storage '%s'.", coredump_storage_to_string(config->storage));
         log_debug("Selected compression %s.", yes_no(config->compress));

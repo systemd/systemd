@@ -2011,6 +2011,18 @@ int make_reaper_process(bool b) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(posix_spawnattr_t*, posix_spawnattr_destroy, NULL);
 
+/* pidfd_spawn() and posix_spawnattr_setcgroup_np() were added in glibc 2.39. Reference them weakly so the
+ * binary still loads on older glibc and falls back to plain posix_spawn() at runtime. */
+DISABLE_WARNING_REDUNDANT_DECLS;
+/* NOLINTBEGIN(readability-redundant-declaration) */
+extern typeof(pidfd_spawn) pidfd_spawn _weak_;
+extern typeof(posix_spawnattr_setcgroup_np) posix_spawnattr_setcgroup_np _weak_;
+/* NOLINTEND(readability-redundant-declaration) */
+REENABLE_WARNING;
+#ifndef POSIX_SPAWN_SETCGROUP
+#  define POSIX_SPAWN_SETCGROUP 0x100
+#endif
+
 int posix_spawn_wrapper(
                 const char *path,
                 char * const *argv,
@@ -2047,11 +2059,10 @@ int posix_spawn_wrapper(
         /* Initialization needs to succeed before we can set up a destructor. */
         _unused_ _cleanup_(posix_spawnattr_destroyp) posix_spawnattr_t *attr_destructor = &attr;
 
-#if HAVE_PIDFD_SPAWN
         static bool have_clone_into_cgroup = true; /* kernel 5.7+ */
         _cleanup_close_ int cgroup_fd = -EBADF;
 
-        if (cgroup && have_clone_into_cgroup) {
+        if (pidfd_spawn && posix_spawnattr_setcgroup_np && cgroup && have_clone_into_cgroup) {
                 _cleanup_free_ char *resolved_cgroup = NULL;
 
                 r = cg_get_path(cgroup, /* suffix= */ NULL, &resolved_cgroup);
@@ -2068,7 +2079,6 @@ int posix_spawn_wrapper(
 
                 flags |= POSIX_SPAWN_SETCGROUP;
         }
-#endif
 
         r = posix_spawnattr_setflags(&attr, flags);
         if (r != 0)
@@ -2077,39 +2087,40 @@ int posix_spawn_wrapper(
         if (r != 0)
                 return -r;
 
-#if HAVE_PIDFD_SPAWN
-        _cleanup_close_ int pidfd = -EBADF;
+        if (pidfd_spawn) {
+                _cleanup_close_ int pidfd = -EBADF;
 
-        r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
-        if (ERRNO_IS_NOT_SUPPORTED(r) && FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP) && cg_is_threaded(cgroup) > 0)
-                return -EUCLEAN; /* clone3() could also return EOPNOTSUPP if the target cgroup is in threaded mode,
-                                    turn that into something recognizable */
-        if ((ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r)) &&
-            FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP)) {
-                /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but
-                 * need to disable POSIX_SPAWN_SETCGROUP, which is what redirects to clone3().
-                 * CLONE_INTO_CGROUP definitely won't work, hence remember the fact so that we don't
-                 * retry every time.
-                 * Note, CLONE_INTO_CGROUP is supported since kernel v5.7, but some architectures still
-                 * do not support clone3(). Hence, we need to keep the fallback logic for a while. */
-                have_clone_into_cgroup = false;
+                r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+                if (ERRNO_IS_NOT_SUPPORTED(r) && FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP) && cg_is_threaded(cgroup) > 0)
+                        return -EUCLEAN; /* clone3() could also return EOPNOTSUPP if the target cgroup is in threaded mode,
+                                            turn that into something recognizable */
+                if ((ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r)) &&
+                    FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP)) {
+                        /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but
+                         * need to disable POSIX_SPAWN_SETCGROUP, which is what redirects to clone3().
+                         * CLONE_INTO_CGROUP definitely won't work, hence remember the fact so that we don't
+                         * retry every time.
+                         * Note, CLONE_INTO_CGROUP is supported since kernel v5.7, but some architectures still
+                         * do not support clone3(). Hence, we need to keep the fallback logic for a while. */
+                        have_clone_into_cgroup = false;
 
-                flags &= ~POSIX_SPAWN_SETCGROUP;
-                r = posix_spawnattr_setflags(&attr, flags);
+                        flags &= ~POSIX_SPAWN_SETCGROUP;
+                        r = posix_spawnattr_setflags(&attr, flags);
+                        if (r != 0)
+                                return -r;
+
+                        r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+                }
                 if (r != 0)
                         return -r;
 
-                r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+                r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
+                if (r < 0)
+                        return r;
+
+                return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
         }
-        if (r != 0)
-                return -r;
 
-        r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
-        if (r < 0)
-                return r;
-
-        return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
-#else
         pid_t pid;
 
         r = posix_spawn(&pid, path, NULL, &attr, argv, envp);
@@ -2121,7 +2132,6 @@ int posix_spawn_wrapper(
                 return r;
 
         return 0; /* We did not use CLONE_INTO_CGROUP so return 0, the caller will have to move the child */
-#endif
 }
 
 int proc_dir_open(DIR **ret) {
