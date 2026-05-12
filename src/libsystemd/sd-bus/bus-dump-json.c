@@ -98,6 +98,32 @@ static int json_transform_dict_array(sd_bus_message *m, sd_json_variant **ret) {
                 if (r < 0)
                         return r;
 
+                /* JSON only supports string keys in objects, but D-Bus specification is a bit more lenient
+                 * and allows dict entries to have any basic type as key. Let's stringify allowed non-string
+                 * keys so that we can represent them as JSON objects. */
+                if (!sd_json_variant_is_string(elements[n_elements])) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *key = NULL;
+                        _cleanup_free_ char *s = NULL;
+
+                        if (!IN_SET(sd_json_variant_type(elements[n_elements]),
+                                    SD_JSON_VARIANT_BOOLEAN,
+                                    SD_JSON_VARIANT_INTEGER,
+                                    SD_JSON_VARIANT_NUMBER,
+                                    SD_JSON_VARIANT_REAL,
+                                    SD_JSON_VARIANT_UNSIGNED))
+                                return -EINVAL;
+
+                        key = TAKE_PTR(elements[n_elements]);
+
+                        r = sd_json_variant_format(key, /* flags= */ 0, &s);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_json_variant_new_string(elements + n_elements, s);
+                        if (r < 0)
+                                return r;
+                }
+
                 n_elements++;
 
                 r = json_transform_one(m, elements + n_elements);
