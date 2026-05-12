@@ -180,9 +180,45 @@ echo "mprotect PROT_EXEC from tmpfs blocked: OK"
 # systemd-dissect picks up the sidecar .verity / .roothash / .roothash.p7s
 # files next to the .raw automatically; mkosi ships the pre-signed minimal_0
 # images and mkosi.postinst.chroot extracts the .roothash and .roothash.p7s
-# from the JSON-wrapped .verity.sig. mkosi.crt lands in the machine keyring
-# on hosts where machine_supports_verity_keyring returns true, so the kernel
-# accepts the signature.
+# from the JSON-wrapped .verity.sig.
+#
+# Provision the dedicated .dm-verity keyring (kernel commit 033724b1c627,
+# v7.0+) with the mkosi cert. dm_verity.keyring_unsealed=1 on the cmdline
+# leaves the keyring open at boot; we add the cert and then restrict the
+# keyring — dm-verity only consults it once it has keys AND is restricted
+# (see verify_root_hash_sig() in drivers/md/dm-verity-verify-sig.c). On
+# older kernels the keyring doesn't exist, the keyctl ops fail silently,
+# and the verity subtest skips via machine_supports_verity_keyring below.
+keyid=""
+if command -v keyctl >/dev/null 2>&1 && [[ -e /usr/share/mkosi.crt ]]; then
+    # Empty description tells the kernel to auto-derive one from the X.509
+    # subject (embedding the CN), which is what machine_supports_verity_keyring
+    # below greps for in /proc/keys.
+    keyid=$(openssl x509 -in /usr/share/mkosi.crt -outform DER |
+                keyctl padd asymmetric '' %:.dm-verity 2>/dev/null) || keyid=""
+
+    if [[ -n "$keyid" ]]; then
+        if keyctl restrict_keyring %:.dm-verity 2>/dev/null; then
+            echo "Provisioned .dm-verity keyring with mkosi.crt"
+        else
+            # restrict_keyring failed after a successful padd. The kernel only
+            # consults .dm-verity when both nr_leaves_on_tree>0 AND
+            # restrict_link is set (drivers/md/dm-verity-verify-sig.c:156-157),
+            # so dm-verity won't use the key we just added. Unlink it so the
+            # cert disappears from /proc/keys and the verity subtest below
+            # takes the skip path instead of trying and failing the dm-verity
+            # signature check.
+            keyctl unlink "$keyid" %:.dm-verity 2>/dev/null || true
+            echo ".dm-verity keyring restrict_keyring failed, verity subtest will skip"
+        fi
+    else
+        # Either the kernel pre-dates commit 033724b1c627 (v7.0+) and the
+        # .dm-verity keyring doesn't exist, or dm_verity.keyring_unsealed=1
+        # wasn't set on the cmdline and the keyring was already sealed at
+        # module init. Either way, fall through to the subtest skip below.
+        echo ".dm-verity keyring not provisionable (kernel < v7.0?), verity subtest will skip"
+    fi
+fi
 
 MINIMAL=/usr/share/minimal_0
 if [[ -e "$MINIMAL.raw" ]] &&
