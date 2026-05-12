@@ -172,6 +172,7 @@ enum {
         _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO,
         _JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL,
         _JSON_BUILD_PAIR_FINITE_USEC,
+        _JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO,
         _JSON_BUILD_PAIR_STRING_NON_EMPTY,
         _JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY,
         _JSON_BUILD_PAIR_STRV_NON_EMPTY,
@@ -222,6 +223,7 @@ enum {
 #define JSON_BUILD_PAIR_UNSIGNED_NON_ZERO(name, u) _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO, (const char*) { name }, (uint64_t) { u }
 #define JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL(name, u, eq) _JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL, (const char*) { name }, (uint64_t) { u }, (uint64_t) { eq }
 #define JSON_BUILD_PAIR_FINITE_USEC(name, u) _JSON_BUILD_PAIR_FINITE_USEC, (const char*) { name }, (usec_t) { u }
+#define JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO(name, u) _JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO, (const char*) { name }, (usec_t) { u }
 #define JSON_BUILD_PAIR_STRING_NON_EMPTY(name, s) _JSON_BUILD_PAIR_STRING_NON_EMPTY, (const char*) { name }, (const char*) { s }
 #define JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY(name, s) _JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY, (const char*) { name }, (const char*) { s }
 #define JSON_BUILD_PAIR_STRV_NON_EMPTY(name, l) _JSON_BUILD_PAIR_STRV_NON_EMPTY, (const char*) { name }, (char**) { l }

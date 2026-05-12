@@ -4543,6 +4543,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
+                case _JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO:
                 case _JSON_BUILD_PAIR_FINITE_USEC: {
                         const char *n;
                         usec_t u;
@@ -4555,7 +4556,9 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         n = va_arg(ap, const char *);
                         u = va_arg(ap, usec_t);
 
-                        if (u != USEC_INFINITY && current->n_suppress == 0) {
+                        if (u != USEC_INFINITY &&
+                            (command != _JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO || u > 0) &&
+                            current->n_suppress == 0) {
                                 r = sd_json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
