@@ -396,6 +396,7 @@ DHCPServer.BootFilename,                         config_parse_string,           
 DHCPServer.RapidCommit,                          config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_rapid_commit)
 DHCPServer.PersistLeases,                        config_parse_dhcp_server_persist_leases,        0,                                      offsetof(Network, dhcp_server_persist_leases)
 DHCPServer.LocalLeaseDomain,                     config_parse_dns_name,                          0,                                      offsetof(Network, dhcp_server_local_lease_domain)
+DHCPServer.CaptivePortal,                        config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, dhcp_server_captive_portal)
 DHCPServerStaticLease.Address,                   config_parse_dhcp_static_lease_address,         0,                                      0
 DHCPServerStaticLease.MACAddress,                config_parse_dhcp_static_lease_hwaddr,          0,                                      0
 DHCPServerStaticLease.Hostname,                  config_parse_dhcp_static_lease_hostname,        0,                                      0
@@ -453,6 +454,7 @@ IPv6SendRA.UplinkInterface,                      config_parse_uplink,           
 IPv6SendRA.HomeAgent,                            config_parse_bool,                              0,                                      offsetof(Network, router_home_agent_information)
 IPv6SendRA.HomeAgentLifetimeSec,                 config_parse_router_home_agent_lifetime,        0,                                      offsetof(Network, home_agent_lifetime_usec)
 IPv6SendRA.HomeAgentPreference,                  config_parse_uint16,                            0,                                      offsetof(Network, router_home_agent_preference)
+IPv6SendRA.CaptivePortal,                        config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, router_captive_portal)
 IPv6Prefix.Prefix,                               config_parse_prefix,                            0,                                      0
 IPv6Prefix.OnLink,                               config_parse_prefix_boolean,                    ND_OPT_PI_FLAG_ONLINK,                  0
 IPv6Prefix.AddressAutoconfiguration,             config_parse_prefix_boolean,                    ND_OPT_PI_FLAG_AUTO,                    0

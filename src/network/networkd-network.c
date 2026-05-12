@@ -774,6 +774,7 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->dhcp_server_send_options);
         ordered_hashmap_free(network->dhcp_server_send_vendor_options);
         free(network->dhcp_server_local_lease_domain);
+        free(network->dhcp_server_captive_portal);
 
         /* DHCP client */
         free(network->dhcp_vendor_class_identifier);
@@ -810,6 +811,7 @@ static Network *network_free(Network *network) {
         ordered_set_free(network->router_search_domains);
         free(network->router_dns);
         free(network->router_uplink_name);
+        free(network->router_captive_portal);
 
         /* NDisc */
         set_free(network->ndisc_deny_listed_router);

@@ -235,6 +235,7 @@ typedef struct Network {
         bool dhcp_server_rapid_commit;
         DHCPServerPersistLeases dhcp_server_persist_leases;
         char *dhcp_server_local_lease_domain;
+        char *dhcp_server_captive_portal;
 
         /* link-local addressing support */
         AddressFamily link_local;
@@ -260,6 +261,7 @@ typedef struct Network {
         OrderedSet *router_search_domains;
         int router_uplink_index;
         char *router_uplink_name;
+        char *router_captive_portal;
         /* Mobile IPv6 Home Agent */
         bool router_home_agent_information;
         uint16_t router_home_agent_preference;
