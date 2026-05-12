@@ -196,44 +196,55 @@ int sd_dhcp_client_set_mac(
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
-        assert_return(IN_SET(arp_type, ARPHRD_ETHER, ARPHRD_INFINIBAND, ARPHRD_RAWIP, ARPHRD_NONE), -EINVAL);
 
-        static const uint8_t default_eth_bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
-                        default_eth_hwaddr[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        static const uint8_t default_eth_hwaddr[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
         switch (arp_type) {
+        case ARPHRD_ETHER:
+                assert_return(addr_len == ETH_ALEN, -EINVAL);
+                assert_return(hw_addr, -EINVAL);
+                break;
+
+        case ARPHRD_INFINIBAND:
+                assert_return(addr_len == INFINIBAND_ALEN, -EINVAL);
+                assert_return(hw_addr, -EINVAL);
+                break;
+
         case ARPHRD_RAWIP:
         case ARPHRD_NONE:
-                /* Linux cellular modem drivers (e.g. qmi_wwan) present a
-                 * network interface of type ARPHRD_RAWIP(519) or
-                 * ARPHRD_NONE(65534) when in point-to-point mode, but these
-                 * are not valid DHCP hardware-type values.
+                /* Linux cellular modem drivers (e.g. qmi_wwan) present a network interface of type
+                 * ARPHRD_RAWIP(519) or ARPHRD_NONE(65534) when in point-to-point mode, but these are not
+                 * valid DHCP hardware-type values.
                  *
-                 * Apparently, it's best to just pretend that these are ethernet
-                 * devices.  Other approaches have been tried, but resulted in
-                 * incompatibilities with some server software.  See
-                 * https://lore.kernel.org/netdev/cover.1228948072.git.inaky@linux.intel.com/
-                 */
+                 * Apparently, it's best to just pretend that these are ethernet devices. Other approaches
+                 * have been tried, but resulted in incompatibilities with some server software. See
+                 * https://lore.kernel.org/netdev/cover.1228948072.git.inaky@linux.intel.com/ */
                 arp_type = ARPHRD_ETHER;
                 if (addr_len == 0) {
-                        assert_cc(sizeof(default_eth_hwaddr) == ETH_ALEN);
-                        assert_cc(sizeof(default_eth_bcast) == ETH_ALEN);
-                        hw_addr = default_eth_hwaddr;
-                        bcast_addr = default_eth_bcast;
+                        /* If the specified hardware address length is 0, always use the default ones. */
                         addr_len = ETH_ALEN;
+                        hw_addr = default_eth_hwaddr;
+                        bcast_addr = NULL;
+                } else if (addr_len == ETH_ALEN) {
+                        /* If the specified hardware address length is ETH_ALEN, use the default ones when
+                         * unspecified. */
+                        if (!hw_addr)
+                                hw_addr = default_eth_hwaddr;
+                } else {
+                        /* Otherwise, user must specify valid addresses. */
+                        assert_return(hw_addr, -EINVAL);
+                        assert_return(bcast_addr, -EINVAL);
                 }
                 break;
-        }
 
-        assert_return(IN_SET(arp_type, ARPHRD_ETHER, ARPHRD_INFINIBAND), -EINVAL);
-        assert_return(hw_addr, -EINVAL);
-        assert_return(addr_len == (arp_type == ARPHRD_ETHER ? ETH_ALEN : INFINIBAND_ALEN), -EINVAL);
+        default:
+                return -EINVAL;
+        }
 
         client->arp_type = arp_type;
         hw_addr_set(&client->hw_addr, hw_addr, addr_len);
         hw_addr_set(&client->bcast_addr, bcast_addr, bcast_addr ? addr_len : 0);
-
-        return 0;
+        return hw_addr_ensure_broadcast(&client->bcast_addr, arp_type);
 }
 
 int sd_dhcp_client_get_client_id(sd_dhcp_client *client, const sd_dhcp_client_id **ret) {
@@ -2069,6 +2080,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
         assert_return(client->ifindex > 0, -EINVAL);
+        assert_return(!hw_addr_is_null(&client->bcast_addr), -EINVAL);
 
         /* If no client identifier exists, construct an RFC 4361-compliant one */
         if (!sd_dhcp_client_id_is_set(&client->client_id)) {
