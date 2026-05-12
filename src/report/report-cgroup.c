@@ -97,7 +97,7 @@ static int io_stat_parse(const char *cgroup_path, uint64_t ret[static 2]) {
 
         _cleanup_fclose_ FILE *f = fopen(path, "re");
         if (!f)
-                return -errno;
+                return errno_or_else(EIO);
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
