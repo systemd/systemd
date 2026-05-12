@@ -4,8 +4,10 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#if !HAVE_SCHED_SETATTR
+#undef sched_setattr
+extern typeof(missing_sched_setattr) sched_setattr __attribute__((weak));
 int missing_sched_setattr(pid_t pid, struct sched_attr *attr, unsigned flags) {
+        if (sched_setattr)
+                return sched_setattr(pid, attr, flags);
         return syscall(__NR_sched_setattr, pid, attr, flags);
 }
-#endif

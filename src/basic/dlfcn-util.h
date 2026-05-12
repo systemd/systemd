@@ -33,6 +33,15 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
 #define DLSYM_ARG_FORCE(arg) \
         &sym_##arg, STRINGIFY(arg)
 
+/* Resolve a single optional symbol from an already-opened library handle. The pointer variable is expected
+ * to be named sym_<name> (same convention as DLSYM_ARG). Only assigns on success, so the pointer keeps its
+ * pre-existing value if the symbol is not present — useful for fallback initialization. */
+#define DLSYM_OPTIONAL(dl, name)                                                                \
+        ({                                                                                      \
+                typeof(sym_##name) _v = (typeof(sym_##name)) dlsym((dl), #name);                \
+                if (_v) sym_##name = _v;                                                        \
+        })
+
 /* If called dlopen_many_sym_or_warn() will fail with EPERM. This can be used to block lazy loading of shared
  * libs, if we transfer a process into a different namespace. Note that this does not work for all calls of
  * dlopen(), just those through our dlopen_safe() wrapper (which we use comprehensively in our
