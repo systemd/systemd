@@ -334,7 +334,7 @@ static void help_types(void) {
         DUMP_STRING_TABLE(unit_type, UnitType, _UNIT_TYPE_MAX);
 }
 
-static void help_states(void) {
+static int help_states(void) {
         if (arg_legend != 0)
                 puts("Available unit load states:");
         DUMP_STRING_TABLE(unit_load_state, UnitLoadState, _UNIT_LOAD_STATE_MAX);
@@ -389,7 +389,36 @@ static void help_states(void) {
 
         if (arg_legend != 0)
                 puts("\nAvailable timer unit substates:");
-        DUMP_STRING_TABLE(timer_state, TimerState, _TIMER_STATE_MAX);
+        return DUMP_STRING_TABLE(timer_state, TimerState, _TIMER_STATE_MAX);
+}
+
+static int parse_states_argument(const char *value, char ***states) {
+        int r;
+
+        assert(value);
+        assert(states);
+
+        if (isempty(value))
+                /* reset the setting */
+                *states = strv_free(*states);
+        else
+                for (const char *p = value;;) {
+                        _cleanup_free_ char *s = NULL;
+
+                        r = extract_first_word(&p, &s, ",", 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse state: %s", value);
+                        if (r == 0)
+                                break;
+
+                        if (streq(s, "help"))
+                                return help_states();
+
+                        if (strv_consume(states, TAKE_PTR(s)) < 0)
+                                return log_oom();
+                }
+
+        return 1;
 }
 
 static int systemctl_parse_argv(int argc, char *argv[]) {
@@ -869,27 +898,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_STATE:
-                        if (isempty(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--state= requires arguments.");
-
-                        for (const char *p = optarg;;) {
-                                _cleanup_free_ char *s = NULL;
-
-                                r = extract_first_word(&p, &s, ",", 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse state: %s", optarg);
-                                if (r == 0)
-                                        break;
-
-                                if (streq(s, "help")) {
-                                        help_states();
-                                        return 0;
-                                }
-
-                                if (strv_consume(&arg_states, TAKE_PTR(s)) < 0)
-                                        return log_oom();
-                        }
+                        r = parse_states_argument(optarg, &arg_states);
+                        if (r <= 0)
+                                return r;
                         break;
 
                 case 'r':
