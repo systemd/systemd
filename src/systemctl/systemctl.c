@@ -494,6 +494,44 @@ static int parse_types_argument(const char *value, char ***types, char ***states
         return 1;
 }
 
+static int parse_what_argument(const char *value, char ***clean_what) {
+        int r;
+
+        assert(value);
+        assert(clean_what);
+
+        if (isempty(value))
+                /* reset the setting */
+                *clean_what = strv_free(*clean_what);
+        else
+                for (const char *p = value;;) {
+                        _cleanup_free_ char *k = NULL;
+
+                        r = extract_first_word(&p, &k, ",", 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse argument: %m");
+                        if (r == 0)
+                                break;
+
+                        if (streq(k, "help")) {
+                                puts("runtime\n"
+                                     "state\n"
+                                     "cache\n"
+                                     "logs\n"
+                                     "configuration\n"
+                                     "fdstore\n"
+                                     "all");
+                                return 0;
+                        }
+
+                        r = strv_consume(clean_what, TAKE_PTR(k));
+                        if (r < 0)
+                                return log_oom();
+                }
+
+        return 1;
+}
+
 static int systemctl_parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_FAIL = 0x100,            /* compatibility only */
@@ -963,34 +1001,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_WHAT:
-                        if (isempty(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--what= requires arguments (see --what=help).");
-
-                        for (const char *p = optarg;;) {
-                                _cleanup_free_ char *k = NULL;
-
-                                r = extract_first_word(&p, &k, ",", 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse directory type: %s", optarg);
-                                if (r == 0)
-                                        break;
-
-                                if (streq(k, "help")) {
-                                        puts("runtime\n"
-                                             "state\n"
-                                             "cache\n"
-                                             "logs\n"
-                                             "configuration\n"
-                                             "fdstore\n"
-                                             "all");
-                                        return 0;
-                                }
-
-                                r = strv_consume(&arg_clean_what, TAKE_PTR(k));
-                                if (r < 0)
-                                        return log_oom();
-                        }
-
+                        r = parse_what_argument(optarg, &arg_clean_what);
+                        if (r <= 0)
+                                return r;
                         break;
 
                 case ARG_REBOOT_ARG:
