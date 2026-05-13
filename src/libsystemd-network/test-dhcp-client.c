@@ -352,7 +352,8 @@ static void test_addr_acq_recv_request(size_t size, DHCPMessage *request) {
         ASSERT_OK_EQ(dhcp_option_parse(request, size, check_options, NULL, NULL), DHCP_REQUEST);
         ASSERT_EQ(request->xid, xid);
 
-        ASSERT_EQ(msg_bytes[size - 1], SD_DHCP_OPTION_END);
+        uint8_t *end = ASSERT_NOT_NULL(memrchr(msg_bytes, SD_DHCP_OPTION_END, size));
+        ASSERT_TRUE(memeqzero(end + 1, msg_bytes + size - end - 1));
 
         log_info("  recv DHCP Request  0x%08x", be32toh(xid));
 
@@ -374,7 +375,8 @@ static void test_addr_acq_recv_discover(size_t size, DHCPMessage *discover) {
 
         ASSERT_OK_EQ(dhcp_option_parse(discover, size, check_options, NULL, NULL), DHCP_DISCOVER);
 
-        ASSERT_EQ(msg_bytes[size - 1], SD_DHCP_OPTION_END);
+        uint8_t *end = ASSERT_NOT_NULL(memrchr(msg_bytes, SD_DHCP_OPTION_END, size));
+        ASSERT_TRUE(memeqzero(end + 1, msg_bytes + size - end - 1));
 
         xid = discover->xid;
 
