@@ -83,7 +83,6 @@ int _dispatch_verb_with_args(char **args, const Verb verbs[], const Verb verbs_e
 
         assert(verbs);
         assert(verbs_end > verbs);
-        assert(verbs[0].dispatch);
         assert(verbs[0].verb);
 
         const char *name = args ? args[0] : NULL;
