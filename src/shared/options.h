@@ -200,6 +200,9 @@ typedef struct OptionParser {
         char **argv;                  /* The argv array, possibly reordered. */
         OptionParserMode mode;
         const char *namespace;        /* The namespace, may be NULL. */
+        int log_level_shift;          /* The log level difference from the default of LOG_ERR.
+                                       * Allowed values are -3..4.
+                                       * Use 4 == LOG_DEBUG - LOG_ERR to log at debug level. */
 
         const Option *namespace_start, *namespace_end; /* The range of options that are part of our namespace. */
 
