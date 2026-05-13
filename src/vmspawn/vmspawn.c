@@ -103,6 +103,13 @@
 #define DISK_SERIAL_MAX_LEN_NVME        20
 #define DISK_SERIAL_MAX_LEN_VIRTIO_BLK  20
 
+/* First and one-past-last pcie.0 device-numbers used for multifunction-packed
+ * pcie-root-ports. Sits above the auto-assigned virtio devices (0x01-0x03) and
+ * below 0x1f, which q35 reserves for ICH9 LPC at 0x1f.0 (single-function). */
+#define VMSPAWN_PCIE_PACK_BASE_SLOT 0x10
+#define VMSPAWN_PCIE_PACK_END_SLOT  0x1f
+#define VMSPAWN_PCIE_PACK_MAX_PORTS ((VMSPAWN_PCIE_PACK_END_SLOT - VMSPAWN_PCIE_PACK_BASE_SLOT) * 8)
+
 /* An enum controlling how auxiliary state for the VM are maintained, i.e. the TPM state and the EFI variable
  * NVRAM. */
 typedef enum StateMode {
@@ -3487,28 +3494,47 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * that will be set up via QMP, plus VMSPAWN_PCIE_HOTPLUG_SPARES spare ports for future
          * runtime hotplug. */
         if (ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS) {
-                /* Count maximum possible PCI devices: root image + extra drives + SCSI controller +
-                 * network + virtiofs mounts + vsock. The actual count may be lower (e.g. no network,
-                 * no SCSI), but unused ports have negligible overhead. */
-                size_t n_pcie_ports = 1 +
-                                arg_extra_drives.n_drives +   /* drives */
-                                1 +                           /* SCSI controller */
-                                1 +                           /* network */
-                                (arg_directory ? 1 : 0) +     /* rootdir virtiofs */
-                                arg_runtime_mounts.n_mounts + /* extra virtiofs mounts */
-                                1 +                           /* vsock */
-                                VMSPAWN_PCIE_HOTPLUG_SPARES;  /* reserved for future hotplug */
+                /* Count the PCI devices that assign_pcie_ports() will place on a builtin port:
+                 * one per non-SCSI drive (root + extras + bind volumes; SCSI drives share a
+                 * virtio-scsi-pci controller drawn from the hotplug pool, see
+                 * assign_pcie_ports()), one if network is configured, one per virtiofs entry,
+                 * one if vsock is in use. Plus a fixed pool of hotplug spares for runtime
+                 * device_add. */
+                size_t n_drive_ports = 0;
+                if (!IN_SET(arg_image_disk_type, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM))
+                        n_drive_ports++;
+                FOREACH_ARRAY(d, arg_extra_drives.drives, arg_extra_drives.n_drives) {
+                        DiskType dt = d->disk_type >= 0 ? d->disk_type : arg_image_disk_type;
+                        if (!IN_SET(dt, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM))
+                                n_drive_ports++;
+                }
+                FOREACH_ARRAY(bv, arg_bind_volumes.items, arg_bind_volumes.n_items) {
+                        DiskType dt = disk_type_from_bind_volume_config((*bv)->config);
+                        if (dt < 0)
+                                continue; /* unreachable: parser rejects invalid configs */
+                        if (!IN_SET(dt, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM))
+                                n_drive_ports++;
+                }
+
+                size_t n_pcie_ports =
+                        n_drive_ports +                                    /* non-SCSI drives */
+                        (arg_network_stack != NETWORK_STACK_NONE ? 1 : 0) + /* network */
+                        (arg_directory ? 1 : 0) +                          /* rootdir virtiofs */
+                        arg_runtime_mounts.n_mounts +                      /* runtime virtiofs */
+                        (use_vsock ? 1 : 0) +                              /* vsock */
+                        VMSPAWN_PCIE_HOTPLUG_SPARES;                       /* hotplug pool */
 
                 /* Guard the unsigned subtraction below against future refactors that might drop the
                  * fixed additions. */
                 assert(n_pcie_ports >= VMSPAWN_PCIE_HOTPLUG_SPARES);
 
-                /* QEMU's pcie-root-port chassis/slot are uint8_t — i+1 must fit. */
-                if (n_pcie_ports > UINT8_MAX)
+                /* Cap derived from the packing range: cannot exceed VMSPAWN_PCIE_PACK_MAX_PORTS
+                 * (= 15 slots × 8 functions = 120) without running into the 0x1f LPC slot. */
+                if (n_pcie_ports > VMSPAWN_PCIE_PACK_MAX_PORTS)
                         return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
-                                               "Too many PCIe root ports requested (%zu, max 255). "
+                                               "Too many PCIe root ports requested (%zu, max %u). "
                                                "Reduce the number of extra drives or runtime mounts.",
-                                               n_pcie_ports);
+                                               n_pcie_ports, (unsigned) VMSPAWN_PCIE_PACK_MAX_PORTS);
 
                 size_t n_builtin_ports = n_pcie_ports - VMSPAWN_PCIE_HOTPLUG_SPARES;
                 for (size_t i = 0; i < n_pcie_ports; i++) {
@@ -3523,6 +3549,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (r < 0)
                                 return r;
 
+                        /* chassis/slot are the PCIe-chassis identity (ACPI hotplug paths),
+                         * independent of the PCI bus address below. */
                         r = qemu_config_keyf(config_file, "chassis", "%zu", i + 1);
                         if (r < 0)
                                 return r;
@@ -3530,6 +3558,21 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         r = qemu_config_keyf(config_file, "slot", "%zu", i + 1);
                         if (r < 0)
                                 return r;
+
+                        /* Pack 8 root ports per pcie.0 device-number as multifunction, so 14
+                         * ports cost 2 slots on pcie.0 instead of 14. Each function remains
+                         * independently hot-pluggable (QEMU docs/pcie.txt §5.1). */
+                        size_t pci_slot = VMSPAWN_PCIE_PACK_BASE_SLOT + i / 8;
+                        size_t pci_fn   = i % 8;
+                        assert(pci_slot < VMSPAWN_PCIE_PACK_END_SLOT);
+                        r = qemu_config_keyf(config_file, "addr", "0x%zx.%zu", pci_slot, pci_fn);
+                        if (r < 0)
+                                return r;
+                        if (pci_fn == 0) {
+                                r = qemu_config_key(config_file, "multifunction", "on");
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
