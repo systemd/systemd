@@ -34,3 +34,13 @@ int exit_failure_if_nonzero(int result) _const_;
  * Note: "true" means failure! */
 #define DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(impl)                \
         _DEFINE_MAIN_FUNCTION(, impl(argc, argv), exit_failure_if_nonzero)
+
+typedef int (*main_fiber_func_t)(int argc, char *argv[]);
+
+/* Build a default sd_event, spawn impl as a fiber on it, and run the event loop. Completion of the main
+ * fiber exits the loop with impl's return value. An explicit sd_event_exit() takes precedence, cancels the
+ * main fiber, and its exit code is returned instead. Signal policy belongs to impl. */
+int run_main_fiber(int argc, char *argv[], main_fiber_func_t func);
+
+#define DEFINE_MAIN_FUNCTION_FIBER(impl)                                \
+        _DEFINE_MAIN_FUNCTION(, run_main_fiber(argc, argv, impl), exit_failure_if_negative)
