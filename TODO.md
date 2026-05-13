@@ -136,6 +136,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   "nothing"/"invalid"/"zero"/"please-suppress". Then use that to reduce noise
   in systemd-report output.
 
+- cgroup-metrics: add per-cgroup PSI metrics
+
 - sysupdate: offer reading transfer files/components/features optionally from
   some JSON fragment rather than transfer files, so that we can update it
   independently from any DDI, and it needs no activation cycle. Why? so that
