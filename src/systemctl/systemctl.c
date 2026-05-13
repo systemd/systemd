@@ -327,6 +327,34 @@ static int systemctl_help(void) {
         return 0;
 }
 
+static int parse_property_argument(const char *value, char ***properties) {
+        int r;
+
+        assert(value);
+        assert(properties);
+
+        if (isempty(value) && !*properties) {
+                /* Make sure that if the empty property list was specified, we won't show any properties. */
+                *properties = strv_new(NULL);
+                if (!*properties)
+                        return log_oom();
+        } else
+                for (const char *p = value;;) {
+                        _cleanup_free_ char *prop = NULL;
+
+                        r = extract_first_word(&p, &prop, ",", 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse property: '%s'", value);
+                        if (r == 0)
+                                break;
+
+                        if (strv_consume(properties, TAKE_PTR(prop)) < 0)
+                                return log_oom();
+                }
+
+        return 0;
+}
+
 static void help_types(void) {
         if (arg_legend != 0)
                 puts("Available unit types:");
@@ -611,25 +639,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         _fallthrough_;
 
                 case 'p':
-                        /* Make sure that if the empty property list was specified, we won't show any
-                           properties. */
-                        if (isempty(optarg) && !arg_properties) {
-                                arg_properties = new0(char*, 1);
-                                if (!arg_properties)
-                                        return log_oom();
-                        } else
-                                for (const char *p = optarg;;) {
-                                        _cleanup_free_ char *prop = NULL;
-
-                                        r = extract_first_word(&p, &prop, ",", 0);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to parse property: %s", optarg);
-                                        if (r == 0)
-                                                break;
-
-                                        if (strv_consume(&arg_properties, TAKE_PTR(prop)) < 0)
-                                                return log_oom();
-                                }
+                        r = parse_property_argument(optarg, &arg_properties);
+                        if (r < 0)
+                                return r;
 
                         /* If the user asked for a particular property, show it, even if it is empty. */
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
