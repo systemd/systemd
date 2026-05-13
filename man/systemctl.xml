@@ -1988,7 +1988,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <para>The argument is a comma-separated list of unit types such as <option>service</option> and
           <option>socket</option>. When units are listed with <command>list-units</command>,
           <command>list-dependencies</command>, <command>show</command>, or <command>status</command>,
-          only units of the specified types will be shown. By default, units of all types are shown.</para>
+          only units of the specified types will be shown. By default, units of all types are shown.
+          Use <option>--type=</option> to reset the filter.</para>
 
           <para>As a special case, if one of the arguments is <option>help</option>, a list of allowed values
           will be printed and the program will exit.</para>
