@@ -61,4 +61,6 @@
 #DefaultSmackProcessLabel=
 #DefaultRestrictSUIDSGID=
 #ReloadLimitIntervalSec=
-#ReloadLimitBurst
+#ReloadLimitBurst=
+#EventLoopRateLimitIntervalSec=1s
+#EventLoopRateLimitBurst=50000
