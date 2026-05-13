@@ -56,7 +56,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         optind = 0; /* this tells the getopt machinery to reinitialize */
         arg_transport = BUS_TRANSPORT_LOCAL;
 
-        r = systemctl_dispatch_parse_argv(strv_length(argv), argv);
+        r = systemctl_dispatch_parse_argv(strv_length(argv), argv, /* remaining_args= */ NULL);
         if (r < 0)
                 log_error_errno(r, "Failed to parse args: %m");
         else

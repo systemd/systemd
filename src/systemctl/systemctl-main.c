@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <locale.h>
 
 #include "dissect-image.h"
@@ -11,6 +10,7 @@
 #include "main-func.h"
 #include "mount-util.h"
 #include "stat-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-add-dependency.h"
 #include "systemctl-cancel-job.h"
@@ -47,7 +47,7 @@
 #include "verbs.h"
 #include "virt.h"
 
-static int systemctl_main(int argc, char *argv[]) {
+static int systemctl_main(char **args) {
         static const Verb verbs[] = {
                 { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, verb_list_units },
                 { "list-unit-files",       VERB_ANY, VERB_ANY, 0,                verb_list_unit_files         },
@@ -135,24 +135,25 @@ static int systemctl_main(int argc, char *argv[]) {
                 {}
         };
 
-        const Verb *verb = verbs_find_verb(argv[optind], verbs, verbs + ELEMENTSOF(verbs) - 1);
+        const Verb *verb = verbs_find_verb(args[0], verbs, verbs + ELEMENTSOF(verbs) - 1);
         if (verb && (verb->flags & VERB_ONLINE_ONLY) && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Verb '%s' cannot be used with --root= or --image=.",
-                                       argv[optind] ?: verb->verb);
+                                       args[0] ?: verb->verb);
 
-        return dispatch_verb(argc, argv, verbs, NULL);
+        return _dispatch_verb_with_args(args, verbs, verbs + ELEMENTSOF(verbs) - 1, NULL);
 }
 
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
+        char **args = STRV_EMPTY;
         int r;
 
         setlocale(LC_ALL, "");
         log_setup();
 
-        r = systemctl_dispatch_parse_argv(argc, argv);
+        r = systemctl_dispatch_parse_argv(argc, argv, &args);
         if (r <= 0)
                 goto finish;
 
@@ -200,7 +201,7 @@ static int run(int argc, char *argv[]) {
         switch (arg_action) {
 
         case ACTION_SYSTEMCTL:
-                r = systemctl_main(argc, argv);
+                r = systemctl_main(args);
                 break;
 
         /* Legacy command aliases set arg_action. They provide some fallbacks, e.g. to tell sysvinit to
