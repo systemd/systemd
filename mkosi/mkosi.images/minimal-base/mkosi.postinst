@@ -16,3 +16,8 @@ chmod +x "$BUILDROOT/sbin/init"
 if [ ! -e "$BUILDROOT/etc/os-release" ]; then
     ln -s ../usr/lib/os-release "$BUILDROOT/etc/os-release"
 fi
+
+# For use in the minimal containers, only needs libsystemd and libc
+if [[ -x "$BUILDDIR/test-fdstore" ]]; then
+    cp "$BUILDDIR/test-fdstore" "$BUILDROOT/usr/bin/test-fdstore"
+fi
