@@ -2509,6 +2509,8 @@ const UnitVTable mount_vtable = {
         .can_transient = true,
         .can_fail = true,
         .exclude_from_switch_root_serialization = true,
+        .notify_plymouth = true,
+        .track_orphaned = true,
 
         .init = mount_init,
         .load = mount_load,
@@ -2576,6 +2578,4 @@ const UnitVTable mount_vtable = {
         },
 
         .test_startable = mount_test_startable,
-
-        .notify_plymouth = true,
 };

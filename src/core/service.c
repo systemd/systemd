@@ -6149,6 +6149,8 @@ const UnitVTable service_vtable = {
         .can_delegate = true,
         .can_fail = true,
         .can_set_managed_oom = true,
+        .notify_plymouth = true,
+        .track_orphaned = true,
 
         .init = service_init,
         .done = service_done,
@@ -6212,8 +6214,6 @@ const UnitVTable service_vtable = {
         },
 
         .test_startable = service_test_startable,
-
-        .notify_plymouth = true,
 
         .audit_start_message_type = AUDIT_SERVICE_START,
         .audit_stop_message_type = AUDIT_SERVICE_STOP,
