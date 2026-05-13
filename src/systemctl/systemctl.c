@@ -28,6 +28,7 @@
 #include "systemctl-compat-shutdown.h"
 #include "systemctl-logind.h"
 #include "time-util.h"
+#include "verbs.h"
 
 char **arg_types = NULL;
 char **arg_states = NULL;
@@ -109,130 +110,47 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kill_subgroup, freep);
 
 static int systemctl_help(void) {
+        static const char *const vgroups[] = {
+                "Unit Commands",
+                "Unit File Commands",
+                "Machine Commands",
+                "Job Commands",
+                "Environment Commands",
+                "Manager State Commands",
+                "System Commands",
+        };
+
+        Table *vtables[ELEMENTSOF(vgroups)] = {};
+        CLEANUP_ELEMENTS(vtables, table_unref_array_clear);
         _cleanup_(table_unrefp) Table *options_table = NULL;
         int r;
+
+        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
+                r = verbs_get_help_table_group(vgroups[i], &vtables[i]);
+                if (r < 0)
+                        return r;
+        }
 
         r = option_parser_get_help_table_ns("systemctl", &options_table);
         if (r < 0)
                 return r;
+
+        assert_cc(ELEMENTSOF(vtables) == 7);
+        (void) table_sync_column_widths(0, options_table,
+                                        vtables[0], vtables[1], vtables[2], vtables[3],
+                                        vtables[4], vtables[5], vtables[6]);
 
         pager_open(arg_pager_flags);
 
         help_cmdline("[OPTIONS…] COMMAND …");
         help_abstract("Query or send control commands to the system manager.");
 
-        help_section("Unit Commands");
-        printf("  list-units [PATTERN...]             List units currently in memory\n"
-               "  list-automounts [PATTERN...]        List automount units currently in memory,\n"
-               "                                      ordered by path\n"
-               "  list-paths [PATTERN...]             List path units currently in memory,\n"
-               "                                      ordered by path\n"
-               "  list-sockets [PATTERN...]           List socket units currently in memory,\n"
-               "                                      ordered by address\n"
-               "  list-timers [PATTERN...]            List timer units currently in memory,\n"
-               "                                      ordered by next elapse\n"
-               "  is-active PATTERN...                Check whether units are active\n"
-               "  is-failed [PATTERN...]              Check whether units are failed or\n"
-               "                                      system is in degraded state\n"
-               "  status [PATTERN...|PID...]          Show runtime status of one or more units\n"
-               "  show [PATTERN...|JOB...]            Show properties of one or more\n"
-               "                                      units/jobs or the manager\n"
-               "  cat PATTERN...                      Show files and drop-ins of specified units\n"
-               "  help PATTERN...|PID...              Show manual for one or more units\n"
-               "  list-dependencies [UNIT...]         Recursively show units which are required\n"
-               "                                      or wanted by the units or by which those\n"
-               "                                      units are required or wanted\n"
-               "  start UNIT...                       Start (activate) one or more units\n"
-               "  stop UNIT...                        Stop (deactivate) one or more units\n"
-               "  reload UNIT...                      Reload one or more units\n"
-               "  restart UNIT...                     Start or restart one or more units\n"
-               "  try-restart UNIT...                 Restart one or more units if active\n"
-               "  enqueue-marked                      Enqueue jobs for all marked units\n"
-               "  reload-or-restart UNIT...           Reload one or more units if possible,\n"
-               "                                      otherwise start or restart\n"
-               "  try-reload-or-restart UNIT...       If active, reload one or more units,\n"
-               "                                      if supported, otherwise restart\n"
-               "  isolate UNIT                        Start one unit and stop all others\n"
-               "  kill UNIT...                        Send signal to processes of a unit\n"
-               "  clean UNIT...                       Clean runtime, cache, state, logs or\n"
-               "                                      configuration of unit\n"
-               "  freeze PATTERN...                   Freeze execution of unit processes\n"
-               "  thaw PATTERN...                     Resume execution of a frozen unit\n"
-               "  set-property UNIT PROPERTY=VALUE... Sets one or more properties of a unit\n"
-               "  bind UNIT PATH [PATH]               Bind-mount a path from the host into a\n"
-               "                                      unit's namespace\n"
-               "  mount-image UNIT PATH [PATH [OPTS]] Mount an image from the host into a\n"
-               "                                      unit's namespace\n"
-               "  service-log-level SERVICE [LEVEL]   Get/set logging threshold for service\n"
-               "  service-log-target SERVICE [TARGET] Get/set logging target for service\n"
-               "  reset-failed [PATTERN...]           Reset failed state for all, one, or more\n"
-               "                                      units\n"
-               "  whoami [PID...]                     Return unit caller or specified PIDs are\n"
-               "                                      part of\n");
-
-        help_section("Unit File Commands");
-        printf("  list-unit-files [PATTERN...]        List installed unit files\n"
-               "  enable [UNIT...|PATH...]            Enable one or more unit files\n"
-               "  disable UNIT...                     Disable one or more unit files\n"
-               "  reenable UNIT...                    Reenable one or more unit files\n"
-               "  preset UNIT...                      Enable/disable one or more unit files\n"
-               "                                      based on preset configuration\n"
-               "  preset-all                          Enable/disable all unit files based on\n"
-               "                                      preset configuration\n"
-               "  is-enabled UNIT...                  Check whether unit files are enabled\n"
-               "  mask UNIT...                        Mask one or more units\n"
-               "  unmask UNIT...                      Unmask one or more units\n"
-               "  link PATH...                        Link one or more units files into\n"
-               "                                      the search path\n"
-               "  revert UNIT...                      Revert one or more unit files to vendor\n"
-               "                                      version\n"
-               "  add-wants TARGET UNIT...            Add 'Wants' dependency for the target\n"
-               "                                      on specified one or more units\n"
-               "  add-requires TARGET UNIT...         Add 'Requires' dependency for the target\n"
-               "                                      on specified one or more units\n"
-               "  edit UNIT...                        Edit one or more unit files\n"
-               "  get-default                         Get the name of the default target\n"
-               "  set-default TARGET                  Set the default target\n");
-
-        help_section("Machine Commands");
-        printf("  list-machines [PATTERN...]          List local containers and host\n");
-
-        help_section("Job Commands");
-        printf("  list-jobs [PATTERN...]              List jobs\n"
-               "  cancel [JOB...]                     Cancel all, one, or more jobs\n");
-
-        help_section("Environment Commands");
-        printf("  show-environment                    Dump environment\n"
-               "  set-environment VARIABLE=VALUE...   Set one or more environment variables\n"
-               "  unset-environment VARIABLE...       Unset one or more environment variables\n"
-               "  import-environment VARIABLE...      Import all or some environment variables\n");
-
-        help_section("Manager State Commands");
-        printf("  daemon-reload                       Reload systemd manager configuration\n"
-               "  daemon-reexec                       Reexecute systemd manager\n"
-               "  log-level [LEVEL]                   Get/set logging threshold for manager\n"
-               "  log-target [TARGET]                 Get/set logging target for manager\n"
-               "  service-watchdogs [BOOL]            Get/set service watchdog state\n");
-
-        help_section("System Commands");
-        printf("  is-system-running                   Check whether system is fully running\n"
-               "  default                             Enter system default mode\n"
-               "  rescue                              Enter system rescue mode\n"
-               "  emergency                           Enter system emergency mode\n"
-               "  halt                                Shut down and halt the system\n"
-               "  poweroff                            Shut down and power-off the system\n"
-               "  reboot                              Shut down and reboot the system\n"
-               "  kexec                               Shut down and reboot the system with kexec\n"
-               "  soft-reboot                         Shut down and reboot userspace\n"
-               "  exit [EXIT_CODE]                    Request user instance or container exit\n"
-               "  switch-root [ROOT [INIT]]           Change to a different root file system\n"
-               "  sleep                               Put the system to sleep (through one of\n"
-               "                                      the operations below)\n"
-               "  suspend                             Suspend the system\n"
-               "  hibernate                           Hibernate the system\n"
-               "  hybrid-sleep                        Hibernate and suspend the system\n"
-               "  suspend-then-hibernate              Suspend the system, wake after a period of\n"
-               "                                      time, and hibernate\n");
+        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
+                help_section(vgroups[i]);
+                r = table_print_or_warn(vtables[i]);
+                if (r < 0)
+                        return r;
+        }
 
         help_section("Options");
         r = table_print_or_warn(options_table);
@@ -997,5 +915,199 @@ int systemctl_dispatch_parse_argv(int argc, char *argv[], char ***remaining_args
                 arg_action = ACTION_SYSTEMCTL;
                 return systemctl_parse_argv(argc, argv, remaining_args);
         }
+}
 
+VERB_GROUP("Unit Commands");
+
+VERB_SCOPE(, verb_list_units,        "list-units",       "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY,
+           "List units currently in memory");
+VERB_SCOPE(, verb_list_automounts,   "list-automounts",  "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "List automount units currently in memory, ordered by path");
+VERB_SCOPE(, verb_list_paths,        "list-paths",       "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "List path units currently in memory, ordered by path");
+VERB_SCOPE(, verb_list_sockets,      "list-sockets",     "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "List socket units currently in memory, ordered by address");
+VERB_SCOPE(, verb_list_timers,       "list-timers",      "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "List timer units currently in memory, ordered by next elapse");
+VERB_SCOPE(, verb_is_active,         "is-active",        "PATTERN…",   2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Check whether units are active");
+VERB_SCOPE(, verb_is_failed,         "is-failed",        "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Check whether units are failed or system is in degraded state");
+VERB_SCOPE(, verb_show,              "status",           "[PATTERN…|PID…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Show runtime status of one or more units");
+VERB_SCOPE(, verb_show,              "show",             "[PATTERN…|JOB…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Show properties of one or more units/jobs or the manager");
+VERB_SCOPE(, verb_cat,               "cat",              "PATTERN…",   2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Show files and drop-ins of specified units");
+VERB_SCOPE(, verb_show,              "help",             "PATTERN…|PID…", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Show manual for one or more units");
+VERB_SCOPE(, verb_list_dependencies, "list-dependencies", "[UNIT…]",   VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Recursively show units which are required or wanted by the units "
+           "or by which those units are required or wanted");
+VERB_SCOPE(, verb_start,             "start",            "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Start (activate) one or more units");
+VERB_SCOPE(, verb_start,             "stop",             "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Stop (deactivate) one or more units");
+VERB_SCOPE(, verb_start,             "reload",           "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Reload one or more units");
+VERB_SCOPE(, verb_start,             "restart",          "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Start or restart one or more units");
+VERB_SCOPE(, verb_start,             "try-restart",      "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Restart one or more units if active");
+VERB_SCOPE(, verb_start,             "enqueue-marked",   NULL,         1,        1,        VERB_ONLINE_ONLY,
+           "Enqueue jobs for all marked units");
+VERB_SCOPE(, verb_start,             "reload-or-restart", "UNIT…",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Reload one or more units if possible, otherwise start or restart");
+VERB_SCOPE(, verb_start,             "try-reload-or-restart", "UNIT…", 2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "If active, reload one or more units, if supported, otherwise restart");
+VERB_SCOPE(, verb_start,             "isolate",          "UNIT",       2,        2,        VERB_ONLINE_ONLY,
+           "Start one unit and stop all others");
+VERB_SCOPE(, verb_kill,              "kill",             "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Send signal to processes of a unit");
+VERB_SCOPE(, verb_clean_or_freeze,   "clean",            "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Clean runtime, cache, state, logs or configuration of unit");
+VERB_SCOPE(, verb_clean_or_freeze,   "freeze",           "PATTERN…",   2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Freeze execution of unit processes");
+VERB_SCOPE(, verb_clean_or_freeze,   "thaw",             "PATTERN…",   2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Resume execution of a frozen unit");
+VERB_SCOPE(, verb_set_property,      "set-property",     "UNIT PROPERTY=VALUE…", 3, VERB_ANY, VERB_ONLINE_ONLY,
+           "Sets one or more properties of a unit");
+VERB_SCOPE(, verb_bind,              "bind",             "UNIT PATH [PATH]",     3, 4, VERB_ONLINE_ONLY,
+           "Bind-mount a path from the host into a unit's namespace");
+VERB_SCOPE(, verb_mount_image,       "mount-image",      "UNIT PATH [PATH [OPTS]]", 4, 5, VERB_ONLINE_ONLY,
+           "Mount an image from the host into a unit's namespace");
+VERB_SCOPE(, verb_service_log_setting, "service-log-level", "SERVICE [LEVEL]",   2, 3, VERB_ONLINE_ONLY,
+           "Get/set logging threshold for service");
+VERB_SCOPE(, verb_service_log_setting, "service-log-target", "SERVICE [TARGET]", 2, 3, VERB_ONLINE_ONLY,
+           "Get/set logging target for service");
+VERB_SCOPE(, verb_reset_failed,      "reset-failed",     "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Reset failed state for all, one, or more units");
+VERB_SCOPE(, verb_whoami,            "whoami",           "[PID…]",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Return unit caller or specified PIDs are part of");
+
+VERB_GROUP("Unit File Commands");
+
+VERB_SCOPE(, verb_list_unit_files,   "list-unit-files",  "[PATTERN…]", VERB_ANY, VERB_ANY, 0,
+           "List installed unit files");
+VERB_SCOPE(, verb_enable,            "enable",           "[UNIT…|PATH…]", 2,     VERB_ANY, 0,
+           "Enable one or more unit files");
+VERB_SCOPE(, verb_enable,            "disable",          "UNIT…",      2,        VERB_ANY, 0,
+           "Disable one or more unit files");
+VERB_SCOPE(, verb_enable,            "reenable",         "UNIT…",      2,        VERB_ANY, 0,
+           "Reenable one or more unit files");
+VERB_SCOPE(, verb_enable,            "preset",           "UNIT…",      2,        VERB_ANY, 0,
+           "Enable/disable one or more unit files based on preset configuration");
+VERB_SCOPE(, verb_preset_all,        "preset-all",       NULL,         VERB_ANY, 1,        0,
+           "Enable/disable all unit files based on preset configuration");
+VERB_SCOPE(, verb_is_enabled,        "is-enabled",       "UNIT…",      2,        VERB_ANY, 0,
+           "Check whether unit files are enabled");
+VERB_SCOPE(, verb_enable,            "mask",             "UNIT…",      2,        VERB_ANY, 0,
+           "Mask one or more units");
+VERB_SCOPE(, verb_enable,            "unmask",           "UNIT…",      2,        VERB_ANY, 0,
+           "Unmask one or more units");
+VERB_SCOPE(, verb_enable,            "link",             "PATH…",      2,        VERB_ANY, 0,
+           "Link one or more units files into the search path");
+VERB_SCOPE(, verb_enable,            "revert",           "UNIT…",      2,        VERB_ANY, 0,
+           "Revert one or more unit files to vendor version");
+VERB_SCOPE(, verb_add_dependency,    "add-wants",        "TARGET UNIT…", 3,      VERB_ANY, 0,
+           "Add 'Wants' dependency for the target on specified one or more units");
+VERB_SCOPE(, verb_add_dependency,    "add-requires",     "TARGET UNIT…", 3,      VERB_ANY, 0,
+           "Add 'Requires' dependency for the target on specified one or more units");
+VERB_SCOPE(, verb_edit,              "edit",             "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Edit one or more unit files");
+VERB_SCOPE(, verb_get_default,       "get-default",      NULL,         VERB_ANY, 1,        0,
+           "Get the name of the default target");
+VERB_SCOPE(, verb_set_default,       "set-default",      "TARGET",     2,        2,        0,
+           "Set the default target");
+
+VERB_GROUP("Machine Commands");
+
+VERB_SCOPE(, verb_list_machines,     "list-machines",    "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "List local containers and host");
+
+VERB_GROUP("Job Commands");
+
+VERB_SCOPE(, verb_list_jobs,         "list-jobs",        "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "List jobs");
+VERB_SCOPE(, verb_cancel,            "cancel",           "[JOB…]",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Cancel all, one, or more jobs");
+
+VERB_GROUP("Environment Commands");
+
+VERB_SCOPE(, verb_show_environment,  "show-environment", NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Dump environment");
+VERB_SCOPE(, verb_set_environment,   "set-environment",  "VARIABLE=VALUE…", 2,   VERB_ANY, VERB_ONLINE_ONLY,
+           "Set one or more environment variables");
+VERB_SCOPE(, verb_set_environment,   "unset-environment", "VARIABLE…", 2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Unset one or more environment variables");
+VERB_SCOPE(, verb_import_environment, "import-environment", "VARIABLE…", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Import all or some environment variables");
+
+VERB_GROUP("Manager State Commands");
+
+VERB_SCOPE(, verb_daemon_reload,     "daemon-reload",    NULL,         1,        1,        VERB_ONLINE_ONLY,
+           "Reload systemd manager configuration");
+VERB_SCOPE(, verb_daemon_reload,     "daemon-reexec",    NULL,         1,        1,        VERB_ONLINE_ONLY,
+           "Reexecute systemd manager");
+VERB_SCOPE(, verb_log_setting,       "log-level",        "[LEVEL]",    VERB_ANY, 2,        VERB_ONLINE_ONLY,
+           "Get/set logging threshold for manager");
+VERB_SCOPE(, verb_log_setting,       "log-target",       "[TARGET]",   VERB_ANY, 2,        VERB_ONLINE_ONLY,
+           "Get/set logging target for manager");
+VERB_SCOPE(, verb_service_watchdogs, "service-watchdogs", "[BOOL]",    VERB_ANY, 2,        VERB_ONLINE_ONLY,
+           "Get/set service watchdog state");
+
+VERB_GROUP("System Commands");
+
+VERB_SCOPE(, verb_is_system_running, "is-system-running", NULL,        VERB_ANY, 1,        0,
+           "Check whether system is fully running");
+VERB_SCOPE(, verb_start_special,     "default",          NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Enter system default mode");
+VERB_SCOPE(, verb_start_system_special, "rescue",        NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Enter system rescue mode");
+VERB_SCOPE(, verb_start_system_special, "emergency",     NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Enter system emergency mode");
+VERB_SCOPE(, verb_start_system_special, "halt",          NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Shut down and halt the system");
+VERB_SCOPE(, verb_start_system_special, "poweroff",      NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Shut down and power-off the system");
+VERB_SCOPE(, verb_start_system_special, "reboot",        NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Shut down and reboot the system");
+VERB_SCOPE(, verb_start_system_special, "kexec",         NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Shut down and reboot the system with kexec");
+VERB_SCOPE(, verb_start_system_special, "soft-reboot",   NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Shut down and reboot userspace");
+VERB_SCOPE(, verb_start_special,     "exit",             "[EXIT_CODE]", VERB_ANY, 2,       VERB_ONLINE_ONLY,
+           "Request user instance or container exit");
+VERB_SCOPE(, verb_switch_root,       "switch-root",      "[ROOT [INIT]]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+           "Change to a different root file system");
+VERB_SCOPE(, verb_start_system_special, "sleep",         NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Put the system to sleep (through one of the operations below)");
+VERB_SCOPE(, verb_start_system_special, "suspend",       NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Suspend the system");
+VERB_SCOPE(, verb_start_system_special, "hibernate",     NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Hibernate the system");
+VERB_SCOPE(, verb_start_system_special, "hybrid-sleep",  NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Hibernate and suspend the system");
+VERB_SCOPE(, verb_start_system_special, "suspend-then-hibernate", NULL, VERB_ANY, 1,       VERB_ONLINE_ONLY,
+           "Suspend the system, wake after a period of time, and hibernate");
+
+/* Compatibility aliases / deprecated verbs hidden from --help. */
+VERB_SCOPE(, verb_trivial_method,    "clear-jobs",       NULL, VERB_ANY, 1,      VERB_ONLINE_ONLY, /* help= */ NULL); /* systemctl < 4 */
+VERB_SCOPE(, verb_start,             "condstop",         NULL, 2,      VERB_ANY, VERB_ONLINE_ONLY, /* help= */ NULL); /* ALTLinux */
+VERB_SCOPE(, verb_start,             "reload-or-try-restart", NULL, 2, VERB_ANY, VERB_ONLINE_ONLY, /* help= */ NULL); /* systemctl <= 228 */
+VERB_SCOPE(, verb_start,             "force-reload",     NULL, 2,      VERB_ANY, VERB_ONLINE_ONLY, /* help= */ NULL); /* SysV */
+VERB_SCOPE(, verb_start,             "condreload",       NULL, 2,      VERB_ANY, VERB_ONLINE_ONLY, /* help= */ NULL); /* ALTLinux */
+VERB_SCOPE(, verb_start,             "condrestart",      NULL, 2,      VERB_ANY, VERB_ONLINE_ONLY, /* help= */ NULL); /* RH */
+VERB_SCOPE(, verb_is_active,         "check",            NULL, 2,      VERB_ANY, VERB_ONLINE_ONLY, /* help= */ NULL); /* deprecated alias of is-active */
+
+int systemctl_main(char **args) {
+        const Verb *verb = verbs_find_verb(args[0],
+                                           ALIGN_PTR(__start_SYSTEMD_VERBS),
+                                           __stop_SYSTEMD_VERBS);
+        if (verb && (verb->flags & VERB_ONLINE_ONLY) && arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Verb '%s' cannot be used with --root= or --image=.",
+                                       args[0] ?: verb->verb);
+
+        return dispatch_verb_with_args(args, NULL);
 }
