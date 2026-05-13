@@ -15,6 +15,47 @@
 #include "systemctl.h"
 #include "systemctl-util.h"
 
+static int verb_noop(int argc, char *argv[], uintptr_t _data, void *userdata) { return 0; }
+int verb_add_dependency(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_bind(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_cancel(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_clean_or_freeze(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_edit(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_enable(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_get_default(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_import_environment(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_is_active(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_is_enabled(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_is_failed(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_is_system_running(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_kill(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_list_automounts(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_list_dependencies(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_list_jobs(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_list_machines(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_list_paths(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_list_sockets(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_list_timers(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_list_unit_files(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_list_units(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_log_setting(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_mount_image(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_preset_all(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_reset_failed(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_service_log_setting(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_service_watchdogs(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_set_default(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_set_environment(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_set_property(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_show_environment(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_start_special(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_start_system_special(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_switch_root(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_trivial_method(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+int verb_whoami(int argc, char *argv[], uintptr_t _data, void *userdata) __attribute__((alias("verb_noop")));
+
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_strv_free_ char **argv = NULL;
         _cleanup_close_ int orig_stdout_fd = -EBADF;
@@ -46,17 +87,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                         log_warning_errno(orig_stdout_fd, "Failed to duplicate fd 1: %m");
                 else
                         assert_se(freopen("/dev/null", "w", stdout));
-
-                opterr = 0; /* do not print errors */
         }
 
         /* We need to reset some global state manually here since libfuzzer feeds a single process with
          * multiple inputs, so we might carry over state from previous invocations that can trigger
          * certain asserts. */
-        optind = 0; /* this tells the getopt machinery to reinitialize */
         arg_transport = BUS_TRANSPORT_LOCAL;
 
-        r = systemctl_dispatch_parse_argv(strv_length(argv), argv);
+        r = systemctl_dispatch_parse_argv(strv_length(argv), argv, /* log_level_shift= */ 4, /* remaining_args= */ NULL);
         if (r < 0)
                 log_error_errno(r, "Failed to parse args: %m");
         else
