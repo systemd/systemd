@@ -5,7 +5,6 @@
  * Logic based on Hannes Reinecke's shell script.
  */
 
-#include <getopt.h>
 #include <linux/usb/ch11.h>
 #include <stdio.h>
 #include <stdlib.h>
