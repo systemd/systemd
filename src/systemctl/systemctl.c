@@ -677,10 +677,53 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         return version();
 
+                case ARG_SYSTEM:
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
+                case ARG_USER:
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
+                case 'C':
+                        r = capsule_name_is_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", optarg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", optarg);
+
+                        arg_host = optarg;
+                        arg_transport = BUS_TRANSPORT_CAPSULE;
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
+                case 'H':
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = optarg;
+                        break;
+
+                case 'M':
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case 't':
                         r = parse_types_argument(optarg, &arg_types, &arg_states);
                         if (r <= 0)
                                 return r;
+                        break;
+
+                case ARG_STATE:
+                        r = parse_states_argument(optarg, &arg_states);
+                        if (r <= 0)
+                                return r;
+                        break;
+
+                case ARG_FAILED:
+                        if (strv_extend(&arg_states, "failed") < 0)
+                                return log_oom();
+
                         break;
 
                 case 'P':
@@ -702,8 +745,25 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_all = true;
                         break;
 
+                case 'l':
+                        arg_full = true;
+                        break;
+
+                case 'r':
+                        if (geteuid() != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                       "--recursive requires root privileges.");
+
+                        arg_recursive = true;
+                        break;
+
                 case ARG_REVERSE:
                         arg_dependency = DEPENDENCY_REVERSE;
+                        break;
+
+                case ARG_BEFORE:
+                        arg_dependency = DEPENDENCY_BEFORE;
+                        arg_jobs_before = true;
                         break;
 
                 case ARG_AFTER:
@@ -711,9 +771,16 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_jobs_after = true;
                         break;
 
-                case ARG_BEFORE:
-                        arg_dependency = DEPENDENCY_BEFORE;
-                        arg_jobs_before = true;
+                case ARG_WITH_DEPENDENCIES:
+                        arg_with_dependencies = true;
+                        break;
+
+                case ARG_JOB_MODE:
+                        _arg_job_mode = optarg;
+                        break;
+
+                case 'T':
+                        arg_show_transaction = true;
                         break;
 
                 case ARG_SHOW_TYPES:
@@ -724,123 +791,20 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
-                case ARG_JOB_MODE:
-                        _arg_job_mode = optarg;
-                        break;
-
-                case ARG_FAIL:
-                        _arg_job_mode = "fail";
-                        break;
-
-                case ARG_IRREVERSIBLE:
-                        _arg_job_mode = "replace-irreversibly";
-                        break;
-
-                case ARG_IGNORE_DEPENDENCIES:
-                        _arg_job_mode = "ignore-dependencies";
-                        break;
-
-                case ARG_USER:
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-                        break;
-
-                case ARG_GLOBAL:
-                        arg_runtime_scope = RUNTIME_SCOPE_GLOBAL;
-                        break;
-
-                case 'C':
-                        r = capsule_name_is_valid(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", optarg);
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", optarg);
-
-                        arg_host = optarg;
-                        arg_transport = BUS_TRANSPORT_CAPSULE;
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case ARG_WAIT:
-                        arg_wait = true;
-                        break;
-
-                case ARG_NO_BLOCK:
-                        arg_no_block = true;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case ARG_LEGEND:
-                        r = parse_boolean_argument("--legend", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        arg_legend = r;
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_WALL:
-                        arg_no_wall = true;
-                        break;
-
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, false, &arg_root);
+                case ARG_CHECK_INHIBITORS:
+                        r = parse_tristate_argument_with_auto("--check-inhibitors=", optarg, &arg_check_inhibitors);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, false, &arg_image);
-                        if (r < 0)
+                case 'i':
+                        arg_check_inhibitors = 0;
+                        break;
+
+                case 's':
+                        r = parse_signal_argument(optarg, &arg_signal);
+                        if (r <= 0)
                                 return r;
-                        break;
-
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'l':
-                        arg_full = true;
-                        break;
-
-                case ARG_FAILED:
-                        if (strv_extend(&arg_states, "failed") < 0)
-                                return log_oom();
-
-                        break;
-
-                case ARG_DRY_RUN:
-                        arg_dry_run = true;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-
-                        if (arg_legend < 0)
-                                arg_legend = false;
-
-                        break;
-
-                case 'v':
-                        arg_verbose = true;
-                        break;
-
-                case 'f':
-                        arg_force++;
-                        break;
-
-                case ARG_NO_RELOAD:
-                        arg_no_reload = true;
                         break;
 
                 case ARG_KILL_WHOM:
@@ -871,29 +835,128 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case 's':
-                        r = parse_signal_argument(optarg, &arg_signal);
+                case ARG_KILL_SUBGROUP: {
+                        if (empty_or_root(optarg)) {
+                                arg_kill_subgroup = mfree(arg_kill_subgroup);
+                                break;
+                        }
+
+                        _cleanup_free_ char *p = NULL;
+                        if (path_simplify_alloc(optarg, &p) < 0)
+                                return log_oom();
+
+                        if (!path_is_safe(p))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Control group sub-path '%s' is not valid.", p);
+
+                        free_and_replace(arg_kill_subgroup, p);
+                        break;
+                }
+
+                case ARG_WHAT:
+                        r = parse_what_argument(optarg, &arg_clean_what);
                         if (r <= 0)
                                 return r;
+                        break;
+
+                case ARG_NOW:
+                        arg_now = true;
+                        break;
+
+                case ARG_DRY_RUN:
+                        arg_dry_run = true;
+                        break;
+
+                case 'q':
+                        arg_quiet = true;
+
+                        if (arg_legend < 0)
+                                arg_legend = false;
+
+                        break;
+
+                case 'v':
+                        arg_verbose = true;
+                        break;
+
+                case ARG_NO_WARN:
+                        arg_no_warn = true;
+                        break;
+
+                case ARG_WAIT:
+                        arg_wait = true;
+                        break;
+
+                case ARG_NO_BLOCK:
+                        arg_no_block = true;
+                        break;
+
+                case ARG_NO_WALL:
+                        arg_no_wall = true;
+                        break;
+
+                case ARG_MESSAGE:
+                        if (strv_extend(&arg_wall, optarg) < 0)
+                                return log_oom();
+                        break;
+
+                case ARG_NO_RELOAD:
+                        arg_no_reload = true;
+                        break;
+
+                case ARG_LEGEND:
+                        r = parse_boolean_argument("--legend", optarg, NULL);
+                        if (r < 0)
+                                return r;
+                        arg_legend = r;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
                         arg_ask_password = false;
                         break;
 
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
-                        break;
-
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
-                        if (r < 0)
-                                return r;
+                case ARG_GLOBAL:
+                        arg_runtime_scope = RUNTIME_SCOPE_GLOBAL;
                         break;
 
                 case ARG_RUNTIME:
                         arg_runtime = true;
+                        break;
+
+                case 'f':
+                        arg_force++;
+                        break;
+
+                case ARG_PRESET_MODE:
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(unit_file_preset_mode, UnitFilePresetMode, _UNIT_FILE_PRESET_MODE_MAX);
+
+                        arg_preset_mode = unit_file_preset_mode_from_string(optarg);
+                        if (arg_preset_mode < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse preset mode: %s.", optarg);
+
+                        break;
+
+                case ARG_ROOT:
+                        r = parse_path_argument(optarg, false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE:
+                        r = parse_path_argument(optarg, false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE_POLICY:
+                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'n':
@@ -917,20 +980,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 arg_legend = false;
                                 arg_plain = true;
                         }
-                        break;
-
-                case 'i':
-                        arg_check_inhibitors = 0;
-                        break;
-
-                case ARG_CHECK_INHIBITORS:
-                        r = parse_tristate_argument_with_auto("--check-inhibitors=", optarg, &arg_check_inhibitors);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_PLAIN:
-                        arg_plain = true;
                         break;
 
                 case ARG_FIRMWARE_SETUP:
@@ -958,54 +1007,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_boot_loader_entry = empty_to_null(optarg);
                         break;
 
-                case ARG_STATE:
-                        r = parse_states_argument(optarg, &arg_states);
-                        if (r <= 0)
-                                return r;
-                        break;
-
-                case 'r':
-                        if (geteuid() != 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
-                                                       "--recursive requires root privileges.");
-
-                        arg_recursive = true;
-                        break;
-
-                case ARG_PRESET_MODE:
-                        if (streq(optarg, "help"))
-                                return DUMP_STRING_TABLE(unit_file_preset_mode, UnitFilePresetMode, _UNIT_FILE_PRESET_MODE_MAX);
-
-                        arg_preset_mode = unit_file_preset_mode_from_string(optarg);
-                        if (arg_preset_mode < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse preset mode: %s.", optarg);
-
-                        break;
-
-                case ARG_NOW:
-                        arg_now = true;
-                        break;
-
-                case ARG_MESSAGE:
-                        if (strv_extend(&arg_wall, optarg) < 0)
-                                return log_oom();
-                        break;
-
-                case 'T':
-                        arg_show_transaction = true;
-                        break;
-
-                case ARG_WITH_DEPENDENCIES:
-                        arg_with_dependencies = true;
-                        break;
-
-                case ARG_WHAT:
-                        r = parse_what_argument(optarg, &arg_clean_what);
-                        if (r <= 0)
-                                return r;
-                        break;
-
                 case ARG_REBOOT_ARG:
                         arg_reboot_argument = optarg;
                         break;
@@ -1023,6 +1024,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         r = free_and_strdup_warn(&arg_kernel_cmdline, optarg);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_PLAIN:
+                        arg_plain = true;
                         break;
 
                 case ARG_TIMESTAMP_STYLE:
@@ -1046,10 +1051,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_MARKED:
                         arg_marked = true;
-                        break;
-
-                case ARG_NO_WARN:
-                        arg_no_warn = true;
                         break;
 
                 case ARG_DROP_IN:
@@ -1086,22 +1087,22 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_stdin = true;
                         break;
 
-                case ARG_KILL_SUBGROUP: {
-                        if (empty_or_root(optarg)) {
-                                arg_kill_subgroup = mfree(arg_kill_subgroup);
-                                break;
-                        }
-
-                        _cleanup_free_ char *p = NULL;
-                        if (path_simplify_alloc(optarg, &p) < 0)
-                                return log_oom();
-
-                        if (!path_is_safe(p))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Control group sub-path '%s' is not valid.", p);
-
-                        free_and_replace(arg_kill_subgroup, p);
+                /* Compatibility-only options, not shown in --help. */
+                case ARG_FAIL:
+                        _arg_job_mode = "fail";
                         break;
-                }
+
+                case ARG_IRREVERSIBLE:
+                        _arg_job_mode = "replace-irreversibly";
+                        break;
+
+                case ARG_IGNORE_DEPENDENCIES:
+                        _arg_job_mode = "ignore-dependencies";
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
+                        break;
 
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */
