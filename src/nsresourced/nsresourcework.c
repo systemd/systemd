@@ -1295,6 +1295,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
 
         userns_info->owner = peer_uid;
         userns_info->userns_inode = userns_st.st_ino;
+        (void) ioctl(userns_fd, NS_GET_ID, &userns_info->userns_id);
         userns_info->size = p.size;
         userns_info->target_uid = p.target;
         userns_info->target_gid = (gid_t) p.target;
@@ -1575,6 +1576,7 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
 
         userns_info->owner = peer_uid;
         userns_info->userns_inode = userns_st.st_ino;
+        (void) ioctl(userns_fd, NS_GET_ID, &userns_info->userns_id);
 
         r = userns_registry_store(registry_dir_fd, userns_info);
         if (r < 0)

@@ -19,6 +19,7 @@
 #include "fs-util.h"
 #include "log.h"
 #include "mkdir.h"
+#include "namespace-util.h"
 #include "nsresourced-manager.h"
 #include "parse-util.h"
 #include "pidfd-util.h"
@@ -645,6 +646,56 @@ int manager_startup(Manager *m) {
                 inode = PTR_TO_UINT32(p);
 
                 log_debug("Found stale fd store entry for user namespace %" PRIu64 ", removing.", inode);
+                manager_release_userns_by_inode(m, inode);
+        }
+
+        /* Look for registry entries whose user namespace has died without us getting a BPF
+         * notification — e.g. because the BPF ring buffer overflowed, the kprobe is missing, or
+         * something else dropped the fd store entry without going through our cleanup path. Each
+         * registry entry stores the kernel's unique namespace identifier; ask the kernel to open
+         * the namespace by that identifier and release the entry if the lookup fails. Entries
+         * written by older versions don't carry the identifier, and old kernels (or running
+         * outside the initial user namespace) don't support lookup by it — in those cases we leave
+         * the entry alone. */
+
+        _cleanup_close_ int nsfs_fd = open("/proc/self/ns/user", O_RDONLY|O_CLOEXEC);
+        if (nsfs_fd < 0)
+                log_debug_errno(errno, "Failed to open /proc/self/ns/user, skipping registry liveness sweep: %m");
+
+        SET_FOREACH(p, registry_inodes) {
+                uint64_t inode = PTR_TO_UINT32(p);
+
+                if (nsfs_fd < 0)
+                        break;
+
+                _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+                r = userns_registry_load_by_userns_inode(m->registry_fd, inode, &userns_info);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to load registry entry for user namespace %" PRIu64 ", ignoring: %m", inode);
+                        continue;
+                }
+
+                if (userns_info->userns_id == 0)
+                        continue; /* Entry predates ns_id tracking, can't probe authoritatively */
+
+                _cleanup_close_ int probe_fd = namespace_open_by_id(nsfs_fd, userns_info->userns_id);
+                if (probe_fd >= 0)
+                        continue; /* User namespace is still alive */
+                if (probe_fd != -ESTALE) {
+                        /* -EPERM means we're not in the initial user/pid namespace or missing
+                         * CAP_SYS_ADMIN; the sweep can't proceed for any entry, so bail out rather
+                         * than logging once per entry. Anything else is unexpected — log it but skip
+                         * just this one. */
+                        if (probe_fd == -EPERM)
+                                break;
+
+                        log_debug_errno(probe_fd, "Failed to probe liveness of user namespace %" PRIu64 " (id %" PRIu64 "), ignoring: %m",
+                                        inode, userns_info->userns_id);
+                        continue;
+                }
+
+                log_debug("Registry entry for user namespace %" PRIu64 " (id %" PRIu64 ") refers to a dead namespace, removing.",
+                          inode, userns_info->userns_id);
                 manager_release_userns_by_inode(m, inode);
         }
 
