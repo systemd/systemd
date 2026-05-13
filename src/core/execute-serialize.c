@@ -89,6 +89,12 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
                         return r;
         }
 
+        if (c->cpu_burst_per_sec_usec > 0) {
+                r = serialize_usec(f, "exec-cgroup-context-cpu-burst-per-sec-usec", c->cpu_burst_per_sec_usec);
+                if (r < 0)
+                        return r;
+        }
+
         cpuset_cpus = cpu_set_to_range_string(&c->cpuset_cpus);
         if (!cpuset_cpus)
                 return log_oom_debug();
@@ -483,6 +489,10 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-cpu-quota-period-usec="))) {
                         r = deserialize_usec(val, &c->cpu_quota_period_usec);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-cpu-burst-per-sec-usec="))) {
+                        r = deserialize_usec(val, &c->cpu_burst_per_sec_usec);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-allowed-cpus="))) {

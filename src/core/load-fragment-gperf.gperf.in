@@ -222,6 +222,7 @@
 {{type}}.StartupCPUShares,                    config_parse_warn_compat,                           DISABLED_LEGACY,                    0
 {{type}}.CPUQuota,                            config_parse_cpu_quota,                             0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.CPUQuotaPeriodSec,                   config_parse_sec_def_infinity,                      0,                                  offsetof({{type}}, cgroup_context.cpu_quota_period_usec)
+{{type}}.CPUBurst,                            config_parse_cpu_burst,                             0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.MemoryAccounting,                    config_parse_bool,                                  0,                                  offsetof({{type}}, cgroup_context.memory_accounting)
 {{type}}.MemoryMin,                           config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.MemoryLow,                           config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)

@@ -3002,6 +3002,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPeriodUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t CPUBurstPerSecUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay AllowedCPUs = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay StartupAllowedCPUs = [...];
@@ -3680,6 +3682,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property CPUQuotaPerSecUSec is not documented!-->
 
     <!--property CPUQuotaPeriodUSec is not documented!-->
+
+    <!--property CPUBurstPerSecUSec is not documented!-->
 
     <!--property AllowedCPUs is not documented!-->
 
@@ -4378,6 +4382,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPeriodUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUBurstPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="AllowedCPUs"/>
 
@@ -5286,6 +5292,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPeriodUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t CPUBurstPerSecUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay AllowedCPUs = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay StartupAllowedCPUs = [...];
@@ -5981,6 +5989,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property CPUQuotaPeriodUSec is not documented!-->
 
+    <!--property CPUBurstPerSecUSec is not documented!-->
+
     <!--property AllowedCPUs is not documented!-->
 
     <!--property StartupAllowedCPUs is not documented!-->
@@ -6652,6 +6662,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPeriodUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUBurstPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="AllowedCPUs"/>
 
@@ -7383,6 +7395,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPeriodUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t CPUBurstPerSecUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay AllowedCPUs = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay StartupAllowedCPUs = [...];
@@ -8002,6 +8016,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property CPUQuotaPeriodUSec is not documented!-->
 
+    <!--property CPUBurstPerSecUSec is not documented!-->
+
     <!--property AllowedCPUs is not documented!-->
 
     <!--property StartupAllowedCPUs is not documented!-->
@@ -8581,6 +8597,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPeriodUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUBurstPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="AllowedCPUs"/>
 
@@ -9445,6 +9463,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPeriodUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t CPUBurstPerSecUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay AllowedCPUs = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay StartupAllowedCPUs = [...];
@@ -10046,6 +10066,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property CPUQuotaPeriodUSec is not documented!-->
 
+    <!--property CPUBurstPerSecUSec is not documented!-->
+
     <!--property AllowedCPUs is not documented!-->
 
     <!--property StartupAllowedCPUs is not documented!-->
@@ -10607,6 +10629,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPeriodUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUBurstPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="AllowedCPUs"/>
 
@@ -11324,6 +11348,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPeriodUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t CPUBurstPerSecUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay AllowedCPUs = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay StartupAllowedCPUs = [...];
@@ -11506,6 +11532,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property CPUQuotaPerSecUSec is not documented!-->
 
     <!--property CPUQuotaPeriodUSec is not documented!-->
+
+    <!--property CPUBurstPerSecUSec is not documented!-->
 
     <!--property AllowedCPUs is not documented!-->
 
@@ -11700,6 +11728,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPeriodUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUBurstPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="AllowedCPUs"/>
 
@@ -11920,6 +11950,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUQuotaPeriodUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t CPUBurstPerSecUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay AllowedCPUs = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay StartupAllowedCPUs = [...];
@@ -12116,6 +12148,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property CPUQuotaPerSecUSec is not documented!-->
 
     <!--property CPUQuotaPeriodUSec is not documented!-->
+
+    <!--property CPUBurstPerSecUSec is not documented!-->
 
     <!--property AllowedCPUs is not documented!-->
 
@@ -12334,6 +12368,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUQuotaPeriodUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CPUBurstPerSecUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="AllowedCPUs"/>
 

@@ -761,6 +761,7 @@ org.freedesktop.systemd1.Mount.BlockIOWriteBandwidth
 org.freedesktop.systemd1.Mount.CPUAccounting
 org.freedesktop.systemd1.Mount.CPUAffinity
 org.freedesktop.systemd1.Mount.CPUAffinityFromNUMA
+org.freedesktop.systemd1.Mount.CPUBurstPerSecUSec
 org.freedesktop.systemd1.Mount.CPUQuotaPerSecUSec
 org.freedesktop.systemd1.Mount.CPUQuotaPeriodUSec
 org.freedesktop.systemd1.Mount.CPUSchedulingPolicy
@@ -1024,6 +1025,7 @@ org.freedesktop.systemd1.Scope.BlockIOReadBandwidth
 org.freedesktop.systemd1.Scope.BlockIOWeight
 org.freedesktop.systemd1.Scope.BlockIOWriteBandwidth
 org.freedesktop.systemd1.Scope.CPUAccounting
+org.freedesktop.systemd1.Scope.CPUBurstPerSecUSec
 org.freedesktop.systemd1.Scope.CPUQuotaPerSecUSec
 org.freedesktop.systemd1.Scope.CPUQuotaPeriodUSec
 org.freedesktop.systemd1.Scope.CPUShares
@@ -1118,6 +1120,7 @@ org.freedesktop.systemd1.Service.BusName
 org.freedesktop.systemd1.Service.CPUAccounting
 org.freedesktop.systemd1.Service.CPUAffinity
 org.freedesktop.systemd1.Service.CPUAffinityFromNUMA
+org.freedesktop.systemd1.Service.CPUBurstPerSecUSec
 org.freedesktop.systemd1.Service.CPUQuotaPerSecUSec
 org.freedesktop.systemd1.Service.CPUQuotaPeriodUSec
 org.freedesktop.systemd1.Service.CPUSchedulingPolicy
@@ -1415,6 +1418,7 @@ org.freedesktop.systemd1.Slice.BlockIOReadBandwidth
 org.freedesktop.systemd1.Slice.BlockIOWeight
 org.freedesktop.systemd1.Slice.BlockIOWriteBandwidth
 org.freedesktop.systemd1.Slice.CPUAccounting
+org.freedesktop.systemd1.Slice.CPUBurstPerSecUSec
 org.freedesktop.systemd1.Slice.CPUQuotaPerSecUSec
 org.freedesktop.systemd1.Slice.CPUQuotaPeriodUSec
 org.freedesktop.systemd1.Slice.CPUShares
@@ -1499,6 +1503,7 @@ org.freedesktop.systemd1.Socket.Broadcast
 org.freedesktop.systemd1.Socket.CPUAccounting
 org.freedesktop.systemd1.Socket.CPUAffinity
 org.freedesktop.systemd1.Socket.CPUAffinityFromNUMA
+org.freedesktop.systemd1.Socket.CPUBurstPerSecUSec
 org.freedesktop.systemd1.Socket.CPUQuotaPerSecUSec
 org.freedesktop.systemd1.Socket.CPUQuotaPeriodUSec
 org.freedesktop.systemd1.Socket.CPUSchedulingPolicy
@@ -1796,6 +1801,7 @@ org.freedesktop.systemd1.Swap.BlockIOWriteBandwidth
 org.freedesktop.systemd1.Swap.CPUAccounting
 org.freedesktop.systemd1.Swap.CPUAffinity
 org.freedesktop.systemd1.Swap.CPUAffinityFromNUMA
+org.freedesktop.systemd1.Swap.CPUBurstPerSecUSec
 org.freedesktop.systemd1.Swap.CPUQuotaPerSecUSec
 org.freedesktop.systemd1.Swap.CPUQuotaPeriodUSec
 org.freedesktop.systemd1.Swap.CPUSchedulingPolicy
