@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
 #include "dhcp-option.h"
+#include "dhcp-route.h"
 #include "dns-def.h"
 #include "dns-domain.h"
 #include "dns-resolver-internal.h"
@@ -1800,29 +1801,5 @@ int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **ret) {
                 return -ENODATA;
 
         *ret = lease->timezone;
-        return 0;
-}
-
-int sd_dhcp_route_get_destination(sd_dhcp_route *route, struct in_addr *destination) {
-        assert_return(route, -EINVAL);
-        assert_return(destination, -EINVAL);
-
-        *destination = route->dst_addr;
-        return 0;
-}
-
-int sd_dhcp_route_get_destination_prefix_length(sd_dhcp_route *route, uint8_t *length) {
-        assert_return(route, -EINVAL);
-        assert_return(length, -EINVAL);
-
-        *length = route->dst_prefixlen;
-        return 0;
-}
-
-int sd_dhcp_route_get_gateway(sd_dhcp_route *route, struct in_addr *gateway) {
-        assert_return(route, -EINVAL);
-        assert_return(gateway, -EINVAL);
-
-        *gateway = route->gw_addr;
         return 0;
 }

@@ -6,10 +6,14 @@
 #include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
 #include "dhcp-protocol.h"
+#include "dhcp-route.h"
+#include "dns-def.h"
 #include "dns-domain.h"
+#include "dns-resolver-internal.h"
 #include "errno-util.h"
 #include "ether-addr-util.h"
 #include "hostname-util.h"
+#include "in-addr-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "ip-util.h"
@@ -17,6 +21,7 @@
 #include "set.h"
 #include "sort-util.h"
 #include "string-util.h"
+#include "unaligned.h"
 
 static sd_dhcp_message* dhcp_message_free(sd_dhcp_message *message) {
         if (!message)
@@ -190,6 +195,24 @@ int dhcp_message_append_option_addresses(sd_dhcp_message *message, uint8_t code,
         if (size_multiply_overflow(sizeof(struct in_addr), n_addr))
                 return -ENOBUFS;
 
+        if (code == SD_DHCP_OPTION_SIP_SERVER) {
+                if (dhcp_message_has_option(message, SD_DHCP_OPTION_SIP_SERVER))
+                        return -EEXIST;
+
+                size_t len = size_add(1, sizeof(struct in_addr) * n_addr);
+                if (len == SIZE_MAX)
+                        return -ENOBUFS;
+
+                _cleanup_free_ uint8_t *buf = new(uint8_t, len);
+                if (!buf)
+                        return -ENOMEM;
+
+                buf[0] = 1; /* 'enc' field, 0: domains, 1: addresses */
+                memcpy(buf + 1, addr, sizeof(struct in_addr) * n_addr);
+
+                return dhcp_message_append_option(message, code, len, buf);
+        }
+
         return dhcp_message_append_option(message, code, sizeof(struct in_addr) * n_addr, addr);
 }
 
@@ -206,6 +229,138 @@ int dhcp_message_append_option_string(sd_dhcp_message *message, uint8_t code, co
                 return -EEXIST;
 
         return dhcp_message_append_option(message, code, strlen(data), data);
+}
+
+static int dhcp_message_append_option_static_routes(sd_dhcp_message *message, size_t n_routes, const sd_dhcp_route *routes) {
+        int r;
+
+        assert(message);
+        assert(routes || n_routes == 0);
+
+        if (n_routes == 0)
+                return 0;
+
+        if (size_multiply_overflow(2 * sizeof(struct in_addr), n_routes))
+                return -ENOBUFS;
+
+        _cleanup_free_ struct in_addr *buf = new(struct in_addr, 2 * n_routes);
+        if (!buf)
+                return -ENOMEM;
+
+        size_t count = 0;
+        FOREACH_ARRAY(route, routes, n_routes) {
+                uint8_t prefixlen;
+                r = in4_addr_default_prefixlen(&route->dst_addr, &prefixlen);
+                if (r < 0)
+                        return r;
+
+                if (prefixlen != route->dst_prefixlen)
+                        return -EINVAL;
+
+                struct in_addr dst = route->dst_addr;
+                (void) in4_addr_mask(&dst, prefixlen);
+
+                buf[count++] = dst;
+                buf[count++] = route->gw_addr;
+        }
+
+        assert(count == 2 * n_routes);
+
+        return dhcp_message_append_option_addresses(message, SD_DHCP_OPTION_STATIC_ROUTE, 2 * n_routes, buf);
+}
+
+static int dhcp_message_append_option_classless_static_routes(sd_dhcp_message *message, uint8_t code, size_t n_routes, const sd_dhcp_route *routes) {
+        assert(message);
+        assert(routes || n_routes == 0);
+        assert(IN_SET(code,
+                      SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,
+                      SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE));
+
+        if (n_routes == 0)
+                return 0;
+
+        if (size_multiply_overflow(1 + 2 * sizeof(struct in_addr), n_routes))
+                return -ENOBUFS;
+
+        _cleanup_free_ uint8_t *buf = new(uint8_t, (1 + 2 * sizeof(struct in_addr)) * n_routes);
+        if (!buf)
+                return -ENOMEM;
+
+        uint8_t *p = buf;
+        FOREACH_ARRAY(route, routes, n_routes) {
+                if (route->dst_prefixlen > sizeof(struct in_addr) * 8)
+                        return -EINVAL;
+
+                *p++ = route->dst_prefixlen;
+                struct in_addr dst = route->dst_addr;
+                (void) in4_addr_mask(&dst, route->dst_prefixlen);
+                p = mempcpy(p, &dst, DIV_ROUND_UP(route->dst_prefixlen, 8));
+                p = mempcpy(p, &route->gw_addr, sizeof(struct in_addr));
+        }
+
+        return dhcp_message_append_option(message, code, p - buf, buf);
+}
+
+int dhcp_message_append_option_routes(sd_dhcp_message *message, uint8_t code, size_t n_routes, const sd_dhcp_route *routes) {
+        switch (code) {
+        case SD_DHCP_OPTION_STATIC_ROUTE:
+                return dhcp_message_append_option_static_routes(message, n_routes, routes);
+        case SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE:
+        case SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE:
+                return dhcp_message_append_option_classless_static_routes(message, code, n_routes, routes);
+        default:
+                return -EINVAL;
+        }
+}
+
+int dhcp_message_append_option_6rd(
+                sd_dhcp_message *message,
+                uint8_t ipv4masklen,
+                uint8_t prefixlen,
+                const struct in6_addr *prefix,
+                size_t n_br_addresses,
+                const struct in_addr *br_addresses) {
+
+        assert(message);
+        assert(prefix);
+        assert(n_br_addresses == 0 || br_addresses);
+
+        /* See RFC 5969 Section 7.1.1 and dhcp_message_get_option_6rd() below. */
+
+        if (dhcp_message_has_option(message, SD_DHCP_OPTION_6RD))
+                return -EEXIST;
+
+        if (ipv4masklen > 32)
+                return -EINVAL;
+
+        if (32 - ipv4masklen + prefixlen > 128)
+                return -EINVAL;
+
+        if (n_br_addresses == 0)
+                return -EINVAL;
+
+        if (size_multiply_overflow(sizeof(struct in_addr), n_br_addresses))
+                return -ENOBUFS;
+
+        size_t buflen = size_add(2 + sizeof(struct in6_addr), sizeof(struct in_addr) * n_br_addresses);
+        if (buflen == SIZE_MAX)
+                return -ENOBUFS;
+
+        _cleanup_free_ uint8_t *buf = new(uint8_t, buflen);
+        if (!buf)
+                return -ENOMEM;
+
+        uint8_t *p = buf;
+        *p++ = ipv4masklen;
+        *p++ = prefixlen;
+
+        struct in6_addr masked = *prefix;
+        (void) in6_addr_mask(&masked, prefixlen);
+        p = mempcpy(p, &masked, sizeof(struct in6_addr));
+
+        memcpy(p, br_addresses, n_br_addresses * sizeof(struct in_addr));
+
+        return dhcp_message_append_option(message, SD_DHCP_OPTION_6RD, buflen, buf);
 }
 
 int dhcp_message_append_option_client_id(sd_dhcp_message *message, const sd_dhcp_client_id *id) {
@@ -306,6 +461,46 @@ int dhcp_message_append_option_hostname(sd_dhcp_message *message, uint8_t flags,
         return dhcp_message_append_option_fqdn(message, flags, is_client, hostname);
 }
 
+int dhcp_message_append_option_sub_tlv(sd_dhcp_message *message, uint8_t code, const TLV *tlv) {
+        int r;
+
+        assert(message);
+
+        if (tlv_isempty(tlv))
+                return 0;
+
+        if (dhcp_message_has_option(message, code))
+                return -EEXIST;
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = tlv_build(tlv, &iov);
+        if (r < 0)
+                return r;
+
+        return dhcp_message_append_option(message, code, iov.iov_len, iov.iov_base);
+}
+
+int dhcp_message_append_option_length_prefixed_data(
+                sd_dhcp_message *message,
+                uint8_t code,
+                size_t length_size,
+                const struct iovec_wrapper *iovw) {
+
+        int r;
+
+        assert(message);
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = iovw_merge(iovw, length_size, &iov);
+        if (r < 0)
+                return r;
+
+        if (!iovec_is_set(&iov))
+                return 0;
+
+        return dhcp_message_append_option(message, code, iov.iov_len, iov.iov_base);
+}
+
 int dhcp_message_get_option(sd_dhcp_message *message, uint8_t code, size_t length, void *ret) {
         int r;
 
@@ -382,10 +577,21 @@ int dhcp_message_get_option_addresses(sd_dhcp_message *message, uint8_t code, si
         assert(message);
         assert(ret_n_addr || !ret_addr);
 
-        _cleanup_(iovec_done) struct iovec iov = {};
-        r = dhcp_message_get_option_alloc(message, code, &iov);
+        _cleanup_(iovec_done) struct iovec iov_free = {};
+        r = dhcp_message_get_option_alloc(message, code, &iov_free);
         if (r < 0)
                 return r;
+
+        struct iovec iov = iov_free;
+        if (code == SD_DHCP_OPTION_SIP_SERVER) {
+                if (!iovec_is_set(&iov))
+                        return -EBADMSG;
+
+                if (*(uint8_t*) iov.iov_base != 1) /* 'enc' field, 0: domains, 1: addresses */
+                        return -ENODATA;
+
+                iovec_inc(&iov, 1);
+        }
 
         if (iov.iov_len % sizeof(struct in_addr) != 0)
                 return -EBADMSG;
@@ -394,8 +600,17 @@ int dhcp_message_get_option_addresses(sd_dhcp_message *message, uint8_t code, si
         if (n == 0)
                 return -ENODATA;
 
-        if (ret_addr)
-                *ret_addr = (struct in_addr*) TAKE_PTR(iov.iov_base);
+        if (ret_addr) {
+                if (code == SD_DHCP_OPTION_SIP_SERVER) {
+                        struct in_addr *addr = newdup(struct in_addr, iov.iov_base, n);
+                        if (!addr)
+                                return -ENOMEM;
+                        *ret_addr = addr;
+                } else {
+                        *ret_addr = iov.iov_base;
+                        TAKE_STRUCT(iov_free);
+                }
+        }
         if (ret_n_addr)
                 *ret_n_addr = n;
         return 0;
@@ -430,6 +645,210 @@ int dhcp_message_get_option_string(sd_dhcp_message *message, uint8_t code, char 
 
         if (ret)
                 *ret = TAKE_PTR(iov.iov_base);
+        return 0;
+}
+
+static int dhcp_message_get_option_static_routes(sd_dhcp_message *message, size_t *ret_n_routes, sd_dhcp_route **ret_routes) {
+        int r;
+
+        assert(message);
+
+        size_t n;
+        _cleanup_free_ struct in_addr *addrs = NULL;
+        r = dhcp_message_get_option_addresses(message, SD_DHCP_OPTION_STATIC_ROUTE, &n, &addrs);
+        if (r < 0)
+                return r;
+
+        if (n % 2 != 0)
+                return -EBADMSG;
+
+        _cleanup_free_ sd_dhcp_route *routes = NULL;
+        size_t n_routes = 0;
+
+        for (size_t i = 0; i < n; i += 2) {
+                struct in_addr dst = addrs[i];
+
+                uint8_t prefixlen;
+                if (in4_addr_default_prefixlen(&dst, &prefixlen) < 0)
+                        continue;
+
+                (void) in4_addr_mask(&dst, prefixlen);
+
+                /* RFC 2132 section 5.8:
+                * The default route (0.0.0.0) is an illegal destination for a static route.*/
+                if (in4_addr_is_null(&dst))
+                        continue;
+
+                if (!ret_routes) {
+                        n_routes++;
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(routes, n_routes + 1))
+                        return -ENOMEM;
+
+                routes[n_routes++] = (struct sd_dhcp_route) {
+                        .dst_addr = dst,
+                        .gw_addr = addrs[i + 1],
+                        .dst_prefixlen = prefixlen,
+                };
+        }
+
+        if (n_routes == 0)
+                return -ENODATA;
+
+        if (ret_routes)
+                *ret_routes = TAKE_PTR(routes);
+        if (ret_n_routes)
+                *ret_n_routes = n_routes;
+        return 0;
+}
+
+static int dhcp_message_get_option_classless_static_routes(sd_dhcp_message *message, uint8_t code, size_t *ret_n_routes, sd_dhcp_route **ret_routes) {
+        int r;
+
+        assert(message);
+        assert(IN_SET(code,
+                      SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,
+                      SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE));
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_message_get_option_alloc(message, code, &iov);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ sd_dhcp_route *routes = NULL;
+        size_t n_routes = 0;
+
+        for (struct iovec i = iov; iovec_is_set(&i);) {
+                uint8_t prefixlen = *(uint8_t*) i.iov_base;
+                iovec_inc(&i, 1);
+
+                if (prefixlen > 32)
+                        return -EBADMSG;
+
+                size_t n = DIV_ROUND_UP(prefixlen, 8);
+                if (n > i.iov_len)
+                        return -EBADMSG;
+
+                struct in_addr dst = {};
+                memcpy_safe(&dst, i.iov_base, n);
+                (void) in4_addr_mask(&dst, prefixlen);
+                iovec_inc(&i, n);
+
+                if (i.iov_len < sizeof(struct in_addr))
+                        return -EBADMSG;
+
+                struct in_addr gw;
+                memcpy(&gw, i.iov_base, sizeof(struct in_addr));
+                iovec_inc(&i, sizeof(struct in_addr));
+
+                if (!ret_routes) {
+                        n_routes++;
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(routes, n_routes + 1))
+                        return -ENOMEM;
+
+                routes[n_routes++] = (struct sd_dhcp_route) {
+                        .dst_addr = dst,
+                        .gw_addr = gw,
+                        .dst_prefixlen = prefixlen,
+                };
+        }
+
+        if (n_routes == 0)
+                return -ENODATA;
+
+        if (ret_routes)
+                *ret_routes = TAKE_PTR(routes);
+        if (ret_n_routes)
+                *ret_n_routes = n_routes;
+        return 0;
+}
+
+int dhcp_message_get_option_routes(sd_dhcp_message *message, uint8_t code, size_t *ret_n_routes, sd_dhcp_route **ret_routes) {
+        switch (code) {
+        case SD_DHCP_OPTION_STATIC_ROUTE:
+                return dhcp_message_get_option_static_routes(message, ret_n_routes, ret_routes);
+        case SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE:
+        case SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE:
+                return dhcp_message_get_option_classless_static_routes(message, code, ret_n_routes, ret_routes);
+        default:
+                return -EINVAL;
+        }
+}
+
+int dhcp_message_get_option_6rd(
+                sd_dhcp_message *message,
+                uint8_t *ret_ipv4masklen,
+                uint8_t *ret_prefixlen,
+                struct in6_addr *ret_prefix,
+                size_t *ret_n_br_addresses,
+                struct in_addr **ret_br_addresses) {
+
+        int r;
+
+        assert(message);
+        assert(ret_n_br_addresses || !ret_br_addresses);
+
+        /* See RFC 5969 Section 7.1.1 */
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_message_get_option_alloc(message, SD_DHCP_OPTION_6RD, &iov);
+        if (r < 0)
+                return r;
+
+        /* option-length: The length of the DHCP option in octets (22 octets with one BR IPv4 address). */
+        if (iov.iov_len < 2 + sizeof(struct in6_addr) + sizeof(struct in_addr) ||
+            (iov.iov_len - 2 - sizeof(struct in6_addr)) % sizeof(struct in_addr) != 0)
+                return -EBADMSG;
+
+        size_t n_br_addresses = (iov.iov_len - 2 - sizeof(struct in6_addr)) / sizeof(struct in_addr);
+        assert(n_br_addresses > 0); /* We have already checked that in the above. */
+
+        const uint8_t *p = iov.iov_base;
+
+        /* IPv4MaskLen: The number of high-order bits that are identical across all CE IPv4 addresses
+         *              within a given 6rd domain. This may be any value between 0 and 32. Any value
+         *              greater than 32 is invalid. */
+        uint8_t ipv4masklen = *p++;
+        if (ipv4masklen > 32)
+                return -EBADMSG;
+
+        /* 6rdPrefixLen: The IPv6 prefix length of the SP's 6rd IPv6 prefix in number of bits. For the
+         *               purpose of bounds checking by DHCP option processing, the sum of
+         *               (32 - IPv4MaskLen) + 6rdPrefixLen MUST be less than or equal to 128. */
+        uint8_t prefixlen = *p++;
+        if (32 - ipv4masklen + prefixlen > 128)
+                return -EBADMSG;
+
+        /* 6rdPrefix: The service provider's 6rd IPv6 prefix represented as a 16-octet IPv6 address.
+         *            The bits in the prefix after the 6rdPrefixlen number of bits are reserved and
+         *            MUST be initialized to zero by the sender and ignored by the receiver. */
+        struct in6_addr prefix;
+        memcpy(&prefix, p, sizeof(struct in6_addr));
+        (void) in6_addr_mask(&prefix, prefixlen);
+        p += sizeof(struct in6_addr);
+
+        /* 6rdBRIPv4Address: One or more IPv4 addresses of the 6rd Border Relays for a given 6rd domain. */
+        if (ret_br_addresses) {
+                struct in_addr *br_addresses = newdup(struct in_addr, p, n_br_addresses);
+                if (!br_addresses)
+                        return -ENOMEM;
+
+                *ret_br_addresses = br_addresses;
+        }
+
+        if (ret_ipv4masklen)
+                *ret_ipv4masklen = ipv4masklen;
+        if (ret_prefixlen)
+                *ret_prefixlen = prefixlen;
+        if (ret_prefix)
+                *ret_prefix = prefix;
+        if (ret_n_br_addresses)
+                *ret_n_br_addresses = n_br_addresses;
         return 0;
 }
 
@@ -577,6 +996,331 @@ int dhcp_message_get_option_hostname(sd_dhcp_message *message, char **ret) {
 
         /* Then, fall back to Host Name option. */
         return dhcp_message_get_option_dns_name(message, SD_DHCP_OPTION_HOST_NAME, ret);
+}
+
+int dhcp_message_get_option_domains(sd_dhcp_message *message, uint8_t code, char ***ret) {
+        int r;
+
+        assert(message);
+
+        /* This is mostly for SD_DHCP_OPTION_DOMAIN_SEARCH and SD_DHCP_OPTION_SIP_SERVER. */
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_message_get_option_alloc(message, code, &iov);
+        if (r < 0)
+                return r;
+
+        const uint8_t *buf = iov.iov_base;
+        size_t len = iov.iov_len;
+
+        if (code == SD_DHCP_OPTION_SIP_SERVER) {
+                if (len == 0)
+                        return -EBADMSG;
+
+                if (buf[0] != 0) /* 'enc' field, 0: domains, 1: addresses */
+                        return -ENODATA;
+
+                len--;
+                buf++;
+        }
+
+        _cleanup_strv_free_ char **names = NULL;
+        size_t n_names = 0;
+
+        _cleanup_free_ char *name = NULL;
+        size_t n = 0;
+
+        for (size_t pos = 0, jump_barrier = 0, next_chunk = 0; pos < len;) {
+                uint8_t c = buf[pos++];
+
+                if (c == 0) {
+                        /* End of name */
+
+                        if (!string_is_safe(name, /* flags= */ 0))
+                                return -EBADMSG;
+
+                        _cleanup_free_ char *normalized = NULL;
+                        r = normalize_dns_name(name, &normalized);
+                        if (r < 0)
+                                return r;
+
+                        r = strv_consume_with_size(&names, &n_names, TAKE_PTR(normalized));
+                        if (r < 0)
+                                return r;
+
+                        if (next_chunk != 0)
+                                pos = next_chunk;
+
+                        next_chunk = 0;
+                        jump_barrier = pos;
+
+                        name = mfree(name);
+                        n = 0;
+
+                } else if (c <= 63) {
+                        /* Literal label */
+
+                        const char *label = (const char*) (buf + pos);
+                        pos += c;
+
+                        if (pos >= len)
+                                return -EBADMSG;
+
+                        if (!GREEDY_REALLOC(name, n + 1 + DNS_LABEL_ESCAPED_MAX))
+                                return -ENOMEM;
+
+                        if (n != 0)
+                                name[n++] = '.';
+
+                        r = dns_label_escape(label, c, name + n, DNS_LABEL_ESCAPED_MAX);
+                        if (r < 0)
+                                return r;
+
+                        n += r;
+
+                } else if (FLAGS_SET(c, 0xc0)) {
+                        /* Pointer */
+
+                        if (pos >= len) /* pointer is 2 bytes, hence we need to read at least one more byte. */
+                                return -EBADMSG;
+
+                        /* Save the current location so we don't end up re-parsing what's parsed so far. */
+                        if (next_chunk == 0)
+                                next_chunk = pos + 1;
+
+                        pos = ((size_t) (c & ~0xc0) << 8) | ((size_t) buf[pos]);
+
+                        /* Jumps are limited to a "prior occurrence" (RFC-1035 4.1.4) */
+                        if (pos >= jump_barrier)
+                                return -EBADMSG;
+
+                        jump_barrier = pos;
+
+                } else
+                        return -EBADMSG;
+        }
+
+        if (!isempty(name)) /* trailing garbage?? Should not happen, but for safety. */
+                return -EBADMSG;
+
+        if (strv_isempty(names))
+                return -EBADMSG;
+
+        if (ret)
+                *ret = TAKE_PTR(names);
+        return 0;
+}
+
+int dhcp_message_get_option_sub_tlv(sd_dhcp_message *message, uint8_t code, TLVFlag flags, TLV **ret) {
+        int r;
+
+        assert(message);
+        assert(!FLAGS_SET(flags, TLV_TEMPORARY));
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_message_get_option_alloc(message, code, &iov);
+        if (r < 0)
+                return r;
+
+        _cleanup_(tlv_unrefp) TLV *tlv = tlv_new(flags);
+        if (!tlv)
+                return -ENOMEM;
+
+        r = tlv_parse(tlv, &iov);
+        if (r < 0)
+                return r;
+
+        if (tlv_isempty(tlv))
+                return -ENODATA;
+
+        if (ret)
+                *ret = TAKE_PTR(tlv);
+        return 0;
+}
+
+int dhcp_message_get_option_length_prefixed_data(
+                sd_dhcp_message *message,
+                uint8_t code,
+                size_t length_size,
+                struct iovec_wrapper *ret) {
+
+        int r;
+
+        assert(message);
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_message_get_option_alloc(message, code, &iov);
+        if (r < 0)
+                return r;
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+        r = iovec_split(&iov, length_size, &iovw);
+        if (r < 0)
+                return r;
+
+        if (iovw_isempty(&iovw))
+                return -ENODATA;
+
+        if (ret)
+                *ret = TAKE_STRUCT(iovw);
+        return 0;
+}
+
+static int parse_dnr_one(const struct iovec *iov, sd_dns_resolver *ret) {
+        int r;
+
+        assert(iovec_is_set(iov));
+        assert(ret);
+
+        _cleanup_(sd_dns_resolver_done) sd_dns_resolver resolver = {};
+        struct iovec i = *iov;
+
+        /* service priority */
+        if (i.iov_len < sizeof(be16_t))
+                return -EBADMSG;
+
+        resolver.priority = unaligned_read_be16(i.iov_base);
+        iovec_inc(&i, sizeof(be16_t));
+
+        /* RFC 9460 section 2.4.1:
+         * When SvcPriority is 0, the SVCB record is in AliasMode.
+         *
+         * We do not support the alias mode. But the entry itself is not invalid. */
+        if (resolver.priority == 0) {
+                *ret = (sd_dns_resolver) {};
+                return 0;
+        }
+
+        /* authentication domain name */
+        if (!iovec_is_set(&i))
+                return -EBADMSG;
+
+        size_t name_len = *(uint8_t*) i.iov_base;
+        iovec_inc(&i, 1);
+        if (i.iov_len < name_len)
+                return -EBADMSG;
+
+        const uint8_t *name_buf = i.iov_base;
+        iovec_inc(&i, name_len);
+
+        r = dns_name_from_wire_format(&name_buf, &name_len, &resolver.auth_name);
+        if (r < 0)
+                return r;
+        if (r == 0 || name_len != 0)
+                return -EBADMSG;
+
+        r = dns_name_is_valid_ldh(resolver.auth_name);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EBADMSG;
+
+        if (dns_name_is_root(resolver.auth_name))
+                return -EBADMSG;
+
+        /* RFC9463 section 3.1.6: In ADN-only mode, server omits everything after the ADN.
+         *
+         * We don't support these, but they are not invalid. */
+        if (!iovec_is_set(&i)) {
+                *ret = (sd_dns_resolver) {};
+                return 0;
+        }
+
+        /* IPv4 addresses */
+        size_t n = *(uint8_t*) i.iov_base;
+        iovec_inc(&i, 1);
+
+        if (n % sizeof(struct in_addr) != 0)
+                return -EBADMSG;
+
+        n /= sizeof(struct in_addr);
+
+        /* RFC9463 section 3.1.8: option MUST include at least one valid IP addr */
+        if (n == 0)
+                return -EBADMSG;
+
+        resolver.family = AF_INET;
+        resolver.n_addrs = n;
+        resolver.addrs = new(union in_addr_union, n);
+        if (!resolver.addrs)
+                return -ENOMEM;
+
+        for (size_t j = 0; j < n; j++) {
+                if (i.iov_len < sizeof(struct in_addr))
+                        return -EBADMSG;
+
+                struct in_addr a;
+                memcpy(&a, i.iov_base, sizeof(struct in_addr));
+                iovec_inc(&i, sizeof(struct in_addr));
+
+                /* RFC9463 section 5.2: client MUST discard multicast and host loopback addresses */
+                if (in4_addr_is_multicast(&a) || in4_addr_is_localhost(&a))
+                        return -EBADMSG;
+
+                resolver.addrs[j] = (union in_addr_union) { .in = a };
+        }
+
+        /* service params */
+        r = dnr_parse_svc_params(i.iov_base, i.iov_len, &resolver);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* We can't use this record, but it is not invalid. */
+                *ret = (sd_dns_resolver) {};
+                return 0;
+        }
+
+        *ret = TAKE_STRUCT(resolver);
+        return 1;
+}
+
+int dhcp_message_get_option_dnr(sd_dhcp_message *message, size_t *ret_n_resolvers, sd_dns_resolver **ret_resolvers) {
+        int r;
+
+        assert(message);
+        assert(ret_n_resolvers || !ret_resolvers);
+
+        /* See RFC 9463 section 5.1 */
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+        r = dhcp_message_get_option_length_prefixed_data(message, SD_DHCP_OPTION_V4_DNR, /* length_size= */ 2, &iovw);
+        if (r < 0)
+                return r;
+
+        sd_dns_resolver *resolvers = NULL;
+        size_t n_resolvers = 0;
+        CLEANUP_ARRAY(resolvers, n_resolvers, dns_resolver_free_array);
+        FOREACH_ARRAY(i, iovw.iovec, iovw.count) {
+                _cleanup_(sd_dns_resolver_done) sd_dns_resolver dnr = {};
+                r = parse_dnr_one(i, &dnr);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (!ret_resolvers) {
+                        n_resolvers++;
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(resolvers, n_resolvers + 1))
+                        return -ENOMEM;
+
+                resolvers[n_resolvers++] = TAKE_STRUCT(dnr);
+        }
+
+        if (n_resolvers == 0) /* no supported resolver */
+                return -ENODATA;
+
+        if (ret_resolvers) {
+                /* Sort the resolvers with their priorities. */
+                typesafe_qsort(resolvers, n_resolvers, dns_resolver_prio_compare);
+                *ret_resolvers = TAKE_PTR(resolvers);
+        }
+        if (ret_n_resolvers)
+                *ret_n_resolvers = n_resolvers;
+
+        return 0;
 }
 
 static int dhcp_message_verify_header(
