@@ -2,18 +2,24 @@
 
 #include <net/if_arp.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "dhcp-client-id-internal.h"
 #include "dhcp-message.h"
+#include "dhcp-message-dump.h"
 #include "dhcp-protocol.h"
 #include "dhcp-route.h"
 #include "dns-packet.h"
 #include "dns-resolver-internal.h"
 #include "ether-addr-util.h"
+#include "fd-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
+#include "ip-util.h"
 #include "random-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "strv.h"
 #include "tests.h"
 
@@ -185,6 +191,92 @@ static void verify_length_prefixed_data(sd_dhcp_message *m, const struct iovec_w
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
         ASSERT_OK(dhcp_message_get_option_length_prefixed_data(m, SD_DHCP_OPTION_USER_CLASS, 1, &iovw));
         ASSERT_TRUE(iovw_equal(&iovw, expected));
+}
+
+static void verify_send_udp(sd_dhcp_message *message, uint32_t xid, const struct hw_addr_data *hw_addr) {
+        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
+
+        ASSERT_OK(dhcp_message_send_udp(
+                                  message,
+                                  socket_fd[0],
+                                  /* src_addr= */ htobe32(0xC0000201), /* 192.0.2.1 */
+                                  /* dst_addr= */ htobe32(0xC0000202), /* 192.0.2.2 */
+                                  /* dst_port= */ DHCP_PORT_CLIENT));
+
+        ssize_t buflen = ASSERT_OK_POSITIVE(next_datagram_size_fd(socket_fd[1]));
+        _cleanup_free_ void *buf = ASSERT_NOT_NULL(malloc0(buflen));
+
+        struct msghdr msg = {
+                .msg_iov = &IOVEC_MAKE(buf, buflen),
+                .msg_iovlen = 1,
+        };
+        ssize_t len = ASSERT_OK_ERRNO(recvmsg_safe(socket_fd[1], &msg, MSG_DONTWAIT));
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_parse(
+                                  &IOVEC_MAKE(buf, len),
+                                  BOOTREQUEST,
+                                  &xid,
+                                  ARPHRD_ETHER,
+                                  hw_addr,
+                                  &m));
+
+        /* Verify the received message. */
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {}, iovw2 = {};
+        ASSERT_OK(dhcp_message_build(message, &iovw));
+        ASSERT_OK(dhcp_message_build(m, &iovw2));
+        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+}
+
+static void verify_send_raw(sd_dhcp_message *message, uint32_t xid, const struct hw_addr_data *hw_addr) {
+        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
+
+        ASSERT_OK(dhcp_message_send_raw(
+                                  message,
+                                  socket_fd[0],
+                                  /* ifindex= */ 42,
+                                  /* src_addr= */ htobe32(0xC0000201), /* 192.0.2.1 */
+                                  /* src_port= */ DHCP_PORT_SERVER,
+                                  /* dst_hw_addr= */ &(struct hw_addr_data) {
+                                          .length = 6,
+                                          .ether = {{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, }},
+                                  },
+                                  /* dst_addr= */ htobe32(0xC0000202), /* 192.0.2.2 */
+                                  /* dst_port= */ DHCP_PORT_CLIENT,
+                                  /* ip_service_type= */ IPTOS_CLASS_CS6));
+
+        ssize_t buflen = ASSERT_OK_POSITIVE(next_datagram_size_fd(socket_fd[1]));
+        _cleanup_free_ void *buf = ASSERT_NOT_NULL(malloc0(buflen));
+
+        struct msghdr msg = {
+                .msg_iov = &IOVEC_MAKE(buf, buflen),
+                .msg_iovlen = 1,
+        };
+        ssize_t len = ASSERT_OK_ERRNO(recvmsg_safe(socket_fd[1], &msg, MSG_DONTWAIT));
+
+        struct iovec payload;
+        ASSERT_OK(udp_packet_verify(
+                                  &IOVEC_MAKE(buf, len),
+                                  DHCP_PORT_CLIENT,
+                                  /* checksum= */ true,
+                                  &payload));
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_parse(
+                                  &payload,
+                                  BOOTREQUEST,
+                                  &xid,
+                                  ARPHRD_ETHER,
+                                  hw_addr,
+                                  &m));
+
+        /* Verify the received message. */
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {}, iovw2 = {};
+        ASSERT_OK(dhcp_message_build(message, &iovw));
+        ASSERT_OK(dhcp_message_build(m, &iovw2));
+        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
 }
 
 TEST(dhcp_message) {
@@ -439,6 +531,24 @@ TEST(dhcp_message) {
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw2 = {};
         ASSERT_OK(dhcp_message_build(m2, &iovw2));
         ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+
+        /* json */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ASSERT_OK(dhcp_message_build_json(m, &v));
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m3 = NULL;
+        ASSERT_OK(dhcp_message_parse_json(v, &m3));
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw3 = {};
+        ASSERT_OK(dhcp_message_build(m3, &iovw3));
+        ASSERT_TRUE(iovw_equal(&iovw, &iovw3));
+
+        /* send */
+        verify_send_udp(m, xid, &hw_addr);
+        verify_send_raw(m, xid, &hw_addr);
+
+        /* dump */
+        ASSERT_OK(dump_dhcp_message(m, /* args= */ NULL, DUMP_DHCP_MESSAGE_LEGEND | DUMP_DHCP_MESSAGE_FULL));
 }
 
 static void test_domains_one(size_t len, const uint8_t *data, char * const *expected) {
@@ -475,6 +585,8 @@ static void test_domains_one(size_t len, const uint8_t *data, char * const *expe
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_SIP_SERVER, len + 1 - (len + 1) / 2, sip + (len + 1) / 2));
         ASSERT_OK(dhcp_message_get_option_domains(m, SD_DHCP_OPTION_SIP_SERVER, &strv));
         ASSERT_TRUE(strv_equal(strv, expected));
+
+        ASSERT_OK(dump_dhcp_message(m, STRV_MAKE("119", "120"), DUMP_DHCP_MESSAGE_LEGEND | DUMP_DHCP_MESSAGE_FULL));
 }
 
 static void test_domains_fail(size_t len, const uint8_t *data) {
@@ -698,6 +810,8 @@ TEST(dnr) {
         ASSERT_EQ(resolvers[1].port, 33u);
         ASSERT_NULL(resolvers[1].dohpath);
 
+        ASSERT_OK(dump_dhcp_message(m, STRV_MAKE("162"), DUMP_DHCP_MESSAGE_LEGEND | DUMP_DHCP_MESSAGE_FULL));
+
         /* missing DoH path */
         static uint8_t invalid[] = {
                 /* length */
@@ -767,6 +881,62 @@ TEST(dnr) {
         };
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_V4_DNR, ELEMENTSOF(invalid3), invalid3));
         ASSERT_ERROR(dhcp_message_get_option_dnr(m, NULL, NULL), EMSGSIZE);
+}
+
+TEST(dump_vendor) {
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+
+        /* Vendor Specific Information (43) -- TLV */
+        static uint8_t option_43[] = {
+                1, 6, 'm', 'o', 'd', 'e', 'm', '1',
+                2, 6, 's', 't', 'a', 't', 'u', 's',
+                3, 6, 1, 2, 3, 4, 5, 6,
+        };
+
+        /* Vendor Class Identifier (60) -- typically string */
+        static uint8_t option_60[] = {
+                'n', 'e', 't', 'w', 'o', 'r', 'k', 'd',
+        };
+
+        /* User Class (77) -- length-prefixed data, typically strings */
+        static uint8_t option_77[] = {
+                6, 'l', 'a', 'p', 't', 'o', 'p',
+                4, 'c', 'o', 'r', 'p',
+        };
+
+        /* Vendor-Identifying Vendor Class -- length-prefixed data tagged with enterprise number */
+        static uint8_t option_124[] = {
+                0x00, 0x00, 0x00, 0x09, /* enterprise number: 9 */
+                13,
+                5, 'c', 'i', 's', 'c', 'o',
+                6, 'f', 'o', 'o', 'b', 'a', 'r',
+                0x00, 0x00, 0x11, 0x8b, /* enterprise number: 4491 */
+                21,
+                9,  'd', 'o', 'c', 's', 'i', 's', '3', '.', '0',
+                10, 'e', 'R', 'o', 'u', 't', 'e', 'r', '1', '.', '0',
+        };
+
+        /* Vendor-Identifying Vendor-Specific Information (125) -- sub TLVs with enterprise number */
+        static uint8_t option_125[] = {
+                0x00, 0x00, 0x00, 0x09, /* enterprise number: 9 */
+                12,
+                1, 4, 'C', 'i', 's', 'c',
+                2, 4, 'I', 'O', 'S', 'X',
+                0x00, 0x00, 0x11, 0x8b, /* enterprise number: 4491 */
+                16,
+                1, 6, 'm', 'o', 'd', 'e', 'm', '1',
+                2, 6, 's', 't', 'a', 't', 'u', 's',
+        };
+
+        ASSERT_OK(dhcp_message_append_option(m, 43, ELEMENTSOF(option_43), option_43));
+        ASSERT_OK(dhcp_message_append_option(m, 60, ELEMENTSOF(option_60), option_60));
+        ASSERT_OK(dhcp_message_append_option(m, 77, ELEMENTSOF(option_77), option_77));
+        ASSERT_OK(dhcp_message_append_option(m, 124, ELEMENTSOF(option_124), option_124));
+        ASSERT_OK(dhcp_message_append_option(m, 125, ELEMENTSOF(option_125), option_125));
+
+        ASSERT_OK(dump_dhcp_message(m, STRV_MAKE("43", "60", "77", "124", "125"),
+                                    DUMP_DHCP_MESSAGE_LEGEND | DUMP_DHCP_MESSAGE_FULL));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -52,6 +52,29 @@ CHANGES WITH 261 in spe:
           changed to restrict socket address families to AF_INET, AF_INET6 and
           AF_UNIX.
 
+        * systemd-networkd gained a new sd-dhcp-relay backend for DHCP relay
+          agent support, replacing the legacy DHCP relay functionality in the
+          sd-dhcp-server backend. As part of this change:
+          - BindToInterface=
+          - RelayTarget=
+          - RelayAgentCircuitId=
+          - RelayAgentRemoteId=
+          options have been removed from the [DHCPServer] section in .network
+          files. Instead, use
+          - DHCPRelay=
+          option in the [Network] section of .network files, along with
+          - AgentAddress=
+          - GatewayAddress=
+          - CircuitId=
+          - VirtualSubnetSelection=
+          - ExtraOption=
+          options in the [DHCPRelay] section of .network files, and
+          - ServerAddress=
+          - OverrideServerIdentifier=
+          - RemoteId=
+          - ExtraOption=
+          options in the [DHCPRelay] section of networkd.conf.
+
         New features:
 
         * A new tmpfiles.d/root.conf has been added that sets permissions
@@ -77,6 +100,12 @@ CHANGES WITH 261 in spe:
           from the initrd. This overcomes the limitation that system and
           configuration extensions merged from the main system itself cannot be
           used to modify the resources which are used in the early boot.
+
+        Changes in systemd-networkd and networkctl:
+
+        * A new 'networkctl dhcp-lease INTERFACE' command has been added to
+          dump acquired DHCP leases. This may be useful for inspecting the
+          DHCP options provided by the server.
 
 CHANGES WITH 260:
 

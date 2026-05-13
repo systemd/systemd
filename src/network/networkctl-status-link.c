@@ -2,7 +2,7 @@
 
 #include "sd-device.h"
 #include "sd-dhcp-client-id.h"
-#include "sd-dhcp-lease.h"
+#include "sd-dhcp-protocol.h"
 #include "sd-hwdb.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
@@ -23,7 +23,6 @@
 #include "json-util.h"
 #include "macvlan-util.h"
 #include "netif-util.h"
-#include "network-internal.h"
 #include "networkctl.h"
 #include "networkctl-description.h"
 #include "networkctl-dump-util.h"
@@ -241,7 +240,6 @@ static int link_status_one(
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL,
                 *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup, *on_color_online;
         _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
-        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
@@ -292,11 +290,6 @@ static int link_status_one(
         r = net_get_type_string(info->sd_device, info->iftype, &t);
         if (r == -ENOMEM)
                 return log_oom();
-
-        char lease_file[STRLEN("/run/systemd/netif/leases/") + DECIMAL_STR_MAX(int)];
-        xsprintf(lease_file, "/run/systemd/netif/leases/%i", info->ifindex);
-
-        (void) dhcp_lease_load(&lease, lease_file);
 
         r = format_config_files(&network_dropins, network);
         if (r < 0)
@@ -779,7 +772,7 @@ static int link_status_one(
                         return r;
         }
 
-        r = dump_addresses(rtnl, lease, table, info->ifindex);
+        r = dump_addresses(rtnl, info->dhcp_message, table, info->ifindex);
         if (r < 0)
                 return r;
 
@@ -837,31 +830,29 @@ static int link_status_one(
                         return table_log_add_error(r);
         }
 
-        if (lease) {
-                const sd_dhcp_client_id *client_id;
-                const char *tz;
+        if (info->dhcp_message) {
+                _cleanup_free_ char *tz = NULL;
 
-                r = sd_dhcp_lease_get_timezone(lease, &tz);
-                if (r >= 0) {
+                if (dhcp_message_get_option_string(info->dhcp_message, SD_DHCP_OPTION_TZDB_TIMEZONE, &tz) >= 0
+                    && timezone_is_valid(tz, LOG_DEBUG)) {
                         r = table_add_many(table,
                                            TABLE_FIELD, "Time Zone",
                                            TABLE_STRING, tz);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
+        }
 
-                r = sd_dhcp_lease_get_client_id(lease, &client_id);
+        if (sd_dhcp_client_id_is_set(&info->dhcp_client_id)) {
+                _cleanup_free_ char *id = NULL;
+
+                r = sd_dhcp_client_id_to_string(&info->dhcp_client_id, &id);
                 if (r >= 0) {
-                        _cleanup_free_ char *id = NULL;
-
-                        r = sd_dhcp_client_id_to_string(client_id, &id);
-                        if (r >= 0) {
-                                r = table_add_many(table,
-                                                   TABLE_FIELD, "DHCPv4 Client ID",
-                                                   TABLE_STRING, id);
-                                if (r < 0)
-                                        return table_log_add_error(r);
-                        }
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "DHCPv4 Client ID",
+                                           TABLE_STRING, id);
+                        if (r < 0)
+                                return table_log_add_error(r);
                 }
         }
 

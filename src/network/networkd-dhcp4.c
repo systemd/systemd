@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/if_arp.h>
+#include <linux/pkt_sched.h>
 #include <linux/rtnetlink.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -1486,9 +1487,13 @@ static int dhcp4_configure(Link *link) {
         if (link->dhcp_client)
                 return log_link_debug_errno(link, SYNTHETIC_ERRNO(EBUSY), "DHCPv4 client is already configured.");
 
-        r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
+        r = sd_dhcp_client_new(&link->dhcp_client);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to allocate DHCPv4 client: %m");
+
+        r = sd_dhcp_client_set_anonymize(link->dhcp_client, link->network->dhcp_anonymize);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to anonymize requests: %m");
 
         r = sd_dhcp_client_set_bootp(link->dhcp_client, link->network->dhcp_use_bootp);
         if (r < 0)
@@ -1666,12 +1671,13 @@ static int dhcp4_configure(Link *link) {
         }
 
         if (link->network->dhcp_ip_service_type >= 0) {
-                r = sd_dhcp_client_set_service_type(link->dhcp_client, link->network->dhcp_ip_service_type);
+                assert(link->network->dhcp_ip_service_type <= UINT8_MAX);
+                r = sd_dhcp_client_set_ip_service_type(link->dhcp_client, link->network->dhcp_ip_service_type);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set IP service type: %m");
         }
 
-        if (link->network->dhcp_socket_priority_set) {
+        if (link->network->dhcp_socket_priority >= 0) {
                 r = sd_dhcp_client_set_socket_priority(link->dhcp_client, link->network->dhcp_socket_priority);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set socket priority: %m");
@@ -2001,14 +2007,13 @@ int config_parse_dhcp_socket_priority(
                 void *data,
                 void *userdata) {
 
-        Network *network = ASSERT_PTR(data);
-        int a, r;
+        int r, a, *priority = ASSERT_PTR(data);
 
         assert(lvalue);
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                network->dhcp_socket_priority_set = false;
+                *priority = -1;
                 return 0;
         }
 
@@ -2018,10 +2023,13 @@ int config_parse_dhcp_socket_priority(
                            "Failed to parse socket priority, ignoring: %s", rvalue);
                 return 0;
         }
+        if (a < 0 || a > TC_PRIO_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid socket priority, must be in 0…%i, ignoring: %i", TC_PRIO_MAX, a);
+                return 0;
+        }
 
-        network->dhcp_socket_priority_set = true;
-        network->dhcp_socket_priority = a;
-
+        *priority = a;
         return 0;
 }
 
