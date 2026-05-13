@@ -5206,7 +5206,7 @@ static int partition_target_prepare(
                                   part_node, nr,
                                   p->offset, NATURAL_ALIGNMENT(p->offset),
                                   size, NATURAL_ALIGNMENT(size));
-                        r = block_device_add_partition(whole_fd, part_node, nr, p->offset, size);
+                        r = block_device_add_partition(whole_fd, nr, p->offset, size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create new partition '%s': %m", part_node);
 
@@ -5215,7 +5215,7 @@ static int partition_target_prepare(
                         dev_fd = open(part_node, O_RDWR|O_CLOEXEC|O_NOCTTY);
                         if (dev_fd < 0) {
                                 r = -errno;
-                                int q = block_device_remove_partition(whole_fd, part_node, nr);
+                                int q = block_device_remove_partition(whole_fd, nr);
                                 if (q < 0)
                                         log_warning_errno(q, "Error while removing block device partition '%s', ignoring: %m", part_node);
                                 return log_error_errno(r, "Failed to open new partition '%s': %m", part_node);
@@ -5225,7 +5225,7 @@ static int partition_target_prepare(
 
                         b = new(BlockPartition, 1);
                         if (!b) {
-                                r = block_device_remove_partition(whole_fd, part_node, nr);
+                                r = block_device_remove_partition(whole_fd, nr);
                                 if (r < 0)
                                         log_warning_errno(r, "Error while removing block device partition '%s', ignoring: %m", part_node);
 
