@@ -2000,9 +2000,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
         <listitem>
           <para>The argument is a comma-separated list of unit LOAD, SUB, or ACTIVE states. When listing
-          units with <command>list-units</command>, <command>list-dependencies</command>, <command>show</command>
-          or <command>status</command>, show only those in the specified states. Use <option>--state=failed</option>
-          or <option>--failed</option> to show only failed units.</para>
+          units with <command>list-units</command>, <command>list-dependencies</command>,
+          <command>show</command> or <command>status</command>, show only those in the specified states. Use
+          <option>--state=failed</option> or <option>--failed</option> to show only failed units. Use
+          <option>--state=</option> to reset the filter.</para>
 
           <para>As a special case, if one of the arguments is <option>help</option>, a list of allowed values
           will be printed and the program will exit.</para>
