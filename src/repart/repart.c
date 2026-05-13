@@ -11389,7 +11389,9 @@ static int vl_method_run(
                 return r;
 
         if (p.node) {
-                context->node = TAKE_PTR(p.node);
+                r = acquire_root_devno(p.node, NULL, O_CLOEXEC|context_open_mode(context), &context->node, &context->backing_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open file or determine backing device of %s: %m", p.node);
 
                 r = context_load_partition_table(context);
                 if (r == -EHWPOISON)
