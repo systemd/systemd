@@ -8,6 +8,7 @@
 #include "logs-show.h"
 #include "loop-util.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "mount-util.h"
 #include "stat-util.h"
 #include "strv.h"
@@ -46,103 +47,6 @@
 #include "systemctl-whoami.h"
 #include "verbs.h"
 #include "virt.h"
-
-static int systemctl_main(char **args) {
-        static const Verb verbs[] = {
-                { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, verb_list_units },
-                { "list-unit-files",       VERB_ANY, VERB_ANY, 0,                verb_list_unit_files         },
-                { "list-automounts",       VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_automounts         },
-                { "list-paths",            VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_paths              },
-                { "list-sockets",          VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_sockets            },
-                { "list-timers",           VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_timers             },
-                { "list-jobs",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_jobs               },
-                { "list-machines",         VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_machines           },
-                { "clear-jobs",            VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_trivial_method          },
-                { "cancel",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_cancel                  },
-                { "start",                 2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
-                { "stop",                  2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
-                { "condstop",              2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   }, /* For compatibility with ALTLinux */
-                { "reload",                2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
-                { "restart",               2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
-                { "try-restart",           2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
-                { "enqueue-marked",        1,        1,        VERB_ONLINE_ONLY, verb_start                   },
-                { "reload-or-restart",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
-                { "reload-or-try-restart", 2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   }, /* For compatibility with systemctl <= 228 */
-                { "try-reload-or-restart", 2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
-                { "force-reload",          2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   }, /* For compatibility with SysV */
-                { "condreload",            2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   }, /* For compatibility with ALTLinux */
-                { "condrestart",           2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   }, /* For compatibility with RH */
-                { "isolate",               2,        2,        VERB_ONLINE_ONLY, verb_start                   },
-                { "kill",                  2,        VERB_ANY, VERB_ONLINE_ONLY, verb_kill                    },
-                { "clean",                 2,        VERB_ANY, VERB_ONLINE_ONLY, verb_clean_or_freeze         },
-                { "freeze",                2,        VERB_ANY, VERB_ONLINE_ONLY, verb_clean_or_freeze         },
-                { "thaw",                  2,        VERB_ANY, VERB_ONLINE_ONLY, verb_clean_or_freeze         },
-                { "is-active",             2,        VERB_ANY, VERB_ONLINE_ONLY, verb_is_active               },
-                { "check",                 2,        VERB_ANY, VERB_ONLINE_ONLY, verb_is_active               }, /* deprecated alias of is-active */
-                { "is-failed",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_is_failed               },
-                { "show",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_show                    },
-                { "cat",                   2,        VERB_ANY, VERB_ONLINE_ONLY, verb_cat                     },
-                { "status",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_show                    },
-                { "help",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_show                    },
-                { "daemon-reload",         1,        1,        VERB_ONLINE_ONLY, verb_daemon_reload           },
-                { "daemon-reexec",         1,        1,        VERB_ONLINE_ONLY, verb_daemon_reload           },
-                { "log-level",             VERB_ANY, 2,        VERB_ONLINE_ONLY, verb_log_setting             },
-                { "log-target",            VERB_ANY, 2,        VERB_ONLINE_ONLY, verb_log_setting             },
-                { "service-log-level",     2,        3,        VERB_ONLINE_ONLY, verb_service_log_setting     },
-                { "service-log-target",    2,        3,        VERB_ONLINE_ONLY, verb_service_log_setting     },
-                { "service-watchdogs",     VERB_ANY, 2,        VERB_ONLINE_ONLY, verb_service_watchdogs       },
-                { "show-environment",      VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_show_environment        },
-                { "set-environment",       2,        VERB_ANY, VERB_ONLINE_ONLY, verb_set_environment         },
-                { "unset-environment",     2,        VERB_ANY, VERB_ONLINE_ONLY, verb_set_environment         },
-                { "import-environment",    VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_import_environment      },
-                { "halt",                  VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
-                { "poweroff",              VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
-                { "reboot",                VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
-                { "kexec",                 VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
-                { "soft-reboot",           VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
-                { "sleep",                 VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
-                { "suspend",               VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
-                { "hibernate",             VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
-                { "hybrid-sleep",          VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
-                { "suspend-then-hibernate",VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
-                { "default",               VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_special           },
-                { "rescue",                VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
-                { "emergency",             VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
-                { "exit",                  VERB_ANY, 2,        VERB_ONLINE_ONLY, verb_start_special           },
-                { "reset-failed",          VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_reset_failed            },
-                { "enable",                2,        VERB_ANY, 0,                verb_enable                  },
-                { "disable",               2,        VERB_ANY, 0,                verb_enable                  },
-                { "is-enabled",            2,        VERB_ANY, 0,                verb_is_enabled              },
-                { "reenable",              2,        VERB_ANY, 0,                verb_enable                  },
-                { "preset",                2,        VERB_ANY, 0,                verb_enable                  },
-                { "preset-all",            VERB_ANY, 1,        0,                verb_preset_all              },
-                { "mask",                  2,        VERB_ANY, 0,                verb_enable                  },
-                { "unmask",                2,        VERB_ANY, 0,                verb_enable                  },
-                { "link",                  2,        VERB_ANY, 0,                verb_enable                  },
-                { "revert",                2,        VERB_ANY, 0,                verb_enable                  },
-                { "switch-root",           VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_switch_root             },
-                { "list-dependencies",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_dependencies       },
-                { "set-default",           2,        2,        0,                verb_set_default             },
-                { "get-default",           VERB_ANY, 1,        0,                verb_get_default             },
-                { "set-property",          3,        VERB_ANY, VERB_ONLINE_ONLY, verb_set_property            },
-                { "is-system-running",     VERB_ANY, 1,        0,                verb_is_system_running       },
-                { "add-wants",             3,        VERB_ANY, 0,                verb_add_dependency          },
-                { "add-requires",          3,        VERB_ANY, 0,                verb_add_dependency          },
-                { "edit",                  2,        VERB_ANY, VERB_ONLINE_ONLY, verb_edit                    },
-                { "bind",                  3,        4,        VERB_ONLINE_ONLY, verb_bind                    },
-                { "mount-image",           4,        5,        VERB_ONLINE_ONLY, verb_mount_image             },
-                { "whoami",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_whoami                  },
-                {}
-        };
-
-        const Verb *verb = verbs_find_verb(args[0], verbs, verbs + ELEMENTSOF(verbs) - 1);
-        if (verb && (verb->flags & VERB_ONLINE_ONLY) && arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Verb '%s' cannot be used with --root= or --image=.",
-                                       args[0] ?: verb->verb);
-
-        return _dispatch_verb_with_args(args, verbs, verbs + ELEMENTSOF(verbs) - 1, NULL);
-}
 
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
