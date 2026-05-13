@@ -227,7 +227,7 @@ static int help(void) {
         if (r < 0)
                 return r;
 
-        assert_se(ELEMENTSOF(vtables) == 9);
+        assert_cc(ELEMENTSOF(vtables) == 9);
         (void) table_sync_column_widths(0, options, vtables[0], vtables[1], vtables[2],
                                         vtables[3], vtables[4], vtables[5], vtables[6],
                                         vtables[7], vtables[8]);

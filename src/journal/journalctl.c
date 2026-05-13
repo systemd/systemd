@@ -251,7 +251,7 @@ static int help(void) {
                         return r;
         }
 
-        assert_se(ELEMENTSOF(tables) == 6);
+        assert_cc(ELEMENTSOF(tables) == 6);
         (void) table_sync_column_widths(0, tables[0], tables[1], tables[2],
                                         tables[3], tables[4], tables[5]);
 

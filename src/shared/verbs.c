@@ -83,7 +83,6 @@ int _dispatch_verb_with_args(char **args, const Verb verbs[], const Verb verbs_e
 
         assert(verbs);
         assert(verbs_end > verbs);
-        assert(verbs[0].dispatch);
         assert(verbs[0].verb);
 
         const char *name = args ? args[0] : NULL;
@@ -101,6 +100,7 @@ int _dispatch_verb_with_args(char **args, const Verb verbs[], const Verb verbs_e
                         if (r < 0)
                                 return log_oom();
                 }
+                assert(!strv_isempty(verb_strv));  /* At least one verb should be defined… */
 
                 if (name) {
                         /* Be more helpful to the user, and give a hint what the user might have wanted to type. */
@@ -121,7 +121,7 @@ int _dispatch_verb_with_args(char **args, const Verb verbs[], const Verb verbs_e
                                                "Command verb required (one of %s).", joined);
                 }
 
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Command verb '%s' required.", verbs[0].verb);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Command verb '%s' required.", verb_strv[0]);
         }
 
         if (!name)
