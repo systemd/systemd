@@ -1561,6 +1561,46 @@ testcase_volatile_link_journal_no_userns() {
     rm -fr "$root" "$journal_dir"
 }
 
+testcase_boot_param_split() {
+    local root outdir
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.boot-param-split.XXX)"
+    outdir="$(mktemp -d)"
+    create_dummy_container "$root"
+
+    # Replace the init binary with a stub that records the argv and environment nspawn passes to it,
+    # so we can verify that kernel-cmdline-style KEY=VALUE arguments are split between PID 1's
+    # environment and argv the same way the kernel splits them.
+    cat >"$root/usr/lib/systemd/systemd" <<'EOF'
+#!/bin/bash
+set -e
+printf '%s\n' "$@" >/output/argv
+env >/output/env
+EOF
+    chmod +x "$root/usr/lib/systemd/systemd"
+
+    # Cover the assignments that should land in env (FOO=bar, baz-qux=hello → baz_qux), the
+    # dotted assignments that should stay as argv (systemd.unit=…, some.thing=…), and the malformed
+    # entries that look env-like but must also stay as argv: empty key (=value), key starting with
+    # a digit (123=foo), key with characters that aren't valid in an env var name (foo!=bar).
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --bind="$outdir:/output" \
+                   --boot \
+                   FOO=bar baz-qux=hello systemd.unit=foo.target some.thing=yes plain-arg \
+                   =empty-key 123=leading-digit 'foo!=bad-char'
+
+    diff <(printf 'systemd.unit=foo.target\nsome.thing=yes\nplain-arg\n=empty-key\n123=leading-digit\nfoo!=bad-char\n') "$outdir/argv"
+    grep '^FOO=bar$' >/dev/null "$outdir/env"
+    grep '^baz_qux=hello$' >/dev/null "$outdir/env"
+    (! grep -E '^(systemd\.unit|some\.thing)=' >/dev/null "$outdir/env")
+    (! grep -E '^(FOO|baz_qux)=' >/dev/null "$outdir/argv")
+    (! grep -E '^(123|foo!?)=' >/dev/null "$outdir/env")
+    (! grep -E '^=' >/dev/null "$outdir/env")
+
+    rm -fr "$root" "$outdir"
+}
+
 testcase_cap_net_bind_service() {
     local root
 

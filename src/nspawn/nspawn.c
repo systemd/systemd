@@ -1639,6 +1639,49 @@ static int verify_arguments(void) {
         return 0;
 }
 
+static int split_boot_parameters(void) {
+        _cleanup_strv_free_ char **kept = NULL;
+        int r;
+
+        /* When the kernel hands the command line to PID 1, any KEY=VALUE assignment whose KEY does not
+         * contain a '.' is exported as an environment variable (with '-' replaced by '_'), rather than
+         * passed as an argument. Mimic the same split here so users can pass kernel-cmdline-style
+         * arguments after the container path and get the behavior they'd get on a real boot. */
+
+        if (arg_start_mode != START_BOOT)
+                return 0;
+
+        STRV_FOREACH(p, arg_parameters) {
+                const char *eq = strchr(*p, '=');
+
+                if (eq && eq > *p && !memchr(*p, '.', eq - *p)) {
+                        _cleanup_free_ char *assignment = strdup(*p);
+                        if (!assignment)
+                                return log_oom();
+
+                        for (char *q = assignment; q < assignment + (eq - *p); q++)
+                                if (*q == '-')
+                                        *q = '_';
+
+                        if (env_assignment_is_valid(assignment)) {
+                                r = strv_env_replace_consume(&arg_setenv, TAKE_PTR(assignment));
+                                if (r < 0)
+                                        return log_error_errno(r, "Cannot assign environment variable: %m");
+
+                                arg_settings_mask |= SETTING_ENVIRONMENT;
+                                continue;
+                        }
+                }
+
+                r = strv_extend(&kept, *p);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        strv_free_and_replace(arg_parameters, kept);
+        return 0;
+}
+
 static int verify_network_interfaces_initialized(void) {
         int r;
         r = test_network_interfaces_initialized(arg_network_interfaces);
@@ -6073,6 +6116,10 @@ static int run(int argc, char *argv[]) {
                 arg_caps_retain &= ~(UINT64_C(1) << CAP_NET_BIND_SERVICE);
 
         r = verify_arguments();
+        if (r < 0)
+                goto finish;
+
+        r = split_boot_parameters();
         if (r < 0)
                 goto finish;
 
