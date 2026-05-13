@@ -8,7 +8,9 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "cpu-set-util.h"
 #include "hostname-setup.h"
+#include "limits-util.h"
 #include "log.h"
 #include "metrics.h"
 #include "os-util.h"
@@ -97,6 +99,32 @@ static int machine_id_generate(const MetricFamily *mf, sd_varlink *link, void *u
                         link,
                         /* object= */ NULL,
                         SD_ID128_TO_STRING(id),
+                        /* fields= */ NULL);
+}
+
+static int physical_memory_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+
+        assert(mf && mf->name);
+        assert(link);
+
+        return metric_build_send_unsigned(
+                        mf,
+                        link,
+                        /* object= */ NULL,
+                        physical_memory(),
+                        /* fields= */ NULL);
+}
+
+static int installed_cpus_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+
+        assert(mf && mf->name);
+        assert(link);
+
+        return metric_build_send_unsigned(
+                        mf,
+                        link,
+                        /* object= */ NULL,
+                        installed_cpus(),
                         /* fields= */ NULL);
 }
 
@@ -244,6 +272,18 @@ static const MetricFamily metric_family_table[] = {
                 "Virtualization type",
                 METRIC_FAMILY_TYPE_STRING,
                 .generate = virtualization_generate,
+        },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "PhysicalMemoryBytes",
+                "Installed physical memory in bytes",
+                METRIC_FAMILY_TYPE_GAUGE,
+                .generate = physical_memory_generate,
+        },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "InstalledCPUs",
+                "Installed CPUs",
+                METRIC_FAMILY_TYPE_GAUGE,
+                .generate = installed_cpus_generate,
         },
         {}
 };
