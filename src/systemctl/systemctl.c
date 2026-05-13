@@ -373,7 +373,7 @@ static int parse_what_argument(const char *value, char ***clean_what) {
         return 1;
 }
 
-static int systemctl_parse_argv(int argc, char *argv[], char ***remaining_args) {
+static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, char ***remaining_args) {
         int r;
 
         assert(argc >= 0);
@@ -382,7 +382,11 @@ static int systemctl_parse_argv(int argc, char *argv[], char ***remaining_args) 
         /* We default to allowing interactive authorization only in systemctl (not in the legacy commands) */
         arg_ask_password = true;
 
-        OptionParser opts = { argc, argv, .namespace = "systemctl" };
+        OptionParser opts = {
+                argc, argv,
+                .namespace = "systemctl",
+                .log_level_shift = log_level_shift,
+        };
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
@@ -898,28 +902,29 @@ static int systemctl_parse_argv(int argc, char *argv[], char ***remaining_args) 
         return 1;
 }
 
-int systemctl_dispatch_parse_argv(int argc, char *argv[], char ***remaining_args) {
+int systemctl_dispatch_parse_argv(int argc, char *argv[], int log_level_shift, char ***remaining_args) {
         assert(argc >= 0);
         assert(argv);
 
         if (invoked_as(argv, "halt")) {
                 arg_action = ACTION_HALT;
-                return halt_parse_argv(argc, argv);
+                return halt_parse_argv(argc, argv, log_level_shift);
 
         } else if (invoked_as(argv, "poweroff")) {
                 arg_action = ACTION_POWEROFF;
-                return halt_parse_argv(argc, argv);
+                return halt_parse_argv(argc, argv, log_level_shift);
 
         } else if (invoked_as(argv, "reboot")) {
                 arg_action = ACTION_REBOOT;
-                return halt_parse_argv(argc, argv);
+                return halt_parse_argv(argc, argv, log_level_shift);
 
         } else if (invoked_as(argv, "shutdown")) {
                 arg_action = ACTION_POWEROFF;
-                return shutdown_parse_argv(argc, argv);
+                return shutdown_parse_argv(argc, argv, log_level_shift);
+
         } else {
                 arg_action = ACTION_SYSTEMCTL;
-                return systemctl_parse_argv(argc, argv, remaining_args);
+                return systemctl_parse_argv(argc, argv, log_level_shift, remaining_args);
         }
 }
 

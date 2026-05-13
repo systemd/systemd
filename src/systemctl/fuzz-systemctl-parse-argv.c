@@ -88,17 +88,16 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                         log_warning_errno(orig_stdout_fd, "Failed to duplicate fd 1: %m");
                 else
                         assert_se(freopen("/dev/null", "w", stdout));
-
-                opterr = 0; /* do not print errors */
         }
 
         /* We need to reset some global state manually here since libfuzzer feeds a single process with
          * multiple inputs, so we might carry over state from previous invocations that can trigger
          * certain asserts. */
-        optind = 0; /* this tells the getopt machinery to reinitialize */
         arg_transport = BUS_TRANSPORT_LOCAL;
 
-        r = systemctl_dispatch_parse_argv(strv_length(argv), argv, /* remaining_args= */ NULL);
+        r = systemctl_dispatch_parse_argv(strv_length(argv), argv,
+                                          /* log_level_shift= */ LOG_DEBUG - LOG_ERR,
+                                          /* remaining_args= */ NULL);
         if (r < 0)
                 log_error_errno(r, "Failed to parse args: %m");
         else

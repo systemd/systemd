@@ -116,13 +116,17 @@ static int parse_shutdown_time_spec(const char *t, usec_t *ret) {
         return 0;
 }
 
-int shutdown_parse_argv(int argc, char *argv[]) {
+int shutdown_parse_argv(int argc, char *argv[], int log_level_shift) {
         int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser opts = { argc, argv, .namespace = "shutdown" };
+        OptionParser opts = {
+                argc, argv,
+                .namespace = "shutdown",
+                .log_level_shift = log_level_shift,
+        };
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
