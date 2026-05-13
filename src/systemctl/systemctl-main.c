@@ -26,7 +26,7 @@ static int run(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         log_setup();
 
-        r = systemctl_dispatch_parse_argv(argc, argv, &args);
+        r = systemctl_dispatch_parse_argv(argc, argv, /* log_level_shift= */ 0, &args);
         if (r <= 0)
                 goto finish;
 
