@@ -1,25 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-/* since glibc-2.36 */
-#if HAVE_PIDFD_OPEN
-#include_next <sys/pidfd.h>     /* IWYU pragma: export */
-#endif
-
 #include <linux/types.h>
 #include <signal.h>
 #include <sys/ioctl.h>
 
 /* Defined since glibc-2.36.
  * Supported since kernel v5.3 (7615d9e1780e26e0178c93c55b73309a5dc093d7). */
-#if !HAVE_PIDFD_OPEN
+#if HAVE_PIDFD_OPEN
+extern int pidfd_open (pid_t __pid, unsigned int __flags);
+#else
 int missing_pidfd_open(pid_t pid, unsigned flags);
 #  define pidfd_open missing_pidfd_open
 #endif
 
 /* Defined since glibc-2.36.
  * Supported since kernel v5.1 (3eb39f47934f9d5a3027fe00d906a45fe3a15fad). */
-#if !HAVE_PIDFD_SEND_SIGNAL
+#if HAVE_PIDFD_SEND_SIGNAL
+extern int pidfd_send_signal (int __pidfd, int __sig, siginfo_t *__info,
+                              unsigned int __flags);
+#else
 int missing_pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags);
 #  define pidfd_send_signal missing_pidfd_send_signal
 #endif
@@ -49,8 +49,14 @@ int missing_pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags);
 #define PIDFD_INFO_CGROUPID             (1UL << 2) /* Always returned if available, even if not requested */
 #define PIDFD_INFO_EXIT                 (1UL << 3) /* Only returned if requested. */
 #define PIDFD_INFO_COREDUMP             (1UL << 4) /* Only returned if requested. */
+#define PIDFD_INFO_SUPPORTED_MASK       (1UL << 5) /* Want/got supported mask flags */
+#define PIDFD_INFO_COREDUMP_SIGNAL      (1UL << 6) /* Always returned if PIDFD_INFO_COREDUMP is requested. */
+#define PIDFD_INFO_COREDUMP_CODE        (1UL << 7) /* Always returned if PIDFD_INFO_COREDUMP is requested. */
 
 #define PIDFD_INFO_SIZE_VER0            64 /* sizeof first published struct */
+#define PIDFD_INFO_SIZE_VER1            72 /* sizeof second published struct */
+#define PIDFD_INFO_SIZE_VER2            80 /* sizeof third published struct */
+#define PIDFD_INFO_SIZE_VER3            88 /* sizeof fourth published struct */
 
 /*
  * Values for @coredump_mask in pidfd_info.
@@ -105,8 +111,12 @@ struct pidfd_info {
         __u32 fsuid;
         __u32 fsgid;
         __s32 exit_code;     /* since kernel v6.15 (7477d7dce48a996ae4e4f0b5f7bd82de7ec9131b) */
-        __u32 coredump_mask; /* since kernel v6.16 (1d8db6fd698de1f73b1a7d72aea578fdd18d9a87) */
-        __u32 __spare1;
+        struct {             /* coredump info */
+                __u32 coredump_mask;   /* since kernel v6.16 (1d8db6fd698de1f73b1a7d72aea578fdd18d9a87) */
+                __u32 coredump_signal; /* since kernel v6.19 (036375522be8425874e9e0f907c7127e315c7a52) */
+                __u32 coredump_code;   /* since kernel v7.1 (701f7f4fbabbf4989ba6fbf033b160dd943221d5) */
+        };
+        __u64 supported_mask; /* Mask flags that this kernel supports */
 };
 
 #define PIDFD_GET_INFO          _IOWR(PIDFS_IOCTL_MAGIC, 11, struct pidfd_info)

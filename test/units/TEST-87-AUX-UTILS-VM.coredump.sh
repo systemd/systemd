@@ -155,6 +155,11 @@ coredumpctl info "$CORE_TEST_BIN" | grep "TID:" >/dev/null
 # Check the field is queryable in the journal
 coredumpctl -F COREDUMP_TID
 
+# If COREDUMP_CODE= is present, check that the expected code is SI_USER (0).
+if coredumpctl -F COREDUMP_CODE | grep "^0$" >/dev/null; then
+    coredumpctl info "$CORE_TEST_BIN" | grep --fixed-strings "Signal: 5 (TRAP) si_code: SI_USER" >/dev/null
+fi
+
 coredumpctl debug --debugger=/bin/true "$CORE_TEST_BIN"
 SYSTEMD_DEBUGGER=/bin/true coredumpctl debug "$CORE_TEST_BIN"
 coredumpctl debug --debugger=/bin/true --debugger-arguments="-this --does --not 'do anything' -a -t --all" "${CORE_TEST_BIN##*/}"
