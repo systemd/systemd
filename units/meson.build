@@ -785,7 +785,7 @@ units = [
           'symlinks' : ['system-install.target.wants/'],
         },
         {
-          'file' : 'systemd-sysupdate-reboot.service.in',
+          'file' : 'systemd-sysupdate-reboot.service',
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
         {
@@ -793,7 +793,7 @@ units = [
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
         {
-          'file' : 'systemd-sysupdate.service.in',
+          'file' : 'systemd-sysupdate.service',
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
         {

@@ -14,7 +14,7 @@ ConditionVirtualization=!container
 
 [Service]
 Type=oneshot
-ExecStart={{LIBEXECDIR}}/systemd-sysupdate reboot
+ExecStart=systemd-sysupdate reboot
 
 [Install]
 Also=systemd-sysupdate-reboot.timer

@@ -21,7 +21,7 @@ systemd_updatectl_sources = files(
 )
 
 executables += [
-        libexec_template + {
+        executable_template + {
                 'name' : 'systemd-sysupdate',
                 'public' : true,
                 'conditions' : ['ENABLE_SYSUPDATE'],
@@ -56,4 +56,11 @@ if conf.get('ENABLE_SYSUPDATED') == 1
                      install_dir : dbussystemservicedir)
         install_data('org.freedesktop.sysupdate1.policy',
                      install_dir : polkitpolicydir)
+endif
+
+if conf.get('ENABLE_SYSUPDATE') == 1
+        # symlink for backwards compatibility after rename
+        install_symlink('systemd-sysupdate',
+                        pointing_to : libexecdir_to_bin / 'systemd-sysupdate',
+                        install_dir : libexecdir)
 endif
