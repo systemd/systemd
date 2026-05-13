@@ -5202,6 +5202,10 @@ static int partition_target_prepare(
                          * keep them alive if we succeed, and the rescan will remove them if possible if
                          * there is an error before writing the partition table.
                          */
+                        log_debug("Adding partition '%s' (nr=%i, offset=%" PRIu64 " [align=%" PRIu64 "], size=%" PRIu64 " [align=%" PRIu64 "])",
+                                  part_node, nr,
+                                  p->offset, NATURAL_ALIGNMENT(p->offset),
+                                  size, NATURAL_ALIGNMENT(size));
                         r = block_device_add_partition(whole_fd, part_node, nr, p->offset, size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create new partition '%s': %m", part_node);
