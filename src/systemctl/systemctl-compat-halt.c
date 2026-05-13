@@ -50,13 +50,17 @@ static int halt_help(void) {
         return 0;
 }
 
-int halt_parse_argv(int argc, char *argv[]) {
+int halt_parse_argv(int argc, char *argv[], int log_level_shift) {
         int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser opts = { argc, argv, .namespace = "halt" };
+        OptionParser opts = {
+                argc, argv,
+                .namespace = "halt",
+                .log_level_shift = log_level_shift,
+        };
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
