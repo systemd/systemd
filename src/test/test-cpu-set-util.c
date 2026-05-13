@@ -284,4 +284,10 @@ TEST(cpu_set_add_range) {
         ASSERT_OK(cpu_set_add_range(&c, 0, 8191));
 }
 
+TEST(installed_cpus) {
+        unsigned n = installed_cpus();
+        ASSERT_GE(n, 1U);
+        log_info("Installed CPUs: %u", n);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

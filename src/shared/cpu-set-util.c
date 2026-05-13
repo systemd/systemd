@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "bitfield.h"
+#include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "extract-word.h"
 #include "log.h"
@@ -399,4 +400,41 @@ int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *ret) {
 
         *ret = TAKE_STRUCT(c);
         return 0;
+}
+
+unsigned installed_cpus(void) {
+        int r;
+
+        /* In order to support containers nicely that have a configured cpuset we'll take the minimum of the
+         * physically reported amount of PCUS and the limit configured for the root cgroup, if there is
+         * any. */
+
+        long sc = sysconf(_SC_NPROCESSORS_ONLN);
+        assert(sc > 0);
+        assert((unsigned long) sc <= UINT_MAX);
+
+        _cleanup_free_ char *root = NULL;
+        r = cg_get_root_path(&root);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to determine root cgroup, ignoring: %m");
+                return (unsigned) sc;
+        }
+
+        _cleanup_free_ char *value = NULL;
+        r = cg_get_attribute(root, "cpuset.cpus.effective", &value);
+        if (r == -ENOENT)
+                return (unsigned) sc;
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read cpuset.cpus.effective cgroup attribute, ignoring: %m");
+                return (unsigned) sc;
+        }
+
+        _cleanup_(cpu_set_done) CPUSet cpus = {};
+        r = parse_cpu_set(value, &cpus);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse cpuset.cpus.effective cgroup attribute, ignoring: %m");
+                return (unsigned) sc;
+        }
+
+        return MIN((unsigned) cpu_set_size(&cpus), (unsigned) sc);
 }

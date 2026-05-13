@@ -42,3 +42,5 @@ int cpus_in_affinity_mask(void);
 static inline size_t cpu_set_size(const CPUSet *c) {
         return CPU_COUNT_S(c->allocated, c->set);
 }
+
+unsigned installed_cpus(void);
