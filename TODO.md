@@ -128,6 +128,14 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- report: add filtering by metric prefix, so that we reports don't have to
+  include everything, and we have a way to have "small" and "big" reports, that
+  have different number of fields.
+
+- allow metrics to indicate which values mean
+  "nothing"/"invalid"/"zero"/"please-suppress". Then use that to reduce noise
+  in systemd-report output.
+
 - sysupdate: offer reading transfer files/components/features optionally from
   some JSON fragment rather than transfer files, so that we can update it
   independently from any DDI, and it needs no activation cycle. Why? so that

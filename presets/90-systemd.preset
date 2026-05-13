@@ -32,6 +32,7 @@ enable systemd-networkd-wait-online.service
 enable systemd-nsresourced.socket
 enable systemd-pstore.service
 enable systemd-report-basic.socket
+enable systemd-report-cgroup.socket
 enable systemd-resolved.service
 enable systemd-sysext.service
 enable systemd-timesyncd.service
