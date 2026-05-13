@@ -475,6 +475,10 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u DefaultStartLimitBurst = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t EventLoopRateLimitIntervalUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u EventLoopRateLimitBurst = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultIOAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultIPAccounting = ...;
@@ -724,6 +728,10 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultStartLimitIntervalUSec is not documented!-->
 
     <!--property DefaultStartLimitBurst is not documented!-->
+
+    <!--property EventLoopRateLimitIntervalUSec is not documented!-->
+
+    <!--property EventLoopRateLimitBurst is not documented!-->
 
     <!--property DefaultIOAccounting is not documented!-->
 
@@ -1182,6 +1190,10 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartLimitIntervalUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartLimitBurst"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EventLoopRateLimitIntervalUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EventLoopRateLimitBurst"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultIOAccounting"/>
 
