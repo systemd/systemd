@@ -5,7 +5,7 @@
 set -eux
 set -o pipefail
 
-SYSUPDATE=/lib/systemd/systemd-sysupdate
+SYSUPDATE=/usr/bin/systemd-sysupdate
 SYSUPDATED=/lib/systemd/systemd-sysupdated
 SECTOR_SIZES=(512 4096)
 WORKDIR="$(mktemp -d /var/tmp/test-72-XXXXXX)"
