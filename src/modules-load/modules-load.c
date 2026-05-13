@@ -11,6 +11,7 @@
 #include "build.h"
 #include "conf-files.h"
 #include "constants.h"
+#include "cpu-set-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -314,13 +315,13 @@ static unsigned determine_num_worker_threads(unsigned n_modules) {
         if (n_threads == UINT_MAX) {
                 /* By default, use a number of worker threads equal the number of online CPUs,
                  * but clamp it to avoid a probing storm on machines with many CPUs. */
-                long ncpus = sysconf(_SC_NPROCESSORS_ONLN);
-                if (ncpus < 0) {
-                        log_warning_errno(errno, "Failed to get number of online CPUs, ignoring: %m");
-                        ncpus = 1;
-                }
-
-                n_threads = CLAMP((unsigned)ncpus, 1U, 16U);
+                unsigned n_cpus;
+                r = cpus_online(&n_cpus);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to get number of online CPUs, ignoring: %m");
+                        n_threads = 1;
+                } else
+                        n_threads = CLAMP(n_cpus, 1U, 16U);
         }
 
         /* There's no reason to spawn more threads than the modules that need to be loaded */

@@ -46,3 +46,5 @@ static inline size_t cpu_set_count(const CPUSet *c) {
                 return 0;
         return CPU_COUNT_S(c->allocated, c->set);
 }
+
+int cpus_online(unsigned *ret);
