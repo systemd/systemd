@@ -582,43 +582,6 @@ long_max = cc.compute_int(
 assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', f'@long_max@')
 
-foreach ident : [
-        ['renameat2',         '''#include <stdio.h>'''],        # since musl-1.2.6
-        ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
-        ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
-        ['epoll_pwait2',      '''#include <sys/epoll.h>'''],    # since glibc-2.35
-        ['fsconfig',          '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['fsmount',           '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['fsopen',            '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['mount_setattr',     '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['move_mount',        '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['open_tree',         '''#include <sys/mount.h>'''],    # since glibc-2.36
-        ['openat2',           '''#include <fcntl.h>'''],        # since glibc-2.42
-        ['pidfd_open',        '''#include <sys/pidfd.h>'''],    # since glibc-2.36
-        ['pidfd_send_signal', '''#include <sys/pidfd.h>'''],    # since glibc-2.36
-        ['pidfd_spawn',       '''#include <spawn.h>'''],        # since glibc-2.39
-        ['sched_setattr',     '''#include <sched.h>'''],        # since glibc-2.41
-        ['ioprio_get',        '''#include <sched.h>'''],        # no known header declares ioprio_get
-        ['ioprio_set',        '''#include <sched.h>'''],        # no known header declares ioprio_set
-        ['rt_tgsigqueueinfo', '''#include <signal.h>'''],       # no known header declares rt_tgsigqueueinfo
-        ['open_tree_attr',    '''#include <sys/mount.h>'''],    # no known header declares open_tree_attr
-        ['quotactl_fd',       '''#include <sys/quota.h>'''],    # no known header declares quotactl_fd
-        ['fchmodat2',         '''#include <sys/stat.h>'''],     # no known header declares fchmodat2
-        ['bpf',               '''#include <sys/syscall.h>'''],  # no known header declares bpf
-        ['kcmp',              '''#include <sys/syscall.h>'''],  # no known header declares kcmp
-        ['kexec_file_load',   '''#include <sys/syscall.h>'''],  # no known header declares kexec_file_load
-        ['keyctl',            '''#include <sys/syscall.h>'''],  # no known header declares keyctl
-        ['add_key',           '''#include <sys/syscall.h>'''],  # no known header declares add_key
-        ['request_key',       '''#include <sys/syscall.h>'''],  # no known header declares request_key
-        ['setxattrat',        '''#include <sys/xattr.h>'''],    # no known header declares setxattrat
-        ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
-        ['pivot_root',        '''#include <unistd.h>'''],       # no known header declares pivot_root
-]
-
-        have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
-        conf.set10('HAVE_' + ident[0].to_upper(), have)
-endforeach
-
 #####################################################################
 
 awk    = find_program('awk')
@@ -1203,18 +1166,6 @@ conf.set10('HAVE_LIBCRYPTSETUP', have)
 conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS',
            libcryptsetup_plugins.allowed() and have)
 
-foreach ident : [
-                'crypt_set_keyring_to_link',     # 2.7
-                'crypt_token_set_external_path', # 2.7
-        ]
-
-        have_ident = have and cc.has_function(
-                ident,
-                prefix : '#include <libcryptsetup.h>',
-                dependencies : libcryptsetup)
-        conf.set10('HAVE_' + ident.to_upper(), have_ident)
-endforeach
-
 libcurl = dependency('libcurl',
                      version : '>= 7.32.0',
                      required : get_option('libcurl'))
@@ -1292,10 +1243,6 @@ libelf = dependency('libelf',
 libelf_cflags = libelf.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_ELFUTILS', libdw.found() and libelf.found())
 
-# New in elfutils 0.192
-conf.set10('HAVE_DWFL_SET_SYSROOT',
-           libdw.found() and cc.has_function('dwfl_set_sysroot', dependencies : libdw))
-
 libz = dependency('zlib',
                   required : get_option('zlib'))
 conf.set10('HAVE_ZLIB', libz.found())
@@ -1364,16 +1311,6 @@ libarchive = dependency('libarchive',
                         required : get_option('libarchive'))
 libarchive_cflags = libarchive.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBARCHIVE', libarchive.found())
-
-foreach ident : [
-                'archive_entry_gid_is_set',      # since 3.7.3
-                'archive_entry_uid_is_set',      # since 3.7.3
-                'archive_entry_hardlink_is_set', # since 3.7.5
-        ]
-
-        have = libarchive.found() and cc.has_function(ident, dependencies : libarchive)
-        conf.set10('HAVE_' + ident.to_upper(), have)
-endforeach
 
 libxkbcommon = dependency('xkbcommon',
                           version : '>= 0.3.0',

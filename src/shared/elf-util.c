@@ -56,9 +56,12 @@ static DLSYM_PROTOTYPE(dwfl_begin) = NULL;
 static DLSYM_PROTOTYPE(dwfl_build_id_find_elf) = NULL;
 static DLSYM_PROTOTYPE(dwfl_core_file_attach) = NULL;
 static DLSYM_PROTOTYPE(dwfl_core_file_report) = NULL;
-#if HAVE_DWFL_SET_SYSROOT
+/* New in elfutils 0.192. Always redeclare so DLSYM_PROTOTYPE's typeof() resolves on older headers; suppress
+ * the warning when newer libdw already declared it. */
+DISABLE_WARNING_REDUNDANT_DECLS;
+extern int dwfl_set_sysroot(Dwfl *dwfl, const char *sysroot); /* NOLINT(readability-redundant-declaration) */
+REENABLE_WARNING;
 static DLSYM_PROTOTYPE(dwfl_set_sysroot) = NULL;
-#endif
 static DLSYM_PROTOTYPE(dwfl_end) = NULL;
 static DLSYM_PROTOTYPE(dwfl_errmsg) = NULL;
 static DLSYM_PROTOTYPE(dwfl_errno) = NULL;
@@ -121,9 +124,6 @@ int dlopen_dw(int log_level) {
                         DLSYM_ARG(dwfl_module_getelf),
                         DLSYM_ARG(dwfl_begin),
                         DLSYM_ARG(dwfl_core_file_report),
-#if HAVE_DWFL_SET_SYSROOT
-                        DLSYM_ARG(dwfl_set_sysroot),
-#endif
                         DLSYM_ARG(dwfl_report_end),
                         DLSYM_ARG(dwfl_getmodules),
                         DLSYM_ARG(dwfl_core_file_attach),
@@ -139,10 +139,23 @@ int dlopen_dw(int log_level) {
         if (r <= 0)
                 return r;
 
+        /* Optional symbol: present in libdw 0.192+. NULL pointer is fine; call sites check at use. */
+        DLSYM_OPTIONAL(dw_dl, dwfl_set_sysroot);
+
         return 1;
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "libdw support is not compiled in.");
+#endif
+}
+
+bool dlopen_dw_has_dwfl_set_sysroot(void) {
+#if HAVE_ELFUTILS
+        if (dlopen_dw(LOG_DEBUG) < 0)
+                return false;
+        return sym_dwfl_set_sysroot;
+#else
+        return false;
 #endif
 }
 
@@ -660,13 +673,13 @@ static int parse_core(
 
         if (empty_or_root(root))
                 root = NULL;
-#if HAVE_DWFL_SET_SYSROOT
-        if (root && sym_dwfl_set_sysroot(c.dwfl, root) < 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not set root directory, dwfl_set_sysroot() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
-#else
-        if (root)
-                log_warning("Compiled without dwfl_set_sysroot() support, ignoring provided root directory.");
-#endif
+        if (root) {
+                if (sym_dwfl_set_sysroot) {
+                        if (sym_dwfl_set_sysroot(c.dwfl, root) < 0)
+                                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not set root directory, dwfl_set_sysroot() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
+                } else
+                        log_warning("Loaded libdw does not support dwfl_set_sysroot(), ignoring provided root directory.");
+        }
 
         if (sym_dwfl_core_file_report(c.dwfl, c.elf, executable) < 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_core_file_report() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
