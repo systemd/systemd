@@ -278,6 +278,13 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
                         CONST_ISPOWEROF2(_x);                          \
                 }))
 
+/* Returns the largest power of two that divides x (i.e. x's natural alignment in bytes), or 0 if x is 0. */
+#define NATURAL_ALIGNMENT(x)                                                    \
+        ({                                                                      \
+                const uint64_t _x = (x);                                        \
+                _x == 0 ? UINT64_C(0) : UINT64_C(1) << __builtin_ctzll(_x);     \
+        })
+
 #define ADD_SAFE(ret, a, b) (!__builtin_add_overflow(a, b, ret))
 #define INC_SAFE(a, b) __INC_SAFE(UNIQ, a, b)
 #define __INC_SAFE(q, a, b)                                     \
