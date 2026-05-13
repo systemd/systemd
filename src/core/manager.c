@@ -2088,13 +2088,13 @@ static void manager_ready(Manager *m) {
         /* Create a file which will indicate when the manager started loading units the last time. */
         if (MANAGER_IS_SYSTEM(m))
                 (void) touch_file("/run/systemd/systemd-units-load", false,
-                        m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD].realtime ?: now(CLOCK_REALTIME),
+                        m->timestamps[MANAGER_TIMESTAMP_UNITS_RELOAD_START].realtime ?: now(CLOCK_REALTIME),
                         UID_INVALID, GID_INVALID, 0444);
 }
 
 Manager* manager_reloading_start(Manager *m) {
         m->n_reloading++;
-        dual_timestamp_now(m->timestamps + MANAGER_TIMESTAMP_UNITS_LOAD);
+        dual_timestamp_now(m->timestamps + MANAGER_TIMESTAMP_UNITS_RELOAD_START);
         return m;
 }
 
@@ -5430,7 +5430,7 @@ static const char* const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
         [MANAGER_TIMESTAMP_GENERATORS_FINISH]        = "generators-finish",
         [MANAGER_TIMESTAMP_UNITS_LOAD_START]         = "units-load-start",
         [MANAGER_TIMESTAMP_UNITS_LOAD_FINISH]        = "units-load-finish",
-        [MANAGER_TIMESTAMP_UNITS_LOAD]               = "units-load",
+        [MANAGER_TIMESTAMP_UNITS_RELOAD_START]       = "units-reload-start",
         [MANAGER_TIMESTAMP_INITRD_SECURITY_START]    = "initrd-security-start",
         [MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH]   = "initrd-security-finish",
         [MANAGER_TIMESTAMP_INITRD_GENERATORS_START]  = "initrd-generators-start",
