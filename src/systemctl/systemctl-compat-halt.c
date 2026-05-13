@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
-
 #include "sd-daemon.h"
 
-#include "alloc-util.h"
+#include "ansi-color.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "log.h"
-#include "pretty-print.h"
+#include "options.h"
 #include "process-util.h"
 #include "reboot-util.h"
 #include "systemctl.h"
@@ -17,126 +17,103 @@
 #include "utmp-wtmp.h"
 
 static int halt_help(void) {
-        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
-        r = terminal_urlify_man("halt", "8", &link);
+        r = option_parser_get_help_table_ns("halt", &options);
         if (r < 0)
-                return log_oom();
+                return r;
 
         /* Note: if you are tempted to add new command line switches here, please do not. Let this
          * compatibility command rest in peace. Its interface is not even owned by us as much as it is by
          * sysvinit. If you add something new, add it to "systemctl halt", "systemctl reboot", "systemctl
          * poweroff" instead. */
 
-        printf("%s [OPTIONS...]%s\n"
-               "\n%s%s the system.%s\n"
-               "\nOptions:\n"
-               "     --help      Show this help\n"
-               "     --halt      Halt the machine\n"
-               "  -p --poweroff  Switch off the machine\n"
-               "     --reboot    Reboot the machine\n"
-               "  -f --force     Force immediate halt/power-off/reboot\n"
-               "  -w --wtmp-only Don't halt/power-off/reboot, just write wtmp record\n"
-               "  -d --no-wtmp   Don't write wtmp record\n"
-               "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
-               "\n%sThis is a compatibility interface, please use the more powerful 'systemctl %s' command instead.%s\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               arg_action == ACTION_REBOOT ? " [ARG]" : "",
-               ansi_highlight(), arg_action == ACTION_REBOOT   ? "Reboot" :
-                                 arg_action == ACTION_POWEROFF ? "Power off" :
-                                                                 "Halt", ansi_normal(),
-               ansi_highlight_red(), arg_action == ACTION_REBOOT   ? "reboot" :
-                                     arg_action == ACTION_POWEROFF ? "poweroff" :
-                                                                     "halt", ansi_normal(),
-               link);
+        help_cmdline(arg_action == ACTION_REBOOT ? "[OPTIONS…] [ARG]" : "[OPTIONS…]");
+        help_abstract(arg_action == ACTION_REBOOT   ? "Reboot the system." :
+                      arg_action == ACTION_POWEROFF ? "Power off the system." :
+                                                      "Halt the system.");
 
+        help_section("Options");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\n%sThis is a compatibility interface, please use the more powerful 'systemctl %s' command instead.%s\n",
+               ansi_highlight_red(),
+               arg_action == ACTION_REBOOT   ? "reboot" :
+               arg_action == ACTION_POWEROFF ? "poweroff" :
+                                               "halt",
+               ansi_normal());
+
+        help_man_page_reference("halt", "8");
         return 0;
 }
 
 int halt_parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_HELP = 0x100,
-                ARG_HALT,
-                ARG_REBOOT,
-                ARG_NO_WALL
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, ARG_HELP    },
-                { "halt",      no_argument,       NULL, ARG_HALT    },
-                { "poweroff",  no_argument,       NULL, 'p'         },
-                { "reboot",    no_argument,       NULL, ARG_REBOOT  },
-                { "force",     no_argument,       NULL, 'f'         },
-                { "wtmp-only", no_argument,       NULL, 'w'         },
-                { "no-wtmp",   no_argument,       NULL, 'd'         },
-                { "no-sync",   no_argument,       NULL, 'n'         },
-                { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
-                {}
-        };
-
-        int c, r;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "pfwdnih", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv, .namespace = "halt" };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
-                case ARG_HELP:
+                OPTION_NAMESPACE("halt"): {}
+
+                OPTION_LONG("help", NULL, "Show this help"):
                         return halt_help();
 
-                case ARG_HALT:
+                OPTION_LONG("halt", NULL, "Halt the machine"):
                         arg_action = ACTION_HALT;
                         break;
 
-                case 'p':
+                OPTION('p', "poweroff", NULL, "Switch off the machine"):
                         if (arg_action != ACTION_REBOOT)
                                 arg_action = ACTION_POWEROFF;
                         break;
 
-                case ARG_REBOOT:
+                OPTION_LONG("reboot", NULL, "Reboot the machine"):
                         arg_action = ACTION_REBOOT;
                         break;
 
-                case 'f':
+                OPTION('f', "force", NULL, "Force immediate halt/power-off/reboot"):
                         arg_force = 2;
                         break;
 
-                case 'w':
+                OPTION('w', "wtmp-only", NULL, "Don't halt/power-off/reboot, just write wtmp record"):
                         arg_dry_run = true;
                         break;
 
-                case 'd':
+                OPTION('d', "no-wtmp", NULL, "Don't write wtmp record"):
                         arg_no_wtmp = true;
                         break;
 
-                case 'n':
-                        arg_no_sync = true;
-                        break;
-
-                case ARG_NO_WALL:
+                OPTION_LONG("no-wall", NULL, "Don't send wall message before halt/power-off/reboot"):
                         arg_no_wall = true;
                         break;
 
-                case 'i':
-                case 'h':
-                        /* Compatibility nops */
+                /* Hidden compat-only options. */
+                OPTION('n', "no-sync", NULL, /* help= */ NULL):
+                        arg_no_sync = true;
                         break;
 
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
+                OPTION_SHORT('i', NULL, /* help= */ NULL): {}
+                OPTION_SHORT('h', NULL, /* help= */ NULL):
+                        /* Compatibility nops */
+                        break;
                 }
 
-        if (arg_action == ACTION_REBOOT && (argc == optind || argc == optind + 1)) {
-                r = update_reboot_parameter_and_warn(argc == optind + 1 ? argv[optind] : NULL, false);
+        char **args = option_parser_get_args(&opts);
+        size_t n_args = option_parser_get_n_args(&opts);
+
+        if (arg_action == ACTION_REBOOT && n_args <= 1) {
+                r = update_reboot_parameter_and_warn(args[0], false);
                 if (r < 0)
                         return r;
-        } else if (optind < argc)
+        } else if (n_args > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Too many arguments.");
 
