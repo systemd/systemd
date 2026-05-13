@@ -12,3 +12,11 @@
 #define PROC_PID_INIT_INO    ((ino_t) UINT32_C(0xEFFFFFFC))
 #define PROC_CGROUP_INIT_INO ((ino_t) UINT32_C(0xEFFFFFFB))
 #define PROC_TIME_INIT_INO   ((ino_t) UINT32_C(0xEFFFFFFA))
+
+#ifndef NS_GET_ID
+/* Defined in kernel headers since v6.13 */
+#define NS_GET_ID _IOR(0xb7, 13, __u64)
+#endif
+
+/* From kernel-internal include/linux/exportfs.h, not part of uapi. */
+#define FILEID_NSFS 0xf1
