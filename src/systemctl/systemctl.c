@@ -355,13 +355,6 @@ static int parse_property_argument(const char *value, char ***properties) {
         return 0;
 }
 
-static void help_types(void) {
-        if (arg_legend != 0)
-                puts("Available unit types:");
-
-        DUMP_STRING_TABLE(unit_type, UnitType, _UNIT_TYPE_MAX);
-}
-
 static int help_states(void) {
         if (arg_legend != 0)
                 puts("Available unit load states:");
@@ -444,6 +437,58 @@ static int parse_states_argument(const char *value, char ***states) {
 
                         if (strv_consume(states, TAKE_PTR(s)) < 0)
                                 return log_oom();
+                }
+
+        return 1;
+}
+
+static int help_types(void) {
+        if (arg_legend != 0)
+                puts("Available unit types:");
+
+        return DUMP_STRING_TABLE(unit_type, UnitType, _UNIT_TYPE_MAX);
+}
+
+static int parse_types_argument(const char *value, char ***types, char ***states) {
+        int r;
+
+        assert(value);
+        assert(types);
+        assert(states);
+
+        if (isempty(value))
+                /* reset the setting */
+                *types = strv_free(*types);
+        else
+                for (const char *p = value;;) {
+                        _cleanup_free_ char *type = NULL;
+
+                        r = extract_first_word(&p, &type, ",", 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse type: %s", value);
+                        if (r == 0)
+                                break;
+
+                        if (streq(type, "help"))
+                                return help_types();
+
+                        if (unit_type_from_string(type) >= 0) {
+                                if (strv_consume(types, TAKE_PTR(type)) < 0)
+                                        return log_oom();
+                                continue;
+                        }
+
+                        /* It's much nicer to use --state= for load states, but let's support this in
+                         * --types= too for compatibility with old versions */
+                        if (unit_load_state_from_string(type) >= 0) {
+                                if (strv_consume(states, TAKE_PTR(type)) < 0)
+                                        return log_oom();
+                                continue;
+                        }
+
+                        log_error("Unknown unit type or load state '%s'.", type);
+                        return log_info_errno(SYNTHETIC_ERRNO(EINVAL),
+                                              "Use -t help to see a list of allowed values.");
                 }
 
         return 1;
@@ -595,43 +640,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 't':
-                        if (isempty(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--type= requires arguments.");
-
-                        for (const char *p = optarg;;) {
-                                _cleanup_free_ char *type = NULL;
-
-                                r = extract_first_word(&p, &type, ",", 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse type: %s", optarg);
-                                if (r == 0)
-                                        break;
-
-                                if (streq(type, "help")) {
-                                        help_types();
-                                        return 0;
-                                }
-
-                                if (unit_type_from_string(type) >= 0) {
-                                        if (strv_consume(&arg_types, TAKE_PTR(type)) < 0)
-                                                return log_oom();
-                                        continue;
-                                }
-
-                                /* It's much nicer to use --state= for load states, but let's support this in
-                                 * --types= too for compatibility with old versions */
-                                if (unit_load_state_from_string(type) >= 0) {
-                                        if (strv_consume(&arg_states, TAKE_PTR(type)) < 0)
-                                                return log_oom();
-                                        continue;
-                                }
-
-                                log_error("Unknown unit type or load state '%s'.", type);
-                                return log_info_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                      "Use -t help to see a list of allowed values.");
-                        }
-
+                        r = parse_types_argument(optarg, &arg_types, &arg_states);
+                        if (r <= 0)
+                                return r;
                         break;
 
                 case 'P':
