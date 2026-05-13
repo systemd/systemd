@@ -103,3 +103,4 @@ static inline const char* arg_job_mode(void) {
 }
 
 int systemctl_dispatch_parse_argv(int argc, char *argv[], char ***remaining_args);
+int systemctl_main(char **args);
