@@ -21,7 +21,7 @@ TEST(watch_pid) {
         ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());
 
         ASSERT_OK(manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m));
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
 
         ASSERT_NOT_NULL(a = unit_new(m, sizeof(Service)));
         ASSERT_OK(unit_add_name(a, "a.service"));

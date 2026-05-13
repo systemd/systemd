@@ -324,6 +324,11 @@ executables += [
                 'dependencies' : libseccomp_cflags,
         },
         test_template + {
+                'sources' : files('test-fdstore.c'),
+                'link_with' : libsystemd,
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files(
                         'test-hashmap.c',
                         'test-hashmap-plain.c',
@@ -363,6 +368,10 @@ executables += [
         test_template + {
                 'sources' : files('test-loopback.c'),
                 'dependencies' : common_test_dependencies,
+        },
+        test_template + {
+                'sources' : files('test-luo.c'),
+                'type' : 'manual',
         },
         test_template + {
                 'sources' : files('test-math-util.c'),
