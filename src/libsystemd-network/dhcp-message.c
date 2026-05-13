@@ -17,6 +17,7 @@
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "ip-util.h"
+#include "json-util.h"
 #include "network-common.h"
 #include "set.h"
 #include "sort-util.h"
@@ -1457,5 +1458,190 @@ int dhcp_message_build(sd_dhcp_message *message, struct iovec_wrapper *ret) {
         }
 
         *ret = TAKE_STRUCT(iovw);
+        return 0;
+}
+
+int dhcp_message_build_json(sd_dhcp_message *message, sd_json_variant **ret) {
+        int r;
+
+        assert(message);
+        assert(message->header.hlen <= sizeof(message->header.chaddr));
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("op", message->header.op),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("htype", message->header.htype),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("hops", message->header.hops),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("xid", be32toh(message->header.xid)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("secs", be16toh(message->header.secs)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("flags", be16toh(message->header.flags)),
+                        JSON_BUILD_PAIR_HEX_NON_EMPTY("ciaddr", &message->header.ciaddr, sizeof(message->header.ciaddr)),
+                        JSON_BUILD_PAIR_HEX_NON_EMPTY("yiaddr", &message->header.yiaddr, sizeof(message->header.yiaddr)),
+                        JSON_BUILD_PAIR_HEX_NON_EMPTY("siaddr", &message->header.siaddr, sizeof(message->header.siaddr)),
+                        JSON_BUILD_PAIR_HEX_NON_EMPTY("giaddr", &message->header.giaddr, sizeof(message->header.giaddr)),
+                        JSON_BUILD_PAIR_HEX_NON_EMPTY("chaddr", message->header.chaddr, message->header.hlen));
+        if (r < 0)
+                return r;
+
+        uint8_t overload = DHCP_OVERLOAD_NONE;
+        (void) dhcp_message_get_option_u8(message, SD_DHCP_OPTION_OVERLOAD, &overload);
+
+        if (!FLAGS_SET(overload, DHCP_OVERLOAD_SNAME) && !eqzero(message->header.sname)) {
+                r = sd_json_variant_merge_objectbo(
+                                &v,
+                                JSON_BUILD_PAIR_HEX_NON_EMPTY("sname", message->header.sname, sizeof(message->header.sname)));
+                if (r < 0)
+                        return r;
+        }
+
+        if (!FLAGS_SET(overload, DHCP_OVERLOAD_FILE) && !eqzero(message->header.file)) {
+                r = sd_json_variant_merge_objectbo(
+                                &v,
+                                JSON_BUILD_PAIR_HEX_NON_EMPTY("file", message->header.file, sizeof(message->header.file)));
+                if (r < 0)
+                        return r;
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        r = tlv_build_json(&message->options, &w);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_merge_objectbo(
+                        &v,
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("options", w));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+typedef struct MessageParam {
+        uint8_t op;
+        uint8_t htype;
+        uint8_t hops;
+        uint32_t xid;
+        uint16_t secs;
+        uint16_t flags;
+        struct iovec ciaddr;
+        struct iovec yiaddr;
+        struct iovec siaddr;
+        struct iovec giaddr;
+        struct iovec chaddr;
+        struct iovec sname;
+        struct iovec file;
+        TLV *options;
+} MessageParam;
+
+static void message_param_done(MessageParam *p) {
+        assert(p);
+
+        iovec_done(&p->ciaddr);
+        iovec_done(&p->yiaddr);
+        iovec_done(&p->siaddr);
+        iovec_done(&p->giaddr);
+        iovec_done(&p->chaddr);
+        iovec_done(&p->sname);
+        iovec_done(&p->file);
+        tlv_unref(p->options);
+}
+
+static int dispatch_options(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
+        TLV **options = ASSERT_PTR(userdata);
+        int r;
+
+        if (*options)
+                return -EINVAL; /* multiple options field? */
+
+        _cleanup_(tlv_unrefp) TLV *tlv = tlv_new(TLV_DHCP4);
+        if (!tlv)
+                return -ENOMEM;
+
+        r = tlv_parse_json(tlv, v);
+        if (r < 0)
+                return r;
+
+        *options = TAKE_PTR(tlv);
+        return 0;
+}
+
+int dhcp_message_parse_json(sd_json_variant *v, sd_dhcp_message **ret) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "op",      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint8,    offsetof(MessageParam, op),      SD_JSON_MANDATORY },
+                { "htype",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint8,    offsetof(MessageParam, htype),   0                 },
+                { "hops",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint8,    offsetof(MessageParam, hops),    0                 },
+                { "xid",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,   offsetof(MessageParam, xid),     0                 },
+                { "secs",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,   offsetof(MessageParam, secs),    0                 },
+                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,   offsetof(MessageParam, flags),   0                 },
+                { "ciaddr",  SD_JSON_VARIANT_STRING,        json_dispatch_unhex_iovec, offsetof(MessageParam, ciaddr),  0                 },
+                { "yiaddr",  SD_JSON_VARIANT_STRING,        json_dispatch_unhex_iovec, offsetof(MessageParam, yiaddr),  0                 },
+                { "siaddr",  SD_JSON_VARIANT_STRING,        json_dispatch_unhex_iovec, offsetof(MessageParam, siaddr),  0                 },
+                { "giaddr",  SD_JSON_VARIANT_STRING,        json_dispatch_unhex_iovec, offsetof(MessageParam, giaddr),  0                 },
+                { "chaddr",  SD_JSON_VARIANT_STRING,        json_dispatch_unhex_iovec, offsetof(MessageParam, chaddr),  0                 },
+                { "sname",   SD_JSON_VARIANT_STRING,        json_dispatch_unhex_iovec, offsetof(MessageParam, sname),   0                 },
+                { "file",    SD_JSON_VARIANT_STRING,        json_dispatch_unhex_iovec, offsetof(MessageParam, file),    0                 },
+                { "options", SD_JSON_VARIANT_ARRAY,         dispatch_options,          offsetof(MessageParam, options), 0                 },
+                {},
+        };
+
+        int r;
+
+        assert(v);
+        assert(ret);
+
+        _cleanup_(message_param_done) MessageParam p = {};
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return r;
+
+        if (!IN_SET(p.op, BOOTREQUEST, BOOTREPLY))
+                return -EINVAL;
+        if (!iovec_is_valid(&p.ciaddr) || !IN_SET(p.ciaddr.iov_len, 0, sizeof_field(sd_dhcp_message, header.ciaddr)))
+                return -EINVAL;
+        if (!iovec_is_valid(&p.yiaddr) || !IN_SET(p.yiaddr.iov_len, 0, sizeof_field(sd_dhcp_message, header.yiaddr)))
+                return -EINVAL;
+        if (!iovec_is_valid(&p.siaddr) || !IN_SET(p.siaddr.iov_len, 0, sizeof_field(sd_dhcp_message, header.siaddr)))
+                return -EINVAL;
+        if (!iovec_is_valid(&p.giaddr) || !IN_SET(p.giaddr.iov_len, 0, sizeof_field(sd_dhcp_message, header.giaddr)))
+                return -EINVAL;
+        if (!iovec_is_valid(&p.chaddr) || p.chaddr.iov_len > sizeof_field(sd_dhcp_message, header.chaddr))
+                return -EINVAL;
+        if (!iovec_is_valid(&p.sname) || p.sname.iov_len > sizeof_field(sd_dhcp_message, header.sname))
+                return -EINVAL;
+        if (!iovec_is_valid(&p.file) || p.file.iov_len > sizeof_field(sd_dhcp_message, header.file))
+                return -EINVAL;
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *message = NULL;
+        r = dhcp_message_new(&message);
+        if (r < 0)
+                return r;
+
+        message->header = (DHCPMessageHeader) {
+                .op = p.op,
+                .htype = p.htype,
+                .hlen = p.chaddr.iov_len,
+                .hops = p.hops,
+                .xid = htobe32(p.xid),
+                .secs = htobe16(p.secs),
+                .flags = htobe16(p.flags),
+                .magic = htobe32(DHCP_MAGIC_COOKIE),
+        };
+
+        memcpy_safe(&message->header.ciaddr, p.ciaddr.iov_base, p.ciaddr.iov_len);
+        memcpy_safe(&message->header.yiaddr, p.yiaddr.iov_base, p.yiaddr.iov_len);
+        memcpy_safe(&message->header.siaddr, p.siaddr.iov_base, p.siaddr.iov_len);
+        memcpy_safe(&message->header.giaddr, p.giaddr.iov_base, p.giaddr.iov_len);
+        memcpy_safe(message->header.chaddr, p.chaddr.iov_base, p.chaddr.iov_len);
+        memcpy_safe(message->header.sname, p.sname.iov_base, p.sname.iov_len);
+        memcpy_safe(message->header.file, p.file.iov_base, p.file.iov_len);
+        if (p.options) {
+                message->options = TAKE_STRUCT(*p.options);
+                p.options = mfree(p.options);
+        }
+
+        *ret = TAKE_PTR(message);
         return 0;
 }

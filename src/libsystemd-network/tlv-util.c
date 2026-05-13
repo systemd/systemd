@@ -4,6 +4,7 @@
 #include "hashmap.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
+#include "json-util.h"
 #include "tlv-util.h"
 #include "unaligned.h"
 
@@ -501,5 +502,73 @@ int tlv_build(const TLV *tlv, struct iovec *ret) {
         assert(sz == (size_t) (p - buf));
 
         *ret = IOVEC_MAKE(TAKE_PTR(buf), sz);
+        return 0;
+}
+
+int tlv_build_json(const TLV *tlv, sd_json_variant **ret) {
+        int r;
+
+        assert(tlv);
+        assert(ret);
+
+        /* Sort by tags, for reproducibility. */
+        _cleanup_free_ void **sorted = NULL;
+        size_t n;
+        r = hashmap_dump_keys_sorted(tlv->entries, &sorted, &n);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        FOREACH_ARRAY(tagp, sorted, n) {
+                uint32_t tag = PTR_TO_UINT32(*tagp);
+                struct iovec_wrapper *iovw = ASSERT_PTR(tlv_get_all(tlv, tag));
+
+                FOREACH_ARRAY(iov, iovw->iovec, iovw->count) {
+                        r = sd_json_variant_append_arraybo(
+                                        &v,
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("tag", tag),
+                                        JSON_BUILD_PAIR_IOVEC_HEX("data", iov));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+typedef struct TLVParam {
+        uint32_t tag;
+        struct iovec data;
+} TLVParam;
+
+static void tlv_param_done(TLVParam *p) {
+        iovec_done(&p->data);
+}
+
+int tlv_parse_json(TLV *tlv, sd_json_variant *v) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "tag",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,   offsetof(TLVParam, tag),  SD_JSON_MANDATORY },
+                { "data", SD_JSON_VARIANT_STRING,        json_dispatch_unhex_iovec, offsetof(TLVParam, data), SD_JSON_MANDATORY },
+                {},
+        };
+
+        int r;
+
+        assert(tlv);
+        assert(v);
+
+        sd_json_variant *e;
+        JSON_VARIANT_ARRAY_FOREACH(e, v) {
+                _cleanup_(tlv_param_done) TLVParam p = {};
+                r = sd_json_dispatch(e, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+                if (r < 0)
+                        return r;
+
+                r = tlv_append(tlv, p.tag, p.data.iov_len, p.data.iov_base);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
