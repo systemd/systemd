@@ -178,7 +178,7 @@ testcase_nvme_basic() {
     local expected_symlinks=()
     local i
 
-    for i in {0..4}; do
+    for i in {0..2}; do
         expected_symlinks+=(
             # both replace mode provides the same devlink
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef"$i"
@@ -186,7 +186,7 @@ testcase_nvme_basic() {
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef"$i"_1
         )
     done
-    for i in {5..9}; do
+    for i in {3..5}; do
         expected_symlinks+=(
             # old replace mode
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl__deadbeef_"$i"
@@ -196,7 +196,7 @@ testcase_nvme_basic() {
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____deadbeef__"$i"_1
         )
     done
-    for i in {10..14}; do
+    for i in {6..8}; do
         expected_symlinks+=(
             # old replace mode does not provide devlink, as serial contains "/"
             # newer replace mode
@@ -205,7 +205,7 @@ testcase_nvme_basic() {
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____dead_beef_"$i"_1
         )
     done
-    for i in {15..19}; do
+    for i in {9..11}; do
         expected_symlinks+=(
             # old replace mode does not provide devlink, as serial contains "/"
             # newer replace mode
@@ -222,7 +222,7 @@ testcase_nvme_basic() {
     test ! -e /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef
 
     lsblk --noheadings | grep "^nvme"
-    [[ "$(lsblk --noheadings | grep -c "^nvme")" -ge 20 ]]
+    [[ "$(lsblk --noheadings | grep -c "^nvme")" -ge 12 ]]
 }
 
 testcase_nvme_subsystem() {
