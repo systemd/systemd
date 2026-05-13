@@ -29,6 +29,7 @@ typedef struct UserNamespaceInfo {
         uid_t owner;
         char *name;
         uint64_t userns_inode;
+        uint64_t userns_id; /* Unique namespace identifier from NS_GET_ID, 0 if unavailable */
         uint32_t size;
         uid_t start_uid;
         uid_t target_uid;
