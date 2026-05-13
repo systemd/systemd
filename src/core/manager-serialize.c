@@ -270,8 +270,8 @@ static int manager_synthesize_orphaned_unit(
                                          "Cannot synthesize unit for '%s' (overridden by alias to '%s'): invalid unit type. Skipping stale state.",
                                          original_name, canonical_name);
 
-        /* Only transition units that track external resources, forget internal ones (eg: timers) */
-        if (!IN_SET(t, UNIT_SERVICE, UNIT_SCOPE, UNIT_MOUNT, UNIT_AUTOMOUNT))
+        /* Only transition units that track external resources and can be renamed/know aliases, forget internal ones (eg: timers) */
+        if (!unit_vtable[t]->track_orphaned)
                 return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                          "Cannot synthesize unit for '%s' (overridden by alias to '%s'): unsupported unit type. Skipping stale state.",
                                          original_name, canonical_name);

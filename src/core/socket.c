@@ -3726,6 +3726,7 @@ const UnitVTable socket_vtable = {
         .can_transient = true,
         .can_trigger = true,
         .can_fail = true,
+        .track_orphaned = true,
 
         .init = socket_init,
         .done = socket_done,

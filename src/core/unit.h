@@ -771,6 +771,10 @@ typedef struct UnitVTable {
         /* If true, we'll notify a surrounding VMM/container manager about this unit becoming available */
         bool notify_supervisor;
 
+        /* If true, we'll synthesize an 'orphaned' unit if a unit becomes an alias of another unit during a
+         * reload cycle, but still has resources assigned to it */
+        bool track_orphaned;
+
         /* The audit events to generate on start + stop (or 0 if none shall be generated) */
         int audit_start_message_type;
         int audit_stop_message_type;
