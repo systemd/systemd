@@ -163,6 +163,7 @@ int manager_serialize(
 
         (void) serialize_ratelimit(f, "dump-ratelimit", &m->dump_ratelimit);
         (void) serialize_ratelimit(f, "reload-reexec-ratelimit", &m->reload_reexec_ratelimit);
+        (void) serialize_ratelimit(f, "event-loop-ratelimit", &m->event_loop_ratelimit);
 
         (void) serialize_id128(f, "bus-id", m->bus_id);
         bus_track_serialize(m->subscribed, f, "subscribed");
@@ -747,6 +748,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         deserialize_ratelimit(&m->dump_ratelimit, "dump-ratelimit", val);
                 else if ((val = startswith(l, "reload-reexec-ratelimit=")))
                         deserialize_ratelimit(&m->reload_reexec_ratelimit, "reload-reexec-ratelimit", val);
+                else if ((val = startswith(l, "event-loop-ratelimit=")))
+                        deserialize_ratelimit(&m->event_loop_ratelimit, "event-loop-ratelimit", val);
                 else if ((val = startswith(l, "soft-reboots-count="))) {
                         unsigned n;
 
