@@ -1,15 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <features.h>
-
-/* since glibc-2.36. Only descend into the next <sys/pidfd.h> on glibc — musl ships no such header,
- * and musl-gcc's -idirafter /usr/include would otherwise pull in glibc's copy (which depends on
- * __THROW and other glibc-isms) from the fallback path. */
-#if defined(__GLIBC__) && __has_include_next(<sys/pidfd.h>)
-#include_next <sys/pidfd.h>     /* IWYU pragma: export */
-#endif
-
 #include <linux/types.h>
 #include <signal.h>
 #include <sys/ioctl.h>
