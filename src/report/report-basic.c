@@ -8,7 +8,9 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "cpu-set-util.h"
 #include "hostname-setup.h"
+#include "limits-util.h"
 #include "log.h"
 #include "metrics.h"
 #include "os-util.h"
@@ -97,6 +99,37 @@ static int machine_id_generate(const MetricFamily *mf, sd_varlink *link, void *u
                         link,
                         /* object= */ NULL,
                         SD_ID128_TO_STRING(id),
+                        /* fields= */ NULL);
+}
+
+static int physical_memory_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        assert(mf && mf->name);
+        assert(link);
+
+        return metric_build_send_unsigned(
+                        mf,
+                        link,
+                        /* object= */ NULL,
+                        physical_memory(),
+                        /* fields= */ NULL);
+}
+
+static int cpus_online_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        int r;
+
+        assert(mf && mf->name);
+        assert(link);
+
+        unsigned n_cpus;
+        r = cpus_online(&n_cpus);
+        if (r < 0)
+                return r;
+
+        return metric_build_send_unsigned(
+                        mf,
+                        link,
+                        /* object= */ NULL,
+                        n_cpus,
                         /* fields= */ NULL);
 }
 
@@ -204,6 +237,12 @@ static const MetricFamily metric_family_table[] = {
                 .generate = boot_id_generate,
         },
         {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "CPUsOnline",
+                "Number of CPUs currently online",
+                METRIC_FAMILY_TYPE_GAUGE,
+                .generate = cpus_online_generate,
+        },
+        {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "Hostname",
                 "System hostname",
                 METRIC_FAMILY_TYPE_STRING,
@@ -239,6 +278,12 @@ static const MetricFamily metric_family_table[] = {
         OS_RELEASE_STANDARD_FIELD("SYSEXT_LEVEL"),
         OS_RELEASE_STANDARD_FIELD("CONFEXT_LEVEL"),
         /* Keep those ↑ in sync with os_release_generate(). */
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "PhysicalMemoryBytes",
+                "Installed physical memory in bytes",
+                METRIC_FAMILY_TYPE_GAUGE,
+                .generate = physical_memory_generate,
+        },
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "Virtualization",
                 "Virtualization type",
