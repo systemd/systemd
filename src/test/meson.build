@@ -147,6 +147,8 @@ simple_tests += files(
         'test-login-util.c',
         'test-machine-util.c',
         'test-macro.c',
+        'test-main-func-fiber.c',
+        'test-main-func.c',
         'test-memfd-util.c',
         'test-memory-util.c',
         'test-mempool.c',
