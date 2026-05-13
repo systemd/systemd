@@ -540,6 +540,9 @@ void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
 
+int exec_context_apply_environment(Unit *u, ExecContext *c, char **env, UnitWriteFlags flags);
+int exec_context_apply_set_credential(Unit *u, ExecContext *c, const char *id, const void *data, size_t size, bool encrypted, UnitWriteFlags flags, const char **reterr_message);
+
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix);
 int exec_context_destroy_mount_ns_dir(Unit *u);
 
