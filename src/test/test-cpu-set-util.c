@@ -11,7 +11,8 @@
 #define ASSERT_CPUSET_COUNT(c, n)                                       \
         ASSERT_NOT_NULL(c.set);                                         \
         ASSERT_GE(c.allocated, CPU_ALLOC_SIZE(n));                      \
-        ASSERT_EQ(CPU_COUNT_S(c.allocated, c.set), (n))
+        ASSERT_EQ(CPU_COUNT_S(c.allocated, c.set), (n));                \
+        ASSERT_EQ(cpu_set_count(&c), (size_t) (n))
 
 #define ASSERT_CPUSET_ISSET(c, i)                               \
         ASSERT_TRUE(CPU_ISSET_S(i, c.allocated, c.set));
