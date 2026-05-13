@@ -838,8 +838,10 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
                         continue;
                 }
 
-                _cleanup_free_ char *delegate_uid_fn = NULL;
+                _cleanup_free_ char *delegate_uid_fn = NULL, *delegate_gid_fn = NULL;
                 if (asprintf(&delegate_uid_fn, "u" UID_FMT ".delegate", delegate->start_uid) < 0)
+                        return log_oom_debug();
+                if (asprintf(&delegate_gid_fn, "g" GID_FMT ".delegate", delegate->start_gid) < 0)
                         return log_oom_debug();
 
                 if (existing.n_ancestor_userns > 0) {
@@ -876,10 +878,18 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
                                 return log_debug_errno(r, "Failed to format delegation JSON object: %m");
 
                         r = write_string_file_at(dir_fd, delegate_uid_fn, delegate_buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
-                        if (r < 0)
+                        if (r < 0) {
                                 RET_GATHER(ret, log_debug_errno(r, "Failed to write restored delegation data to '%s' in registry: %m", delegate_uid_fn));
+                                continue;
+                        }
 
-                        /* GID link already points to the UID file, no need to update it */
+                        /* The atomic write above replaced the UID file with a new inode, so the
+                         * hardlink to the GID file is now broken. Re-create it to keep the two in
+                         * sync. */
+                        r = linkat_replace(dir_fd, delegate_uid_fn, dir_fd, delegate_gid_fn);
+                        if (r < 0)
+                                RET_GATHER(ret, log_debug_errno(r, "Failed to re-link '%s' to '%s' in registry: %m", delegate_uid_fn, delegate_gid_fn));
+
                         continue;
                 }
 
@@ -890,10 +900,6 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
                 r = RET_NERRNO(unlinkat(dir_fd, delegate_uid_fn, 0));
                 if (r < 0)
                         RET_GATHER(ret, log_debug_errno(r, "Failed to remove %s: %m", delegate_uid_fn));
-
-                _cleanup_free_ char *delegate_gid_fn = NULL;
-                if (asprintf(&delegate_gid_fn, "g" GID_FMT ".delegate", delegate->start_gid) < 0)
-                        return log_oom_debug();
 
                 r = RET_NERRNO(unlinkat(dir_fd, delegate_gid_fn, 0));
                 if (r < 0)
