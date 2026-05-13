@@ -102,4 +102,4 @@ static inline const char* arg_job_mode(void) {
         return _arg_job_mode ?: "replace";
 }
 
-int systemctl_dispatch_parse_argv(int argc, char *argv[]);
+int systemctl_dispatch_parse_argv(int argc, char *argv[], char ***remaining_args);
