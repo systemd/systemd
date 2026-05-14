@@ -2403,6 +2403,7 @@ static const BusProperty cgroup_properties[] = {
         { "StartupAllowedCPUs",                    bus_append_parse_cpu_set                      },
         { "AllowedMemoryNodes",                    bus_append_parse_cpu_set                      },
         { "StartupAllowedMemoryNodes",             bus_append_parse_cpu_set                      },
+        { "CPUSetPartition",                       bus_append_string                             },
         { "DisableControllers",                    bus_append_strv                               },
         { "Delegate",                              bus_append_parse_delegate                     },
         { "MemoryMin",                             bus_append_parse_resource_limit               },
