@@ -21,6 +21,10 @@
 # Treat missing $TERM same as "dumb".
 [ "${TERM:-dumb}" = "dumb" ] && return 0
 
+# We need promptvars, otherwise the prompt strings won't undergo parameter expansion
+# and we'd print them literally
+shopt -q promptvars || return 0
+
 __systemd_osc_context_escape() {
     # Escape according to the OSC 3008 spec. Since this requires shelling out
     # to 'sed' we'll only do it where it's strictly necessary, and skip it when
