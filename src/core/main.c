@@ -977,6 +977,8 @@ static int parse_argv(int argc, char *argv[]) {
         int log_level_shift = getpid_cached() == 1 ? LOG_DEBUG - LOG_ERR : 0;
         OptionParser opts = { argc, argv, .log_level_shift = log_level_shift };
 
+        /* Note: when new options are added here, also add them to the exclusion list in proc-cmdline.c! */
+
         FOREACH_OPTION(c, &opts)
                 switch (c) {
 
